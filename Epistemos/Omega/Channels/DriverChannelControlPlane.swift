@@ -48,6 +48,22 @@ nonisolated struct DriverChannelAuditEntry: Equatable, Identifiable, Sendable {
     }
 }
 
+nonisolated struct DriverChannelFallbackEvent: Equatable, Sendable {
+    nonisolated enum Operation: String, Equatable, Sendable {
+        case fetchUnread
+        case send
+        case listThreads
+        case recentAudit
+    }
+
+    let channelID: String
+    let operation: Operation
+    let primaryDisplayName: String
+    let fallbackDisplayName: String
+    let errorDescription: String
+    let occurredAt: Date
+}
+
 nonisolated protocol DriverChannelAdapting: DriverChannelReplying {
     var displayName: String { get }
     var capabilities: [DriverChannelCapability] { get }
@@ -390,10 +406,16 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
 nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
     private let primary: any DriverChannelAdapting
     private let fallback: any DriverChannelAdapting
+    private let onFallback: (@Sendable (DriverChannelFallbackEvent) -> Void)?
 
-    init(primary: any DriverChannelAdapting, fallback: any DriverChannelAdapting) {
+    init(
+        primary: any DriverChannelAdapting,
+        fallback: any DriverChannelAdapting,
+        onFallback: (@Sendable (DriverChannelFallbackEvent) -> Void)? = nil
+    ) {
         self.primary = primary
         self.fallback = fallback
+        self.onFallback = onFallback
     }
 
     var channelID: String { primary.channelID }
@@ -410,6 +432,7 @@ nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
         do {
             return try await primary.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
         } catch {
+            reportFallback(operation: .fetchUnread, error: error)
             return try await fallback.fetchUnreadMessages(vaultPath: vaultPath, limit: limit)
         }
     }
@@ -418,6 +441,7 @@ nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
         do {
             try await primary.send(message: message, to: recipientID, vaultPath: vaultPath)
         } catch {
+            reportFallback(operation: .send, error: error)
             try await fallback.send(message: message, to: recipientID, vaultPath: vaultPath)
         }
     }
@@ -426,6 +450,7 @@ nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
         do {
             return try await primary.listThreads(vaultPath: vaultPath, limit: limit)
         } catch {
+            reportFallback(operation: .listThreads, error: error)
             return try await fallback.listThreads(vaultPath: vaultPath, limit: limit)
         }
     }
@@ -434,7 +459,21 @@ nonisolated struct FallbackDriverChannelAdapter: DriverChannelAdapting {
         do {
             return try await primary.recentAuditEntries(vaultPath: vaultPath, limit: limit)
         } catch {
+            reportFallback(operation: .recentAudit, error: error)
             return try await fallback.recentAuditEntries(vaultPath: vaultPath, limit: limit)
         }
+    }
+
+    private func reportFallback(operation: DriverChannelFallbackEvent.Operation, error: Error) {
+        onFallback?(
+            DriverChannelFallbackEvent(
+                channelID: primary.channelID,
+                operation: operation,
+                primaryDisplayName: primary.displayName,
+                fallbackDisplayName: fallback.displayName,
+                errorDescription: error.localizedDescription,
+                occurredAt: Date()
+            )
+        )
     }
 }

@@ -673,10 +673,13 @@ enum AdaptSessionError {
     "NormCapExceeded",
     "CanaryFailed",
     "BudgetExhausted",
+    "ExperimentNotAvailable",
+    "PolicyDenied",
     "InternalError"
 };
 
 dictionary AdaptSessionConfig {
+    string adapt_target;
     string adapter_id;
     string model_id;
     u32 min_chunk_tokens;

@@ -10,51 +10,6 @@ enum MainChatComposerLayout {
     static let controlRowTopPadding: CGFloat = 6
 }
 
-struct OperatingModeSelectorView: View {
-    @Binding var mode: EpistemosOperatingMode
-    var variant: NativeControlVariant = .toolbar
-    var availableModes: [EpistemosOperatingMode] = EpistemosOperatingMode.allCases
-
-    private func sanitized(_ candidate: EpistemosOperatingMode) -> EpistemosOperatingMode {
-        guard availableModes.contains(candidate) else {
-            return availableModes.first ?? .fast
-        }
-        return candidate
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(availableModes, id: \.rawValue) { option in
-                ExpandingModeButton(
-                    title: option.displayName,
-                    systemImage: option.systemImage,
-                    isActive: mode == option,
-                    variant: variant,
-                    helpText: option.helpText,
-                    accessibilityLabel: option.displayName,
-                    stableWidth: NativeControlSystem.reservedWidth(
-                        for: option.displayName,
-                        variant: variant
-                    )
-                ) {
-                    mode = sanitized(option)
-                }
-            }
-        }
-        .onAppear {
-            let sanitizedMode = sanitized(mode)
-            if sanitizedMode != mode {
-                mode = sanitizedMode
-            }
-        }
-        .onChange(of: availableModes) { _, _ in
-            let sanitizedMode = sanitized(mode)
-            if sanitizedMode != mode {
-                mode = sanitizedMode
-            }
-        }
-    }
-}
 
 struct ComposerControlStrip<Content: View>: View {
     let spacing: CGFloat
@@ -99,7 +54,7 @@ struct ComposerControlStrip<Content: View>: View {
 // controls on the second row, all inside a rounded-rect material surface.
 
 struct ChatInputBar: View {
-    let onSubmit: (String, EpistemosOperatingMode) -> Void
+    let onSubmit: (String) -> Void
     let onStop: () -> Void
     let isProcessing: Bool
 
@@ -108,8 +63,6 @@ struct ChatInputBar: View {
     @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.modelContext) private var modelContext
-    @AppStorage("epistemos.mainChatOperatingMode")
-    private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var text = ""
     @State private var isFocused = false
@@ -131,19 +84,8 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder
+    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  (Press ⌘J for Agent Command Center)"
     private var composerAccentColor: Color { theme.resolved.accent.color }
-    private var selectedOperatingMode: EpistemosOperatingMode {
-        inference.sanitizedOperatingMode(
-            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
-        )
-    }
-    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
-        Binding(
-            get: { selectedOperatingMode },
-            set: { operatingModeRaw = inference.sanitizedOperatingMode($0).rawValue }
-        )
-    }
     private var incognitoBinding: Binding<Bool> {
         Binding(
             get: { chat.isIncognito },
@@ -305,13 +247,6 @@ struct ChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
-                        LocalModelToolbarMenu(
-                            variant: .toolbar,
-                            operatingMode: operatingModeBinding,
-                            isTemporaryChatEnabled: incognitoBinding
-                        )
-                            .accessibilityLabel("Chat model")
-
                         attachButton
                     }
 
@@ -358,12 +293,6 @@ struct ChatInputBar: View {
         .padding(.bottom, Spacing.md)
         .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
-        .onAppear {
-            sanitizeStoredOperatingMode()
-        }
-        .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
-            sanitizeStoredOperatingMode()
-        }
     }
 
     private var composerTextArea: some View {
@@ -468,7 +397,7 @@ struct ChatInputBar: View {
     private var sendButton: some View {
         AssistantSendButton(
             theme: theme,
-            isEnabled: !trimmedText.isEmpty,
+            isEnabled: !trimmedText.isEmpty || isProcessing,
             isProcessing: isProcessing,
             metrics: composerMetrics
         ) {
@@ -532,7 +461,7 @@ struct ChatInputBar: View {
 
     private func submitCurrentText() {
         guard !trimmedText.isEmpty, !isProcessing else { return }
-        onSubmit(trimmedText, operatingModeBinding.wrappedValue)
+        onSubmit(trimmedText)
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
         showMentionDropdown = false
@@ -540,15 +469,6 @@ struct ChatInputBar: View {
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
-    }
-
-    private func sanitizeStoredOperatingMode() {
-        let sanitized = inference.sanitizedOperatingMode(
-            EpistemosOperatingMode(rawValue: operatingModeRaw) ?? .fast
-        )
-        if sanitized.rawValue != operatingModeRaw {
-            operatingModeRaw = sanitized.rawValue
-        }
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {

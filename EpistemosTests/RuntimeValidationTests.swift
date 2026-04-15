@@ -294,6 +294,56 @@ struct RuntimeValidationTests {
         #expect(!source.contains("DispatchSource.makeTimerSource(queue: .global(qos: .utility))"))
     }
 
+    @Test("live note scans use the fast body-read path to avoid repeated launch hangs")
+    func liveNoteScansUseFastBodyReadPath() throws {
+        let scanner = try loadRepoTextFile("Epistemos/Vault/LiveNoteScanner.swift")
+        let pageModel = try loadRepoTextFile("Epistemos/Models/SDPage.swift")
+        let executor = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
+
+        #expect(scanner.contains("func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask]"))
+        #expect(scanner.contains("let context = ModelContext(modelContainer)"))
+        #expect(scanner.contains("Task.detached(priority: .utility)"))
+        #expect(pageModel.contains("func loadBody(mapped: Bool = false, fast: Bool = false)"))
+        #expect(scanner.contains("NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)"))
+        #expect(executor.contains("let tasks = await scanner.scanForLiveNotes(modelContainer: container)"))
+        #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
+    }
+
+    @Test("main scene disables macOS window restoration so bad saved state cannot trap launch")
+    func mainSceneDisablesMacOSWindowRestoration() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
+        #expect(app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
+        #expect(app.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool"))
+        #expect(app.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool"))
+        #expect(app.contains(".restorationBehavior(.disabled)"))
+        #expect(app.contains("window.isRestorable = false"))
+        #expect(app.contains("appendingPathComponent(\"\\(bundleIdentifier).savedState\", isDirectory: true)"))
+        #expect(app.contains("try fileManager.removeItem(at: directory)"))
+    }
+
+    @Test("workspace restore offers a one-shot skip restore relaunch escape hatch")
+    func workspaceRestoreOffersSkipRestoreEscapeHatch() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let statusBar = try loadRepoTextFile("Epistemos/App/StatusBar.swift")
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(app.contains("Skip Restore and Relaunch Home"))
+        #expect(app.contains("@objc private func dockSkipRestoreAndRelaunch()"))
+        #expect(statusBar.contains("Skip Restore and Relaunch Home"))
+        #expect(statusBar.contains("@objc private func skipRestoreAndRelaunch()"))
+        #expect(appBootstrap.contains("func relaunchSkippingRestoreAndDiscardSession()"))
+        #expect(appBootstrap.contains("workspaceService.prepareSkipRestoreRelaunch()"))
+        #expect(workspaceService.contains("epistemos.skipWorkspaceRestoreOnce"))
+        #expect(workspaceService.contains("epistemos.skipWorkspaceAutoSaveOnce"))
+        #expect(workspaceService.contains("func prepareSkipRestoreRelaunch()"))
+        #expect(workspaceService.contains("func consumeSkipRestoreRequest() -> Bool"))
+        #expect(workspaceService.contains("func consumeSkipAutoSaveRequest() -> Bool"))
+        #expect(workspaceService.contains("func clearAutoSavedWorkspace()"))
+    }
+
     @Test("bootstrap archives the retired dual brain router instead of booting it into the live app")
     func bootstrapArchivesTheRetiredDualBrainRouterInsteadOfBootingItIntoTheLiveApp() throws {
         let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
@@ -421,7 +471,8 @@ struct RuntimeValidationTests {
         #expect(config.contains("CharacterSet(charactersIn: \",;\\n\")"))
         #expect(config.contains("private func deduplicatedBundleList"))
         #expect(config.contains("persistDecodedBundleList"))
-        #expect(config.contains("resetMalformedBundleList"))
+        #expect(config.contains("return nil"))
+        #expect(!config.contains("resetMalformedBundleList"))
     }
 
     @MainActor
@@ -524,17 +575,21 @@ struct RuntimeValidationTests {
         #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
-    @Test("composer surfaces route runtime controls through the consolidated popover")
+    @Test("mini chat retains the consolidated runtime popover while main chat delegates it to the Agent Command Center")
     func composerSurfacesUseConsolidatedRuntimePopover() throws {
         let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(chatInputBar.contains("operatingMode: operatingModeBinding"))
-        #expect(landing.contains("operatingMode: operatingModeBinding"))
-        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
+        // Main chat + landing must NOT host runtime operating-mode controls —
+        // these now live in the Agent Command Center (⌘J).
+        #expect(!chatInputBar.contains("operatingMode: operatingModeBinding"))
+        #expect(!landing.contains("operatingMode: operatingModeBinding"))
         #expect(!chatInputBar.contains("OperatingModeSelectorView("))
         #expect(!landing.contains("OperatingModeSelectorView("))
+
+        // Mini chat is still a standalone surface and keeps its popover.
+        #expect(miniChat.contains("operatingMode: operatingModeBinding"))
         #expect(!miniChat.contains("OperatingModeSelectorView("))
     }
 
@@ -1871,7 +1926,7 @@ struct RuntimeValidationTests {
         #expect(triage.contains("case .mainChat, .miniChat:"))
     }
 
-    @Test("chat surfaces expose operating mode selection and keep agent routing in main chat only")
+    @Test("chat surfaces route lightweight submissions through the shared main chat router while operating-mode selection lives in the Agent Command Center")
     func chatSurfacesExposeOperatingModeSelectionAndRouteOnlyAgentModeThroughOmega() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
@@ -1882,8 +1937,11 @@ struct RuntimeValidationTests {
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(inference.contains("enum EpistemosOperatingMode"))
-        #expect(chatInput.contains("operatingMode: operatingModeBinding"))
-        #expect(landing.contains("operatingMode: operatingModeBinding"))
+        // Main chat + landing no longer bind an operating-mode control — that moved
+        // to the Agent Command Center (⌘J).
+        #expect(!chatInput.contains("operatingMode: operatingModeBinding"))
+        #expect(!landing.contains("operatingMode: operatingModeBinding"))
+        // Mini chat is a standalone surface and keeps its picker.
         #expect(miniChat.contains("operatingMode: operatingModeBinding"))
         #expect(chatState.contains("enum MainChatSubmissionRouter"))
         #expect(chatState.contains("case .agent"))
@@ -1899,45 +1957,39 @@ struct RuntimeValidationTests {
         #expect(pipeline.contains("operatingMode: operatingMode"))
     }
 
-    @Test("compact chat surfaces keep operating mode controls reachable with a horizontal control strip")
-    func compactChatSurfacesKeepModeControlsReachable() throws {
+    @Test("main chat and landing composers delegate advanced controls to the Agent Command Center")
+    func mainChatAndLandingDelegateAdvancedControlsToAgentCommandCenter() throws {
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        #expect(chatInput.contains("ComposerControlStrip"))
-        #expect(landing.contains("ComposerControlStrip"))
-        #expect(miniChat.contains("ComposerControlStrip"))
-        #expect(chatInput.contains("ScrollViewReader"))
-        #expect(chatInput.contains("composer-control-strip-leading"))
-        #expect(chatInput.contains("resetScrollPosition(using: proxy)"))
-        #expect(chatInput.contains(".onChange(of: resetKey)"))
-        #expect(chatInput.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
-        #expect(landing.contains("resetKey: composerControlResetKey"))
-        #expect(miniChat.contains("ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey)"))
-
-        #expect(chatInput.contains("LocalModelToolbarMenu("))
+        // Main chat + landing must NOT host the advanced model/mode picker any more —
+        // that surface is owned exclusively by the Agent Command Center (⌘J).
+        #expect(!chatInput.contains("LocalModelToolbarMenu("))
+        #expect(!landing.contains("LocalModelToolbarMenu("))
         #expect(!chatInput.contains("ComposerContextShortcutBar("))
-        #expect(chatInput.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
-
-        #expect(landing.contains("landingInferenceControl"))
         #expect(!landing.contains("ComposerContextShortcutBar("))
+        #expect(chatInput.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
         #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
 
+        // Mini chat is a standalone surface and may still host its own picker.
         #expect(miniChat.contains("LocalModelToolbarMenu("))
-        #expect(!miniChat.contains("ComposerContextShortcutBar("))
-        #expect(miniChat.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
     }
 
-    @Test("main chat transcript resubmits reuse sanitized operating mode state")
-    func mainChatTranscriptResubmitsReuseSanitizedOperatingModeState() throws {
+    @Test("main chat submits with the lightweight .fast operating mode only")
+    func mainChatAlwaysSubmitsWithFastOperatingMode() throws {
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(chatView.contains("inference.sanitizedOperatingMode("))
-        #expect(chatView.contains(".onAppear {"))
-        #expect(chatView.contains("sanitizeStoredOperatingMode()"))
-        #expect(chatView.contains(".onChange(of: inference.supportsThinkingOperatingMode)"))
-        #expect(chatView.contains("private func sanitizeStoredOperatingMode()"))
+        // Main chat no longer persists a user-facing operating-mode preference —
+        // the Agent Command Center owns thinking/pro/agent tiers.
+        #expect(!chatView.contains("epistemos.mainChatOperatingMode"))
+        #expect(!chatView.contains("sanitizeStoredOperatingMode"))
+        #expect(chatView.contains("mainChatOperatingMode: EpistemosOperatingMode = .fast"))
+        #expect(chatView.contains("Self.mainChatOperatingMode"))
+
+        // Main chat's toolbar center no longer renders the model picker either.
+        #expect(!rootView.contains("LocalModelToolbarMenu(\n            variant: .toolbar,\n            overrideTitle:"))
     }
 
     @Test("apple fallback preserves the available response when local qwen is unavailable")
@@ -2391,6 +2443,24 @@ struct RuntimeValidationTests {
         #expect(workspaceService.contains("Workspace list: failed to fetch saved workspaces"))
     }
 
+    @Test("home navigation paths order the main window front regardless for hidden launch sheets")
+    func homeNavigationPathsOrderMainWindowFrontRegardlessForHiddenLaunchSheets() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let statusBar = try loadRepoTextFile("Epistemos/App/StatusBar.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(rootView.contains("static let sceneIdentifier = \"main\""))
+        #expect(rootView.contains("window.identifier?.rawValue == sceneIdentifier"))
+        #expect(rootView.contains("static func surfaceHomeWindow()"))
+        #expect(rootView.contains("mainWindow.orderFrontRegardless()"))
+        #expect(app.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(statusBar.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(coordinator.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(workspaceService.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+    }
+
     @Test("EventStore persistence avoids silent directory and JSON fallback failures")
     func eventStorePersistenceAvoidsSilentDirectoryAndJSONFallbackFailures() throws {
         let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
@@ -2667,7 +2737,8 @@ struct RuntimeValidationTests {
     func agentChatsBuildAnOverseerExecutionPlanBeforeChoosingLocalOrManagedExecution() throws {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
-        #expect(coordinator.contains("let executionPlan = buildOverseerExecutionPlan("))
+        #expect(coordinator.contains("let executionPlan = await buildOverseerExecutionPlan("))
+        #expect(coordinator.contains("let planner = ModelRefinedPlanner(inference: inferenceState)"))
         #expect(coordinator.contains("switch executionPlan.route"))
         #expect(coordinator.contains("case .managedAgentSession"))
         #expect(coordinator.contains("executionPlan: executionPlan"))
@@ -3566,13 +3637,15 @@ struct InferenceCloudSelectionTests {
         let generateApple = try #require(triage.range(of: "if inference.appleIntelligenceAvailable {"))
         #expect(generateLocal.lowerBound < generateApple.lowerBound)
 
-        let streamLocal = try #require(triage.range(of: "self.lastDecision = .localMLX\n                let localFallback = self.localStreamOrFallback("))
+        let streamLocalDecision = try #require(triage.range(of: "self.lastDecision = .localMLX"))
+        let streamLocalFallback = try #require(triage.range(of: "let localFallback = self.localStreamOrFallback("))
         let streamApple = try #require(
             triage.range(
                 of: "if self.inference.appleIntelligenceAvailable {\n                    self.lastDecision = .appleIntelligence"
             )
         )
-        #expect(streamLocal.lowerBound < streamApple.lowerBound)
+        #expect(streamLocalDecision.lowerBound < streamLocalFallback.lowerBound)
+        #expect(streamLocalFallback.lowerBound < streamApple.lowerBound)
     }
 
     @Test("streaming delegate and rust agent loop return native computer-use results")

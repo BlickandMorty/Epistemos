@@ -784,30 +784,34 @@ struct ThemePairTests {
         #expect(!messageBubble.contains("reasoningText"))
     }
 
-    @Test("Landing and active chat use the shared local model menu surface")
-    func landingAndActiveChatUseSharedLocalModelMenu() throws {
+    @Test("LocalModelToolbarMenu is owned by standalone surfaces, not main chat or landing")
+    func localModelToolbarMenuOwnershipMatchesMigration() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadTextFile("Epistemos/App/RootView.swift")
         let miniChat = try loadTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let noteWorkspace = try loadTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
-        #expect(landingView.contains("landingInferenceControl"))
-        #expect(landingView.contains("LocalModelToolbarMenu("))
-        #expect(rootView.contains("LocalModelToolbarMenu("))
-        #expect(rootView.contains("variant: .toolbar"))
-        #expect(miniChat.contains("LocalModelToolbarMenu("))
-        #expect(miniChat.contains("variant: .toolbar"))
-        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        // The struct definition still lives in RootView.swift so other surfaces can reuse it.
         #expect(rootView.contains("struct LocalModelToolbarMenu: View"))
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains("AnchoredPopoverButton("))
         #expect(rootView.contains("inference.setPreferredChatModelSelection(.localMLX(model.id))"))
         #expect(rootView.contains("Button(\"Open Inference Settings\")"))
+        #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
+        #expect(!rootView.contains("InferenceControlPopoverButton"))
+
+        // Main chat + landing must NOT render LocalModelToolbarMenu — those advanced
+        // controls now live exclusively in the Agent Command Center (⌘J).
+        #expect(!landingView.contains("LocalModelToolbarMenu("))
+        #expect(!landingView.contains("landingInferenceControl"))
+
+        // Standalone composer surfaces retain the menu.
+        #expect(miniChat.contains("LocalModelToolbarMenu("))
+        #expect(miniChat.contains("variant: .toolbar"))
+        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .toolbar)"))
         #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
         #expect(miniChat.contains("threadState.upsertMiniChatSession("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
-        #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
-        #expect(!rootView.contains("InferenceControlPopoverButton"))
     }
 
     @Test("Bare until pressed chrome stays invisible until press or active selection")
@@ -1126,7 +1130,7 @@ struct ThemePairTests {
         let pbxproj = try loadProjectFile()
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
-        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust"))
+        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core -lagent_core\";"))
         #expect(pbxproj.contains("\"@executable_path\","))
         #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
         #expect(!pbxproj.contains(#"""

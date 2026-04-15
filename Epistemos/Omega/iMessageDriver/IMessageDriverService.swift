@@ -580,24 +580,8 @@ nonisolated enum DriverChannelReplyTransport {
 @Observable
 final class IMessageDriverService {
     nonisolated static let defaultContactModel = "qwen-4b"
-    nonisolated static let groupedModelExample = "qwen-4b,claude-sonnet-4-6"
-    nonisolated static let modelPresetOptions = [
-        "qwen-2b",
-        "qwen-4b",
-        "qwen-9b",
-        "qwen-27b",
-        "gemma-2b",
-        "gemma-4b",
-        "gemma-27b",
-        "qwopus-27b",
-        "qwen-coder",
-        "claude-haiku-4-5",
-        "claude-sonnet-4-6",
-        "claude-opus-4-6",
-        "gpt-4o",
-        "gemini-pro",
-        groupedModelExample,
-    ]
+    nonisolated static let fallbackGroupedModelExample = "qwen-4b,claude-sonnet-4-6"
+    nonisolated static let perContactHourlyReplyLimit = 60
 
     // MARK: - Observable state
 
@@ -620,6 +604,7 @@ final class IMessageDriverService {
 
     private var pollTask: Task<Void, Never>?
     private var processedMessageKeys: Set<String> = []
+    private var replyTimestampsByContactKey: [String: [Date]] = [:]
 
     // MARK: - Init
 
@@ -862,6 +847,17 @@ final class IMessageDriverService {
             return
         }
 
+        let rateLimitKey = Self.replyRateLimitKey(
+            handle: message.senderID,
+            channelID: replyChannel.channelID
+        )
+        if shouldThrottleAutoReply(for: rateLimitKey) {
+            logger.warning(
+                "Auto-reply throttled for \(replyChannel.channelID, privacy: .public):\(message.senderID, privacy: .public) after \(Self.perContactHourlyReplyLimit) sends in the last hour"
+            )
+            return
+        }
+
         logger.info("Dispatching \(replyChannel.channelID, privacy: .public) from \(message.senderID, privacy: .public) to model \(contact.model, privacy: .public) tier=\(contact.toolTier, privacy: .public)")
 
         // Spawn the agent session.
@@ -878,6 +874,7 @@ final class IMessageDriverService {
             vaultPath: vaultPath,
             channelID: replyChannel.channelID
         )
+        recordAutoReplySent(for: rateLimitKey)
         processedCount += 1
         #endif
     }
@@ -963,7 +960,9 @@ final class IMessageDriverService {
             vaultPath: vaultPath,
             enableBash: false,
             enableWebSearch: true,
-            toolTier: contact.toolTier
+            toolTier: contact.toolTier,
+            // iMessage driver has no per-tool UI — tier is the only gate.
+            allowedToolNames: nil
         )
         let agentConfig = AgentConfigFFI(
             maxTurns: 8,
@@ -1215,6 +1214,54 @@ final class IMessageDriverService {
             .filter { !$0.isEmpty }
     }
 
+    nonisolated static func suggestedModelOptions(
+        installedLocalModelIDs: Set<String>,
+        configuredCloudProviders: [CloudModelProvider]
+    ) -> [String] {
+        var options: [String] = []
+        var seen = Set<String>()
+
+        func append(_ option: String) {
+            guard !option.isEmpty, seen.insert(option).inserted else { return }
+            options.append(option)
+        }
+
+        let installedLocals = LocalTextModelID.allCases.filter { installedLocalModelIDs.contains($0.rawValue) }
+        for modelID in installedLocals {
+            append(canonicalAlias(for: modelID))
+        }
+        if options.isEmpty {
+            append(defaultContactModel)
+        }
+
+        for provider in configuredCloudProviders {
+            append(defaultCloudAlias(for: provider))
+        }
+
+        append(groupedModelExample(
+            installedLocalModelIDs: installedLocalModelIDs,
+            configuredCloudProviders: configuredCloudProviders
+        ))
+
+        return options
+    }
+
+    nonisolated static func groupedModelExample(
+        installedLocalModelIDs: Set<String>,
+        configuredCloudProviders: [CloudModelProvider]
+    ) -> String {
+        let installedLocals = LocalTextModelID.allCases.filter { installedLocalModelIDs.contains($0.rawValue) }
+        let localAlias = installedLocals
+            .first(where: { $0.canActAsAgent })
+            .map { canonicalAlias(for: $0) }
+            ?? defaultContactModel
+        let cloudAlias = configuredCloudProviders
+            .map { defaultCloudAlias(for: $0) }
+            .first
+            ?? "claude-sonnet-4-6"
+        return "\(localAlias),\(cloudAlias)"
+    }
+
     nonisolated static func localDispatchPlan(
         for localModelID: LocalTextModelID,
         hasLocalClient: Bool
@@ -1286,6 +1333,76 @@ final class IMessageDriverService {
         if lower.contains("gemini") { return "gemini_flash" }
         if lower.contains("perplexity") || lower.contains("sonar") { return "perplexity" }
         return "claude_sonnet"
+    }
+
+    nonisolated static func prunedReplyTimestamps(
+        _ timestamps: [Date],
+        now: Date
+    ) -> [Date] {
+        let cutoff = now.addingTimeInterval(-3600)
+        return timestamps.filter { $0 >= cutoff }
+    }
+
+    nonisolated static func isReplyRateLimited(
+        existingReplyTimestamps: [Date],
+        now: Date
+    ) -> Bool {
+        prunedReplyTimestamps(existingReplyTimestamps, now: now).count >= perContactHourlyReplyLimit
+    }
+
+    private static func replyRateLimitKey(handle: String, channelID: String) -> String {
+        "\(channelID):\(handle.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())"
+    }
+
+    private func shouldThrottleAutoReply(for key: String, now: Date = Date()) -> Bool {
+        let pruned = Self.prunedReplyTimestamps(replyTimestampsByContactKey[key] ?? [], now: now)
+        replyTimestampsByContactKey[key] = pruned
+        return pruned.count >= Self.perContactHourlyReplyLimit
+    }
+
+    private func recordAutoReplySent(for key: String, at now: Date = Date()) {
+        var timestamps = Self.prunedReplyTimestamps(replyTimestampsByContactKey[key] ?? [], now: now)
+        timestamps.append(now)
+        replyTimestampsByContactKey[key] = timestamps
+    }
+
+    nonisolated private static func canonicalAlias(for modelID: LocalTextModelID) -> String {
+        switch modelID {
+        case .qwen35_0_8B4Bit: "qwen-0.8b"
+        case .qwen35_2B4Bit: "qwen-2b"
+        case .qwen35_4B4Bit: "qwen-4b"
+        case .qwen35_9B4Bit: "qwen-9b"
+        case .qwen35_27B4Bit: "qwen-27b"
+        case .qwen35_35BA3B4Bit: "qwen-35b"
+        case .gemma4_2B4Bit: "gemma-2b"
+        case .gemma4_4B4Bit: "gemma-4b"
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: "gemma-27b"
+        case .qwopus27Bv3: "qwopus-27b"
+        case .qwopusMoE35BA3B: "qwopus-35b"
+        case .deepseekR1Distill7B: "deepseek-r1"
+        case .qwen25Coder7B: "qwen-coder"
+        case .smolLM3_3B4Bit: "smollm3-3b"
+        case .devstralSmall2505_4Bit: "devstral"
+        case .mistralSmall31_24B4Bit: "mistral-small"
+        case .lfm25_1BInstruct: "lfm2.5-1b"
+        case .lfm25_1BThinking: "lfm2.5-thinking"
+        case .mamba2_2B4Bit: "mamba2"
+        case .jamba3B: "jamba"
+        default:
+            modelID.displayName
+        }
+    }
+
+    nonisolated private static func defaultCloudAlias(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .anthropic: "claude-sonnet-4-6"
+        case .openAI: "gpt-4o"
+        case .google: "gemini-pro"
+        case .zai: "glm-4.5"
+        case .kimi: "kimi-k2"
+        case .minimax: "minimax-m1"
+        case .deepseek: "deepseek-chat"
+        }
     }
 
 }

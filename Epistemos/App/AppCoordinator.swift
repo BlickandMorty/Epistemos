@@ -19,7 +19,7 @@ final class AppCoordinator {
     private let dailyBriefState: DailyBriefState
     private let triageService: TriageService
     private let vaultSync: VaultSyncService
-    private let pipelineService: PipelineService
+    let pipelineService: PipelineService
     private let modelContainer: ModelContainer
     private let notesUI: NotesUIState
 
@@ -241,9 +241,7 @@ final class AppCoordinator {
         chatState.loadMessages(sdChat.loadedMessages)
         uiState.setActivePanel(.home)
         uiState.homeTab = .home
-        if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-            main.makeKeyAndOrderFront(nil)
-        }
+        HomeWindowIdentity.surfaceHomeWindow()
     }
 }
 

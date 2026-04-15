@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -68,6 +68,14 @@ impl ToolTier {
     }
 }
 
+/// User-facing tool catalogs must hide capabilities the product does not
+/// actually ship yet. Keep the handler registered for future wiring and
+/// internal/manual use, but do not advertise it through surfaced catalogs
+/// until the runtime lane is genuinely available.
+pub fn is_user_visible_tool(tool_name: &str) -> bool {
+    !matches!(tool_name, "image_generate")
+}
+
 pub struct RegisteredTool {
     pub name: String,
     pub description: String,
@@ -134,6 +142,13 @@ pub struct ToolRegistry {
     /// `execute()` filter against this so a ChatLite registry never exposes
     /// the terminal / send_message / skill_manage surface.
     active_tier: ToolTier,
+    /// Explicit per-tool allowlist from the caller (e.g. the Agent Command
+    /// Center). When `Some`, `get_definitions()` and `execute()` additionally
+    /// require the tool name to be in this set — so even a tier-allowed tool
+    /// is hidden/rejected unless the user opted in. `None` = no explicit
+    /// restriction (tier is the only gate). This is how ACC's per-tool
+    /// toggles become authoritative on the runtime path.
+    allowed_tool_names: Option<HashSet<String>>,
 }
 
 impl ToolRegistry {
@@ -144,6 +159,7 @@ impl ToolRegistry {
             enable_bash: true,
             vault_root_path: None,
             active_tier: ToolTier::Full,
+            allowed_tool_names: None,
         };
         registry.register_default_tools();
         registry
@@ -156,6 +172,7 @@ impl ToolRegistry {
             enable_bash,
             vault_root_path: None,
             active_tier: ToolTier::Full,
+            allowed_tool_names: None,
         };
         registry.register_default_tools();
         registry
@@ -175,6 +192,7 @@ impl ToolRegistry {
             enable_bash,
             vault_root_path: Some(vault_root.into()),
             active_tier: ToolTier::Full,
+            allowed_tool_names: None,
         };
         registry.register_default_tools();
         registry
@@ -196,6 +214,7 @@ impl ToolRegistry {
             enable_bash,
             vault_root_path: vault_root.map(Into::into),
             active_tier: tier,
+            allowed_tool_names: None,
         };
         registry.register_default_tools();
         registry
@@ -211,19 +230,52 @@ impl ToolRegistry {
         self.active_tier
     }
 
+    /// Install an explicit per-tool allowlist. When set, `get_definitions()`
+    /// and `execute()` additionally require the tool name to be in this set.
+    /// Passing `None` clears the allowlist (falls back to tier-only filtering).
+    ///
+    /// Phase 5 authority boundary: the Agent Command Center's per-tool toggle
+    /// state is the authoritative source for this allowlist. See
+    /// `CommandCenterRequestCompiler` on the Swift side.
+    pub fn set_allowed_tool_names(&mut self, allowlist: Option<HashSet<String>>) {
+        self.allowed_tool_names = allowlist;
+    }
+
+    /// Return the explicit allowlist, if any.
+    pub fn allowlist(&self) -> Option<&HashSet<String>> {
+        self.allowed_tool_names.as_ref()
+    }
+
+    /// True if the tool name is permitted by BOTH the active tier and the
+    /// explicit allowlist (if set). This is the single authoritative check
+    /// used by `get_definitions()`, `execute()`, and `allowed_tool_names()`.
+    fn is_tool_permitted(&self, tool: &RegisteredTool) -> bool {
+        if tool.tier > self.active_tier {
+            return false;
+        }
+        if let Some(allowlist) = &self.allowed_tool_names {
+            if !allowlist.contains(&tool.name) {
+                return false;
+            }
+        }
+        true
+    }
+
     pub fn register(&mut self, tool: RegisteredTool) {
         self.tools.insert(tool.name.clone(), tool);
     }
 
-    /// Return the schemas for every tool whose tier is allowed by the
-    /// current active tier. This is what the agent loop sends to the model
-    /// at each turn, so filtering here is how we hide destructive tools
-    /// from chat-mode sessions.
+    /// Return the schemas for every surfaced tool permitted by the current
+    /// active tier AND the explicit allowlist (if set). This is what the
+    /// agent loop sends to the model at each turn, so filtering here is how
+    /// we hide destructive tools from chat-mode sessions, hide unshipped
+    /// capabilities from the model-facing catalog, and honor the Agent
+    /// Command Center's per-tool toggle choices.
     pub fn get_definitions(&self) -> Vec<ToolSchema> {
-        let active = self.active_tier;
         self.tools
             .values()
-            .filter(|tool| tool.tier <= active)
+            .filter(|tool| self.is_tool_permitted(tool))
+            .filter(|tool| is_user_visible_tool(&tool.name))
             .map(|tool| ToolSchema {
                 name: tool.name.clone(),
                 description: tool.description.clone(),
@@ -245,13 +297,14 @@ impl ToolRegistry {
             .collect()
     }
 
-    /// Return tool names the active tier can invoke.
+    /// Return tool names permitted by the active tier AND the explicit
+    /// allowlist (if set).
     pub fn allowed_tool_names(&self) -> Vec<String> {
-        let active = self.active_tier;
         let mut names: Vec<String> = self
             .tools
             .values()
-            .filter(|tool| tool.tier <= active)
+            .filter(|tool| self.is_tool_permitted(tool))
+            .filter(|tool| is_user_visible_tool(&tool.name))
             .map(|tool| tool.name.clone())
             .collect();
         names.sort();
@@ -277,9 +330,10 @@ impl ToolRegistry {
             .tools
             .get(name)
             .ok_or_else(|| ToolError::InvalidArguments(format!("unknown tool: {name}")))?;
-        // Second layer of tier enforcement: even if a model guesses a tool
-        // name not in get_definitions(), reject it here.
-        if tool.tier > self.active_tier {
+        // Second layer of enforcement: even if a model guesses a tool name
+        // not in get_definitions(), reject it here against tier AND the
+        // explicit per-tool allowlist (if set).
+        if !self.is_tool_permitted(tool) {
             return Err(ToolError::PermissionDenied);
         }
         tool.handler.execute(input).await
@@ -781,6 +835,31 @@ impl ToolRegistry {
             risk_level: RiskLevel::Modification,
             tier: ToolTier::Agent,
         });
+
+        // Phase 6: upgrade `image_generate` from the delegate-free fallback
+        // registration in `register_phase_six_media` to a delegate-backed
+        // instance so the default `provider: "mlx"` path can reach the
+        // Swift sidecar per PLAN_V2 §5.1 / §16. The FAL cloud path stays
+        // available as an explicit `provider: "fal"` opt-in. This call
+        // replaces the existing registration entry (register() is
+        // insert-or-replace on the tool name key).
+        use crate::tools::media::{image_generate_schema, ImageGenerateHandler};
+        match ImageGenerateHandler::new_with_delegate(Arc::clone(&delegate)) {
+            Ok(handler) => {
+                let schema = image_generate_schema();
+                self.register(RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(handler),
+                    risk_level: RiskLevel::ReadOnly,
+                    tier: ToolTier::Agent,
+                });
+            }
+            Err(e) => tracing::warn!(
+                "image_generate delegate-aware registration skipped: {e}"
+            ),
+        }
     }
 
     fn register_phase_one_filesystem(&mut self) {
@@ -1851,6 +1930,24 @@ mod tier_tests {
         assert!(agent_names.contains("send_message"));
     }
 
+    #[test]
+    fn model_facing_catalog_hides_unsupported_image_generation() {
+        let registry = build_registry(ToolTier::Agent);
+        let visible_names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        let all_names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        assert!(!visible_names.contains("image_generate"));
+        assert!(all_names.contains("image_generate"));
+    }
+
     #[tokio::test]
     async fn execute_rejects_tools_above_active_tier() {
         let registry = build_registry(ToolTier::ChatLite);
@@ -1886,5 +1983,96 @@ mod tier_tests {
             .map(|t| t.name)
             .collect();
         assert_eq!(allowed.len(), defs.len());
+    }
+
+    // ───── Phase 5 authority: explicit per-tool allowlist ─────
+
+    #[test]
+    fn explicit_allowlist_hides_tier_allowed_tools_from_get_definitions() {
+        let mut registry = build_registry(ToolTier::Agent);
+        let tier_only = registry.get_definitions().len();
+        assert!(tier_only > 2, "agent tier must expose multiple tools");
+
+        // Pick two real tool names present at Agent tier.
+        let allowed: HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .take(2)
+            .collect();
+        assert_eq!(allowed.len(), 2);
+
+        registry.set_allowed_tool_names(Some(allowed.clone()));
+        let after = registry.get_definitions();
+        assert_eq!(after.len(), 2, "explicit allowlist must shrink the visible tool set");
+        for def in &after {
+            assert!(allowed.contains(&def.name));
+        }
+    }
+
+    #[test]
+    fn explicit_allowlist_allowed_tool_names_matches_get_definitions() {
+        let mut registry = build_registry(ToolTier::Agent);
+        let first_three: HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|t| t.name)
+            .take(3)
+            .collect();
+        registry.set_allowed_tool_names(Some(first_three.clone()));
+        let names = registry.allowed_tool_names();
+        assert_eq!(
+            names.iter().cloned().collect::<HashSet<_>>(),
+            first_three,
+            "allowed_tool_names() must reflect the explicit allowlist"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_denies_tier_allowed_tool_when_explicit_allowlist_excludes_it() {
+        let mut registry = build_registry(ToolTier::Agent);
+        // `think` is tier-allowed at any chat tier. Excluding it via the
+        // explicit allowlist must cause execute() to return PermissionDenied.
+        let mut allowlist = HashSet::new();
+        allowlist.insert("vault_read".to_string()); // allow something else
+        registry.set_allowed_tool_names(Some(allowlist));
+
+        let err = registry
+            .execute("think", &serde_json::json!({ "thought": "hello" }))
+            .await
+            .unwrap_err();
+        assert!(matches!(err, ToolError::PermissionDenied));
+    }
+
+    #[tokio::test]
+    async fn execute_permits_tool_when_explicit_allowlist_includes_it() {
+        let mut registry = build_registry(ToolTier::Agent);
+        let mut allowlist = HashSet::new();
+        allowlist.insert("think".to_string());
+        registry.set_allowed_tool_names(Some(allowlist));
+
+        let result = registry
+            .execute("think", &serde_json::json!({ "thought": "reasoning..." }))
+            .await
+            .unwrap();
+        assert!(result.contains("reasoning"));
+    }
+
+    #[test]
+    fn clearing_allowlist_restores_tier_only_filtering() {
+        let mut registry = build_registry(ToolTier::Agent);
+        let tier_only = registry.get_definitions().len();
+
+        let mut allowlist = HashSet::new();
+        allowlist.insert("think".to_string());
+        registry.set_allowed_tool_names(Some(allowlist));
+        assert_eq!(registry.get_definitions().len(), 1);
+
+        registry.set_allowed_tool_names(None);
+        assert_eq!(
+            registry.get_definitions().len(),
+            tier_only,
+            "clearing allowlist must restore full tier-only surface"
+        );
     }
 }

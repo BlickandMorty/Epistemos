@@ -23,6 +23,20 @@ import SwiftData
 
 private let log = Logger(subsystem: "com.epistemos", category: "LiveNotes")
 
+private struct LiveNotePageSnapshot: Sendable {
+    let id: String
+    let title: String
+    let filePath: String?
+    let subfolder: String?
+    let inlineBody: String
+    let hasManagedBody: Bool
+}
+
+private struct LiveNoteScanResult: Sendable {
+    let tasks: [LiveNoteTask]
+    let pageCount: Int
+}
+
 struct LiveNoteTask: Sendable {
     let instruction: String
     let schedule: LiveNoteSchedule
@@ -42,29 +56,89 @@ enum LiveNoteSchedule: Sendable {
 @MainActor
 final class LiveNoteScanner {
 
-    /// Scan all pages for live_note: true frontmatter and parse their task blocks.
+    /// Synchronous compatibility path retained for tests and callers that still
+    /// link against the original signature. Production scheduling should use
+    /// the async overload so bulk body reads happen off the main actor.
     func scanForLiveNotes(context: ModelContext) -> [LiveNoteTask] {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.isArchived == false }
         )
         let pages = (try? context.fetch(descriptor)) ?? []
-        var tasks: [LiveNoteTask] = []
+        let candidates = pages.map(Self.snapshot(for:))
+        let result = Self.scanTasks(from: candidates)
 
-        for page in pages {
-            let body = page.loadBody(mapped: true)
+        log.info("LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages")
+        return result.tasks
+    }
+
+    /// Production scan path — performs the full fetch/read/parse pipeline off the main actor.
+    func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask] {
+        let result: LiveNoteScanResult = await Task.detached(priority: .utility) { () -> LiveNoteScanResult in
+            let context = ModelContext(modelContainer)
+            context.autosaveEnabled = false
+            let descriptor = FetchDescriptor<SDPage>(
+                predicate: #Predicate<SDPage> { $0.isArchived == false }
+            )
+            let pages = (try? context.fetch(descriptor)) ?? []
+            let candidates = pages.map(Self.snapshot(for:))
+            return Self.scanTasks(from: candidates)
+        }.value
+
+        log.info("LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages")
+        return result.tasks
+    }
+
+    private nonisolated static func snapshot(for page: SDPage) -> LiveNotePageSnapshot {
+        LiveNotePageSnapshot(
+            id: page.id,
+            title: page.title,
+            filePath: page.filePath,
+            subfolder: page.subfolder,
+            inlineBody: page.body,
+            hasManagedBody: NoteFileStorage.bodyExists(pageId: page.id)
+        )
+    }
+
+    private nonisolated static func scanTasks(from candidates: [LiveNotePageSnapshot]) -> LiveNoteScanResult {
+        var tasks: [LiveNoteTask] = []
+        tasks.reserveCapacity(candidates.count)
+
+        for candidate in candidates {
+            let body = loadBody(for: candidate)
             guard body.contains("live_note: true") || body.contains("live_note:true") else {
                 continue
             }
 
-            let parsed = parseTaskBlocks(from: body, notePath: notePath(for: page), noteId: page.id)
+            let parsed = parseTaskBlocks(
+                from: body,
+                notePath: notePath(for: candidate),
+                noteId: candidate.id
+            )
             tasks.append(contentsOf: parsed)
         }
 
-        log.info("LiveNoteScanner: found \(tasks.count) live tasks across \(pages.count) pages")
-        return tasks
+        return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
     }
 
-    private func notePath(for page: SDPage) -> String {
+    private nonisolated static func loadBody(for page: LiveNotePageSnapshot) -> String {
+        let diskBody = NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)
+        if !diskBody.isEmpty || page.hasManagedBody {
+            return diskBody
+        }
+        if !page.inlineBody.isEmpty {
+            return page.inlineBody
+        }
+        if let filePath = page.filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let fileURL = URL(fileURLWithPath: filePath)
+            if let readableVaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: fileURL) {
+                return readableVaultBody
+            }
+        }
+        return ""
+    }
+
+    private nonisolated static func notePath(for page: LiveNotePageSnapshot) -> String {
         if let filePath = page.filePath {
             let fileName = URL(fileURLWithPath: filePath).lastPathComponent
             if let subfolder = page.subfolder, !subfolder.isEmpty {
@@ -81,7 +155,7 @@ final class LiveNoteScanner {
     }
 
     /// Parse all ```task``` fenced code blocks from a note body.
-    private func parseTaskBlocks(from body: String, notePath: String, noteId: String) -> [LiveNoteTask] {
+    private nonisolated static func parseTaskBlocks(from body: String, notePath: String, noteId: String) -> [LiveNoteTask] {
         var tasks: [LiveNoteTask] = []
         let pattern = "```task\\s*\\n([\\s\\S]*?)\\n```"
 

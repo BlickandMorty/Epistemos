@@ -139,15 +139,16 @@ final class DataviewService {
     func execute(_ query: DataviewQuery, context: ModelContext) -> QueryResult {
         // Fetch pages matching the FROM clause
         var predicate: Predicate<SDPage>?
+        var folderPrefix: String?
         if let from = query.from {
             if from.hasPrefix("#") {
                 // Tag-based FROM — not yet supported, return empty
                 return QueryResult(rows: [], columns: [], totalCount: 0)
             } else {
                 // Folder-based FROM
-                let folderPrefix = from
+                folderPrefix = from
                 predicate = #Predicate<SDPage> {
-                    $0.isArchived == false && ($0.subfolder ?? "").contains(folderPrefix)
+                    $0.isArchived == false && $0.subfolder != nil
                 }
             }
         }
@@ -166,9 +167,17 @@ final class DataviewService {
         }
 
         let pages = (try? context.fetch(descriptor)) ?? []
+        let fromFilteredPages: [SDPage]
+        if let folderPrefix {
+            fromFilteredPages = pages.filter { page in
+                (page.subfolder ?? "").contains(folderPrefix)
+            }
+        } else {
+            fromFilteredPages = pages
+        }
 
         // Apply WHERE conditions
-        let filtered = pages.filter { page in
+        let filtered = fromFilteredPages.filter { page in
             query.conditions.allSatisfy { condition in
                 let value = resolveField(condition.field, page: page)
                 switch condition.op {

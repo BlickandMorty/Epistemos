@@ -2,8 +2,10 @@
 //!
 //! * `vision_analyze` — send an image (URL or local file) plus a question
 //!   to a vision LLM (Claude / Gemini / GPT-4V) and return the analysis.
-//! * `image_generate` — text-to-image via FAL.ai (flux pro / dev) with
-//!   aspect-ratio control.
+//! * `image_generate` — deferred from normal model-facing catalogs until a
+//!   real local image lane is wired. The handler still exists for explicit
+//!   manual use and requires a named `provider` (`"mlx"` or `"fal"`) so
+//!   there is no silent routing or cloud escalation (PLAN_V2 §3.4).
 //! * `text_to_speech` — synthesise audio from text via the macOS `say`
 //!   command. Pure Rust, no cloud, no FFI callback.
 //!
@@ -11,6 +13,7 @@
 //! time so credentials never cross the tool schema boundary.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -19,6 +22,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
+use crate::bridge::AgentEventDelegate;
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(60);
 const MAX_IMAGE_BYTES: usize = 20 * 1024 * 1024; // 20MB cap for base64 encoding
@@ -305,16 +309,54 @@ pub fn vision_analyze_schema() -> crate::types::ToolSchema {
     }
 }
 
-// MARK: - image_generate
+// MARK: - image_generate (MLX-first; FAL is explicit remote opt-in)
+//
+// PLAN_V2 §5.1 places image generation in the MLX lane, and §16 requires
+// a sidecar / sequential execution mode for the MLX image path. The
+// handler dispatches on a **required** `provider` field — there is no
+// default provider, and every caller MUST name its lane explicitly. This
+// removes any form of silent routing (PLAN_V2 §3.4).
+//
+//   * `"mlx"` — route through `AgentEventDelegate::generate_image` so
+//     the Swift-side MLX sidecar owns model loading and inference. When
+//     the Swift sidecar is not yet configured (no Flux pipeline loaded),
+//     the delegate returns an explicit error envelope and this handler
+//     surfaces it as a tool error. This is an *honest runtime error* from
+//     a real attempt to reach the sidecar — not a permanent stub.
+//
+//   * `"fal"` — explicit cloud opt-in. Hits `https://fal.run/fal-ai/flux/dev`
+//     and requires `FAL_API_KEY`. Preserved unchanged for callers who
+//     name this lane by name.
+//
+// The schema used to default to `"square"` aspect ratio and implicit FAL;
+// `provider` is now required and unnamed calls are rejected. This is a
+// deliberate, auditable behavior change required to make the code
+// canonical with PLAN_V2 §5.1, §16, and §3.4 without shipping a stub path
+// that could ever succeed by accident.
 
 pub struct ImageGenerateHandler {
     client: Client,
+    delegate: Option<Arc<dyn AgentEventDelegate>>,
 }
 
 impl ImageGenerateHandler {
+    /// Delegate-free constructor. Used by the pre-delegate registration
+    /// pass and by pure-Rust unit tests. Without a delegate the MLX lane
+    /// surfaces an explicit runtime error; the FAL lane still works with
+    /// `FAL_API_KEY`.
     pub fn new() -> Result<Self, ToolError> {
         Ok(Self {
             client: build_client()?,
+            delegate: None,
+        })
+    }
+
+    /// Delegate-aware constructor. Used by `register_delegate_tools` so
+    /// the MLX lane can reach the Swift sidecar when it is wired.
+    pub fn new_with_delegate(delegate: Arc<dyn AgentEventDelegate>) -> Result<Self, ToolError> {
+        Ok(Self {
+            client: build_client()?,
+            delegate: Some(delegate),
         })
     }
 }
@@ -339,6 +381,91 @@ impl ToolHandler for ImageGenerateHandler {
             )));
         }
 
+        // Provider is required. No default: the caller MUST name the lane
+        // explicitly so there is no silent routing (PLAN_V2 §3.4).
+        let provider = input.get("provider").and_then(Value::as_str).ok_or_else(|| {
+            ToolError::InvalidArguments(
+                "missing 'provider' — image_generate requires an explicit \
+                 lane. Pass `provider: \"mlx\"` for the Apple-native sidecar \
+                 (PLAN_V2 §5.1 / §16) or `provider: \"fal\"` for the explicit \
+                 cloud opt-in."
+                    .into(),
+            )
+        })?;
+
+        match provider.to_ascii_lowercase().as_str() {
+            "mlx" => self.execute_mlx(prompt, aspect_ratio).await,
+            "fal" => self.execute_fal(prompt, aspect_ratio).await,
+            other => Err(ToolError::InvalidArguments(format!(
+                "provider '{other}' invalid (expected mlx|fal)"
+            ))),
+        }
+    }
+}
+
+impl ImageGenerateHandler {
+    async fn execute_mlx(&self, prompt: &str, aspect_ratio: &str) -> Result<String, ToolError> {
+        let Some(delegate) = self.delegate.clone() else {
+            // No delegate — the Swift sidecar cannot be reached from this
+            // handler instance. This is the honest "MLX not wired" state
+            // and it must surface explicitly so callers can choose to
+            // pass `provider: "fal"` instead. No silent escalation.
+            return Err(ToolError::ExecutionFailed(
+                "image_generate: MLX sidecar is unavailable in this context — \
+                 pass `provider: \"fal\"` to use the explicit cloud path, or \
+                 ensure the agent session was started with a delegate that \
+                 implements `generate_image`"
+                    .to_string(),
+            ));
+        };
+
+        let prompt_owned = prompt.to_string();
+        let aspect_owned = aspect_ratio.to_string();
+        let result = tokio::task::spawn_blocking(move || {
+            delegate.generate_image(prompt_owned, aspect_owned)
+        })
+        .await
+        .map_err(|join_err| {
+            ToolError::ExecutionFailed(format!(
+                "image_generate: MLX delegate task failed: {join_err}"
+            ))
+        })?;
+
+        // The delegate returns a JSON envelope. A success envelope carries
+        // `image_url` or `image_path`; a failure envelope carries `error`.
+        // Parse to detect error-path messages and surface them as tool
+        // errors so the agent loop doesn't treat them as successes.
+        let parsed: Value = serde_json::from_str(&result).map_err(|e| {
+            ToolError::ExecutionFailed(format!(
+                "image_generate: MLX delegate returned non-JSON: {e}: {result}"
+            ))
+        })?;
+        if let Some(err_msg) = parsed.get("error").and_then(Value::as_str) {
+            let hint = parsed
+                .get("hint")
+                .and_then(Value::as_str)
+                .map(|h| format!(" — hint: {h}"))
+                .unwrap_or_default();
+            return Err(ToolError::ExecutionFailed(format!(
+                "image_generate (mlx): {err_msg}{hint}"
+            )));
+        }
+        // Inject canonical `provider` and `prompt` metadata if missing so
+        // downstream consumers always see a consistent envelope.
+        let mut envelope = parsed;
+        if envelope.get("provider").is_none() {
+            envelope["provider"] = json!("mlx");
+        }
+        if envelope.get("prompt").is_none() {
+            envelope["prompt"] = json!(prompt);
+        }
+        if envelope.get("aspect_ratio").is_none() {
+            envelope["aspect_ratio"] = json!(aspect_ratio);
+        }
+        Ok(envelope.to_string())
+    }
+
+    async fn execute_fal(&self, prompt: &str, aspect_ratio: &str) -> Result<String, ToolError> {
         let api_key = std::env::var("FAL_API_KEY")
             .map_err(|_| ToolError::ExecutionFailed("FAL_API_KEY not set".into()))?;
 
@@ -402,9 +529,15 @@ impl ToolHandler for ImageGenerateHandler {
 pub fn image_generate_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "image_generate".to_string(),
-        description: "Generate an image from a text prompt via FAL.ai (Flux Dev model). \
-             Requires FAL_API_KEY. Returns a URL to the hosted image. Aspect ratios: \
-             landscape, portrait, square."
+        description: "Generate an image from a text prompt. The `provider` \
+             field is REQUIRED and has no default — every call must name \
+             its lane explicitly (PLAN_V2 §3.4 no silent routing). Use \
+             provider='mlx' for the Apple-native MLX sidecar lane (PLAN_V2 \
+             §5.1 / §16); when the MLX Flux pipeline is not yet wired the \
+             call will surface an explicit runtime error rather than \
+             silently escalating to cloud. Use provider='fal' for the \
+             explicit cloud opt-in (requires FAL_API_KEY). Aspect ratios: \
+             landscape, portrait, square (defaults to square)."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -414,9 +547,14 @@ pub fn image_generate_schema() -> crate::types::ToolSchema {
                     "type": "string",
                     "enum": ["landscape", "portrait", "square"],
                     "default": "square"
+                },
+                "provider": {
+                    "type": "string",
+                    "enum": ["mlx", "fal"],
+                    "description": "mlx = Apple-native sidecar lane (PLAN_V2 §5.1 / §16); fal = explicit cloud opt-in. Required — no default."
                 }
             },
-            "required": ["prompt"]
+            "required": ["prompt", "provider"]
         }),
     }
 }
@@ -585,12 +723,77 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn image_generate_requires_api_key() {
+    async fn image_generate_requires_explicit_provider() {
+        // PLAN_V2 §3.4: no silent routing. Every image_generate call must
+        // name its lane explicitly. A missing provider is an invalid-
+        // argument error, not a default-to-anything surprise. This test
+        // pins the "no default" invariant — the Rust tool will never
+        // decide the lane on the caller's behalf.
+        let handler = ImageGenerateHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({ "prompt": "a cat", "aspect_ratio": "square" }))
+            .await
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("missing 'provider'"));
+        assert!(msg.contains("provider: \"mlx\""));
+        assert!(msg.contains("provider: \"fal\""));
+    }
+
+    #[tokio::test]
+    async fn image_generate_mlx_without_delegate_surfaces_honest_runtime_error() {
+        // When the caller names `mlx` explicitly but no delegate is
+        // attached (e.g. pure-Rust test context, or Swift sidecar not yet
+        // started), the handler attempts the MLX path and surfaces a
+        // truthful runtime error pointing the caller at the explicit
+        // FAL opt-in. This is NOT a permanent stub — when the Swift
+        // sidecar IS attached, the same code path routes to
+        // `delegate.generate_image` and returns whatever envelope the
+        // sidecar produces. The failure below is contingent on missing
+        // runtime state, not on a hardcoded flag.
+        let handler = ImageGenerateHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "prompt": "a cat",
+                "aspect_ratio": "square",
+                "provider": "mlx"
+            }))
+            .await
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("MLX sidecar is unavailable"));
+        assert!(msg.contains("provider: \"fal\""));
+    }
+
+    #[tokio::test]
+    async fn image_generate_rejects_unknown_provider() {
+        let handler = ImageGenerateHandler::new().unwrap();
+        let err = handler
+            .execute(&json!({
+                "prompt": "a cat",
+                "provider": "stable-diffusion"
+            }))
+            .await
+            .unwrap_err();
+        let msg = format!("{err}");
+        assert!(msg.contains("provider"));
+        assert!(msg.contains("mlx|fal"));
+    }
+
+    #[tokio::test]
+    async fn image_generate_explicit_fal_requires_api_key() {
+        // FAL is an explicit opt-in. When the user passes `provider: "fal"`
+        // but there is no API key, the handler fails explicitly with the
+        // FAL_API_KEY message — no silent fallback to MLX, no escalation.
         let saved = std::env::var("FAL_API_KEY").ok();
         std::env::remove_var("FAL_API_KEY");
         let handler = ImageGenerateHandler::new().unwrap();
         let err = handler
-            .execute(&json!({ "prompt": "a cat", "aspect_ratio": "square" }))
+            .execute(&json!({
+                "prompt": "a cat",
+                "aspect_ratio": "square",
+                "provider": "fal"
+            }))
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("FAL_API_KEY"));

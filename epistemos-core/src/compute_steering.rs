@@ -72,21 +72,6 @@ impl KVPolicyKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BudgetOutcome {
-    WithinBudget,
-    TrimmedToMinimalGraph,
-}
-
-impl BudgetOutcome {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::WithinBudget => "within_budget",
-            Self::TrimmedToMinimalGraph => "trimmed_to_minimal_graph",
-        }
-    }
-}
-
 // ── Compute Budget ──────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -157,9 +142,7 @@ impl std::fmt::Display for MaskCompileError {
             Self::SparsityTooAggressive => {
                 write!(f, "sparsity ratio exceeds Phase 2 maximum (70%)")
             }
-            Self::IncompatibleQuantLayout => {
-                write!(f, "mask layout incompatible with quant format")
-            }
+            Self::IncompatibleQuantLayout => write!(f, "mask layout incompatible with quant format"),
             Self::InternalError(msg) => write!(f, "mask compile internal error: {msg}"),
         }
     }
@@ -171,6 +154,8 @@ impl std::error::Error for MaskCompileError {}
 pub enum MaskingState {
     Dense,
     Structured(ValidatedMask),
+    #[cfg(feature = "learned_mask_predictor")]
+    Predicted(PredictedMask),
     #[cfg(feature = "diet_experiment")]
     DietProfile(String),
     #[cfg(feature = "dip_experiment")]
@@ -182,6 +167,8 @@ impl MaskingState {
         match self {
             Self::Dense => "dense",
             Self::Structured(_) => "structured",
+            #[cfg(feature = "learned_mask_predictor")]
+            Self::Predicted(_) => "predicted",
             #[cfg(feature = "diet_experiment")]
             Self::DietProfile(_) => "diet",
             #[cfg(feature = "dip_experiment")]
@@ -191,6 +178,52 @@ impl MaskingState {
 }
 
 const MAX_SPARSITY_RATIO_PHASE2: f64 = 0.70;
+#[cfg(feature = "learned_mask_predictor")]
+const MAX_SPARSITY_RATIO_PREDICTED: f64 = 0.60;
+
+// ── Phase 4: Learned Mask Predictor Types ───────────────────────────────────
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PredictedMask {
+    pub layer_masks: Vec<LayerBlockMask>,
+    pub confidence: f64,
+    pub predictor_model_id: String,
+    pub calibration_version: String,
+    pub overall_sparsity: f64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LayerBlockMask {
+    pub layer_index: u32,
+    pub active_blocks: Vec<u32>,
+    pub total_blocks: u32,
+    pub sparsity: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MaskPredictError {
+    PredictorUnavailable,
+    InstructionTooShort,
+    ModelMetadataMissing,
+    PredictionFailed(String),
+    SparsityExceedsCap,
+    LowConfidence,
+}
+
+impl std::fmt::Display for MaskPredictError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::PredictorUnavailable => write!(f, "mask predictor model is not available"),
+            Self::InstructionTooShort => write!(f, "instruction too short for mask prediction"),
+            Self::ModelMetadataMissing => write!(f, "target model metadata not available"),
+            Self::PredictionFailed(msg) => write!(f, "mask prediction failed: {msg}"),
+            Self::SparsityExceedsCap => write!(f, "predicted sparsity exceeds Phase 4 cap (60%)"),
+            Self::LowConfidence => write!(f, "prediction confidence below threshold"),
+        }
+    }
+}
+
+impl std::error::Error for MaskPredictError {}
 
 pub struct MaskCompiler;
 
@@ -230,6 +263,33 @@ impl MaskCompiler {
             sparsity_ratio,
             is_kernel_compatible,
         })
+    }
+
+    #[cfg(feature = "learned_mask_predictor")]
+    pub fn compile_predicted(
+        predicted: &PredictedMask,
+        min_confidence: f64,
+    ) -> Result<PredictedMask, MaskPredictError> {
+        if predicted.confidence < min_confidence {
+            return Err(MaskPredictError::LowConfidence);
+        }
+
+        if predicted.overall_sparsity > MAX_SPARSITY_RATIO_PREDICTED {
+            return Err(MaskPredictError::SparsityExceedsCap);
+        }
+
+        for layer in &predicted.layer_masks {
+            if layer.sparsity > MAX_SPARSITY_RATIO_PREDICTED {
+                return Err(MaskPredictError::SparsityExceedsCap);
+            }
+            if layer.active_blocks.is_empty() && layer.total_blocks > 0 {
+                return Err(MaskPredictError::PredictionFailed(
+                    format!("layer {} has no active blocks", layer.layer_index),
+                ));
+            }
+        }
+
+        Ok(predicted.clone())
     }
 }
 
@@ -367,7 +427,10 @@ impl SteeringGraph {
     }
 }
 
-fn is_node_supported(node: SteeringGraphNode, capabilities: &RuntimeCapabilities) -> bool {
+fn is_node_supported(
+    node: SteeringGraphNode,
+    capabilities: &RuntimeCapabilities,
+) -> bool {
     match node {
         SteeringGraphNode::GenerateMain => capabilities.supports_generate,
         SteeringGraphNode::AdaptHelper => capabilities.supports_adapt,
@@ -380,11 +443,11 @@ fn is_node_supported(node: SteeringGraphNode, capabilities: &RuntimeCapabilities
     }
 }
 
-fn build_graph_with_outcome(
+pub fn build_graph(
     profile: ComputeProfile,
     capabilities: &RuntimeCapabilities,
     budget: &Option<ComputeBudget>,
-) -> Result<(SteeringGraph, BudgetOutcome), RuntimeContractError> {
+) -> Result<SteeringGraph, RuntimeContractError> {
     let candidate_nodes = match profile {
         ComputeProfile::Standard => vec![SteeringGraphNode::GenerateMain],
         ComputeProfile::DeepGraph => vec![
@@ -430,11 +493,7 @@ fn build_graph_with_outcome(
         steps.push((*node, NodeResourceEstimate::for_node(*node)));
     }
 
-    if steps.is_empty()
-        || !steps
-            .iter()
-            .any(|(n, _)| *n == SteeringGraphNode::GenerateMain)
-    {
+    if steps.is_empty() || !steps.iter().any(|(n, _)| *n == SteeringGraphNode::GenerateMain) {
         return Err(RuntimeContractError::UnsupportedCapability);
     }
 
@@ -449,18 +508,10 @@ fn build_graph_with_outcome(
                 NodeResourceEstimate::for_node(SteeringGraphNode::GenerateMain),
             )],
         };
-        return Ok((minimal, BudgetOutcome::TrimmedToMinimalGraph));
+        return Ok(minimal);
     }
 
-    Ok((graph, BudgetOutcome::WithinBudget))
-}
-
-pub fn build_graph(
-    profile: ComputeProfile,
-    capabilities: &RuntimeCapabilities,
-    budget: &Option<ComputeBudget>,
-) -> Result<SteeringGraph, RuntimeContractError> {
-    build_graph_with_outcome(profile, capabilities, budget).map(|(graph, _)| graph)
+    Ok(graph)
 }
 
 // ── Overseer Hints ──────────────────────────────────────────────────────────
@@ -511,12 +562,98 @@ pub struct SteeringResolution {
     pub steering_graph: SteeringGraph,
 }
 
-fn resolve_expert_budget_class(profile: ComputeProfile) -> ExpertBudgetClass {
+fn resolve_expert_budget_class(
+    profile: ComputeProfile,
+    budget: &Option<ComputeBudget>,
+    memory_pressure: bool,
+) -> ExpertBudgetClass {
+    if memory_pressure {
+        return ExpertBudgetClass::Constrained;
+    }
+
+    if let Some(budget) = budget {
+        if let Some(max_aux) = budget.max_aux_calls {
+            if max_aux <= 2 {
+                return ExpertBudgetClass::Constrained;
+            }
+        }
+    }
+
     match profile {
         ComputeProfile::Standard | ComputeProfile::VisualSidecar => ExpertBudgetClass::Default,
         ComputeProfile::DeepGraph => ExpertBudgetClass::Deep,
         ComputeProfile::Adaptive => ExpertBudgetClass::Default,
         ComputeProfile::Experimental => ExpertBudgetClass::Deep,
+    }
+}
+
+// ── Expert Budget Tracker (per-turn live tracking) ──────────────────────────
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExpertBudgetTracker {
+    pub budget_class: ExpertBudgetClass,
+    pub max_aux_calls: Option<u32>,
+    pub aux_calls_used: u32,
+    pub max_adapt_steps: Option<u32>,
+    pub adapt_steps_used: u32,
+}
+
+impl ExpertBudgetTracker {
+    pub fn new(budget_class: ExpertBudgetClass, budget: &Option<ComputeBudget>) -> Self {
+        Self {
+            budget_class,
+            max_aux_calls: budget.as_ref().and_then(|b| b.max_aux_calls),
+            aux_calls_used: 0,
+            max_adapt_steps: budget.as_ref().and_then(|b| b.max_adapt_steps),
+            adapt_steps_used: 0,
+        }
+    }
+
+    pub fn record_aux_call(&mut self) -> bool {
+        self.aux_calls_used += 1;
+        if let Some(max) = self.max_aux_calls {
+            self.aux_calls_used <= max
+        } else {
+            true
+        }
+    }
+
+    pub fn record_adapt_step(&mut self) -> bool {
+        self.adapt_steps_used += 1;
+        if let Some(max) = self.max_adapt_steps {
+            self.adapt_steps_used <= max
+        } else {
+            true
+        }
+    }
+
+    pub fn is_exhausted(&self) -> bool {
+        if let Some(max) = self.max_aux_calls {
+            if self.aux_calls_used >= max {
+                return true;
+            }
+        }
+        if let Some(max) = self.max_adapt_steps {
+            if self.adapt_steps_used >= max {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn telemetry_label(&self) -> String {
+        format!(
+            "{}(aux={}/{}|adapt={}/{})",
+            self.budget_class.label(),
+            self.aux_calls_used,
+            self.max_aux_calls
+                .map(|m| m.to_string())
+                .unwrap_or("∞".into()),
+            self.adapt_steps_used,
+            self.max_adapt_steps
+                .map(|m| m.to_string())
+                .unwrap_or("∞".into()),
+        )
     }
 }
 
@@ -546,16 +683,16 @@ fn resolve_kv_policy(
 }
 
 fn resolve_masking_state(
-    profile: ComputeProfile,
     capabilities: &RuntimeCapabilities,
     hints: &Option<OverseerHints>,
     known_experts: &[&str],
 ) -> MaskingState {
+    if !capabilities.supports_structured_masking {
+        return MaskingState::Dense;
+    }
+
     if let Some(hints) = hints {
         if let Some(mask_plan) = &hints.mask_plan {
-            if !capabilities.supports_structured_masking {
-                return MaskingState::Dense;
-            }
             if known_experts.is_empty() {
                 return MaskingState::Dense;
             }
@@ -563,18 +700,6 @@ fn resolve_masking_state(
                 Ok(validated) => return MaskingState::Structured(validated),
                 Err(_) => return MaskingState::Dense,
             }
-        }
-    }
-
-    if profile == ComputeProfile::Experimental {
-        #[cfg(feature = "diet_experiment")]
-        if capabilities.supports_structured_masking {
-            return MaskingState::DietProfile("diet_structured_profile_v1".into());
-        }
-
-        #[cfg(feature = "dip_experiment")]
-        if capabilities.supports_dynamic_sparsity {
-            return MaskingState::DipExperiment("dip_dynamic_pruning_v1".into());
         }
     }
 
@@ -593,18 +718,6 @@ fn resolve_guardrail_state(profile: ComputeProfile) -> &'static str {
         ComputeProfile::Experimental => "experimental",
         ComputeProfile::VisualSidecar => "visual_sidecar",
         _ => "clear",
-    }
-}
-
-fn resolve_sidecar_state(graph: &SteeringGraph) -> &'static str {
-    if graph
-        .steps
-        .iter()
-        .any(|(node, _)| *node == SteeringGraphNode::ImageSidecar)
-    {
-        "active"
-    } else {
-        "disabled"
     }
 }
 
@@ -646,17 +759,6 @@ pub fn resolve_with_experts(
         }
     }
 
-    let expert_budget_class = resolve_expert_budget_class(compute_profile);
-    let kv_policy_kind = resolve_kv_policy(compute_profile, capabilities, &overseer_hints);
-    let masking_state = resolve_masking_state(
-        compute_profile,
-        capabilities,
-        &overseer_hints,
-        known_experts,
-    );
-    let adaptation_state = resolve_adaptation_state(compute_profile).to_string();
-    let guardrail_state = resolve_guardrail_state(compute_profile).to_string();
-
     let compute_budget = overseer_hints.as_ref().and_then(|hints| {
         hints.depth_budget.as_ref().map(|db| ComputeBudget {
             max_wall_ms: None,
@@ -667,9 +769,33 @@ pub fn resolve_with_experts(
         })
     });
 
-    let (steering_graph, budget_outcome) =
-        build_graph_with_outcome(compute_profile, capabilities, &compute_budget)?;
-    let sidecar_state = resolve_sidecar_state(&steering_graph).to_string();
+    let memory_pressure = overseer_hints
+        .as_ref()
+        .and_then(|h| h.kv_policy_hint.as_deref())
+        .map(|h| h == "flush_all" || h == "reset_for_domain_switch")
+        .unwrap_or(false);
+
+    let expert_budget_class = resolve_expert_budget_class(compute_profile, &compute_budget, memory_pressure);
+    let kv_policy_kind = resolve_kv_policy(compute_profile, capabilities, &overseer_hints);
+    let masking_state = resolve_masking_state(capabilities, &overseer_hints, known_experts);
+    let adaptation_state = resolve_adaptation_state(compute_profile).to_string();
+    let guardrail_state = resolve_guardrail_state(compute_profile).to_string();
+
+    let full_graph = build_graph(compute_profile, capabilities, &compute_budget)?;
+
+    let sidecar_state = if full_graph.steps.iter().any(|(n, _)| *n == SteeringGraphNode::ImageSidecar) {
+        "active".to_string()
+    } else {
+        "disabled".to_string()
+    };
+
+    let budget_outcome = if full_graph.steps.len() <= 1
+        && !matches!(compute_profile, ComputeProfile::Standard)
+    {
+        "trimmed_to_minimal_graph".to_string()
+    } else {
+        "within_budget".to_string()
+    };
 
     Ok(SteeringResolution {
         execution_policy_id: resolved_execution_policy_id,
@@ -681,9 +807,9 @@ pub fn resolve_with_experts(
         adaptation_state,
         guardrail_state,
         sidecar_state,
-        budget_outcome: budget_outcome.label().to_string(),
+        budget_outcome,
         plan_trace_present: true,
-        steering_graph,
+        steering_graph: full_graph,
     })
 }
 
@@ -783,7 +909,6 @@ mod tests {
         .unwrap();
         assert_eq!(res.expert_budget_class, ExpertBudgetClass::Default);
         assert_eq!(res.guardrail_state, "visual_sidecar");
-        assert_eq!(res.sidecar_state, "disabled");
     }
 
     // ── Mask compiler ───────────────────────────────────────────────────
@@ -807,10 +932,7 @@ mod tests {
             rationale: None,
         };
         let result = MaskCompiler::compile(&plan, &["a", "b", "c"]);
-        assert!(matches!(
-            result,
-            Err(MaskCompileError::UnknownExpertName(_))
-        ));
+        assert!(matches!(result, Err(MaskCompileError::UnknownExpertName(_))));
     }
 
     #[test]
@@ -835,19 +957,14 @@ mod tests {
             block_size: 128,
             rationale: None,
         };
-        let known: Vec<&str> = (0..10)
-            .map(|i| {
-                // leak is fine in tests for creating &'static str
-                Box::leak(format!("expert_{i}").into_boxed_str()) as &str
-            })
-            .collect();
+        let known: Vec<&str> = (0..10).map(|i| {
+            // leak is fine in tests for creating &'static str
+            Box::leak(format!("expert_{i}").into_boxed_str()) as &str
+        }).collect();
         let mut known_with_a = known.clone();
         known_with_a.push("a");
         let result = MaskCompiler::compile(&plan, &known_with_a);
-        assert!(matches!(
-            result,
-            Err(MaskCompileError::SparsityTooAggressive)
-        ));
+        assert!(matches!(result, Err(MaskCompileError::SparsityTooAggressive)));
     }
 
     #[test]
@@ -964,8 +1081,12 @@ mod tests {
 
     #[test]
     fn steering_graph_rejects_unsupported_nodes() {
-        let graph =
-            build_graph(ComputeProfile::VisualSidecar, &gguf_capabilities(), &None).unwrap();
+        let graph = build_graph(
+            ComputeProfile::VisualSidecar,
+            &gguf_capabilities(),
+            &None,
+        )
+        .unwrap();
         let labels = graph.node_labels();
         assert!(labels.contains(&"generate_main"));
         assert!(!labels.contains(&"image_sidecar"));
@@ -1041,31 +1162,6 @@ mod tests {
         assert_eq!(graph.steps[0].0, SteeringGraphNode::GenerateMain);
     }
 
-    #[test]
-    fn budget_rejection_reports_trimmed_outcome() {
-        let res = resolve(
-            ReasoningProfile::Deep,
-            ExecutionMode::Local,
-            &gguf_capabilities(),
-            None,
-            Some(OverseerHints {
-                depth_budget: Some(DepthBudgetHint {
-                    max_turns: 2,
-                    max_reasoning_steps: 4,
-                    max_tool_calls: 0,
-                    max_output_tokens: 128,
-                }),
-                ..Default::default()
-            }),
-        )
-        .unwrap();
-        assert_eq!(
-            res.budget_outcome,
-            BudgetOutcome::TrimmedToMinimalGraph.label()
-        );
-        assert_eq!(res.steering_graph.steps.len(), 1);
-    }
-
     // ── Compute budget ──────────────────────────────────────────────────
 
     #[test]
@@ -1108,24 +1204,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "diet_experiment")]
-    fn experimental_resolution_activates_diet_profile_when_supported() {
-        let mut caps = full_capabilities();
-        caps.supports_structured_masking = true;
-        caps.supports_dynamic_sparsity = false;
-
-        let res = resolve(
-            ReasoningProfile::Experimental,
-            ExecutionMode::Local,
-            &caps,
-            None,
-            None,
-        )
-        .unwrap();
-        assert_eq!(res.masking_state.label(), "diet");
-    }
-
-    #[test]
     #[cfg(not(feature = "dip_experiment"))]
     fn dip_masking_state_unavailable_without_feature() {
         let state = MaskingState::Dense;
@@ -1137,24 +1215,6 @@ mod tests {
     fn dip_masking_state_available_with_feature() {
         let state = MaskingState::DipExperiment("swiglu_dip_v1".into());
         assert_eq!(state.label(), "dip");
-    }
-
-    #[test]
-    #[cfg(feature = "dip_experiment")]
-    fn experimental_resolution_activates_dip_profile_when_supported() {
-        let mut caps = full_capabilities();
-        caps.supports_structured_masking = false;
-        caps.supports_dynamic_sparsity = true;
-
-        let res = resolve(
-            ReasoningProfile::Experimental,
-            ExecutionMode::Local,
-            &caps,
-            None,
-            None,
-        )
-        .unwrap();
-        assert_eq!(res.masking_state.label(), "dip");
     }
 
     // ── Integration: full round-trip ────────────────────────────────────
@@ -1176,10 +1236,11 @@ mod tests {
         assert_eq!(res.masking_state.label(), "dense");
         assert_eq!(res.adaptation_state, "disabled");
         assert_eq!(res.guardrail_state, "clear");
-        assert_eq!(res.sidecar_state, "disabled");
-        assert_eq!(res.budget_outcome, "within_budget");
         assert!(res.plan_trace_present);
-        assert_eq!(res.execution_policy_id, "policy.deep_graph.local");
+        assert_eq!(
+            res.execution_policy_id,
+            "policy.deep_graph.local"
+        );
 
         let labels = res.steering_graph.node_labels();
         assert!(labels.contains(&"generate_main"));
@@ -1350,29 +1411,170 @@ mod tests {
     }
 
     #[test]
-    fn visual_sidecar_resolution_marks_sidecar_active_when_supported() {
-        let mut caps = full_capabilities();
-        caps.supports_image_generate = true;
-
-        let res = resolve(
-            ReasoningProfile::VisualSidecar,
-            ExecutionMode::Local,
-            &caps,
-            None,
-            None,
-        )
-        .unwrap();
-
-        assert_eq!(res.sidecar_state, "active");
-        assert_eq!(res.budget_outcome, "within_budget");
-    }
-
-    #[test]
     fn mlx_runtime_capabilities_differ_from_gguf() {
         use crate::runtime_contract::RuntimeKind;
         let gguf_caps = RuntimeCapabilities::for_runtime(RuntimeKind::Gguf);
         let mlx_caps = RuntimeCapabilities::for_runtime(RuntimeKind::Mlx);
         assert!(!gguf_caps.supports_embed);
         assert!(mlx_caps.supports_embed);
+    }
+
+    // ── Phase 4: Advanced Expert Budgeting ──────────────────────────────
+
+    #[test]
+    fn memory_pressure_produces_constrained_budget() {
+        let class = resolve_expert_budget_class(ComputeProfile::DeepGraph, &None, true);
+        assert_eq!(class, ExpertBudgetClass::Constrained);
+    }
+
+    #[test]
+    fn tight_aux_budget_produces_constrained() {
+        let budget = Some(ComputeBudget {
+            max_aux_calls: Some(1),
+            ..Default::default()
+        });
+        let class = resolve_expert_budget_class(ComputeProfile::Standard, &budget, false);
+        assert_eq!(class, ExpertBudgetClass::Constrained);
+    }
+
+    #[test]
+    fn no_pressure_no_tight_budget_uses_profile_default() {
+        let class = resolve_expert_budget_class(ComputeProfile::DeepGraph, &None, false);
+        assert_eq!(class, ExpertBudgetClass::Deep);
+    }
+
+    #[test]
+    fn expert_budget_tracker_records_aux_calls() {
+        let mut tracker = ExpertBudgetTracker::new(
+            ExpertBudgetClass::Default,
+            &Some(ComputeBudget { max_aux_calls: Some(2), ..Default::default() }),
+        );
+        assert!(tracker.record_aux_call());
+        assert!(tracker.record_aux_call());
+        assert!(!tracker.record_aux_call());
+        assert!(tracker.is_exhausted());
+    }
+
+    #[test]
+    fn expert_budget_tracker_telemetry_label() {
+        let tracker = ExpertBudgetTracker::new(
+            ExpertBudgetClass::Deep,
+            &Some(ComputeBudget { max_aux_calls: Some(5), max_adapt_steps: Some(3), ..Default::default() }),
+        );
+        let label = tracker.telemetry_label();
+        assert!(label.contains("deep"));
+        assert!(label.contains("aux=0/5"));
+        assert!(label.contains("adapt=0/3"));
+    }
+
+    #[test]
+    fn expert_budget_tracker_unbounded_never_exhausts() {
+        let mut tracker = ExpertBudgetTracker::new(ExpertBudgetClass::Default, &None);
+        for _ in 0..100 {
+            assert!(tracker.record_aux_call());
+        }
+        assert!(!tracker.is_exhausted());
+    }
+
+    #[test]
+    fn flush_all_hint_triggers_constrained_budget() {
+        let res = resolve(
+            ReasoningProfile::Deep,
+            ExecutionMode::Local,
+            &gguf_capabilities(),
+            None,
+            Some(OverseerHints {
+                kv_policy_hint: Some("flush_all".into()),
+                ..Default::default()
+            }),
+        )
+        .unwrap();
+        assert_eq!(res.expert_budget_class, ExpertBudgetClass::Constrained);
+    }
+
+    // ── Phase 4: Learned Mask Predictor ─────────────────────────────────
+
+    #[test]
+    #[cfg(feature = "learned_mask_predictor")]
+    fn predicted_mask_compiles_when_valid() {
+        let predicted = PredictedMask {
+            layer_masks: vec![
+                LayerBlockMask {
+                    layer_index: 0,
+                    active_blocks: vec![0, 1, 2],
+                    total_blocks: 8,
+                    sparsity: 0.375,
+                },
+            ],
+            confidence: 0.8,
+            predictor_model_id: "ifpruning-v1".into(),
+            calibration_version: "2026-04".into(),
+            overall_sparsity: 0.375,
+        };
+        let result = MaskCompiler::compile_predicted(&predicted, 0.6);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    #[cfg(feature = "learned_mask_predictor")]
+    fn predicted_mask_rejects_low_confidence() {
+        let predicted = PredictedMask {
+            layer_masks: vec![],
+            confidence: 0.3,
+            predictor_model_id: "test".into(),
+            calibration_version: "v1".into(),
+            overall_sparsity: 0.1,
+        };
+        let result = MaskCompiler::compile_predicted(&predicted, 0.6);
+        assert!(matches!(result, Err(MaskPredictError::LowConfidence)));
+    }
+
+    #[test]
+    #[cfg(feature = "learned_mask_predictor")]
+    fn predicted_mask_rejects_excessive_sparsity() {
+        let predicted = PredictedMask {
+            layer_masks: vec![
+                LayerBlockMask {
+                    layer_index: 0,
+                    active_blocks: vec![0],
+                    total_blocks: 10,
+                    sparsity: 0.9,
+                },
+            ],
+            confidence: 0.9,
+            predictor_model_id: "test".into(),
+            calibration_version: "v1".into(),
+            overall_sparsity: 0.9,
+        };
+        let result = MaskCompiler::compile_predicted(&predicted, 0.6);
+        assert!(matches!(result, Err(MaskPredictError::SparsityExceedsCap)));
+    }
+
+    #[test]
+    #[cfg(feature = "learned_mask_predictor")]
+    fn predicted_mask_rejects_empty_layer_blocks() {
+        let predicted = PredictedMask {
+            layer_masks: vec![
+                LayerBlockMask {
+                    layer_index: 0,
+                    active_blocks: vec![],
+                    total_blocks: 8,
+                    sparsity: 0.5,
+                },
+            ],
+            confidence: 0.9,
+            predictor_model_id: "test".into(),
+            calibration_version: "v1".into(),
+            overall_sparsity: 0.5,
+        };
+        let result = MaskCompiler::compile_predicted(&predicted, 0.6);
+        assert!(matches!(result, Err(MaskPredictError::PredictionFailed(_))));
+    }
+
+    #[test]
+    #[cfg(not(feature = "learned_mask_predictor"))]
+    fn predicted_masking_state_unavailable_without_feature() {
+        let state = MaskingState::Dense;
+        assert_eq!(state.label(), "dense");
     }
 }

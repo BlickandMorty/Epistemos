@@ -426,7 +426,6 @@ final class TextCapturePipeline {
                 if !seen.contains(key) {
                     seen.insert(key)
 
-                    let nsText = text as NSString
                     let nsRange = NSRange(range, in: text)
                     let span = SourceSpan(
                         start: nsRange.location,

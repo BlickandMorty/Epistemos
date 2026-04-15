@@ -26,6 +26,22 @@ Epistemos is a local-first cognitive operating system, not a normal chatbot, not
 - Adaptation plane
 - Oversight plane
 
+## Agent Command Center
+- Phase 5 includes a dedicated Agent Command Center / agent home, not just an inline chat box.
+- It should be reachable from the landing/home toolbar and a global shortcut.
+- The UX target is Apple-native, but the interaction model may borrow from Cursor, Antigravity, and OpenCode:
+  - slash commands
+  - skill selection
+  - model / brain switching
+  - MCP server / tool toggles
+  - at-mention context attachment
+  - a low-latency floating suggestion box
+  - a right-side inspector panel for plan/review/summary and live execution state
+- Advanced agentic controls that already exist in main chat should migrate into this dedicated Agent home instead of being duplicated across two full-featured surfaces.
+- Main chat stays as the lighter conversational surface; the Agent home owns the full control stack such as plan mode, model picker, skills, slash commands, tool restrictions, and execution inspection.
+- The command center is an explicit delegation layer, not a second control plane.
+- SwiftUI owns the interactive shell and parsing surface; Rust still owns request compilation, routing, permissions, and runtime truth.
+
 ## Overseer
 - The overseer is a supervisory role, not a fixed model family.
 - Split conceptually into:

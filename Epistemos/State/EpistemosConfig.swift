@@ -91,8 +91,7 @@ final class EpistemosConfig {
                 message = "EpistemosConfig: failed to decode capture filter JSON"
             }
             Self.log.error("\(message, privacy: .public): \(error.localizedDescription, privacy: .public)")
-            resetMalformedBundleList(label: label)
-            return []
+            return nil
         }
     }
 
@@ -128,17 +127,6 @@ final class EpistemosConfig {
             allowlistJSON = encoded
         case "blocklist":
             blocklistJSON = encoded
-        default:
-            break
-        }
-    }
-
-    private func resetMalformedBundleList(label: String) {
-        switch label {
-        case "allowlist":
-            allowlistJSON = "[]"
-        case "blocklist":
-            blocklistJSON = "[]"
         default:
             break
         }

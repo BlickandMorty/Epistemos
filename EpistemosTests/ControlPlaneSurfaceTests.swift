@@ -258,6 +258,37 @@ struct ControlPlaneSurfaceTests {
         #expect(audit.first?.isFromMe == false)
     }
 
+    @Test("fallback adapter emits telemetry when the relay path fails and native fallback takes over")
+    func fallbackAdapterEmitsTelemetryWhenPrimaryFails() async throws {
+        let sent = LockIsolated<[String]>([])
+        let telemetry = LockIsolated<[DriverChannelFallbackEvent]>([])
+        let adapter = FallbackDriverChannelAdapter(
+            primary: StubDriverChannelAdapter(
+                channelID: "imessage",
+                displayName: "Relay",
+                sendError: DriverChannelError.toolCallFailed(channelID: "imessage", reason: "relay offline")
+            ),
+            fallback: StubDriverChannelAdapter(
+                channelID: "imessage",
+                displayName: "Native",
+                sentMessages: sent
+            ),
+            onFallback: { event in
+                telemetry.withValue { $0.append(event) }
+            }
+        )
+
+        try await adapter.send(message: "hello", to: "+15551234567", vaultPath: "/tmp/vault")
+
+        #expect(sent.value == ["hello"])
+        #expect(telemetry.value.count == 1)
+        #expect(telemetry.value[0].channelID == "imessage")
+        #expect(telemetry.value[0].operation == .send)
+        #expect(telemetry.value[0].primaryDisplayName == "Relay")
+        #expect(telemetry.value[0].fallbackDisplayName == "Native")
+        #expect(telemetry.value[0].errorDescription.contains("relay offline"))
+    }
+
     @Test("channel route contact parser preserves shared sender overrides")
     func channelRouteContactParserPreservesSharedSenderOverrides() {
         let payload: [String: Any] = [
@@ -455,4 +486,51 @@ private func writeSkill(
     Use this skill when the task matches \(name).
     """
     try content.write(to: url, atomically: true, encoding: .utf8)
+}
+
+private final class LockIsolated<Value: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    nonisolated(unsafe) private var storage: Value
+
+    nonisolated init(_ value: Value) {
+        self.storage = value
+    }
+
+    nonisolated var value: Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    nonisolated func withValue(_ body: (inout Value) -> Void) {
+        lock.lock()
+        body(&storage)
+        lock.unlock()
+    }
+}
+
+private struct StubDriverChannelAdapter: DriverChannelAdapting {
+    let channelID: String
+    let displayName: String
+    var sendError: Error? = nil
+    var sentMessages: LockIsolated<[String]>? = nil
+
+    func fetchUnreadMessages(vaultPath: String, limit: Int) async throws -> [DriverChannelMessage] {
+        []
+    }
+
+    func send(message: String, to recipientID: String, vaultPath: String) async throws {
+        if let sendError {
+            throw sendError
+        }
+        sentMessages?.withValue { $0.append(message) }
+    }
+
+    func listThreads(vaultPath: String, limit: Int) async throws -> [DriverChannelThreadSummary] {
+        []
+    }
+
+    func recentAuditEntries(vaultPath: String, limit: Int) async throws -> [DriverChannelAuditEntry] {
+        []
+    }
 }

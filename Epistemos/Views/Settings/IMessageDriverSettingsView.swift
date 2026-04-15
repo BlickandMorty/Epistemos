@@ -376,6 +376,8 @@ struct DriverRouteEditorSheet: View {
     let onSaved: () -> Void
     let onCancelled: () -> Void
 
+    @Environment(InferenceState.self) private var inference
+
     @State private var handle: String = ""
     @State private var displayName: String = ""
     @State private var model: String = IMessageDriverService.defaultContactModel
@@ -389,7 +391,10 @@ struct DriverRouteEditorSheet: View {
     @State private var errorMessage: String?
 
     private var modelOptions: [String] {
-        IMessageDriverService.modelPresetOptions
+        IMessageDriverService.suggestedModelOptions(
+            installedLocalModelIDs: inference.installedLocalTextModelIDs,
+            configuredCloudProviders: inference.configuredCloudProviders
+        )
     }
 
     private let tierOptions = [

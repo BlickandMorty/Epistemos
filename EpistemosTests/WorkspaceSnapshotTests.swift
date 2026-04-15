@@ -123,6 +123,17 @@ struct WorkspaceSnapshotTests {
             #expect(decoded.visibility == visibility)
         }
     }
+
+    @Test("workspace restore returns the home window to the front after reopening secondary windows")
+    func workspaceRestoreReturnsHomeWindowToFrontAfterReopeningSecondaryWindows() throws {
+        let workspaceService = try loadWorkspaceSnapshotRepoTextFile("Epistemos/State/WorkspaceService.swift")
+        let rootView = try loadWorkspaceSnapshotRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(workspaceService.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(rootView.contains("static func surfaceHomeWindow()"))
+        #expect(rootView.contains("mainWindow.orderFrontRegardless()"))
+        #expect(rootView.contains("mainWindow.makeKeyAndOrderFront(nil)"))
+    }
 }
 
 @Suite("WorkspaceService Persistence", .serialized)

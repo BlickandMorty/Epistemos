@@ -88,6 +88,14 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         "{\"output\":\"\",\"error\":\"constrained_generate unavailable in silent delegate\"}"
             .to_string()
     }
+    fn generate_image(&self, _: String, _: String) -> String {
+        // Subagents cannot escalate to the MLX sidecar or any cloud
+        // provider. This is an explicit, canonical failure — callers
+        // who need image generation must run at a non-subagent level.
+        "{\"error\":\"image_generate unavailable in silent delegate — \
+         subagents must not escalate to MLX/FAL\"}"
+            .to_string()
+    }
     fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
         "{\"status\":\"skipped\",\"error\":\"nightbrain unavailable in silent delegate\"}"
             .to_string()

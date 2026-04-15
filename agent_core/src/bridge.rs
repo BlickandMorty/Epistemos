@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig};
@@ -145,6 +146,18 @@ pub trait AgentEventDelegate: Send + Sync {
     /// `{ output, tokens_generated, constraint_violations_masked }`.
     fn generate_constrained(&self, prompt: String, grammar_json: String) -> String;
 
+    /// Specialty C3 — Generate an image via the MLX sidecar lane per
+    /// PLAN_V2 §5.1 and §16. `aspect_ratio` is one of `"landscape" |
+    /// "portrait" | "square"`. Returns a JSON envelope with shape
+    /// `{ "provider": "mlx", "model": "...", "image_url"|"image_path": "..." }`
+    /// on success, or `{ "error": "...", "hint"?: "..." }` on failure. A
+    /// `{"error": "..."}` response is the canonical way to surface
+    /// "MLX Flux not yet configured" while the MLX-first plan invariant
+    /// stays intact — callers who want a cloud path MUST pass
+    /// `provider: "fal"` explicitly. There is no silent cloud escalation
+    /// (PLAN_V2 §3.4).
+    fn generate_image(&self, prompt: String, aspect_ratio: String) -> String;
+
     // --- Phase 7: Intelligence Layer ---
 
     /// Specialty D1 — Trigger a NightBrain background job on demand.
@@ -172,6 +185,13 @@ pub struct ToolConfig {
     /// should pass "chat_lite"; Pro mode should pass "chat_pro"; agent mode
     /// should pass "agent".
     pub tool_tier: Option<String>,
+    /// Explicit per-tool allowlist. When `Some`, the agent may ONLY call
+    /// tools whose names are in this set (intersected with the tier). When
+    /// `None`, tier is the only gate — backward compatible with callers that
+    /// don't know about per-tool toggles. Populated by the Agent Command
+    /// Center's `CommandCenterRequestCompiler` from the user's explicit
+    /// tool-toggle selections.
+    pub allowed_tool_names: Option<Vec<String>>,
 }
 
 #[derive(uniffi::Record)]
@@ -582,6 +602,13 @@ async fn run_agent_session_inner(
         Some(std::path::PathBuf::from(&tool_config.vault_path)),
         tier,
     );
+    // Install the caller-provided per-tool allowlist (Phase 5 authority
+    // boundary: Agent Command Center tool toggles become authoritative on
+    // the runtime path here).
+    if let Some(allowed) = &tool_config.allowed_tool_names {
+        let set: std::collections::HashSet<String> = allowed.iter().cloned().collect();
+        tool_registry.set_allowed_tool_names(Some(set));
+    }
     let mut config = AgentConfig::from_ffi(&agent_config);
     config.vault_root = Some(tool_config.vault_path.clone());
     config.prompt_mode_override = agent_config.prompt_mode.as_deref().and_then(|mode| {
@@ -645,6 +672,32 @@ pub fn cancel_agent_session(session_id: String) {
 #[uniffi::export]
 pub fn active_session_count() -> u32 {
     ffi_guard_value!(GlobalSessions::active_count() as u32, 0)
+}
+
+// MARK: - Agent Command Center Request Compilation
+//
+// Rust authority per PLAN_V2 §3.1 / §4.1. Swift must call this entry point
+// for every Agent Command Center submission. Swift pre-resolves @-mentions
+// via VaultSyncService (the only Swift-resident dependency), then JSON-
+// encodes the full input and calls this function. Rust owns:
+//
+// - runtime resolution (explicit brain never silently reroutes)
+// - tool permission resolution against the catalog + explicit toggles
+// - execution policy / budgets / route / expert allowlist / summary
+// - notes-context block assembly
+//
+// The JSON contract is the existing Swift `CompiledCommandCenterRequest`
+// Codable shape. Swift decodes the returned JSON into that existing type,
+// so every downstream consumer (ChatCoordinator, Inspector, diagnostics)
+// keeps working unchanged.
+
+#[uniffi::export]
+pub fn compile_command_center_request(input_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        crate::command_center::compile_from_json(&input_json).map_err(|message| {
+            AgentErrorFFI::AgentError { message }
+        })
+    })
 }
 
 // MARK: - Persistent PTY FFI
@@ -1646,6 +1699,37 @@ pub fn list_tools_for_tier(
         let out: Vec<ToolSchemaFFI> = registry
             .get_definitions()
             .into_iter()
+            .filter(|schema| crate::tools::registry::is_user_visible_tool(&schema.name))
+            .map(|schema| ToolSchemaFFI {
+                name: schema.name.clone(),
+                description: schema.description,
+                parameters_json: serde_json::to_string(&schema.parameters).unwrap_or_default(),
+                risk_level: registry.get_risk_level(&schema.name).as_str().to_string(),
+                tier: registry.get_tier(&schema.name).as_str().to_string(),
+            })
+            .collect();
+        Ok(out)
+    })
+}
+
+/// Return the schemas for every tool visible at the requested tier,
+/// intersected with an explicit allowlist when one is supplied.
+#[uniffi::export]
+pub fn list_tools_for_tier_filtered(
+    vault_path: String,
+    tier: String,
+    allowed_tool_names: Option<Vec<String>>,
+) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let registry = build_registry_for_tool_tier(
+            &vault_path,
+            &tier,
+            allowed_tool_names,
+        )?;
+        let out: Vec<ToolSchemaFFI> = registry
+            .get_definitions()
+            .into_iter()
+            .filter(|schema| crate::tools::registry::is_user_visible_tool(&schema.name))
             .map(|schema| ToolSchemaFFI {
                 name: schema.name.clone(),
                 description: schema.description,
@@ -1713,9 +1797,80 @@ pub async fn execute_tool_call(
     }
 }
 
+/// Execute a single tool call on a tier-limited registry, optionally
+/// intersected with an explicit allowlist.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn execute_tool_call_filtered(
+    vault_path: String,
+    tier: String,
+    tool_name: String,
+    input_json: String,
+    allowed_tool_names: Option<Vec<String>>,
+) -> Result<ToolExecutionResultFFI, AgentErrorFFI> {
+    let handle = tokio::task::spawn(async move {
+        let registry = build_registry_for_tool_tier(
+            &vault_path,
+            &tier,
+            allowed_tool_names,
+        )?;
+        let input: serde_json::Value =
+            serde_json::from_str(&input_json).map_err(|e| AgentErrorFFI::AgentError {
+                message: format!("invalid input_json: {e}"),
+            })?;
+
+        match registry.execute(&tool_name, &input).await {
+            Ok(output) => Ok(ToolExecutionResultFFI {
+                success: true,
+                output_json: output,
+                error: None,
+            }),
+            Err(err) => Ok(ToolExecutionResultFFI {
+                success: false,
+                output_json: String::new(),
+                error: Some(err.to_string()),
+            }),
+        }
+    });
+
+    match handle.await {
+        Ok(result) => result,
+        Err(join_err) => {
+            let msg = if join_err.is_panic() {
+                let payload = join_err.into_panic();
+                panic_payload_to_string(payload)
+            } else {
+                "execute_tool_call_filtered task cancelled".to_string()
+            };
+            Err(AgentErrorFFI::AgentError { message: msg })
+        }
+    }
+}
+
+fn build_registry_for_tool_tier(
+    vault_path: &str,
+    tier: &str,
+    allowed_tool_names: Option<Vec<String>>,
+) -> Result<ToolRegistry, AgentErrorFFI> {
+    let vault = VaultStore::open(vault_path).map_err(|error| AgentErrorFFI::AgentError {
+        message: format!("Failed to open vault: {error}"),
+    })?;
+    let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(tier);
+    let mut registry = ToolRegistry::with_tier(
+        Arc::new(vault),
+        true,
+        Some(std::path::PathBuf::from(vault_path)),
+        tier_enum,
+    );
+    if let Some(allowlist) = allowed_tool_names {
+        registry.set_allowed_tool_names(Some(HashSet::from_iter(allowlist)));
+    }
+    Ok(registry)
+}
+
 #[cfg(test)]
 mod tests {
     use super::resolve_provider_selection_preview;
+    use super::list_tools_for_tier;
 
     #[test]
     fn explicit_provider_override_stays_forced() {
@@ -1753,5 +1908,17 @@ mod tests {
         assert_eq!(preview.resolution_kind, "auto_local_only");
         assert_eq!(preview.effective_provider, "");
         assert!(!preview.supported);
+    }
+
+    #[test]
+    fn list_tools_for_tier_hides_unsupported_image_generation() {
+        let vault = tempfile::tempdir().unwrap();
+        let tools = list_tools_for_tier(
+            vault.path().to_str().unwrap().to_string(),
+            "agent".to_string(),
+        )
+        .expect("tool list");
+
+        assert!(!tools.iter().any(|tool| tool.name == "image_generate"));
     }
 }

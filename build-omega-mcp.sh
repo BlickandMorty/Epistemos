@@ -29,7 +29,9 @@ fi
 mkdir -p ../build-rust
 rm -f ../build-rust/libomega_mcp.a
 rm -f ../build-rust/libomega_mcp.dylib
-lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output ../build-rust/libomega_mcp.dylib
+TEMP_OUTPUT="$(mktemp ../build-rust/libomega_mcp.XXXXXX.dylib)"
+lipo -create "$ARM64_LIB_PATH" "$X86_64_LIB_PATH" -output "$TEMP_OUTPUT"
+mv -f "$TEMP_OUTPUT" ../build-rust/libomega_mcp.dylib
 install_name_tool -id "@rpath/libomega_mcp.dylib" ../build-rust/libomega_mcp.dylib
 
 if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then

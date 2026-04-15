@@ -499,6 +499,7 @@ final class OverseerComplexityRouter {
             analysis: analysis,
             intent: intent,
             contentLength: contentLength,
+            operatingMode: operatingMode,
             hasExplicitContext: hasExplicitContext,
             attachmentCount: attachmentCount
         )
@@ -545,6 +546,7 @@ final class OverseerComplexityRouter {
         analysis: QueryAnalysis,
         intent: InferenceTaskIntent,
         contentLength: Int,
+        operatingMode: EpistemosOperatingMode,
         hasExplicitContext: Bool,
         attachmentCount: Int
     ) -> OverseerExecutionRoute {
@@ -559,6 +561,10 @@ final class OverseerComplexityRouter {
             attachmentCount: attachmentCount
         ) {
             return .managedAgentSession
+        }
+
+        if operatingMode == .fast && !hasExplicitContext && attachmentCount == 0 && contentLength < 2_000 {
+            return .localOnly
         }
 
         if shouldUseOverseerLocalExecution(
@@ -586,6 +592,9 @@ final class OverseerComplexityRouter {
         case .overseerLocalExecution:
             return .agent
         case .localOnly:
+            if requestedMode == .fast {
+                return .fast
+            }
             if requestedMode == .thinking || requestedMode == .pro {
                 return .thinking
             }
@@ -701,7 +710,7 @@ final class OverseerComplexityRouter {
             return true
         }
 
-        if contentLength >= 2_000 || analysis.complexity >= 0.45 {
+        if contentLength >= 2_000 {
             return true
         }
 
@@ -835,7 +844,7 @@ final class OverseerComplexityRouter {
     private func toolPermissions(for route: OverseerExecutionRoute) -> [OverseerToolPermission] {
         guard route == .overseerLocalExecution else { return [] }
 
-        let liveTools = OmegaToolRegistry.all
+        let liveTools = ToolSurfacePolicy.surfacedTools(OmegaToolRegistry.all)
         if !liveTools.isEmpty {
             var permissions: [OverseerToolPermission] = []
             var seen: Set<String> = []
@@ -972,5 +981,270 @@ final class OverseerComplexityRouter {
         case .noteAnalysis: "analysis"
         case .graphAnalysis: "graph"
         }
+    }
+
+    // MARK: - Agent Command Center Planner
+
+    /// Dedicated planner entry point for the Agent Command Center.
+    /// Unlike `planForMainChat()`, this method respects the user's explicit choices
+    /// about mode, tools, and brain — no heuristic overrides.
+    func planForCommandCenter(
+        query: String,
+        contentLength: Int,
+        slashToken: ParsedSlashToken?,
+        toolRestrictions: Set<String>,
+        brainOverride: ACCBrainSelection?,
+        hasExplicitContext: Bool,
+        attachmentCount: Int,
+        notesContext: String?,
+        conversationHistory: String?
+    ) -> ExecutionPlan {
+        // 1. Determine operating mode from slash token
+        let operatingMode: EpistemosOperatingMode
+        switch slashToken {
+        case .builtinMode(let cmd):
+            operatingMode = cmd.defaultOperatingMode
+        case .skill:
+            operatingMode = .agent  // Skills default to agent mode
+        case nil:
+            operatingMode = .agent  // Agent home default
+        }
+
+        // 2. Determine route from operating mode + brain override
+        let route: OverseerExecutionRoute
+        if case .cloud = brainOverride {
+            route = .managedAgentSession
+        } else {
+            switch operatingMode {
+            case .fast, .thinking:
+                route = .localOnly
+            case .pro:
+                route = .overseerLocalExecution
+            case .agent:
+                route = toolRestrictions.isEmpty ? .localOnly : .overseerLocalExecution
+            }
+        }
+
+        // 3. Build tool permissions DIRECTLY from user's explicit toggle selections
+        let toolPermissions: [OverseerToolPermission] = ToolSurfacePolicy.surfacedTools(OmegaToolRegistry.all).map { tool in
+            OverseerToolPermission(
+                toolName: tool.name,
+                mode: toolRestrictions.contains(tool.name) ? .allow : .deny
+            )
+        }
+
+        // 4. Depth budget from operating mode (no content analysis heuristics)
+        let depthBudget: OverseerDepthBudget
+        switch operatingMode {
+        case .fast:
+            depthBudget = OverseerDepthBudget(maxTurns: 1, maxReasoningSteps: 0, maxToolCalls: 0, maxOutputTokens: 4096)
+        case .thinking:
+            depthBudget = OverseerDepthBudget(maxTurns: 1, maxReasoningSteps: 8, maxToolCalls: 0, maxOutputTokens: 8192)
+        case .pro:
+            depthBudget = OverseerDepthBudget(maxTurns: 3, maxReasoningSteps: 12, maxToolCalls: 8, maxOutputTokens: 16384)
+        case .agent:
+            depthBudget = OverseerDepthBudget(maxTurns: 8, maxReasoningSteps: 24, maxToolCalls: 32, maxOutputTokens: 32768)
+        }
+
+        // 5. Expert allowlist from slash token
+        let experts: [String]
+        switch slashToken {
+        case .builtinMode(let cmd):
+            switch cmd {
+            case .debug: experts = ["debugging", "code-analysis", "error-diagnosis"]
+            case .research: experts = ["research", "web-search", "summarization"]
+            case .review: experts = ["code-review", "critique", "analysis"]
+            case .summarize: experts = ["summarization", "distillation"]
+            case .explain: experts = ["teaching", "explanation", "simplification"]
+            default: experts = ["general"]
+            }
+        case .skill(let entry):
+            experts = [entry.identifier]
+        case nil:
+            experts = ["general", "agent"]
+        }
+
+        // 6. Context summary
+        let summary: String
+        switch slashToken {
+        case .builtinMode(let cmd):
+            summary = "Command Center: /\(cmd.rawValue) — \(cmd.helpText)"
+        case .skill(let entry):
+            summary = "Command Center: skill \(entry.identifier) — \(entry.description)"
+        case nil:
+            summary = "Command Center: agent mode"
+        }
+
+        let plan = OverseerPlanV1(
+            version: .v1,
+            route: route,
+            maskPlan: OverseerMaskPlan(
+                expertAllowlist: experts,
+                rationale: summary
+            ),
+            loraBlendCoefficients: [],
+            kvPolicyFlag: hasExplicitContext ? .preserveAdapterCompatible : .preserveSharedBase,
+            depthBudget: depthBudget,
+            toolPermissions: toolPermissions,
+            contextSummary: OverseerContextSummary(
+                summary: summary,
+                entityIDs: [],
+                sourceSessionID: nil
+            )
+        )
+
+        return ExecutionPlan(
+            route: route,
+            localOperatingMode: operatingMode,
+            plan: (try? plan.validated()) ?? plan.normalized(),
+            summary: summary
+        )
+    }
+}
+
+// MARK: - Phase 4: Planner Overseer Refinement
+
+nonisolated struct PlannerRefinementContext: Sendable {
+    let query: String
+    let heuristicPlan: OverseerPlanV1
+    let heuristicSummary: String
+    let complexity: Double
+    let notesContext: String?
+    let conversationHistory: String?
+}
+
+nonisolated struct PlannerRefinementResult: Sendable {
+    let refinedPlan: OverseerPlanV1
+    let refinedSummary: String
+    let confidence: Double
+    let refinementDurationMS: Double
+}
+
+nonisolated enum PlannerRefinementError: LocalizedError, Sendable {
+    case modelUnavailable
+    case refinementTimedOut
+    case invalidRefinedPlan(String)
+    case refinementFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .modelUnavailable:
+            "No overseer model is available for plan refinement."
+        case .refinementTimedOut:
+            "Plan refinement exceeded the time budget."
+        case .invalidRefinedPlan(let reason):
+            "Refined plan failed validation: \(reason)"
+        case .refinementFailed(let reason):
+            "Plan refinement failed: \(reason)"
+        }
+    }
+}
+
+protocol PlannerOverseerRefinement: Sendable {
+    func refine(context: PlannerRefinementContext) async -> Result<PlannerRefinementResult, PlannerRefinementError>
+    var isAvailable: Bool { get }
+    var minimumComplexityThreshold: Double { get }
+}
+
+@MainActor
+final class ModelRefinedPlanner {
+    private let heuristicRouter: OverseerComplexityRouter
+    private let refinementProvider: (any PlannerOverseerRefinement)?
+    private let refinementConfidenceThreshold: Double
+
+    init(
+        inference: InferenceState,
+        refinementProvider: (any PlannerOverseerRefinement)? = nil,
+        refinementConfidenceThreshold: Double = 0.6
+    ) {
+        self.heuristicRouter = OverseerComplexityRouter(inference: inference)
+        self.refinementProvider = refinementProvider
+        self.refinementConfidenceThreshold = refinementConfidenceThreshold
+    }
+
+    func planForMainChat(
+        query: String,
+        contentLength: Int,
+        operatingMode: EpistemosOperatingMode,
+        hasExplicitContext: Bool,
+        attachmentCount: Int,
+        notesContext: String?,
+        conversationHistory: String?
+    ) async -> OverseerComplexityRouter.ExecutionPlan {
+        let heuristicPlan = heuristicRouter.planForMainChat(
+            query: query,
+            contentLength: contentLength,
+            operatingMode: operatingMode,
+            hasExplicitContext: hasExplicitContext,
+            attachmentCount: attachmentCount,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
+
+        guard let provider = refinementProvider,
+              provider.isAvailable else {
+            return heuristicPlan
+        }
+
+        let analysis = QueryAnalyzer.analyze(query: query)
+        guard analysis.complexity >= provider.minimumComplexityThreshold else {
+            return heuristicPlan
+        }
+
+        let context = PlannerRefinementContext(
+            query: query,
+            heuristicPlan: heuristicPlan.plan,
+            heuristicSummary: heuristicPlan.summary,
+            complexity: analysis.complexity,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
+
+        let result = await provider.refine(context: context)
+
+        switch result {
+        case .success(let refinement):
+            guard refinement.confidence >= refinementConfidenceThreshold else {
+                return heuristicPlan
+            }
+            guard let validated = try? refinement.refinedPlan.validated() else {
+                return heuristicPlan
+            }
+            return OverseerComplexityRouter.ExecutionPlan(
+                route: heuristicPlan.route,
+                localOperatingMode: heuristicPlan.localOperatingMode,
+                plan: validated,
+                summary: refinement.refinedSummary
+            )
+
+        case .failure:
+            return heuristicPlan
+        }
+    }
+
+    /// Dedicated planner for the Agent Command Center.
+    /// Skips cloud refinement — the user's explicit choices are authoritative.
+    func planForCommandCenter(
+        query: String,
+        contentLength: Int,
+        slashToken: ParsedSlashToken?,
+        toolRestrictions: Set<String>,
+        brainOverride: ACCBrainSelection?,
+        hasExplicitContext: Bool,
+        attachmentCount: Int,
+        notesContext: String?,
+        conversationHistory: String?
+    ) -> OverseerComplexityRouter.ExecutionPlan {
+        heuristicRouter.planForCommandCenter(
+            query: query,
+            contentLength: contentLength,
+            slashToken: slashToken,
+            toolRestrictions: toolRestrictions,
+            brainOverride: brainOverride,
+            hasExplicitContext: hasExplicitContext,
+            attachmentCount: attachmentCount,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
     }
 }

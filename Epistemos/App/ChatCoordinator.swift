@@ -134,6 +134,645 @@ final class ChatCoordinator {
         fetchAll(descriptor, in: context, label: label)?.first
     }
 
+    // MARK: - Agent Command Center Submission
+
+    /// Dedicated submission entry point for the Agent Command Center.
+    ///
+    /// Phase 5 authority boundary (PLAN_V2): Swift parses, the compiler resolves,
+    /// the runtime executes. This method:
+    ///   1. Assembles an `ACCCommandRequest` from explicit user choices.
+    ///   2. Delegates to `CommandCenterRequestCompiler.compile(...)` which owns
+    ///      @-mention resolution, runtime fallback, tool-permission resolution,
+    ///      and route/policy decisions. Produces a `CompiledCommandCenterRequest`.
+    ///   3. Seeds `accState.diagnostics` with the compiled request (so the
+    ///      inspector can render requested-vs-resolved truth immediately).
+    ///   4. Hands the compiled request to either the Rust agent path or the
+    ///      standard pipeline, populating runtime counters from streaming events.
+    ///
+    /// Writes to `AgentChatState` (NOT main `ChatState`) and populates
+    /// `accState.diagnostics` (NOT local AgentChatState fields).
+    func handleCommandCenterSubmission(
+        query: String,
+        slashToken: ParsedSlashToken?,
+        mentions: [ACCContextMention],
+        toolRestrictions: Set<String>,
+        brainOverride: ACCBrainSelection?,
+        pipeline: PipelineService,
+        agentChat: AgentChatState,
+        accState: AgentCommandCenterState
+    ) {
+        bootstrap.queryTask?.cancel()
+
+        let aiFresh = AppleIntelligenceService.shared.checkAvailability()
+        inferenceState.appleIntelligenceAvailable = aiFresh.available
+        inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
+
+        agentChat.startStreaming()
+        accState.diagnostics.resetForNewSubmission()
+        accState.diagnostics.markCompiling()
+
+        // Build the parsed request from explicit user choices.
+        let request = ACCCommandRequest(
+            query: query,
+            slashToken: slashToken,
+            mentions: mentions,
+            enabledToolNames: toolRestrictions,
+            brainOverride: brainOverride,
+            operatingMode: accState.selectedOperatingMode
+        )
+
+        // Capture closures for the compiler's injected dependencies. These keep
+        // the compiler free of ChatCoordinator / vaultSync coupling so the
+        // eventual port to Rust FFI is localized.
+        let vaultSync = bootstrap.vaultSync
+        let findNotesByTitle: @Sendable (String) async -> [VaultManifest.ManifestEntry] = { title in
+            await vaultSync.findNotesByTitle(title)
+        }
+        let fetchNoteBodies: @Sendable ([String]) async -> [VaultManifest.NoteBody] = { ids in
+            await vaultSync.fetchNoteBodies(ids: ids)
+        }
+        let searchIndex: @Sendable (String) async -> [String] = { query in
+            await vaultSync.searchIndex(query: query)
+        }
+        let availableBrainsClosure: @MainActor () -> [ACCBrainSelection] = { accState.availableBrains }
+        let preferredAutoBrainClosure: @MainActor () -> ACCBrainSelection? = {
+            self.currentCommandCenterAutoBrain()
+        }
+        // Rust owns the tool catalog per PLAN_V2 §3.1 / §4.1. Swift only
+        // hands Rust the path to the active vault; Rust builds the
+        // canonical `ToolRegistry` at the tier implied by the operating
+        // mode inside the compile FFI and derives the catalog there. The
+        // old Swift-supplied `availableTools` closure (which was a stale
+        // mirror of `OmegaToolRegistry.all`, not the real Rust registry)
+        // is retired.
+        let vaultPathClosure: @MainActor () -> String = { [weak self] in
+            self?.bootstrap.vaultSync.vaultURL?.path ?? ""
+        }
+        let compiler = CommandCenterRequestCompiler(
+            dependencies: CommandCenterRequestCompiler.Dependencies(
+                findNotesByTitle: findNotesByTitle,
+                fetchNoteBodies: fetchNoteBodies,
+                searchIndex: searchIndex,
+                availableBrains: availableBrainsClosure,
+                preferredAutoBrain: preferredAutoBrainClosure,
+                vaultPath: vaultPathClosure
+            )
+        )
+
+        let conversationHistory: String? = agentChat.messages.isEmpty
+            ? nil
+            : agentChat.messages.map(\.content).joined(separator: "\n")
+
+        bootstrap.queryTask = Task {
+            do {
+                let compiled = await compiler.compile(
+                    request: request,
+                    conversationHistory: conversationHistory
+                )
+
+                // Seed the inspector with requested-vs-resolved truth BEFORE
+                // any streaming events fire.
+                accState.diagnostics.ingestCompiledRequest(compiled)
+                agentChat.executionPlanSummary = compiled.resolvedExecutionPolicy.summary
+
+                let executionPlan = self.commandCenterExecutionPlan(from: compiled)
+                let effectiveOperatingMode = compiled.resolvedExecutionPolicy.effectiveOperatingMode
+
+                accState.diagnostics.markRunning()
+                let mode = inferenceState.inferenceMode
+
+                if effectiveOperatingMode == .agent {
+                    switch compiled.resolvedRuntime.resolved {
+                    case .local(let modelId, _):
+                        try await self.runCommandCenterLocalAgentPath(
+                            compiled: compiled,
+                            localModelID: modelId,
+                            conversationHistory: conversationHistory,
+                            agentChat: agentChat,
+                            accState: accState,
+                            executionPlan: executionPlan
+                        )
+                    case .cloud(let provider, _):
+                        try await self.runCommandCenterRustAgentPath(
+                            compiled: compiled,
+                            providerName: self.resolveRustProviderName(
+                                explicitProviderRawValue: provider
+                            ),
+                            conversationHistory: conversationHistory,
+                            agentChat: agentChat,
+                            accState: accState,
+                            executionPlan: executionPlan
+                        )
+                    case .appleIntelligence:
+                        throw AgentRuntimeError(
+                            message: "Apple Intelligence does not support Agent Command Center agent mode yet. Choose a local or cloud brain, or switch to Fast, Thinking, or Pro."
+                        )
+                    case .unavailable(let reason):
+                        throw AgentRuntimeError(
+                            message: "The selected Command Center brain is unavailable: \(reason)."
+                        )
+                    }
+                } else {
+                    // Standard pipeline for fast/thinking/pro — pass resolved
+                    // notes context so @-mentions actually reach the model.
+                    let stream = pipeline.run(
+                        query: compiled.query,
+                        mode: mode,
+                        notesContext: compiled.notesContext,
+                        conversationHistory: conversationHistory,
+                        operatingMode: effectiveOperatingMode,
+                        executionPlan: executionPlan
+                    )
+
+                    for try await event in stream {
+                        guard !Task.isCancelled else { break }
+                        switch event {
+                        case .textDelta(let text):
+                            agentChat.appendStreamingText(text)
+                        case .completed:
+                            agentChat.completeProcessing(mode: mode)
+                            accState.diagnostics.markCompleted(
+                                stopReason: "completed",
+                                inputTokens: 0,
+                                outputTokens: 0
+                            )
+                        case .error(let msg):
+                            agentChat.addErrorMessage(msg)
+                            accState.diagnostics.markFailed(
+                                errorClass: .providerFailure,
+                                message: msg
+                            )
+                        }
+                    }
+                }
+
+                // Mirror the final turn count back into agentChat for legacy readers.
+                agentChat.agentTurnCount = accState.diagnostics.currentTurn
+
+            } catch is CancellationError {
+                agentChat.stopStreaming()
+                accState.diagnostics.markCancelled()
+            } catch {
+                Log.pipeline.error("Command Center submission failed: \(error.localizedDescription)")
+                agentChat.addErrorMessage("Error: \(error.localizedDescription)")
+                accState.diagnostics.markFailed(
+                    errorClass: .unknown,
+                    message: error.localizedDescription
+                )
+            }
+        }
+    }
+
+    // MARK: - Command Center Agent Path
+
+    /// Execute a compiled Command Center request through the Rust agent loop.
+    ///
+    /// Every streaming event from the Rust delegate populates
+    /// `accState.diagnostics` so the inspector mirrors authoritative runtime
+    /// truth. `agentChat` still receives text deltas and tool-use records for
+    /// transcript display.
+    private func runCommandCenterRustAgentPath(
+        compiled: CompiledCommandCenterRequest,
+        providerName: String,
+        conversationHistory: String?,
+        agentChat: AgentChatState,
+        accState: AgentCommandCenterState,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan
+    ) async throws {
+        let sessionId = UUID().uuidString
+        var receivedAgentContent = false
+        var terminalAgentError: AgentRuntimeError?
+        var activeToolStarts: [String: (name: String, startedAt: Date)] = [:]
+
+        // Build system prompt from compiled context + plan.
+        var systemParts: [String] = []
+        systemParts.append("You are Epistemos Agent Command Center. Be precise and actionable.")
+        if let ctx = compiled.notesContext {
+            systemParts.append("Context:\n\(ctx)")
+        }
+        if let history = conversationHistory {
+            systemParts.append("Conversation history:\n\(history)")
+        }
+        systemParts.append(executionPlan.additionalSystemPrompt())
+
+        let vaultPath = bootstrap.vaultSync.vaultURL?.path ?? ""
+        let allowedTools = compiled.allowedToolNames
+        // Phase 5 authority: pass the user's explicit per-tool allowlist all
+        // the way into the Rust ToolRegistry. The coarse enable_bash /
+        // enable_web_search flags remain for backward compatibility with
+        // callers that don't populate allowedToolNames, but the explicit
+        // allowlist is the authoritative gate on the agent runtime path.
+        //
+        // Terminal alias (spec note): ACC surfaces terminal tools as
+        // `run_command` / `run_persistent`; enable_bash historically gated
+        // the legacy `bash` tool. We set enable_bash to true whenever ANY
+        // terminal-family tool is allowed so the Rust side doesn't silently
+        // drop the registration, then the allowlist narrows it back down.
+        let terminalToolNames: Set<String> = ["bash", "run_command", "run_persistent", "terminal"]
+        let enableBash = !allowedTools.isDisjoint(with: terminalToolNames)
+        let webToolNames: Set<String> = ["web_search", "web", "web_fetch"]
+        let enableWebSearch = !allowedTools.isDisjoint(with: webToolNames)
+        let toolConfig = ToolConfig(
+            vaultPath: vaultPath,
+            enableBash: enableBash,
+            enableWebSearch: enableWebSearch,
+            toolTier: "agent",
+            allowedToolNames: Array(allowedTools).sorted()
+        )
+
+        let policy = compiled.resolvedExecutionPolicy
+        let agentConfig = AgentConfigFFI(
+            maxTurns: UInt32(max(1, policy.maxTurns)),
+            maxOutputTokens: UInt32(max(1024, policy.maxOutputTokens)),
+            contextThreshold: 32000,
+            enableThinking: true,
+            effort: accState.selectedNativeProviderEffort?.rustValue ?? "medium",
+            systemPrompt: systemParts.joined(separator: "\n\n"),
+            autoApproveReads: false,
+            autoApproveWrites: false,
+            promptMode: nil
+        )
+
+        var capturedDelegate: StreamingDelegate?
+        let stream = AsyncStream<AgentStreamEvent> { continuation in
+            let delegate = StreamingDelegate(continuation: continuation)
+            capturedDelegate = delegate
+            Task {
+                do {
+                    let _ = try await runAgentSession(
+                        sessionId: sessionId,
+                        objective: compiled.query,
+                        providerName: providerName,
+                        toolConfig: toolConfig,
+                        agentConfig: agentConfig,
+                        delegate: delegate
+                    )
+                    continuation.finish()
+                } catch {
+                    continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
+                    continuation.finish()
+                }
+            }
+        }
+
+        for await event in stream {
+            switch event {
+            case .thinkingDelta:
+                break
+
+            case .textDelta(let text):
+                receivedAgentContent = true
+                agentChat.appendStreamingText(text)
+
+            case .toolStarted(let id, let name, let inputJson):
+                receivedAgentContent = true
+                agentChat.activeToolName = name
+                agentChat.isAgentExecuting = true
+                agentChat.recordToolUse(id: id, name: name, inputJson: inputJson)
+                activeToolStarts[id] = (name, Date())
+                accState.diagnostics.recordActiveTool(name: name)
+
+            case .toolCompleted(let id, let result, let isError):
+                receivedAgentContent = true
+                agentChat.activeToolName = nil
+                agentChat.isAgentExecuting = false
+                let startInfo = activeToolStarts.removeValue(forKey: id)
+                let durationMs = startInfo.map {
+                    UInt64(Date().timeIntervalSince($0.startedAt) * 1000)
+                } ?? 0
+                agentChat.recordToolResult(
+                    toolUseId: id,
+                    result: result,
+                    isError: isError,
+                    durationMs: durationMs
+                )
+                let record = ACCToolExecutionRecord(
+                    id: id,
+                    toolName: startInfo?.name ?? "unknown",
+                    inputSummary: "",
+                    resultSummary: String(result.prefix(200)),
+                    durationMs: durationMs,
+                    isError: isError
+                )
+                accState.diagnostics.recordToolExecution(record)
+                accState.diagnostics.recordActiveTool(name: nil)
+
+            case .permissionRequired(let request):
+                receivedAgentContent = true
+                let approved = !request.requiresHumanApproval
+                capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
+                accState.diagnostics.recordPermissionDecision(
+                    CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
+                        id: request.id,
+                        toolName: request.toolName,
+                        riskLevel: String(describing: request.riskLevel),
+                        decision: approved ? .approvedAutoReadOnly : .deniedByPolicy,
+                        at: Date()
+                    )
+                )
+
+            case .complete(let stopReason, let inputTokens, let outputTokens, _):
+                receivedAgentContent = true
+                accState.diagnostics.markCompleted(
+                    stopReason: stopReason,
+                    inputTokens: inputTokens,
+                    outputTokens: outputTokens
+                )
+
+            case .error(let error):
+                if receivedAgentContent {
+                    agentChat.addErrorMessage("Agent error: \(error.message)")
+                    accState.diagnostics.markFailed(
+                        errorClass: .providerFailure,
+                        message: error.message
+                    )
+                } else {
+                    terminalAgentError = error
+                }
+
+            case .turnStarted(let turn, let messageCount):
+                receivedAgentContent = true
+                agentChat.agentTurnCount = turn
+                accState.diagnostics.recordTurnStarted(turn: turn, messageCount: messageCount)
+
+            case .contextCompacting(let tokens):
+                accState.diagnostics.recordContextCompacting(tokens: tokens)
+
+            case .contextCompacted(let messageCount):
+                accState.diagnostics.recordContextCompacted(messageCount: messageCount)
+
+            case .subagentSpawned(let id, let role):
+                accState.diagnostics.recordSubagentSpawned(id: id, role: role)
+
+            case .toolInputStreaming:
+                break
+            }
+        }
+
+        if let err = terminalAgentError {
+            throw err
+        }
+    }
+
+    private func commandCenterExecutionPlan(
+        from compiled: CompiledCommandCenterRequest
+    ) -> OverseerComplexityRouter.ExecutionPlan {
+        let resolvedRoute = OverseerExecutionRoute(
+            rawValue: compiled.resolvedExecutionPolicy.route
+        ) ?? {
+            switch compiled.resolvedExecutionPolicy.effectiveOperatingMode {
+            case .agent:
+                return compiled.allowedToolNames.isEmpty ? .localOnly : .overseerLocalExecution
+            case .pro:
+                return .overseerLocalExecution
+            case .fast, .thinking:
+                return .localOnly
+            }
+        }()
+
+        let toolPermissions: [OverseerToolPermission] = compiled.resolvedToolPermissions.compactMap { permission in
+            guard permission.decision.isAllowed else { return nil }
+            return OverseerToolPermission(
+                toolName: permission.toolName,
+                mode: permission.requiresConfirmation || permission.destructive ? .ask : .allow
+            )
+        }
+
+        let plan = OverseerPlanV1(
+            version: .v1,
+            route: resolvedRoute,
+            maskPlan: OverseerMaskPlan(
+                expertAllowlist: compiled.resolvedExecutionPolicy.expertAllowlist.isEmpty
+                    ? ["general"]
+                    : compiled.resolvedExecutionPolicy.expertAllowlist,
+                rationale: compiled.resolvedExecutionPolicy.summary
+            ),
+            loraBlendCoefficients: [],
+            kvPolicyFlag: .preserveSharedBase,
+            depthBudget: OverseerDepthBudget(
+                maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
+                maxReasoningSteps: max(1, compiled.resolvedExecutionPolicy.maxReasoningSteps),
+                maxToolCalls: max(0, compiled.resolvedExecutionPolicy.maxToolCalls),
+                maxOutputTokens: max(1024, compiled.resolvedExecutionPolicy.maxOutputTokens)
+            ),
+            toolPermissions: toolPermissions,
+            contextSummary: OverseerContextSummary(
+                summary: compiled.resolvedExecutionPolicy.summary,
+                entityIDs: compiled.resolvedNoteIds,
+                sourceSessionID: nil
+            )
+        )
+
+        return OverseerComplexityRouter.ExecutionPlan(
+            route: resolvedRoute,
+            localOperatingMode: compiled.resolvedExecutionPolicy.effectiveOperatingMode,
+            plan: (try? plan.validated()) ?? plan.normalized(),
+            summary: compiled.resolvedExecutionPolicy.summary
+        )
+    }
+
+    private func runCommandCenterLocalAgentPath(
+        compiled: CompiledCommandCenterRequest,
+        localModelID: String,
+        conversationHistory: String?,
+        agentChat: AgentChatState,
+        accState: AgentCommandCenterState,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan
+    ) async throws {
+        let vaultPath = bootstrap.vaultSync.vaultURL?.path ?? ""
+        let tier: ChatToolTier = compiled.allowedToolNames.isEmpty ? .none : .agent
+        let bridge = ToolTierBridge(
+            vaultPath: vaultPath,
+            tier: tier,
+            allowedToolNames: compiled.allowedToolNames
+        )
+        let tools = bridge.loadTools()
+        let baseToolExecutor = bridge.toolExecutor()
+        let toolMetadataByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
+
+        let objective = [compiled.notesContext, conversationHistory, compiled.query]
+            .compactMap { value in
+                guard let value else { return nil }
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                return trimmed.isEmpty ? nil : trimmed
+            }
+            .joined(separator: "\n\n")
+
+        var systemInstructions: [String] = [
+            "You are Epistemos Agent Command Center. Be precise and actionable.",
+            executionPlan.additionalSystemPrompt(),
+        ]
+        if let slashToken = compiled.requestedSlashToken {
+            systemInstructions.append(
+                "Requested command: \(slashToken.displayName) (\(slashToken.identifier))."
+            )
+        }
+
+        let reasoningMode: LocalReasoningMode = switch compiled.resolvedExecutionPolicy.effectiveOperatingMode {
+        case .fast:
+            .fast
+        case .thinking, .pro, .agent:
+            .thinking
+        }
+
+        let loop = LocalAgentLoop.liveLoop(
+            using: bootstrap.localMLXClient,
+            constrainedDecoding: bootstrap.constrainedDecoding,
+            toolExecutor: { [self] name, argumentsJson in
+                let callID = UUID().uuidString
+                let startedAt = Date()
+                let metadata = toolMetadataByName[name]
+
+                await MainActor.run {
+                    agentChat.activeToolName = name
+                    agentChat.isAgentExecuting = true
+                    agentChat.recordToolUse(id: callID, name: name, inputJson: argumentsJson)
+                    accState.diagnostics.recordActiveTool(name: name)
+                }
+
+                let permissionRequest = AgentPermissionRequest(
+                    id: callID,
+                    toolName: name,
+                    inputJson: argumentsJson,
+                    riskLevel: Self.commandCenterToolRiskLevel(for: metadata),
+                    description: "Command Center requested \(name) during local agent execution."
+                )
+
+                if permissionRequest.requiresHumanApproval {
+                    let approved = await self.promptForToolApproval(permissionRequest)
+                    await MainActor.run {
+                        accState.diagnostics.recordPermissionDecision(
+                            CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
+                                id: callID,
+                                toolName: name,
+                                riskLevel: self.riskLabel(for: permissionRequest.riskLevel),
+                                decision: approved ? .approvedByUser : .deniedByUser,
+                                at: Date()
+                            )
+                        )
+                    }
+                    if !approved {
+                        let deniedResult = LocalToolResult(
+                            toolName: name,
+                            resultJson: Self.commandCenterToolErrorJSON(
+                                "Tool '\(name)' was denied by the user."
+                            ),
+                            isError: true
+                        )
+                        let durationMs = UInt64(Date().timeIntervalSince(startedAt) * 1000)
+                        await MainActor.run {
+                            agentChat.recordToolResult(
+                                toolUseId: callID,
+                                result: deniedResult.resultJson,
+                                isError: deniedResult.isError,
+                                durationMs: durationMs
+                            )
+                            agentChat.activeToolName = nil
+                            agentChat.isAgentExecuting = false
+                            accState.diagnostics.recordToolExecution(
+                                ACCToolExecutionRecord(
+                                    id: callID,
+                                    toolName: name,
+                                    inputSummary: String(argumentsJson.prefix(200)),
+                                    resultSummary: "Denied by user",
+                                    durationMs: durationMs,
+                                    isError: true
+                                )
+                            )
+                            accState.diagnostics.recordActiveTool(name: nil)
+                        }
+                        return deniedResult
+                    }
+                } else {
+                    await MainActor.run {
+                        accState.diagnostics.recordPermissionDecision(
+                            CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
+                                id: callID,
+                                toolName: name,
+                                riskLevel: self.riskLabel(for: permissionRequest.riskLevel),
+                                decision: .approvedAutoReadOnly,
+                                at: Date()
+                            )
+                        )
+                    }
+                }
+
+                let result = await baseToolExecutor(name, argumentsJson)
+                let durationMs = UInt64(Date().timeIntervalSince(startedAt) * 1000)
+                await MainActor.run {
+                    agentChat.recordToolResult(
+                        toolUseId: callID,
+                        result: result.resultJson,
+                        isError: result.isError,
+                        durationMs: durationMs
+                    )
+                    agentChat.activeToolName = nil
+                    agentChat.isAgentExecuting = false
+                    accState.diagnostics.recordToolExecution(
+                        ACCToolExecutionRecord(
+                            id: callID,
+                            toolName: name,
+                            inputSummary: String(argumentsJson.prefix(200)),
+                            resultSummary: String(result.resultJson.prefix(200)),
+                            durationMs: durationMs,
+                            isError: result.isError
+                        )
+                    )
+                    accState.diagnostics.recordActiveTool(name: nil)
+                }
+                return result
+            },
+            modelID: localModelID,
+            steeringHintsJSON: executionPlan.steeringHintsJSON,
+            maxResponseTokens: max(1024, compiled.resolvedExecutionPolicy.maxOutputTokens),
+            defaultReasoningMode: reasoningMode
+        )
+
+        accState.diagnostics.recordTurnStarted(
+            turn: 1,
+            messageCount: max(1, agentChat.messages.count)
+        )
+
+        let output = try await loop.run(
+            objective: objective,
+            tools: tools,
+            maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
+            reasoningMode: reasoningMode,
+            additionalSystemPrompt: systemInstructions.joined(separator: "\n\n"),
+            onToken: { token in
+                agentChat.appendStreamingText(token)
+            }
+        )
+
+        accState.diagnostics.markCompleted(
+            stopReason: output.isEmpty ? "completed_empty" : "completed",
+            inputTokens: LocalAgentLoop.approximateTokenCount(of: objective),
+            outputTokens: LocalAgentLoop.approximateTokenCount(of: output)
+        )
+        agentChat.completeProcessing(mode: inferenceState.inferenceMode)
+    }
+
+    private func currentCommandCenterAutoBrain() -> ACCBrainSelection? {
+        switch inferenceState.preferredChatModelSelection {
+        case .localMLX(let requestedModelID):
+            let effectiveModelID = inferenceState.effectiveLocalTextModelID ?? requestedModelID
+            guard let model = LocalTextModelID(rawValue: effectiveModelID) else {
+                return nil
+            }
+            return .local(
+                modelId: model.rawValue,
+                displayName: model.compactDisplayName,
+                supportsThinking: model.supportsThinkingMode,
+                supportsVision: model.supportsVision,
+                supportsTools: model.supportsNativeToolCalling
+            )
+        case .appleIntelligence:
+            return inferenceState.appleIntelligenceAvailable ? .appleIntelligence : nil
+        case .cloud(let model):
+            return .cloud(provider: model.provider)
+        }
+    }
+
     // MARK: - Query Lifecycle
 
     /// Process a user query through the direct local answer path, streaming tokens back to ChatState.
@@ -290,7 +929,7 @@ final class ChatCoordinator {
 
                 let pendingAssistantId = UUID().uuidString
                 let capturedChatId = chatState.activeChatId
-                let executionPlan = buildOverseerExecutionPlan(
+                let executionPlan = await buildOverseerExecutionPlan(
                     query: effectiveQuery,
                     contentLength: effectiveQuery.count
                         + (effectiveNotesContextWithWorkspace?.count ?? 0)
@@ -429,7 +1068,9 @@ final class ChatCoordinator {
             vaultPath: vaultPath,
             enableBash: true,
             enableWebSearch: true,
-            toolTier: "agent"
+            toolTier: "agent",
+            // Main chat path has no per-tool UI — tier is the only gate.
+            allowedToolNames: nil
         )
 
         let agentConfig = AgentConfigFFI(
@@ -608,7 +1249,42 @@ final class ChatCoordinator {
 
     /// Maps the current cloud provider selection to a Rust provider name string.
     private func resolveRustProviderName() -> String {
-        switch inferenceState.activeAIProvider {
+        resolveRustProviderName(for: inferenceState.activeAIProvider)
+    }
+
+    private func resolveRustProviderName(explicitProviderRawValue: String) -> String {
+        if let provider = CloudModelProvider(rawValue: explicitProviderRawValue) {
+            return resolveRustProviderName(for: AIProviderSelection(cloudProvider: provider))
+        }
+
+        switch explicitProviderRawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "claude", "claude_sonnet", "anthropic":
+            return "claude_sonnet"
+        case "claude_opus":
+            return "claude_opus"
+        case "claude_haiku":
+            return "claude_haiku"
+        case "openai", "openai_gpt4o":
+            return "openai_gpt4o"
+        case "gemini", "gemini_flash", "google":
+            return "gemini_flash"
+        case "gemini_pro":
+            return "gemini_pro"
+        case "zai", "glm":
+            return "zai"
+        case "kimi", "kimi_coding":
+            return "kimi_coding"
+        case "minimax":
+            return "minimax"
+        case "deepseek":
+            return "deepseek"
+        default:
+            return resolveRustProviderName()
+        }
+    }
+
+    private func resolveRustProviderName(for provider: AIProviderSelection) -> String {
+        switch provider {
         case .anthropic:  return "claude_sonnet"
         case .openAI:     return "openai_gpt4o"
         case .google:     return "gemini_flash"
@@ -620,6 +1296,34 @@ final class ChatCoordinator {
         }
     }
 
+    nonisolated private static func commandCenterToolRiskLevel(
+        for tool: OmegaToolDefinition?
+    ) -> AgentRuntimeRiskLevel {
+        guard let tool else { return .readOnly }
+        if tool.destructive {
+            return .destructive
+        }
+        if tool.requiresConfirmation {
+            return .modification
+        }
+        return .readOnly
+    }
+
+    nonisolated private static func commandCenterToolErrorJSON(_ message: String) -> String {
+        let payload: [String: Any] = [
+            "error": message,
+            "success": false,
+        ]
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        ),
+        let json = String(data: data, encoding: .utf8) else {
+            return "{\"error\":\"\(message)\",\"success\":false}"
+        }
+        return json
+    }
+
     private func buildOverseerExecutionPlan(
         query: String,
         contentLength: Int,
@@ -628,10 +1332,10 @@ final class ChatCoordinator {
         attachmentCount: Int,
         notesContext: String?,
         conversationHistory: String?
-    ) -> OverseerComplexityRouter.ExecutionPlan? {
+    ) async -> OverseerComplexityRouter.ExecutionPlan? {
         guard operatingMode == .agent else { return nil }
-        let router = OverseerComplexityRouter(inference: inferenceState)
-        return router.planForMainChat(
+        let planner = ModelRefinedPlanner(inference: inferenceState)
+        return await planner.planForMainChat(
             query: query,
             contentLength: contentLength,
             operatingMode: operatingMode,

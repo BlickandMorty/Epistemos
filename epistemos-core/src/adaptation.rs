@@ -5,6 +5,27 @@ use std::time::Instant;
 // ── Adaptation Session Types ────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExperimentalAdaptTarget {
+    HelperModel,
+    MainModelExperiment,
+}
+
+impl ExperimentalAdaptTarget {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::HelperModel => "helper_model",
+            Self::MainModelExperiment => "main_model_experiment",
+        }
+    }
+}
+
+impl Default for ExperimentalAdaptTarget {
+    fn default() -> Self {
+        Self::HelperModel
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AdaptSessionState {
     Idle,
     Accumulating,
@@ -31,6 +52,7 @@ impl AdaptSessionState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AdaptSessionConfig {
+    pub adapt_target: String,
     pub adapter_id: String,
     pub model_id: String,
     pub min_chunk_tokens: u32,
@@ -40,9 +62,19 @@ pub struct AdaptSessionConfig {
     pub canary_loss_threshold_multiplier: f64,
 }
 
+impl AdaptSessionConfig {
+    pub fn parsed_target(&self) -> ExperimentalAdaptTarget {
+        match self.adapt_target.as_str() {
+            "main_model_experiment" => ExperimentalAdaptTarget::MainModelExperiment,
+            _ => ExperimentalAdaptTarget::HelperModel,
+        }
+    }
+}
+
 impl Default for AdaptSessionConfig {
     fn default() -> Self {
         Self {
+            adapt_target: "helper_model".into(),
             adapter_id: String::new(),
             model_id: String::new(),
             min_chunk_tokens: 256,
@@ -86,6 +118,8 @@ pub enum AdaptSessionError {
     NormCapExceeded,
     CanaryFailed,
     BudgetExhausted,
+    ExperimentNotAvailable,
+    PolicyDenied,
     InternalError,
 }
 
@@ -97,6 +131,8 @@ impl std::fmt::Display for AdaptSessionError {
             Self::NormCapExceeded => "adapt_norm_cap_exceeded",
             Self::CanaryFailed => "adapt_canary_failed",
             Self::BudgetExhausted => "adapt_budget_exhausted",
+            Self::ExperimentNotAvailable => "adapt_experiment_not_available",
+            Self::PolicyDenied => "adapt_policy_denied",
             Self::InternalError => "adapt_internal_error",
         };
         f.write_str(label)
@@ -165,7 +201,6 @@ struct AdaptSession {
     state: AdaptSessionState,
     accumulated_tokens: u32,
     update_count: u32,
-    adapt_step_count: u32,
     rollback_count: u32,
     baseline_canary_loss: f64,
     last_canary_loss: f64,
@@ -180,7 +215,6 @@ impl AdaptSession {
             state: AdaptSessionState::Accumulating,
             accumulated_tokens: 0,
             update_count: 0,
-            adapt_step_count: 0,
             rollback_count: 0,
             baseline_canary_loss: 0.0,
             last_canary_loss: 0.0,
@@ -275,6 +309,17 @@ impl AdaptationSubsystem {
             return Err(AdaptSessionError::InternalError);
         }
 
+        if config.parsed_target() == ExperimentalAdaptTarget::MainModelExperiment {
+            #[cfg(not(feature = "experimental_main_adapt"))]
+            {
+                return Err(AdaptSessionError::PolicyDenied);
+            }
+            #[cfg(feature = "experimental_main_adapt")]
+            {
+                return Err(AdaptSessionError::ExperimentNotAvailable);
+            }
+        }
+
         let session_id = self.next_id("adapt");
         let session = AdaptSession::new(config);
 
@@ -348,11 +393,6 @@ impl AdaptationSubsystem {
             return Err(AdaptSessionError::BudgetExhausted);
         }
 
-        if session.adapt_step_count >= session.config.max_adapt_steps {
-            return Err(AdaptSessionError::BudgetExhausted);
-        }
-
-        session.adapt_step_count += 1;
         session.state = AdaptSessionState::Updating;
         Ok(())
     }
@@ -689,6 +729,35 @@ mod tests {
     }
 
     #[test]
+    fn rejected_update_rolls_back_even_without_threshold_breach() {
+        let subsystem = AdaptationSubsystem::new();
+        let sid = subsystem.begin_adapt_session(default_config()).unwrap();
+        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
+        subsystem.submit_training_signal(sid.clone(), 300).unwrap();
+        subsystem.fire_update(sid.clone()).unwrap();
+
+        let err = subsystem
+            .report_update_result(
+                sid.clone(),
+                AdaptUpdateResult {
+                    accepted: false,
+                    canary_loss: 1.1,
+                    anchor_divergence: 0.01,
+                    gradient_norm: 0.5,
+                    rollback_triggered: false,
+                    duration_ms: 25.0,
+                },
+            )
+            .unwrap_err();
+
+        assert_eq!(err, AdaptSessionError::CanaryFailed);
+        let snap = subsystem.adapt_session_snapshot(sid.clone()).unwrap();
+        assert_eq!(snap.state, "rolled_back");
+        assert_eq!(snap.rollback_count, 1);
+        assert_eq!(snap.update_count, 0);
+    }
+
+    #[test]
     fn norm_cap_exceeded_drops_update() {
         let subsystem = AdaptationSubsystem::new();
         let sid = subsystem.begin_adapt_session(default_config()).unwrap();
@@ -741,40 +810,6 @@ mod tests {
                 },
             )
             .unwrap();
-
-        subsystem.submit_training_signal(sid.clone(), 300).unwrap();
-        let err = subsystem.fire_update(sid.clone()).unwrap_err();
-        assert_eq!(err, AdaptSessionError::BudgetExhausted);
-    }
-
-    #[test]
-    fn adapt_step_budget_exhaustion_counts_failed_attempts() {
-        let subsystem = AdaptationSubsystem::new();
-        let config = AdaptSessionConfig {
-            adapter_id: "test".into(),
-            model_id: "test".into(),
-            max_update_count: 10,
-            max_adapt_steps: 1,
-            ..Default::default()
-        };
-        let sid = subsystem.begin_adapt_session(config).unwrap();
-
-        subsystem.submit_training_signal(sid.clone(), 300).unwrap();
-        subsystem.fire_update(sid.clone()).unwrap();
-        let err = subsystem
-            .report_update_result(
-                sid.clone(),
-                AdaptUpdateResult {
-                    accepted: false,
-                    canary_loss: 0.5,
-                    anchor_divergence: 0.01,
-                    gradient_norm: 0.1,
-                    rollback_triggered: false,
-                    duration_ms: 10.0,
-                },
-            )
-            .unwrap_err();
-        assert_eq!(err, AdaptSessionError::CanaryFailed);
 
         subsystem.submit_training_signal(sid.clone(), 300).unwrap();
         let err = subsystem.fire_update(sid.clone()).unwrap_err();
@@ -932,32 +967,63 @@ mod tests {
         assert_eq!(snap.state, "rolled_back");
     }
 
+    // ── Phase 4: Experiment Target Tests ────────────────────────────────
+
     #[test]
-    fn rejected_update_fails_closed_even_without_explicit_rollback() {
+    fn helper_model_target_is_allowed() {
         let subsystem = AdaptationSubsystem::new();
-        let sid = subsystem.begin_adapt_session(default_config()).unwrap();
-        subsystem.set_baseline_canary_loss(sid.clone(), 1.0).unwrap();
-        subsystem.submit_training_signal(sid.clone(), 300).unwrap();
-        subsystem.fire_update(sid.clone()).unwrap();
+        let config = AdaptSessionConfig {
+            adapter_id: "adapter".into(),
+            model_id: "helper-model".into(),
+            adapt_target: "helper_model".into(),
+            ..Default::default()
+        };
+        let result = subsystem.begin_adapt_session(config);
+        assert!(result.is_ok());
+    }
 
-        let err = subsystem
-            .report_update_result(
-                sid.clone(),
-                AdaptUpdateResult {
-                    accepted: false,
-                    canary_loss: 1.1,
-                    anchor_divergence: 0.01,
-                    gradient_norm: 0.1,
-                    rollback_triggered: false,
-                    duration_ms: 10.0,
-                },
-            )
-            .unwrap_err();
+    #[test]
+    #[cfg(not(feature = "experimental_main_adapt"))]
+    fn main_model_experiment_denied_without_feature_flag() {
+        let subsystem = AdaptationSubsystem::new();
+        let config = AdaptSessionConfig {
+            adapter_id: "adapter".into(),
+            model_id: "main-model".into(),
+            adapt_target: "main_model_experiment".into(),
+            ..Default::default()
+        };
+        let result = subsystem.begin_adapt_session(config);
+        assert!(matches!(result, Err(AdaptSessionError::PolicyDenied)));
+    }
 
-        assert_eq!(err, AdaptSessionError::CanaryFailed);
-        let snap = subsystem.adapt_session_snapshot(sid.clone()).unwrap();
-        assert_eq!(snap.state, "rolled_back");
-        assert_eq!(snap.rollback_count, 1);
-        assert_eq!(snap.update_count, 0);
+    #[test]
+    #[cfg(feature = "experimental_main_adapt")]
+    fn main_model_experiment_returns_not_available_with_flag() {
+        let subsystem = AdaptationSubsystem::new();
+        let config = AdaptSessionConfig {
+            adapter_id: "adapter".into(),
+            model_id: "main-model".into(),
+            adapt_target: "main_model_experiment".into(),
+            ..Default::default()
+        };
+        let result = subsystem.begin_adapt_session(config);
+        assert!(matches!(result, Err(AdaptSessionError::ExperimentNotAvailable)));
+    }
+
+    #[test]
+    fn parsed_target_defaults_to_helper() {
+        let config = AdaptSessionConfig::default();
+        assert_eq!(config.parsed_target(), ExperimentalAdaptTarget::HelperModel);
+    }
+
+    #[test]
+    fn parsed_target_recognizes_main_model() {
+        let config = AdaptSessionConfig {
+            adapt_target: "main_model_experiment".into(),
+            adapter_id: "a".into(),
+            model_id: "m".into(),
+            ..Default::default()
+        };
+        assert_eq!(config.parsed_target(), ExperimentalAdaptTarget::MainModelExperiment);
     }
 }

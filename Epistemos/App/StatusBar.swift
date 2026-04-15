@@ -60,6 +60,18 @@ final class StatusBar {
         home.target = self
         menu.addItem(home)
 
+        let skipRestore = NSMenuItem(
+            title: "Skip Restore and Relaunch Home",
+            action: #selector(skipRestoreAndRelaunch),
+            keyEquivalent: ""
+        )
+        skipRestore.image = NSImage(
+            systemSymbolName: "arrow.clockwise.circle",
+            accessibilityDescription: nil
+        )
+        skipRestore.target = self
+        menu.addItem(skipRestore)
+
         menu.addItem(.separator())
 
         // Utility windows
@@ -95,11 +107,13 @@ final class StatusBar {
             AppBootstrap.shared?.chatState.goHome()
             AppBootstrap.shared?.uiState.setActivePanel(.home)
             AppBootstrap.shared?.uiState.homeTab = .home
-            NSApplication.shared.activate()
-            // mainWindow can be nil when app is backgrounded — find by title.
-            if let main = NSApp.windows.first(where: { $0.title == "Epistemos" }) {
-                main.makeKeyAndOrderFront(nil)
-            }
+            HomeWindowIdentity.surfaceHomeWindow()
+        }
+    }
+
+    @objc private func skipRestoreAndRelaunch() {
+        Task { @MainActor in
+            AppBootstrap.shared?.relaunchSkippingRestoreAndDiscardSession()
         }
     }
 

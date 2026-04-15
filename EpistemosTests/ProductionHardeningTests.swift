@@ -807,7 +807,9 @@ struct AuditHardeningRegressionTests {
         #expect(notesSidebar.contains(".accessibilityLabel(\"Clear search\")"))
 
         #expect(landing.contains(".accessibilityLabel(\"Send prompt\")"))
-        #expect(landing.contains(".accessibilityLabel(\"Local Model\")"))
+        #expect(landing.contains("key: \"J\", label: \"Command Center\""))
+        #expect(landing.contains("AppBootstrap.shared?.agentCommandCenterState.present()"))
+        #expect(!landing.contains(".accessibilityLabel(\"Local Model\")"))
         #expect(landing.contains("ProgressView()"))
     }
 

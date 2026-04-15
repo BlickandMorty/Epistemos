@@ -411,6 +411,9 @@ mod tests {
         fn generate_constrained(&self, _: String, _: String) -> String {
             self.constrained_response.clone()
         }
+        fn generate_image(&self, _: String, _: String) -> String {
+            "{\"error\":\"image_generate stub\"}".to_string()
+        }
         fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
             "{}".to_string()
         }
