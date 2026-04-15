@@ -165,6 +165,47 @@ struct GraphWorkspaceRouteBackForwardTests {
     }
 }
 
+@Suite("Graph Workspace — Note Page Composition")
+@MainActor
+struct GraphWorkspaceNotePageCompositionTests {
+    // Source-mirror assertions verify that the graph note page reuses the
+    // canonical TextKit 2 editor stack instead of forking it. Runtime tests
+    // for graph-page editing would require constructing a full ModelContainer
+    // with a real SDPage; these assertions catch regressions where a
+    // placeholder replaces ProseEditorView or where a second editor store
+    // is introduced.
+
+    @Test("GraphNotePage embeds the real ProseEditorView with per-page NoteChatState")
+    func graphNotePageEmbedsRealProseEditor() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphNotePage.swift"
+        )
+
+        #expect(source.contains("struct GraphNotePage: View"))
+        #expect(source.contains("@Query private var pages: [SDPage]"))
+        #expect(source.contains("#Predicate<SDPage> { $0.id == sourceId }"))
+        #expect(source.contains("@State private var noteChatState: NoteChatState"))
+        #expect(source.contains("NoteChatState(pageId: sourceId)"))
+        #expect(source.contains("ProseEditorView(page: page)"))
+        #expect(source.contains(".environment(noteChatState)"))
+    }
+
+    @Test("GraphWorkspaceContainer routes .note to GraphNotePage, not a placeholder")
+    func containerRoutesNoteCaseToGraphNotePage() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
+        )
+
+        #expect(source.contains("case .note(let id):"))
+        #expect(source.contains("GraphNotePage(sourceId: id)"))
+        // Identity modifier forces a fresh init when the id changes so each
+        // note gets its own NoteChatState.
+        #expect(source.contains(".id(id)"))
+        // Placeholder text from Step 2 must be gone.
+        #expect(!source.contains("Graph Note Page Placeholder"))
+    }
+}
+
 @Suite("Graph Workspace Route — Change Notification")
 @MainActor
 struct GraphWorkspaceRouteNotificationTests {

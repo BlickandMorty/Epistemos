@@ -22,12 +22,10 @@ struct GraphWorkspaceContainer: View {
                 graphPageBackdrop
 
                 VStack(spacing: 0) {
-                    graphPageHeader(title: "Note: \(id)")
+                    graphPageHeader(title: "Note")
 
-                    Text("Graph Note Page Placeholder for \(id)")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    GraphNotePage(sourceId: id)
+                        .id(id)
                 }
 
             case .folder(let id):

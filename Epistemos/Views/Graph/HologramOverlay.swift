@@ -1460,8 +1460,14 @@ final class HologramOverlay {
             object: graphState,
             queue: .main
         ) { [weak self] _ in
-            guard let self else { return }
-            self.routeHostView?.isHidden = self.graphState.currentRoute.isCanvas
+            // NotificationCenter delivery is on `.main` so the @Sendable
+            // closure body runs on the main thread. Hop into the main actor
+            // explicitly so Swift 6 strict concurrency lets us touch the
+            // MainActor-isolated `graphState` / `routeHostView`.
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.routeHostView?.isHidden = self.graphState.currentRoute.isCanvas
+            }
         }
 
         // Floating controls (SwiftUI hosted — draggable).
