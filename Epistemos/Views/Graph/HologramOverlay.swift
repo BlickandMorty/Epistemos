@@ -190,8 +190,10 @@ final class HologramOverlay {
     // Draggable toolbar and sidebar hosting views.
     private var controlsHostView: NSHostingView<AnyView>?
     private var sidebarHostView: NSHostingView<AnyView>?
+    private var routeHostView: NSHostingView<AnyView>?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
+    private var routeConstraints: [NSLayoutConstraint] = []
 
     // Mini floating panel (chromeless glass float).
     private var miniPanel: GraphOverlayPanel?
@@ -1424,6 +1426,23 @@ final class HologramOverlay {
         graphView.setLightMode(GraphOverlayThemeStyle.lightModeEnabled(for: theme))
         graphView.autoresizingMask = [.width, .height]
         contentView.addSubview(graphView)
+
+        // Graph Workspace Route overlay (SwiftUI hosted — full screen or pass-through).
+        let routeView = NSHostingView(
+            rootView: HologramOverlayHostedViewBuilder.root(GraphWorkspaceContainer())
+        )
+        routeView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(routeView, positioned: .above, relativeTo: graphView)
+        self.routeHostView = routeView
+
+        let rtConstraints = [
+            routeView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            routeView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            routeView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            routeView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor)
+        ]
+        NSLayoutConstraint.activate(rtConstraints)
+        self.routeConstraints = rtConstraints
 
         // Floating controls (SwiftUI hosted — draggable).
         let controlsView = NSHostingView(
