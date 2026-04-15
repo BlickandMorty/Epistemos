@@ -1535,8 +1535,20 @@ final class MetalGraphNSView: NSView {
 
     @objc private func contextMenuAskGraphChat(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? String else { return }
-        metalGraphLog.info("Ask Graph Chat invoked for node \(id, privacy: .public)")
-        // No-op hook for Graph Chat integration (Step 6)
+        // Posts a typed GraphChatRequest on `.graphChatRequested`. The
+        // Agent Command Center (or a future dedicated GraphChatState)
+        // listens and prefills its composer with the node context. No
+        // second chat session is created here — this is an intent event,
+        // not a control-plane mutation.
+        guard let request = graphState?.askGraphChat(nodeId: id) else {
+            metalGraphLog.info(
+                "Ask Graph Chat no-op: missing state or node \(id, privacy: .public)"
+            )
+            return
+        }
+        metalGraphLog.info(
+            "Ask Graph Chat dispatched for node \(request.graphNodeId, privacy: .public) type=\(request.nodeType, privacy: .public)"
+        )
     }
 
     override func mouseDragged(with event: NSEvent) {
