@@ -1453,12 +1453,12 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!chatTypes.contains("var useLocal: Bool"))
     }
 
-    @Test("bundle plist drops unused speech and microphone permission prompts")
-    func bundlePlistDropsUnusedSpeechAndMicrophonePrompts() throws {
+    @Test("bundle plist drops unused speech permission prompts")
+    func bundlePlistDropsUnusedSpeechPermissionPrompt() throws {
         let plist = try loadBundlePlist()
 
         #expect(plist["NSSpeechRecognitionUsageDescription"] == nil)
-        #expect(plist["NSMicrophoneUsageDescription"] == nil)
+        #expect(plist["NSMicrophoneUsageDescription"] != nil)
     }
 
     @Test("mini chat quick actions no longer use hidden system prompts")
