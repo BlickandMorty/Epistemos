@@ -429,6 +429,7 @@
 		AB3C9F9AD3EFE3BF0E60E016 /* MainThreadWatchdog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6EE2F0F6CE855F5467B64C1 /* MainThreadWatchdog.swift */; };
 		AB3E2CEF03A99FE28CA49C1E /* QuickCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41A86519A355A830B97A4074 /* QuickCaptureView.swift */; };
 		AB7FAF63AAFEE8CD23712E2E /* LocalToolGrammar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0861B658D2F6B8E6BE1D48F /* LocalToolGrammar.swift */; };
+		ABB5C30BDFDA4704FE3ED5CF /* GraphChatRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8EA5FB5311F8E6183F59F5D /* GraphChatRequest.swift */; };
 		AC1D2B5D2AFAD9597E242E2C /* sdf_labels.json in Resources */ = {isa = PBXBuildFile; fileRef = ED9306E2AFDA8616C1B98B50 /* sdf_labels.json */; };
 		AC3C291EB8258EA990B86BB4 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = D3FE9E2F9B78BA657002DE84 /* PrivacyInfo.xcprivacy */; };
 		ACD03694E71E639459A837A2 /* ReasoningLoopTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FADAF4341568F729C86B674D /* ReasoningLoopTests.swift */; };
@@ -462,6 +463,7 @@
 		B6CD5A5B77290070D8B396A8 /* JournalIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271CA2F1B0047DC529BB3E28 /* JournalIntents.swift */; };
 		B8C0D7CAA1C5B74E5167275D /* sgmm_kernel.py in Resources */ = {isa = PBXBuildFile; fileRef = D385E1165E45DD101A2AE54F /* sgmm_kernel.py */; };
 		B8E4DF9701B9AF96D403801A /* QueryTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BF2FB7AD61A07F5E1FB86E5 /* QueryTypes.swift */; };
+		B8FFFB4AF5E1A05FFC00F68E /* GraphWorkspaceGraphChatBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E291DD31982E170040BADB2 /* GraphWorkspaceGraphChatBridgeTests.swift */; };
 		B9459F26DD021E7EF1A16BEE /* LiquidGreeting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 834BA1C13F6D89591F703A0F /* LiquidGreeting.swift */; };
 		B955209FD4110041C982F7A9 /* HarnessIntegration.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C4B6DDF3ABB454937E8B95 /* HarnessIntegration.swift */; };
 		B97A199E4992F51ED6E67F11 /* BackgroundGraphActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7026C012A907B752B7A40819 /* BackgroundGraphActor.swift */; };
@@ -809,6 +811,7 @@
 		3C189568AF077BDBD88A3B93 /* ProseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProseEditorView.swift; sourceTree = "<group>"; };
 		3C484C18B38613802DF49477 /* ReleaseScriptAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseScriptAuditTests.swift; sourceTree = "<group>"; };
 		3D9314F092AC7747696FBBF1 /* OmegaSettingsDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaSettingsDetailView.swift; sourceTree = "<group>"; };
+		3E291DD31982E170040BADB2 /* GraphWorkspaceGraphChatBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphWorkspaceGraphChatBridgeTests.swift; sourceTree = "<group>"; };
 		3E3098BF0524C856FE207DA7 /* AgentControlSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentControlSettingsView.swift; sourceTree = "<group>"; };
 		3E805F2D33B82017A7FFF7BA /* Epistemos-Debug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "Epistemos-Debug.entitlements"; sourceTree = "<group>"; };
 		3E81705C1A6FBAA463D2BA50 /* AgentPermissionRequestTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPermissionRequestTests.swift; sourceTree = "<group>"; };
@@ -1161,6 +1164,7 @@
 		C79B610E1D54D86491379EB9 /* ConflictCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConflictCardView.swift; sourceTree = "<group>"; };
 		C7A91EF972C2696F80B8FD9D /* AdapterRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdapterRegistry.swift; sourceTree = "<group>"; };
 		C7B9929AC713F7E0FBA8D4F4 /* OmegaMoLoRARouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaMoLoRARouterTests.swift; sourceTree = "<group>"; };
+		C8EA5FB5311F8E6183F59F5D /* GraphChatRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphChatRequest.swift; sourceTree = "<group>"; };
 		C90360B15B11C41D8F944352 /* VaultSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultSyncService.swift; sourceTree = "<group>"; };
 		CAC5C08B217E872F8E9DA756 /* ResilienceHardeningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResilienceHardeningTests.swift; sourceTree = "<group>"; };
 		CAC9BB56B7D80708CE3FD745 /* AgentRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRuntime.swift; sourceTree = "<group>"; };
@@ -1374,6 +1378,7 @@
 		077866344A76E66D535F2FD3 /* Workspace */ = {
 			isa = PBXGroup;
 			children = (
+				C8EA5FB5311F8E6183F59F5D /* GraphChatRequest.swift */,
 				159B77858EA6887ED8BED025 /* GraphWorkspaceRoute.swift */,
 			);
 			path = Workspace;
@@ -2230,6 +2235,7 @@
 				67C73F7481A55053C8AB9A57 /* GraphStoreTests.swift */,
 				B03EBFAA3B4AD42204FAA7AA /* GraphTypesComprehensiveTests.swift */,
 				DF9A3E0395E02F012F805C48 /* GraphTypesTests.swift */,
+				3E291DD31982E170040BADB2 /* GraphWorkspaceGraphChatBridgeTests.swift */,
 				F81E04ADD62CA171A1579623 /* GraphWorkspaceRouteTests.swift */,
 				8FD180C15AB89307D31E8CE8 /* HardenedASTFuzzTests.swift */,
 				E0443EBB7571F5309B2984ED /* HardenedConcurrencyTests.swift */,
@@ -2770,6 +2776,7 @@
 				C5DEB26A0F8F784F288EFFBF /* GraphSyncTests.swift in Sources */,
 				EE19C5B19DBE094C7D0BAEA8 /* GraphTypesComprehensiveTests.swift in Sources */,
 				1CC9C1F804D68BA4D79AD7C6 /* GraphTypesTests.swift in Sources */,
+				B8FFFB4AF5E1A05FFC00F68E /* GraphWorkspaceGraphChatBridgeTests.swift in Sources */,
 				C9264F7B139E87080987993D /* GraphWorkspaceRouteTests.swift in Sources */,
 				E4F578EBD9F8541942CED4ED /* HardenedASTFuzzTests.swift in Sources */,
 				0BABE9C1F9290DC3903C3111 /* HardenedConcurrencyTests.swift in Sources */,
@@ -3033,6 +3040,7 @@
 				936FA6F1201E82443FD33045 /* GhostComputerAgent.swift in Sources */,
 				4DD31A1E409EFB92392BC50F /* GlassModifiers.swift in Sources */,
 				EC5AF47B6E94BB8C40F5C3A6 /* GraphBuilder.swift in Sources */,
+				ABB5C30BDFDA4704FE3ED5CF /* GraphChatRequest.swift in Sources */,
 				66A9D2C29E0DAE1E94DE0410 /* GraphDataModel.swift in Sources */,
 				2DD37C982FF5B34F992EE921 /* GraphEngine.swift in Sources */,
 				B0CB1231F8337CACEC28CFA9 /* GraphFirstOpenTitle.swift in Sources */,

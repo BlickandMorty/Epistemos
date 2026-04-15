@@ -461,6 +461,29 @@ final class GraphState {
         NotificationCenter.default.post(name: .graphRouteDidChange, object: self)
     }
 
+    /// Constructs a `GraphChatRequest` describing the user's "Ask Graph Chat"
+    /// intent and posts it on `.graphChatRequested`. This is an intent event,
+    /// not a second chat session — receivers (Agent Command Center, a future
+    /// GraphChatState) open their own UI and prefill from the payload.
+    /// Returns the dispatched request so call sites can inspect it in tests.
+    @discardableResult
+    func askGraphChat(nodeId: String) -> GraphChatRequest? {
+        guard let node = store.nodes[nodeId] else { return nil }
+        let request = GraphChatRequest(
+            graphNodeId: node.id,
+            sourceId: node.sourceId,
+            nodeType: node.type.rawValue,
+            nodeLabel: node.label,
+            route: currentRoute
+        )
+        NotificationCenter.default.post(
+            name: .graphChatRequested,
+            object: self,
+            userInfo: [GraphChatRequest.userInfoKey: request]
+        )
+        return request
+    }
+
     private static let visualThemeDefaultsKey = "graphVisualTheme"
     private static let visualThemeMigrationDefaultsKey =
         "epistemos.graph.visualTheme.migratedClassicDefault"
