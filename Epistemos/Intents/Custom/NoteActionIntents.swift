@@ -25,15 +25,32 @@ struct QuickCaptureIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
 
-        guard let pageId = await bootstrap.vaultSync.createPage(title: noteTitle, body: body ?? "")
-        else {
-            throw IntentError.creationFailed
+        // Route through TextCapturePipeline for full entity/graph/trace extraction.
+        // Build raw text from title + body.
+        let rawText: String
+        if let body, !body.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            rawText = "# \(noteTitle)\n\n\(body)"
+        } else {
+            rawText = noteTitle
         }
 
-        NoteWindowManager.shared.open(pageId: pageId)
-        return .result(dialog: "Captured \"\(noteTitle)\" in Epistemos.")
+        let context = ModelContext(bootstrap.modelContainer)
+        let result = try await bootstrap.textCapturePipeline.run(
+            rawText: rawText,
+            modelContext: context
+        )
+
+        guard let noteId = result.createdNoteID else {
+            throw IntentError.creationFailed
+        }
+        NoteWindowManager.shared.open(pageId: noteId)
+
+        let entityInfo = result.entities.isEmpty ? "" : " · \(result.entities.count) entities"
+        let taskInfo = result.tasks.isEmpty ? "" : " · \(result.tasks.count) tasks"
+        return .result(dialog: "Captured \"\(result.title)\" in Epistemos\(entityInfo)\(taskInfo).")
     }
 }
+
 
 // MARK: Summarize Note
 

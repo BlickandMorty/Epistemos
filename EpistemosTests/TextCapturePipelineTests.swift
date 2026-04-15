@@ -37,6 +37,67 @@ struct TextCapturePipelineTests {
         )
     }
 
+    private struct TracedPipelineFixture {
+        let pipeline: TextCapturePipeline
+        let collector: TraceCollector
+        let traceDir: URL
+        let sessionId: String
+    }
+
+    private func makeTracedPipeline() -> TracedPipelineFixture {
+        let traceDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
+        let collector = TraceCollector(baseDir: traceDir)
+        let sessionId = "test-session-\(UUID().uuidString)"
+        return TracedPipelineFixture(
+            pipeline: TextCapturePipeline(traceCollector: collector, sessionId: sessionId),
+            collector: collector,
+            traceDir: traceDir,
+            sessionId: sessionId
+        )
+    }
+
+    private func traceFileURL(traceDir: URL, sessionId: String) -> URL {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = .current
+        let dateDirectory = formatter.string(from: Date())
+        return traceDir
+            .appendingPathComponent(dateDirectory, isDirectory: true)
+            .appendingPathComponent("\(sessionId).jsonl")
+    }
+
+    private func traceEventTypes(traceDir: URL, sessionId: String) throws -> [String] {
+        let fileURL = traceFileURL(traceDir: traceDir, sessionId: sessionId)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        let contents = try String(contentsOf: fileURL, encoding: .utf8)
+        return contents
+            .split(separator: "\n")
+            .compactMap { line -> String? in
+                guard
+                    let data = line.data(using: .utf8),
+                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else {
+                    return nil
+                }
+                return object["type"] as? String
+            }
+    }
+
+    private func waitForTraceEventTypes(
+        traceDir: URL,
+        sessionId: String,
+        minimumCount: Int
+    ) async throws -> [String] {
+        var last: [String] = []
+        for _ in 0..<20 {
+            last = try traceEventTypes(traceDir: traceDir, sessionId: sessionId)
+            if last.count >= minimumCount { return last }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return last
+    }
+
     // MARK: - Empty Capture
 
     @Test("Empty capture throws TextCaptureError.emptyCapture")
@@ -439,7 +500,7 @@ struct TextCapturePipelineTests {
         )
 
         let nodesAfterFirst = try context.fetch(FetchDescriptor<SDGraphNode>())
-        let firstCount = nodesAfterFirst.count
+        #expect(!nodesAfterFirst.isEmpty)
 
         // Second capture also mentioning "Tim Cook"
         _ = try await pipeline.run(
@@ -462,5 +523,123 @@ struct TextCapturePipelineTests {
         // Each unique entity name should appear at most once
         let uniqueSourceIds = Set(personNodes.compactMap(\.sourceId))
         #expect(uniqueSourceIds.count == personNodes.count, "No duplicate entity sourceIds")
+    }
+
+    // MARK: - Edge Cases (Phase 6.5 hardening)
+
+    @Test("Very long input is bounded before extraction")
+    func veryLongInput() async throws {
+        let pipeline = makePipeline()
+        // Build a 15K character input
+        let longParagraph = String(repeating: "This is a long sentence with many words to fill space. ", count: 300)
+        let text = "# Very Long Document Title That Keeps Going\n\n\(longParagraph)"
+
+        let result = try await pipeline.run(rawText: text)
+
+        #expect(!result.traceID.isEmpty)
+        #expect(result.rawText == text)
+        #expect(result.cleanedText.count == TextCapturePipeline.maxCleanedTextCharacters)
+        #expect(result.title == "Very Long Document Title That Keeps Going")
+        // Summary should be truncated to <= 300 chars
+        #expect(result.summary.count <= 300)
+    }
+
+    @Test("Title extracted from H2 heading")
+    func titleFromH2Heading() async throws {
+        let pipeline = makePipeline()
+        let result = try await pipeline.run(rawText: "## Sub-section Title\n\nSome body text.")
+
+        #expect(result.title == "Sub-section Title")
+    }
+
+    @Test("Multiple task patterns in one document")
+    func multipleTaskPatterns() async throws {
+        let pipeline = makePipeline()
+        let text = """
+        Project Notes
+
+        - [ ] First checkbox task
+        - [x] Completed checkbox
+        TODO: A todo item
+        ACTION: An action item
+        FIXME: Fix this bug
+        TASK: Do this thing
+        """
+
+        let result = try await pipeline.run(rawText: text)
+
+        // Should find checkbox tasks + keyword tasks
+        #expect(result.tasks.count >= 6)
+        let completed = result.tasks.filter(\.isCompleted)
+        #expect(completed.count == 1)
+    }
+
+    @Test("Pipeline with persistence produces graph and evidence trace events")
+    func fullPipelineWithPersistence() async throws {
+        let fixture = makeTracedPipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let text = """
+        # Meeting with John Smith at Apple Park
+
+        - [ ] Send follow-up to John
+        TODO: Review the proposal
+
+        We discussed the new product roadmap with the engineering team.
+        """
+
+        let result = try await fixture.pipeline.run(rawText: text, modelContext: context)
+
+        // Note should be persisted
+        #expect(result.createdNoteID != nil)
+        // Graph should be written
+        #expect(result.graphWriteSummary.noteNodeCreated)
+        #expect(result.graphWriteSummary.skippedReason == nil)
+        // Source spans should exist
+        #expect(!result.sourceSpans.isEmpty)
+        // Tasks should be found
+        #expect(result.tasks.count >= 2)
+        // Trace ID present
+        #expect(!result.traceID.isEmpty)
+
+        let eventTypes = try await waitForTraceEventTypes(
+            traceDir: fixture.traceDir,
+            sessionId: fixture.sessionId,
+            minimumCount: 5
+        )
+        await fixture.collector.closeSession(fixture.sessionId)
+        #expect(eventTypes.contains(TraceEvent.TraceEventType.captureReceived.rawValue))
+        #expect(eventTypes.contains(TraceEvent.TraceEventType.structureGenerated.rawValue))
+        #expect(eventTypes.contains(TraceEvent.TraceEventType.notePersisted.rawValue))
+        #expect(eventTypes.contains(TraceEvent.TraceEventType.graphWriteAttempted.rawValue))
+        #expect(eventTypes.contains(TraceEvent.TraceEventType.evidenceLinked.rawValue))
+    }
+
+    // MARK: - Quick Capture Wiring
+
+    @Test("Quick Capture command opens idempotently instead of toggling closed")
+    func quickCaptureCommandIsIdempotent() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(source.contains("showQuickCapture = true"))
+        #expect(!source.contains("showQuickCapture.toggle()"))
+    }
+
+    @Test("Quick Capture comments describe the current app-scoped sheet honestly")
+    func quickCaptureSurfaceClaimsStayTruthful() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+
+        #expect(source.contains("app-scoped capture sheet"))
+        #expect(source.contains("Epistemos ⌘⇧N command"))
+        #expect(!source.contains("auto-dismiss or open note"))
+    }
+
+    @Test("Shortcut Quick Capture fails rather than claiming success without a persisted note")
+    func quickCaptureIntentRequiresPersistedNote() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
+
+        #expect(source.contains("guard let noteId = result.createdNoteID else"))
+        #expect(source.contains("throw IntentError.creationFailed"))
     }
 }

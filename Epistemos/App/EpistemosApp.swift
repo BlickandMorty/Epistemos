@@ -532,6 +532,7 @@ struct EpistemosApp: App {
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
     @State private var bootstrap = AppBootstrap()
     @AppStorage("epistemos.setupComplete") private var setupComplete = false
+    @State private var showQuickCapture = false
 
     init() {
         SavedApplicationStatePurger.purgeIfNeeded()
@@ -596,6 +597,15 @@ struct EpistemosApp: App {
                                 }
                             )
                         }
+                    }
+                    .sheet(isPresented: $showQuickCapture) {
+                        QuickCaptureView()
+                            .withAppEnvironment(bootstrap)
+                    }
+                    .onReceive(
+                        NotificationCenter.default.publisher(for: .showQuickCapture)
+                    ) { _ in
+                        showQuickCapture = true
                     }
                     .background(ModularZoomWindowObserver().allowsHitTesting(false))
                     .onAppear {
@@ -868,6 +878,7 @@ extension Notification.Name {
     static let showSaveWorkspacePanel = Notification.Name("epistemos.showSaveWorkspacePanel")
     static let showQuitSavePanel = Notification.Name("epistemos.showQuitSavePanel")
     static let proceedWithQuit = Notification.Name("epistemos.proceedWithQuit")
+    static let showQuickCapture = Notification.Name("epistemos.showQuickCapture")
 }
 
 struct EpistemosCommands: Commands {
@@ -937,6 +948,11 @@ struct EpistemosCommands: Commands {
                 }
             }
             .keyboardShortcut("n", modifiers: .command)
+
+            Button("Quick Capture") {
+                NotificationCenter.default.post(name: .showQuickCapture, object: nil)
+            }
+            .keyboardShortcut("n", modifiers: [.command, .shift])
         }
 
         CommandGroup(replacing: .appVisibility) {

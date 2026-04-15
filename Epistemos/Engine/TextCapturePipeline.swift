@@ -199,6 +199,8 @@ extension TraceEvent {
 @MainActor @Observable
 final class TextCapturePipeline {
 
+    nonisolated static let maxCleanedTextCharacters = 10_000
+
     private let traceCollector: TraceCollector
     private let sessionId: String
 
@@ -320,7 +322,9 @@ final class TextCapturePipeline {
     // MARK: - Text Cleaning
 
     nonisolated func cleanText(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count > Self.maxCleanedTextCharacters else { return trimmed }
+        return String(trimmed.prefix(Self.maxCleanedTextCharacters))
     }
 
     // MARK: - Title Extraction
@@ -689,7 +693,8 @@ final class TextCapturePipeline {
         }
 
         // Prepend audio source metadata as a comment for provenance
-        let sourceNote = "<!-- audio-source: \(transcription.sourceURL.lastPathComponent) speakers=\(transcription.speakerCount) wpm=\(Int(transcription.wordsPerMinute)) -->\n\n"
+        let wpmString = transcription.wordsPerMinute.isFinite ? "\(Int(transcription.wordsPerMinute))" : "N/A"
+        let sourceNote = "<!-- audio-source: \(transcription.sourceURL.lastPathComponent) speakers=\(transcription.speakerCount) wpm=\(wpmString) -->\n\n"
         rawText = sourceNote + rawText
 
         return try await run(rawText: rawText, modelContext: modelContext)
