@@ -196,7 +196,7 @@ extension TraceEvent {
 /// Orchestrates the capture → structure → memory → evidence → trace pipeline.
 /// Text-first: no microphone, no STT, no cloud APIs.
 /// Deterministic extraction (NL framework + regex) — no LLM required.
-@MainActor
+@MainActor @Observable
 final class TextCapturePipeline {
 
     private let traceCollector: TraceCollector
@@ -600,7 +600,8 @@ final class TextCapturePipeline {
         )
         context.insert(noteNode)
 
-        // Create entity nodes and edges
+        // Create entity nodes and edges.
+        // Deduplicates: reuses existing node if one with the same sourceId exists.
         for entity in entities {
             let nodeType: GraphNodeType
             switch entity.kind {
@@ -610,13 +611,24 @@ final class TextCapturePipeline {
             default: nodeType = .topic
             }
 
-            let entityNode = SDGraphNode(
-                type: nodeType,
-                label: entity.text,
-                sourceId: "capture-entity-\(entity.text.lowercased().replacingOccurrences(of: " ", with: "-"))"
-            )
-            context.insert(entityNode)
-            entityNodesCreated += 1
+            let entitySourceId = "capture-entity-\(entity.text.lowercased().replacingOccurrences(of: " ", with: "-"))"
+            let entityNode: SDGraphNode
+            if let existing = existingNode(sourceId: entitySourceId, context: context) {
+                entityNode = existing
+                // Update label in case casing changed
+                if existing.label != entity.text {
+                    existing.label = entity.text
+                    existing.updatedAt = .now
+                }
+            } else {
+                entityNode = SDGraphNode(
+                    type: nodeType,
+                    label: entity.text,
+                    sourceId: entitySourceId
+                )
+                context.insert(entityNode)
+                entityNodesCreated += 1
+            }
 
             // Edge: note → entity (mentions)
             let edge = SDGraphEdge(
@@ -646,5 +658,41 @@ final class TextCapturePipeline {
                 skippedReason: "save failed: \(error.localizedDescription)"
             )
         }
+    }
+
+    /// Checks if a graph node with the given sourceId already exists.
+    /// Prevents duplicate entity nodes when the same entity appears across captures.
+    private func existingNode(sourceId: String, context: ModelContext) -> SDGraphNode? {
+        let descriptor = FetchDescriptor<SDGraphNode>(
+            predicate: #Predicate<SDGraphNode> { $0.sourceId == sourceId }
+        )
+        return (try? context.fetch(descriptor))?.first
+    }
+
+    // MARK: - Audio Capture Entry Point
+
+    /// Runs the capture pipeline on transcribed audio output.
+    /// This is the plug-in point for AudioTranscriber → capture pipeline.
+    /// The transcribed text flows through the same extraction/persist/graph/trace
+    /// path as typed text capture.
+    ///
+    /// - Parameters:
+    ///   - transcription: The transcribed audio result from AudioTranscriber.
+    ///   - modelContext: SwiftData context for persistence. Pass nil for dry run.
+    func runFromAudio(
+        transcription: TranscribedAudio,
+        modelContext: ModelContext? = nil
+    ) async throws -> CaptureResult {
+        // Build a richer raw text with audio metadata prefix
+        var rawText = transcription.fullText
+        if rawText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            throw TextCaptureError.emptyCapture
+        }
+
+        // Prepend audio source metadata as a comment for provenance
+        let sourceNote = "<!-- audio-source: \(transcription.sourceURL.lastPathComponent) speakers=\(transcription.speakerCount) wpm=\(Int(transcription.wordsPerMinute)) -->\n\n"
+        rawText = sourceNote + rawText
+
+        return try await run(rawText: rawText, modelContext: modelContext)
     }
 }

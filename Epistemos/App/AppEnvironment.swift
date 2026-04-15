@@ -39,5 +39,8 @@ extension View {
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
             .environment(bootstrap.iMessageDriver)
+            .environment(bootstrap.agentCommandCenterState)
+            .environment(bootstrap.agentChatState)
+            .environment(bootstrap.textCapturePipeline)
     }
 }

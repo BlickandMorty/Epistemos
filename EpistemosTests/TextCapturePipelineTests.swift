@@ -376,4 +376,91 @@ struct TextCapturePipelineTests {
             #expect(t1.isCompleted == t2.isCompleted)
         }
     }
+
+    // MARK: - Audio Capture Integration
+
+    @Test("Audio transcription flows through pipeline")
+    func audioTranscriptionCapture() async throws {
+        let pipeline = makePipeline()
+        let transcription = TranscribedAudio(
+            id: UUID(),
+            sourceURL: URL(fileURLWithPath: "/tmp/test-recording.m4a"),
+            fullText: "We need to schedule a meeting with the marketing team about the Q2 launch.",
+            segments: [
+                AudioSegment(startTime: 0, endTime: 3.5, text: "We need to schedule a meeting", speaker: "Speaker 1"),
+                AudioSegment(startTime: 3.5, endTime: 7.0, text: "with the marketing team about the Q2 launch.", speaker: "Speaker 1"),
+            ],
+            wordsPerMinute: 140,
+            hesitationFrequency: 2.5,
+            speakerCount: 1
+        )
+
+        let result = try await pipeline.runFromAudio(transcription: transcription)
+
+        #expect(!result.traceID.isEmpty)
+        #expect(!result.title.isEmpty)
+        // Raw text should contain the audio source metadata comment
+        #expect(result.rawText.contains("audio-source"))
+        #expect(result.rawText.contains("test-recording.m4a"))
+        // Cleaned text should also contain the full transcription
+        #expect(result.cleanedText.contains("meeting"))
+    }
+
+    @Test("Empty audio transcription throws emptyCapture")
+    func emptyAudioTranscription() async throws {
+        let pipeline = makePipeline()
+        let transcription = TranscribedAudio(
+            id: UUID(),
+            sourceURL: URL(fileURLWithPath: "/tmp/silence.m4a"),
+            fullText: "   ",
+            segments: [],
+            wordsPerMinute: 0,
+            hesitationFrequency: 0,
+            speakerCount: 0
+        )
+
+        await #expect(throws: TextCaptureError.emptyCapture) {
+            _ = try await pipeline.runFromAudio(transcription: transcription)
+        }
+    }
+
+    // MARK: - Graph Deduplication
+
+    @Test("Duplicate entity nodes are reused across captures")
+    func graphEntityDeduplication() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        // First capture mentioning "Tim Cook"
+        _ = try await pipeline.run(
+            rawText: "Tim Cook announced the new product lineup at Apple Park.",
+            modelContext: context
+        )
+
+        let nodesAfterFirst = try context.fetch(FetchDescriptor<SDGraphNode>())
+        let firstCount = nodesAfterFirst.count
+
+        // Second capture also mentioning "Tim Cook"
+        _ = try await pipeline.run(
+            rawText: "Tim Cook presented the quarterly results to shareholders.",
+            modelContext: context
+        )
+
+        let nodesAfterSecond = try context.fetch(FetchDescriptor<SDGraphNode>())
+
+        // If dedup works, the entity node count should not double.
+        // We expect: 2 note nodes + entities (deduplicated).
+        // The note nodes are always new (each capture = new note).
+        let noteNodes = nodesAfterSecond.filter { $0.type == GraphNodeType.note.rawValue }
+        #expect(noteNodes.count == 2, "Two captures should produce two note nodes")
+
+        // Entity nodes should be reused, not duplicated
+        let personNodes = nodesAfterSecond.filter {
+            $0.sourceId?.hasPrefix("capture-entity-") == true
+        }
+        // Each unique entity name should appear at most once
+        let uniqueSourceIds = Set(personNodes.compactMap(\.sourceId))
+        #expect(uniqueSourceIds.count == personNodes.count, "No duplicate entity sourceIds")
+    }
 }

@@ -676,6 +676,10 @@ final class AppBootstrap {
     let dialogueChatState = DialogueChatState()
     let orchestratorState = OrchestratorState()
     let mcpBridge = MCPBridge()
+    let agentCommandCenterState = AgentCommandCenterState()
+    let agentChatState = AgentChatState()
+    private var commandCenterLocalHotkeyMonitor: Any?
+    private var commandCenterGlobalHotkeyMonitor: Any?
     let channelRegistry: ChannelRegistryState
     let constrainedDecoding = ConstrainedDecodingService()
     let hardwareTierManager = HardwareTierManager()
@@ -696,6 +700,8 @@ final class AppBootstrap {
     private var _reasoningLoopService: ReasoningLoopService?
     var reasoningLoopService: ReasoningLoopService { Self.requireInitialized(_reasoningLoopService, name: "reasoningLoopService") }
     let instantRecallService = InstantRecallService()
+    private var _textCapturePipeline: TextCapturePipeline?
+    var textCapturePipeline: TextCapturePipeline { Self.requireInitialized(_textCapturePipeline, name: "textCapturePipeline") }
     private var _workspaceService: WorkspaceService?
     var workspaceService: WorkspaceService { Self.requireInitialized(_workspaceService, name: "workspaceService") }
     let activityTracker = ActivityTracker()
@@ -1183,6 +1189,9 @@ final class AppBootstrap {
         // Services hold a reference to config and read it LIVE at each decision point.
         self._ambientCapture = AmbientCaptureService(config: epistemosConfig, screen2AXFusion: screen2AXFusion)
         self._frictionMonitor = FrictionMonitorService(config: epistemosConfig)
+
+        // Phase 6.5: Text capture pipeline — capture → structure → memory → evidence → trace
+        self._textCapturePipeline = TextCapturePipeline()
         FrictionMonitorService.shared = frictionMonitor
         // Agent services: gated by ShipGate.agentsEnabled. When false,
         // NightBrain never starts — no background agent work. Zero runtime overhead.
@@ -1286,6 +1295,63 @@ final class AppBootstrap {
 
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
+
+        // Initialize Agent Command Center state (Phase 5)
+        agentCommandCenterState.refreshToolCatalog(
+            from: mcpBridge,
+            vaultPath: vaultSync.vaultURL?.path ?? ""
+        )
+        agentCommandCenterState.refreshSkillCatalog()
+        agentCommandCenterState.refreshBrainCatalog(from: inference)
+        agentChatState.eventBus = eventBus
+        agentChatState.onStopRequested = { [weak self] in
+            self?.coordinator.cancelActiveQuery()
+        }
+
+        // Register Cmd+J global/local hotkey for Agent Command Center
+        let toggleCommandCenter: @MainActor () -> Void = { [weak self] in
+            guard let self else { return }
+            if self.agentCommandCenterState.isPresented {
+                self.agentCommandCenterState.dismiss()
+            } else {
+                self.agentCommandCenterState.present()
+                self.agentCommandCenterState.refreshBrainCatalog(from: self.inferenceState)
+                self.agentCommandCenterState.refreshToolCatalog(
+                    from: self.mcpBridge,
+                    vaultPath: self.vaultSync.vaultURL?.path ?? ""
+                )
+
+                // Populate @-mention context providers
+                let vaultNoteCount = self.vaultSync.ambientManifest?.entries.count ?? 0
+                let openNoteTitles = NoteWindowManager.shared.openPageIds.compactMap {
+                    NoteWindowManager.shared.window(for: $0)?.title
+                }
+                self.agentCommandCenterState.refreshContextProviders(
+                    vaultNoteCount: vaultNoteCount,
+                    openNoteTitles: openNoteTitles
+                )
+            }
+        }
+
+        commandCenterLocalHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "j" {
+                Task { @MainActor in toggleCommandCenter() }
+                return nil
+            }
+            return event
+        }
+
+        commandCenterGlobalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
+            if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "j" {
+                Task { @MainActor in
+                    if !NSApp.isActive {
+                        NSApp.activate()
+                    }
+                    toggleCommandCenter()
+                }
+            }
+        }
+
         Log.app.info("AppBootstrap: initialized — local AI stack ready")
     }
 
@@ -1748,6 +1814,18 @@ final class AppBootstrap {
         }
 
         Log.app.info("Display mode updated to \(mode.rawValue, privacy: .public) — relaunching")
+        relaunchApp()
+    }
+
+    func relaunchSkippingRestoreAndDiscardSession() {
+        guard !Self.isRunningTests else {
+            Log.app.info("Skipping skip-restore relaunch under tests")
+            return
+        }
+
+        workspaceService.prepareSkipRestoreRelaunch()
+        SavedApplicationStatePurger.purgeIfNeeded()
+        Log.app.info("Skip-restore relaunch requested — relaunching into Home")
         relaunchApp()
     }
 
