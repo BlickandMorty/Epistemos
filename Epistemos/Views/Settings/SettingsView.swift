@@ -10,6 +10,36 @@ struct SettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var selection: SettingsSection? = .general
 
+    // MARK: - Settings Categories (Phase 7 Step 7)
+    //
+    // Phase 7 simplifies the sidebar from 12 flat sections into 6 calm
+    // categories. The underlying `SettingsSection` enum is unchanged so
+    // every existing detail view stays reachable — only the sidebar
+    // grouping and row subtitles are new. Each section declares its
+    // `category` and a `description` sentence that appears as a caption
+    // under the sidebar label.
+
+    enum SettingsCategory: String, CaseIterable, Identifiable {
+        case capture      = "Capture"
+        case models       = "Models"
+        case graph        = "Graph"
+        case automation   = "Automation"
+        case privacyStore = "Privacy & Storage"
+        case advanced     = "Advanced"
+
+        var id: String { rawValue }
+
+        /// Display order in the sidebar, top to bottom.
+        static let orderedCases: [SettingsCategory] = [
+            .capture,
+            .models,
+            .graph,
+            .automation,
+            .privacyStore,
+            .advanced,
+        ]
+    }
+
     enum SettingsSection: String, CaseIterable, Identifiable {
         case general = "General"
         case channels = "Channels"
@@ -57,13 +87,73 @@ struct SettingsView: View {
             case .vault: "folder"
             }
         }
+
+        /// Which simplified Phase 7 category this section belongs under.
+        var category: SettingsCategory {
+            switch self {
+            case .landing:        .capture
+            case .cognitive,
+                 .inference,
+                 .modelVaults,
+                 .knowledgeFusion: .models
+            case .appearance:     .graph
+            case .channels,
+                 .iMessageDriver,
+                 .skills,
+                 .agentControl:   .automation
+            case .vault:          .privacyStore
+            case .general:        .advanced
+            }
+        }
+
+        /// One-line explanation shown as a caption under the sidebar label.
+        /// Describes what the row changes and why it matters — deliberately
+        /// short so the sidebar stays scannable.
+        var rowDescription: String {
+            switch self {
+            case .general:
+                "Power, session, workspace summaries, data protection, reset."
+            case .channels:
+                "Outbound routing: Slack, webhooks, Matrix, email, SMS."
+            case .cognitive:
+                "Reasoning profile, local/cloud routing, temperature."
+            case .inference:
+                "Runtime preferences and model selection across lanes."
+            case .knowledgeFusion:
+                "Experimental: ingest, adapters, training, feedback."
+            case .modelVaults:
+                "Per-model vault isolation and active model profiles."
+            case .iMessageDriver:
+                "Route a trusted iMessage contact to the local agent."
+            case .skills:
+                "Installed skills, activation rules, and manifests."
+            case .agentControl:
+                "Agent tool permissions, limits, and approval tiers."
+            case .landing:
+                "Greeting, quick capture, and landing canvas behavior."
+            case .appearance:
+                "Theme, graph visuals, physics presets, display mode."
+            case .vault:
+                "Vault path, sync service, and retrieval indexes."
+            }
+        }
     }
 
     var body: some View {
         NavigationSplitView {
-            List(SettingsSection.visibleSections, selection: $selection) { section in
-                Label(section.rawValue, systemImage: section.icon)
-                    .tag(section)
+            List(selection: $selection) {
+                ForEach(SettingsCategory.orderedCases) { category in
+                    let sections = SettingsSection.visibleSections
+                        .filter { $0.category == category }
+                    if !sections.isEmpty {
+                        Section(category.rawValue) {
+                            ForEach(sections) { section in
+                                SettingsSidebarRow(section: section)
+                                    .tag(section)
+                            }
+                        }
+                    }
+                }
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
@@ -114,6 +204,29 @@ struct SettingsView: View {
             to: nil,
             from: nil
         )
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    let section: SettingsView.SettingsSection
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: section.icon)
+                .frame(width: 18, alignment: .center)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(section.rawValue)
+                    .font(.system(size: 13, weight: .medium))
+                Text(section.rowDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 3)
     }
 }
 
