@@ -387,6 +387,7 @@
 		9A40067BBE66C5DC143A62CF /* OmegaPlanningServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EBBFF5D8285958EB3859983 /* OmegaPlanningServiceTests.swift */; };
 		9AB208BDC838D4E3E2762367 /* SDModelProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = D81417DBD0806D603967ECB1 /* SDModelProfile.swift */; };
 		9B4664DA8D882CE306E4F0E9 /* ResolvedThemeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1789F5E462CF0EB9FDC2DD5D /* ResolvedThemeTests.swift */; };
+		9B7DDF9D920243DDA74241BD /* GraphFolderPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1449AF0F6D92B7DE0324F90 /* GraphFolderPage.swift */; };
 		9B8DB56F6A1DBE088BE1E6D6 /* LocalToolGrammarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29DFAEEC54001B65DD3E9DA4 /* LocalToolGrammarTests.swift */; };
 		9C28EE976EE3819A6B0ECE36 /* TaskInputBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07CBDF1E905ABC93E5DECFE /* TaskInputBar.swift */; };
 		9C5EA5D6E4D098172AB2FC82 /* DriverChannelControlPlane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF2DA099EEDC901DF87FADA /* DriverChannelControlPlane.swift */; };
@@ -1218,6 +1219,7 @@
 		E0443EBB7571F5309B2984ED /* HardenedConcurrencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HardenedConcurrencyTests.swift; sourceTree = "<group>"; };
 		E05D1514D3B1D0DAA1A1B447 /* BlockPropertyParsingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockPropertyParsingTests.swift; sourceTree = "<group>"; };
 		E0E707C3B2FDAD087B69A925 /* test_router.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_router.py; sourceTree = "<group>"; };
+		E1449AF0F6D92B7DE0324F90 /* GraphFolderPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFolderPage.swift; sourceTree = "<group>"; };
 		E15D91F3FDBB5D7D9D06A18D /* NoteFileStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteFileStorage.swift; sourceTree = "<group>"; };
 		E164D0B50901F8CE5165B5EF /* direct_conv.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = direct_conv.metal; sourceTree = "<group>"; };
 		E1FE608442C155C7AE13E066 /* OverseerProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverseerProtocol.swift; sourceTree = "<group>"; };
@@ -1471,6 +1473,7 @@
 			children = (
 				415F93E7F46E96598C9654D7 /* GraphFirstOpenTitle.swift */,
 				5175241C97D791510EE85B37 /* GraphFloatingControls.swift */,
+				E1449AF0F6D92B7DE0324F90 /* GraphFolderPage.swift */,
 				E4D53333E338DCA2093CF224 /* GraphForceSettings.swift */,
 				14965194FB11F63F8935B6DD /* GraphInspectModeView.swift */,
 				05DA49057C44DCA7445757E0 /* GraphNotePage.swift */,
@@ -3034,6 +3037,7 @@
 				2DD37C982FF5B34F992EE921 /* GraphEngine.swift in Sources */,
 				B0CB1231F8337CACEC28CFA9 /* GraphFirstOpenTitle.swift in Sources */,
 				458CD3FDDDB7E115565F58AD /* GraphFloatingControls.swift in Sources */,
+				9B7DDF9D920243DDA74241BD /* GraphFolderPage.swift in Sources */,
 				C5BBCD3F730A7870BEB85964 /* GraphForceSettings.swift in Sources */,
 				AFEEB1E6D13DCD3AFC93E381 /* GraphInspectModeView.swift in Sources */,
 				DA9DA078F651A5781581D667 /* GraphNotePage.swift in Sources */,

@@ -414,15 +414,16 @@ final class GraphState {
     func openNode(_ id: String) {
         guard let node = store.nodes[id] else { return }
 
+        // GraphBuilder sets `sourceId` to the backing SwiftData entity id
+        // (SDPage.id for notes, SDFolder.id for folders). Fall back to the
+        // graph node id only when no sourceId is recorded.
+        let resolvedId = node.sourceId?.isEmpty == false ? node.sourceId! : id
+
         switch node.type {
         case .folder:
-            openFolder(id)
+            openFolder(resolvedId)
         default:
-            if let sourceId = node.sourceId, !sourceId.isEmpty {
-                openNote(sourceId)
-            } else {
-                openNote(id)
-            }
+            openNote(resolvedId)
         }
     }
 
