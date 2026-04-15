@@ -165,6 +165,43 @@ struct GraphWorkspaceRouteBackForwardTests {
     }
 }
 
+@Suite("Graph Workspace — Folder Page Composition")
+@MainActor
+struct GraphWorkspaceFolderPageCompositionTests {
+    // Source-mirror assertions for the folder surface. Runtime tests would
+    // require constructing a ModelContainer with a seeded SDFolder tree; the
+    // assertions below catch structural regressions.
+
+    @Test("GraphFolderPage is a list surface reusing SDFolder / SDPage with nested-folder push")
+    func graphFolderPageStructure() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphFolderPage.swift"
+        )
+
+        #expect(source.contains("struct GraphFolderPage: View"))
+        #expect(source.contains("@Query private var folders: [SDFolder]"))
+        #expect(source.contains("#Predicate<SDFolder> { $0.id == folderId }"))
+        // Subfolder click pushes a new folder route onto the back stack,
+        // so nested folder navigation reuses the Finder-style history.
+        #expect(source.contains("graphState.openFolder(child.id)"))
+        // Clicking a note jumps to the note page via the same back stack.
+        #expect(source.contains("graphState.openNote(page.id)"))
+        // Archived pages are filtered out of the listing.
+        #expect(source.contains("!$0.isArchived"))
+    }
+
+    @Test("GraphWorkspaceContainer routes .folder to GraphFolderPage, not a placeholder")
+    func containerRoutesFolderCaseToGraphFolderPage() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Views/Graph/GraphWorkspaceContainer.swift"
+        )
+
+        #expect(source.contains("case .folder(let id):"))
+        #expect(source.contains("GraphFolderPage(folderId: id)"))
+        #expect(!source.contains("Graph Folder Page Placeholder"))
+    }
+}
+
 @Suite("Graph Workspace — Note Page Composition")
 @MainActor
 struct GraphWorkspaceNotePageCompositionTests {
@@ -203,6 +240,98 @@ struct GraphWorkspaceNotePageCompositionTests {
         #expect(source.contains(".id(id)"))
         // Placeholder text from Step 2 must be gone.
         #expect(!source.contains("Graph Note Page Placeholder"))
+    }
+}
+
+@Suite("Graph Workspace Route — openNode dispatch")
+@MainActor
+struct GraphWorkspaceRouteOpenNodeDispatchTests {
+    // `openNode(id:)` looks up the graph node, reads its type, and routes
+    // to `openNote(sourceId)` or `openFolder(sourceId)`. When the node has
+    // a non-empty `sourceId` (which GraphBuilder always sets for real
+    // SDPage/SDFolder-backed nodes), the route *must* carry the sourceId,
+    // not the graph node id, so the downstream page can @Query the right
+    // SwiftData entity.
+
+    private func makeNode(
+        id: String,
+        type: GraphNodeType,
+        sourceId: String?
+    ) -> GraphNodeRecord {
+        GraphNodeRecord(
+            id: id,
+            type: type,
+            label: "",
+            sourceId: sourceId,
+            metadata: GraphNodeMetadata(),
+            weight: 1.0,
+            createdAt: .now,
+            position: .zero,
+            velocity: .zero
+        )
+    }
+
+    @Test("openNode on a folder node dispatches openFolder with sourceId, not graph node id")
+    func folderBranchUsesSourceId() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-node-uuid-1",
+            type: .folder,
+            sourceId: "sdfolder-id-1"
+        ))
+
+        gs.openNode("graph-node-uuid-1")
+
+        #expect(gs.currentRoute == .folder(id: "sdfolder-id-1"))
+    }
+
+    @Test("openNode on a note node dispatches openNote with sourceId")
+    func noteBranchUsesSourceId() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-node-uuid-2",
+            type: .note,
+            sourceId: "sdpage-id-2"
+        ))
+
+        gs.openNode("graph-node-uuid-2")
+
+        #expect(gs.currentRoute == .note(id: "sdpage-id-2"))
+    }
+
+    @Test("openNode falls back to graph node id when sourceId is missing")
+    func missingSourceIdFallsBackToNodeId() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-node-uuid-3",
+            type: .note,
+            sourceId: nil
+        ))
+
+        gs.openNode("graph-node-uuid-3")
+
+        #expect(gs.currentRoute == .note(id: "graph-node-uuid-3"))
+    }
+
+    @Test("openNode on an empty sourceId also falls back to graph node id")
+    func emptySourceIdFallsBackToNodeId() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-node-uuid-4",
+            type: .folder,
+            sourceId: ""
+        ))
+
+        gs.openNode("graph-node-uuid-4")
+
+        #expect(gs.currentRoute == .folder(id: "graph-node-uuid-4"))
+    }
+
+    @Test("openNode on a missing node is a no-op")
+    func missingNodeIsNoop() {
+        let gs = GraphState()
+        gs.openNode("does-not-exist")
+        #expect(gs.currentRoute == .canvas)
     }
 }
 

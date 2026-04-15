@@ -32,12 +32,10 @@ struct GraphWorkspaceContainer: View {
                 graphPageBackdrop
 
                 VStack(spacing: 0) {
-                    graphPageHeader(title: "Folder: \(id)")
+                    graphPageHeader(title: "Folder")
 
-                    Text("Graph Folder Page Placeholder for \(id)")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    GraphFolderPage(folderId: id)
+                        .id(id)
                 }
             }
         }
