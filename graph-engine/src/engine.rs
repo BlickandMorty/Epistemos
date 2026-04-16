@@ -190,7 +190,9 @@ pub struct Engine {
 
     /// Pre-computed KNN pairs for semantic attraction force.
     /// Recomputed only when embeddings change, not per-tick.
-    pub(crate) semantic_neighbors: Vec<(u32, u32, f32)>,
+    /// Behind a Mutex so the O(n²) KNN recompute can run on a background
+    /// thread while the render loop reads through the lock.
+    pub(crate) semantic_neighbors: Mutex<Vec<(u32, u32, f32)>>,
 
     /// Quality level: 0 = Cinematic, 1 = Balanced, 2 = Performance.
     pub(crate) quality_level: u8,
@@ -225,6 +227,10 @@ pub struct Engine {
     gpu_positions_scratch: Vec<[f32; 2]>,
     /// Scratch buffer for search-highlight node IDs (avoids per-query alloc).
     search_highlight_ids_scratch: Vec<u32>,
+    /// When true, the idle-frame skip is bypassed so update_camera() and draw()
+    /// keep running. Set by Swift when pinned inspector panels need accurate
+    /// node_screen_pos() even after physics has settled.
+    force_alive: bool,
 }
 
 impl Engine {
@@ -266,7 +272,7 @@ impl Engine {
             search_index: crate::search::SearchIndex::new(),
             embedding_store: EmbeddingStore::new(crate::embedding::DEFAULT_DIM),
             prepared_retrieval_store: None,
-            semantic_neighbors: Vec::new(),
+            semantic_neighbors: Mutex::new(Vec::new()),
             quality_level: 0, // Cinematic
             btk_trees: HashMap::new(),
             btk_logs: HashMap::new(),
@@ -282,6 +288,7 @@ impl Engine {
             cluster_cache: ClusterCache::new(),
             gpu_positions_scratch: Vec::new(),
             search_highlight_ids_scratch: Vec::new(),
+            force_alive: false,
         })
     }
 
@@ -849,7 +856,9 @@ impl Engine {
 
         // Idle frame skipping: after 3 consecutive idle frames, skip GPU work entirely.
         // We still render the first 3 idle frames to flush any final visual updates.
-        if !needs_frame {
+        // When force_alive is set (pinned inspector panels need screen positions),
+        // bypass the skip so update_camera() above keeps running.
+        if !needs_frame && !self.force_alive {
             self.idle_frame_count = self.idle_frame_count.saturating_add(1);
             if self.idle_frame_count > 3 {
                 return 0;
@@ -1253,6 +1262,15 @@ impl Engine {
     pub fn set_search_active(&self, active: bool) {
         let mut sim = self.sim.lock();
         sim.set_search_active(active);
+    }
+
+    /// Keep the render loop alive even when physics has settled.
+    /// Used when pinned inspector panels need up-to-date screen positions.
+    pub fn set_force_alive(&mut self, alive: bool) {
+        self.force_alive = alive;
+        if alive {
+            self.idle_frame_count = 0;
+        }
     }
 
     /// Update laboratory physics toggles and tuning knobs.
@@ -1869,6 +1887,7 @@ impl Engine {
     /// Push semantic neighbor pairs to the simulation thread.
     /// Maps graph-level node indices to simulation-level indices.
     pub fn sync_semantic_neighbors(&mut self) {
+        let neighbors = self.semantic_neighbors.lock();
         let mut sim = self.sim.lock();
         // Build graph_index → sim_index reverse map
         let mut graph_to_sim: rustc_hash::FxHashMap<usize, usize> =
@@ -1877,8 +1896,7 @@ impl Engine {
             graph_to_sim.insert(gi, si);
         }
 
-        sim.semantic_neighbors = self
-            .semantic_neighbors
+        sim.semantic_neighbors = neighbors
             .iter()
             .filter_map(|&(ga, gb, sim_val)| {
                 let sa = *graph_to_sim.get(&(ga as usize))?;

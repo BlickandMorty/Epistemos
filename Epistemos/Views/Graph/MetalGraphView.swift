@@ -1418,11 +1418,10 @@ final class MetalGraphNSView: NSView {
         }
 
         // Keep rendering while physics is active (result != 0) or while
-        // pinned panels exist AND the graph hasn't fully settled yet.
-        // Once physics settles (result == 0 for consecutive frames), stop
-        // rendering even with pinned panels — they don't need updates when
-        // nodes aren't moving. Any new interaction will restart the loop.
-        needsRender = result != 0
+        // pinned panels exist — the engine needs update_camera() to keep
+        // running so node_screen_pos() returns accurate coordinates.
+        let hasPinnedPanels = !PinnedInspectorManager.shared.pinnedInspectors.isEmpty
+        needsRender = result != 0 || hasPinnedPanels
 
         // Release the in-flight semaphore slot so the next frame can queue.
         // graph_engine_render() calls commandBuffer.commit() + present()
