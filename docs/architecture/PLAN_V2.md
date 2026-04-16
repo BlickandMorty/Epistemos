@@ -1197,3 +1197,435 @@ The BoltFFI migration program is complete only when:
 - embedding/vector payloads remain deferred unless later benchmarks prove the existing retrieval path is user-visible bottleneck
 - UniFFI remains only where it is intentionally cold-path or ergonomically superior
 - no migration weakens Rust sovereignty, permission gates, audit logs, or local-first routing rules
+
+## 23. Code Editor Architecture Truth and Syntax Data Plane
+
+### 23.1 Editor architecture truth audit
+
+Before any editor optimization or migration, the editor documentation must be reconciled with the actual codebase. Research audits (including verified GitHub inspection) have established the following ground truth as of 2026-04-15:
+
+Verified facts:
+- The app routes code-like content into CodeEditorView and non-code into ProseEditorView
+- CodeEditorView depends on CodeEditSourceEditor 0.15.2 (MIT license) plus CodeEditLanguages
+- An earlier custom NSTextStorage delegate path was reverted because CodeEditSourceEditor's internal MultiStorageDelegate overwrote custom delegates
+- The current path uses a Binding<String> integration that is explicitly documented in the source as O(n) scaling, acceptable only for sub-100KB files
+- The prose editor path (ProseEditorRepresentable2 / ProseTextView2) is better-architected: it scopes expensive work to the edited paragraph and nearby lines rather than rescanning the whole document
+- The graph engine already depends on tree-sitter 0.25 with many grammars, but does not include ropey, crop, lsp-types, or tower-lsp
+- The Rust side exports markdown_parse_code_tokens as a whole-buffer tokenizer (C string in, token array out)
+- CODE_EDITOR_FEATURE_AUDIT.md claims features (minimap, search bar, go-to-line, semantic sidebar, indentation guides, persisted prefs) that cannot be confirmed as active in the current CodeEditorView.swift
+
+Required action before any editor work:
+- Reconcile CODE_EDITOR_FEATURE_AUDIT.md with live code — every claimed feature must be verified or downgraded to "planned" or "reverted"
+- Any session that reads editor docs must treat unverified claims as potentially stale
+- Add doc-truth tests where possible to catch future drift
+
+This matters because architecture work gets sloppy when the map is older than the terrain. Optimizing features that do not exist is a waste of engineering effort.
+
+### 23.2 Editor hybrid architecture
+
+The code editor uses a hybrid architecture where each layer owns its natural responsibilities:
+
+Swift/TextKit 2 (or current native editor layer) owns:
+- text input
+- IME composition
+- selection
+- undo / redo
+- accessibility
+- native scrolling and editing behavior
+
+Rust owns:
+- incremental parsing via tree-sitter
+- syntax token generation
+- fold extraction
+- diagnostic ranges
+- symbol outline extraction
+- generation counters and stale-parse cancellation
+- UTF-8-centric document math
+
+The FFI bridge carries:
+- compact token/fold/diagnostic deltas scoped to the visible viewport
+- edit deltas (not full document text)
+- viewport requests (not full-file materialization)
+
+Metal is used only for:
+- minimap
+- gutter decorations
+- diagnostics heatmaps
+- diff overlays
+- syntax/background decoration layers
+
+Full Metal text rendering is prohibited unless benchmarks prove the native TextKit / CodeEdit path cannot meet interaction targets (< 16ms keystroke-to-highlight). The risks of full Metal text rendering are prohibitive: IME composition for CJK scripts, VoiceOver/accessibility, bidirectional text (RTL Arabic/Hebrew), font fallback for mixed scripts, native macOS selection behavior, system-level dictionary lookups, Writing Tools, dictation, and Emacs keybindings all require deep native text system integration.
+
+### 23.3 Rust syntax stack (syntax-core crate)
+
+The Rust syntax engine lives in a new `syntax-core` crate, separate from `graph-engine`. Tree-sitter dependencies must not be shared with graph-engine to avoid coupling parse state with graph physics. The graph engine already has tree-sitter for its own purposes (markdown_parse_code_tokens); the editor syntax service is a separate concern.
+
+Components:
+- tree-sitter (0.25+ or latest stable) for incremental parsing
+- A rope data structure for the Rust-side shadow buffer
+- Numeric token kind IDs (u16) mapped from tree-sitter capture indices at query compilation time
+- Generation counter (AtomicU64) for stale-parse cancellation
+- UTF-8 to UTF-16 offset mapping for NSRange interop
+
+Rope library decision framework:
+- Primary candidate: ropey (1.6.x) — built-in UTF-16 code unit conversion via char_to_utf16_cu() in O(log N), proven in Helix editor, COW clone (8 bytes) for cheap background parsing snapshots, Send+Sync
+- Alternative: crop — 3-4× faster raw edits than ropey, 16-byte clone, byte-indexed, but requires manual UTF-16 mapping
+- Decision gated by benchmarks comparing UTF-16 conversion cost vs edit throughput
+- Default: start with ropey as the conservative choice; switch to crop only if edit throughput proves to be the bottleneck (unlikely for a shadow rope receiving only deltas)
+
+Do not introduce a Rust-owned canonical rope yet. Swift NSTextStorage remains the canonical text buffer initially. Rust maintains a shadow rope that receives edit deltas and is used exclusively for parsing. Migration to Rust-owned canonical text is a later phase, gated by benchmarks proving Swift text storage is a measured bottleneck for files > 50K lines.
+
+### 23.4 Viewport-scoped token materialization
+
+Syntax tokens must be generated only for the visible viewport plus a configurable margin (default: 50 lines above and below). Full-document token generation on every keystroke is prohibited.
+
+The flow:
+1. Swift captures keystroke, calculates edit delta, sends SyntaxEditDelta to Rust (compact struct, no heap allocation)
+2. Rust applies delta to shadow rope
+3. Rust triggers tree-sitter incremental reparse (< 1ms for single-char edits)
+4. Swift sends SyntaxViewportRequest with current visible range and generation ID
+5. Rust executes tree-sitter QueryCursor with byte_range restriction to visible content
+6. Rust fills preallocated token buffer with SyntaxTokenSpan structs (numeric IDs only, no strings)
+7. Swift reads buffer synchronously, applies NSAttributedString attributes only for returned spans, then releases
+8. If generation has advanced before application, result is silently discarded
+
+Anti-patterns:
+- Do not pass full document text across FFI every keystroke
+- Do not apply syntax attributes to the full file every keystroke
+- Do not send token kind as a String across FFI — use stable u16 IDs
+- Do not hold Rust-allocated pointers in Swift @Published or @State properties
+
+### 23.5 FFI data shapes for code editor
+
+All structs are #[repr(C)] with compile-time size assertions. No heap pointers cross the boundary for hot-path token delivery.
+
+SyntaxDocumentHandle — opaque Rust-owned handle:
+- doc_id: u64 (stable per document lifetime)
+- generation: u64 (monotonically increasing on every edit)
+
+SyntaxEditDelta — Swift sends on every text edit:
+- doc_id: u64
+- from_generation: u64
+- to_generation: u64
+- byte_offset: u64 (UTF-8 byte offset of edit start)
+- old_len: u64 (bytes removed)
+- new_len: u64 (bytes inserted)
+
+SyntaxViewportRequest — Swift sends to request tokens for visible range:
+- doc_id: u64
+- generation: u64
+- utf16_start: u32
+- utf16_end: u32
+
+SyntaxTokenSpan — one syntax token, 12 bytes flat:
+- utf16_start: u32
+- utf16_len: u16
+- kind_id: u16 (stable numeric scope ID, not a string)
+- flags: u8 (bit 0=bold, bit 1=italic, bit 2=underline)
+- _pad: [u8; 3]
+
+SyntaxFoldRange — collapsible code block:
+- utf16_start: u32
+- utf16_end: u32
+- depth: u8
+- _pad: [u8; 3]
+
+SyntaxDiagnosticRange — warning/error marker:
+- utf16_start: u32
+- utf16_len: u16
+- severity: u8 (0=hint, 1=info, 2=warning, 3=error)
+- source_id: u8
+
+SyntaxSnapshotStats — telemetry:
+- doc_id: u64
+- generation: u64
+- token_count: u32
+- fold_count: u32
+- diagnostic_count: u32
+- parse_ns: u64
+
+Memory ownership rules:
+- SyntaxDocumentHandle: Rust allocates via Box::into_raw, Swift holds, Rust frees via syntax_document_free
+- SyntaxEditDelta, SyntaxViewportRequest: Swift allocates on stack, passes by value, Rust copies on call
+- SyntaxTokenSpan[] buffer: Rust allocates (internal arena), Swift reads synchronously then calls syntax_release_token_batch
+- SyntaxSnapshotStats: Rust returns by value, Swift copies
+- Swift must never retain a token buffer pointer after calling release
+- std::panic::catch_unwind at every FFI boundary
+
+### 23.6 Swift editor shell decision
+
+The Swift-side editor component decision is deferred until after the benchmark harness captures editor-specific metrics. The current shell is treated as a risk register item to be benchmarked, not replaced speculatively.
+
+Three viable options:
+
+Option A — Keep current CodeEditSourceEditor + add Rust syntax service:
+- Lowest risk, smallest change surface
+- Known risk: the README states the package is "not ready for production use"
+- Known risk: NSTextStorage delegate chain friction was already encountered and the custom path was reverted
+- Decision: acceptable if current usage is stable and benchmarked; do not deepen dependence without proof
+
+Option B — TextKit 2 custom NSTextView shell + Rust syntax service:
+- Most conservative native path
+- Known risk: TextKit 2 has documented bugs (scrollbar jitter in usageBoundsForTextContainer, custom backing store crashes, IME edge cases with Chinese keyboard input)
+- Decision: acceptable with STTextView-style workarounds for known bugs
+
+Option C — STTextView + Rust syntax service:
+- Most battle-tested TextKit 2 implementation (4+ years, Marcin Krzyżanowski)
+- Risk: GPL license requires commercial license for proprietary use
+- Decision: evaluate license terms before adoption
+
+The decision criterion is measurable: whichever shell meets < 16ms keystroke-to-highlight latency, stable 60fps scroll in large files, and allows clean integration of Rust syntax delta delivery wins.
+
+### 23.7 Metal overlay architecture
+
+Metal overlays compose alongside the text view for non-text rendering only. They must never interfere with text input, selection, or accessibility.
+
+Components and rendering method:
+- Minimap: Metal instanced colored quads (thousands of tiny rectangles per token)
+- Gutter decorations: Metal batch rendering (coverage bars, blame annotations, breakpoints)
+- Diagnostics heatmap: Metal fragment shader gradient (smooth error density visualization)
+- Diff overlays: Metal alpha-blended quad strips (added/removed line markers)
+- Background decorations: Metal layer below text (scope coloring, indent guides)
+
+Implementation:
+- Metal views are sibling NSView subclasses with CAMetalLayer backing
+- Position via zPosition relative to text content
+- Use isPaused = true on MTKView for on-demand rendering (not continuous)
+- Use presentsWithTransaction = true on CAMetalLayer for scroll synchronization
+
+### 23.8 Code editor benchmarks required before any migration
+
+No editor migration may begin until these benchmarks are captured and committed to docs/architecture/:
+
+- Editor open time: 1K, 10K, 50K, 100K-line files
+- First paint time after file open
+- Keystroke-to-highlight latency (macOS keyDown to drawRect)
+- Keystroke-to-fold/outline update latency
+- Scroll FPS and frame hitch count in large syntax-highlighted files
+- Memory growth during 5 minutes of continuous typing (simulated)
+- Main-thread time spent in binding sync (the O(n) path)
+- Tokenization parse time per keystroke
+- Allocation count and copy count where measurable
+
+Targets:
+- < 16ms keystroke-to-highlight (one 60Hz frame)
+- < 500ms open time for 50K-line files
+- Stable 60fps / 120fps (ProMotion) scroll
+- No unbounded memory growth during continuous typing
+
+## 24. Agent Streaming Data Plane
+
+### 24.1 Migration scope
+
+Only high-frequency streaming events justify BoltFFI or optimized FFI migration. The agent system currently uses AsyncStream with typed event variants (text deltas, thinking deltas, tool-call events, subagent events, compaction events, completion, and error states) consumed by ChatCoordinator.
+
+Migrate to optimized transport (later, after graph data-plane is proven):
+- Token text deltas (100-300 events/sec during LLM streaming)
+- Thinking/reasoning deltas (same frequency)
+- Tool-call progress events (variable, up to 50/sec)
+
+Keep on UniFFI or current bridge:
+- Session creation and lifecycle
+- Tool permission gates
+- Destructive-action approval loops
+- Provider selection and route preview
+- Telemetry and audit logs
+- Cancellation commands
+- Session lineage and history summaries (unless benchmarks prove otherwise)
+- Compile/setup calls
+
+### 24.2 Token coalescing
+
+Individual token delivery across the FFI boundary is an anti-pattern. The first agent streaming optimization should be coalescing, not transport change.
+
+Rust must coalesce tokens into frame-aligned batches:
+- Collect incoming LLM tokens in a buffer for 16ms (one 60Hz frame)
+- After the 16ms window closes, deliver the coalesced batch to Swift
+- Swift reads the contiguous text block, appends to UI in one operation
+- This reduces FFI crossing frequency from ~100-300/sec to ~60/sec
+
+Critical: never coalesce or drop errors, approval requests, completion events, or cancellation acknowledgments. Only text/thinking content tokens are coalesced.
+
+### 24.3 Backpressure
+
+The current agent streaming path uses semaphore-based handoffs for some bridged services but does not have explicit backpressure policy. The first optimization should be measurement, not immediate transport rewrite.
+
+Backpressure options (implement the simplest that works):
+- SPSC lock-free ring buffer (rtrb crate) — producer pauses when full
+- Pull-based polling from Swift at frame boundaries
+- Shared AtomicBool pause flag
+
+Emit telemetry when backpressure activates so the symptom is observable.
+
+### 24.4 Cancellation
+
+Swift sends cancel intent via a typed cancellation call. Rust cancels the session/task (Rust owns the actual teardown). Old event generations are ignored by Swift. Approval, error, and completion events are never silently dropped even during cancellation.
+
+### 24.5 Agent streaming benchmarks
+
+Required before any agent streaming migration:
+- Streaming events per second under load
+- First event latency (request to first token)
+- Text delta throughput (tokens/sec)
+- UI frame impact during heavy event streams (main-thread CPU%)
+- Queue depth and coalescing rate
+- Main-thread handling cost per event
+- Bridge CPU time per event
+
+Targets:
+- < 5% main thread utilization during streaming
+- Zero frame drops during sustained streaming
+- No unbounded memory growth during 60-second streaming sessions
+
+### 24.6 Execution order
+
+Agent streaming optimization is the second wave, after graph data-plane is proven. Do not prototype agent streaming BoltFFI until graph benchmarks are committed and the graph compatibility flag has been flipped.
+
+The correct first agent optimization may be coalescing alone (no transport change) if measurement shows event frequency, not transport overhead, is the real problem.
+
+## 25. Graph Zero-Copy Rendering
+
+### 25.1 Architecture
+
+For the knowledge graph with 10K+ nodes, the position data bandwidth is ~80KB per frame (10K x 2 floats x 4 bytes) at 60fps. On Apple Silicon's unified memory architecture, copying this data every frame through the C FFI bridge is wasteful.
+
+The zero-copy solution uses triple-buffered MTLBuffer with .storageModeShared. On Apple Silicon, storageModeShared means the same physical memory is accessed by both CPU and GPU without copying.
+
+### 25.2 Implementation
+
+Swift creates three MTLBuffer instances and passes the contents() pointer to Rust via FFI. Rust writes node positions directly into Metal-visible memory. Swift encodes the buffer into a render command with zero intermediate copies. A DispatchSemaphore(value: 3) prevents CPU from writing to a buffer the GPU is still reading.
+
+### 25.3 Data layout
+
+Use Struct-of-Arrays for GPU upload: separate contiguous arrays for positions ([f32]), sizes ([f32]), and colors ([u32]), matching Metal vertex buffer expectations. Adjacency data (edge source/target index pairs) changes infrequently and is uploaded once, updated on mutation.
+
+For string table separation in graph queries and search results, carry a separate label_id -> String mapping rather than repeating labels on every hit. That avoids the worst string-passing overhead.
+
+### 25.4 When to implement
+
+This is a Phase 2 optimization within the graph BoltFFI slice. The first graph migration uses typed buffers with synchronous copy (the pattern described in §22.6 step 4). Zero-copy shared MTLBuffer is introduced only after typed buffers prove the copy itself is a measured bottleneck. Do not prematurely optimize for zero-copy if the typed buffer path is already fast enough.
+
+## 26. Implementation Sessions
+
+The following sessions define the concrete execution order for the research-derived work. Each session is self-contained and scoped for a single agentic coding run.
+
+### 26.1 Session 0 — Editor doc-truth audit
+
+Goal: Reconcile CODE_EDITOR_FEATURE_AUDIT.md with live CodeEditorView.swift code. Every claimed feature must be verified as active, downgraded to "planned," or marked as "reverted."
+
+Files to audit:
+- Epistemos/Views/Notes/CodeEditorView.swift
+- Epistemos/Views/Notes/ProseEditorView.swift
+- Epistemos/Views/Notes/ProseEditorRepresentable2.swift
+- Epistemos/Views/Notes/ProseTextView2.swift
+- Epistemos/Views/Notes/NoteDetailWorkspaceView.swift
+- All CODE_EDITOR_*.md docs
+
+Deliverable: updated CODE_EDITOR_FEATURE_AUDIT.md with verified/unverified/reverted status on every claimed feature.
+
+This session must happen before any editor optimization work.
+
+### 26.2 Session 1 — Benchmark harness
+
+Goal: Instrument all boltffi_priority FFI surfaces with os_signpost on the Swift side and divan benchmarks on the Rust side. Commit baseline numbers.
+
+Files to create:
+- EpistemosTests/Benchmarks/GraphFFIBenchmarkTests.swift
+- EpistemosTests/Benchmarks/CodeEditorBenchmarkTests.swift (disabled-by-default)
+- graph-engine/benches/graph_ffi_baselines.rs
+- docs/architecture/BENCHMARK_BASELINES.csv
+
+Files to modify (instrumentation only):
+- Epistemos/Graph/GraphState.swift — signpost intervals around Data Loading, Queries, Search
+- Epistemos/Views/Graph/MetalGraphView.swift — signpost around SDF Label Rendering
+- Epistemos/Bridge/StreamingDelegate.swift — signpost around poll_event
+- The note editor path that calls Markdown Parser C FFI — signpost around parse calls
+
+What NOT to do: change any FFI function signatures, add new FFI functions, change Rust logic, change UI behavior.
+
+### 26.3 Session 2 — Swift 6 concurrency hardening
+
+Goal: Fix verified concurrency violations and unsafe patterns.
+
+Fixes:
+- Every NotificationCenter observer capturing userInfo in @Sendable closures — wrap with MainActor.assumeIsolated on .main-queue observers
+- The openNode force-unwrap pattern (node.sourceId!) — rewrite as guard let
+- Any try! or ! force unwraps — replace with proper error handling
+- Any Int(float) without isFinite check — add guard
+- Any page.loadBody() inside a SwiftUI body property — hoist to Task
+- RepeatForever animations not gated by occlusion or reduceMotion — add guards
+
+### 26.4 Session 3 — Graph BoltFFI typed buffer prototype
+
+Goal: Implement typed buffer layout for graph node/edge batch transfer alongside the existing C FFI. Both paths coexist behind a compatibility flag.
+
+Prerequisites: Session 1 baselines committed.
+
+Files to create:
+- graph-engine/src/bolt_bridge.rs (new typed buffer FFI functions)
+- graph-engine-bridge/graph_engine_bolt.h (new C header or cbindgen output)
+
+Files to modify:
+- graph-engine/Cargo.toml (feature flag bolt-graph)
+- Epistemos/Graph/GraphState.swift (new call path behind EPISTEMOS_USE_BOLT_GRAPH flag)
+- project.yml (register new header if needed)
+
+Verification: flag defaults to false (app behavior identical), flag true produces identical graph display, benchmark before/after CSV comparison, all Phase 7 tests pass with both flag states, zero coordinate drift.
+
+### 26.5 Session 4 — Graph Chat receiver wiring (COMPLETE)
+
+Goal: Wire GraphChatRequest notification to a real subscriber so graph-to-agent chat works end-to-end through the ACC/Rust compile path (not a competing chat architecture).
+
+Status: Completed in Phase 7 Step 9 (commit 47ee3c84).
+
+### 26.6 Session 5 — syntax-core crate scaffolding
+
+Goal: Create the new syntax-core crate with tree-sitter + ropey, but do NOT wire it to the editor. Scaffolding and benchmarks only.
+
+Files to create:
+- syntax-core/Cargo.toml
+- syntax-core/src/lib.rs (public API surface with all §23.5 data shapes)
+- syntax-core/src/rope_bridge.rs (ropey <-> tree-sitter TSInput integration)
+- syntax-core/src/token_registry.rs (capture name -> u16 kind ID mapping)
+- syntax-core/src/generation.rs (AtomicU64 generation counter + cancellation)
+- syntax-core/benches/parse_baselines.rs
+
+What this session does NOT do: wire syntax-core to the Swift editor, add FFI exports, change any existing crate, touch CodeEditorView.swift.
+
+Verification: cargo build/test/bench -p syntax-core succeeds, tree-sitter parses 50K-line Rust file in < 100ms initial, reparse after single-char edit in < 1ms.
+
+### 26.7 Session 6 — Agent streaming instrumentation
+
+Goal: Instrument agent token streaming path with signposts and establish baselines. Do NOT migrate to BoltFFI.
+
+Prerequisites: Session 3 (graph BoltFFI) committed and proven.
+
+### 26.8 Future sessions (conditional on benchmark data)
+
+These sessions are not authorized until their prerequisite benchmarks exist and justify them:
+
+- Editor syntax bridge via syntax-core (requires Sessions 1, 5, and editor benchmarks)
+- Agent streaming coalescing or BoltFFI prototype (requires Sessions 1, 6, and agent benchmarks)
+- Rust canonical rope migration (requires editor benchmarks proving Swift text storage is bottleneck)
+- Metal overlays for minimap/gutter (requires editor shell decision and benchmarks)
+- Graph zero-copy shared MTLBuffer (requires Session 3 proving copy is the remaining bottleneck)
+
+## 27. Anti-Pattern Register
+
+The following anti-patterns are explicitly prohibited by this plan and reinforced by all research audits:
+
+1. Do not mass-migrate every bridge to BoltFFI. Only benchmark-proven hot paths qualify.
+2. Do not rebuild the code editor before benchmarking. No open-time, keystroke-latency, or scroll-FPS data exists yet.
+3. Do not put routing or permissions in Swift. Rust is the sole authority for both.
+4. Do not create a second graph chat architecture. Graph Chat must flow through the same ACC/Rust compile path.
+5. Do not move text input, IME, or accessibility out of native macOS. The risks are prohibitive.
+6. Do not pass full document text across FFI every keystroke. Only SyntaxEditDelta crosses per edit.
+7. Do not apply syntax attributes to the full file every keystroke. Viewport-scoped token materialization only.
+8. Do not migrate embeddings/vector payloads in the first BoltFFI wave. Embeddings are a shared-memory problem.
+9. Do not migrate approval.rs or routing.rs. Audit semantics and Rust sovereignty must be preserved.
+10. Do not replace the editor shell before benchmarking the current one.
+11. Do not use crop without benchmarking against ropey first. Let data decide.
+12. Do not bundle editor tree-sitter into graph-engine. It belongs in syntax-core.
+13. Do not optimize features that only exist in documentation. Verify code first, then optimize.
+14. Do not treat a faster bridge as a substitute for event coalescing. Agent streaming pressure is often an event-frequency problem, not a transport problem.
+15. Do not introduce BoltFFI-the-toolchain as a build dependency for the first prototype. Raw #[repr(C)] + cbindgen is proven and sufficient. Evaluate BoltFFI toolchain later if manual maintenance becomes burdensome across many surfaces.
