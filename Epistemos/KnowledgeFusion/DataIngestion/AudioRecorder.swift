@@ -44,11 +44,20 @@ final class AudioRecorder {
             AVLinearPCMIsFloatKey: false
         ]
 
-        audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
-        guard audioRecorder?.record() == true else {
+        let recorder = try AVAudioRecorder(url: audioFilename, settings: settings)
+
+        guard recorder.prepareToRecord() else {
+            log.error("prepareToRecord() failed for \(audioFilename.path)")
+            throw NSError(domain: "AudioRecorder", code: 3, userInfo: [NSLocalizedDescriptionKey: "Failed to prepare audio recording."])
+        }
+
+        guard recorder.record() else {
+            recorder.stop()
+            log.error("record() returned false for \(audioFilename.path)")
             throw NSError(domain: "AudioRecorder", code: 2, userInfo: [NSLocalizedDescriptionKey: "Failed to initialize audio recording hardware."])
         }
-        
+
+        audioRecorder = recorder
         isRecording = true
         currentRecordingURL = audioFilename
         log.info("Started recording at \(audioFilename.path)")

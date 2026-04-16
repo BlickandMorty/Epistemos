@@ -109,7 +109,8 @@ struct CommandCenterRequestCompiler {
             resolvedMentions: resolvedContextRefs,
             availableBrains: availableBrains,
             preferredAutoBrain: preferredAuto,
-            vaultPath: vaultPath
+            vaultPath: vaultPath,
+            graphContext: request.graphContext.map(SerializedGraphContext.init)
         )
 
         do {
@@ -212,7 +213,8 @@ struct CommandCenterRequestCompiler {
             resolvedToolPermissions: [],
             resolvedContextRefs: resolvedContextRefs,
             resolvedExecutionPolicy: policy,
-            notesContext: nil
+            notesContext: nil,
+            graphContext: envelope.graphContext
         )
     }
 
@@ -350,6 +352,10 @@ struct CommandCenterRequestCompiler {
         /// no vault is open — Rust responds with an empty catalog and
         /// synthesized deny entries for every user-toggled tool.
         let vaultPath: String
+        /// Graph context when the request originated from a graph-workspace
+        /// "Ask Graph Chat" action. PLAN_V2 §4.1 requires the normalized
+        /// command to carry real graph context into the Rust compile path.
+        let graphContext: SerializedGraphContext?
     }
 }
 
@@ -383,6 +389,10 @@ struct CompiledCommandCenterRequest: Codable, Sendable, Equatable {
 
     // ───── Derived artifacts passed into downstream execution ─────
     let notesContext: String?
+    /// Graph context when the request originated from a graph workspace
+    /// "Ask Graph Chat" action. Passed through from the input so
+    /// downstream execution and the inspector can surface provenance.
+    let graphContext: SerializedGraphContext?
 
     // Convenience accessors used by the inspector + tests.
     var allowedToolNames: Set<String> {
@@ -629,6 +639,24 @@ struct SerializedBrainSelection: Codable, Sendable, Equatable {
             self.identifier = provider.rawValue
             self.displayName = provider.displayName
         }
+    }
+}
+
+/// Codable mirror of GraphChatRequest for the FFI round-trip. Carries the
+/// six PLAN_V2 §4.1 fields into the Rust compile path.
+struct SerializedGraphContext: Codable, Sendable, Equatable {
+    let graphNodeId: String
+    let sourceId: String?
+    let nodeType: String
+    let nodeLabel: String
+    let graphRoute: String
+
+    init(_ request: GraphChatRequest) {
+        self.graphNodeId = request.graphNodeId
+        self.sourceId = request.sourceId
+        self.nodeType = request.nodeType
+        self.nodeLabel = request.nodeLabel
+        self.graphRoute = request.route.serializationKey
     }
 }
 

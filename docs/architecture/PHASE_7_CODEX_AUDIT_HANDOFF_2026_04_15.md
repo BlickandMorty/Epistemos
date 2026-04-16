@@ -335,7 +335,7 @@ Expected results:
 | 5 | `Test run with 36 tests in 9 suites passed` |
 | 6 | `** TEST SUCCEEDED **` |
 | 7 | 5 tests pass |
-| 8 | 117 tests pass |
+| 8 | ThemePairTests pass |
 
 **If step 3 shows any diff after xcodegen regen**, flag it — it means
 Claude's xcodegen regen during the session drifted from what

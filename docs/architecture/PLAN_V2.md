@@ -167,8 +167,34 @@ Architectural requirements:
 - provider- and agent-aware output styling so different brains or local agents feel native and inspectable rather than like one generic chat stream
 - use Cursor, Antigravity, and OpenCode as interaction references, but translate them into an Apple-native Epistemos surface rather than copying web-chat styling directly
 - treat main chat as the lightweight conversational surface and the Agent home as the full agentic control surface, so the same controls are not duplicated across both places unless there is a deliberate minimal shortcut
+- any graph-originated Agent Command Center request must carry real graph context into the normalized command request and Rust compile path:
+  - graph node id
+  - backing source id when present
+  - node type
+  - node label
+  - current graph workspace route
+  - the user's prompt
+- Graph Chat receivers must be idempotent and lifecycle-safe; repeated bootstrap, presentation, or workspace navigation must not register duplicate observers, duplicate deliveries, or leaked notification tokens
 
 The command center is a user-facing delegation surface, not a second control plane. Rust still owns routing, policy, permissions, and runtime truth.
+
+#### Graph Workspace and Graph Chat
+The graph workspace is a first-class working environment, not only a visualization.
+It may open graph-native note pages, folder pages, inspectors, and graph-local
+chat surfaces, but it must remain a projection over canonical app state rather
+than becoming a second app.
+
+Graph Chat rules:
+- Graph Chat is a contextual intent surface for selected nodes, open pages,
+  focused folders, or current subgraphs.
+- Graph Chat must not create a competing chat architecture.
+- Graph Chat requests must flow through the same Agent Command Center / Rust
+  request-compilation truth as other agent requests unless an explicitly
+  documented graph-only executor is added later.
+- A graph-chat bridge that only prefills a composer is incomplete; it must also
+  attach graph context to the submitted command.
+- Unsupported node types should select or inspect rather than route to fake note
+  pages or empty error destinations.
 
 ### 4.2 Knowledge Layer
 The knowledge substrate includes:
@@ -987,7 +1013,8 @@ Preferred long-term direction:
 - Every migrated surface needs before/after benchmarks and parity tests.
 - Keep UniFFI where the call is low-frequency and type ergonomics are more valuable than raw throughput.
 - Prefer stable ABI structs, typed handles, borrowed buffers, and preallocated output buffers over JSON strings on hot paths.
-- Never pass large graph, transcript, embedding, screenshot, or agent-event payloads as repeatedly serialized JSON if a typed buffer or shared-memory path is feasible.
+- Never pass large graph, code-editor syntax, transcript, screenshot, or agent-event payloads as repeatedly serialized JSON if a typed buffer or shared-memory path is feasible.
+- Embedding and vector payloads are not part of the first BoltFFI migration wave; keep them on the existing retrieval path unless a later benchmark shows a concrete user-visible bottleneck.
 
 ### 22.3 Required audit scope
 Run a dedicated FFI audit across:
@@ -1063,22 +1090,54 @@ Goal:
 - voice -> note -> graph -> evidence should feel instant and native
 - source spans and evidence chips should move as typed records, not ad hoc JSON blobs
 
-#### Memory, retrieval, and embeddings
-Retrieval and memory will become increasingly data-heavy. BoltFFI should be
-considered before the vault gets large enough for bridge overhead to become
-visible.
+#### Code editor and syntax data plane
+The code editor is a first-class BoltFFI candidate only where a measured hot
+path exists. The target is not a speculative full editor rewrite; it is a
+native editor with a Rust-owned parsing/highlighting data plane where that
+creates visible smoothness.
 
-Audit and likely migrate:
-- embedding vectors and vector batches
-- sqlite-vec / FTS5 / hybrid retrieval result batches
+Audit and likely migrate after benchmarking:
+- Rust tree-sitter / syntax token delta payloads
+- dirty-range parse requests
+- viewport-sized semantic token batches
+- fold ranges
+- diagnostic ranges
+- diff and inline-review range payloads
+
+Keep Swift / TextKit 2 or the current native editor layer responsible for:
+- text input
+- IME composition
+- selection
+- undo / redo
+- accessibility
+- native scrolling and editing behavior
+
+Use Metal only where it clearly helps:
+- minimap
+- gutters
+- diagnostics heatmaps
+- diff overlays
+- syntax/background decoration layers
+
+Do not attempt full Metal text rendering unless benchmarks prove the native
+TextKit / CodeEdit path cannot meet interaction targets.
+
+#### Retrieval and memory payloads
+Retrieval and memory are important product systems, but embedding vectors and
+vector batches are intentionally removed from the first BoltFFI migration wave.
+
+Default:
+- keep embeddings and vector retrieval on the existing storage/retrieval path
+- do not prioritize BoltFFI for sqlite-vec, embedding vectors, vector batches, or cold retrieval queries
+- revisit only after graph memory v2 produces measured bridge overhead that is visible to users
+
+Still audit for future strategy:
 - graph memory and PPR result payloads
-- memory consolidation inputs/outputs
-- source-linked memory records
+- source-linked memory record summaries
 - contradiction and provenance result batches
 
-Use shared memory when:
-- payloads are large enough that even BoltFFI typed transfer is not the right shape
-- embeddings, screenshots, document chunks, or trace bundles would otherwise be copied repeatedly
+Use shared memory or chunked references, not automatic BoltFFI migration, when
+future retrieval payloads become too large for ordinary typed transfer.
 
 #### MCP and external tool payloads
 MCP transports remain MCP transports. BoltFFI should optimize local Swift/Rust
@@ -1121,11 +1180,11 @@ Do not migrate a surface if:
 
 1. Inventory every Swift/Rust boundary.
 2. Build a table of UniFFI, C FFI, JSON-over-FFI, shared-memory, XPC, and Swift-only hot paths.
-3. Add microbenchmarks for graph snapshots, agent events, transcript spans, retrieval results, and embedding batches.
+3. Add microbenchmarks for graph snapshots, agent events, transcript spans, and code-editor syntax/highlighting payloads.
 4. Pick one vertical slice first: graph data-plane transfer.
 5. Build BoltFFI bindings for the selected slice only.
 6. Keep the existing bridge behind a compatibility switch until parity and benchmarks pass.
-7. Repeat for agent event streaming and capture/evidence payloads.
+7. Repeat for agent event streaming and code-editor syntax payloads.
 8. Retire UniFFI surfaces only after the BoltFFI path is proven and the old path has no remaining callers.
 
 ### 22.7 Exit criteria
@@ -1133,7 +1192,8 @@ The BoltFFI migration program is complete only when:
 - every FFI boundary has an explicit keep/migrate/defer decision
 - graph hot-path transfer has been benchmarked and either migrated or explicitly justified
 - agent event streaming has been benchmarked and either migrated or explicitly justified
-- capture/transcript/evidence payloads have been benchmarked before Phase 6.5/7 expansion
-- embedding/retrieval payloads have a typed or shared-memory strategy before graph memory v2 scales up
+- code-editor syntax/highlighting payloads have been benchmarked before any Rust/BoltFFI editor rewrite
+- capture/transcript/evidence payloads have been benchmarked only if they become a measured hot path
+- embedding/vector payloads remain deferred unless later benchmarks prove the existing retrieval path is user-visible bottleneck
 - UniFFI remains only where it is intentionally cold-path or ergonomically superior
 - no migration weakens Rust sovereignty, permission gates, audit logs, or local-first routing rules

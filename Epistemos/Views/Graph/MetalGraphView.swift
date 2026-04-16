@@ -1483,7 +1483,7 @@ final class MetalGraphNSView: NSView {
         NSCursor.closedHand.set()
         needsRender = true
     }
-    
+
     // MARK: - Phase 7 Context Menus (Right Click)
 
     override func rightMouseDown(with event: NSEvent) {
@@ -1501,17 +1501,17 @@ final class MetalGraphNSView: NSView {
             let uuid = String(cString: uuidPtr)
 
             let menu = NSMenu()
-            
+
             let goItem = NSMenuItem(title: "Go to Node", action: #selector(contextMenuGoToNode(_:)), keyEquivalent: "")
             goItem.representedObject = uuid
             goItem.target = self
             menu.addItem(goItem)
-            
+
             let revealItem = NSMenuItem(title: "Reveal in Graph", action: #selector(contextMenuRevealInGraph(_:)), keyEquivalent: "")
             revealItem.representedObject = uuid
             revealItem.target = self
             menu.addItem(revealItem)
-            
+
             let chatItem = NSMenuItem(title: "Ask Graph Chat", action: #selector(contextMenuAskGraphChat(_:)), keyEquivalent: "")
             chatItem.representedObject = uuid
             chatItem.target = self

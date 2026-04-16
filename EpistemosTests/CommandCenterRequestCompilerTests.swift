@@ -96,7 +96,8 @@ struct CommandCenterRequestCompilerTests {
         tools: Set<String> = [],
         brain: ACCBrainSelection? = nil,
         mode: EpistemosOperatingMode = .agent,
-        slash: ParsedSlashToken? = nil
+        slash: ParsedSlashToken? = nil,
+        graphContext: GraphChatRequest? = nil
     ) -> ACCCommandRequest {
         ACCCommandRequest(
             query: query,
@@ -104,7 +105,8 @@ struct CommandCenterRequestCompilerTests {
             mentions: mentions,
             enabledToolNames: tools,
             brainOverride: brain,
-            operatingMode: mode
+            operatingMode: mode,
+            graphContext: graphContext
         )
     }
 

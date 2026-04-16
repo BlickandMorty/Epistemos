@@ -618,6 +618,16 @@ struct TextCapturePipelineTests {
 
     // MARK: - Quick Capture Wiring
 
+    @Test("Graph refresh signaled after successful graph write")
+    func graphRefreshSignaledAfterWrite() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Engine/TextCapturePipeline.swift"
+        )
+
+        #expect(source.contains("graphState.needsRefresh = true"))
+        #expect(source.contains("if graphSummary.noteNodeCreated"))
+    }
+
     @Test("Quick Capture command opens idempotently instead of toggling closed")
     func quickCaptureCommandIsIdempotent() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/EpistemosApp.swift")

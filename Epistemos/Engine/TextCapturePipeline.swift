@@ -286,6 +286,9 @@ final class TextCapturePipeline {
                 entities: entities,
                 context: context
             )
+            if graphSummary.noteNodeCreated {
+                AppBootstrap.shared?.graphState.needsRefresh = true
+            }
         } else {
             graphSummary = GraphWriteSummary(
                 noteNodeCreated: false,

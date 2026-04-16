@@ -44,10 +44,10 @@ extension Notification.Name {
 }
 
 extension GraphChatRequest {
-    static let userInfoKey = "request"
+    nonisolated static let userInfoKey = "request"
 
     /// Convenience for receivers that listen on `.graphChatRequested`.
-    static func fromNotification(_ notification: Notification) -> GraphChatRequest? {
+    nonisolated static func fromNotification(_ notification: Notification) -> GraphChatRequest? {
         notification.userInfo?[Self.userInfoKey] as? GraphChatRequest
     }
 }

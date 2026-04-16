@@ -14,6 +14,15 @@ enum GraphWorkspaceRoute: Equatable, Sendable {
         if case .canvas = self { return true }
         return false
     }
+
+    /// Stable string key for FFI serialization (Rust `GraphContext.graph_route`).
+    var serializationKey: String {
+        switch self {
+        case .canvas: "canvas"
+        case .note(let id): "note:\(id)"
+        case .folder(let id): "folder:\(id)"
+        }
+    }
 }
 
 extension Notification.Name {

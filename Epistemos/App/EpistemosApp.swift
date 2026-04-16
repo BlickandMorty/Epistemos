@@ -26,6 +26,9 @@ enum WindowPresentationPolicy {
         {
             return true
         }
+        if window.isMovableByWindowBackground {
+            return true
+        }
         guard let zoomButton = window.standardWindowButton(.zoomButton) else {
             return false
         }
@@ -36,6 +39,10 @@ enum WindowPresentationPolicy {
         to window: NSWindow,
         minimumContentSize: CGSize = mainWindowMinimumSize
     ) {
+        if window.isMovableByWindowBackground {
+            window.isMovableByWindowBackground = false
+        }
+
         if window.contentMinSize != minimumContentSize {
             window.contentMinSize = minimumContentSize
         }
@@ -71,6 +78,7 @@ final class ModularZoomWindowObserverView: NSView {
             window.appearance = nil
             window.isOpaque = true
             window.backgroundColor = .windowBackgroundColor
+            window.isMovableByWindowBackground = false
 
             if WindowPresentationPolicy.needsModularZoomBehavior(window) {
                 WindowPresentationPolicy.applyModularZoomBehavior(to: window)
