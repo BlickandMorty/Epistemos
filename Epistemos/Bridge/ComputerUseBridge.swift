@@ -332,9 +332,13 @@ final class ComputerUseBridge {
             return image
         }
 
+        guard width > 0, height > 0 else { return image }
+
         let scaleX = CGFloat(maxWidth) / CGFloat(width)
         let scaleY = CGFloat(maxHeight) / CGFloat(height)
         let scale = min(scaleX, scaleY)
+
+        guard scale.isFinite else { return image }
 
         let newWidth = Int(CGFloat(width) * scale)
         let newHeight = Int(CGFloat(height) * scale)

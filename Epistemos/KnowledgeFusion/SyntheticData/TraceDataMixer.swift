@@ -62,6 +62,6 @@ final class TraceDataMixer {
             return Array(items.shuffled().prefix(count))
         }
         // Sample with replacement
-        return (0..<count).map { _ in items.randomElement()! }
+        return (0..<count).compactMap { _ in items.randomElement() }
     }
 }
