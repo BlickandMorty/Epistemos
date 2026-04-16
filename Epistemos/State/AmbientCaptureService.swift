@@ -53,7 +53,7 @@ actor AmbientCaptureService {
                   let bundleId = app.bundleIdentifier,
                   let appName = app.localizedName else { return }
             let pid = app.processIdentifier
-            Task { [weak self] in
+            Task { @MainActor [weak self] in
                 await self?.handleActivation(pid: pid, bundleId: bundleId, appName: appName)
             }
         }

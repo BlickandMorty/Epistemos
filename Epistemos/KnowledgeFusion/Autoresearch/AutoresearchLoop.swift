@@ -191,29 +191,29 @@ actor AutoresearchLoop {
         case 0:
             // Vary rank
             let options = [4, 8, 16, 32]
-            let newRank = options.randomElement()!
+            guard let newRank = options.randomElement() else { return (config, "no-op") }
             config.loraRank = newRank
-            config.loraAlpha = newRank * 2  // maintain 2x ratio
+            config.loraAlpha = newRank * 2
             return (config, "rank=\(newRank) alpha=\(newRank * 2)")
 
         case 1:
             // Vary learning rate
             let options: [Double] = [1e-5, 2e-5, 3e-5, 5e-5]
-            let newLR = options.randomElement()!
+            guard let newLR = options.randomElement() else { return (config, "no-op") }
             config.learningRate = newLR
             return (config, "lr=\(newLR)")
 
         case 2:
             // Vary replay ratio
             let options: [Double] = [0.05, 0.10, 0.15, 0.20]
-            let newRatio = options.randomElement()!
+            guard let newRatio = options.randomElement() else { return (config, "no-op") }
             config.replayRatio = newRatio
             return (config, "replay=\(newRatio)")
 
         case 3:
             // Vary curriculum order
             let options: [TrainingConfig.CurriculumOrder] = [.ascending, .descending, .random]
-            let newOrder = options.randomElement()!
+            guard let newOrder = options.randomElement() else { return (config, "no-op") }
             config.curriculumOrder = newOrder
             return (config, "curriculum=\(newOrder.rawValue)")
 

@@ -167,9 +167,9 @@ enum CommandInputParser {
                 range: NSRange(text.startIndex..., in: text)
             )
             for match in results.reversed() {
-                guard let tokenRange = Range(match.range(at: 1), in: text) else { continue }
+                guard let tokenRange = Range(match.range(at: 1), in: text),
+                      let fullRange = Range(match.range, in: text) else { continue }
                 let token = String(text[tokenRange])
-                let fullRange = Range(match.range, in: text)!
 
                 if let provider = contextProviders.first(where: {
                     $0.token.localizedCaseInsensitiveCompare(token) == .orderedSame
@@ -220,9 +220,9 @@ enum CommandInputParser {
             }
 
             for match in results.reversed() {
-                guard let tokenRange = Range(match.range(at: 1), in: cleanedText) else { continue }
+                guard let tokenRange = Range(match.range(at: 1), in: cleanedText),
+                      let fullRange = Range(match.range, in: cleanedText) else { continue }
                 let token = String(cleanedText[tokenRange])
-                let fullRange = Range(match.range, in: cleanedText)!
 
                 if let provider = contextProviders.first(where: {
                     $0.token.localizedCaseInsensitiveCompare(token) == .orderedSame
