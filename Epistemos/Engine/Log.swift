@@ -64,6 +64,9 @@ nonisolated enum Log {
     /// Swift ↔ Rust / FFI boundary diagnostics
     static let ffiBoundary = Logger(subsystem: subsystem, category: "FFIBoundary")
 
+    /// Signpost log for FFI boundary performance (graph + agent bridge)
+    static let ffiPerf = OSSignposter(subsystem: subsystem, category: "ffi-perf")
+
     /// Durable runtime issue reporting
     static let diagnostics = Logger(subsystem: subsystem, category: "Diagnostics")
 }
