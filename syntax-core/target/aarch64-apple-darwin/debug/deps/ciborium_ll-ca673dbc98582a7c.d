@@ -1,0 +1,11 @@
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/ciborium_ll-ca673dbc98582a7c.d: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/dec.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/enc.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/hdr.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/seg.rs
+
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/libciborium_ll-ca673dbc98582a7c.rlib: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/dec.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/enc.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/hdr.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/seg.rs
+
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/libciborium_ll-ca673dbc98582a7c.rmeta: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/dec.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/enc.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/hdr.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/seg.rs
+
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/lib.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/dec.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/enc.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/hdr.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ciborium-ll-0.2.2/src/seg.rs:

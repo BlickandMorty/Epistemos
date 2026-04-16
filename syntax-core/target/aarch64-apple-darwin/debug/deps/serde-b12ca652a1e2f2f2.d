@@ -1,0 +1,14 @@
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/serde-b12ca652a1e2f2f2.d: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/build/serde-66fb17a2928353a9/out/private.rs
+
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/libserde-b12ca652a1e2f2f2.rlib: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/build/serde-66fb17a2928353a9/out/private.rs
+
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/deps/libserde-b12ca652a1e2f2f2.rmeta: /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/build/serde-66fb17a2928353a9/out/private.rs
+
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/jojo/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/build/serde-66fb17a2928353a9/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/build/serde-66fb17a2928353a9/out

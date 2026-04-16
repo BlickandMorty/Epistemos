@@ -1,0 +1,21 @@
+[package]
+name = "syntax-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+tree-sitter = "0.25"
+tree-sitter-language = "0.1"
+ropey = "1.6"
+rustc-hash = "2.1"
+
+[dev-dependencies]
+tree-sitter-rust = "0.24"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "parse_baselines"
+harness = false

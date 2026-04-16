@@ -1,0 +1,1 @@
+/Users/jojo/Downloads/Epistemos/syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.rlib: /Users/jojo/Downloads/Epistemos/syntax-core/src/generation.rs /Users/jojo/Downloads/Epistemos/syntax-core/src/lib.rs /Users/jojo/Downloads/Epistemos/syntax-core/src/rope_bridge.rs /Users/jojo/Downloads/Epistemos/syntax-core/src/token_registry.rs
