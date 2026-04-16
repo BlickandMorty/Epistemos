@@ -22,6 +22,9 @@ pub mod simulation;
 pub mod spatial;
 pub mod types;
 
+#[cfg(feature = "bolt-graph")]
+pub mod bolt_bridge;
+
 #[cfg(test)]
 pub mod physics_audit_test;
 
