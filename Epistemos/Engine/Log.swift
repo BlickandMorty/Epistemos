@@ -67,6 +67,9 @@ nonisolated enum Log {
     /// Signpost log for FFI boundary performance (graph + agent bridge)
     static let ffiPerf = OSSignposter(subsystem: subsystem, category: "ffi-perf")
 
+    /// Agent streaming path instrumentation (Rust → delegate → coordinator → UI)
+    static let agentStreaming = OSSignposter(subsystem: subsystem, category: "agent-streaming")
+
     /// Durable runtime issue reporting
     static let diagnostics = Logger(subsystem: subsystem, category: "Diagnostics")
 }

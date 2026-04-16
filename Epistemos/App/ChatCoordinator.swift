@@ -416,16 +416,19 @@ final class ChatCoordinator {
             }
         }
 
+        let accSessionInterval = Log.agentStreaming.beginInterval("accAgentSession")
         for await event in stream {
             switch event {
             case .thinkingDelta:
-                break
+                Log.agentStreaming.emitEvent("acc.thinkingDelta")
 
             case .textDelta(let text):
+                Log.agentStreaming.emitEvent("acc.textDelta", "\(text.count) chars")
                 receivedAgentContent = true
                 agentChat.appendStreamingText(text)
 
             case .toolStarted(let id, let name, let inputJson):
+                Log.agentStreaming.emitEvent("acc.toolStarted", "\(name)")
                 receivedAgentContent = true
                 agentChat.activeToolName = name
                 agentChat.isAgentExecuting = true
@@ -434,6 +437,7 @@ final class ChatCoordinator {
                 accState.diagnostics.recordActiveTool(name: name)
 
             case .toolCompleted(let id, let result, let isError):
+                Log.agentStreaming.emitEvent("acc.toolCompleted", "error=\(isError)")
                 receivedAgentContent = true
                 agentChat.activeToolName = nil
                 agentChat.isAgentExecuting = false
@@ -473,6 +477,7 @@ final class ChatCoordinator {
                 )
 
             case .complete(let stopReason, let inputTokens, let outputTokens, _):
+                Log.agentStreaming.emitEvent("acc.complete", "\(stopReason)")
                 receivedAgentContent = true
                 accState.diagnostics.markCompleted(
                     stopReason: stopReason,
@@ -481,6 +486,7 @@ final class ChatCoordinator {
                 )
 
             case .error(let error):
+                Log.agentStreaming.emitEvent("acc.error")
                 if receivedAgentContent {
                     agentChat.addErrorMessage("Agent error: \(error.message)")
                     accState.diagnostics.markFailed(
@@ -492,6 +498,7 @@ final class ChatCoordinator {
                 }
 
             case .turnStarted(let turn, let messageCount):
+                Log.agentStreaming.emitEvent("acc.turnStarted", "turn=\(turn)")
                 receivedAgentContent = true
                 agentChat.agentTurnCount = turn
                 accState.diagnostics.recordTurnStarted(turn: turn, messageCount: messageCount)
@@ -509,6 +516,7 @@ final class ChatCoordinator {
                 break
             }
         }
+        Log.agentStreaming.endInterval("accAgentSession", accSessionInterval)
 
         if let err = terminalAgentError {
             throw err

@@ -337,10 +337,12 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func onThinkingDelta(thought: String) {
+        Log.agentStreaming.emitEvent("delegate.thinkingDelta", "\(thought.count) chars")
         continuation.yield(.thinkingDelta(thought))
     }
 
     func onTextDelta(delta: String) {
+        Log.agentStreaming.emitEvent("delegate.textDelta", "\(delta.count) chars")
         continuation.yield(.textDelta(delta))
     }
 
@@ -349,10 +351,12 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func onToolStarted(toolUseId: String, name: String, inputJson: String) {
+        Log.agentStreaming.emitEvent("delegate.toolStarted", "\(name)")
         continuation.yield(.toolStarted(id: toolUseId, name: name, inputJson: inputJson))
     }
 
     func onToolCompleted(toolUseId: String, result: String, isError: Bool) {
+        Log.agentStreaming.emitEvent("delegate.toolCompleted", "error=\(isError)")
         continuation.yield(.toolCompleted(id: toolUseId, result: result, isError: isError))
     }
 
@@ -390,10 +394,12 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func onTurnStarted(turnNumber: UInt32, messageCount: UInt32) {
+        Log.agentStreaming.emitEvent("delegate.turnStarted", "turn=\(turnNumber) msgs=\(messageCount)")
         continuation.yield(.turnStarted(turn: Int(turnNumber), messageCount: Int(messageCount)))
     }
 
     func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32) {
+        Log.agentStreaming.emitEvent("delegate.complete", "\(stopReason) in=\(inputTokens) out=\(outputTokens)")
         continuation.yield(
             .complete(
                 stopReason: stopReason,
@@ -406,6 +412,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func onError(message: String) {
+        Log.agentStreaming.emitEvent("delegate.error")
         continuation.yield(.error(AgentRuntimeError(message: message)))
         continuation.finish()
     }
