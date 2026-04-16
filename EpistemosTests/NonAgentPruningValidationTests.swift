@@ -24,6 +24,22 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("local note bodies"))
     }
 
+    @Test("setup assistant allows fresh local-only setup without a vault")
+    func setupAssistantAllowsFreshLocalOnlySetup() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
+
+        #expect(source.contains("Button(\"Skip\") { withAnimation(Self.stepTransition) { currentStep = .model } }"))
+        #expect(!source.contains("if vaultSync.vaultURL != nil {\n                    Button(\"Skip\")"))
+    }
+
+    @Test("main window keeps background dragging disabled")
+    func mainWindowDisablesBackgroundDragging() throws {
+        let source = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(source.contains("if window.isMovableByWindowBackground {\n            return true\n        }"))
+        #expect(source.contains("window.isMovableByWindowBackground = false"))
+    }
+
     @Test("session intelligence overlay prefers live editor text before disk fallback")
     func sessionIntelligenceOverlayPrefersEditorBodies() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Landing/SessionIntelligenceOverlay.swift")
@@ -104,7 +120,8 @@ struct NonAgentPruningValidationTests {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
         #expect(source.contains("static let visibleSections"))
-        #expect(source.contains("List(SettingsSection.visibleSections"))
+        #expect(source.contains("ForEach(SettingsCategory.orderedCases)"))
+        #expect(source.contains("SettingsSection.visibleSections"))
         #expect(!source.contains("List(SettingsSection.allCases"))
         #expect(source.contains(".cognitive"))
         #expect(source.contains(".knowledgeFusion"))

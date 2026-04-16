@@ -1296,13 +1296,20 @@ final class AppBootstrap {
         // Tell Siri to re-index App Intents on every launch
         EpistemosShortcutsProvider.updateAppShortcutParameters()
 
-        // Initialize Agent Command Center state (Phase 5)
-        agentCommandCenterState.refreshToolCatalog(
-            from: mcpBridge,
-            vaultPath: vaultSync.vaultURL?.path ?? ""
-        )
+        // Initialize Agent Command Center state (Phase 5).
+        // Tool catalog load calls synchronous Rust FFI (listToolsForTier) which
+        // can stall the main thread. Defer it off the synchronous init path so
+        // the first frame renders without blocking.
         agentCommandCenterState.refreshSkillCatalog()
         agentCommandCenterState.refreshBrainCatalog(from: inference)
+        agentCommandCenterState.startObservingGraphChatRequests()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.agentCommandCenterState.refreshToolCatalog(
+                from: self.mcpBridge,
+                vaultPath: self.vaultSync.vaultURL?.path ?? ""
+            )
+        }
         agentChatState.eventBus = eventBus
         agentChatState.onStopRequested = { [weak self] in
             self?.coordinator.cancelActiveQuery()

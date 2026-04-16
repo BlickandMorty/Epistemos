@@ -333,6 +333,36 @@ struct GraphWorkspaceRouteOpenNodeDispatchTests {
         gs.openNode("does-not-exist")
         #expect(gs.currentRoute == .canvas)
     }
+
+    @Test("openNode on an idea node selects instead of routing to note")
+    func ideaNodeDoesNotRouteToNote() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-idea-1",
+            type: .idea,
+            sourceId: nil
+        ))
+
+        gs.openNode("graph-idea-1")
+
+        #expect(gs.currentRoute == .canvas)
+        #expect(gs.selectedNodeId == "graph-idea-1")
+    }
+
+    @Test("openNode on a chat node selects instead of routing to note")
+    func chatNodeDoesNotRouteToNote() {
+        let gs = GraphState()
+        gs.store.addNode(makeNode(
+            id: "graph-chat-1",
+            type: .chat,
+            sourceId: nil
+        ))
+
+        gs.openNode("graph-chat-1")
+
+        #expect(gs.currentRoute == .canvas)
+        #expect(gs.selectedNodeId == "graph-chat-1")
+    }
 }
 
 @Suite("Graph Workspace Route — Change Notification")
@@ -396,5 +426,24 @@ struct GraphWorkspaceRouteNotificationTests {
         gs.openNote("note-1") // same route
         await Task.yield()
         #expect(count == 0)
+    }
+}
+
+@Suite("Graph Workspace Route — Serialization Key")
+struct GraphWorkspaceRouteSerializationTests {
+
+    @Test("canvas serializes to 'canvas'")
+    func canvasSerialization() {
+        #expect(GraphWorkspaceRoute.canvas.serializationKey == "canvas")
+    }
+
+    @Test("note route serializes to 'note:id'")
+    func noteSerialization() {
+        #expect(GraphWorkspaceRoute.note(id: "abc").serializationKey == "note:abc")
+    }
+
+    @Test("folder route serializes to 'folder:id'")
+    func folderSerialization() {
+        #expect(GraphWorkspaceRoute.folder(id: "f1").serializationKey == "folder:f1")
     }
 }

@@ -417,13 +417,20 @@ final class GraphState {
         // GraphBuilder sets `sourceId` to the backing SwiftData entity id
         // (SDPage.id for notes, SDFolder.id for folders). Fall back to the
         // graph node id only when no sourceId is recorded.
-        let resolvedId = node.sourceId?.isEmpty == false ? node.sourceId! : id
+        let resolvedId: String
+        if let sid = node.sourceId, !sid.isEmpty {
+            resolvedId = sid
+        } else {
+            resolvedId = id
+        }
 
         switch node.type {
+        case .note:
+            openNote(resolvedId)
         case .folder:
             openFolder(resolvedId)
         default:
-            openNote(resolvedId)
+            selectNode(id)
         }
     }
 

@@ -109,10 +109,8 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                if vaultSync.vaultURL != nil {
-                    Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .model } }
-                        .buttonStyle(.bordered)
-                }
+                Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .model } }
+                    .buttonStyle(.bordered)
                 Button(vaultSync.vaultURL != nil ? "Change Vault" : "Select Vault Folder") {
                     selectVaultFolder()
                 }

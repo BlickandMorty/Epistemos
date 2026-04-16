@@ -410,6 +410,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func executeComputerAction(actionJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox(
             "{\"success\":false,\"error\":\"Timed out waiting for native computer action.\"}"
@@ -430,6 +431,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func waitForPermission(permissionId: String) -> Bool {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         permissionLock.lock()
         guard let semaphore = pendingPermissions[permissionId] else {
             permissionLock.unlock()
@@ -472,6 +474,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// the alert is dismissed. If no key window exists (e.g. teach mode),
     /// the alert falls back to `runModal()`.
     func askUserQuestion(questionJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"response\":\"\",\"choice_index\":null}")
 
@@ -494,6 +497,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Routes through `Screen2AXFusion.perceive(appName:)` on the main actor
     /// using a semaphore so the Rust side can call this from any thread.
     func perceiveApp(appName: String, depth: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"elements\":[],\"error\":\"perceive bridge unavailable\"}")
         Task { @MainActor in
@@ -508,6 +512,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Phase 4 Specialty A2: interact with a macOS app via AX + CGEvent.
     /// Decodes the action JSON and routes to `Phase4Bridge.interact`.
     func interactWithApp(actionJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"success\":false,\"error\":\"interact bridge unavailable\"}")
         Task { @MainActor in
@@ -523,6 +528,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// triggers. Routes through `Phase4Bridge.startScreenWatch` which polls
     /// the supplied target until the condition matches or the timeout fires.
     func startScreenWatch(watchJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"triggered\":false,\"error\":\"screen_watch bridge unavailable\"}")
         Task { @MainActor in
@@ -539,6 +545,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// via `SSMStateService`. Routes through Phase5Bridge so the FFI
     /// thread can wait on the @MainActor service synchronously.
     func manageSsmState(actionJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"success\":false,\"error\":\"ssm bridge unavailable\"}")
         Task { @MainActor in
@@ -553,6 +560,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Phase 5 Specialty C2: constrained decoding against the local MLX
     /// model. Routes through `ConstrainedDecodingService` via Phase5Bridge.
     func generateConstrained(prompt: String, grammarJson: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"output\":\"\",\"error\":\"constrained bridge unavailable\"}")
         Task { @MainActor in
@@ -577,6 +585,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// error, callers can then opt into FAL by passing `provider: "fal"`.
     /// There is no silent cloud escalation (PLAN_V2 §3.4).
     func generateImage(prompt: String, aspectRatio: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox(
             "{\"error\":\"image_generate bridge unavailable\"}"
@@ -599,6 +608,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Phase 7 Specialty D1: trigger a NightBrain background job on demand.
     /// Routes through Phase7Bridge → NightBrainService.
     func triggerNightbrainJob(jobType: String, priority: String) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"status\":\"skipped\",\"error\":\"nightbrain bridge unavailable\"}")
         Task { @MainActor in
@@ -614,6 +624,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func getPartnerContext(noteId: String, cursorOffset: UInt32) -> String {
+        dispatchPrecondition(condition: .notOnQueue(.main))
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"success\":false,\"error\":\"inline partner bridge unavailable\"}")
         Task { @MainActor in

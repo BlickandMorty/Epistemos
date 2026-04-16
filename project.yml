@@ -292,6 +292,10 @@ packages:
 schemes:
   Epistemos:
     build:
+      preActions:
+        - name: Patch MLX Metal Warning
+          script: bash "${SRCROOT}/scripts/patch_mlx_metal_warnings.sh"
+          settingsTarget: Epistemos
       targets:
         Epistemos: all
     test:

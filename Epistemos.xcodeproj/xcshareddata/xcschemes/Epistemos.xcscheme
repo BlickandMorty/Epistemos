@@ -6,6 +6,24 @@
       parallelizeBuildables = "YES"
       buildImplicitDependencies = "YES"
       runPostActionsOnFailure = "NO">
+      <PreActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Patch MLX Metal Warning"
+               scriptText = "bash &quot;${SRCROOT}/scripts/patch_mlx_metal_warnings.sh&quot;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "973D4C8C4633FC9F5CEF0985"
+                     BuildableName = "Epistemos.app"
+                     BlueprintName = "Epistemos"
+                     ReferencedContainer = "container:Epistemos.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PreActions>
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"

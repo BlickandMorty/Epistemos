@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -221,5 +222,141 @@ struct AgentCommandCenterStateTests {
         #expect(source.contains("-silentFallback"))
         #expect(source.contains("turnFailureCard"))
         #expect(source.contains("inlineDiffCard"))
+    }
+
+    // MARK: - Graph Chat Receiver
+
+    @Test func handleGraphChatRequestPresentsAndPrefills() {
+        let state = AgentCommandCenterState()
+        #expect(!state.isPresented)
+
+        let request = GraphChatRequest(
+            graphNodeId: "node-1",
+            sourceId: "page-1",
+            nodeType: "note",
+            nodeLabel: "Design Review",
+            route: .canvas
+        )
+        state.handleGraphChatRequest(request)
+
+        #expect(state.isPresented)
+        #expect(state.inputText == "Tell me about Design Review")
+        #expect(state.pendingGraphChatRequest == request)
+    }
+
+    @Test func handleGraphChatRequestFallsBackToTypeWhenLabelEmpty() {
+        let state = AgentCommandCenterState()
+
+        let request = GraphChatRequest(
+            graphNodeId: "node-2",
+            sourceId: nil,
+            nodeType: "idea",
+            nodeLabel: "",
+            route: .canvas
+        )
+        state.handleGraphChatRequest(request)
+
+        #expect(state.inputText == "Tell me about idea")
+    }
+
+    @Test func handleGraphChatRequestDoesNotDismissAlreadyPresented() {
+        let state = AgentCommandCenterState()
+        state.present()
+        state.inputText = "existing query"
+
+        let request = GraphChatRequest(
+            graphNodeId: "node-3",
+            sourceId: nil,
+            nodeType: "folder",
+            nodeLabel: "Projects",
+            route: .folder(id: "f1")
+        )
+        state.handleGraphChatRequest(request)
+
+        #expect(state.isPresented)
+        #expect(state.inputText == "Tell me about Projects")
+        #expect(state.pendingGraphChatRequest?.route == .folder(id: "f1"))
+    }
+
+    @Test func graphChatObserverLifecycle() {
+        let state = AgentCommandCenterState()
+        state.startObservingGraphChatRequests()
+        state.stopObservingGraphChatRequests()
+        #expect(!state.isPresented)
+    }
+
+    @Test func graphChatObserverReceivesNotificationPayload() async {
+        let state = AgentCommandCenterState()
+        state.startObservingGraphChatRequests()
+        defer { state.stopObservingGraphChatRequests() }
+
+        let request = GraphChatRequest(
+            graphNodeId: "node-4",
+            sourceId: "page-4",
+            nodeType: "note",
+            nodeLabel: "Notification Node",
+            route: .note(id: "page-4")
+        )
+
+        NotificationCenter.default.post(
+            name: .graphChatRequested,
+            object: nil,
+            userInfo: [GraphChatRequest.userInfoKey: request]
+        )
+        await Task.yield()
+
+        #expect(state.isPresented)
+        #expect(state.inputText == "Tell me about Notification Node")
+        #expect(state.pendingGraphChatRequest == request)
+    }
+
+    @Test func buildCommandRequestForwardsGraphContext() {
+        let state = AgentCommandCenterState()
+        let request = GraphChatRequest(
+            graphNodeId: "node-5",
+            sourceId: "page-5",
+            nodeType: "note",
+            nodeLabel: "Architecture",
+            route: .canvas
+        )
+        state.handleGraphChatRequest(request)
+
+        let cmd = state.buildCommandRequest()
+        #expect(cmd.graphContext == request)
+        #expect(cmd.graphContext?.graphNodeId == "node-5")
+        #expect(cmd.graphContext?.sourceId == "page-5")
+        #expect(cmd.graphContext?.nodeType == "note")
+    }
+
+    @Test func buildCommandRequestNilGraphContextWhenNoGraphOrigin() {
+        let state = AgentCommandCenterState()
+        state.inputText = "plain chat"
+        let cmd = state.buildCommandRequest()
+        #expect(cmd.graphContext == nil)
+    }
+
+    @Test func clearInputResetsPendingGraphContext() {
+        let state = AgentCommandCenterState()
+        let request = GraphChatRequest(
+            graphNodeId: "node-6",
+            sourceId: nil,
+            nodeType: "idea",
+            nodeLabel: "Spark",
+            route: .canvas
+        )
+        state.handleGraphChatRequest(request)
+        #expect(state.pendingGraphChatRequest != nil)
+
+        state.clearInput()
+        #expect(state.pendingGraphChatRequest == nil)
+        #expect(state.inputText.isEmpty)
+    }
+
+    @Test func duplicateObserverRegistrationDoesNotLeak() {
+        let state = AgentCommandCenterState()
+        state.startObservingGraphChatRequests()
+        state.startObservingGraphChatRequests()
+        state.stopObservingGraphChatRequests()
+        #expect(!state.isPresented)
     }
 }

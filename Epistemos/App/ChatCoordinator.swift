@@ -178,7 +178,8 @@ final class ChatCoordinator {
             mentions: mentions,
             enabledToolNames: toolRestrictions,
             brainOverride: brainOverride,
-            operatingMode: accState.selectedOperatingMode
+            operatingMode: accState.selectedOperatingMode,
+            graphContext: accState.pendingGraphChatRequest
         )
 
         // Capture closures for the compiler's injected dependencies. These keep
@@ -397,7 +398,7 @@ final class ChatCoordinator {
         let stream = AsyncStream<AgentStreamEvent> { continuation in
             let delegate = StreamingDelegate(continuation: continuation)
             capturedDelegate = delegate
-            Task {
+            Task.detached {
                 do {
                     let _ = try await runAgentSession(
                         sessionId: sessionId,
@@ -1091,7 +1092,7 @@ final class ChatCoordinator {
             let delegate = StreamingDelegate(continuation: continuation)
             capturedDelegate = delegate
 
-            Task {
+            Task.detached {
                 do {
                     let result = try await runAgentSession(
                         sessionId: sessionId,

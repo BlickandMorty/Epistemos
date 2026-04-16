@@ -66,6 +66,27 @@ pub struct CompileCommandCenterInput {
     /// yields an empty catalog (every tool denied with a truthful reason).
     #[serde(default)]
     pub vault_path: String,
+    /// Graph context attached when the request originated from a
+    /// graph-workspace "Ask Graph Chat" action. Carries the fields
+    /// required by PLAN_V2 §4.1: graph node id, backing source id,
+    /// node type, node label, and current graph route. `None` when
+    /// the request did not originate from the graph workspace.
+    #[serde(default)]
+    pub graph_context: Option<GraphContext>,
+}
+
+/// Graph-originated request context per PLAN_V2 §4.1. Attached to the
+/// compile input when the user invokes "Ask Graph Chat" from a graph
+/// node's context menu.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GraphContext {
+    pub graph_node_id: String,
+    #[serde(default)]
+    pub source_id: Option<String>,
+    pub node_type: String,
+    pub node_label: String,
+    pub graph_route: String,
 }
 
 /// Tool catalog entry derived from `ToolRegistry` at the operating-mode
@@ -101,6 +122,10 @@ pub struct CompiledCommandCenterRequest {
     pub resolved_context_refs: Vec<ResolvedContextRef>,
     pub resolved_execution_policy: ResolvedExecutionPolicy,
     pub notes_context: Option<String>,
+    /// Passed through from the input when the request originated from the
+    /// graph workspace. Downstream execution and the inspector can use
+    /// this to surface graph provenance without re-querying the graph store.
+    pub graph_context: Option<GraphContext>,
 }
 
 fn serialize_iso8601<S: serde::Serializer>(
@@ -356,6 +381,7 @@ pub fn compile_with_catalog(
         resolved_context_refs: input.resolved_mentions,
         resolved_execution_policy: resolved_policy,
         notes_context,
+        graph_context: input.graph_context,
     }
 }
 
@@ -962,6 +988,7 @@ mod tests {
             available_brains: vec![local_brain("qwen", "Qwen")],
             preferred_auto_brain: None,
             vault_path: String::new(),
+            graph_context: None,
         };
         let catalog = vec![
             sample_tool("read_file", false),
@@ -1086,5 +1113,73 @@ mod tests {
         let json = serde_json::to_string(&refs).unwrap();
         let back: Vec<ResolvedContextRef> = serde_json::from_str(&json).unwrap();
         assert_eq!(back.len(), 1);
+    }
+
+    #[test]
+    fn graph_context_passes_through_compile() {
+        let ctx = GraphContext {
+            graph_node_id: "g-node-1".to_string(),
+            source_id: Some("page-abc".to_string()),
+            node_type: "note".to_string(),
+            node_label: "Design Review".to_string(),
+            graph_route: "canvas".to_string(),
+        };
+        let input = CompileCommandCenterInput {
+            query: "tell me about this node".to_string(),
+            conversation_history: None,
+            operating_mode: OperatingMode::Agent,
+            slash_token: None,
+            brain_override: None,
+            enabled_tool_names: vec![],
+            requested_mentions: vec![],
+            resolved_mentions: vec![],
+            available_brains: vec![local_brain("qwen", "Qwen")],
+            preferred_auto_brain: Some(local_brain("qwen", "Qwen")),
+            vault_path: String::new(),
+            graph_context: Some(ctx),
+        };
+        let compiled = compile_with_catalog(input, vec![]);
+        let gc = compiled.graph_context.expect("graph_context must pass through");
+        assert_eq!(gc.graph_node_id, "g-node-1");
+        assert_eq!(gc.source_id.as_deref(), Some("page-abc"));
+        assert_eq!(gc.node_type, "note");
+        assert_eq!(gc.node_label, "Design Review");
+        assert_eq!(gc.graph_route, "canvas");
+    }
+
+    #[test]
+    fn graph_context_none_when_absent() {
+        let input = CompileCommandCenterInput {
+            query: "plain chat".to_string(),
+            conversation_history: None,
+            operating_mode: OperatingMode::Fast,
+            slash_token: None,
+            brain_override: None,
+            enabled_tool_names: vec![],
+            requested_mentions: vec![],
+            resolved_mentions: vec![],
+            available_brains: vec![local_brain("qwen", "Qwen")],
+            preferred_auto_brain: None,
+            vault_path: String::new(),
+            graph_context: None,
+        };
+        let compiled = compile_with_catalog(input, vec![]);
+        assert!(compiled.graph_context.is_none());
+    }
+
+    #[test]
+    fn graph_context_round_trips_through_json() {
+        let ctx = GraphContext {
+            graph_node_id: "gn-42".to_string(),
+            source_id: None,
+            node_type: "idea".to_string(),
+            node_label: "Brainstorm".to_string(),
+            graph_route: "folder:f1".to_string(),
+        };
+        let json = serde_json::to_string(&ctx).unwrap();
+        let back: GraphContext = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.graph_node_id, "gn-42");
+        assert!(back.source_id.is_none());
+        assert_eq!(back.node_type, "idea");
     }
 }
