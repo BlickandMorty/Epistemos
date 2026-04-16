@@ -210,18 +210,22 @@ final class EmbeddingService {
                 return
             }
 
-            // SAFETY: All FFI calls to the Rust engine MUST be serialized on
-            // MainActor to prevent double-free / use-after-free when the engine
-            // is deallocated while background work is in flight.
-            // The embedding computation (expensive) runs off-main above;
-            // only the FFI push + KNN recompute runs on main.
+            // FFI push (mutates embedding_store) must stay on MainActor.
             await MainActor.run {
                 guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
                     return
                 }
                 Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
-                graph_engine_recompute_semantic_neighbors(engineHandle.raw, 8, 0.3)
-                Log.app.info("EmbeddingService: pushed \(completedEmbeddings.count) embeddings (dim=\(dim)) to Rust")
+            }
+
+            // KNN recompute is O(n²) — run off main thread to avoid beach ball.
+            // The Rust side uses a Mutex to install the result, so the render
+            // loop is never blocked by the computation.
+            let handle = engineHandle
+            let count = completedEmbeddings.count
+            Task.detached(priority: .utility) {
+                graph_engine_recompute_semantic_neighbors(handle.raw, 8, 0.3)
+                Log.app.info("EmbeddingService: pushed \(count) embeddings (dim=\(dim)) to Rust")
             }
         }
     }

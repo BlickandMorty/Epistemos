@@ -210,6 +210,10 @@ void graph_engine_resume(Engine* engine);
 /// User-controlled physics freeze: 1 = freeze (stop all forces), 0 = unfreeze (reheat).
 void graph_engine_set_user_frozen(Engine* engine, uint8_t frozen);
 
+/// Keep the render loop alive even when physics has settled.
+/// Set to 1 when pinned inspector panels exist, 0 when they don't.
+void graph_engine_set_force_alive(Engine* engine, uint8_t alive);
+
 // ── Node Pinning ────────────────────────────────────────────────────────────
 
 /// Pin a node at its current position. Uses d3-style fx/fy constraint.

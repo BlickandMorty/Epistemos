@@ -207,6 +207,7 @@ final class HologramOverlay {
     /// independently of node selection so pinned panels follow their nodes
     /// even when nothing is selected. Started when overlay shows, stopped on hide.
     private var pinnedPanelTimer: Timer?
+    private var lastForceAlive = false
     private var inspectorRepositionTask: Task<Void, Never>?
     private var lastInspectorFrame: CGRect?
     private var lastQueuedInspectorAnchor: CGPoint?
@@ -991,6 +992,13 @@ final class HologramOverlay {
         guard let contentView = window?.contentView,
               let engineHandle = graphState.engineHandle else { return }
         let mgr = PinnedInspectorManager.shared
+
+        let hasPinned = !mgr.pinnedInspectors.isEmpty
+        if hasPinned != lastForceAlive {
+            lastForceAlive = hasPinned
+            graph_engine_set_force_alive(engineHandle, hasPinned ? 1 : 0)
+        }
+
         let scale = NSScreen.main?.backingScaleFactor ?? 2.0
         let bounds = contentView.bounds
 
@@ -1046,6 +1054,10 @@ final class HologramOverlay {
     private func stopPinnedPanelTimer() {
         pinnedPanelTimer?.invalidate()
         pinnedPanelTimer = nil
+        if lastForceAlive, let engineHandle = graphState.engineHandle {
+            graph_engine_set_force_alive(engineHandle, 0)
+            lastForceAlive = false
+        }
     }
 
     // MARK: - Lazy Inspector (Node Selection)

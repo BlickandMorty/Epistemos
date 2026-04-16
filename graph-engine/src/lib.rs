@@ -1113,6 +1113,16 @@ pub extern "C" fn graph_engine_set_user_frozen(engine: *mut Engine, frozen: u8) 
     });
 }
 
+/// Keep the render loop alive even when physics has settled.
+/// Set to 1 when pinned inspector panels exist, 0 when they don't.
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_force_alive(engine: *mut Engine, alive: u8) {
+    ffi_catch_unwind!("graph_engine_set_force_alive", {
+        ffi_engine!(engine);
+        engine.set_force_alive(alive != 0);
+    });
+}
+
 // ── Node Pinning ────────────────────────────────────────────────────────────
 
 /// Pin a node at its current position. Uses d3-style fx/fy constraint.
@@ -1587,7 +1597,7 @@ pub extern "C" fn graph_engine_clear_embeddings(engine: *mut Engine) {
     ffi_catch_unwind!("graph_engine_clear_embeddings", {
         ffi_engine!(engine);
         engine.embedding_store.clear();
-        engine.semantic_neighbors.clear();
+        engine.semantic_neighbors.lock().clear();
         engine.reheat();
     });
 }
@@ -1622,7 +1632,7 @@ pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, di
         if !engine.embedding_store.reset_dimension(dim as usize) {
             return 0;
         }
-        engine.semantic_neighbors.clear();
+        engine.semantic_neighbors.lock().clear();
         engine.reheat();
         1
     })
@@ -1634,6 +1644,10 @@ pub extern "C" fn graph_engine_reset_embedding_dimension(engine: *mut Engine, di
 ///
 /// `k`: number of neighbors per node (typically 8).
 /// `threshold`: minimum cosine similarity to include (typically 0.3).
+///
+/// Thread-safety: the O(n²) KNN computation runs on the calling thread
+/// (may be a background thread). The result is installed via Mutex swap
+/// so the render loop is never blocked by the computation.
 #[unsafe(no_mangle)]
 pub extern "C" fn graph_engine_recompute_semantic_neighbors(
     engine: *mut Engine,
@@ -1642,7 +1656,8 @@ pub extern "C" fn graph_engine_recompute_semantic_neighbors(
 ) {
     ffi_catch_unwind!("graph_engine_recompute_semantic_neighbors", {
         ffi_engine!(engine);
-        engine.semantic_neighbors = engine.embedding_store.all_knn_pairs(k as usize, threshold);
+        let pairs = engine.embedding_store.all_knn_pairs(k as usize, threshold);
+        *engine.semantic_neighbors.lock() = pairs;
         // Reheat physics so the new attraction forces take effect.
         engine.reheat();
     });
@@ -1970,7 +1985,7 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
                 };
             }
 
-            let mut ffi_results: Vec<GraphEnginePreparedRetrievalCandidate> = hits
+            let ffi_results: Vec<GraphEnginePreparedRetrievalCandidate> = hits
                 .into_iter()
                 .map(|hit| GraphEnginePreparedRetrievalCandidate {
                     page_id: CString::new(hit.page_id).unwrap_or_default().into_raw(),
@@ -1978,9 +1993,11 @@ pub extern "C" fn graph_engine_prepared_retrieval_score_page_ids(
                 })
                 .collect();
 
-            let count = ffi_results.len() as u32;
-            let candidates = ffi_results.as_mut_ptr();
-            std::mem::forget(ffi_results);
+            // into_boxed_slice guarantees capacity == len, matching the
+            // Box::from_raw reconstruction in the free function.
+            let boxed = ffi_results.into_boxed_slice();
+            let count = boxed.len() as u32;
+            let candidates = Box::into_raw(boxed) as *mut GraphEnginePreparedRetrievalCandidate;
             GraphEnginePreparedRetrievalCandidateList { candidates, count }
         }
     )
@@ -1995,18 +2012,25 @@ pub extern "C" fn graph_engine_free_prepared_retrieval_candidates(
             return;
         }
 
-        // SAFETY: `list.candidates` and `list.count` come directly from
-        // graph_engine_prepared_retrieval_score_page_ids.
-        let mut candidates = unsafe {
-            Vec::from_raw_parts(list.candidates, list.count as usize, list.count as usize)
-        };
+        let count = list.count as usize;
+        debug_assert!(!list.candidates.is_null());
 
-        for candidate in &mut candidates {
-            if !candidate.page_id.is_null() {
-                // SAFETY: each page_id was allocated with CString::into_raw above.
-                let _ = unsafe { CString::from_raw(candidate.page_id) };
-                candidate.page_id = std::ptr::null_mut();
+        // SAFETY: `list.candidates` and `list.count` were produced by
+        // graph_engine_prepared_retrieval_score_page_ids via
+        // Box::into_raw(boxed_slice), guaranteeing capacity == count.
+        unsafe {
+            let slice: &mut [GraphEnginePreparedRetrievalCandidate] =
+                std::slice::from_raw_parts_mut(list.candidates, count);
+            for candidate in slice.iter() {
+                if !candidate.page_id.is_null() {
+                    // SAFETY: each page_id was allocated with CString::into_raw.
+                    let _ = CString::from_raw(candidate.page_id);
+                }
             }
+            // SAFETY: Reconstruct the boxed slice and drop it to free the allocation.
+            let to_drop: *mut [GraphEnginePreparedRetrievalCandidate] =
+                std::ptr::slice_from_raw_parts_mut(list.candidates, count);
+            drop(Box::from_raw(to_drop));
         }
     });
 }
@@ -2322,7 +2346,14 @@ pub extern "C" fn graph_engine_free_bytes(buffer: GraphEngineByteBuffer) {
         if buffer.ptr.is_null() || buffer.capacity == 0 {
             return;
         }
+        debug_assert!(
+            buffer.capacity >= buffer.len,
+            "graph_engine_free_bytes: capacity ({}) < len ({})",
+            buffer.capacity,
+            buffer.len
+        );
         // SAFETY: Buffer originates from Vec::into_raw_parts-equivalent in byte_buffer_from_vec.
+        // ptr, len, and capacity are all preserved across the FFI boundary via GraphEngineByteBuffer.
         unsafe {
             let _ = Vec::from_raw_parts(buffer.ptr, buffer.len as usize, buffer.capacity as usize);
         }
