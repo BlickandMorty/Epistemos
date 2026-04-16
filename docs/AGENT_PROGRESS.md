@@ -1,6 +1,20 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-03 | All sprints COMPLETE | Full automated sweep green: Swift 3111 tests / 422 suites, graph-engine 2451, agent_core 144, omega-mcp 126, omega-ax 12 | Swift BUILD SUCCEEDED | Current research source of truth: docs/HERMES_INTEGRATION_RESEARCH.md
+Last updated: 2026-04-15 | All sprints COMPLETE | Full automated sweep green: Swift 331 critical tests / 15 suites, graph-engine 2456, agent_core 501, syntax-core 21 | Swift BUILD SUCCEEDED | Current research source of truth: docs/architecture/PLAN_V2.md §23-§27
+
+## 2026-04-15 PLAN_V2 Research Integration + Sessions 0-6 ✅
+- [x] Committed Phase 7 Step 9: Graph Chat receiver wired end-to-end through ACC and Rust compile path (GraphState → ACC → ChatCoordinator → Rust GraphContext passthrough)
+- [x] Integrated §23-§27 into PLAN_V2.md from 5-model research synthesis: Code Editor Architecture Truth, Agent Streaming Data Plane, Graph Zero-Copy Rendering, Implementation Sessions, Anti-Pattern Register
+- [x] Fixed P1 beach ball: recompute_semantic_neighbors off main thread via Mutex + Task.detached
+- [x] Fixed P0 Vec drop malloc: allocator mismatch in graph_engine_free_prepared_retrieval_candidates replaced with into_boxed_slice/Box::from_raw pattern
+- [x] Fixed P2 pinned inspector freeze: force_alive engine flag bypasses idle skip when pinned panels exist
+- [x] Session 0: Editor doc-truth audit — reconciled CODE_EDITOR_FEATURE_AUDIT.md with live code (3 verified, 4 partial, 1 reverted)
+- [x] Session 1: Benchmark harness — os_signpost instrumentation on graph/streaming FFI + criterion benches in graph-engine + BENCHMARK_BASELINES.csv
+- [x] Session 2: Swift 6 concurrency hardening — 6 force unwraps removed, isFinite guard added, no try! violations found
+- [x] Session 3: Graph BoltFFI typed buffer prototype — bolt_bridge.rs with BoltNodeRecord/BoltEdgeRecord/BoltPositionRecord behind bolt-graph feature flag, 10 tests
+- [x] Session 5: syntax-core crate scaffolding — tree-sitter + ropey, 7 #[repr(C)] FFI types, rope bridge, token registry, generation counter, 21 tests, criterion benchmarks
+- [x] Session 6: Agent streaming instrumentation — signposts on StreamingDelegate + ChatCoordinator event path
+- [x] Final audit: 2978 Rust tests (2456 graph-engine + 501 agent_core + 21 syntax-core), Swift BUILD SUCCEEDED, 331 critical tests in 15 suites all pass
 
 ## 2026-04-03 Main Chat Markdown Tightening ✅
 - [x] `TaggedMarkdownTextView` now groups consecutive list items into a single render run so main chat and mini chat no longer space bullets like separate paragraphs

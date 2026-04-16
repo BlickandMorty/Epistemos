@@ -60,7 +60,7 @@ Investigation Log:
 
 ### ISSUE-2026-04-04-001: Vec Drop malloc error during app lifecycle transition
 
-Status: Open
+Status: Patched
 Priority: P0 (crash, but during teardown, not blocking normal usage)
 First Observed: 2026-04-04
 Affected Version: branch `codex/post-audit-feature-work`
@@ -100,12 +100,13 @@ Destructive Fixes (require user approval):
 
 Investigation Log:
 - 2026-04-04: Identified from user's debug log. Ruled out recent changes (GPU N-body double-buffering, color conversions, folder depth computation, proactive compaction) — none of these allocate Vecs on the code paths executed by a 1127-node graph. Marked as pre-existing FFI boundary issue.
+- 2026-04-15: Fixed allocator mismatch in graph_engine_free_prepared_retrieval_candidates — Vec::from_raw_parts used count as both len and capacity, but original Vec may have capacity != len. Changed to into_boxed_slice + Box::into_raw on alloc side and Box::from_raw on free side. Added debug_assert for byte buffer capacity. 2456 Rust tests pass.
 
 ---
 
 ### ISSUE-2026-04-06-001: Pinned Inspector Panels Freeze When No Node Selected
 
-Status: Investigating
+Status: Patched
 Priority: P2
 First Observed: 2026-04-06
 Affected Version: main @ cdd931e4+
@@ -145,12 +146,15 @@ Investigation Log:
   Root cause narrowed to Rust idle skip preventing camera state refresh. The timer queries
   node_screen_pos which uses renderer.camera_offset/zoom — these stop updating when the
   engine is idle because update_camera() is inside the render path that gets skipped.
+- 2026-04-15: Added force_alive flag to Engine struct. When pinned panels exist, idle skip
+  is bypassed so update_camera() keeps running. HologramOverlay syncs force_alive via FFI
+  when pinned panel count changes. MetalGraphView keeps display link alive when hasPinnedPanels.
 
 ---
 
 ### ISSUE-2026-04-06-002: Beach Ball Spinner During Graph Interaction
 
-Status: Investigating
+Status: Patched
 Priority: P1
 First Observed: 2026-04-06
 Affected Version: main @ 025db832
@@ -188,12 +192,16 @@ Investigation Log:
 - 2026-04-06: Traced beach ball to commit 025db832 which moved recompute_semantic_neighbors
   to MainActor. The KNN computation is O(n^2*dim) — for 1131 nodes * 768 dims this is
   ~1 billion float ops, easily >2 seconds on main thread. Need to split compute from swap.
+- 2026-04-15: Changed Engine.semantic_neighbors to parking_lot::Mutex<Vec<(u32,u32,f32)>>.
+  EmbeddingService now runs recompute_semantic_neighbors via Task.detached(priority: .utility)
+  instead of MainActor.run. Background KNN writes through Mutex, render loop reads through
+  Mutex. 2456 Rust tests pass.
 
 ---
 
 ## Resolved Issues
 
-_(none yet — move entries here as they are Verified Fixed)_
+_(Issues moved here after manual runtime verification confirms the fix)_
 
 ---
 
