@@ -39,6 +39,7 @@ targets:
     platform: macOS
     sources:
       - path: Epistemos
+        type: syncedFolder
         excludes:
           - Engine/ClaudeManagedRuntime.swift
           - Engine/LocalRustRuntime.swift
@@ -46,10 +47,10 @@ targets:
           - Omega/Knowledge/ODIATraceGenerator.swift
           - Omega/Knowledge/TraceDataMixer.swift
           - Vault/KnowledgeGraphService.swift
-      - path: build-rust/swift-bindings/omega_mcp.swift
-      - path: build-rust/swift-bindings/omega_ax.swift
-      - path: build-rust/swift-bindings/epistemos_core.swift
-      - path: build-rust/swift-bindings/agent_core.swift
+      - path: build-rust/swift-bindings
+        type: syncedFolder
+        includes:
+          - "*.swift"
     resources:
       - path: Epistemos/Resources
       - path: Epistemos/Resources/PrivacyInfo.xcprivacy
@@ -70,7 +71,7 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core -lagent_core
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
@@ -85,7 +86,7 @@ targets:
           ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -121,6 +122,7 @@ targets:
     platform: macOS
     sources:
       - path: EpistemosTests
+        type: syncedFolder
     dependencies:
       - target: Epistemos
     preBuildScripts:
@@ -225,6 +227,7 @@ targets:
 
           copy_file "AGENTS.md"
           copy_file "CLAUDE.md"
+          copy_file "Epistemos-Bridging-Header.h"
           copy_file "Epistemos-Info.plist"
           copy_file "project.yml"
           copy_file "Makefile"
@@ -233,6 +236,7 @@ targets:
           copy_file "bundle-app-runtime-assets.sh"
           copy_file "embed-and-sign-rust-dylib.sh"
           copy_file "build-rust.sh"
+          copy_file "build-syntax-core.sh"
           copy_file "build-omega-mcp.sh"
           copy_file "build-omega-ax.sh"
           copy_file "build-epistemos-core.sh"

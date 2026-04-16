@@ -2,10 +2,9 @@ import Foundation
 import SwiftUI
 
 // MARK: - Agent Command Center View
-// Top-level overlay that renders the Agent Command Center.
-// The visual model intentionally follows a Claude Code-like terminal window:
-// transcript first, quiet black chrome, compact status strip, and a docked
-// command input. SwiftUI still owns the surface; Rust still owns execution.
+// Dedicated home-window agent workspace.
+// Keeps the OLED palette and agent-specific controls, but uses native page
+// sections and liquid-glass surfaces instead of a centered faux terminal.
 
 struct AgentCommandCenterView: View {
     @Environment(AgentCommandCenterState.self) private var accState
@@ -69,32 +68,53 @@ struct AgentCommandCenterView: View {
     }
 
     private var windowMaxWidth: CGFloat {
+        let expandedPlanWidth: CGFloat = isInspectorTab(.plan) ? 120 : 0
         switch accState.presentationMode {
-        case .compact: 760
-        case .standard: 930
-        case .advanced: 1_090
+        case .compact:
+            return 760
+        case .standard:
+            return 930 + expandedPlanWidth
+        case .advanced:
+            return 1_090 + expandedPlanWidth
         }
     }
 
     private var windowMaxHeight: CGFloat {
         switch accState.presentationMode {
-        case .compact: 580
-        case .standard, .advanced: 680
+        case .compact:
+            return 580
+        case .standard, .advanced:
+            return 680
         }
+    }
+
+    private var rightRailWidth: CGFloat {
+        isInspectorTab(.plan) ? 420 : 300
     }
 
     var body: some View {
         ZStack {
             terminalBackdrop
                 .ignoresSafeArea()
-                .onTapGesture {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        accState.dismiss()
-                    }
-                }
 
-            terminalWindow
-                .padding(40)
+            HStack(alignment: .top, spacing: 22) {
+                VStack(spacing: 18) {
+                    pageHeader
+                    commandArea
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+
+                if isRightRailVisible {
+                    rightWorkspaceRailCard
+                        .frame(width: rightRailWidth)
+                        .frame(maxHeight: .infinity)
+                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, 34)
+            .padding(.top, 26)
+            .padding(.bottom, 18)
         }
         .onKeyPress(.escape) {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -109,93 +129,113 @@ struct AgentCommandCenterView: View {
 
     private var terminalBackdrop: some View {
         ZStack {
-            Color.black.opacity(0.86)
+            Color.black.opacity(0.82)
                 .background(.ultraThinMaterial)
 
             RadialGradient(
                 colors: [
-                    theme.resolved.accent.color.opacity(0.12),
+                    theme.resolved.accent.color.opacity(0.16),
                     Color.clear,
                 ],
-                center: .top,
-                startRadius: 120,
-                endRadius: 760
+                center: .topLeading,
+                startRadius: 90,
+                endRadius: 880
             )
         }
     }
 
-    private var terminalWindow: some View {
-        VStack(spacing: 0) {
-            terminalTitleBar
+    private var pageHeader: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle()
+                            .fill(theme.resolved.accent.color.opacity(0.16))
+                        Image(systemName: "command.circle.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(theme.resolved.accent.color)
+                    }
+                    .frame(width: 36, height: 36)
 
-            Divider()
-                .background(terminalBorder)
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Agent Workspace")
+                            .font(AppDisplayTypography.font(size: 28, allowDisplayFont: true))
+                            .foregroundStyle(Color.white.opacity(0.94))
+                        Text("A native home-window page for planning, tools, and multi-step execution.")
+                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .foregroundStyle(mutedTerminalText)
+                    }
+                }
 
-            HStack(spacing: 0) {
-                commandArea
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack(spacing: 7) {
+                    syntaxBadge(agentPersonaLabel.lowercased(), color: syntaxBlue)
+                    syntaxBadge("rust:authority", color: terminalGreen)
+                    syntaxBadge("trace:ready", color: syntaxCyan)
+                    syntaxBadge(currentRuntimeLabel, color: syntaxViolet)
+                }
 
-                if isRightRailVisible {
-                    Divider()
-                        .background(terminalBorder)
+                if accState.presentationMode != .compact {
+                    ToolTogglePillsView()
+                }
+            }
 
-                    rightWorkspaceRail
-                        .frame(width: 300)
-                        .background(terminalPanel.opacity(0.78))
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
+            Spacer(minLength: 0)
+
+            VStack(alignment: .trailing, spacing: 10) {
+                HStack(spacing: 8) {
+                    panelMenu
+                    BrainPickerMenu()
+
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            if case .collapsed = accState.inspectorState {
+                                accState.inspectorState = .expanded(.plan)
+                                accState.presentationMode = .advanced
+                            } else {
+                                accState.inspectorState = .collapsed
+                            }
+                        }
+                    } label: {
+                        Label(isRightRailVisible ? "Hide Sidebar" : "Show Sidebar", systemImage: "sidebar.right")
+                    }
+                    .buttonStyle(NativeToolbarButtonStyle())
+
+                    Button {
+                        agentChat.startNewSession()
+                        accState.clearInput()
+                    } label: {
+                        Label("New Session", systemImage: "plus")
+                    }
+                    .buttonStyle(NativeToolbarButtonStyle())
+                }
+
+                HStack(spacing: 8) {
+                    overviewChip("Turns", value: "\(agentChat.agentTurnCount)")
+                    overviewChip("Messages", value: "\(agentChat.messages.count)")
+                    overviewChip("Tools", value: "\(accState.enabledToolNames.count)")
                 }
             }
         }
-        .frame(maxWidth: windowMaxWidth, maxHeight: windowMaxHeight)
-        .background {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(terminalBlack.opacity(0.96))
-                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .shadow(color: .black.opacity(0.72), radius: 46, y: 18)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .strokeBorder(terminalBorder, lineWidth: 1)
-        }
+        .padding(22)
+        .background(workspaceCardBackground(cornerRadius: 28))
     }
 
-    private var terminalTitleBar: some View {
-        HStack(spacing: 12) {
-            HStack(spacing: 8) {
-                trafficLight(.red)
-                trafficLight(.yellow)
-                trafficLight(.green)
-            }
-
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(mutedTerminalText.opacity(0.72))
-                .padding(.leading, 8)
-
-            Image(systemName: "folder")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color.white.opacity(0.74))
-
-            Text("Epistemos")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.white.opacity(0.82))
-
-            Text("/")
-                .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color.white.opacity(0.34))
-
-            Text("Agent Command Center")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+    private func overviewChip(_ title: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(mutedTerminalText)
-
-            Spacer()
-
-            panelMenu
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.84))
         }
-        .padding(.horizontal, 16)
-        .frame(height: 44)
-        .background(terminalBlack.opacity(0.82))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.035), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(terminalBorder.opacity(0.65), lineWidth: 0.7)
+        }
     }
 
     private var panelMenu: some View {
@@ -308,18 +348,34 @@ struct AgentCommandCenterView: View {
         }
     }
 
-    private func trafficLight(_ color: Color) -> some View {
-        Circle()
-            .fill(color.opacity(0.92))
-            .frame(width: 11, height: 11)
+    private func workspaceCardBackground(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(terminalBlack.opacity(0.76))
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(terminalBorder.opacity(0.95), lineWidth: 0.8)
+            }
+            .shadow(color: .black.opacity(0.26), radius: 24, y: 12)
+    }
+
+    private func workspaceSubcardBackground(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(terminalInset.opacity(0.70))
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .strokeBorder(terminalBorder.opacity(0.85), lineWidth: 0.7)
+            }
     }
 
     // MARK: - Command Area
 
     private var commandArea: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: 18) {
             transcriptArea
                 .frame(maxHeight: .infinity)
+                .background(workspaceCardBackground(cornerRadius: 32))
 
             bottomCommandDock
         }
@@ -340,30 +396,45 @@ struct AgentCommandCenterView: View {
                     emptyTranscript
                 }
             }
-            .padding(.horizontal, 60)
-            .padding(.top, 28)
-            .padding(.bottom, 26)
+            .padding(.horizontal, 44)
+            .padding(.top, 36)
+            .padding(.bottom, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(terminalBlack)
     }
 
     private var emptyTranscript: some View {
         VStack(alignment: .leading, spacing: 18) {
-            agentLandingHero
+            HStack(alignment: .top, spacing: 18) {
+                agentLandingHeroCard
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-            if accState.presentationMode != .compact {
-                agentStatsPanel
+                if accState.presentationMode != .compact {
+                    VStack(spacing: 18) {
+                        agentStatsPanel
+                        agentWorkspaceControlsCard
+                    }
+                    .frame(width: 360, alignment: .leading)
+                }
             }
 
-            agentLandingHints
+            agentLandingBriefingCard
         }
-        .frame(maxWidth: 620, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 8)
     }
 
+    private var agentLandingHeroCard: some View {
+        VStack(alignment: .leading, spacing: 22) {
+            agentLandingHero
+            agentQuickStartGrid
+        }
+        .padding(24)
+        .background(workspaceSubcardBackground(cornerRadius: 30))
+    }
+
     private var agentLandingHero: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Text("Greetings, \(greetingName)")
                 .font(AppDisplayTypography.font(size: 21, allowDisplayFont: true))
                 .foregroundStyle(
@@ -386,10 +457,72 @@ struct AgentCommandCenterView: View {
             }
 
             Text("Start a new agent session below. Epistemos will route models, tools, context, and permission gates from the same control plane.")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(mutedTerminalText)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var agentQuickStartGrid: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
+            ForEach([ACCSlashCommand.plan, .debug, .research, .review, .summarize], id: \.self) { command in
+                agentQuickActionCard(command)
+            }
+        }
+    }
+
+    private func agentQuickActionCard(_ command: ACCSlashCommand) -> some View {
+        let isSelected = isSelectedQuickAction(command)
+
+        return Button {
+            accState.activeSlashToken = .builtinMode(command)
+            accState.selectedOperatingMode = command.defaultOperatingMode
+        } label: {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: command.icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(isSelected ? theme.resolved.accent.color : Color.white.opacity(0.82))
+
+                    Spacer(minLength: 0)
+
+                    Text(command.defaultOperatingMode.displayName)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(isSelected ? theme.resolved.accent.color : mutedTerminalText)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("/\(command.rawValue)")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.90))
+                    Text(command.helpText)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(mutedTerminalText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
+            .padding(16)
+            .background(
+                isSelected
+                    ? theme.resolved.accent.color.opacity(0.12)
+                    : terminalInset.opacity(0.56),
+                in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .strokeBorder(
+                        isSelected ? theme.resolved.accent.color.opacity(0.32) : terminalBorder.opacity(0.8),
+                        lineWidth: 0.8
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func isSelectedQuickAction(_ command: ACCSlashCommand) -> Bool {
+        guard case .builtinMode(let active) = accState.activeSlashToken else { return false }
+        return active == command
     }
 
     private var agentStatsPanel: some View {
@@ -432,13 +565,116 @@ struct AgentCommandCenterView: View {
                 modelStatsChart
             }
         }
-        .padding(10)
-        .background(terminalPanel.opacity(0.74), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .strokeBorder(terminalBorder.opacity(1.15), lineWidth: 0.7)
+        .padding(16)
+        .background(workspaceSubcardBackground(cornerRadius: 24))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var agentWorkspaceControlsCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Workspace Controls")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.86))
+
+            agentWorkspaceControlButton(
+                title: "Plan Document",
+                subtitle: "Open the editable side panel for planning and todos.",
+                icon: "list.bullet.clipboard",
+                action: { openInspector(.plan) }
+            )
+
+            agentWorkspaceControlButton(
+                title: "Execution Trace",
+                subtitle: "Inspect tool activity, approvals, and runtime details.",
+                icon: "waveform.path.ecg.rectangle",
+                action: { openInspector(.execution) }
+            )
+
+            agentWorkspaceControlButton(
+                title: "Capabilities",
+                subtitle: "Review brain, tool, and routing state for this session.",
+                icon: "slider.horizontal.3",
+                action: { openInspector(.capabilities) }
+            )
+
+            agentWorkspaceControlButton(
+                title: "New Session",
+                subtitle: "Clear the current request surface and start fresh.",
+                icon: "plus.circle",
+                action: {
+                    agentChat.startNewSession()
+                    accState.clearInput()
+                }
+            )
         }
-        .frame(maxWidth: 560, alignment: .leading)
+        .padding(16)
+        .background(workspaceSubcardBackground(cornerRadius: 24))
+    }
+
+    private func agentWorkspaceControlButton(
+        title: String,
+        subtitle: String,
+        icon: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .frame(width: 18, height: 18)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.88))
+                    Text(subtitle)
+                        .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                        .foregroundStyle(mutedTerminalText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(Color.white.opacity(0.03), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func openInspector(_ tab: ACCInspectorTab) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            accState.presentationMode = .advanced
+            accState.inspectorState = .expanded(tab)
+        }
+    }
+
+    private var agentLandingBriefingCard: some View {
+        HStack(alignment: .top, spacing: 18) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("How this workspace behaves")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.88))
+                agentLandingHints
+            }
+
+            Spacer(minLength: 0)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Current runtime")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.78))
+                Text(currentRuntimeLabel)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundStyle(mutedTerminalText.opacity(0.96))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(width: 280, alignment: .leading)
+        }
+        .padding(22)
+        .background(workspaceSubcardBackground(cornerRadius: 28))
     }
 
     private var overviewStatsGrid: some View {
@@ -1023,11 +1259,15 @@ struct AgentCommandCenterView: View {
     private var rightWorkspaceRail: some View {
         if case .expanded = accState.inspectorState {
             InspectorPanelView()
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
         } else {
             agentWorkspaceRail
-                .transition(.opacity.combined(with: .move(edge: .trailing)))
         }
+    }
+
+    private var rightWorkspaceRailCard: some View {
+        rightWorkspaceRail
+            .padding(.vertical, 12)
+            .background(workspaceCardBackground(cornerRadius: 28))
     }
 
     private var agentWorkspaceRail: some View {
@@ -1058,7 +1298,7 @@ struct AgentCommandCenterView: View {
 
     private var filePreviewPane: some View {
         VStack(spacing: 0) {
-            railHeader(title: "File", subtitle: "/AgentCommandCenter/session.preview")
+            railHeader(title: "Session Context", subtitle: "Compiled request preview")
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 7) {
@@ -1077,17 +1317,17 @@ struct AgentCommandCenterView: View {
 
     private var terminalPane: some View {
         VStack(spacing: 0) {
-            railHeader(title: "Terminal", subtitle: "jojo@epistemos Agent")
+            railHeader(title: "Runtime", subtitle: "Live execution status")
 
             VStack(alignment: .leading, spacing: 10) {
-                terminalLine("jojo@Epistemos %", color: Color.white.opacity(0.74))
-                terminalLine(agentChat.isStreaming ? "streaming \(agentChat.activeToolName ?? "tokens")" : "ready -- waiting for command", color: agentChat.isStreaming ? terminalYellow : mutedTerminalText)
-                terminalLine("tools +\(accState.enabledToolNames.count) -\(disabledToolCount)", color: terminalGreen)
-                terminalLine("mode \(accState.selectedOperatingMode.displayName.lowercased())", color: syntaxBlue)
+                terminalLine(agentChat.isStreaming ? "Streaming \(agentChat.activeToolName ?? "tokens")" : "Ready for the next request", color: agentChat.isStreaming ? terminalYellow : Color.white.opacity(0.74))
+                terminalLine("Enabled tools \(accState.enabledToolNames.count) · disabled \(disabledToolCount)", color: terminalGreen)
+                terminalLine("Mode \(accState.selectedOperatingMode.displayName)", color: syntaxBlue)
+                terminalLine("Trace + approvals remain inspectable in the right rail", color: mutedTerminalText)
 
                 Spacer(minLength: 0)
             }
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .font(.system(size: 12, weight: .medium, design: .rounded))
             .padding(12)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
@@ -1102,13 +1342,12 @@ struct AgentCommandCenterView: View {
 
                 Spacer()
 
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(mutedTerminalText.opacity(0.75))
-
-                Image(systemName: "sidebar.right")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(mutedTerminalText.opacity(0.75))
+                Text("live")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.resolved.accent.color)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(theme.resolved.accent.color.opacity(0.10), in: Capsule())
             }
             .padding(.horizontal, 12)
             .frame(height: 38)
@@ -1169,30 +1408,18 @@ struct AgentCommandCenterView: View {
 
             commandFooter
         }
-        .padding(12)
-        .background {
-            Rectangle()
-                .fill(terminalBlack.opacity(0.86))
-                .background(.ultraThinMaterial)
-        }
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(terminalBorder)
-                .frame(height: 0.6)
-        }
+        .padding(14)
+        .background(workspaceCardBackground(cornerRadius: 28))
     }
 
     private var commandSessionStrip: some View {
         HStack(spacing: 8) {
             HStack(spacing: 7) {
-                Image(systemName: "arrow.triangle.branch")
+                Image(systemName: "command.circle")
                     .font(.system(size: 12, weight: .medium))
-                Text("agent")
-                Text("←")
-                    .foregroundStyle(mutedTerminalText.opacity(0.65))
-                Text("main")
+                Text("agent workspace")
             }
-            .font(.system(size: 12, weight: .medium, design: .monospaced))
+            .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(Color.white.opacity(0.72))
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
@@ -1217,7 +1444,7 @@ struct AgentCommandCenterView: View {
                 }
             } label: {
                 HStack(spacing: 5) {
-                    Text("Inspect")
+                    Text("Inspector")
                     Image(systemName: "chevron.down")
                         .font(.system(size: 8, weight: .bold))
                 }
@@ -1234,19 +1461,16 @@ struct AgentCommandCenterView: View {
     private var commandFooter: some View {
         HStack(spacing: 12) {
             HStack(spacing: 5) {
-                Text("permission")
+                Text("permissions")
                     .foregroundStyle(syntaxPink)
-                Text("gates")
-                    .foregroundStyle(syntaxBlue)
-                Text("active")
+                Text("inspectable")
                     .foregroundStyle(terminalYellow)
             }
             .font(.system(size: 12, weight: .semibold, design: .monospaced))
 
             Image(systemName: "doc.on.doc")
-            Image(systemName: "plus")
-            Image(systemName: "mic")
-            Image(systemName: "chevron.down")
+            Image(systemName: "at")
+            Image(systemName: "sidebar.right")
 
             Spacer()
 

@@ -7,10 +7,12 @@ import SwiftUI
 
 struct SuggestionPopoverView: View {
     @Environment(AgentCommandCenterState.self) private var accState
+    @Environment(UIState.self) private var ui
 
     private let terminalPanel = Color(red: 0.095, green: 0.096, blue: 0.096)
     private let terminalBorder = Color.white.opacity(0.10)
     private let maxVisibleRows = 8
+    private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         Group {
@@ -30,14 +32,14 @@ struct SuggestionPopoverView: View {
         }
         .background {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(terminalPanel.opacity(0.96))
+                .fill(terminalPanel.opacity(0.92))
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .shadow(color: .black.opacity(0.38), radius: 14, y: 6)
+                .shadow(color: .black.opacity(0.24), radius: 16, y: 8)
         }
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(terminalBorder, lineWidth: 0.7)
+                .strokeBorder(theme.border.opacity(0.72), lineWidth: 0.8)
         }
     }
 
@@ -192,8 +194,11 @@ struct SuggestionPopoverView: View {
                 Spacer()
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(isHighlighted ? Color.white.opacity(0.075) : Color.clear)
+            .padding(.vertical, 8)
+            .background(
+                isHighlighted ? theme.resolved.accent.color.opacity(0.12) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

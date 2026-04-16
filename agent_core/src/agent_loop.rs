@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use futures::{future::try_join_all, StreamExt};
 use tokio_util::sync::CancellationToken;
@@ -255,6 +255,7 @@ pub async fn run_agent_loop(
         let mut turn_config = config.clone();
         turn_config.system_prompt = Some(system_prompt.clone());
 
+        let turn_stream_start = Instant::now();
         let mut stream = provider
             .stream_message(&messages, &tools, &turn_config)
             .await?;
@@ -262,17 +263,30 @@ pub async fn run_agent_loop(
         let mut response_blocks = Vec::new();
         let mut stop_reason = StopReason::EndTurn;
         let mut turn_usage = TokenUsage::default();
+        let mut ttft_recorded = false;
+        let mut event_count: u32 = 0;
 
         while let Some(event_result) = stream.next().await {
             if cancel.is_cancelled() {
                 return Err(AgentError::Cancelled);
             }
 
+            event_count += 1;
             match event_result? {
                 StreamEvent::ThinkingDelta { text, .. } => {
+                    if !ttft_recorded {
+                        let ttft_ms = turn_stream_start.elapsed().as_millis() as u64;
+                        tracing::info!(turn = turn_count, ttft_ms, "time_to_first_token (thinking)");
+                        ttft_recorded = true;
+                    }
                     delegate.on_thinking_delta(text);
                 }
                 StreamEvent::TextDelta { text, .. } => {
+                    if !ttft_recorded {
+                        let ttft_ms = turn_stream_start.elapsed().as_millis() as u64;
+                        tracing::info!(turn = turn_count, ttft_ms, "time_to_first_token (text)");
+                        ttft_recorded = true;
+                    }
                     delegate.on_text_delta(text);
                 }
                 StreamEvent::InputJsonDelta {
@@ -300,6 +314,15 @@ pub async fn run_agent_loop(
                 }
             }
         }
+
+        let turn_stream_duration_ms = turn_stream_start.elapsed().as_millis() as u64;
+        tracing::info!(
+            turn = turn_count,
+            stream_duration_ms = turn_stream_duration_ms,
+            event_count,
+            output_tokens = turn_usage.output_tokens,
+            "turn_stream_complete"
+        );
 
         total_usage.input_tokens = total_usage
             .input_tokens
@@ -332,6 +355,7 @@ pub async fn run_agent_loop(
                     &response_blocks,
                     &[],
                     turn_usage.output_tokens,
+                    Some(turn_stream_duration_ms),
                 );
                 GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
                 messages.push(Message::assistant(response_blocks));
@@ -352,6 +376,7 @@ pub async fn run_agent_loop(
                     &response_blocks,
                     &[],
                     turn_usage.output_tokens,
+                    Some(turn_stream_duration_ms),
                 );
                 GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
                 messages.push(Message::assistant(response_blocks.clone()));
@@ -444,6 +469,7 @@ pub async fn run_agent_loop(
                     &response_blocks,
                     &tool_records,
                     turn_usage.output_tokens,
+                    Some(turn_stream_duration_ms),
                 );
                 GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
 
@@ -502,6 +528,7 @@ pub async fn run_agent_loop(
                     &response_blocks,
                     &[],
                     turn_usage.output_tokens,
+                    Some(turn_stream_duration_ms),
                 );
                 GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
                 messages.push(Message::assistant(response_blocks.clone()));
@@ -548,6 +575,7 @@ fn build_assistant_transcript_turn(
     response_blocks: &[ContentBlock],
     tool_calls: &[ToolCallRecord],
     output_tokens: u32,
+    latency_ms: Option<u64>,
 ) -> TranscriptTurn {
     TranscriptTurn {
         timestamp: chrono::Utc::now(),
@@ -556,7 +584,7 @@ fn build_assistant_transcript_turn(
         model: Some(model_name.to_string()),
         tokens: Some(output_tokens),
         tool_calls: tool_calls.to_vec(),
-        latency_ms: None,
+        latency_ms,
     }
 }
 

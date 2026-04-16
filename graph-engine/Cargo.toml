@@ -4,11 +4,12 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "rlib"]
 
 [features]
 default = []
 bolt-graph = []
+shared-position-buffers = []
 
 [dependencies]
 block = "0.1"

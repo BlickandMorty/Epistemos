@@ -224,6 +224,16 @@ struct AgentCommandCenterStateTests {
         #expect(source.contains("inlineDiffCard"))
     }
 
+    @Test func agentSurfaceRoutesAsDedicatedHomePageInsteadOfOverlay() throws {
+        let rootSource = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(rootSource.contains("enum HomeSurfaceRoute"))
+        #expect(rootSource.contains("case agent"))
+        #expect(rootSource.contains("if accState.isPresented"))
+        #expect(rootSource.contains("AgentCommandCenterView()"))
+        #expect(!rootSource.contains(".overlay { agentCommandCenterOverlay }"))
+    }
+
     // MARK: - Graph Chat Receiver
 
     @Test func handleGraphChatRequestPresentsAndPrefills() {

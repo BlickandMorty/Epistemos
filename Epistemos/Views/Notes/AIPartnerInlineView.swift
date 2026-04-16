@@ -507,7 +507,7 @@ struct ConfidenceIndicator: View {
     }
     
     private var percentage: String {
-        Int(confidence * 100).description
+        (confidence.isFinite ? Int(confidence * 100) : 0).description
     }
     
     private var color: Color {

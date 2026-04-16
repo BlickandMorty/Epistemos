@@ -14,7 +14,10 @@ import SwiftUI
 
 struct InspectorPanelView: View {
     @Environment(AgentCommandCenterState.self) private var accState
+    @Environment(AgentChatState.self) private var agentChat
     @Environment(UIState.self) private var ui
+    @AppStorage("epistemos.agent.planDocumentPresentationMode")
+    private var planDocumentPresentationModeRaw = MarkdownDocumentPresentationMode.rendered.rawValue
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -27,6 +30,18 @@ struct InspectorPanelView: View {
         return .capabilities
     }
 
+    private var planDocumentPresentationMode: MarkdownDocumentPresentationMode {
+        get { MarkdownDocumentPresentationMode(rawValue: planDocumentPresentationModeRaw) ?? .rendered }
+        nonmutating set { planDocumentPresentationModeRaw = newValue.rawValue }
+    }
+
+    private var planDocumentPresentationModeBinding: Binding<MarkdownDocumentPresentationMode> {
+        Binding(
+            get: { planDocumentPresentationMode },
+            set: { planDocumentPresentationMode = $0 }
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             tabBar
@@ -36,49 +51,58 @@ struct InspectorPanelView: View {
 
             Divider().opacity(0.2)
 
-            ScrollView(.vertical, showsIndicators: true) {
-                Group {
-                    switch activeTab {
-                    case .context:
-                        contextContent
-                    case .capabilities:
-                        capabilitiesContent
-                    case .plan:
-                        planContent
-                    case .execution:
-                        executionContent
-                    case .hierarchy:
-                        hierarchyContent
-                    }
-                }
-                .padding(12)
-            }
+            contentBody
         }
         .frame(maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var contentBody: some View {
+        switch activeTab {
+        case .plan:
+            planContent
+        case .context:
+            inspectorScrollContent { contextContent }
+        case .capabilities:
+            inspectorScrollContent { capabilitiesContent }
+        case .execution:
+            inspectorScrollContent { executionContent }
+        case .hierarchy:
+            inspectorScrollContent { hierarchyContent }
+        }
+    }
+
+    private func inspectorScrollContent<Content: View>(
+        @ViewBuilder _ content: () -> Content
+    ) -> some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            content()
+                .padding(12)
+        }
     }
 
     // MARK: - Tab Bar
 
     private var tabBar: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 6) {
             ForEach(ACCInspectorTab.allCases) { tab in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         accState.inspectorState = .expanded(tab)
                     }
                 } label: {
-                    VStack(spacing: 3) {
+                    HStack(spacing: 6) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11, weight: .semibold))
                         Text(tab.title)
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 11, weight: .semibold))
                     }
                     .foregroundStyle(activeTab == tab ? theme.resolved.accent.color : theme.mutedForeground.opacity(0.5))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, minHeight: 34)
+                    .padding(.horizontal, 8)
                     .background(
                         activeTab == tab ? theme.resolved.accent.color.opacity(0.08) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous)
                     )
                 }
                 .buttonStyle(.plain)
@@ -288,76 +312,112 @@ struct InspectorPanelView: View {
     // MARK: - Plan Tab (requested vs resolved policy)
 
     private var planContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            inspectorSection("Command Intent") {
-                // Command Intent must survive the submit — read from the
-                // compiled request first, fall back to live UI state only
-                // while the user is still typing pre-submit.
-                if let compiledToken = diagnostics.requestedSlashToken {
-                    HStack(spacing: 6) {
-                        Image(systemName: compiledToken.icon)
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.resolved.accent.color)
-                        Text(compiledToken.displayName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(theme.textPrimary)
-                    }
-                } else if let token = accState.activeSlashToken {
-                    HStack(spacing: 6) {
-                        Image(systemName: token.icon)
-                            .font(.system(size: 10))
-                            .foregroundStyle(theme.resolved.accent.color)
-                        Text(token.displayName)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(theme.textPrimary)
-                    }
-                } else {
-                    emptyStateRow("No command selected")
-                }
-            }
-
-            inspectorSection("Operating Mode") {
-                requestedVsResolvedRow(
-                    requested: diagnostics.requestedOperatingModeLabel,
-                    resolved: diagnostics.effectiveOperatingModeLabel,
-                    fallbackReason: nil
-                )
-            }
-
-            inspectorSection("Route") {
-                Text(diagnostics.resolvedRouteLabel)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(theme.textPrimary)
-            }
-
-            if !diagnostics.expertAllowlist.isEmpty {
-                inspectorSection("Experts") {
-                    ForEach(diagnostics.expertAllowlist, id: \.self) { expert in
-                        Text(expert)
-                            .font(.system(size: 11))
-                            .foregroundStyle(theme.textSecondary)
-                    }
-                }
-            }
-
-            if let compiled = diagnostics.compiledRequest {
-                inspectorSection("Budgets") {
-                    budgetRow("Turns", compiled.resolvedExecutionPolicy.maxTurns)
-                    budgetRow("Tool calls", compiled.resolvedExecutionPolicy.maxToolCalls)
-                    budgetRow("Reasoning steps", compiled.resolvedExecutionPolicy.maxReasoningSteps)
-                    budgetRow("Output tokens", compiled.resolvedExecutionPolicy.maxOutputTokens)
-                }
-            }
-
-            inspectorSection("Execution Plan") {
-                if let summary = diagnostics.executionPlanSummary {
-                    Text(summary)
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                inspectorSection("Document") {
+                    Text("Structured plans and todo lists land here and stay directly editable.")
                         .font(.system(size: 11))
                         .foregroundStyle(theme.textSecondary)
-                } else {
-                    emptyStateRow("Submit a command to see the plan")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                inspectorSection("Command Intent") {
+                    // Command Intent must survive the submit — read from the
+                    // compiled request first, fall back to live UI state only
+                    // while the user is still typing pre-submit.
+                    if let compiledToken = diagnostics.requestedSlashToken {
+                        HStack(spacing: 6) {
+                            Image(systemName: compiledToken.icon)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.resolved.accent.color)
+                            Text(compiledToken.displayName)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(theme.textPrimary)
+                        }
+                    } else if let token = accState.activeSlashToken {
+                        HStack(spacing: 6) {
+                            Image(systemName: token.icon)
+                                .font(.system(size: 10))
+                                .foregroundStyle(theme.resolved.accent.color)
+                            Text(token.displayName)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(theme.textPrimary)
+                        }
+                    } else {
+                        emptyStateRow("No command selected")
+                    }
+                }
+
+                inspectorSection("Operating Mode") {
+                    requestedVsResolvedRow(
+                        requested: diagnostics.requestedOperatingModeLabel,
+                        resolved: diagnostics.effectiveOperatingModeLabel,
+                        fallbackReason: nil
+                    )
+                }
+
+                inspectorSection("Route") {
+                    Text(diagnostics.resolvedRouteLabel)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(theme.textPrimary)
+                }
+
+                if !diagnostics.expertAllowlist.isEmpty {
+                    inspectorSection("Experts") {
+                        ForEach(diagnostics.expertAllowlist, id: \.self) { expert in
+                            Text(expert)
+                                .font(.system(size: 11))
+                                .foregroundStyle(theme.textSecondary)
+                        }
+                    }
+                }
+
+                if let compiled = diagnostics.compiledRequest {
+                    inspectorSection("Budgets") {
+                        budgetRow("Turns", compiled.resolvedExecutionPolicy.maxTurns)
+                        budgetRow("Tool calls", compiled.resolvedExecutionPolicy.maxToolCalls)
+                        budgetRow("Reasoning steps", compiled.resolvedExecutionPolicy.maxReasoningSteps)
+                        budgetRow("Output tokens", compiled.resolvedExecutionPolicy.maxOutputTokens)
+                    }
                 }
             }
+            .padding(12)
+
+            Divider().opacity(0.2)
+
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Plan Surface")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textPrimary)
+                    Text("Switch between rendered document editing and raw markdown.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                Spacer()
+
+                MarkdownDocumentModeToggle(
+                    mode: planDocumentPresentationModeBinding,
+                    showsLabels: true
+                )
+            }
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+
+            Divider().opacity(0.2)
+
+            AgentPlanEditorView(
+                text: Binding(
+                    get: { agentChat.planDocumentText },
+                    set: { agentChat.userEditedPlanDocument($0) }
+                ),
+                pageId: agentChat.activeSessionId.map { "agent-plan-\($0)" } ?? "agent-plan-draft",
+                presentationMode: planDocumentPresentationMode
+            )
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 

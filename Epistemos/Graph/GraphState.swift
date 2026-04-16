@@ -2226,7 +2226,10 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(
+                    title: safeLabel,
+                    allowVaultSelectionPrompt: true
+                ) {
                     sdNode.sourceId = pageId
                     do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }
@@ -2276,7 +2279,10 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
+                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(
+                    title: safeLabel,
+                    allowVaultSelectionPrompt: true
+                ) {
                     sdNode.sourceId = pageId
                     do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
                 }

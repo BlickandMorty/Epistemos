@@ -158,7 +158,8 @@ final class AppCoordinator {
                 title: title,
                 body: content,
                 emoji: emoji,
-                subfolder: "Daily Briefs"
+                subfolder: "Daily Briefs",
+                allowVaultSelectionPrompt: true
             ) {
                 let pagePred = #Predicate<SDPage> { $0.id == pageId }
                 let pageQuery = FetchDescriptor<SDPage>(predicate: pagePred)

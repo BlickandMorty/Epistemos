@@ -68,7 +68,6 @@ struct LandingView: View {
 
     // Inline search state
     @State private var showingSearchPopover = false
-    @State private var tapLocation: CGPoint? = nil
     @State private var landingSearchText = ""
     @State private var landingComposerHeight: CGFloat = LandingSearchLayout.inputMinHeight
     @State private var isLandingSearchFocused = false
@@ -103,24 +102,12 @@ struct LandingView: View {
 
     var body: some View {
         ZStack {
-            // ── Background Tap Layer ──
-            // Captures clicks on the landing background to trigger the search popover.
-            Color.clear
+            landingBackdrop
+                .zIndex(-1)
                 .contentShape(Rectangle())
-                .onContinuousHover { _ in }
-                .simultaneousGesture(
-                    SpatialTapGesture(coordinateSpace: .named(LandingCoordinateSpace.root))
-                        .onEnded { event in
-                            activateLandingSearch(at: event.location)
-                        }
-                )
-                .zIndex(0)
-                .appKitPopover(isPresented: $showingSearchPopover, location: tapLocation) {
-                    landingSearchPopoverContent
-                        .frame(width: 520)
-                        .frame(maxHeight: 400)
-                        .padding(14)
-                        .fixedSize(horizontal: false, vertical: true)
+                .onTapGesture {
+                    guard !showingOverlay && !showingSearchPopover else { return }
+                    activateLandingSearch()
                 }
 
             // ── Greeting Mode ──
@@ -131,7 +118,11 @@ struct LandingView: View {
                 .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .zIndex(1)
 
-             // (Inline Search Overlay logic migrated to .appKitPopover on ZIndex 0 layer)
+            if showingSearchPopover {
+                landingSearchOverlay
+                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
+                    .zIndex(2)
+            }
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.
@@ -201,6 +192,83 @@ struct LandingView: View {
                 return .handled
             }
             return .ignored
+        }
+    }
+
+    private var landingBackdrop: some View {
+        ZStack {
+            if theme.isDark {
+                darkModeLandingBackdrop
+            } else {
+                Color.clear
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var landingSearchOverlay: some View {
+        ZStack {
+            Color.black.opacity(theme.isDark ? 0.22 : 0.08)
+                .ignoresSafeArea()
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    dismissLandingSearch()
+                }
+
+            landingSearchPopoverContent
+                .frame(width: 520)
+                .frame(maxHeight: 400)
+                .padding(14)
+                .fixedSize(horizontal: false, vertical: true)
+                .background {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.92 : 0.88))
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                        .stroke(theme.resolved.foreground.color.opacity(theme.isDark ? 0.14 : 0.08), lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(theme.isDark ? 0.35 : 0.1), radius: 40, y: 18)
+                .padding(.horizontal, 24)
+        }
+    }
+
+    private var darkModeLandingBackdrop: some View {
+        ZStack(alignment: .bottom) {
+            Color.black
+
+            ZStack {
+                Ellipse()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.11, green: 0.10, blue: 0.34).opacity(0.96),
+                                Color(red: 0.04, green: 0.06, blue: 0.20).opacity(0.84),
+                                Color(red: 0.12, green: 0.10, blue: 0.31).opacity(0.96),
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .frame(width: 1400, height: 340)
+                    .blur(radius: 90)
+
+                Ellipse()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.16, green: 0.25, blue: 0.62).opacity(0.22),
+                                .clear,
+                            ],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: 420
+                        )
+                    )
+                    .frame(width: 900, height: 260)
+                    .blur(radius: 54)
+            }
+            .offset(y: 128)
         }
     }
 
@@ -518,10 +586,12 @@ struct LandingView: View {
         .buttonStyle(.plain)
     }
 
-    private func activateLandingSearch(at location: CGPoint? = nil) {
-        guard !showingBrief else { return }
-        // If no location (e.g. from shortcut), center it roughly
-        tapLocation = location ?? CGPoint(x: 400, y: 300)
+    private func activateLandingSearch() {
+        guard !showingBrief && !showWelcomeBack else { return }
+        if showingSearchPopover {
+            isLandingSearchFocused = true
+            return
+        }
         showingSearchPopover = true
         Task { @MainActor in
             await Task.yield()
@@ -543,7 +613,6 @@ struct LandingView: View {
 
     private func dismissLandingSearch() {
         showingSearchPopover = false
-        tapLocation = nil
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
@@ -737,7 +806,11 @@ struct LandingView: View {
             if info.chatCount > 0 { body += "- \(info.chatCount) chats\n" }
             if info.sessionMinutes > 0 { body += "- \(info.sessionMinutes) minutes\n" }
 
-            if let pageId = await bootstrap.vaultSync.createPage(title: title, body: body) {
+            if let pageId = await bootstrap.vaultSync.createPage(
+                title: title,
+                body: body,
+                allowVaultSelectionPrompt: true
+            ) {
                 do {
                     try bootstrap.modelContainer.mainContext.save()
                 } catch {
@@ -845,7 +918,7 @@ struct LandingView: View {
 
     private func createAndOpenNote() {
         Task {
-            if let pageId = await vaultSync.createPage(title: "New Note") {
+            if let pageId = await vaultSync.createPage(title: "New Note", allowVaultSelectionPrompt: true) {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
         }
@@ -853,7 +926,11 @@ struct LandingView: View {
 
     private func captureQuickIdea() {
         Task {
-            if let pageId = await vaultSync.createPage(title: "New Idea", emoji: "💡") {
+            if let pageId = await vaultSync.createPage(
+                title: "New Idea",
+                emoji: "💡",
+                allowVaultSelectionPrompt: true
+            ) {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
         }

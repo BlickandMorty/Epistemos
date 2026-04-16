@@ -98,7 +98,7 @@ extension EpistemicStatus {
 
     /// Formatted display string for note metadata sidebar.
     var displayString: String {
-        let certPercent = Int(certainty * 100)
+        let certPercent = certainty.isFinite ? Int(certainty * 100) : 0
         return "Certainty: \(certPercent)% | \(evidenceRobustness.displayName)"
     }
 }

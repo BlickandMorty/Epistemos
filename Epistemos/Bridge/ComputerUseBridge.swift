@@ -275,11 +275,13 @@ final class ComputerUseBridge {
         }
 
         // Include position for click targeting
-        if let x = node["x"] as? Double, let y = node["y"] as? Double {
+        if let x = node["x"] as? Double, let y = node["y"] as? Double,
+           x.isFinite, y.isFinite {
             result["x"] = Int(x)
             result["y"] = Int(y)
         }
-        if let w = node["width"] as? Double, let h = node["height"] as? Double {
+        if let w = node["width"] as? Double, let h = node["height"] as? Double,
+           w.isFinite, h.isFinite {
             result["width"] = Int(w)
             result["height"] = Int(h)
         }

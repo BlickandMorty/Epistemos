@@ -2045,7 +2045,7 @@ final class AppBootstrap {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in
+                MainActor.assumeIsolated {
                     self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
                     self?.syncLocalRuntimeConditions(appActive: true)
                 }
@@ -2055,7 +2055,7 @@ final class AppBootstrap {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in
+                MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: false)
                 }
             },
@@ -2064,7 +2064,7 @@ final class AppBootstrap {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in
+                MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: nil)
                 }
             },
@@ -2073,7 +2073,7 @@ final class AppBootstrap {
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                Task { @MainActor in
+                MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: nil)
                 }
             },

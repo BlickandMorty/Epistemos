@@ -98,4 +98,29 @@ struct ChatPresentationTests {
             "list:4",
         ])
     }
+
+    @Test("chat H1 and H2 markdown keep the retro display font path")
+    func chatH1AndH2MarkdownKeepTheRetroDisplayFontPath() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
+
+        #expect(source.contains("if level == 1 || level == 2"))
+        #expect(source.contains("return .custom(AppDisplayTypography.displayFontName, size: fontSize)"))
+    }
+
+    @Test("chat typography references Claude's Anthropic font families")
+    func chatTypographyReferencesClaudesAnthropicFontFamilies() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Theme/EpistemosTheme.swift")
+
+        #expect(source.contains("\"Anthropic Serif\""))
+        #expect(source.contains("\"Anthropic Sans\""))
+    }
+
+    @Test("artifact cards expose a rendered versus markdown presentation toggle")
+    func artifactCardsExposeARenderedVersusMarkdownPresentationToggle() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ArtifactBlockView.swift")
+
+        #expect(source.contains("MarkdownDocumentModeToggle(mode: documentPresentationModeBinding)"))
+        #expect(source.contains("case .csv, .table, .markdown:"))
+        #expect(source.contains("rawSourceContent"))
+    }
 }

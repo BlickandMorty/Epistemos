@@ -482,6 +482,47 @@ final class MetalGraphNSView: NSView {
     /// Frame skip counter for 60fps cap in low-power mode on ProMotion displays.
     private var frameSkipCounter: UInt64 = 0
 
+    // MARK: - Shared Position Buffers (behind EPISTEMOS_USE_SHARED_GRAPH_BUFFERS flag)
+
+    private static let useSharedGraphBuffers: Bool = {
+        ProcessInfo.processInfo.environment["EPISTEMOS_USE_SHARED_GRAPH_BUFFERS"] == "1"
+    }()
+
+    private var sharedPositionBuffers: [MTLBuffer] = []
+    private let sharedBufferSemaphore = DispatchSemaphore(value: 3)
+    private var sharedBufferWriteIndex: UInt32 = 0
+    private static let sharedBufferMaxNodes = 10_000
+    private static let sharedBufferFloatsPerNode = 2
+    private static let sharedBufferByteSize = sharedBufferMaxNodes * sharedBufferFloatsPerNode * MemoryLayout<Float>.size
+
+    private func setupSharedPositionBuffers() {
+        guard Self.useSharedGraphBuffers, let device = metalLayer?.device, let engine else { return }
+
+        for i in 0..<3 {
+            guard let buffer = device.makeBuffer(length: Self.sharedBufferByteSize, options: .storageModeShared) else {
+                continue
+            }
+            buffer.label = "SharedPositionBuffer[\(i)]"
+            sharedPositionBuffers.append(buffer)
+
+            let ptr = buffer.contents().bindMemory(to: Float.self, capacity: Self.sharedBufferMaxNodes * Self.sharedBufferFloatsPerNode)
+            graph_engine_set_shared_position_buffer(
+                engine,
+                UInt32(i),
+                ptr,
+                UInt32(Self.sharedBufferMaxNodes * Self.sharedBufferFloatsPerNode)
+            )
+        }
+    }
+
+    private func teardownSharedPositionBuffers() {
+        guard let engine else { return }
+        for i in 0..<sharedPositionBuffers.count {
+            graph_engine_unset_shared_position_buffer(engine, UInt32(i))
+        }
+        sharedPositionBuffers.removeAll()
+    }
+
     private var isGraphVisible: Bool {
         !isHidden && alphaValue > 0.001 && bounds.width > 0 && bounds.height > 0
     }
@@ -513,6 +554,7 @@ final class MetalGraphNSView: NSView {
             // graphState is nil during setupMetal() and set later in makeNSView(),
             // so this didSet is the first point where both engine and graphState exist.
             if graphState?.engineHandle == nil, let engine {
+                graphState?.embeddingService.prepareForEngineUse()
                 graphState?.engineHandle = engine
             }
         }
@@ -627,6 +669,7 @@ final class MetalGraphNSView: NSView {
         let devicePtr = Unmanaged.passUnretained(device).toOpaque()
         let layerPtr = Unmanaged.passUnretained(layer).toOpaque()
         engine = graph_engine_create(devicePtr, layerPtr)
+        graphState?.embeddingService.prepareForEngineUse()
         graphState?.engineHandle = engine
         graphState?.isWarmed = true
 
@@ -705,7 +748,7 @@ final class MetalGraphNSView: NSView {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 self?.applyPowerModeGraphOverrides()
             }
         }
@@ -1927,7 +1970,7 @@ final class MetalGraphNSView: NSView {
             object: window,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 guard let self else { return }
                 self.updateMetalLayerBackingProperties()
                 self.needsRender = true
@@ -1939,7 +1982,7 @@ final class MetalGraphNSView: NSView {
             object: window,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in
+            MainActor.assumeIsolated {
                 guard let self,
                       let window = self.window else { return }
                 let visible = window.occlusionState.contains(.visible)
@@ -2141,9 +2184,8 @@ final class MetalGraphNSView: NSView {
         if let link = activeDisplayLink {
             link.invalidate()
         }
-        // Cancel embedding task synchronously BEFORE destroying the engine.
-        // cancelPendingTask() is nonisolated — safe to call from deinit.
-        graphState?.embeddingService.cancelPendingTask()
+        // Cancel embedding work and drain detached engine users BEFORE destroying the engine.
+        graphState?.embeddingService.prepareForEngineDestroy()
         // Nil out engineHandle synchronously so any already-enqueued MainActor.run block
         // sees nil and skips FFI calls. engineHandle is nonisolated(unsafe) for this reason.
         graphState?.engineHandle = nil

@@ -222,6 +222,23 @@ struct ReleaseScriptAuditTests {
         #expect(chatSession.contains("CacheList<"))
         #expect(llmModelFactory.contains("\"mamba2\": create(Mamba2Configuration.self, Mamba2Model.init)"))
     }
+
+    @Test("vendored mlx swift lm cache injection avoids non sendable captures")
+    func mlxSwiftLMCacheInjectionAvoidsNonSendableCaptures() throws {
+        let chatSession = try loadReleaseScript("LocalPackages/mlx-swift-lm/Libraries/MLXLMCommon/ChatSession.swift")
+
+        #expect(chatSession.contains("let injectedCache = SendableBox(kvCache)"))
+        #expect(chatSession.contains("c = .kvcache(injectedCache.consume())"))
+    }
+
+    @Test("syntax core viewport highlighter stays warning free around unused rope helpers")
+    func syntaxCoreViewportHighlighterStaysWarningFree() throws {
+        let highlight = try loadReleaseScript("syntax-core/src/highlight.rs")
+
+        #expect(!highlight.contains("let rope_bytes"))
+        #expect(!highlight.contains("struct RopeChunkIter"))
+        #expect(!highlight.contains("fn new(rope: &'a Rope, start: usize, end: usize)"))
+    }
 }
 
 private func loadReleaseScript(_ relativePath: String) throws -> String {

@@ -126,6 +126,7 @@ struct AuditFixRegressionTests {
         let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
 
         #expect(spec.contains(#"bash \"${SRCROOT}/build-rust.sh\""#))
+        #expect(spec.contains(#"bash \"${SRCROOT}/build-syntax-core.sh\""#))
         #expect(spec.contains(#"bash \"${SRCROOT}/build-omega-mcp.sh\""#))
         #expect(spec.contains(#"bash \"${SRCROOT}/build-omega-ax.sh\""#))
         #expect(spec.contains(#"bash \"${SRCROOT}/build-epistemos-core.sh\""#))

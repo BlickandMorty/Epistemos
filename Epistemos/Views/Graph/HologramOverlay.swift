@@ -243,6 +243,13 @@ final class HologramOverlay {
 
     // MARK: - Show / Hide
 
+    /// While the immersive overlay is effectively invisible, it must not intercept clicks/keyboard
+    /// meant for the main window (e.g. workspace restore opens with alpha 0 before fade-in).
+    private func syncImmersivePointerPassthrough(for window: NSWindow?) {
+        guard let window else { return }
+        window.ignoresMouseEvents = window.alphaValue < 0.02
+    }
+
     var isVisible: Bool {
         (window?.isVisible == true) || isMinimized
     }
@@ -269,24 +276,29 @@ final class HologramOverlay {
             restoreImmersiveChromeIfNeeded(window, metalView: metalView)
             prepareImmersiveOverlayWindow(window, screen: NSScreen.main)
             window.alphaValue = 0
-            window.makeKeyAndOrderFront(nil)
+            syncImmersivePointerPassthrough(for: window)
             window.orderFrontRegardless()
-            window.makeFirstResponder(metalView)
             metalView.resumeEngine()
-            NSAnimationContext.runAnimationGroup { ctx in
+            NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.2
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1.0
-            }
-            // Title overlay on fast-path: supports everyOpen mode even when
-            // the engine is still warm from a soft-hide.
-            if graphState.graphTitleMode == .everyOpen,
-               let contentView = window.contentView {
-                let theme = GraphOverlayThemeStyle.resolvedTheme()
-                firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
-            }
-            // Restart pinned panel timer — it was stopped on hide/teardown.
-            startPinnedPanelTimer()
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, let window = self.window, let metalView = self.metalView else { return }
+                    self.syncImmersivePointerPassthrough(for: window)
+                    window.makeKeyAndOrderFront(nil)
+                    window.makeFirstResponder(metalView)
+                    // Title overlay on fast-path: supports everyOpen mode even when
+                    // the engine is still warm from a soft-hide.
+                    if self.graphState.graphTitleMode == .everyOpen,
+                       let contentView = window.contentView {
+                        let theme = GraphOverlayThemeStyle.resolvedTheme()
+                        self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
+                    }
+                    self.startPinnedPanelTimer()
+                }
+            })
             return
         }
 
@@ -315,13 +327,8 @@ final class HologramOverlay {
 
         // Entrance animation: fade in from zero opacity.
         window.alphaValue = 0
-        window.makeKeyAndOrderFront(nil)
+        syncImmersivePointerPassthrough(for: window)
         window.orderFrontRegardless()
-
-        // Make Metal view first responder for keyboard zoom (Cmd+/-/0).
-        if let metalView {
-            window.makeFirstResponder(metalView)
-        }
 
         // On the very first open, delay the fade-in so the engine has time to
         // create Metal pipelines, load graph data, and run the initial commit.
@@ -337,27 +344,40 @@ final class HologramOverlay {
             if fadeDelay > 0 {
                 try? await Task.sleep(for: .seconds(fadeDelay))
             }
-            guard !Task.isCancelled, let window else { return }
+            guard !Task.isCancelled, let window, let self else { return }
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = fadeDuration
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
                 window.animator().alphaValue = 1.0
-            }, completionHandler: {})
-            // Title overlay — show on first or every open depending on user setting.
-            if let self, let contentView = window.contentView {
-                let shouldShow: Bool = {
-                    switch self.graphState.graphTitleMode {
-                    case .off: return false
-                    case .firstOpen: return isFirstOpen
-                    case .everyOpen: return true
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    guard let window = self.window else {
+                        self.fadeInTask = nil
+                        return
                     }
-                }()
-                if shouldShow {
-                    let theme = GraphOverlayThemeStyle.resolvedTheme()
-                    self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
+                    self.syncImmersivePointerPassthrough(for: window)
+                    window.makeKeyAndOrderFront(nil)
+                    if let metalView = self.metalView {
+                        window.makeFirstResponder(metalView)
+                    }
+                    // Title overlay — show on first or every open depending on user setting.
+                    if let contentView = window.contentView {
+                        let shouldShow: Bool = {
+                            switch self.graphState.graphTitleMode {
+                            case .off: return false
+                            case .firstOpen: return isFirstOpen
+                            case .everyOpen: return true
+                            }
+                        }()
+                        if shouldShow {
+                            let theme = GraphOverlayThemeStyle.resolvedTheme()
+                            self.firstOpenTitleHost.install(in: contentView, isDark: theme.isDark)
+                        }
+                    }
+                    self.fadeInTask = nil
                 }
-            }
-            self?.fadeInTask = nil
+            })
         }
     }
 
@@ -427,6 +447,7 @@ final class HologramOverlay {
             guard let window else { return }
 
             // Soft hide: pause engine + hide window, keep engine alive briefly for fast re-show.
+            window.ignoresMouseEvents = true
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.2
                 ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
@@ -1575,8 +1596,6 @@ final class HologramOverlay {
 
         self.window = window
         self.metalView = graphView
-
-        window.makeFirstResponder(graphView)
 
         // Commit graph data after window is set up.
         DispatchQueue.main.async {

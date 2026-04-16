@@ -1,14 +1,26 @@
 Surface,Metric,Value,Unit,Date,Notes
-Graph Data Loading (500 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_500_nodes_and_edges
-Graph Data Loading (1000 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_1000_nodes_and_edges
-Graph Data Loading (5000 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_5000_nodes_and_edges
-Search (exact 1000),FST search exact match,TBD,µs,2026-04-15,Rust criterion: search/search_exact_1000
-Search (fuzzy 1000),FST search typo-tolerant,TBD,µs,2026-04-15,Rust criterion: search/search_fuzzy_1000
-Search (build index 1000),SearchIndex::build,TBD,ms,2026-04-15,Rust criterion: search/build_index_1000
-Markdown Parser (small),parse_structure ~50 bytes,TBD,µs,2026-04-15,Rust criterion: markdown_parse/small_50bytes
-Markdown Parser (medium),parse_structure ~10KB,TBD,µs,2026-04-15,Rust criterion: markdown_parse/medium_10KB
-Markdown Parser (large),parse_structure ~50KB,TBD,ms,2026-04-15,Rust criterion: markdown_parse/large_50KB
-SDF Label Rendering,glyph table push 300 glyphs,TBD,µs,2026-04-15,Swift benchmark: sdf_label_data_prep_300
-Simulation Tick (100 nodes),physics tick,TBD,µs,2026-04-15,Rust criterion: simulation_tick/tick_100_nodes
-Simulation Tick (500 nodes),physics tick,TBD,µs,2026-04-15,Rust criterion: simulation_tick/tick_500_nodes
-Simulation Tick (1000 nodes),physics tick,TBD,ms,2026-04-15,Rust criterion: simulation_tick/tick_1000_nodes
+Graph Data Loading (100 nodes),add_nodes_batch + add_edges_batch,79.3,µs,2026-04-15,Rust criterion: graph_data_loading/add_100_nodes_and_edges
+Graph Data Loading (500 nodes),add_nodes_batch + add_edges_batch,583.3,µs,2026-04-15,Rust criterion: graph_data_loading/add_500_nodes_and_edges
+Graph Data Loading (1000 nodes),add_nodes_batch + add_edges_batch,1.64,ms,2026-04-15,Rust criterion: graph_data_loading/add_1000_nodes_and_edges
+Graph Data Loading (5000 nodes),add_nodes_batch + add_edges_batch,26.5,ms,2026-04-15,Rust criterion: graph_data_loading/add_5000_nodes_and_edges
+Search (build index 1000),SearchIndex::build,442.4,µs,2026-04-15,Rust criterion: search/build_index_1000
+Search (exact 1000),FST search exact match,1.78,ms,2026-04-15,Rust criterion: search/search_exact_1000
+Search (fuzzy 1000),FST search typo-tolerant,1.32,ms,2026-04-15,Rust criterion: search/search_fuzzy_1000
+Search (no match 1000),FST search no results,450.1,µs,2026-04-15,Rust criterion: search/search_no_match_1000
+Markdown Parser (small),parse_structure ~50 bytes,294.0,ns,2026-04-15,Rust criterion: markdown_parse/small_50bytes
+Markdown Parser (medium),parse_structure ~10KB,60.8,µs,2026-04-15,Rust criterion: markdown_parse/medium_10KB
+Markdown Parser (large),parse_structure ~50KB,256.8,µs,2026-04-15,Rust criterion: markdown_parse/large_50KB
+Simulation Tick (100 nodes),physics tick,384.7,ns,2026-04-15,Rust criterion: simulation_tick/tick_100_nodes
+Simulation Tick (500 nodes),physics tick,1.89,µs,2026-04-15,Rust criterion: simulation_tick/tick_500_nodes
+Simulation Tick (1000 nodes),physics tick,3.73,µs,2026-04-15,Rust criterion: simulation_tick/tick_1000_nodes
+SDF Label Rendering,glyph table push 300 glyphs,TBD,µs,2026-04-15,Swift benchmark: sdf_label_data_prep_300 (requires Instruments run)
+Code Editor: Markdown Parse (1K lines),markdown_parse full document,TBD,ms,2026-04-15,Swift benchmark: markdown_parse_editor_1K_lines (requires Instruments run)
+Code Editor: Markdown Parse (10K lines),markdown_parse full document,TBD,ms,2026-04-15,Swift benchmark: markdown_parse_editor_10K_lines (requires Instruments run)
+Code Editor: Markdown Parse (50K lines),markdown_parse full document,TBD,ms,2026-04-15,Swift benchmark: markdown_parse_editor_50K_lines (requires Instruments run)
+Code Editor: Code Token Parse (1K lines),markdown_parse_code_tokens,TBD,ms,2026-04-15,Swift benchmark: code_token_parse_1K_lines (requires Instruments run)
+Code Editor: Code Token Parse (10K lines),markdown_parse_code_tokens,TBD,ms,2026-04-15,Swift benchmark: code_token_parse_10K_lines (requires Instruments run)
+Code Editor: String Binding Sync (1K lines),NSString copy + length,TBD,ms,2026-04-15,Swift benchmark: string_binding_sync_1K (requires Instruments run)
+Code Editor: String Binding Sync (10K lines),NSString copy + length,TBD,ms,2026-04-15,Swift benchmark: string_binding_sync_10K (requires Instruments run)
+Code Editor: String Binding Sync (50K lines),NSString copy + length,TBD,ms,2026-04-15,Swift benchmark: string_binding_sync_50K (requires Instruments run)
+Code Editor: Attribute Application (60 lines),NSTextStorage addAttribute viewport batch,TBD,ms,2026-04-15,Swift benchmark: attribute_application_viewport_60_lines (requires Instruments run)
+Code Editor: Edit+Parse Cycles (100x on 1K file),repeated edit + code_token_parse,TBD,ms,2026-04-15,Swift benchmark: repeated_edit_parse_100_iterations (requires Instruments run)

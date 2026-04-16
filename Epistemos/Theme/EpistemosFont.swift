@@ -7,10 +7,17 @@ import os
 enum EpistemosFont {
     private static let logger = Logger(subsystem: "com.epistemos", category: "Font")
     private final class BundleProbe {}
+    private static let claudeFontCandidatePaths = [
+        "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSerif-Romans-Variable-25x258.ttf",
+        "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSerif-Italics-Variable-25x258.ttf",
+        "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSans-Romans-Variable-25x258.ttf",
+        "/Applications/Claude.app/Contents/Resources/fonts/AnthropicSans-Italics-Variable-25x258.ttf",
+    ]
 
     /// Call once at app launch to register custom fonts from the bundle.
     static func registerFonts() {
         registerFont(named: "RetroGaming", extension: "ttf")
+        registerClaudeReferenceFontsIfAvailable()
     }
 
     static func isBenignRegistrationErrorDescription(_ description: String) -> Bool {
@@ -24,12 +31,24 @@ enum EpistemosFont {
             logger.warning("Font \(name, privacy: .public).\(ext, privacy: .public) not found in bundle")
             return
         }
+        registerFont(at: url, label: "\(name).\(ext)")
+    }
+
+    private static func registerClaudeReferenceFontsIfAvailable(
+        fileManager: FileManager = .default
+    ) {
+        for path in Self.claudeFontCandidatePaths where fileManager.fileExists(atPath: path) {
+            registerFont(at: URL(fileURLWithPath: path), label: URL(fileURLWithPath: path).lastPathComponent)
+        }
+    }
+
+    private static func registerFont(at url: URL, label: String) {
         var error: Unmanaged<CFError>?
         if !CTFontManagerRegisterFontsForURL(url as CFURL, .process, &error) {
             let desc = error?.takeRetainedValue().localizedDescription ?? "unknown"
             // Already registered is fine — happens in previews
             if !isBenignRegistrationErrorDescription(desc) {
-                logger.warning("Failed to register \(name, privacy: .public): \(desc, privacy: .private)")
+                logger.warning("Failed to register \(label, privacy: .public): \(desc, privacy: .private)")
             }
         }
     }

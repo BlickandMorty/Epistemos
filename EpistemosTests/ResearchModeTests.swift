@@ -253,23 +253,33 @@ struct ResearchModeTests {
 
     @Test("New research files do not use blocked names")
     func noBlockedFileNames() throws {
-        let content = try loadTextFile("Epistemos.xcodeproj/project.pbxproj")
-        // These are blocked by projectDropsStandaloneResearchSubsystem
-        #expect(!content.contains("ResearchState.swift"))
-        #expect(!content.contains("ResearchService.swift"))
-        #expect(!content.contains("ResearchIntents.swift"))
-        #expect(!content.contains("PaperEntity.swift"))
-        #expect(!content.contains("ResearchTypes.swift"))
-        // New files should exist
-        #expect(content.contains("ResearchOrchestrator.swift"))
-        #expect(content.contains("ResearchEvidenceScorer.swift"))
-        #expect(content.contains("ResearchConfidenceState.swift"))
-        #expect(content.contains("ResearchComplexityGate.swift"))
+        let projectSpec = try loadTextFile("project.yml")
+        let omegaRoot = repoRootURL().appendingPathComponent("Epistemos/Omega", isDirectory: true)
+
+        #expect(projectSpec.contains("type: syncedFolder"))
+
+        // These are blocked by projectDropsStandaloneResearchSubsystem.
+        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchState.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchService.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchIntents.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("PaperEntity.swift").path))
+        #expect(!FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchTypes.swift").path))
+
+        // New files should exist and are auto-included through the synced folder project layout.
+        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchOrchestrator.swift").path))
+        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchEvidenceScorer.swift").path))
+        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchConfidenceState.swift").path))
+        #expect(FileManager.default.fileExists(atPath: omegaRoot.appendingPathComponent("ResearchComplexityGate.swift").path))
     }
 
     // MARK: - Helpers
 
     private func loadTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
+    }
+
+    private func repoRootURL() -> URL {
+        let testsFileURL = URL(fileURLWithPath: #filePath)
+        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
     }
 }

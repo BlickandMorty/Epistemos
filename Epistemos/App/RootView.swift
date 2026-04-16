@@ -77,8 +77,16 @@ struct RootView: View {
         ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
     }
 
+    private var activeHomeAgent: Bool {
+        ui.homeTab == .home && accState.isPresented
+    }
+
+    private var activeHomeSurface: Bool {
+        activeHomeChat || activeHomeAgent
+    }
+
     private var showLandingToolbarControls: Bool {
-        chat.showLanding || chat.messages.isEmpty
+        !activeHomeSurface && (chat.showLanding || chat.messages.isEmpty)
     }
 
     /// Canonical toolbar glass visibility — deterministic from app state.
@@ -87,6 +95,7 @@ struct RootView: View {
     /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
     private var toolbarGlassVisible: Bool {
         if ui.homeTab != .home { return true }
+        if activeHomeAgent { return true }
         return activeHomeChat && homeChatToolbarReady
     }
 
@@ -104,8 +113,6 @@ struct RootView: View {
         ZStack {
             ContentRouter()
         }
-        .overlay { agentCommandCenterOverlay }
-        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: accState.isPresented)
         .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {
             appearanceObserver.stop()
@@ -116,10 +123,10 @@ struct RootView: View {
         }
         .toolbar {
             // Back button — only during active chat on Home tab
-            if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
+            if ui.homeTab == .home && activeHomeSurface {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        chat.goHome()
+                        handleHomeBackNavigation()
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
@@ -131,10 +138,12 @@ struct RootView: View {
                 ToolbarItem(placement: .principal) {
                     rootToolbarControls
                 }
-                .sharedBackgroundVisibility(
-                    (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
-                        ? .hidden : .automatic
-                )
+                .sharedBackgroundVisibility({
+                    if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
+                        return .hidden
+                    }
+                    return .automatic
+                }())
             }
         }
         .navigationTitle("")
@@ -190,6 +199,7 @@ struct RootView: View {
             if let issue = vaultSync.recoveryIssue {
                 VaultRecoveryOverlay(
                     issue: issue,
+                    isBlocking: issue.blocksWorkspaceInteraction,
                     isRecovering: vaultSync.isRecoveringLocalState,
                     rebuildAction: {
                         guard let vaultURL = issue.snapshot.vaultURL else { return }
@@ -213,15 +223,6 @@ struct RootView: View {
             Button("Quit") { NSApp.terminate(nil) }
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
-        }
-    }
-
-    @ViewBuilder
-    private var agentCommandCenterOverlay: some View {
-        if accState.isPresented {
-            AgentCommandCenterView()
-                .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                .zIndex(100)
         }
     }
 
@@ -278,6 +279,14 @@ struct RootView: View {
     private func openSettingsWindow() {
         UtilityWindowManager.shared.show(.settings)
         NSApp.activate()
+    }
+
+    private func handleHomeBackNavigation() {
+        if activeHomeAgent {
+            accState.dismiss()
+            return
+        }
+        chat.goHome()
     }
 
     private var landingGreetingToolbarButton: some View {
@@ -980,48 +989,70 @@ struct LocalModelToolbarMenu: View {
 
 private struct VaultRecoveryOverlay: View {
     let issue: VaultRecoveryIssue
+    let isBlocking: Bool
     let isRecovering: Bool
     let rebuildAction: () -> Void
     let chooseVaultAction: () -> Void
     let disconnectAction: () -> Void
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.26)
-                .ignoresSafeArea()
+        if isBlocking {
+            ZStack {
+                Color.black.opacity(0.26)
+                    .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Vault Rebuild Needed")
-                    .font(.system(size: 22, weight: .semibold))
-
-                Text(issue.detailText)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-
-                HStack(spacing: 12) {
-                    Button(isRecovering ? "Rebuilding…" : "Rebuild Local State") {
-                        rebuildAction()
-                    }
-                    .disabled(isRecovering || !issue.snapshot.isVaultReadable)
-
-                    Button("Choose Vault Folder") {
-                        chooseVaultAction()
-                    }
-                    .disabled(isRecovering)
-
-                    Button("Disconnect Vault", role: .destructive) {
-                        disconnectAction()
-                    }
-                    .disabled(isRecovering)
-                }
+                recoveryCard
+                    .padding(32)
             }
-            .padding(24)
-            .frame(maxWidth: 620, alignment: .leading)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .shadow(color: .black.opacity(0.16), radius: 28, y: 12)
-            .padding(32)
+        } else {
+            VStack {
+                HStack(alignment: .top) {
+                    Spacer(minLength: 0)
+                    recoveryCard
+                        .frame(maxWidth: 520, alignment: .leading)
+                        .allowsHitTesting(true)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .padding(.top, 84)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .allowsHitTesting(false)
         }
+    }
+
+    private var recoveryCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Vault Rebuild Needed")
+                .font(.system(size: 22, weight: .semibold))
+
+            Text(issue.detailText)
+                .font(.system(size: 13, weight: .regular, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            HStack(spacing: 12) {
+                Button(isRecovering ? "Rebuilding…" : "Rebuild Local State") {
+                    rebuildAction()
+                }
+                .disabled(isRecovering || !issue.snapshot.isVaultReadable)
+
+                Button("Choose Vault Folder") {
+                    chooseVaultAction()
+                }
+                .disabled(isRecovering)
+
+                Button("Disconnect Vault", role: .destructive) {
+                    disconnectAction()
+                }
+                .disabled(isRecovering)
+            }
+        }
+        .padding(24)
+        .frame(maxWidth: 620, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: .black.opacity(0.16), radius: 28, y: 12)
     }
 }
 
@@ -1056,15 +1087,32 @@ struct ContentRouter: View {
 // Separate view so the Chat/Landing switch doesn't affect the outer ZStack.
 // Uses withAnimation at call-site (submitQuery/clearMessages) for the transition.
 
+enum HomeSurfaceRoute: Equatable {
+    case landing
+    case chat
+    case agent
+}
+
 private struct HomeRouter: View {
     @Environment(ChatState.self) private var chat
+    @Environment(AgentCommandCenterState.self) private var accState
 
-    /// Show chat when messages exist AND user hasn't navigated to landing.
-    private var showChat: Bool { !chat.messages.isEmpty && !chat.showLanding }
+    private var route: HomeSurfaceRoute {
+        if accState.isPresented {
+            return .agent
+        }
+        if !chat.messages.isEmpty && !chat.showLanding {
+            return .chat
+        }
+        return .landing
+    }
 
     var body: some View {
         ZStack {
-            if showChat {
+            if route == .agent {
+                AgentCommandCenterView()
+                    .transition(.opacity.combined(with: .scale(scale: 0.995)))
+            } else if route == .chat {
                 ChatView()
                     .transition(.opacity.combined(with: .scale(scale: 0.99)))
             } else {
@@ -1072,7 +1120,7 @@ private struct HomeRouter: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.99)))
             }
         }
-        .animation(Motion.smooth, value: showChat)
+        .animation(Motion.smooth, value: route)
     }
 }
 

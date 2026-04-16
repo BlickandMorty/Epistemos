@@ -46,6 +46,44 @@ private nonisolated struct SendableEngineHandle: @unchecked Sendable {
     let raw: OpaquePointer
 }
 
+private nonisolated final class DetachedEngineUseTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private let group = DispatchGroup()
+    private var acceptsUse = true
+
+    func open() {
+        lock.lock()
+        acceptsUse = true
+        lock.unlock()
+    }
+
+    func begin() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard acceptsUse else { return false }
+        group.enter()
+        return true
+    }
+
+    func end() {
+        group.leave()
+    }
+
+    func closeAndWait() {
+        lock.lock()
+        acceptsUse = false
+        lock.unlock()
+        group.wait()
+    }
+
+    func closeAndWaitAsync() async {
+        await Task.detached(priority: .utility) {
+            self.closeAndWait()
+        }.value
+    }
+}
+
 // MARK: - EmbeddingService
 // Generates fallback word embeddings using Apple NLEmbedding and pushes them to the Rust
 // engine while prepared retrieval remains on the Apple fallback path.
@@ -95,6 +133,7 @@ final class EmbeddingService {
     /// The compute task handle. Marked nonisolated(unsafe) so deinit can cancel it
     /// synchronously without requiring @MainActor isolation.
     nonisolated(unsafe) private var computeTask: Task<Void, Never>?
+    private let detachedEngineUseTracker = DetachedEngineUseTracker()
 
     /// Weak reference to owning GraphState — used to read the live engine handle
     /// inside MainActor.run instead of capturing a stale pointer by value.
@@ -109,6 +148,10 @@ final class EmbeddingService {
         fallbackEmbeddingLookup = embeddingLookup
         self.preparedRetrievalRuntimeResolver = preparedRetrievalRuntimeResolver
         activeEmbeddingLookup = embeddingLookup
+    }
+
+    func prepareForEngineUse() {
+        detachedEngineUseTracker.open()
     }
 
     func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
@@ -223,7 +266,13 @@ final class EmbeddingService {
             // loop is never blocked by the computation.
             let handle = engineHandle
             let count = completedEmbeddings.count
+            guard let detachedEngineUseTracker = self?.detachedEngineUseTracker,
+                  !Task.isCancelled,
+                  detachedEngineUseTracker.begin() else {
+                return
+            }
             Task.detached(priority: .utility) {
+                defer { detachedEngineUseTracker.end() }
                 graph_engine_recompute_semantic_neighbors(handle.raw, 8, 0.3)
                 Log.app.info("EmbeddingService: pushed \(count) embeddings (dim=\(dim)) to Rust")
             }
@@ -235,6 +284,11 @@ final class EmbeddingService {
     nonisolated func cancelPendingTask() {
         computeTask?.cancel()
         computeTask = nil
+    }
+
+    nonisolated func prepareForEngineDestroy() {
+        cancelPendingTask()
+        detachedEngineUseTracker.closeAndWait()
     }
 
     /// Get embedding for a specific node (for hybrid search).
@@ -383,6 +437,8 @@ final class EmbeddingService {
     func waitForPendingComputationForTesting() async {
         let task = computeTask
         await task?.value
+        await detachedEngineUseTracker.closeAndWaitAsync()
+        detachedEngineUseTracker.open()
     }
 
     private func clearEmbeddingCache() {
