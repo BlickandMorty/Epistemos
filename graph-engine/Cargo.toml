@@ -40,6 +40,13 @@ tree-sitter-c = "0.24"
 tree-sitter-cpp = "0.23"
 usearch = "2.24"
 
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "graph_ffi_baselines"
+harness = false
+
 [profile.release]
 opt-level = "z"        # Optimize for size
 lto = true             # Full LTO (was "thin")

@@ -1,5 +1,6 @@
 import Dispatch
 import Foundation
+import os
 
 #if canImport(agent_coreFFI)
 typealias AgentStreamEventDelegate = AgentEventDelegate
@@ -411,6 +412,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
 
     func executeComputerAction(actionJson: String) -> String {
         dispatchPrecondition(condition: .notOnQueue(.main))
+        let interval = Log.ffiPerf.beginInterval("executeComputerAction")
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox(
             "{\"success\":false,\"error\":\"Timed out waiting for native computer action.\"}"
@@ -423,6 +425,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         }
 
         let waitResult = semaphore.wait(timeout: .now() + permissionTimeout)
+        Log.ffiPerf.endInterval("executeComputerAction", interval)
         guard waitResult != .timedOut else {
             return result.get()
         }
@@ -432,9 +435,11 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
 
     func waitForPermission(permissionId: String) -> Bool {
         dispatchPrecondition(condition: .notOnQueue(.main))
+        let interval = Log.ffiPerf.beginInterval("waitForPermission")
         permissionLock.lock()
         guard let semaphore = pendingPermissions[permissionId] else {
             permissionLock.unlock()
+            Log.ffiPerf.endInterval("waitForPermission", interval)
             return false
         }
         permissionLock.unlock()
@@ -442,7 +447,10 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
         let result = semaphore.wait(timeout: .now() + permissionTimeout)
 
         permissionLock.lock()
-        defer { permissionLock.unlock() }
+        defer {
+            permissionLock.unlock()
+            Log.ffiPerf.endInterval("waitForPermission", interval)
+        }
 
         if result == .timedOut {
             pendingPermissions.removeValue(forKey: permissionId)
@@ -498,6 +506,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// using a semaphore so the Rust side can call this from any thread.
     func perceiveApp(appName: String, depth: String) -> String {
         dispatchPrecondition(condition: .notOnQueue(.main))
+        let interval = Log.ffiPerf.beginInterval("perceiveApp")
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"elements\":[],\"error\":\"perceive bridge unavailable\"}")
         Task { @MainActor in
@@ -506,6 +515,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        Log.ffiPerf.endInterval("perceiveApp", interval)
         return result.get()
     }
 
@@ -513,6 +523,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     /// Decodes the action JSON and routes to `Phase4Bridge.interact`.
     func interactWithApp(actionJson: String) -> String {
         dispatchPrecondition(condition: .notOnQueue(.main))
+        let interval = Log.ffiPerf.beginInterval("interactWithApp")
         let semaphore = DispatchSemaphore(value: 0)
         let result = LockedStringBox("{\"success\":false,\"error\":\"interact bridge unavailable\"}")
         Task { @MainActor in
@@ -521,6 +532,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
             semaphore.signal()
         }
         _ = semaphore.wait(timeout: .now() + permissionTimeout)
+        Log.ffiPerf.endInterval("interactWithApp", interval)
         return result.get()
     }
 

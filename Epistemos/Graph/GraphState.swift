@@ -651,14 +651,18 @@ final class GraphState {
     func pinNode(_ nodeId: String) {
         pinnedNodeIds.insert(nodeId)
         guard let engine = engineHandle else { return }
+        let interval = Log.ffiPerf.beginInterval("graph_engine_pin_node")
         nodeId.withCString { graph_engine_pin_node(engine, $0) }
+        Log.ffiPerf.endInterval("graph_engine_pin_node", interval)
     }
 
     /// Unpin a node, releasing its position constraint.
     func unpinNode(_ nodeId: String) {
         pinnedNodeIds.remove(nodeId)
         guard let engine = engineHandle else { return }
+        let interval = Log.ffiPerf.beginInterval("graph_engine_unpin_node")
         nodeId.withCString { graph_engine_unpin_node(engine, $0) }
+        Log.ffiPerf.endInterval("graph_engine_unpin_node", interval)
     }
 
     /// Pin all nodes in the graph at their current positions.
@@ -1803,6 +1807,7 @@ final class GraphState {
 
     private func syncNodeMetadataToEngine(_ node: GraphNodeRecord) {
         guard let engine = engineHandle else { return }
+        let interval = Log.ffiPerf.beginInterval("syncNodeMetadataToEngine")
         let createdAt = node.createdAt.timeIntervalSince1970
         let updatedAt = node.updatedAt.timeIntervalSince1970
         let confidence: Float = switch node.metadata.evidenceGrade?.uppercased() {
@@ -1817,6 +1822,7 @@ final class GraphState {
             graph_engine_set_node_time(engine, uuidPtr, createdAt, updatedAt)
             graph_engine_set_node_confidence(engine, uuidPtr, confidence)
         }
+        Log.ffiPerf.endInterval("syncNodeMetadataToEngine", interval)
     }
 
     // MARK: - Rust Search
@@ -1828,9 +1834,14 @@ final class GraphState {
 
         // Try Rust-side search via FFI
         if let engine = engineHandle {
+            let interval = Log.ffiPerf.beginInterval("graph_engine_search")
             var count: UInt32 = 0
-            guard let cQuery = query.cString(using: .utf8) else { return store.fuzzySearch(query: query, limit: limit) }
+            guard let cQuery = query.cString(using: .utf8) else {
+                Log.ffiPerf.endInterval("graph_engine_search", interval)
+                return store.fuzzySearch(query: query, limit: limit)
+            }
             let results = graph_engine_search(engine, cQuery, UInt32(limit), &count)
+            Log.ffiPerf.endInterval("graph_engine_search", interval)
             defer { graph_engine_free_search_results(results, count) }
 
             if let results, count > 0 {
@@ -2014,15 +2025,19 @@ final class GraphState {
     /// Pass empty string to clear highlight.
     func searchHighlight(_ query: String) {
         guard let engine = engineHandle else { return }
+        let interval = Log.ffiPerf.beginInterval("graph_engine_search_highlight")
         if let cQuery = query.cString(using: .utf8) {
             graph_engine_search_highlight(engine, cQuery)
         }
+        Log.ffiPerf.endInterval("graph_engine_search_highlight", interval)
     }
 
     /// Enable/disable bullet-time search physics (slow-motion drift during search).
     func setSearchActive(_ active: Bool) {
         guard let engine = engineHandle else { return }
+        let interval = Log.ffiPerf.beginInterval("graph_engine_set_search_active")
         graph_engine_set_search_active(engine, active ? 1 : 0)
+        Log.ffiPerf.endInterval("graph_engine_set_search_active", interval)
     }
 
     // MARK: - Selection

@@ -1,0 +1,14 @@
+Surface,Metric,Value,Unit,Date,Notes
+Graph Data Loading (500 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_500_nodes_and_edges
+Graph Data Loading (1000 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_1000_nodes_and_edges
+Graph Data Loading (5000 nodes),add_nodes_batch + add_edges_batch + commit,TBD,ms,2026-04-15,Rust criterion: graph_data_loading/add_5000_nodes_and_edges
+Search (exact 1000),FST search exact match,TBD,µs,2026-04-15,Rust criterion: search/search_exact_1000
+Search (fuzzy 1000),FST search typo-tolerant,TBD,µs,2026-04-15,Rust criterion: search/search_fuzzy_1000
+Search (build index 1000),SearchIndex::build,TBD,ms,2026-04-15,Rust criterion: search/build_index_1000
+Markdown Parser (small),parse_structure ~50 bytes,TBD,µs,2026-04-15,Rust criterion: markdown_parse/small_50bytes
+Markdown Parser (medium),parse_structure ~10KB,TBD,µs,2026-04-15,Rust criterion: markdown_parse/medium_10KB
+Markdown Parser (large),parse_structure ~50KB,TBD,ms,2026-04-15,Rust criterion: markdown_parse/large_50KB
+SDF Label Rendering,glyph table push 300 glyphs,TBD,µs,2026-04-15,Swift benchmark: sdf_label_data_prep_300
+Simulation Tick (100 nodes),physics tick,TBD,µs,2026-04-15,Rust criterion: simulation_tick/tick_100_nodes
+Simulation Tick (500 nodes),physics tick,TBD,µs,2026-04-15,Rust criterion: simulation_tick/tick_500_nodes
+Simulation Tick (1000 nodes),physics tick,TBD,ms,2026-04-15,Rust criterion: simulation_tick/tick_1000_nodes

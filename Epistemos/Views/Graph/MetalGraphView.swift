@@ -327,6 +327,7 @@ nonisolated func makeVisibleNodeMetadataBatchPayload<Nodes: Collection>(
 
 func sendNodeBatch(_ payload: GraphNodeBatchPayload, to engine: OpaquePointer) {
     guard !payload.isEmpty else { return }
+    let interval = Log.ffiPerf.beginInterval("graph_engine_add_nodes_batch")
     withStableCStringArray(payload.ids) { uuidPtrs in
         withStableCStringArray(payload.labels) { labelPtrs in
             payload.xs.withUnsafeBufferPointer { xs in
@@ -349,10 +350,12 @@ func sendNodeBatch(_ payload: GraphNodeBatchPayload, to engine: OpaquePointer) {
             }
         }
     }
+    Log.ffiPerf.endInterval("graph_engine_add_nodes_batch", interval)
 }
 
 func sendNodeMetadataBatch(_ payload: GraphNodeMetadataBatchPayload, to engine: OpaquePointer) {
     guard !payload.isEmpty else { return }
+    let interval = Log.ffiPerf.beginInterval("graph_engine_set_node_metadata_batch")
     withStableCStringArray(payload.ids) { uuidPtrs in
         payload.createdAts.withUnsafeBufferPointer { createdAts in
             payload.updatedAts.withUnsafeBufferPointer { updatedAts in
@@ -369,10 +372,12 @@ func sendNodeMetadataBatch(_ payload: GraphNodeMetadataBatchPayload, to engine: 
             }
         }
     }
+    Log.ffiPerf.endInterval("graph_engine_set_node_metadata_batch", interval)
 }
 
 func sendEdgeBatch(_ payload: GraphEdgeBatchPayload, to engine: OpaquePointer) {
     guard !payload.isEmpty else { return }
+    let interval = Log.ffiPerf.beginInterval("graph_engine_add_edges_batch")
     withStableCStringArray(payload.sourceIds) { sourcePtrs in
         withStableCStringArray(payload.targetIds) { targetPtrs in
             payload.weights.withUnsafeBufferPointer { weights in
@@ -389,6 +394,7 @@ func sendEdgeBatch(_ payload: GraphEdgeBatchPayload, to engine: OpaquePointer) {
             }
         }
     }
+    Log.ffiPerf.endInterval("graph_engine_add_edges_batch", interval)
 }
 
 func sendNodeRemovalBatch(_ nodeIds: [String], to engine: OpaquePointer) {
@@ -665,6 +671,7 @@ final class MetalGraphNSView: NSView {
 
     private func loadSDFLabelAtlasIfAvailable() {
         guard let engineHandle = engine else { return }
+        let interval = Log.ffiPerf.beginInterval("loadSDFLabelAtlas")
         let resourceName = graphState?.labelFontFamily.atlasResourceName ?? "sdf_labels"
         do {
             let atlas = try SDFLabelAtlasLoader.load(
@@ -684,6 +691,7 @@ final class MetalGraphNSView: NSView {
         } catch {
             graph_engine_set_labels_enabled(engineHandle, 0)
         }
+        Log.ffiPerf.endInterval("loadSDFLabelAtlas", interval)
     }
 
     private func refreshPowerModeObserver() {
@@ -804,7 +812,9 @@ final class MetalGraphNSView: NSView {
             if case .global = graphState.mode { return true }
             return false
         }()
+        let commitInterval = Log.ffiPerf.beginInterval("graph_engine_commit")
         graph_engine_commit(engine, entrance)
+        Log.ffiPerf.endInterval("graph_engine_commit", commitInterval)
         if entrance == 1 {
             graphState.hasPlayedEntrance = true
             // Rust clears user_frozen on entrance — sync Swift side so the
@@ -1360,7 +1370,9 @@ final class MetalGraphNSView: NSView {
         let h = UInt32(size.height)
         guard w > 0, h > 0 else { return }
 
+        let renderInterval = Log.ffiPerf.beginInterval("graph_engine_render")
         let result = graph_engine_render(engine, w, h)
+        Log.ffiPerf.endInterval("graph_engine_render", renderInterval)
 
         // Update selected node screen position for inspector tracking.
         // Only write when value actually changes to avoid triggering observation every frame.
