@@ -45,6 +45,27 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
+enum LandingPromptSurface: String, CaseIterable, Identifiable {
+    case chat
+    case agent
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .chat: "Chat"
+        case .agent: "Agent"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .chat: "bubble.left.and.bubble.right"
+        case .agent: "command.circle"
+        }
+    }
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 
@@ -54,7 +75,6 @@ struct LandingView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(OrchestratorState.self) private var orchestrator
-    @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(\.modelContext) private var modelContext
@@ -74,6 +94,8 @@ struct LandingView: View {
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
     @State private var landingMentionPickerAutofocus = false
+    @State private var landingPromptSurface: LandingPromptSurface = .chat
+    @State private var landingSelectedAgentSlash: ACCSlashCommand? = nil
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
@@ -83,6 +105,14 @@ struct LandingView: View {
     private var showingOverlay: Bool { showingBrief || showWelcomeBack }
     private var trimmedLandingSearchText: String {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    private var landingSearchPlaceholder: String {
+        switch landingPromptSurface {
+        case .chat:
+            ComposerAttachmentEntryHints.landingPlaceholder
+        case .agent:
+            "Ask the agent to inspect, plan, or operate across your workspace"
+        }
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -104,11 +134,20 @@ struct LandingView: View {
         ZStack {
             landingBackdrop
                 .zIndex(-1)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    guard !showingOverlay && !showingSearchPopover else { return }
-                    activateLandingSearch()
-                }
+                .allowsHitTesting(false)
+
+            // ── Background Tap Layer ──
+            // Click anywhere on empty landing area opens the search popover.
+            // Greeting shortcut buttons sit above this at zIndex 1 and handle
+            // their own clicks first, so only background taps fall through.
+            // Suppressed while any overlay (brief / welcome back / search) is
+            // up so it can't re-trigger search when user taps the scrim.
+            if !showingOverlay && !showingSearchPopover {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { activateLandingSearch() }
+                    .zIndex(0)
+            }
 
             // ── Greeting Mode ──
             // Blurs and fades when Daily Brief or Welcome Back is active.
@@ -118,11 +157,23 @@ struct LandingView: View {
                 .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .zIndex(1)
 
-            if showingSearchPopover {
-                landingSearchOverlay
-                    .transition(.opacity.combined(with: .scale(scale: 0.97)))
-                    .zIndex(2)
-            }
+            // Invisible anchor hosting the native NSPopover. SwiftUI's
+            // `.popover` on macOS is backed by NSPopover with a real arrow and
+            // transient dismiss-on-outside-click, which is exactly the
+            // original 271f3634 behavior the landing should use.
+            Color.clear
+                .frame(width: 1, height: 1)
+                .popover(
+                    isPresented: $showingSearchPopover,
+                    arrowEdge: .top
+                ) {
+                    landingSearchPopoverContent
+                        .frame(idealWidth: 560, maxWidth: 620)
+                        .padding(18)
+                        .onExitCommand { dismissLandingSearch() }
+                        .onDisappear { onLandingPopoverDisappear() }
+                }
+                .zIndex(2)
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.
@@ -166,8 +217,8 @@ struct LandingView: View {
                 .opacity(0)
                 .allowsHitTesting(false)
 
-            // Hidden ⌘I shortcut — quick idea capture
-            Button(action: { captureQuickIdea() }) {}
+            // Hidden ⌘I shortcut — open Quick Capture immediately
+            Button(action: { openQuickCapture() }) {}
                 .keyboardShortcut("i", modifiers: .command)
                 .frame(width: 0, height: 0)
                 .opacity(0)
@@ -216,19 +267,20 @@ struct LandingView: View {
                 }
 
             landingSearchPopoverContent
-                .frame(width: 520)
-                .frame(maxHeight: 400)
-                .padding(14)
+                .frame(width: 580)
+                .frame(maxHeight: 470)
+                .padding(18)
                 .fixedSize(horizontal: false, vertical: true)
                 .background {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.92 : 0.88))
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
+                        .fill(theme.resolved.background.color.opacity(theme.isDark ? 0.78 : 0.90))
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
                 }
                 .overlay {
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    RoundedRectangle(cornerRadius: 32, style: .continuous)
                         .stroke(theme.resolved.foreground.color.opacity(theme.isDark ? 0.14 : 0.08), lineWidth: 1)
                 }
-                .shadow(color: Color.black.opacity(theme.isDark ? 0.35 : 0.1), radius: 40, y: 18)
+                .shadow(color: Color.black.opacity(theme.isDark ? 0.35 : 0.1), radius: 44, y: 22)
                 .padding(.horizontal, 24)
         }
     }
@@ -359,10 +411,19 @@ struct LandingView: View {
                         .fill(theme.textTertiary.opacity(0.3))
                         .frame(width: 3, height: 3)
 
+                    CommandHint(modIcon: "command", key: "⇧N", label: "Quick Capture", theme: theme) {
+                        openQuickCapture()
+                    }
+                    .springEntrance(index: 3, stagger: 0.08)
+
+                    Circle()
+                        .fill(theme.textTertiary.opacity(0.3))
+                        .frame(width: 3, height: 3)
+
                     CommandHint(modIcon: "command", key: "S", label: "Settings", theme: theme) {
                         UtilityWindowManager.shared.show(.settings)
                     }
-                    .springEntrance(index: 3, stagger: 0.08)
+                    .springEntrance(index: 4, stagger: 0.08)
 
                     Circle()
                         .fill(theme.textTertiary.opacity(0.3))
@@ -371,18 +432,8 @@ struct LandingView: View {
                     CommandHint(modIcon: "command", key: "G", label: "Graph", theme: theme) {
                         HologramController.shared.toggle()
                     }
-                    .springEntrance(index: 4, stagger: 0.08)
-
-                    Circle()
-                        .fill(theme.textTertiary.opacity(0.3))
-                        .frame(width: 3, height: 3)
-
-                    CommandHint(modIcon: "command", key: "J", label: "Command Center", theme: theme) {
-                        Task { @MainActor in
-                            AppBootstrap.shared?.agentCommandCenterState.present()
-                        }
-                    }
                     .springEntrance(index: 5, stagger: 0.08)
+
                 }
                 .padding(.bottom, 28)
             }
@@ -392,9 +443,35 @@ struct LandingView: View {
     
     private var landingSearchPopoverContent: some View {
         VStack(spacing: 16) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(landingPromptSurface == .chat ? "Landing Chat" : "Agent Workspace")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(theme.textPrimary)
+                    Text(
+                        landingPromptSurface == .chat
+                            ? "Start a lightweight chat from anywhere on the landing page."
+                            : "Prefill the dedicated agent page with tools, slash actions, and inspector controls."
+                    )
+                    .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                Text("ESC")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(theme.textSecondary.opacity(0.06), in: Capsule())
+            }
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
+                    landingPromptSurfacePicker
+
                     if !landingContextAttachments.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 6) {
@@ -425,43 +502,16 @@ struct LandingView: View {
                     }
 
                     VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
-                        if chat.isIncognito {
-                            HStack(spacing: 8) {
-                                Image(systemName: "eye.slash.fill")
-                                    .font(.system(size: 11, weight: .semibold))
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Temporary Chat")
-                                        .font(.system(size: 11, weight: .semibold))
-                                    Text("The next chat starts in memory only and will not be saved.")
-                                        .font(.system(size: 10.5))
-                                        .foregroundStyle(theme.textTertiary)
-                                }
-                                Spacer(minLength: 0)
-                            }
-                            .foregroundStyle(theme.resolved.accent.color)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
-                            .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .stroke(theme.resolved.accent.color.opacity(0.14), lineWidth: 0.8)
-                            }
+                        if landingPromptSurface == .chat {
+                            landingChatSpecificControls
+                        } else {
+                            landingAgentSpecificControls
                         }
 
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
-                            Image(systemName: "sparkles")
+                            Image(systemName: landingPromptSurface.icon)
                                 .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(
-                                    LinearGradient(
-                                        colors: [
-                                            Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                                            Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                                            Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                                        ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
+                                .foregroundStyle(landingPromptSurfaceAccent)
                                 .padding(.top, 8)
 
                             ZStack(alignment: .topLeading) {
@@ -473,7 +523,7 @@ struct LandingView: View {
                                     fontSize: LandingSearchLayout.inputFontSize,
                                     isProcessing: false
                                 ) {
-                                    submitLandingSearch()
+                                    submitLandingPrompt()
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: landingComposerHeight)
@@ -501,7 +551,7 @@ struct LandingView: View {
                                 }
 
                                 if landingSearchText.isEmpty {
-                                    Text(ComposerAttachmentEntryHints.landingPlaceholder)
+                                    Text(landingSearchPlaceholder)
                                         .font(
                                             .system(
                                                 size: LandingSearchLayout.inputFontSize,
@@ -516,6 +566,16 @@ struct LandingView: View {
                         }
 
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
+                            Text(
+                                landingPromptSurface == .chat
+                                    ? "Use `@` to pull notes and recent chats into the prompt."
+                                    : "Use `@` for note context and quick slash chips for agent workflows."
+                            )
+                            .font(.system(size: 11.5, weight: .medium, design: .rounded))
+                            .foregroundStyle(theme.textTertiary)
+
+                            Spacer(minLength: 0)
+
                             if !landingSearchText.isEmpty {
                                 Button {
                                     landingSearchText = ""
@@ -539,7 +599,7 @@ struct LandingView: View {
                                 isProcessing: false,
                                 metrics: .compactChat
                             ) {
-                                submitLandingSearch()
+                                submitLandingPrompt()
                             }
                             .help("Send")
                             .accessibilityLabel("Send prompt")
@@ -570,20 +630,141 @@ struct LandingView: View {
         }
     }
 
-    private func landingChip(label: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 5) {
-                Image(systemName: icon)
-                    .font(.system(size: 11, weight: .medium))
-                Text(label)
-                    .font(.system(size: 12, weight: .medium))
+    private var landingPromptSurfacePicker: some View {
+        Picker("Landing Surface", selection: $landingPromptSurface) {
+            ForEach(LandingPromptSurface.allCases) { surface in
+                Label(surface.title, systemImage: surface.icon)
+                    .tag(surface)
             }
-            .foregroundStyle(theme.textSecondary)
-            .padding(.horizontal, 14)
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+    }
+
+    @ViewBuilder
+    private var landingChatSpecificControls: some View {
+        if chat.isIncognito {
+            HStack(spacing: 8) {
+                Image(systemName: "eye.slash.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Temporary Chat")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("The next chat starts in memory only and will not be saved.")
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(theme.resolved.accent.color)
+            .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .hoverGlass(flatBackground: theme.resolved.foreground.color.opacity(0.06), cornerRadius: 100)
+            .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(theme.resolved.accent.color.opacity(0.14), lineWidth: 0.8)
+            }
+        }
+    }
+
+    private var landingAgentSpecificControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Dedicated agent workspace")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(theme.textPrimary)
+                    Text("Launch into the native agent page with slash actions, tool gates, and inspector controls intact.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 0)
+
+                BrainPickerMenu()
+            }
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([ACCSlashCommand.plan, .debug, .research, .review, .summarize], id: \.self) { command in
+                        landingAgentCommandChip(for: command)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .background(
+            theme.resolved.foreground.color.opacity(theme.isDark ? 0.05 : 0.06),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.6), lineWidth: 0.8)
+        }
+    }
+
+    private func landingAgentCommandChip(for command: ACCSlashCommand) -> some View {
+        let isSelected = landingSelectedAgentSlash == command
+
+        return Button {
+            if landingSelectedAgentSlash == command {
+                landingSelectedAgentSlash = nil
+            } else {
+                landingSelectedAgentSlash = command
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: command.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                Text("/\(command.rawValue)")
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(isSelected ? theme.textPrimary : theme.textSecondary)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(
+                isSelected
+                    ? theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.16)
+                    : theme.resolved.foreground.color.opacity(theme.isDark ? 0.045 : 0.035),
+                in: Capsule()
+            )
+            .overlay {
+                Capsule()
+                    .strokeBorder(
+                        isSelected ? theme.resolved.accent.color.opacity(0.28) : theme.border.opacity(0.55),
+                        lineWidth: 0.8
+                    )
+            }
         }
         .buttonStyle(.plain)
+        .help(command.helpText)
+    }
+
+    private var landingPromptSurfaceAccent: LinearGradient {
+        switch landingPromptSurface {
+        case .chat:
+            LinearGradient(
+                colors: [
+                    Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                    Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                    Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        case .agent:
+            LinearGradient(
+                colors: [
+                    theme.resolved.accent.color,
+                    theme.resolved.foreground.color.opacity(0.9),
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
     }
 
     private func activateLandingSearch() {
@@ -611,11 +792,30 @@ struct LandingView: View {
     }
 
 
+    /// Fired when the native NSPopover finishes its close animation. Resets
+    /// the composer state the same way an explicit Esc/dismiss would, without
+    /// re-triggering the popover close (`showingSearchPopover` is already
+    /// false by the time `onDisappear` runs).
+    private func onLandingPopoverDisappear() {
+        landingSearchText = ""
+        landingComposerHeight = LandingSearchLayout.inputMinHeight
+        isLandingSearchFocused = false
+        landingPromptSurface = .chat
+        landingSelectedAgentSlash = nil
+        showLandingMentionDropdown = false
+        landingReferencePopoverStyle = .mention
+        landingMentionFilter = ""
+        landingMentionPickerAutofocus = false
+        landingReferenceSearch.reset()
+    }
+
     private func dismissLandingSearch() {
         showingSearchPopover = false
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
+        landingPromptSurface = .chat
+        landingSelectedAgentSlash = nil
         showLandingMentionDropdown = false
         landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
@@ -668,6 +868,65 @@ struct LandingView: View {
             chat: chat,
             orchestrator: orchestrator
         )
+    }
+
+    private func submitLandingPrompt() {
+        switch landingPromptSurface {
+        case .chat:
+            submitLandingSearch()
+        case .agent:
+            submitLandingAgentPrompt(
+                trimmedLandingSearchText,
+                attachments: landingContextAttachments
+            )
+        }
+    }
+
+    private func submitLandingAgentPrompt(
+        _ query: String,
+        attachments: [ContextAttachment]
+    ) {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let draft = landingAgentDraft(
+            query: trimmed,
+            attachments: attachments
+        )
+        dismissLandingSearch()
+        ui.setActivePanel(.home)
+        AppBootstrap.shared?.submitAgentWorkspacePrompt(
+            draft,
+            operatingMode: landingSelectedAgentSlash?.defaultOperatingMode ?? .agent
+        )
+    }
+
+    private func landingAgentDraft(
+        query: String,
+        attachments: [ContextAttachment]
+    ) -> String {
+        let prefixes = attachments.compactMap { attachment -> String? in
+            switch attachment.kind {
+            case .note:
+                return "@[\(attachment.title)]"
+            case .allNotes:
+                return "@AllNotes"
+            case .chat:
+                let title = attachment.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !title.isEmpty else { return nil }
+                return "Use the recent chat titled \"\(title)\" as context."
+            }
+        }
+
+        var fragments = [String]()
+        if let slash = landingSelectedAgentSlash {
+            fragments.append("/\(slash.rawValue)")
+        }
+        if !prefixes.isEmpty {
+            fragments.append(prefixes.joined(separator: " "))
+        }
+        fragments.append(query)
+        return fragments.joined(separator: " ")
     }
 
     private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {
@@ -777,7 +1036,11 @@ struct LandingView: View {
             .padding(.bottom, 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onTapGesture { dismissWelcomeBack() }
+        .background {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { dismissWelcomeBack() }
+        }
     }
 
     private func dismissWelcomeBack() {
@@ -924,16 +1187,8 @@ struct LandingView: View {
         }
     }
 
-    private func captureQuickIdea() {
-        Task {
-            if let pageId = await vaultSync.createPage(
-                title: "New Idea",
-                emoji: "💡",
-                allowVaultSelectionPrompt: true
-            ) {
-                NoteWindowManager.shared.open(pageId: pageId)
-            }
-        }
+    private func openQuickCapture() {
+        NotificationCenter.default.post(name: .showQuickCapture, object: nil)
     }
 
     // MARK: - Daily Brief Prompt

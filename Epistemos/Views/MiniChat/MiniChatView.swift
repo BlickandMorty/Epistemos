@@ -41,6 +41,20 @@ struct MiniChatView: View {
         .padding(.top, 18)
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .strokeBorder(
+                            theme.resolved.foreground.color.opacity(theme.isDark ? 0.10 : 0.12),
+                            lineWidth: 0.5
+                        )
+                }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.22), radius: 28, y: 12)
+        .padding(8)
         .onAppear {
             Task { @MainActor in
                 loadMiniChatSessionIfNeeded()
@@ -729,6 +743,9 @@ private struct MiniChatInputBar: View {
         .onAppear {
             sanitizeStoredOperatingMode()
         }
+        .onDisappear {
+            cancelStream()
+        }
         .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
             sanitizeStoredOperatingMode()
         }
@@ -1375,7 +1392,9 @@ private struct MiniChatInputBar: View {
 
         let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatID })
         let chat: SDChat
-        if let existing = fetchFirst(descriptor, label: "persisted mini chat session \(chatID)") {
+        let existing = fetchFirst(descriptor, label: "persisted mini chat session \(chatID)")
+        let wasExisting = existing != nil
+        if let existing {
             chat = existing
         } else {
             let created = SDChat(title: thread.label, chatType: thread.pageId == nil ? "chat" : "notes")
@@ -1384,17 +1403,22 @@ private struct MiniChatInputBar: View {
             chat = created
         }
 
+        let originalTitle = chat.title
+        let originalChatType = chat.chatType
+        let originalLinkedPageId = chat.linkedPageId
+        let originalUpdatedAt = chat.updatedAt
+        let originalMessages = chat.messages ?? []
+
         chat.title = thread.label
         chat.chatType = thread.pageId == nil ? "chat" : "notes"
         chat.linkedPageId = thread.pageId
         chat.updatedAt = thread.messages.last?.createdAt ?? .now
-        MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: thread.label)
 
         for message in chat.messages ?? [] {
             modelContext.delete(message)
         }
 
-        chat.messages = thread.messages.map { message in
+        let newMessages = thread.messages.map { message in
             let stored = SDMessage(role: message.role.rawValue, content: message.content)
             stored.id = message.id
             stored.createdAt = message.createdAt
@@ -1406,10 +1430,31 @@ private struct MiniChatInputBar: View {
             stored.chat = chat
             return stored
         }
+        chat.messages = newMessages
 
         do {
             try modelContext.save()
+            MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: thread.label)
         } catch {
+            chat.title = originalTitle
+            chat.chatType = originalChatType
+            chat.linkedPageId = originalLinkedPageId
+            chat.updatedAt = originalUpdatedAt
+
+            for message in newMessages {
+                modelContext.delete(message)
+            }
+
+            if wasExisting {
+                for message in originalMessages {
+                    modelContext.insert(message)
+                    message.chat = chat
+                }
+                chat.messages = originalMessages
+                MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: originalTitle)
+            } else {
+                modelContext.delete(chat)
+            }
             Log.pipeline.error("Failed to persist mini chat session \(self.chatID): \(error.localizedDescription)")
         }
     }

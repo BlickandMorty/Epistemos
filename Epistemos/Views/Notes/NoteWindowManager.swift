@@ -52,8 +52,6 @@ enum NoteWindowThemeStyler {
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {
-        window.appearance = nil
-        window.backgroundColor = .windowBackgroundColor
         window.titlebarAppearsTransparent = true
         if #unavailable(macOS 15.0) {
             window.toolbar?.showsBaselineSeparator = false
@@ -263,12 +261,29 @@ final class NoteWindowManager {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
+        let page: SDPage
+        do {
+            guard let fetched = try bootstrap.modelContainer.mainContext.fetch(descriptor).first else {
+                Log.app.error("NoteWindowManager: failed to open missing page \(pageId, privacy: .public)")
+                return
+            }
+            page = fetched
+        } catch {
+            Log.app.error("NoteWindowManager: failed to fetch page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return
         }
 
         bootstrap.notesUI.openPage(pageId)
         openWindow(for: page)
+
+        // When a note is focused, dismiss the notes browser sidebar popover
+        // and pause the graph overlay so editor scroll/typing stays fluid.
+        // The user can reopen either on demand; this only auto-clears them on
+        // a note-open transition, not during routine note switching.
+        UtilityWindowManager.shared.hide(.notes)
+        if HologramController.shared.isVisible {
+            HologramController.shared.hide()
+        }
 
         // Donate Spotlight activity async — never block note opening on indexing.
         let pageId = page.id
@@ -430,6 +445,10 @@ final class NoteWindowManager {
         }
         windows.removeValue(forKey: pageId)
         navigationStates.removeValue(forKey: pageId)
+        if windows.isEmpty {
+            activeUserActivity?.resignCurrent()
+            activeUserActivity = nil
+        }
         AppBootstrap.shared?.activityTracker.recordNoteClosed(pageId: pageId, title: window.title)
     }
 
@@ -636,9 +655,16 @@ private struct NoteTabShell: View {
                 let desc = FetchDescriptor<SDPage>(
                     predicate: #Predicate<SDPage> { $0.id == targetId }
                 )
-                if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first
-                {
-                    window.title = NoteTitleDisplay.resolvedTitle(page.title)
+                if let context = AppBootstrap.shared?.modelContainer.mainContext {
+                    do {
+                        if let page = try context.fetch(desc).first {
+                            window.title = NoteTitleDisplay.resolvedTitle(page.title)
+                        } else {
+                            Log.app.error("NoteWindowManager: missing page title for tab \(targetId, privacy: .public)")
+                        }
+                    } catch {
+                        Log.app.error("NoteWindowManager: failed to fetch page title for tab \(targetId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    }
                 }
             }
             AppBootstrap.shared?.notesUI.openPage(newPageId)
