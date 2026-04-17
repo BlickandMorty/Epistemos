@@ -38,23 +38,22 @@ struct MiniChatView: View {
             }
         }
         .padding(.horizontal, 28)
-        .padding(.top, 18)
+        .padding(.top, 36) // leave room for traffic lights; glass extends behind them
         .padding(.bottom, 20)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background {
+        .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(.ultraThinMaterial)
-                .overlay {
+                .overlay(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .strokeBorder(
                             theme.resolved.foreground.color.opacity(theme.isDark ? 0.10 : 0.12),
                             lineWidth: 0.5
                         )
-                }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.22), radius: 28, y: 12)
-        .padding(8)
+                )
+                .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.22), radius: 28, y: 12)
+                .ignoresSafeArea()
+        )
         .onAppear {
             Task { @MainActor in
                 loadMiniChatSessionIfNeeded()

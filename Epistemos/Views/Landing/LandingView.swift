@@ -99,6 +99,9 @@ struct LandingView: View {
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
+    /// Last tap location on the landing background. The appKitPopover anchors
+    /// its arrow at this point so the popover opens right where the cursor is.
+    @State private var landingTapLocation: CGPoint? = nil
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
@@ -145,7 +148,10 @@ struct LandingView: View {
             if !showingOverlay && !showingSearchPopover {
                 Color.clear
                     .contentShape(Rectangle())
-                    .onTapGesture { activateLandingSearch() }
+                    .onTapGesture(coordinateSpace: .local) { location in
+                        landingTapLocation = location
+                        activateLandingSearch()
+                    }
                     .zIndex(0)
             }
 
@@ -157,21 +163,32 @@ struct LandingView: View {
                 .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .zIndex(1)
 
-            // Invisible anchor hosting the native NSPopover. SwiftUI's
-            // `.popover` on macOS is backed by NSPopover with a real arrow and
-            // transient dismiss-on-outside-click, which is exactly the
-            // original 271f3634 behavior the landing should use.
+            // Real NSPopover anchored exactly at the last tap point on the
+            // landing background (via `AppKitPopoverModifier`). Re-applies the
+            // 271f3634 behavior where the popover opens right under the
+            // cursor, not always dead-centered. Transient dismiss on outside
+            // click + Esc is handled by NSPopover itself.
             Color.clear
-                .frame(width: 1, height: 1)
-                .popover(
+                .allowsHitTesting(false)
+                .appKitPopover(
                     isPresented: $showingSearchPopover,
-                    arrowEdge: .top
+                    location: landingTapLocation
                 ) {
-                    landingSearchPopoverContent
-                        .frame(idealWidth: 560, maxWidth: 620)
-                        .padding(18)
-                        .onExitCommand { dismissLandingSearch() }
-                        .onDisappear { onLandingPopoverDisappear() }
+                    Group {
+                        if let bootstrap = AppBootstrap.shared {
+                            landingSearchPopoverContent
+                                .frame(idealWidth: 560, maxWidth: 620)
+                                .padding(18)
+                                .withAppEnvironment(bootstrap)
+                                .modelContainer(bootstrap.modelContainer)
+                        } else {
+                            landingSearchPopoverContent
+                                .frame(idealWidth: 560, maxWidth: 620)
+                                .padding(18)
+                        }
+                    }
+                    .onExitCommand { dismissLandingSearch() }
+                    .onDisappear { onLandingPopoverDisappear() }
                 }
                 .zIndex(2)
 

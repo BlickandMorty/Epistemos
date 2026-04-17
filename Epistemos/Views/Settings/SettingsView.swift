@@ -1,6 +1,10 @@
 import AppKit
+import AVFoundation
+import os
 import SwiftUI
 import UniformTypeIdentifiers
+
+private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "SettingsView")
 
 // MARK: - Settings View
 // Mirrors macOS System Settings: NavigationSplitView sidebar → detail pane.
@@ -169,6 +173,9 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .onReceive(NotificationCenter.default.publisher(for: .showIMessageDriverSettings)) { _ in
+            selection = .iMessageDriver
+        }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button(action: toggleSidebar) {
@@ -266,6 +273,10 @@ private struct SettingsDetailBackdrop: View {
             }
             .ignoresSafeArea()
     }
+}
+
+extension Notification.Name {
+    static let showIMessageDriverSettings = Notification.Name("epistemos.showIMessageDriverSettings")
 }
 
 struct SettingsDescriptionText: View {
@@ -585,6 +596,42 @@ private struct LandingDetailView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Quick Capture & Siri") {
+                SettingsDescriptionText(
+                    text: "Quick Capture is the app-scoped capture sheet for fast text or voice intake. Open it with ⌘⇧N, or launch it below and use the Dictate button inside the sheet. Siri and Shortcuts use the same App Intents integration."
+                )
+
+                HStack(spacing: 10) {
+                    Button("Open Quick Capture") {
+                        NotificationCenter.default.post(name: .showQuickCapture, object: nil)
+                    }
+
+                    Button("Refresh Siri Shortcuts") {
+                        EpistemosShortcutsProvider.updateAppShortcutParameters()
+                    }
+
+                    Button("Open Shortcuts") {
+                        openShortcutsApp()
+                    }
+                    .disabled(NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.shortcuts") == nil)
+                }
+
+                HStack {
+                    Text("Microphone access")
+                    Spacer()
+                    Text(microphoneAccessLabel)
+                        .foregroundStyle(
+                            microphoneAccessGranted ? Color.secondary : Color.orange
+                        )
+                }
+
+                if !microphoneAccessGranted {
+                    Button("Open Microphone Settings") {
+                        openMicrophoneSettings()
+                    }
+                }
+            }
+
             Section("Greeting Library") {
                 SettingsDescriptionText(
                     text: "Add, reorder, and tune your custom landing greetings. Each entry can be enabled independently and shown for a specific duration."
@@ -615,6 +662,38 @@ private struct LandingDetailView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    private var microphoneAccessGranted: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+    }
+
+    private var microphoneAccessLabel: String {
+        switch AVCaptureDevice.authorizationStatus(for: .audio) {
+        case .authorized:
+            "Ready"
+        case .notDetermined:
+            "Not requested yet"
+        case .denied, .restricted:
+            "Needs permission"
+        @unknown default:
+            "Unknown"
+        }
+    }
+
+    private func openShortcutsApp() {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.shortcuts") else {
+            return
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, _ in }
+    }
+
+    private func openMicrophoneSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
     }
 }
 
@@ -924,7 +1003,13 @@ private struct InferenceDetailView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Button("Install Constrained Fallback") {
-                            Task { try? await localModelManager.install(modelID: fallback.id) }
+                            Task {
+                                do {
+                                    try await localModelManager.install(modelID: fallback.id)
+                                } catch {
+                                    settingsViewLogger.error("Failed to install constrained fallback model \(fallback.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                                }
+                            }
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -1788,7 +1873,11 @@ private struct InferenceDetailView: View {
             return
         }
 
-        guard let data = try? Data(contentsOf: url) else {
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            settingsViewLogger.error("Failed to read Google OAuth client file at \(url.path, privacy: .private): \(error.localizedDescription, privacy: .public)")
             googleOAuthClientStatusMessage = "Couldn't read the selected Google OAuth client JSON file."
             googleOAuthClientStatusIsSuccess = false
             _ = inference.recordCloudProviderValidationFailure(
@@ -1843,12 +1932,9 @@ private struct InferenceDetailView: View {
 
             // Try stored config first, then embedded fallback
             let config: GoogleOAuthClientConfiguration?
-            if let storedData = googleOAuthClientConfigData {
-                config = try? GoogleOAuthClientConfiguration.parse(from: storedData)
-            } else {
-                config = CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration()
-                    ?? GoogleOAuthClientConfiguration.embeddedDefault
-            }
+            config = CloudProviderSetupAutomation.storedGoogleOAuthClientConfiguration(
+                projectIDOverride: normalizedCredentialDraft(googleOAuthProjectID)
+            ) ?? GoogleOAuthClientConfiguration.embeddedDefault
 
             guard let config else {
                 googleOAuthClientStatusMessage = "No Google OAuth credentials found. Load an OAuth client JSON in the setup section below, or get an API key from aistudio.google.com."
@@ -2090,20 +2176,41 @@ private struct LocalModelRow: View {
             case .installed:
                 HStack(spacing: 6) {
                     Button("Reinstall") {
-                        try? localModelManager.uninstall(modelID: descriptor.id)
-                        Task { try? await localModelManager.install(modelID: descriptor.id) }
+                        do {
+                            try localModelManager.uninstall(modelID: descriptor.id)
+                        } catch {
+                            settingsViewLogger.error("Failed to uninstall local model \(descriptor.id, privacy: .public) before reinstall: \(error.localizedDescription, privacy: .public)")
+                            return
+                        }
+                        Task {
+                            do {
+                                try await localModelManager.install(modelID: descriptor.id)
+                            } catch {
+                                settingsViewLogger.error("Failed to reinstall local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                            }
+                        }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                     Button("Delete") {
-                        try? localModelManager.uninstall(modelID: descriptor.id)
+                        do {
+                            try localModelManager.uninstall(modelID: descriptor.id)
+                        } catch {
+                            settingsViewLogger.error("Failed to delete local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        }
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
                 }
             case .prepared:
                 Button("Install Snapshot") {
-                    Task { try? await localModelManager.install(modelID: descriptor.id) }
+                    Task {
+                        do {
+                            try await localModelManager.install(modelID: descriptor.id)
+                        } catch {
+                            settingsViewLogger.error("Failed to install prepared local model snapshot \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        }
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -2114,7 +2221,13 @@ private struct LocalModelRow: View {
                 blockedAction
             case .available:
                 Button("Install") {
-                    Task { try? await localModelManager.install(modelID: descriptor.id) }
+                    Task {
+                        do {
+                            try await localModelManager.install(modelID: descriptor.id)
+                        } catch {
+                            settingsViewLogger.error("Failed to install local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                        }
+                    }
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
@@ -2127,7 +2240,13 @@ private struct LocalModelRow: View {
     private var blockedAction: some View {
         if localModelManager.installErrors[descriptor.id] != nil {
             Button("Retry") {
-                Task { try? await localModelManager.install(modelID: descriptor.id) }
+                Task {
+                    do {
+                        try await localModelManager.install(modelID: descriptor.id)
+                    } catch {
+                        settingsViewLogger.error("Failed to retry local model install \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    }
+                }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
@@ -2139,13 +2258,37 @@ private struct LocalModelRow: View {
     }
 
     private func blockedGuidance(for reason: String) -> String {
-        if localModelManager.installErrors[descriptor.id] != nil {
-            return reason
+        if let installError = localModelManager.installErrors[descriptor.id] {
+            return Self.userFacingInstallError(installError, fallback: reason)
         }
         if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
             return "This Mac does not have enough unified memory for this model."
         }
         return reason
+    }
+
+    /// Converts noisy HuggingFace / URLSession / filesystem errors into
+    /// actionable user guidance so the settings row explains the real
+    /// problem instead of leaking stack-level jargon.
+    private static func userFacingInstallError(_ raw: String, fallback: String) -> String {
+        let lower = raw.lowercased()
+        if lower.contains("hostname") || lower.contains("huggingface.co") || lower.contains("could not be found")
+            || lower.contains("offline") || lower.contains("network connection") {
+            return "Couldn't reach Hugging Face. Check your internet connection and try again — this is the host the model download uses."
+        }
+        if lower.contains("403") || lower.contains("forbidden") || lower.contains("unauthorized") || lower.contains("401") {
+            return "The model is gated. Sign in to Hugging Face in your browser, accept the model's license, and retry."
+        }
+        if lower.contains("404") || lower.contains("not found") {
+            return "This model isn't available at the expected path anymore. It may have been renamed on Hugging Face — try the prepared snapshot instead."
+        }
+        if lower.contains("disk") || lower.contains("space") || lower.contains("no such file") {
+            return "Ran out of space or the staging directory is unavailable. Free up disk and try again."
+        }
+        if lower.contains("timed out") || lower.contains("timeout") {
+            return "The download timed out. Try again — if your connection is slow, start it once and leave the window open while it completes."
+        }
+        return raw.isEmpty ? fallback : raw
     }
 }
 

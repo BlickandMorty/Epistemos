@@ -1763,7 +1763,12 @@ final class AppBootstrap {
 
     func refreshLiveNoteScheduler() {
         guard !Self.isRunningTests else { return }
-        guard let vaultURL = vaultSync.vaultURL else {
+        // Live notes are opt-in (UserDefaults key "epistemos.liveNotes.enabled").
+        // Most vaults contain zero live-note task blocks, so scanning 800+ pages
+        // on a timer was burning idle CPU for no observed benefit. Users who
+        // actually rely on the feature can flip the toggle in Settings.
+        let enabled = UserDefaults.standard.bool(forKey: "epistemos.liveNotes.enabled")
+        guard enabled, let vaultURL = vaultSync.vaultURL else {
             liveNoteScheduler.stop()
             return
         }

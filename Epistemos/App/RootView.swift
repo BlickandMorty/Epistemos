@@ -74,11 +74,27 @@ struct RootView: View {
 
     /// True when Home tab is showing an active chat (not landing).
     private var activeHomeChat: Bool {
-        ui.homeTab == .home && !chat.showLanding && !chat.messages.isEmpty
+        ui.homeTab == .home
+            && homeSurfaceRoute == .home
+            && !chat.showLanding
+            && !chat.messages.isEmpty
+    }
+
+    private var activeAgentWorkspace: Bool {
+        ui.homeTab == .home && homeSurfaceRoute == .agent
     }
 
     private var showLandingToolbarControls: Bool {
-        chat.showLanding || chat.messages.isEmpty
+        ui.homeTab == .home
+            && homeSurfaceRoute == .home
+            && (chat.showLanding || chat.messages.isEmpty)
+    }
+
+    private var homeSurfaceRoute: HomeSurfaceRoute {
+        if accState.isPresented {
+            return .agent
+        }
+        return .home
     }
 
     /// Canonical toolbar glass visibility — deterministic from app state.
@@ -87,7 +103,7 @@ struct RootView: View {
     /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
     private var toolbarGlassVisible: Bool {
         if ui.homeTab != .home { return true }
-        return activeHomeChat && homeChatToolbarReady
+        return (activeHomeChat || activeAgentWorkspace) && homeChatToolbarReady
     }
 
     var body: some View {
@@ -102,10 +118,20 @@ struct RootView: View {
 
     private var rootContent: some View {
         ZStack {
-            ContentRouter()
+            // Pre-paint the window background so transitions from landing
+            // into chat / agent don't briefly flash the old theme surface at
+            // the title bar. Dark mode = OLED black, light mode = theme bg.
+            (ui.theme.isDark ? Color.black : ui.theme.resolved.background.color)
+                .ignoresSafeArea()
+
+            switch homeSurfaceRoute {
+            case .home:
+                ContentRouter()
+            case .agent:
+                AgentChatView()
+            }
         }
-        .overlay { agentCommandCenterOverlay }
-        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: accState.isPresented)
+        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: homeSurfaceRoute)
         .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {
             appearanceObserver.stop()
@@ -116,10 +142,14 @@ struct RootView: View {
         }
         .toolbar {
             // Back button — only during active chat on Home tab
-            if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding {
+            if ui.homeTab == .home && (activeHomeChat || activeAgentWorkspace) {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        chat.goHome()
+                        if activeAgentWorkspace {
+                            accState.dismiss()
+                        } else {
+                            chat.goHome()
+                        }
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
@@ -127,12 +157,12 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showLandingToolbarControls || activeHomeChat {
+            if showLandingToolbarControls || activeHomeChat || activeAgentWorkspace {
                 ToolbarItem(placement: .principal) {
                     rootToolbarControls
                 }
                 .sharedBackgroundVisibility(
-                    (ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding)
+                    (ui.homeTab == .home && (activeHomeChat || activeAgentWorkspace))
                         ? .hidden : .automatic
                 )
             }
@@ -145,7 +175,7 @@ struct RootView: View {
             toolbarGlassVisible ? .automatic : .hidden,
             for: .windowToolbar
         )
-        .onChange(of: activeHomeChat) { _, isActive in
+        .onChange(of: activeHomeChat || activeAgentWorkspace) { _, isActive in
             if isActive {
                 // Delay reveal until HomeRouter's landing→chat animation settles.
                 Task { @MainActor in
@@ -216,15 +246,6 @@ struct RootView: View {
         }
     }
 
-    @ViewBuilder
-    private var agentCommandCenterOverlay: some View {
-        if accState.isPresented {
-            AgentCommandCenterView()
-                .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                .zIndex(100)
-        }
-    }
-
     private func handleDatabaseCheck() {
         if databaseError != nil {
             showDatabaseAlert = true
@@ -250,6 +271,10 @@ struct RootView: View {
 
             if activeHomeChat {
                 modelToolbarButton(title: chat.chatTitle)
+            }
+
+            if activeAgentWorkspace {
+                modelToolbarButton(title: "Agent")
             }
         }
         .frame(minWidth: 160, minHeight: 28)
@@ -1046,9 +1071,37 @@ enum HomeTab: String, CaseIterable {
 // MARK: - Content Router
 // Main window content — Home only.
 
+enum HomeSurfaceRoute {
+    case home
+    case agent
+}
+
+private enum RuntimeAuditRootFlags {
+    static let rootShellMinimalContentKey = "EPI_HOME_WINDOW_ROOT_SHELL_MINIMAL_CONTENT"
+
+    static var rootShellMinimalContentEnabled: Bool {
+        ProcessInfo.processInfo.environment[rootShellMinimalContentKey] == "1"
+    }
+}
+
+private struct AuditRootShellMinimalContentView: View {
+    var body: some View {
+        VStack {
+            Button("test") {
+                RuntimeDiagnostics.recordLifecycleEvent("root_shell_button_pressed")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 struct ContentRouter: View {
     var body: some View {
-        HomeRouter()
+        if RuntimeAuditRootFlags.rootShellMinimalContentEnabled {
+            AuditRootShellMinimalContentView()
+        } else {
+            HomeRouter()
+        }
     }
 }
 
@@ -1224,32 +1277,47 @@ private struct RootWindowLifecycle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .onAppear {
+                updateWindowOcclusion()
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { note in
                 if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                    ui.windowOccluded = true
+                    updateWindowOcclusion(window: w)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didDeminiaturizeNotification)) { note in
                 if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                    ui.windowOccluded = false
+                    updateWindowOcclusion(window: w)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { note in
                 if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                    ui.windowOccluded = true
+                    updateWindowOcclusion(window: w)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { note in
                 if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {
-                    ui.windowOccluded = false
+                    updateWindowOcclusion(window: w)
                 }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
-                ui.windowOccluded = true
+                updateWindowOcclusion()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-                ui.windowOccluded = false
+                updateWindowOcclusion()
             }
+    }
+
+    private func updateWindowOcclusion(window: NSWindow? = nil) {
+        let homeWindow = window ?? NSApp.windows.first(where: HomeWindowIdentity.matches)
+        guard let homeWindow else {
+            ui.windowOccluded = true
+            return
+        }
+        ui.windowOccluded = !NSApp.isActive
+            || !homeWindow.isVisible
+            || homeWindow.isMiniaturized
+            || !homeWindow.isKeyWindow
     }
 }
 
