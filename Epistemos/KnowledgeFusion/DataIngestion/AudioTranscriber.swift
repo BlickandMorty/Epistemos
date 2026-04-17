@@ -1,4 +1,6 @@
 import Foundation
+import Speech
+import AVFoundation
 
 // MARK: - Types
 
@@ -21,12 +23,14 @@ struct TranscribedAudio: Sendable, Identifiable {
 
 // MARK: - AudioTranscriber
 
-/// Transcribes audio files using mlx-whisper (primary) or whisper.cpp (fallback).
-/// Captures paralinguistic cues (hesitations, pacing) for stylometric DNA
-/// as required by the research paper.
+/// Transcribes audio files using Apple Speech (primary, no deps), mlx-whisper
+/// (Python fallback), or whisper.cpp (CLI fallback). Captures paralinguistic
+/// cues (hesitations, pacing) for stylometric DNA as required by the research
+/// paper.
 actor AudioTranscriber {
 
     enum TranscriberBackend: Sendable {
+        case appleSpeech
         case mlxWhisper
         case whisperCpp
         case unavailable
@@ -47,20 +51,29 @@ actor AudioTranscriber {
             throw AudioTranscriberError.noBackendAvailable
         }
 
-        let jsonOutput: Data
         switch backend {
+        case .appleSpeech:
+            return try await runAppleSpeech(audioURL: audioURL)
         case .mlxWhisper:
-            jsonOutput = try await runMLXWhisper(audioURL: audioURL)
+            let jsonOutput = try await runMLXWhisper(audioURL: audioURL)
+            return try parseWhisperOutput(jsonData: jsonOutput, sourceURL: audioURL)
         case .whisperCpp:
-            jsonOutput = try await runWhisperCpp(audioURL: audioURL)
+            let jsonOutput = try await runWhisperCpp(audioURL: audioURL)
+            return try parseWhisperOutput(jsonData: jsonOutput, sourceURL: audioURL)
         case .unavailable:
             throw AudioTranscriberError.noBackendAvailable
         }
-
-        return try parseWhisperOutput(jsonData: jsonOutput, sourceURL: audioURL)
     }
 
     func detectBackend() async -> TranscriberBackend {
+        // Apple Speech is built-in on macOS and runs on-device on modern Macs
+        // with the right language model downloaded. It's the correct default
+        // for Quick Capture voice-to-text — no Python, no CLI, no downloads.
+        if SFSpeechRecognizer.authorizationStatus() != .denied,
+           SFSpeechRecognizer(locale: Locale(identifier: "en-US"))?.isAvailable == true {
+            return .appleSpeech
+        }
+
         // Check mlx-whisper via Python import
         if let _ = try? await runProcess(
             executable: pythonPath,
@@ -78,6 +91,85 @@ actor AudioTranscriber {
         }
 
         return .unavailable
+    }
+
+    // MARK: - Apple Speech
+
+    private func runAppleSpeech(audioURL: URL) async throws -> TranscribedAudio {
+        let status = await Self.requestAuthorization()
+        guard status == .authorized else {
+            throw AudioTranscriberError.noBackendAvailable
+        }
+
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")),
+              recognizer.isAvailable else {
+            throw AudioTranscriberError.noBackendAvailable
+        }
+        // Prefer on-device so recordings never leave the Mac.
+        if recognizer.supportsOnDeviceRecognition {
+            recognizer.defaultTaskHint = .dictation
+        }
+
+        let request = SFSpeechURLRecognitionRequest(url: audioURL)
+        request.shouldReportPartialResults = false
+        if recognizer.supportsOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = true
+        }
+
+        struct AppleSpeechPayload: Sendable {
+            let fullText: String
+            let segments: [AudioSegment]
+            let wordsPerMinute: Double
+        }
+
+        let payload: AppleSpeechPayload = try await withCheckedThrowingContinuation { continuation in
+            _ = recognizer.recognitionTask(with: request) { result, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                guard let result, result.isFinal else { return }
+                let transcription = result.bestTranscription
+                let fullText = transcription.formattedString
+                let duration = transcription.segments.last?.duration ?? 0
+                let wordCount = max(transcription.segments.count, 1)
+                let wpm = duration > 0 ? (Double(wordCount) / duration) * 60.0 : 0
+                let segments: [AudioSegment] = transcription.segments.map { segment in
+                    AudioSegment(
+                        startTime: segment.timestamp,
+                        endTime: segment.timestamp + segment.duration,
+                        text: segment.substring,
+                        speaker: nil
+                    )
+                }
+                continuation.resume(returning: AppleSpeechPayload(
+                    fullText: fullText,
+                    segments: segments,
+                    wordsPerMinute: wpm
+                ))
+            }
+        }
+
+        return TranscribedAudio(
+            id: UUID(),
+            sourceURL: audioURL,
+            fullText: payload.fullText,
+            segments: payload.segments,
+            wordsPerMinute: payload.wordsPerMinute,
+            hesitationFrequency: 0,
+            speakerCount: payload.fullText.isEmpty ? 0 : 1
+        )
+    }
+
+    private static func requestAuthorization() async -> SFSpeechRecognizerAuthorizationStatus {
+        if SFSpeechRecognizer.authorizationStatus() == .authorized {
+            return .authorized
+        }
+        return await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status)
+            }
+        }
     }
 
     // MARK: - MLX Whisper

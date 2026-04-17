@@ -69,6 +69,11 @@ struct QuickCaptureView: View {
 
             Spacer()
 
+            #if DEBUG
+            // Internal capture-trace inspector is a developer debug surface
+            // (shows pipeline lifecycle events like GRAPH_WRITE_ATTEMPTED).
+            // Hidden from Release builds — users shouldn't see "gimmick"
+            // debug diagnostics from their capture window.
             Button {
                 isTraceInspectorPresented = true
             } label: {
@@ -77,8 +82,9 @@ struct QuickCaptureView: View {
                     .foregroundStyle(.tertiary)
             }
             .buttonStyle(.plain)
-            .help("View Trace & Run History")
+            .help("View Trace & Run History (debug)")
             .padding(.trailing, 4)
+            #endif
 
             Button {
                 dismiss()

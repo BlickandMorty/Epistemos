@@ -34,44 +34,77 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
                 let popover = NSPopover()
                 popover.behavior = .transient
                 popover.delegate = context.coordinator
-                
-                // Allow it to overhang the window
                 popover.animates = true
-                
+
                 let hostingController = NSHostingController(rootView: content())
                 hostingController.sizingOptions = .intrinsicContentSize
                 popover.contentViewController = hostingController
 
-                // Clamp popover size to fit within the window to prevent overflow
-                if let window = nsView.window {
-                    let maxWidth = min(window.frame.width - 40, 600)
-                    let maxHeight = min(window.frame.height - 80, 500)
-                    let intrinsic = hostingController.view.fittingSize
-                    popover.contentSize = NSSize(
-                        width: min(intrinsic.width, maxWidth),
-                        height: min(intrinsic.height, maxHeight)
-                    )
-                }
-                
+                Self.syncContentSize(
+                    popover: popover,
+                    hostingController: hostingController,
+                    window: nsView.window
+                )
+
                 context.coordinator.popover = popover
-                
+                context.coordinator.hostingController = hostingController
+
                 // Convert SwiftUI location (top-down) to NSView bounds (bottom-up usually, though SwiftUI hosts flip it sometimes. NSHostingView is flipped!)
                 // SwiftUI taps are top-down. NSView bounds from SwiftUI are usually flipped if it's an NSHostingView.
                 let y = nsView.isFlipped ? (location?.y ?? nsView.bounds.midY) : (nsView.bounds.height - (location?.y ?? nsView.bounds.midY))
                 let rect = NSRect(
                     x: location?.x ?? nsView.bounds.midX,
                     y: y,
-                    width: 1, 
+                    width: 1,
                     height: 1
                 )
-                
+
                 popover.show(relativeTo: rect, of: nsView, preferredEdge: .minY)
-            } else {
-                (context.coordinator.popover?.contentViewController as? NSHostingController<PopoverContent>)?.rootView = content()
+            } else if let popover = context.coordinator.popover,
+                      let hostingController = context.coordinator.hostingController as? NSHostingController<PopoverContent> {
+                hostingController.rootView = content()
+                // Re-measure on every update so the popover grows (or shrinks)
+                // with the composer content instead of staying stuck at the
+                // initial size. Matches the original dynamic-resizing landing
+                // popover behavior the user called out as missing.
+                Self.syncContentSize(
+                    popover: popover,
+                    hostingController: hostingController,
+                    window: nsView.window
+                )
             }
         } else {
             context.coordinator.popover?.performClose(nil)
             context.coordinator.popover = nil
+            context.coordinator.hostingController = nil
+        }
+    }
+
+    private static func syncContentSize(
+        popover: NSPopover,
+        hostingController: NSHostingController<PopoverContent>,
+        window: NSWindow?
+    ) {
+        hostingController.view.layoutSubtreeIfNeeded()
+        let intrinsic = hostingController.sizeThatFits(in: NSSize(
+            width: 640,
+            height: CGFloat.greatestFiniteMagnitude
+        ))
+        let maxWidth: CGFloat
+        let maxHeight: CGFloat
+        if let window {
+            maxWidth = max(320, min(window.frame.width - 40, 640))
+            maxHeight = max(240, min(window.frame.height - 80, 720))
+        } else {
+            maxWidth = 640
+            maxHeight = 720
+        }
+        let newSize = NSSize(
+            width: min(max(intrinsic.width, 360), maxWidth),
+            height: min(max(intrinsic.height, 160), maxHeight)
+        )
+        if popover.contentSize != newSize {
+            popover.contentSize = newSize
         }
     }
     
@@ -82,7 +115,8 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
     class Coordinator: NSObject, NSPopoverDelegate {
         var parent: AppKitPopoverAnchor
         var popover: NSPopover?
-        
+        var hostingController: AnyObject?
+
         init(parent: AppKitPopoverAnchor) {
             self.parent = parent
         }
@@ -93,6 +127,7 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
                 self.parent.isPresented = false
             }
             popover = nil
+            hostingController = nil
         }
     }
 }
