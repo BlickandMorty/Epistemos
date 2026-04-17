@@ -435,8 +435,9 @@ public final class ChatSession {
             return false
         }
 
+        let injectedCache = SendableBox(kvCache)
         await cache.update { c in
-            c = .kvcache(kvCache)
+            c = .kvcache(injectedCache.consume())
         }
         return true
     }

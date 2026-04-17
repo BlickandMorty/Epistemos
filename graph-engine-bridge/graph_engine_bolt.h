@@ -80,6 +80,31 @@ uint32_t bolt_graph_query_positions(
     uint32_t max_count
 );
 
+// ── Shared Position Buffers (feature: shared-position-buffers) ───────────────
+
+/// Register a shared MTLBuffer pointer for triple-buffered zero-copy rendering.
+/// @param engine          Engine pointer.
+/// @param index           Buffer index (0, 1, or 2).
+/// @param ptr             MTLBuffer.contents() pointer — must be .storageModeShared.
+/// @param capacity_floats Number of floats the buffer can hold (node_count * 2).
+void graph_engine_set_shared_position_buffer(
+    Engine* engine,
+    uint32_t index,
+    float* ptr,
+    uint32_t capacity_floats
+);
+
+/// Unregister a shared position buffer.
+void graph_engine_unset_shared_position_buffer(Engine* engine, uint32_t index);
+
+/// Write current node positions into the specified shared buffer.
+/// Positions are interleaved as [x, y, x, y, ...].
+/// @return Number of nodes written. 0 on error or empty graph.
+uint32_t graph_engine_write_positions_to_shared(
+    Engine* engine,
+    uint32_t buffer_index
+);
+
 #ifdef __cplusplus
 }
 #endif

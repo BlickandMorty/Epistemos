@@ -25,6 +25,9 @@ pub mod types;
 #[cfg(feature = "bolt-graph")]
 pub mod bolt_bridge;
 
+#[cfg(feature = "shared-position-buffers")]
+pub mod shared_buffers;
+
 #[cfg(test)]
 pub mod physics_audit_test;
 
@@ -865,6 +868,59 @@ pub extern "C" fn graph_engine_render(engine: *mut Engine, width: u32, height: u
     ffi_catch_unwind_or!("graph_engine_render", 0, {
         ffi_engine_or!(engine, 0);
         engine.render(width, height)
+    })
+}
+
+// ── Shared Position Buffers ──────────────────────────────────────────────────
+
+/// Register a shared MTLBuffer pointer for triple-buffered zero-copy rendering.
+///
+/// # Safety
+/// `ptr` must point to at least `capacity_floats * 4` bytes of writable,
+/// `.storageModeShared` Metal memory that remains valid until the engine is
+/// destroyed or `graph_engine_unset_shared_position_buffer` is called.
+#[cfg(feature = "shared-position-buffers")]
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_set_shared_position_buffer(
+    engine: *mut Engine,
+    index: u32,
+    ptr: *mut f32,
+    capacity_floats: u32,
+) {
+    ffi_catch_unwind!("graph_engine_set_shared_position_buffer", {
+        ffi_engine!(engine);
+        // SAFETY: caller guarantees ptr validity and exclusive access per semaphore protocol.
+        unsafe {
+            engine.shared_position_buffers_mut().set_buffer(index, ptr, capacity_floats);
+        }
+    });
+}
+
+/// Unregister a shared position buffer.
+#[cfg(feature = "shared-position-buffers")]
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_unset_shared_position_buffer(engine: *mut Engine, index: u32) {
+    ffi_catch_unwind!("graph_engine_unset_shared_position_buffer", {
+        ffi_engine!(engine);
+        engine.shared_position_buffers_mut().unset_buffer(index);
+    });
+}
+
+/// Write current node positions into the specified shared buffer.
+/// Returns the number of nodes written.
+///
+/// # Safety
+/// The GPU must not be reading from `buffer_index` during this call.
+/// Use the triple-buffer semaphore protocol on the Swift side.
+#[cfg(feature = "shared-position-buffers")]
+#[unsafe(no_mangle)]
+pub extern "C" fn graph_engine_write_positions_to_shared(
+    engine: *mut Engine,
+    buffer_index: u32,
+) -> u32 {
+    ffi_catch_unwind_or!("graph_engine_write_positions_to_shared", 0, {
+        ffi_engine_or!(engine, 0);
+        engine.write_positions_to_shared(buffer_index)
     })
 }
 

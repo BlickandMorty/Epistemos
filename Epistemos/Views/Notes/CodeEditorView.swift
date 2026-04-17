@@ -2042,18 +2042,54 @@ enum CodeSyntaxHighlighter {
         let attributes: [TokenAttributes]
     }
     
-    /// Apply syntax highlighting with automatic optimization based on file size
+    /// Apply syntax highlighting with automatic optimization based on file size.
+    /// When `EPISTEMOS_USE_SYNTAX_CORE=1`, uses incremental tree-sitter via syntax-core
+    /// for viewport-scoped highlighting instead of whole-file markdown_parse_code_tokens.
     static func apply(to textView: NSTextView, language: String, theme: EpistemosTheme) {
         let text = textView.string
         guard !text.isEmpty, !language.isEmpty else { return }
-        
-        // For large files, use chunked processing on background queue
+
+        if SyntaxCoreService.useSyntaxCore {
+            applySyntaxCore(to: textView, text: text, language: language, theme: theme)
+            return
+        }
+
         if text.utf8.count > maxSyncSize {
             Task.detached(priority: .utility) {
                 await applyChunked(to: textView, text: text, language: language, theme: theme)
             }
         } else {
             applySync(to: textView, text: text, language: language, theme: theme)
+        }
+    }
+
+    /// Viewport-scoped highlighting via syntax-core (incremental tree-sitter + ropey).
+    private static func applySyntaxCore(to textView: NSTextView, text: String, language: String, theme: EpistemosTheme) {
+        let nsString = text as NSString
+        let fullRange = NSRange(location: 0, length: nsString.length)
+        let storage = textView.textStorage ?? NSTextStorage()
+
+        storage.beginEditing()
+        defer { storage.endEditing() }
+
+        storage.addAttribute(.font, value: textView.font ?? NSFont.monospacedSystemFont(ofSize: 12, weight: .regular), range: fullRange)
+        storage.addAttribute(.foregroundColor, value: textView.textColor ?? .white, range: fullRange)
+
+        let service = SyntaxCoreService(docId: 0, language: language, source: text)
+        guard service.isValid else { return }
+
+        let byteCount = UInt64(text.utf8.count)
+        let tokens = service.tokensForViewport(byteStart: 0, byteEnd: byteCount)
+        guard !tokens.isEmpty else { return }
+
+        for token in tokens {
+            let start16 = Int(token.utf16_start)
+            let len16 = Int(token.utf16_len)
+            let range = NSRange(location: start16, length: len16)
+            guard range.location + range.length <= nsString.length else { continue }
+
+            let color = theme.nsColorForSyntaxKind(token.kind_id)
+            storage.addAttribute(.foregroundColor, value: color, range: range)
         }
     }
     
@@ -2551,7 +2587,7 @@ final class CodeContextBridge: ObservableObject {
         
         let topNotes = relatedNotes.prefix(5)
         let notesContext = topNotes.map {
-            "Note '\($0.title)' (similarity: \(Int($0.similarityScore * 100))%): \($0.snippet)"
+            "Note '\($0.title)' (similarity: \($0.similarityScore.isFinite ? Int($0.similarityScore * 100) : 0)%): \($0.snippet)"
         }.joined(separator: "\n\n")
         
         let prompt = """
@@ -2944,7 +2980,7 @@ struct RelatedNoteRow: View {
                     .lineLimit(2)
                 
                 HStack(spacing: 4) {
-                    Text("\(Int(match.similarityScore * 100))% match")
+                    Text("\(match.similarityScore.isFinite ? Int(match.similarityScore * 100) : 0)% match")
                         .font(.system(size: 10))
                         .foregroundStyle(match.matchType.color)
                     

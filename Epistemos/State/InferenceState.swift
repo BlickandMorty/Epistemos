@@ -2664,9 +2664,11 @@ final class InferenceState {
             return nil
         }
 
-        let totalDuration = Int(currentLocalRuntimeHealth.totalDurationMS.rounded())
+        let rawDuration = currentLocalRuntimeHealth.totalDurationMS.rounded()
+        let totalDuration = rawDuration.isFinite ? Int(rawDuration) : 0
         if let firstToken = currentLocalRuntimeHealth.timeToFirstTokenMS {
-            return "First token \(Int(firstToken.rounded())) ms, total \(totalDuration) ms"
+            let ftMs = firstToken.rounded()
+            return "First token \(ftMs.isFinite ? Int(ftMs) : 0) ms, total \(totalDuration) ms"
         }
         return "Completed in \(totalDuration) ms"
     }

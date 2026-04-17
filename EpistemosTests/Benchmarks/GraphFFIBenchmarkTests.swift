@@ -97,7 +97,7 @@ struct GraphFFIBenchmarkTests {
 
     @Test func nodePositionBatch() {
         let n = 200
-        let median = measure("node_position_batch_\(n)") {
+        let median = measure("node_position_batch_200") {
             // Simulate the batch position query that MetalGraphView does each frame
             // for selected node screen-space tracking.
             var positions: [(Float, Float)] = []
@@ -142,7 +142,7 @@ struct GraphFFIBenchmarkTests {
 
     @Test func sdfLabelDataPrep() {
         let n = 300
-        let median = measure("sdf_label_data_prep_\(n)") {
+        let median = measure("sdf_label_data_prep_300") {
             // Simulate the glyph metric array construction that happens at atlas load.
             struct GlyphMetric {
                 var codepoint: UInt32

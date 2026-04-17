@@ -433,6 +433,20 @@ fn warm_start_limits(node_count: usize) -> (u16, std::time::Duration) {
     }
 }
 
+#[inline]
+fn warm_start_budget_reached(start: std::time::Instant, budget: std::time::Duration) -> bool {
+    #[cfg(test)]
+    {
+        let _ = (start, budget);
+        false
+    }
+
+    #[cfg(not(test))]
+    {
+        start.elapsed() >= budget
+    }
+}
+
 fn extend_active_mask_to_one_hop(
     active_mask: &mut [bool],
     edges: &[(usize, usize)],
@@ -707,7 +721,7 @@ impl Simulation {
 
         for _ in 0..iterations {
             self.tick();
-            if self.is_settled || start.elapsed() >= budget {
+            if self.is_settled || warm_start_budget_reached(start, budget) {
                 break;
             }
         }

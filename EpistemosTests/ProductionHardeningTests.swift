@@ -527,6 +527,24 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("CODE_SIGN_IDENTITY: \"Apple Development\""))
     }
 
+    @Test("project keeps syntax core and bolt ffi bridge wired for editor and graph surfaces")
+    func projectKeepsSyntaxCoreAndBoltFFIWiring() throws {
+        let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
+        let bridgeHeader = try loadProductionHardeningRepoTextFile("Epistemos-Bridging-Header.h")
+        let syntaxService = try loadProductionHardeningRepoTextFile("Epistemos/Engine/SyntaxCoreService.swift")
+
+        #expect(project.contains("PBXFileSystemSynchronizedRootGroup"))
+        #expect(projectSpec.contains("type: syncedFolder"))
+        #expect(project.contains("build-syntax-core.sh"))
+        #expect(project.contains("-lsyntax_core"))
+        #expect(projectSpec.contains(#"bash \"${SRCROOT}/build-syntax-core.sh\""#))
+        #expect(projectSpec.contains("-lsyntax_core"))
+        #expect(bridgeHeader.contains(#"#include "graph-engine-bridge/graph_engine_bolt.h""#))
+        #expect(bridgeHeader.contains(#"#include "syntax-core-bridge/syntax_core.h""#))
+        #expect(syntaxService.contains("nonisolated(unsafe) private var document: OpaquePointer?"))
+    }
+
     @Test("prepared model manifest is bundled into app resources")
     func preparedModelManifestIsBundledIntoAppResources() throws {
         let spec = try loadProductionHardeningRepoTextFile("project.yml")
@@ -811,6 +829,24 @@ struct AuditHardeningRegressionTests {
         #expect(landing.contains("AppBootstrap.shared?.agentCommandCenterState.present()"))
         #expect(!landing.contains(".accessibilityLabel(\"Local Model\")"))
         #expect(landing.contains("ProgressView()"))
+    }
+
+    @Test("only explicit user note creation paths can trigger vault selection")
+    func onlyExplicitUserNoteCreationPathsCanTriggerVaultSelection() throws {
+        let vaultSync = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let landing = try loadProductionHardeningRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let miniChat = try loadProductionHardeningRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(vaultSync.contains("allowVaultSelectionPrompt: Bool = false"))
+        #expect(vaultSync.contains("guard allowVaultSelectionPrompt,"))
+        #expect(vaultSync.contains("await VaultConnectionActions.selectVaultFolderForImmediateUse("))
+        #expect(vaultSync.contains("static func selectVaultFolderForImmediateUse("))
+        #expect(vaultSync.contains("static func connectSelectedVaultAsync("))
+
+        #expect(app.contains("createPage(title: \"Untitled\", allowVaultSelectionPrompt: true)"))
+        #expect(landing.contains("createPage(title: \"New Note\", allowVaultSelectionPrompt: true)"))
+        #expect(!miniChat.contains("allowVaultSelectionPrompt: true"))
     }
 
     @Test("root shell keeps recovery overlays toast feedback and toolbar accessibility affordances")

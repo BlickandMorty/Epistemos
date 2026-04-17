@@ -563,7 +563,7 @@ final class GraphState {
     private var overlayPhysicsTask: Task<Void, Never>?
 
     init() {
-        let svc = EmbeddingService()
+        let svc = EmbeddingService(embeddingLookup: AppleHybridEmbeddingLookup())
         self.embeddingService = svc
         svc.graphState = self
         // Load custom presets FIRST (outside version gate) so they survive

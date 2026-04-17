@@ -131,8 +131,8 @@ final class ContextBudgetManager {
     // MARK: - Summary
 
     var summary: String {
-        let fraction = Double(estimatedContextTokens) / Double(config.maxContextTokens)
-        return "Context: \(estimatedContextTokens)/\(config.maxContextTokens) tokens (\(Int(fraction * 100))%), "
+        let fraction = config.maxContextTokens > 0 ? Double(estimatedContextTokens) / Double(config.maxContextTokens) : 0.0
+        return "Context: \(estimatedContextTokens)/\(config.maxContextTokens) tokens (\(fraction.isFinite ? Int(fraction * 100) : 0)%), "
             + "\(turnCount) turns, \(compactionCount) compactions"
     }
 }

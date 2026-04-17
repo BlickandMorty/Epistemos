@@ -625,6 +625,7 @@ async fn run_agent_session_inner(
     tool_registry.register_delegate_tools(Arc::clone(&delegate));
     let tool_registry = Arc::new(tool_registry);
 
+    let session_start = std::time::Instant::now();
     let result = run_agent_loop(
         session_id.clone(),
         objective,
@@ -635,6 +636,8 @@ async fn run_agent_session_inner(
         cancel,
     )
     .await;
+    let session_duration_ms = session_start.elapsed().as_millis() as u64;
+    tracing::info!(session_id = %session_id, session_duration_ms, "agent_session_complete");
     match result {
         Ok(result) => {
             // Clean up shared memory segments for this session

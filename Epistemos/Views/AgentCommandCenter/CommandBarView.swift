@@ -7,6 +7,7 @@ import SwiftUI
 struct CommandBarView: View {
     @Environment(AgentCommandCenterState.self) private var accState
     @Environment(AgentChatState.self) private var agentChat
+    @Environment(UIState.self) private var ui
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @FocusState private var isInputFocused: Bool
@@ -19,6 +20,7 @@ struct CommandBarView: View {
     private let terminalBorder = Color.white.opacity(0.10)
     private let mutedTerminalText = Color.white.opacity(0.54)
     private let placeholderText = "Type / for commands"
+    private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         @Bindable var state = accState
@@ -33,12 +35,12 @@ struct CommandBarView: View {
 
                 Spacer()
 
-                Text("⌘J")
-                    .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(mutedTerminalText)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+                Text(agentChat.isStreaming ? "Running" : "Ready")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(agentChat.isStreaming ? theme.resolved.accent.color : mutedTerminalText)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.white.opacity(0.035), in: Capsule())
             }
 
             if !accState.activeMentions.isEmpty {
@@ -55,14 +57,14 @@ struct CommandBarView: View {
                 ZStack(alignment: .leading) {
                     if accState.inputText.isEmpty {
                         animatedPlaceholder
-                            .padding(.leading, 1)
+                            .padding(.leading, 4)
                             .allowsHitTesting(false)
                     }
 
                     TextField("", text: $state.inputText, axis: .vertical)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 14, weight: .regular, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.78))
+                        .font(.system(size: 16, weight: .regular, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.86))
                         .lineLimit(1...6)
                         .focused($isInputFocused)
                         .accessibilityLabel("Agent command input")
@@ -78,35 +80,56 @@ struct CommandBarView: View {
                         submitCommand()
                     }
                 } label: {
-                    Image(systemName: agentChat.isStreaming ? "stop.fill" : "return")
+                    Image(systemName: agentChat.isStreaming ? "stop.fill" : "arrow.up")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(
                             accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agentChat.isStreaming
                                 ? mutedTerminalText.opacity(0.36)
-                                : Color.white.opacity(0.72)
+                                : Color.white.opacity(0.88)
                         )
-                        .frame(width: 26, height: 26)
-                        .background(Color.white.opacity(0.045), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            (agentChat.isStreaming ? theme.resolved.accent.color.opacity(0.24) : Color.white.opacity(0.06)),
+                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        )
                 }
                 .buttonStyle(.plain)
                 .disabled(accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agentChat.isStreaming)
                 .help(agentChat.isStreaming ? "Stop" : "Send (Return)")
             }
-            .padding(12)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
             .background {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(terminalInset)
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(terminalInset.opacity(0.82))
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
                             .strokeBorder(
                                 isInputFocused
-                                    ? Color.white.opacity(0.18)
+                                    ? theme.resolved.accent.color.opacity(0.42)
                                     : terminalBorder,
-                                lineWidth: 1
+                                lineWidth: isInputFocused ? 1.1 : 0.9
                             )
                     }
             }
             .animation(.easeInOut(duration: 0.2), value: isInputFocused)
+
+            if accState.suggestionMenuState != .hidden {
+                SuggestionPopoverView()
+                    .frame(maxWidth: 420, alignment: .leading)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+
+            HStack(spacing: 8) {
+                Text("Use `/` for tasks, `@` for note context, and the sidebar for plan + execution detail.")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(mutedTerminalText)
+                Spacer()
+                Text("Return to send")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(mutedTerminalText.opacity(0.85))
+            }
         }
         .task(id: placeholderRunID) {
             await runPlaceholderReveal()
@@ -145,7 +168,7 @@ struct CommandBarView: View {
                 .foregroundStyle(placeholderSyntaxGradient)
                 .opacity(placeholderAccentProgress)
         }
-        .font(.system(size: 14, weight: .regular, design: .monospaced))
+        .font(.system(size: 16, weight: .regular, design: .rounded))
         .lineLimit(1)
         .accessibilityHidden(true)
     }

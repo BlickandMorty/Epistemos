@@ -8,9 +8,11 @@ import SwiftUI
 
 struct BrainPickerMenu: View {
     @Environment(AgentCommandCenterState.self) private var accState
+    @Environment(UIState.self) private var ui
 
     private let terminalInset = Color(red: 0.115, green: 0.116, blue: 0.116)
     private let terminalBorder = Color.white.opacity(0.10)
+    private var theme: EpistemosTheme { ui.theme }
 
     private var currentBrainLabel: String {
         accState.selectedBrain?.displayName ?? "Auto"
@@ -40,32 +42,35 @@ struct BrainPickerMenu: View {
         } label: {
             HStack(spacing: 5) {
                 Image(systemName: currentBrainIcon)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                 Text(currentBrainLabel)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
                     .lineLimit(1)
                 Text("·")
-                    .foregroundStyle(Color.white.opacity(0.34))
+                    .foregroundStyle(theme.textTertiary)
                 Text(currentModeLabel)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 12.5, weight: .medium, design: .rounded))
                     .lineLimit(1)
                 if let currentNativeEffortLabel {
                     Text("·")
-                        .foregroundStyle(Color.white.opacity(0.34))
+                        .foregroundStyle(theme.textTertiary)
                     Text(currentNativeEffortLabel)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .font(.system(size: 12.5, weight: .medium, design: .rounded))
                         .lineLimit(1)
                 }
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .bold))
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .foregroundStyle(Color.white.opacity(0.72))
-            .background(terminalInset, in: Capsule())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .foregroundStyle(theme.textPrimary)
+            .background(
+                terminalInset.opacity(theme.isDark ? 0.82 : 0.74),
+                in: Capsule()
+            )
             .overlay {
                 Capsule()
-                    .strokeBorder(terminalBorder, lineWidth: 0.5)
+                    .strokeBorder(theme.border.opacity(0.75), lineWidth: 0.7)
             }
         }
         .menuStyle(.borderlessButton)

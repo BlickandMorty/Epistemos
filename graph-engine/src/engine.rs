@@ -231,6 +231,9 @@ pub struct Engine {
     /// keep running. Set by Swift when pinned inspector panels need accurate
     /// node_screen_pos() even after physics has settled.
     force_alive: bool,
+
+    #[cfg(feature = "shared-position-buffers")]
+    shared_position_buffers: crate::shared_buffers::SharedPositionBuffers,
 }
 
 impl Engine {
@@ -289,6 +292,8 @@ impl Engine {
             gpu_positions_scratch: Vec::new(),
             search_highlight_ids_scratch: Vec::new(),
             force_alive: false,
+            #[cfg(feature = "shared-position-buffers")]
+            shared_position_buffers: crate::shared_buffers::SharedPositionBuffers::new(),
         })
     }
 
@@ -968,6 +973,23 @@ impl Engine {
         let sx = (wx - self.renderer.camera_offset[0]) * zoom + w * 0.5;
         let sy = (wy - self.renderer.camera_offset[1]) * zoom + h * 0.5;
         Some([sx, sy])
+    }
+
+    #[cfg(feature = "shared-position-buffers")]
+    pub fn shared_position_buffers_mut(&mut self) -> &mut crate::shared_buffers::SharedPositionBuffers {
+        &mut self.shared_position_buffers
+    }
+
+    #[cfg(feature = "shared-position-buffers")]
+    pub fn write_positions_to_shared(&self, buffer_index: u32) -> u32 {
+        let count = self.world.transform.len();
+        if count == 0 {
+            return 0;
+        }
+        let xs: Vec<f32> = self.world.transform.iter().map(|t| t.x).collect();
+        let ys: Vec<f32> = self.world.transform.iter().map(|t| t.y).collect();
+        // SAFETY: caller ensures GPU is not reading this buffer (semaphore protocol).
+        unsafe { self.shared_position_buffers.write_positions(buffer_index, &xs, &ys) }
     }
 
     /// Get cumulative drift for a node by UUID.

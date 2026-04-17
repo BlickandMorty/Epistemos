@@ -15,8 +15,35 @@ import UniformTypeIdentifiers
 struct ArtifactBlockView: View {
     let artifact: Artifact
 
+    @Environment(UIState.self) private var ui
+    @AppStorage("epistemos.chat.artifactDocumentPresentationMode")
+    private var documentPresentationModeRaw = MarkdownDocumentPresentationMode.rendered.rawValue
+
     @State private var expanded = true
     @State private var copied = false
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    private var documentPresentationMode: MarkdownDocumentPresentationMode {
+        get { MarkdownDocumentPresentationMode(rawValue: documentPresentationModeRaw) ?? .rendered }
+        nonmutating set { documentPresentationModeRaw = newValue.rawValue }
+    }
+
+    private var documentPresentationModeBinding: Binding<MarkdownDocumentPresentationMode> {
+        Binding(
+            get: { documentPresentationMode },
+            set: { documentPresentationMode = $0 }
+        )
+    }
+
+    private var supportsDocumentToggle: Bool {
+        switch artifact.kind {
+        case .csv, .table, .markdown:
+            true
+        default:
+            false
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -61,6 +88,10 @@ struct ArtifactBlockView: View {
             }
 
             Spacer()
+
+            if supportsDocumentToggle {
+                MarkdownDocumentModeToggle(mode: documentPresentationModeBinding)
+            }
 
             Text("\(artifact.lineCount) lines")
                 .font(.system(size: 10))
@@ -122,11 +153,23 @@ struct ArtifactBlockView: View {
         case .json, .yaml, .codeBlock:
             codeContent
         case .csv:
-            csvContent
+            if documentPresentationMode == .rendered {
+                csvContent
+            } else {
+                rawSourceContent
+            }
         case .table:
-            tableContent
+            if documentPresentationMode == .rendered {
+                tableContent
+            } else {
+                rawSourceContent
+            }
         case .markdown:
-            markdownContent
+            if documentPresentationMode == .rendered {
+                markdownContent
+            } else {
+                rawSourceContent
+            }
         case .fileEdit:
             codeContent // File edit diffs use code-style rendering
         }
@@ -205,10 +248,23 @@ struct ArtifactBlockView: View {
     }
 
     private var markdownContent: some View {
-        Text(artifact.content)
-            .font(.system(size: 12))
-            .textSelection(.enabled)
+        TaggedMarkdownTextView(
+            content: artifact.content,
+            theme: theme,
+            rippleStyle: .none,
+            typographyRole: .assistant
+        )
             .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var rawSourceContent: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            Text(artifact.content)
+                .font(.system(size: 12, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxHeight: 400)
     }
 }
 

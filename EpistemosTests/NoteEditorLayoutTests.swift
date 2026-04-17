@@ -368,6 +368,22 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("private var toolbarAskStatusBadge"))
     }
 
+    @Test("code files do not show the note ask bar in the workspace toolbar")
+    func codeFilesDoNotShowTheNoteAskBarInTheWorkspaceToolbar() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        guard let bodyRange = source.range(of: "var body: some View {"),
+              let nextSectionRange = source.range(of: ".preferredColorScheme(ui.preferredColorScheme)", range: bodyRange.upperBound..<source.endIndex) else {
+            Issue.record("Failed to isolate toolbar wiring in NoteDetailWorkspaceView.swift")
+            return
+        }
+
+        let bodySource = String(source[bodyRange.lowerBound..<nextSectionRange.lowerBound])
+
+        #expect(bodySource.contains("if !isCodeFile {"))
+        #expect(bodySource.contains("ToolbarItem(placement: .principal) {"))
+        #expect(bodySource.contains("noteToolbarAskItem"))
+    }
+
     @Test("visible note toolbar strip stays lean with only preview history and more controls")
     func visibleNoteToolbarStripStaysLean() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")

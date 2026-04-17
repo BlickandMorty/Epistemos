@@ -659,21 +659,23 @@ struct RuntimeValidationTests {
 
         #expect(
             project.contains(
-                "bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-omega-mcp.sh\\\" && bash \\\"${SRCROOT}/build-omega-ax.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""
+                "bash \\\"${SRCROOT}/build-rust.sh\\\" && bash \\\"${SRCROOT}/build-syntax-core.sh\\\" && bash \\\"${SRCROOT}/build-omega-mcp.sh\\\" && bash \\\"${SRCROOT}/build-omega-ax.sh\\\" && bash \\\"${SRCROOT}/build-epistemos-core.sh\\\""
             )
         )
         #expect(project.contains("Bundle Runtime Assets"))
         #expect(project.contains("bash \\\"${SRCROOT}/bundle-app-runtime-assets.sh\\\""))
         #expect(project.contains("-lepistemos_core"))
+        #expect(project.contains("-lsyntax_core"))
         #expect(project.contains("-lomega_mcp"))
         #expect(project.contains("-lomega_ax"))
         #expect(project.contains("epistemos_coreFFI"))
         #expect(project.contains("\"@executable_path\","))
         #expect(project.contains("\"@loader_path/../Frameworks\","))
-        #expect(spec.contains(#"script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\"""#))
+        #expect(spec.contains(#"script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\"""#))
         #expect(spec.contains("name: Bundle Runtime Assets"))
         #expect(spec.contains("bash \"${SRCROOT}/bundle-app-runtime-assets.sh\""))
         #expect(spec.contains("-lepistemos_core"))
+        #expect(spec.contains("-lsyntax_core"))
         #expect(spec.contains("epistemos_coreFFI"))
         #expect(spec.contains("@executable_path"))
         #expect(spec.contains("@loader_path/../Frameworks"))
@@ -774,11 +776,12 @@ struct RuntimeValidationTests {
     @Test("Rust build scripts force panic abort under thread sanitizer builds")
     func rustBuildScriptsForcePanicAbortUnderThreadSanitizerBuilds() throws {
         let graphEngine = try loadRepoTextFile("build-rust.sh")
+        let syntaxCore = try loadRepoTextFile("build-syntax-core.sh")
         let omegaMcp = try loadRepoTextFile("build-omega-mcp.sh")
         let omegaAx = try loadRepoTextFile("build-omega-ax.sh")
         let epistemosCore = try loadRepoTextFile("build-epistemos-core.sh")
 
-        for script in [graphEngine, omegaMcp, omegaAx, epistemosCore] {
+        for script in [graphEngine, syntaxCore, omegaMcp, omegaAx, epistemosCore] {
             #expect(script.contains("ENABLE_THREAD_SANITIZER"))
             #expect(script.contains("CARGO_PROFILE_DEV_PANIC=abort"))
             #expect(script.contains("RUSTFLAGS"))
@@ -816,13 +819,16 @@ struct RuntimeValidationTests {
     @Test("graph engine and epistemos core build universal darwin artifacts")
     func graphEngineAndEpistemosCoreBuildUniversalDarwinArtifacts() throws {
         let graphEngine = try loadRepoTextFile("build-rust.sh")
+        let syntaxCore = try loadRepoTextFile("build-syntax-core.sh")
         let epistemosCore = try loadRepoTextFile("build-epistemos-core.sh")
 
-        for script in [graphEngine, epistemosCore] {
-            #expect(script.contains("cargo build --target aarch64-apple-darwin"))
-            #expect(script.contains("cargo build --target x86_64-apple-darwin"))
+        for script in [graphEngine, syntaxCore, epistemosCore] {
+            #expect(script.contains("cargo build"))
+            #expect(script.contains("--target aarch64-apple-darwin"))
+            #expect(script.contains("--target x86_64-apple-darwin"))
             #expect(script.contains("lipo -create"))
         }
+        #expect(graphEngine.contains("--features bolt-graph,shared-position-buffers"))
     }
 
     @Test("shadow git checkpoint subprocess remains cancellation-safe")
@@ -1976,6 +1982,17 @@ struct RuntimeValidationTests {
         #expect(miniChat.contains("LocalModelToolbarMenu("))
     }
 
+    @Test("landing popover can switch between chat and dedicated agent submission modes")
+    func landingPopoverSupportsAgentMode() throws {
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landing.contains("enum LandingPromptSurface"))
+        #expect(landing.contains("case chat"))
+        #expect(landing.contains("case agent"))
+        #expect(landing.contains("landingAgentSpecificControls"))
+        #expect(landing.contains("submitLandingAgentPrompt("))
+    }
+
     @Test("main chat submits with the lightweight .fast operating mode only")
     func mainChatAlwaysSubmitsWithFastOperatingMode() throws {
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
@@ -2461,6 +2478,14 @@ struct RuntimeValidationTests {
         #expect(workspaceService.contains("HomeWindowIdentity.surfaceHomeWindow()"))
     }
 
+    @Test("home window keeps manual resizing instead of locking to the content's exact size")
+    func homeWindowKeepsManualResizing() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(app.contains(".windowResizability(.contentMinSize)"))
+        #expect(!app.contains(".windowResizability(.contentSize)"))
+    }
+
     @Test("EventStore persistence avoids silent directory and JSON fallback failures")
     func eventStorePersistenceAvoidsSilentDirectoryAndJSONFallbackFailures() throws {
         let eventStore = try loadRepoTextFile("Epistemos/State/EventStore.swift")
@@ -2678,6 +2703,17 @@ struct RuntimeValidationTests {
         #expect(vaultIndexActor.contains("private func fetchCount<T: PersistentModel>("))
         #expect(vaultIndexActor.contains("private func saveContext("))
         #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
+    }
+
+    @Test("landing search stays in the main window instead of spawning a detached AppKit popover")
+    func landingSearchStaysInMainWindow() throws {
+        let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(!landing.contains(".appKitPopover("))
+        #expect(!landing.contains("SpatialTapGesture("))
+        #expect(!landing.contains("tapLocation"))
+        #expect(landing.contains("private var landingSearchOverlay: some View"))
+        #expect(landing.contains("if showingSearchPopover {\n                landingSearchOverlay"))
     }
 
     @Test("chat vault and mini chat runtime surfaces avoid silent fetch save and timer fallbacks")

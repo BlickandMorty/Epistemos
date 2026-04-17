@@ -119,7 +119,7 @@ final class MiniChatWindowController {
             queue: .main
         ) { [weak self] notification in
             guard let window = notification.object as? NSWindow else { return }
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleWindowClose(window, chatID: chatID)
             }
         }

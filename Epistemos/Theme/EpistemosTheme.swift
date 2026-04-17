@@ -923,6 +923,26 @@ enum EpistemosTheme: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    @MainActor
+    func nsColorForSyntaxKind(_ kindId: UInt16) -> NSColor {
+        let xc = xcodeColors
+        switch kindId {
+        case 1:  return xc.comment     // "comment"
+        case 2:  return xc.string      // "string"
+        case 3:  return xc.number      // "number"
+        case 4:  return xc.constant    // "constant"
+        case 5:  return xc.keyword     // "escape"
+        case 6:  return xc.type        // "type"
+        case 7:  return xc.variable    // "variable"
+        case 8:  return xc.property    // "property"
+        case 9:  return xc.function    // "function.def"
+        case 10: return xc.function    // "function.call"
+        case 11: return xc.tag        // "macro"
+        case 12: return xc.attribute  // "attribute"
+        default: return xc.editorForeground
+        }
+    }
+
     // MARK: - Callout Styling
 
     struct CalloutStyle {
@@ -1329,6 +1349,53 @@ enum AppDisplayTypography: Sendable {
         case .black: .black
         default: .regular
         }
+    }
+}
+
+enum ClaudeAppTypography: Sendable {
+    nonisolated static let assistantFamilyName = "Anthropic Serif"
+    nonisolated static let userFamilyName = "Anthropic Sans"
+
+    static func assistantFont(size: CGFloat) -> Font {
+        Font(assistantUIFont(size: size))
+    }
+
+    static func userFont(size: CGFloat) -> Font {
+        Font(userUIFont(size: size))
+    }
+
+    nonisolated static func assistantUIFont(size: CGFloat) -> NSFont {
+        preferredFont(
+            familyName: assistantFamilyName,
+            size: size,
+            fallback: serifFallback(size: size)
+        )
+    }
+
+    nonisolated static func userUIFont(size: CGFloat) -> NSFont {
+        preferredFont(
+            familyName: userFamilyName,
+            size: size,
+            fallback: AppDisplayTypography.regularUIFont(size: size)
+        )
+    }
+
+    private nonisolated static func preferredFont(
+        familyName: String,
+        size: CGFloat,
+        fallback: NSFont
+    ) -> NSFont {
+        NSFont(name: familyName, size: size) ?? fallback
+    }
+
+    private nonisolated static func serifFallback(size: CGFloat) -> NSFont {
+        if let descriptor = NSFont.systemFont(ofSize: size).fontDescriptor.withDesign(.serif),
+           let font = NSFont(descriptor: descriptor, size: size) {
+            return font
+        }
+
+        return NSFont(name: "Iowan Old Style Roman", size: size)
+            ?? NSFont.systemFont(ofSize: size)
     }
 }
 

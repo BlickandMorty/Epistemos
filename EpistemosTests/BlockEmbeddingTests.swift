@@ -607,6 +607,18 @@ struct BlockEmbeddingTests {
         #expect(service.dimension == 2)
     }
 
+    @Test("semantic recompute task participates in engine teardown")
+    func semanticRecomputeTaskParticipatesInEngineTeardown() throws {
+        let serviceSource = try loadMirroredSourceTextFile("Epistemos/Graph/EmbeddingService.swift")
+        let metalGraphSource = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(serviceSource.contains("final class DetachedEngineUseTracker"))
+        #expect(serviceSource.contains("func prepareForEngineDestroy()"))
+        #expect(serviceSource.contains("detachedEngineUseTracker.closeAndWait()"))
+        #expect(serviceSource.contains("detachedEngineUseTracker.begin()"))
+        #expect(metalGraphSource.contains("embeddingService.prepareForEngineDestroy()"))
+    }
+
     @Test("fallback semantic search requires a populated Rust store with a matching dimension")
     func fallbackSemanticSearchRequiresPopulatedMatchingRustStore() async throws {
         let device = try #require(MTLCreateSystemDefaultDevice())
