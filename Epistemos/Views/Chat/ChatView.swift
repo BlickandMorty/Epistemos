@@ -140,9 +140,15 @@ struct ChatView: View {
     private var theme: EpistemosTheme { ui.theme }
 
     /// Main chat is a lightweight conversation surface. Advanced operating modes
-    /// (thinking/pro/agent) live in the Agent Command Center (⌘J). Main chat always
-    /// submits with .fast.
+    /// live on the dedicated agent page. Main chat always submits with .fast.
     private static let mainChatOperatingMode: EpistemosOperatingMode = .fast
+
+    /// OLED-black in dark mode, theme background in light mode.
+    /// Applied as the root background so main chat reads like the terminal
+    /// aesthetic when dark, but stays on-theme when light.
+    private var oledAwareBackground: Color {
+        theme.isDark ? Color.black : theme.resolved.background.color
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -234,6 +240,7 @@ struct ChatView: View {
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(oledAwareBackground.ignoresSafeArea())
         .navigationTitle("")
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)
@@ -257,16 +264,11 @@ struct ChatView: View {
             return "## \(role)\n\n\(content)"
         }
         let md = "# Chat Export — \(Date().formatted(date: .abbreviated, time: .omitted))\n\n\(lines.joined(separator: "\n\n---\n\n"))"
-
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.plainText]
-        panel.nameFieldStringValue = "chat-export-\(Date().formatted(.iso8601.year().month().day())).md"
-        panel.begin { response in
-            if response == .OK, let url = panel.url {
-                do { try md.write(to: url, atomically: true, encoding: .utf8) }
-                catch { Log.app.error("Chat export failed: \(error.localizedDescription)") }
-            }
-        }
+        ChatTextExportSupport.save(
+            md,
+            suggestedFilename: "chat-export-\(Date().formatted(.iso8601.year().month().day())).md",
+            contentType: .plainText
+        )
     }
     private var historyToolbarButton: some View {
         @Bindable var ui = ui

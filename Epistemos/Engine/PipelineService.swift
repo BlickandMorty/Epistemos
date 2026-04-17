@@ -26,6 +26,51 @@ nonisolated enum PipelineError: LocalizedError {
     }
 }
 
+/// Converts infrastructure errors into copy suitable for the chat error
+/// bubble. Users should never see an opaque stack-level message — the chat
+/// surface is a user experience, not a log viewer.
+nonisolated enum UserFacingChatError {
+    static func message(from error: Error) -> String {
+        let underlying = (error as NSError).localizedDescription
+
+        switch error {
+        case PipelineError.noLLMService:
+            return "No model is ready to answer yet. Open Settings → Models to install a local model, sign in to a cloud provider, or enable Apple Intelligence on macOS 26+."
+        case let PipelineError.analysisFailure(msg):
+            return msg
+        case LocalInferenceRoutingError.modelRequired:
+            return "No local model is installed. You can add one in Settings → Models, connect a cloud provider, or enable Apple Intelligence."
+        case LocalInferenceRoutingError.runtimeUnavailable:
+            return "The local model runtime isn't ready. Try again in a moment — if this keeps happening, restart Epistemos."
+        case is CancellationError:
+            return "Stopped."
+        default:
+            break
+        }
+
+        let lower = underlying.lowercased()
+        if lower.contains("network") || lower.contains("offline") || lower.contains("internet") || lower.contains("connection") {
+            return "Couldn't reach the provider. Check your internet connection and try again."
+        }
+        if lower.contains("unauthorized") || lower.contains("api key") || lower.contains("401") {
+            return "The provider rejected your credentials. Open Settings → AI to re-authenticate."
+        }
+        if lower.contains("rate limit") || lower.contains("429") || lower.contains("too many requests") {
+            return "The provider is rate-limiting requests. Wait a moment and try again, or switch to a different model in the picker."
+        }
+        if lower.contains("timed out") || lower.contains("timeout") {
+            return "The request timed out. Try again, or pick a faster model."
+        }
+        if lower.contains("context length") || lower.contains("too long") || lower.contains("token") && lower.contains("limit") {
+            return "This conversation is longer than the model can hold. Start a new chat or switch to a model with a larger context window."
+        }
+
+        return underlying.isEmpty
+            ? "Something went wrong. Please try again."
+            : underlying
+    }
+}
+
 @MainActor
 final class PipelineService {
     private let pipelineState: PipelineState
@@ -73,7 +118,7 @@ final class PipelineService {
 
         let finisher = FinishOnce()
 
-        return AsyncThrowingStream { (continuation: AsyncThrowingStream<PipelineEvent, Error>.Continuation) in
+        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { (continuation: AsyncThrowingStream<PipelineEvent, Error>.Continuation) in
             let mainTask = Task { @MainActor [weak self] in
                 guard let self else {
                     if finisher.tryFinish() { continuation.finish() }
@@ -156,7 +201,7 @@ final class PipelineService {
                     if finisher.tryFinish() { continuation.finish() }
                 } catch {
                     failActiveRunIfNeeded(runID, error: error.localizedDescription)
-                    continuation.yield(.error(error.localizedDescription))
+                    continuation.yield(.error(UserFacingChatError.message(from: error)))
                     if finisher.tryFinish() { continuation.finish() }
                 }
             }
@@ -258,12 +303,14 @@ final class PipelineService {
 
         let modelID: String? = {
             if executionPlan?.forcesLocalExecution == true {
-                return inference.effectiveLocalTextModelID
+                return inference.effectiveLocalAgentTextModelID
             }
-            if case .localMLX(let id) = inference.preferredChatModelSelection {
+            if case .localMLX(let id) = inference.preferredChatModelSelection,
+               let model = LocalTextModelID(rawValue: id),
+               model.canRunLocalAgentLoop {
                 return id
             }
-            return inference.effectiveLocalTextModelID
+            return inference.effectiveLocalAgentTextModelID
         }()
         let loop = LocalAgentLoop.liveLoop(
             using: localClient,
