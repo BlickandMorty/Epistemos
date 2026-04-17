@@ -1053,6 +1053,8 @@ final class GraphState {
         // Timeline steps as JSON
         if let stepsData = try? JSONEncoder().encode(timelineSteps) {
             d.set(stepsData, forKey: "epistemos.physics.timelineSteps")
+        } else {
+            Log.app.error("GraphState: failed to encode timelineSteps; preserving existing stored schedule")
         }
         if let selectedPhysicsPreset {
             d.set(selectedPhysicsPreset.rawValue, forKey: "epistemos.physics.selectedPreset")
@@ -1138,9 +1140,12 @@ final class GraphState {
            let mode = GraphStartupViewMode(rawValue: raw) {
             startupViewMode = mode
         }
-        if let stepsData = d.data(forKey: "epistemos.physics.timelineSteps"),
-           let steps = try? JSONDecoder().decode([PhysicsScheduleStep].self, from: stepsData) {
-            timelineSteps = steps
+        if let stepsData = d.data(forKey: "epistemos.physics.timelineSteps") {
+            if let steps = try? JSONDecoder().decode([PhysicsScheduleStep].self, from: stepsData) {
+                timelineSteps = steps
+            } else {
+                Log.app.error("GraphState: failed to decode timelineSteps; keeping in-memory schedule unchanged")
+            }
         }
         if isPhysicsFrozen { physicsFrozenVersion += 1 }
     }
@@ -1522,7 +1527,7 @@ final class GraphState {
             let data = try encoder.encode(customPhysicsPresets)
             UserDefaults.standard.set(data, forKey: Self.customPresetsKey)
         } catch {
-            NSLog("[GraphState] Failed to encode custom presets: \(error)")
+            Log.app.error("GraphState: failed to encode custom presets: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -1532,7 +1537,7 @@ final class GraphState {
         do {
             customPhysicsPresets = try decoder.decode([CustomPhysicsPresetSnapshot].self, from: data)
         } catch {
-            NSLog("[GraphState] Failed to decode custom presets: \(error)")
+            Log.app.error("GraphState: failed to decode custom presets: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -1637,6 +1642,7 @@ final class GraphState {
             return
         }
         isLoaded = true
+        requestRecommit()
     }
 
     // MARK: - Structural Graph
@@ -1656,6 +1662,7 @@ final class GraphState {
         // This skips the redundant SwiftData re-fetch that store.load(context:) would do.
         store.loadDirect(nodes: result.nodes, edges: result.edges)
         isLoaded = true
+        requestRecommit()
         Log.graphPerf.endInterval("buildStructuralGraph", interval)
     }
 
@@ -2077,7 +2084,16 @@ final class GraphState {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        guard let page = try? context.fetch(descriptor).first else { return }
+        let page: SDPage
+        do {
+            guard let fetchedPage = try context.fetch(descriptor).first else { return }
+            page = fetchedPage
+        } catch {
+            Log.graph.error(
+                "GraphState: failed to fetch page for page-mode subgraph \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         guard let pageNodeId = store.node(bySourceId: pageId, type: .note)?.id else { return }
 
         let body = page.loadBody(mapped: true)
@@ -2208,6 +2224,20 @@ final class GraphState {
         return capped.isEmpty ? nil : capped
     }
 
+    private func persistManualGraphMutation(
+        context: ModelContext,
+        rollback: () -> Void
+    ) -> Bool {
+        do {
+            try context.save()
+            return true
+        } catch {
+            rollback()
+            Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)")
+            return false
+        }
+    }
+
     /// Create an orphan node at a world position.
     func createNode(
         type: GraphNodeType,
@@ -2226,15 +2256,39 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
-                    sdNode.sourceId = pageId
-                    do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
+                guard let pageId = await AppBootstrap.shared?.vaultSync.createPage(
+                    title: safeLabel,
+                    allowVaultSelectionPrompt: true
+                ) else {
+                    context.delete(sdNode)
+                    store.positionHints.removeValue(forKey: sdNode.id)
+                    return
+                }
+
+                sdNode.sourceId = pageId
+                guard persistManualGraphMutation(
+                    context: context,
+                    rollback: {
+                        sdNode.sourceId = nil
+                        context.delete(sdNode)
+                        store.positionHints.removeValue(forKey: sdNode.id)
+                    }
+                ) else {
+                    return
                 }
                 buildStructuralGraph(context: context)
                 requestRecommit()
             }
         } else {
-            do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
+            guard persistManualGraphMutation(
+                context: context,
+                rollback: {
+                    context.delete(sdNode)
+                    store.positionHints.removeValue(forKey: sdNode.id)
+                }
+            ) else {
+                return
+            }
             // Manual non-note nodes don't affect structural data — just add to store and recommit.
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -2276,15 +2330,42 @@ final class GraphState {
         if type == .note {
             // Notes need a backing .md file — structural rebuild needed to pick up the new page.
             Task { @MainActor in
-                if let pageId = await AppBootstrap.shared?.vaultSync.createPage(title: safeLabel) {
-                    sdNode.sourceId = pageId
-                    do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
+                guard let pageId = await AppBootstrap.shared?.vaultSync.createPage(
+                    title: safeLabel,
+                    allowVaultSelectionPrompt: true
+                ) else {
+                    context.delete(sdNode)
+                    context.delete(sdEdge)
+                    store.positionHints.removeValue(forKey: sdNode.id)
+                    return
+                }
+
+                sdNode.sourceId = pageId
+                guard persistManualGraphMutation(
+                    context: context,
+                    rollback: {
+                        sdNode.sourceId = nil
+                        context.delete(sdNode)
+                        context.delete(sdEdge)
+                        store.positionHints.removeValue(forKey: sdNode.id)
+                    }
+                ) else {
+                    return
                 }
                 buildStructuralGraph(context: context)
                 requestRecommit()
             }
         } else {
-            do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
+            guard persistManualGraphMutation(
+                context: context,
+                rollback: {
+                    context.delete(sdNode)
+                    context.delete(sdEdge)
+                    store.positionHints.removeValue(forKey: sdNode.id)
+                }
+            ) else {
+                return
+            }
             // Manual non-note nodes don't affect structural data — add directly to store.
             let record = GraphNodeRecord(
                 id: sdNode.id,
@@ -2332,7 +2413,15 @@ final class GraphState {
         let sdEdge = SDGraphEdge(source: sourceId, target: targetId, type: edgeType)
         sdEdge.isManual = true
         context.insert(sdEdge)
-        do { try context.save() } catch { Log.db.error("GraphState: context.save() failed — \(error.localizedDescription)") }
+        guard persistManualGraphMutation(
+            context: context,
+            rollback: {
+                context.delete(sdEdge)
+            }
+        ) else {
+            interactionMode = .idle
+            return
+        }
 
         // Manual edge — add directly to store without full structural rebuild.
         let edgeRecord = GraphEdgeRecord(
