@@ -581,36 +581,63 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = [
+        ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
+        ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
+        ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
+        ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
+        ("OPENROUTER_API_KEY", "epistemos.openrouter.apiKey"),
+        ("GLM_API_KEY", "epistemos.zai.apiKey"),
+        ("KIMI_API_KEY", "epistemos.kimi.apiKey"),
+        ("DEEPSEEK_API_KEY", "epistemos.deepseek.apiKey"),
+        ("MINIMAX_API_KEY", "epistemos.minimax.apiKey"),
+        ("XAI_API_KEY", "epistemos.xai.apiKey"),
+        ("MISTRAL_API_KEY", "epistemos.mistral.apiKey"),
+        ("GROQ_API_KEY", "epistemos.groq.apiKey"),
+        ("HF_TOKEN", "epistemos.huggingface.apiKey"),
+    ]
 
-    /// Populates process env vars from Keychain so the in-process Rust agent_core
-    /// providers (Claude, OpenAI, Perplexity, Gemini) can read API keys via std::env::var.
-    /// Called once at launch before any agent session can start.
-    private static func populateAgentCoreEnvironment() {
-        let mappings: [(envVar: String, keychainKey: String)] = [
-            // Core providers
-            ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
-            ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
-            ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
-            ("PERPLEXITY_API_KEY", "epistemos.perplexity.apiKey"),
-            // Universal gateway
-            ("OPENROUTER_API_KEY", "epistemos.openrouter.apiKey"),
-            // Chinese providers
-            ("GLM_API_KEY", "epistemos.zai.apiKey"),
-            ("KIMI_API_KEY", "epistemos.kimi.apiKey"),
-            ("DEEPSEEK_API_KEY", "epistemos.deepseek.apiKey"),
-            ("MINIMAX_API_KEY", "epistemos.minimax.apiKey"),
-            // Western providers
-            ("XAI_API_KEY", "epistemos.xai.apiKey"),
-            ("MISTRAL_API_KEY", "epistemos.mistral.apiKey"),
-            ("GROQ_API_KEY", "epistemos.groq.apiKey"),
-            // HuggingFace
-            ("HF_TOKEN", "epistemos.huggingface.apiKey"),
-        ]
-        for mapping in mappings {
-            if let value = Keychain.load(for: mapping.keychainKey), !value.isEmpty {
-                setenv(mapping.envVar, value, 1)
+    /// Mirrors stored provider credentials into process env vars so the in-process
+    /// Rust agent runtime can immediately see API-key and OAuth-backed credentials.
+    static func populateAgentCoreEnvironment(
+        keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
+    ) {
+        let overrides = agentCoreEnvironmentOverrides(keychainLoad: keychainLoad)
+        let managedVars = Set(agentCoreEnvironmentKeyMappings.map(\.envVar)).union([
+            "OPENAI_ACCESS_TOKEN",
+            "OPENAI_AUTH_MODE",
+            "OPENAI_CLIENT_VERSION",
+        ])
+
+        for envVar in managedVars {
+            if let value = overrides[envVar], !value.isEmpty {
+                setenv(envVar, value, 1)
+            } else {
+                unsetenv(envVar)
             }
         }
+    }
+
+    static func agentCoreEnvironmentOverrides(
+        keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
+    ) -> [String: String] {
+        var overrides: [String: String] = [:]
+        for mapping in agentCoreEnvironmentKeyMappings {
+            if let value = keychainLoad(mapping.keychainKey), !value.isEmpty {
+                overrides[mapping.envVar] = value
+            }
+        }
+
+        if let rawCredential = keychainLoad(CloudModelProvider.openAI.oauthKeychainKey),
+           let credential = CloudProviderOAuthCredential.decode(from: rawCredential),
+           credential.authMode == .openAICodex,
+           !credential.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            overrides["OPENAI_ACCESS_TOKEN"] = credential.accessToken
+            overrides["OPENAI_AUTH_MODE"] = "codex"
+            overrides["OPENAI_CLIENT_VERSION"] = OpenAICodexRuntimeMetadata.clientVersion
+        }
+
+        return overrides
     }
     #if DEBUG
     private nonisolated static let isDebugBuild = true
@@ -733,7 +760,12 @@ final class AppBootstrap {
     // MARK: - Active Query Task
     var queryTask: Task<Void, Never>?
     private var healthyVaultBodyCleanupTask: Task<Void, Never>?
-    private var localRuntimeObserverTokens: [NSObjectProtocol] = []
+    private struct LocalRuntimeObserverToken {
+        let center: NotificationCenter
+        let token: NSObjectProtocol
+    }
+
+    private var localRuntimeObserverTokens: [LocalRuntimeObserverToken] = []
     private let localModelRefreshThrottle: LocalModelRefreshThrottle
     private var startupIntegrityReport: StartupIntegrityReport?
     private var didStartPrimaryLaunchInitialization = false
@@ -748,6 +780,68 @@ final class AppBootstrap {
         let id: String
         let inlineBody: String
         let liveBody: String?
+    }
+
+    func presentAgentCommandCenter(
+        prefill inputText: String? = nil,
+        operatingMode: EpistemosOperatingMode? = nil
+    ) {
+        if let operatingMode {
+            agentCommandCenterState.selectedOperatingMode = operatingMode
+        }
+
+        if agentCommandCenterState.isPresented {
+            agentCommandCenterState.refreshSkillCatalog()
+        } else {
+            agentCommandCenterState.present()
+        }
+
+        agentCommandCenterState.refreshBrainCatalog(from: inferenceState)
+        agentCommandCenterState.refreshToolCatalog(
+            from: mcpBridge,
+            vaultPath: vaultSync.vaultURL?.path ?? ""
+        )
+
+        let vaultNoteCount = vaultSync.ambientManifest?.entries.count ?? 0
+        let openNoteTitles = NoteWindowManager.shared.openPageIds.compactMap {
+            NoteWindowManager.shared.window(for: $0)?.title
+        }
+        agentCommandCenterState.refreshContextProviders(
+            vaultNoteCount: vaultNoteCount,
+            openNoteTitles: openNoteTitles
+        )
+
+        guard let inputText else { return }
+        agentCommandCenterState.primeInput(inputText)
+    }
+
+    func submitAgentWorkspacePrompt(
+        _ inputText: String,
+        operatingMode: EpistemosOperatingMode? = nil
+    ) {
+        presentAgentCommandCenter(
+            prefill: inputText,
+            operatingMode: operatingMode
+        )
+
+        let request = agentCommandCenterState.buildCommandRequest()
+        guard !request.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        agentChatState.startNewSession()
+        agentChatState.submitAgentQuery(request.query)
+        agentCommandCenterState.clearInput()
+
+        let pipeline = coordinator.pipelineService
+        coordinator.chatCoordinator.handleCommandCenterSubmission(
+            query: request.query,
+            slashToken: request.slashToken,
+            mentions: request.mentions,
+            toolRestrictions: agentCommandCenterState.enabledToolNames,
+            brainOverride: agentCommandCenterState.selectedBrain,
+            pipeline: pipeline,
+            agentChat: agentChatState,
+            accState: agentCommandCenterState
+        )
     }
 
     private func recordPersistenceIssue(
@@ -946,13 +1040,19 @@ final class AppBootstrap {
                     return config.primaryResolvedModelDirectory
                 }
 
-                if let probeModelID,
-                   (try? await localGGUFRuntime.availability(
-                    requestedModelID: probeModelID,
-                    artifactID: probeArtifactID,
-                    modelDirectory: probeModelDirectory
-                   )) != nil {
-                    availableRuntimeKinds.insert(.gguf)
+                if let probeModelID {
+                    do {
+                        _ = try await localGGUFRuntime.availability(
+                            requestedModelID: probeModelID,
+                            artifactID: probeArtifactID,
+                            modelDirectory: probeModelDirectory
+                        )
+                        availableRuntimeKinds.insert(.gguf)
+                    } catch {
+                        Log.app.warning(
+                            "AppBootstrap: GGUF availability probe failed for \(probeModelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                 }
 
                 return availableRuntimeKinds
@@ -1160,12 +1260,15 @@ final class AppBootstrap {
 
         // Initialize device-action infrastructure. The retired dual-brain
         // router stays archived in source, but the live app keeps only the
-        // shared device-action services that still back computer-use flows.
+        // device-action services that still back computer-use flows.
         self._deviceAgent = DeviceAgentService(hardwareTier: hardwareTierManager)
-        // Wire the device-action path to the shared GPU backend until the
-        // dedicated ANE route lands in a later phase.
-        deviceAgent.setBackend(
-            SharedGPUBackend(
+        let deviceBackend: any DeviceInferenceBackend
+        if let coreMLBackend = CoreMLActionBackendLoader.loadIfAvailable() {
+            deviceBackend = coreMLBackend
+        } else if AppleIntelligenceService.shared.checkAvailability().available {
+            deviceBackend = AppleOnDeviceBackend()
+        } else {
+            deviceBackend = SharedGPUBackend(
                 triageService: triage,
                 localModelClient: localMLXClient,
                 constrainedDecoding: constrainedDecoding,
@@ -1173,7 +1276,9 @@ final class AppBootstrap {
                     inference?.activeLocalTextModelID
                 }
             )
-        )
+        }
+        deviceAgent.setBackend(deviceBackend)
+        deviceAgent.installContextualResolver()
 
         // Initialize computer use stack (Ω13)
         let screenCapture = ScreenCaptureService()
@@ -1315,49 +1420,8 @@ final class AppBootstrap {
             self?.coordinator.cancelActiveQuery()
         }
 
-        // Register Cmd+J global/local hotkey for Agent Command Center
-        let toggleCommandCenter: @MainActor () -> Void = { [weak self] in
-            guard let self else { return }
-            if self.agentCommandCenterState.isPresented {
-                self.agentCommandCenterState.dismiss()
-            } else {
-                self.agentCommandCenterState.present()
-                self.agentCommandCenterState.refreshBrainCatalog(from: self.inferenceState)
-                self.agentCommandCenterState.refreshToolCatalog(
-                    from: self.mcpBridge,
-                    vaultPath: self.vaultSync.vaultURL?.path ?? ""
-                )
-
-                // Populate @-mention context providers
-                let vaultNoteCount = self.vaultSync.ambientManifest?.entries.count ?? 0
-                let openNoteTitles = NoteWindowManager.shared.openPageIds.compactMap {
-                    NoteWindowManager.shared.window(for: $0)?.title
-                }
-                self.agentCommandCenterState.refreshContextProviders(
-                    vaultNoteCount: vaultNoteCount,
-                    openNoteTitles: openNoteTitles
-                )
-            }
-        }
-
-        commandCenterLocalHotkeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "j" {
-                Task { @MainActor in toggleCommandCenter() }
-                return nil
-            }
-            return event
-        }
-
-        commandCenterGlobalHotkeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { event in
-            if event.modifierFlags.contains(.command), event.charactersIgnoringModifiers == "j" {
-                Task { @MainActor in
-                    if !NSApp.isActive {
-                        NSApp.activate()
-                    }
-                    toggleCommandCenter()
-                }
-            }
-        }
+        commandCenterLocalHotkeyMonitor = nil
+        commandCenterGlobalHotkeyMonitor = nil
 
         Log.app.info("AppBootstrap: initialized — local AI stack ready")
     }
@@ -1871,7 +1935,10 @@ final class AppBootstrap {
         queryTask = nil
         ambientManifest = nil
         vaultSync.ambientManifest = nil
-        _ = await vaultSync.stopWatchingAsync(preserveData: false)
+        let didClear = await vaultSync.stopWatchingAsync(preserveData: false)
+        if !didClear {
+            await vaultSync.forceClearDerivedLocalStateForFullReset()
+        }
         vaultSync.clearPersistedVaultSelection()
         NoteWindowManager.shared.resetForVaultRebuild()
 
@@ -1881,9 +1948,15 @@ final class AppBootstrap {
             try context.delete(model: SDChat.self)
             try context.delete(model: SDPageVersion.self)
             try context.delete(model: SDNoteInsight.self)
+            try context.delete(model: SDGraphEdge.self)
+            try context.delete(model: SDGraphNode.self)
+            try context.delete(model: SDBlock.self)
             try context.delete(model: SDPage.self)
             try context.delete(model: SDFolder.self)
+            try context.delete(model: SDWorkspace.self)
+            try context.delete(model: SDModelProfile.self)
             try context.save()
+            _ = NoteFileStorage.removeAllManagedBodies()
         } catch {
             Log.pipeline.error("Reset: SwiftData wipe failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -1915,6 +1988,7 @@ final class AppBootstrap {
 
         uiState.setActivePanel(.home)
         uiState.needsSetup = true
+        graphState.needsRefresh = true
 
         Log.pipeline.info("Reset: All data cleared. Setup screen shown.")
     }
@@ -2040,7 +2114,9 @@ final class AppBootstrap {
     private func wireLocalRuntimeLifecycle() {
         let center = NotificationCenter.default
         localRuntimeObserverTokens = [
-            center.addObserver(
+            LocalRuntimeObserverToken(
+                center: center,
+                token: center.addObserver(
                 forName: NSApplication.didBecomeActiveNotification,
                 object: nil,
                 queue: .main
@@ -2049,8 +2125,11 @@ final class AppBootstrap {
                     self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
                     self?.syncLocalRuntimeConditions(appActive: true)
                 }
-            },
-            center.addObserver(
+            }
+            ),
+            LocalRuntimeObserverToken(
+                center: center,
+                token: center.addObserver(
                 forName: NSApplication.didResignActiveNotification,
                 object: nil,
                 queue: .main
@@ -2058,8 +2137,11 @@ final class AppBootstrap {
                 MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: false)
                 }
-            },
-            center.addObserver(
+            }
+            ),
+            LocalRuntimeObserverToken(
+                center: center,
+                token: center.addObserver(
                 forName: .NSProcessInfoPowerStateDidChange,
                 object: nil,
                 queue: .main
@@ -2067,8 +2149,11 @@ final class AppBootstrap {
                 MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: nil)
                 }
-            },
-            center.addObserver(
+            }
+            ),
+            LocalRuntimeObserverToken(
+                center: center,
+                token: center.addObserver(
                 forName: ProcessInfo.thermalStateDidChangeNotification,
                 object: nil,
                 queue: .main
@@ -2076,7 +2161,8 @@ final class AppBootstrap {
                 MainActor.assumeIsolated {
                     self?.syncLocalRuntimeConditions(appActive: nil)
                 }
-            },
+            }
+            ),
         ]
         syncLocalRuntimeConditions(appActive: NSApp?.isActive ?? true)
     }
@@ -2090,6 +2176,23 @@ final class AppBootstrap {
             await localInferenceService.updateRuntimeConditions(conditions)
         }
     }
+
+    func teardownRuntimeObservers() {
+        if let monitor = commandCenterLocalHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            commandCenterLocalHotkeyMonitor = nil
+        }
+
+        if let monitor = commandCenterGlobalHotkeyMonitor {
+            NSEvent.removeMonitor(monitor)
+            commandCenterGlobalHotkeyMonitor = nil
+        }
+
+        for observer in localRuntimeObserverTokens {
+            observer.center.removeObserver(observer.token)
+        }
+        localRuntimeObserverTokens.removeAll()
+    }
 }
 
 @ModelActor
@@ -2097,13 +2200,25 @@ private actor BodyMigrationActor {
     func migrateInlineBodiesToFiles() throws -> Int {
         let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
         var migrated = 0
+        var migratedPageIds: [String] = []
+        migratedPageIds.reserveCapacity(pages.count)
         for page in pages where !page.body.isEmpty {
             NoteFileStorage.writeBody(pageId: page.id, content: page.body)
+            migratedPageIds.append(page.id)
             page.body = ""
             migrated += 1
         }
         if migrated > 0 {
-            try modelContext.save()
+            do {
+                try modelContext.save()
+            } catch {
+                modelContext.rollback()
+                modelContext.processPendingChanges()
+                for pageId in migratedPageIds {
+                    NoteFileStorage.deleteBody(pageId: pageId)
+                }
+                throw error
+            }
         }
         return migrated
     }

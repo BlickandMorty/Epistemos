@@ -63,9 +63,25 @@ struct ModelVaultsSettingsView: View {
                         }
 
                         if let loadError {
-                            Text(loadError)
-                                .font(.caption)
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label {
+                                    Text("Vault status couldn't load")
+                                } icon: {
+                                    Image(systemName: "tray.and.arrow.down")
+                                }
                                 .foregroundStyle(.orange)
+                                .font(.caption.weight(.semibold))
+                                Text("Try Rebuild All Vaults below. If that keeps failing, open Console.app and filter for “ModelVaults” or “CloudKnowledge” for the underlying reason.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                DisclosureGroup("Raw status") {
+                                    Text(loadError)
+                                        .font(.caption.monospaced())
+                                        .textSelection(.enabled)
+                                        .foregroundStyle(.orange)
+                                }
+                                .font(.caption2)
+                            }
                         }
 
                         Divider()
@@ -177,7 +193,6 @@ struct ModelVaultsSettingsView: View {
             do {
                 _ = try await service.rebuildModelVaults(for: configuredTargets())
                 await refreshStatus()
-                loadError = nil
             } catch {
                 loadError = error.localizedDescription
             }
@@ -188,6 +203,7 @@ struct ModelVaultsSettingsView: View {
         let store = KnowledgeProfileStore()
         let targets = configuredTargets()
         var loadedVaults: [String: CompiledModelVault] = [:]
+        var firstErrorDescription: String?
 
         for target in targets {
             do {
@@ -195,8 +211,8 @@ struct ModelVaultsSettingsView: View {
                     loadedVaults[target.modelID] = vault
                 }
             } catch {
-                await MainActor.run {
-                    loadError = error.localizedDescription
+                if firstErrorDescription == nil {
+                    firstErrorDescription = error.localizedDescription
                 }
             }
         }
@@ -219,9 +235,7 @@ struct ModelVaultsSettingsView: View {
             totalTargetCount = targets.count
             conceptCount = loadedVaults.values.reduce(0) { $0 + $1.metadata.conceptCount }
             lastRebuildDate = loadedVaults.values.map(\.metadata.compiledAt).max()
-            if loadedVaults.isEmpty, loadError == nil {
-                loadError = nil
-            }
+            loadError = firstErrorDescription
         }
     }
 

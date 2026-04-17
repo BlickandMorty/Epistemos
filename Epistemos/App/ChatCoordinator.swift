@@ -266,11 +266,11 @@ final class ChatCoordinator {
                         )
                     case .appleIntelligence:
                         throw AgentRuntimeError(
-                            message: "Apple Intelligence does not support Agent Command Center agent mode yet. Choose a local or cloud brain, or switch to Fast, Thinking, or Pro."
+                            message: "Apple Intelligence does not support Epistemos agent mode yet. Choose a local or cloud brain, or switch to Fast, Thinking, or Pro."
                         )
                     case .unavailable(let reason):
                         throw AgentRuntimeError(
-                            message: "The selected Command Center brain is unavailable: \(reason)."
+                            message: "The selected agent brain is unavailable: \(reason)."
                         )
                     }
                 } else {
@@ -350,7 +350,7 @@ final class ChatCoordinator {
 
         // Build system prompt from compiled context + plan.
         var systemParts: [String] = []
-        systemParts.append("You are Epistemos Agent Command Center. Be precise and actionable.")
+        systemParts.append("You are Epistemos Agent. Be precise and actionable.")
         if let ctx = compiled.notesContext {
             systemParts.append("Context:\n\(ctx)")
         }
@@ -398,9 +398,12 @@ final class ChatCoordinator {
         )
 
         var capturedDelegate: StreamingDelegate?
-        let stream = AsyncStream<AgentStreamEvent> { continuation in
+        let stream = AsyncStream<AgentStreamEvent>(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let delegate = StreamingDelegate(continuation: continuation)
             capturedDelegate = delegate
+            continuation.onTermination = { @Sendable _ in
+                cancelAgentSession(sessionId: sessionId)
+            }
             Task.detached {
                 do {
                     let _ = try await runAgentSession(
@@ -575,10 +578,17 @@ final class ChatCoordinator {
             )
         )
 
+        let finalPlan = (try? plan.validated()) ?? plan.normalized()
+        let toolSummary = finalPlan.toolPermissions.prefix(6)
+            .map { "\($0.toolName)=\($0.mode.rawValue)" }
+            .joined(separator: ",")
+        Log.pipeline.info(
+            "Overseer: route=\(resolvedRoute.rawValue, privacy: .public) mode=\(compiled.resolvedExecutionPolicy.effectiveOperatingMode.rawValue, privacy: .public) turns=\(finalPlan.depthBudget.maxTurns) tools=\(finalPlan.depthBudget.maxToolCalls) experts=\(finalPlan.maskPlan.expertAllowlist.joined(separator: ","), privacy: .public) toolPerms=[\(toolSummary, privacy: .public)]"
+        )
         return OverseerComplexityRouter.ExecutionPlan(
             route: resolvedRoute,
             localOperatingMode: compiled.resolvedExecutionPolicy.effectiveOperatingMode,
-            plan: (try? plan.validated()) ?? plan.normalized(),
+            plan: finalPlan,
             summary: compiled.resolvedExecutionPolicy.summary
         )
     }
@@ -611,7 +621,7 @@ final class ChatCoordinator {
             .joined(separator: "\n\n")
 
         var systemInstructions: [String] = [
-            "You are Epistemos Agent Command Center. Be precise and actionable.",
+            "You are Epistemos Agent. Be precise and actionable.",
             executionPlan.additionalSystemPrompt(),
         ]
         if let slashToken = compiled.requestedSlashToken {
@@ -647,7 +657,7 @@ final class ChatCoordinator {
                     toolName: name,
                     inputJson: argumentsJson,
                     riskLevel: Self.commandCenterToolRiskLevel(for: metadata),
-                    description: "Command Center requested \(name) during local agent execution."
+                    description: "Agent requested \(name) during local agent execution."
                 )
 
                 if permissionRequest.requiresHumanApproval {
@@ -801,7 +811,9 @@ final class ChatCoordinator {
     private func currentCommandCenterAutoBrain() -> ACCBrainSelection? {
         switch inferenceState.preferredChatModelSelection {
         case .localMLX(let requestedModelID):
-            let effectiveModelID = inferenceState.effectiveLocalTextModelID ?? requestedModelID
+            let effectiveModelID = inferenceState.effectiveLocalAgentTextModelID
+                ?? inferenceState.effectiveLocalTextModelID
+                ?? requestedModelID
             guard let model = LocalTextModelID(rawValue: effectiveModelID) else {
                 return nil
             }
@@ -1133,9 +1145,12 @@ final class ChatCoordinator {
 
         // Create async stream via StreamingDelegate — capture delegate for approval resolution
         var capturedDelegate: StreamingDelegate?
-        let stream = AsyncStream<AgentStreamEvent> { continuation in
+        let stream = AsyncStream<AgentStreamEvent>(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let delegate = StreamingDelegate(continuation: continuation)
             capturedDelegate = delegate
+            continuation.onTermination = { @Sendable _ in
+                cancelAgentSession(sessionId: sessionId)
+            }
 
             Task.detached {
                 do {
@@ -1430,8 +1445,25 @@ final class ChatCoordinator {
 
     // MARK: - Chat Title Generation
 
+    private var titleGenerationTask: Task<Void, Never>?
+    private var titleGenerationTaskToken = UUID()
+
     func generateChatTitle(query: String, chatId: String?, chatState: ChatState) {
-        Task {
+        titleGenerationTask?.cancel()
+        let taskToken = UUID()
+        titleGenerationTaskToken = taskToken
+        titleGenerationTask = Task { [weak self] in
+            defer {
+                Task { @MainActor [weak self] in
+                    guard let self, self.titleGenerationTaskToken == taskToken else {
+                        return
+                    }
+                    self.titleGenerationTask = nil
+                }
+            }
+
+            guard let self else { return }
+
             let prompt = """
             Generate a very short title (2-6 words) for a chat conversation that starts with this query. \
             Return ONLY the title, no quotes, no punctuation at the end, no explanation. \
@@ -1452,6 +1484,7 @@ final class ChatCoordinator {
                     .trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
                 guard !cleaned.isEmpty else { return }
 
+                let originalChatTitle = chatState.chatTitle
                 chatState.chatTitle = cleaned
 
                 if let chatId {
@@ -1463,10 +1496,13 @@ final class ChatCoordinator {
                         in: context,
                         label: "chat title target \(chatId)"
                     ) {
+                        let originalSavedTitle = sdChat.title
                         sdChat.title = cleaned
                         do {
                             try context.save()
                         } catch {
+                            chatState.chatTitle = originalChatTitle
+                            sdChat.title = originalSavedTitle
                             Log.pipeline.error("Failed to save chat title: \(error.localizedDescription, privacy: .public)")
                         }
                     }
@@ -2812,18 +2848,27 @@ final class ChatCoordinator {
         let context = modelContainer.mainContext
 
         let chat: SDChat
+        let wasExisting: Bool
         let predicate = #Predicate<SDChat> { $0.id == chatId }
         let descriptor = FetchDescriptor<SDChat>(predicate: predicate)
 
         if let existing = fetchFirst(descriptor, in: context, label: "chat persistence") {
             chat = existing
-            chat.updatedAt = .now
+            wasExisting = true
         } else {
             let firstWords = String(query.prefix(50))
             chat = SDChat(title: firstWords, chatType: "chat")
             chat.id = chatId
             context.insert(chat)
+            wasExisting = false
         }
+
+        let originalChatType = chat.chatType
+        let originalLinkedPageId = chat.linkedPageId
+        let originalUpdatedAt = chat.updatedAt
+        let originalMessages = chat.messages ?? []
+
+        chat.updatedAt = .now
         if isNotes { chat.chatType = "notes" }
 
         let sourceUserMessage = persistedUserMessage(
@@ -2868,6 +2913,7 @@ final class ChatCoordinator {
         }
         assistantMsg.chat = chat
         context.insert(assistantMsg)
+        let newMessages = [userMsg, assistantMsg]
 
         // Cross-system note association: scan for [[wikilinks]] in the query
         if chat.linkedPageId == nil {
@@ -2886,6 +2932,17 @@ final class ChatCoordinator {
                 Task { await anchorService.generateAnchor(for: chatId) }
             }
         } catch {
+            chat.chatType = originalChatType
+            chat.linkedPageId = originalLinkedPageId
+            chat.updatedAt = originalUpdatedAt
+            for message in newMessages {
+                context.delete(message)
+            }
+            if wasExisting {
+                chat.messages = originalMessages
+            } else {
+                context.delete(chat)
+            }
             Log.db.error("Failed to persist chat: \(error.localizedDescription, privacy: .public)")
         }
     }
