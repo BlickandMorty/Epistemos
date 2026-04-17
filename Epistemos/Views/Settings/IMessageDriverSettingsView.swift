@@ -1,4 +1,8 @@
+import AppKit
+import os
 import SwiftUI
+
+private let iMessageDriverSettingsLogger = Logger(subsystem: "Epistemos", category: "IMessageDriverSettingsView")
 
 /// Environment-bound adapter that pulls `IMessageDriverService` and the
 /// current vault path out of environment so the detail view matches the
@@ -41,6 +45,9 @@ struct IMessageDriverSettingsView: View {
     @State private var showAddSheet: Bool = false
     @State private var editingContact: IMessageContact?
     @State private var errorMessage: String?
+    @State private var setupStatus = IMessageNativeSetupDoctor.currentStatus()
+    @State private var isRunningNativeSetup: Bool = false
+    @State private var setupStatusMessage: String?
 
     var body: some View {
         Form {
@@ -78,7 +85,7 @@ struct IMessageDriverSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if let error = driver.lastError {
+                if let error = presentedDriverError {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .foregroundStyle(.orange)
                         .font(.caption)
@@ -92,6 +99,95 @@ struct IMessageDriverSettingsView: View {
                 Text("iMessage Driver")
             } footer: {
                 Text("When enabled, Epistemos polls the configured iMessage transport for new messages from allowlisted contacts and routes each one to the assigned model. Native mode requires Full Disk Access for chat.db reads and Automation permission for Messages replies.")
+                    .font(.caption)
+            }
+
+            Section {
+                HStack(spacing: 12) {
+                    ChannelStatusPill(
+                        title: setupStatus.pollingReady ? "Polling Ready" : "Polling Blocked",
+                        tint: setupStatus.pollingReady ? Color.green : Color.orange
+                    )
+                    ChannelStatusPill(
+                        title: setupStatus.replyReady ? "Replies Ready" : "Replies Blocked",
+                        tint: setupStatus.replyReady ? Color.green : Color.orange
+                    )
+                }
+
+                if let setupStatusMessage {
+                    Label(setupStatusMessage, systemImage: "sparkles")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+
+                if isRunningNativeSetup {
+                    ProgressView("Running native iMessage setup…")
+                        .controlSize(.small)
+                }
+
+                ForEach(permissionChecks) { check in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: check.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(check.passed ? Color.green : Color.orange)
+                            .font(.caption)
+                            .padding(.top, 2)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(check.title)
+                                .font(.subheadline.weight(.medium))
+                            Text(check.detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                HStack(spacing: 10) {
+                    Button("Run Native Setup") {
+                        Task { await runNativeSetup() }
+                    }
+                    .disabled(isRunningNativeSetup)
+
+                    Button("Refresh setup status") {
+                        Task { await refreshSetupStatus() }
+                    }
+                    .disabled(isRunningNativeSetup)
+
+                    Button("Open Full Disk Access") {
+                        IMessageNativeSetupDoctor.openFullDiskAccessSettings()
+                    }
+
+                    Button("Open Automation Settings") {
+                        IMessageNativeSetupDoctor.openAutomationSettings()
+                    }
+
+                    Button("Open Messages") {
+                        IMessageNativeSetupDoctor.openMessagesApp()
+                    }
+                    .disabled(!setupStatus.messagesAppAvailable)
+
+                    Button("Reveal This Epistemos") {
+                        IMessageNativeSetupDoctor.revealCurrentApp()
+                    }
+
+                    Button("Relaunch Epistemos") {
+                        Task { await IMessageNativeSetupDoctor.relaunchCurrentApp() }
+                    }
+                }
+
+                Text(setupStatus.currentAppPath)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+
+                Text(setupStatus.messagesDatabasePath)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(.tertiary)
+                    .textSelection(.enabled)
+            } header: {
+                Text("Permission Doctor")
+            } footer: {
+                Text("If native iMessage polling cannot open chat.db, grant Full Disk Access to this exact Epistemos app copy, then relaunch it. If replies are blocked later, grant Automation access for Messages.app.")
                     .font(.caption)
             }
 
@@ -247,10 +343,27 @@ struct IMessageDriverSettingsView: View {
             }
 
             if let errorMessage {
-                Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
+                let guidance = Self.doctorGuidance(for: errorMessage)
+                Section("Diagnosed issue") {
+                    Label(guidance.headline, systemImage: guidance.systemImage)
+                        .foregroundStyle(guidance.tint)
+                    Text(guidance.hint)
                         .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if !guidance.actions.isEmpty {
+                        HStack(spacing: 8) {
+                            ForEach(guidance.actions, id: \.title) { action in
+                                Button(action.title) { action.run() }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
+                            }
+                        }
+                    }
+                    DisclosureGroup("Raw error") {
+                        Text(errorMessage)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                    }
                 }
             }
         }
@@ -280,6 +393,7 @@ struct IMessageDriverSettingsView: View {
             )
         }
         .task {
+            await refreshSetupStatus()
             await refreshContacts()
         }
     }
@@ -310,7 +424,11 @@ struct IMessageDriverSettingsView: View {
         let doomed = offsets.map { contacts[$0] }
         Task {
             for contact in doomed {
-                try? await IMessageContactsStore.remove(handle: contact.handle, vaultPath: vaultPath)
+                do {
+                    try await IMessageContactsStore.remove(handle: contact.handle, vaultPath: vaultPath)
+                } catch {
+                    iMessageDriverSettingsLogger.error("Failed to remove iMessage contact \(contact.handle, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
             }
             await refreshContacts()
             await refreshOperationalSurfaces()
@@ -326,6 +444,188 @@ struct IMessageDriverSettingsView: View {
             contact.handle == thread.subtitle || contact.handle == thread.title
         }
     }
+
+    private var presentedDriverError: String? {
+        IMessageNativeSetupDoctor.presentedDriverError(driver.lastError, status: setupStatus)
+    }
+
+    private var permissionChecks: [DriverSetupCheck] {
+        [
+            DriverSetupCheck(
+                title: "Messages database present",
+                detail: setupStatus.databaseFileExists
+                    ? "chat.db exists on this Mac, so native history is available once TCC grants live reads."
+                    : "chat.db has not appeared yet. Open Messages once on this Mac before enabling the native bridge.",
+                passed: setupStatus.databaseFileExists
+            ),
+            DriverSetupCheck(
+                title: "Current Epistemos build",
+                detail: setupStatus.isDebugBuild
+                    ? "This settings panel is running inside a Debug build at \(setupStatus.currentAppPath). Full Disk Access must be granted to this exact app copy."
+                    : "This settings panel is running inside \(setupStatus.currentAppPath).",
+                passed: true
+            ),
+            DriverSetupCheck(
+                title: "Another Epistemos copy is also running",
+                detail: setupStatus.hasMultipleEpistemosBuildsRunning
+                    ? "Multiple Epistemos app copies are open right now:\n\(setupStatus.runningEpistemosAppPaths.joined(separator: "\n"))"
+                    : "Only this Epistemos app copy is currently running, so privacy changes will apply to a single build once it relaunches.",
+                passed: !setupStatus.hasMultipleEpistemosBuildsRunning
+            ),
+            DriverSetupCheck(
+                title: "Messages database accessible",
+                detail: setupStatus.databaseAccessible
+                    ? "Epistemos can open chat.db for live sqlite reads, so native polling is ready."
+                    : "chat.db exists, but macOS is still blocking actual database opens until Full Disk Access is granted to this exact app copy and it is relaunched.",
+                passed: setupStatus.databaseAccessible
+            ),
+            DriverSetupCheck(
+                title: "Messages automation ready",
+                detail: setupStatus.messagesAutomationGranted
+                    ? "Messages replies can be delivered because Apple Events access is already granted."
+                    : "Replies are still blocked. Run Native Setup to trigger the Messages automation consent flow.",
+                passed: setupStatus.messagesAutomationGranted
+            ),
+            DriverSetupCheck(
+                title: "Messages app available",
+                detail: setupStatus.messagesAppAvailable
+                    ? "Messages.app is present for reply delivery and automation prompts."
+                    : "Messages.app was not found at the default system path.",
+                passed: setupStatus.messagesAppAvailable
+            ),
+        ]
+    }
+
+    private func refreshSetupStatus() async {
+        setupStatus = IMessageNativeSetupDoctor.currentStatus()
+        if setupStatus.nativeBridgeReady {
+            setupStatusMessage = "Native Messages bridge looks ready."
+        } else if setupStatus.databaseAccessible {
+            setupStatusMessage = "Polling is ready. Replies still need the Messages automation approval."
+        } else if setupStatus.hasMultipleEpistemosBuildsRunning {
+            setupStatusMessage = "Another Epistemos copy is also running. Grant Full Disk Access to the current build shown here, then relaunch that same copy."
+        } else if setupStatus.isDebugBuild {
+            setupStatusMessage = "This Debug build still cannot read chat.db. Grant Full Disk Access to this exact app copy, then relaunch it."
+        } else {
+            setupStatusMessage = "Full Disk Access is still the main blocker for native polling."
+        }
+    }
+
+    private func runNativeSetup() async {
+        isRunningNativeSetup = true
+        setupStatusMessage = "Opening Messages and the required privacy panes…"
+        defer { isRunningNativeSetup = false }
+
+        setupStatus = await IMessageNativeSetupDoctor.runGuidedSetup()
+
+        if setupStatus.databaseAccessible {
+            if !driver.isRunning {
+                driver.start()
+            }
+            await driver.tickOnce()
+            await refreshOperationalSurfaces()
+        }
+
+        if setupStatus.nativeBridgeReady {
+            setupStatusMessage = "Native setup finished and the iMessage driver ran a fresh poll."
+        } else if setupStatus.databaseAccessible {
+            setupStatusMessage = "Native polling is ready now. One Messages automation approval may still be needed for replies."
+        } else if setupStatus.hasMultipleEpistemosBuildsRunning {
+            setupStatusMessage = "System Settings opened, but another Epistemos copy is also running. Grant access to the current build shown here, then relaunch that same copy."
+        } else if setupStatus.isDebugBuild {
+            setupStatusMessage = "System Settings opened for Full Disk Access. Grant access to this Debug app copy, then relaunch it before polling again."
+        } else {
+            setupStatusMessage = "System Settings opened for Full Disk Access. After granting access to this Epistemos build, relaunch it, then come back here and press Refresh setup status."
+        }
+    }
+
+    // MARK: - Doctor Guidance
+
+    struct DoctorAction {
+        let title: String
+        let run: () -> Void
+    }
+
+    struct DoctorGuidance {
+        let headline: String
+        let hint: String
+        let systemImage: String
+        let tint: Color
+        let actions: [DoctorAction]
+    }
+
+    static func doctorGuidance(for rawError: String) -> DoctorGuidance {
+        let lower = rawError.lowercased()
+        let fdaOpen = DoctorAction(title: "Open Full Disk Access") {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        let automationOpen = DoctorAction(title: "Open Automation Settings") {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+        let relaunch = DoctorAction(title: "Relaunch Epistemos") {
+            let task = Process()
+            task.launchPath = "/usr/bin/open"
+            task.arguments = ["-n", Bundle.main.bundlePath]
+            try? task.run()
+            NSApp.terminate(nil)
+        }
+
+        if lower.contains("chat.db") || lower.contains("database") || lower.contains("sqlite")
+            || lower.contains("unable to open database") || lower.contains("authorization") {
+            return DoctorGuidance(
+                headline: "Messages database can't be opened",
+                hint: "Grant Full Disk Access to the Epistemos build shown above, then relaunch it. If you have two Epistemos copies, make sure the one with FDA is the one actually running.",
+                systemImage: "lock.shield",
+                tint: .orange,
+                actions: [fdaOpen, relaunch]
+            )
+        }
+        if lower.contains("applescript") || lower.contains("automation") || lower.contains("messages.app") {
+            return DoctorGuidance(
+                headline: "Messages automation is blocked",
+                hint: "System Settings → Privacy & Security → Automation. Enable Messages under Epistemos so the driver can fetch threads.",
+                systemImage: "sparkles",
+                tint: .orange,
+                actions: [automationOpen, relaunch]
+            )
+        }
+        if lower.contains("not found") || lower.contains("no thread") || lower.contains("no contact") {
+            return DoctorGuidance(
+                headline: "Thread or contact not found",
+                hint: "Either nothing has been routed yet or the vault path is wrong. Double-check the vault at the top of this pane and try adding a contact.",
+                systemImage: "questionmark.circle",
+                tint: .blue,
+                actions: []
+            )
+        }
+        if lower.contains("network") || lower.contains("connection") || lower.contains("offline") {
+            return DoctorGuidance(
+                headline: "Network issue talking to the driver",
+                hint: "The native iMessage driver is unreachable. Relaunch Epistemos and try again; if this persists, check that the omega-mcp process is running.",
+                systemImage: "wifi.exclamationmark",
+                tint: .orange,
+                actions: [relaunch]
+            )
+        }
+        return DoctorGuidance(
+            headline: "iMessage driver reported an error",
+            hint: "Expand the raw error below. If you see \"permission\" or \"denied\", try granting Full Disk Access to the currently running Epistemos and relaunching.",
+            systemImage: "exclamationmark.triangle.fill",
+            tint: .red,
+            actions: [fdaOpen, relaunch]
+        )
+    }
+}
+
+private struct DriverSetupCheck: Identifiable {
+    let id = UUID()
+    let title: String
+    let detail: String
+    let passed: Bool
 }
 
 // MARK: - Shared Sender Route UI
