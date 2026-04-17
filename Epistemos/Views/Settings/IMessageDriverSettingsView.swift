@@ -766,10 +766,18 @@ struct DriverRouteEditorSheet: View {
                 }
 
                 if let errorMessage {
-                    Section {
-                        Text(errorMessage)
+                    Section("Couldn't save this route") {
+                        Label("Route save failed", systemImage: "xmark.octagon.fill")
                             .foregroundStyle(.red)
+                            .font(.caption.weight(.semibold))
+                        Text("Check that the contact is valid and the vault path above is writable, then try Save again.")
                             .font(.caption)
+                            .foregroundStyle(.secondary)
+                        DisclosureGroup("Raw error") {
+                            Text(errorMessage)
+                                .font(.caption.monospaced())
+                                .textSelection(.enabled)
+                        }
                     }
                 }
             }

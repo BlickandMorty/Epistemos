@@ -1,4 +1,7 @@
+import os
 import SwiftUI
+
+private let channelsSettingsLogger = Logger(subsystem: "Epistemos", category: "ChannelsSettingsView")
 
 struct ChannelsDetailView: View {
     @Environment(ChannelRegistryState.self) private var registry
@@ -7,6 +10,9 @@ struct ChannelsDetailView: View {
     @State private var senderRoutesChannel: ChannelIdentity?
     @State private var relayHealth: [ChannelIdentity: RelayHealthStatus] = [:]
     @State private var relayChecksInFlight: Set<ChannelIdentity> = []
+    @State private var iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus()
+    @State private var isRunningIMessageSetup: Bool = false
+    @State private var iMessageSetupMessage: String?
 
     private let tierOptions = [
         ("chat_lite", "Chat Lite"),
@@ -49,6 +55,9 @@ struct ChannelsDetailView: View {
                     description: Text("Attach a vault before managing sender routes.")
                 )
             }
+        }
+        .task {
+            await refreshIMessageSetupStatus()
         }
     }
 
@@ -143,7 +152,7 @@ struct ChannelsDetailView: View {
                     }
                 }
 
-                if let error = driver.lastError, !error.isEmpty {
+                if let error = presentedDriverError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
@@ -158,10 +167,34 @@ struct ChannelsDetailView: View {
                 Text(permissionDoctorTitle)
                     .font(.headline)
 
+                if registry.driverChannel == .imessage {
+                    HStack(spacing: 12) {
+                        ChannelStatusPill(
+                            title: iMessageSetupStatus.pollingReady ? "Polling Ready" : "Polling Blocked",
+                            tint: iMessageSetupStatus.pollingReady ? Color.green : Color.orange
+                        )
+                        ChannelStatusPill(
+                            title: iMessageSetupStatus.replyReady ? "Replies Ready" : "Replies Blocked",
+                            tint: iMessageSetupStatus.replyReady ? Color.green : Color.orange
+                        )
+                    }
+
+                    if let iMessageSetupMessage {
+                        Label(iMessageSetupMessage, systemImage: "sparkles")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if isRunningIMessageSetup {
+                        ProgressView("Running native iMessage setup…")
+                            .controlSize(.small)
+                    }
+                }
+
                 ForEach(permissionChecks) { check in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: check.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
-                            .foregroundStyle(check.passed ? .green : .orange)
+                            .foregroundStyle(check.passed ? Color.green : Color.orange)
                             .font(.caption)
                             .padding(.top, 2)
 
@@ -173,6 +206,37 @@ struct ChannelsDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+
+                if registry.driverChannel == .imessage {
+                    HStack(spacing: 10) {
+                        Button("Run Native Setup") {
+                            Task { await runNativeSetup() }
+                        }
+                        .disabled(isRunningIMessageSetup)
+
+                        Button("Open iMessage Driver") {
+                            openIMessageSettings()
+                        }
+
+                        Button("Refresh setup status") {
+                            Task { await refreshIMessageSetupStatus() }
+                        }
+                        .disabled(isRunningIMessageSetup)
+
+                        Button("Reveal This Epistemos") {
+                            IMessageNativeSetupDoctor.revealCurrentApp()
+                        }
+
+                        Button("Relaunch Epistemos") {
+                            Task { await IMessageNativeSetupDoctor.relaunchCurrentApp() }
+                        }
+                    }
+
+                    Text(iMessageSetupStatus.currentAppPath)
+                        .font(.caption2.monospaced())
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
                 }
             }
         }
@@ -406,13 +470,6 @@ struct ChannelsDetailView: View {
 
     private var permissionChecks: [PermissionCheck] {
         let driverConfiguration = registry.configuration(for: registry.driverChannel)
-        let homeDirectory = FileManager.default.homeDirectoryForCurrentUser
-        let chatDBPath = homeDirectory
-            .appendingPathComponent("Library", isDirectory: true)
-            .appendingPathComponent("Messages", isDirectory: true)
-            .appendingPathComponent("chat.db")
-            .path
-        let messagesAppPath = "/System/Applications/Messages.app"
 
         var checks = [
             PermissionCheck(
@@ -464,20 +521,29 @@ struct ChannelsDetailView: View {
                driverConfiguration.pairingMetadata?.enableNativeFallback == true {
                 checks.append(
                     PermissionCheck(
-                        title: "Messages database readable",
-                        detail: FileManager.default.isReadableFile(atPath: chatDBPath)
-                            ? "chat.db is readable, so native iMessage fallback is available."
-                            : "Grant Full Disk Access if you want native iMessage fallback to stay available.",
-                        passed: FileManager.default.isReadableFile(atPath: chatDBPath)
+                        title: "Messages database accessible",
+                        detail: iMessageSetupStatus.databaseAccessible
+                            ? "chat.db is available for live sqlite reads, so native fallback can poll locally."
+                            : "Native fallback is armed, but macOS is still blocking live Messages database opens.",
+                        passed: iMessageSetupStatus.databaseAccessible
+                    )
+                )
+                checks.append(
+                    PermissionCheck(
+                        title: "Messages automation ready",
+                        detail: iMessageSetupStatus.messagesAutomationGranted
+                            ? "Messages replies can be sent if the relay drops back to the native bridge."
+                            : "Messages replies still need Apple Events approval before native fallback can send.",
+                        passed: iMessageSetupStatus.messagesAutomationGranted
                     )
                 )
                 checks.append(
                     PermissionCheck(
                         title: "Messages app available",
-                        detail: FileManager.default.fileExists(atPath: messagesAppPath)
+                        detail: iMessageSetupStatus.messagesAppAvailable
                             ? "Messages.app is present for native fallback replies."
                             : "Messages.app was not found at the default system location.",
-                        passed: FileManager.default.fileExists(atPath: messagesAppPath)
+                        passed: iMessageSetupStatus.messagesAppAvailable
                     )
                 )
             }
@@ -487,23 +553,107 @@ struct ChannelsDetailView: View {
 
         checks.append(
             PermissionCheck(
-                title: "Messages database readable",
-                detail: FileManager.default.isReadableFile(atPath: chatDBPath)
-                    ? "chat.db is readable, so the native iMessage poller can see incoming threads."
-                    : "Grant Full Disk Access if Epistemos cannot read Messages history.",
-                passed: FileManager.default.isReadableFile(atPath: chatDBPath)
+                title: "Current Epistemos build",
+                detail: iMessageSetupStatus.isDebugBuild
+                    ? "The current settings window is running inside a Debug build at \(iMessageSetupStatus.currentAppPath). Full Disk Access must be granted to this exact app copy."
+                    : "The current settings window is running inside \(iMessageSetupStatus.currentAppPath).",
+                passed: true
+            )
+        )
+        checks.append(
+            PermissionCheck(
+                title: "Another Epistemos copy is also running",
+                detail: iMessageSetupStatus.hasMultipleEpistemosBuildsRunning
+                    ? "Multiple Epistemos app copies are open right now:\n\(iMessageSetupStatus.runningEpistemosAppPaths.joined(separator: "\n"))"
+                    : "Only this Epistemos app copy is currently running, so privacy changes will apply cleanly once it relaunches.",
+                passed: !iMessageSetupStatus.hasMultipleEpistemosBuildsRunning
+            )
+        )
+        checks.append(
+            PermissionCheck(
+                title: "Messages database accessible",
+                detail: iMessageSetupStatus.databaseAccessible
+                    ? "chat.db is available for live sqlite reads, so the native iMessage poller can see incoming threads."
+                    : "chat.db exists, but macOS is still blocking live database opens until Full Disk Access is granted to this exact app copy and it is relaunched.",
+                passed: iMessageSetupStatus.databaseAccessible
+            )
+        )
+        checks.append(
+            PermissionCheck(
+                title: "Messages automation ready",
+                detail: iMessageSetupStatus.messagesAutomationGranted
+                    ? "Messages replies can be delivered because Apple Events access is already granted."
+                    : "Replies are still blocked. Run Native Setup to trigger the Messages automation consent flow.",
+                passed: iMessageSetupStatus.messagesAutomationGranted
             )
         )
         checks.append(
             PermissionCheck(
                 title: "Messages app available",
-                detail: FileManager.default.fileExists(atPath: messagesAppPath)
+                detail: iMessageSetupStatus.messagesAppAvailable
                     ? "Messages.app is present for reply delivery."
                     : "Messages.app was not found at the default system location.",
-                passed: FileManager.default.fileExists(atPath: messagesAppPath)
+                passed: iMessageSetupStatus.messagesAppAvailable
             )
         )
         return checks
+    }
+
+    private var presentedDriverError: String? {
+        if registry.driverChannel == .imessage {
+            return IMessageNativeSetupDoctor.presentedDriverError(driver.lastError, status: iMessageSetupStatus)
+        }
+        guard let error = driver.lastError?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !error.isEmpty else {
+            return nil
+        }
+        return error
+    }
+
+    private func refreshIMessageSetupStatus() async {
+        iMessageSetupStatus = IMessageNativeSetupDoctor.currentStatus()
+        if iMessageSetupStatus.nativeBridgeReady {
+            iMessageSetupMessage = "Native Messages bridge looks ready."
+        } else if iMessageSetupStatus.databaseAccessible {
+            iMessageSetupMessage = "Polling is ready. Replies still need the Messages automation approval."
+        } else if iMessageSetupStatus.hasMultipleEpistemosBuildsRunning {
+            iMessageSetupMessage = "Another Epistemos copy is also running. Grant Full Disk Access to the current build shown here, then relaunch that same copy."
+        } else if iMessageSetupStatus.isDebugBuild {
+            iMessageSetupMessage = "This Debug build still cannot read chat.db. Grant Full Disk Access to this exact app copy, then relaunch it."
+        } else {
+            iMessageSetupMessage = "Full Disk Access is still the main blocker for native polling."
+        }
+    }
+
+    private func runNativeSetup() async {
+        isRunningIMessageSetup = true
+        iMessageSetupMessage = "Opening Messages and the required privacy panes…"
+        defer { isRunningIMessageSetup = false }
+
+        iMessageSetupStatus = await IMessageNativeSetupDoctor.runGuidedSetup()
+
+        if iMessageSetupStatus.databaseAccessible {
+            if !driver.isRunning {
+                driver.start()
+            }
+            await driver.tickOnce()
+        }
+
+        if iMessageSetupStatus.nativeBridgeReady {
+            iMessageSetupMessage = "Native setup finished and the iMessage driver ran a fresh poll."
+        } else if iMessageSetupStatus.databaseAccessible {
+            iMessageSetupMessage = "Native polling is ready now. One Messages automation approval may still be needed for replies."
+        } else if iMessageSetupStatus.hasMultipleEpistemosBuildsRunning {
+            iMessageSetupMessage = "System Settings opened, but another Epistemos copy is also running. Grant access to the current build shown here, then relaunch that same copy."
+        } else if iMessageSetupStatus.isDebugBuild {
+            iMessageSetupMessage = "System Settings opened for Full Disk Access. Grant access to this Debug app copy, then relaunch it before polling again."
+        } else {
+            iMessageSetupMessage = "System Settings opened for Full Disk Access. After granting access to this Epistemos build, relaunch it, then come back here and press Refresh setup status."
+        }
+    }
+
+    private func openIMessageSettings() {
+        NotificationCenter.default.post(name: .showIMessageDriverSettings, object: nil)
     }
 
     private func relayDescription(for channel: ChannelConfiguration) -> String {
@@ -877,10 +1027,19 @@ private struct ChannelSenderRoutesSheet: View {
             }
 
             if let errorMessage, !errorMessage.isEmpty {
-                Section {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                Section("Channel status") {
+                    Label("Sender routes couldn't load", systemImage: "antenna.radiowaves.left.and.right.slash")
                         .foregroundStyle(.orange)
+                        .font(.caption.weight(.semibold))
+                    Text("The driver may not be paired yet, or the vault path above is unreachable. Re-pair this channel in Settings → Drivers and try again.")
                         .font(.caption)
+                        .foregroundStyle(.secondary)
+                    DisclosureGroup("Raw error") {
+                        Text(errorMessage)
+                            .font(.caption.monospaced())
+                            .textSelection(.enabled)
+                            .foregroundStyle(.orange)
+                    }
                 }
             }
         }
@@ -933,11 +1092,15 @@ private struct ChannelSenderRoutesSheet: View {
         let doomed = offsets.map { routes[$0] }
         Task {
             for route in doomed {
-                try? await ChannelContactsStore.remove(
-                    channelID: channel.id,
-                    handle: route.handle,
-                    vaultPath: vaultPath
-                )
+                do {
+                    try await ChannelContactsStore.remove(
+                        channelID: channel.id,
+                        handle: route.handle,
+                        vaultPath: vaultPath
+                    )
+                } catch {
+                    channelsSettingsLogger.error("Failed to remove channel route \(route.handle, privacy: .public) for \(channel.id.title, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                }
             }
             await refresh()
         }
