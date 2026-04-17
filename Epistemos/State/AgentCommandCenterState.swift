@@ -123,7 +123,11 @@ final class AgentCommandCenterState {
 
     // MARK: - Inspector Panel
 
-    var inspectorState: ACCInspectorPanelState = .expanded(.capabilities)
+    /// Default collapsed so the agent page reads as a chat, not a dashboard.
+    /// The plan/execution inspector only appears on explicit user request
+    /// (toolbar toggle) or when the request compiler / streaming delegate
+    /// surfaces real plan/tool activity worth showing.
+    var inspectorState: ACCInspectorPanelState = .collapsed
 
     /// Authoritative runtime diagnostics for the inspector — populated only by
     /// the CommandCenterRequestCompiler (at compile time) and the Rust streaming
@@ -351,6 +355,23 @@ final class AgentCommandCenterState {
         activeMentions = []
         pendingGraphChatRequest = nil
         suggestionMenuState = .hidden
+        highlightedSuggestionIndex = 0
+    }
+
+    /// Seed the agent composer with a string and synchronously mirror the
+    /// parsed slash/mention state so callers can submit immediately without
+    /// waiting for the debounce loop.
+    func primeInput(_ text: String) {
+        inputText = text
+
+        let result = CommandInputParser.parse(
+            text,
+            availableSkills: availableSkills,
+            contextProviders: contextProviders
+        )
+        activeSlashToken = result.slashToken
+        activeMentions = result.mentions
+        suggestionMenuState = result.suggestionState
         highlightedSuggestionIndex = 0
     }
 }

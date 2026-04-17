@@ -230,12 +230,18 @@ struct AgentCommandCenterView: View {
 
     private var terminalBackdrop: some View {
         ZStack {
-            Color.black.opacity(0.82)
-                .background(.ultraThinMaterial)
+            // OLED pure-black when dark, on-theme surface when light. No
+            // semi-transparent material in dark mode — dark mode is meant to
+            // be a true black canvas for maximum contrast on the agent page.
+            if theme.isDark {
+                Color.black
+            } else {
+                theme.resolved.background.color
+            }
 
             RadialGradient(
                 colors: [
-                    theme.resolved.accent.color.opacity(0.16),
+                    theme.resolved.accent.color.opacity(theme.isDark ? 0.08 : 0.16),
                     Color.clear,
                 ],
                 center: .topLeading,
