@@ -580,7 +580,7 @@ final class AIPartnerService {
                     range: lineRange,
                     color: .purple,
                     label: match.title,
-                    source: "vault (\(Int(match.finalScore * 100))%)",
+                    source: "vault (\(match.finalScore.isFinite ? Int(match.finalScore * 100) : 0)%)",
                     weight: match.finalScore
                 ))
             }

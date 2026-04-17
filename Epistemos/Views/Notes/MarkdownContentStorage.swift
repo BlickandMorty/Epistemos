@@ -256,7 +256,7 @@ final class MarkdownContentStorage: NSObject, NSTextContentStorageDelegate {
                 level: level,
                 isLeadingDocumentHeading: isLeadingDocumentHeading
             )
-            let usesDisplayFont = (level == 1)
+            let usesDisplayFont = (level == 1 || level == 2)
             let headingFont =
                 if usesDisplayFont {
                     AppDisplayTypography.nsFont(size: fontSize, weight: weight)

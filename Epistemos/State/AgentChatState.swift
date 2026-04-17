@@ -46,6 +46,12 @@ final class AgentChatState {
     /// Execution plan summary from the overseer (feeds inspector Plan tab).
     var executionPlanSummary: String?
 
+    /// Editable document mirrored into the plan inspector tab.
+    var planDocumentText: String = ""
+
+    /// Last completed assistant response, used to sync plan-like output into the side panel.
+    var lastCompletedAssistantResponse: String?
+
     // MARK: - Context Tracking
 
     var estimatedContextTokens: Int = 0
@@ -70,6 +76,12 @@ final class AgentChatState {
         self?.streamingText += delta
     }
 
+    @ObservationIgnored
+    private var lastAutoPlanDocumentText: String?
+
+    @ObservationIgnored
+    private var lastPlanDocumentSeed: AgentPlanDocumentSeed?
+
     // MARK: - Init
 
     init() {}
@@ -90,6 +102,7 @@ final class AgentChatState {
         agentTurnCount = 0
         toolHistory = []
         executionPlanSummary = nil
+        resetPlanDocument()
         estimatedContextTokens = 0
         log.info("[AgentChat] New session: \(self.activeSessionId ?? "nil")")
     }
@@ -114,6 +127,7 @@ final class AgentChatState {
         streamBuffer.reset(releaseCapacity: true)
         streamingText.removeAll(keepingCapacity: false)
         isStreaming = false
+        lastCompletedAssistantResponse = nil
     }
 
     // MARK: - Streaming
@@ -201,6 +215,7 @@ final class AgentChatState {
         messages.append(assistantMessage)
         hasMessages = true
         agentTurnCount += 1
+        lastCompletedAssistantResponse = answerText
 
         // Reset streaming state
         streamBuffer.reset(releaseCapacity: true)
@@ -235,6 +250,7 @@ final class AgentChatState {
         pendingContentBlocks = []
         activeToolName = nil
         isAgentExecuting = false
+        lastCompletedAssistantResponse = nil
     }
 
     // MARK: - Clear
@@ -252,7 +268,49 @@ final class AgentChatState {
         agentTurnCount = 0
         toolHistory = []
         executionPlanSummary = nil
+        resetPlanDocument()
         estimatedContextTokens = 0
+    }
+
+    // MARK: - Plan Document
+
+    func seedPlanDocument(_ seed: AgentPlanDocumentSeed) {
+        lastPlanDocumentSeed = seed
+        executionPlanSummary = seed.summary
+        applyAutoPlanDocument(
+            AgentPlanDocumentBuilder.makeDocument(seed: seed)
+        )
+    }
+
+    func absorbAgentResponseIntoPlanDocument(_ response: String) {
+        guard let candidate = AgentPlanDocumentBuilder.extractPlanCandidate(from: response) else { return }
+        applyAutoPlanDocument(
+            AgentPlanDocumentBuilder.makeDocument(
+                seed: lastPlanDocumentSeed,
+                planCandidate: candidate
+            )
+        )
+    }
+
+    func userEditedPlanDocument(_ text: String) {
+        planDocumentText = text
+    }
+
+    private func resetPlanDocument() {
+        planDocumentText = ""
+        lastAutoPlanDocumentText = nil
+        lastPlanDocumentSeed = nil
+        lastCompletedAssistantResponse = nil
+    }
+
+    private func applyAutoPlanDocument(_ text: String) {
+        let normalizedCurrent = planDocumentText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedAuto = lastAutoPlanDocumentText?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedNext = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedNext.isEmpty else { return }
+        guard normalizedCurrent.isEmpty || normalizedCurrent == normalizedAuto else { return }
+        planDocumentText = text
+        lastAutoPlanDocumentText = text
     }
 
     // MARK: - Helpers

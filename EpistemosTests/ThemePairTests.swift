@@ -513,6 +513,17 @@ struct ThemePairTests {
         #expect(liquidGreeting.contains("radius: compact ? 0 : 8"))
     }
 
+    @Test("Landing backdrop keeps the OLED bloom exclusive to dark mode")
+    func landingBackdropKeepsOLEDBloomDarkModeOnly() throws {
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(landingView.contains("private var landingBackdrop: some View"))
+        #expect(landingView.contains("Color.black"))
+        #expect(landingView.contains("if theme.isDark"))
+        #expect(landingView.contains("darkModeLandingBackdrop"))
+        #expect(landingView.contains(".blur(radius: 90)"))
+    }
+
     @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")
     func regularDisplayModePolicy() {
         #expect(AppDisplayMode.opulent.usesDisplayFont)
@@ -767,7 +778,7 @@ struct ThemePairTests {
         #expect(chatView.contains("static let transcriptSpacing: CGFloat = 28"))
         #expect(messageBubble.contains(".padding(.horizontal, 18)"))
         #expect(messageBubble.contains(".padding(.vertical, 14)"))
-        #expect(markdownView.contains("private static let bodyLineSpacing: CGFloat = 5"))
+        #expect(markdownView.contains("case .assistant: 7"))
         #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 11"))
     }
 
@@ -1114,8 +1125,10 @@ struct ThemePairTests {
     @Test("Project uses AppIcon.icon as the primary app icon source")
     func projectUsesIconComposerFile() throws {
         let pbxproj = try loadProjectFile()
-        #expect(pbxproj.contains("AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon;"))
-        #expect(pbxproj.contains("path = AppIcon.icon;"))
+        let iconComposer = repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/icon.json")
+
+        #expect(FileManager.default.fileExists(atPath: iconComposer.path))
+        #expect(pbxproj.contains("PBXFileSystemSynchronizedRootGroup"))
         #expect(pbxproj.contains("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;"))
     }
 
@@ -1130,7 +1143,7 @@ struct ThemePairTests {
         let pbxproj = try loadProjectFile()
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
-        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust -lgraph_engine -lomega_mcp -lomega_ax -lepistemos_core -lagent_core\";"))
+        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core\";"))
         #expect(pbxproj.contains("\"@executable_path\","))
         #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
         #expect(!pbxproj.contains(#"""

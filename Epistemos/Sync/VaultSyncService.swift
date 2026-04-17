@@ -95,6 +95,10 @@ struct VaultRecoveryIssue: Identifiable, Sendable {
         Local note-body files: \(snapshot.localBodyFileCount)
         """
     }
+
+    var blocksWorkspaceInteraction: Bool {
+        snapshot.isVaultReadable && snapshot.vaultMarkdownCount > 0
+    }
 }
 
 private struct VersionCaptureSnapshot: Sendable {
@@ -2863,9 +2867,31 @@ final class VaultSyncService {
 
     /// Create a new page in SwiftData and write its .md file.
     /// Returns the page ID for immediate navigation.
-    func createPage(title: String, body: String = "", emoji: String = "", subfolder: String? = nil)
+    func createPage(
+        title: String,
+        body: String = "",
+        emoji: String = "",
+        subfolder: String? = nil,
+        allowVaultSelectionPrompt: Bool = false
+    )
         async -> String?
     {
+        if vaultURL == nil {
+            guard allowVaultSelectionPrompt,
+                  !Self.isRunningTests,
+                  let notesUI = AppBootstrap.shared?.notesUI
+            else {
+                log.warning("Cannot create page: no vault URL")
+                return nil
+            }
+
+            let didSelectVault = await VaultConnectionActions.selectVaultFolderForImmediateUse(
+                notesUI: notesUI,
+                vaultSync: self
+            )
+            guard didSelectVault else { return nil }
+        }
+
         guard let vaultURL else {
             log.warning("Cannot create page: no vault URL")
             return nil
@@ -3089,52 +3115,77 @@ final class VaultSyncService {
 
 @MainActor
 enum VaultConnectionActions {
+    @MainActor
+    fileprivate static func connectSelectedVaultAsync(
+        url: URL,
+        vaultSync: VaultSyncService,
+        beforeSwitch: @escaping @MainActor () -> Void = {}
+    ) async -> Bool {
+        let assessment = await Task.detached(priority: .utility) {
+            VaultIndexActor.vaultFolderSelectionAssessment(for: url)
+        }.value
+
+        guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else { return false }
+
+        let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
+        if didSwitch {
+            // Reset UI only after successful switch
+            beforeSwitch()
+            NoteWindowManager.shared.resetForVaultRebuild()
+            vaultSync.persistVaultSelection(
+                url,
+                userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
+            )
+            return true
+        }
+
+        // Switch failed — old vault already stopped, show clean disconnected state
+        beforeSwitch()
+        NoteWindowManager.shared.resetForVaultRebuild()
+        AppBootstrap.shared?.uiState.setActivePanel(.home)
+        log.error("Vault switch to \(url.lastPathComponent, privacy: .public) failed")
+        return false
+    }
+
     static func connectSelectedVault(
         url: URL,
         vaultSync: VaultSyncService,
         beforeSwitch: @escaping @MainActor () -> Void = {}
     ) {
         Task { @MainActor in
-            let assessment = await Task.detached(priority: .utility) {
-                VaultIndexActor.vaultFolderSelectionAssessment(for: url)
-            }.value
-
-            guard shouldProceedWithVaultSelection(url: url, assessment: assessment) else { return }
-
-            let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)
-            if didSwitch {
-                // Reset UI only after successful switch
-                beforeSwitch()
-                NoteWindowManager.shared.resetForVaultRebuild()
-                vaultSync.persistVaultSelection(
-                    url,
-                    userConfirmedSuspiciousFolder: assessment.shouldConfirmSelection
-                )
-            } else {
-                // Switch failed — old vault already stopped, show clean disconnected state
-                beforeSwitch()
-                NoteWindowManager.shared.resetForVaultRebuild()
-                AppBootstrap.shared?.uiState.setActivePanel(.home)
-                log.error("Vault switch to \(url.lastPathComponent, privacy: .public) failed")
-            }
+            _ = await connectSelectedVaultAsync(
+                url: url,
+                vaultSync: vaultSync,
+                beforeSwitch: beforeSwitch
+            )
         }
     }
 
-    static func selectVaultFolder(notesUI: NotesUIState, vaultSync: VaultSyncService) {
+    @MainActor
+    fileprivate static func selectVaultFolderForImmediateUse(
+        notesUI: NotesUIState,
+        vaultSync: VaultSyncService
+    ) async -> Bool {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
         panel.message = "Choose a folder for your Epistemos vault"
 
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
 
         // Same folder already connected — no-op
         if let current = vaultSync.vaultURL,
-           current.standardizedFileURL == url.standardizedFileURL { return }
+           current.standardizedFileURL == url.standardizedFileURL { return true }
 
-        connectSelectedVault(url: url, vaultSync: vaultSync) {
+        return await connectSelectedVaultAsync(url: url, vaultSync: vaultSync) {
             notesUI.resetForVaultSwitch()
+        }
+    }
+
+    static func selectVaultFolder(notesUI: NotesUIState, vaultSync: VaultSyncService) {
+        Task { @MainActor in
+            _ = await selectVaultFolderForImmediateUse(notesUI: notesUI, vaultSync: vaultSync)
         }
     }
 

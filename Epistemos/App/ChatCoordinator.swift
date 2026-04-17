@@ -234,7 +234,7 @@ final class ChatCoordinator {
                 // Seed the inspector with requested-vs-resolved truth BEFORE
                 // any streaming events fire.
                 accState.diagnostics.ingestCompiledRequest(compiled)
-                agentChat.executionPlanSummary = compiled.resolvedExecutionPolicy.summary
+                agentChat.seedPlanDocument(self.commandCenterPlanDocumentSeed(from: compiled))
 
                 let executionPlan = self.commandCenterExecutionPlan(from: compiled)
                 let effectiveOperatingMode = compiled.resolvedExecutionPolicy.effectiveOperatingMode
@@ -292,6 +292,9 @@ final class ChatCoordinator {
                             agentChat.appendStreamingText(text)
                         case .completed:
                             agentChat.completeProcessing(mode: mode)
+                            if let response = agentChat.lastCompletedAssistantResponse {
+                                agentChat.absorbAgentResponseIntoPlanDocument(response)
+                            }
                             accState.diagnostics.markCompleted(
                                 stopReason: "completed",
                                 inputTokens: 0,
@@ -759,6 +762,40 @@ final class ChatCoordinator {
             outputTokens: LocalAgentLoop.approximateTokenCount(of: output)
         )
         agentChat.completeProcessing(mode: inferenceState.inferenceMode)
+        if let response = agentChat.lastCompletedAssistantResponse {
+            agentChat.absorbAgentResponseIntoPlanDocument(response)
+        }
+    }
+
+    private func commandCenterPlanDocumentSeed(
+        from compiled: CompiledCommandCenterRequest
+    ) -> AgentPlanDocumentSeed {
+        AgentPlanDocumentSeed(
+            query: compiled.query,
+            summary: compiled.resolvedExecutionPolicy.summary,
+            operatingMode: compiled.resolvedExecutionPolicy.effectiveOperatingMode.displayName,
+            route: commandCenterRouteLabel(compiled.resolvedExecutionPolicy.route),
+            experts: compiled.resolvedExecutionPolicy.expertAllowlist,
+            budgets: [
+                AgentPlanDocumentBudget(label: "Turns", value: compiled.resolvedExecutionPolicy.maxTurns),
+                AgentPlanDocumentBudget(label: "Tool calls", value: compiled.resolvedExecutionPolicy.maxToolCalls),
+                AgentPlanDocumentBudget(label: "Reasoning steps", value: compiled.resolvedExecutionPolicy.maxReasoningSteps),
+                AgentPlanDocumentBudget(label: "Output tokens", value: compiled.resolvedExecutionPolicy.maxOutputTokens),
+            ]
+        )
+    }
+
+    private func commandCenterRouteLabel(_ route: String) -> String {
+        switch route {
+        case "local_only":
+            "Local Only"
+        case "overseer_local_execution":
+            "Overseer (Local)"
+        case "managed_agent_session":
+            "Managed Agent"
+        default:
+            route
+        }
     }
 
     private func currentCommandCenterAutoBrain() -> ACCBrainSelection? {

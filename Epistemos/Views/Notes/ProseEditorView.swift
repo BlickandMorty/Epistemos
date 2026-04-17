@@ -375,7 +375,10 @@ struct ProseEditorView: View {
         case .notFound:
             // Create new page for dangling wikilink — stay in same window
             Task {
-                if let newId = await vaultSync.createPage(title: trimmed) {
+                if let newId = await vaultSync.createPage(
+                    title: trimmed,
+                    allowVaultSelectionPrompt: true
+                ) {
                     if let navState {
                         navState.push(pageId: newId, title: trimmed)
                     } else {

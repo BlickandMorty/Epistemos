@@ -579,7 +579,11 @@ struct SessionIntelligenceOverlay: View {
         }
 
         // Create the note
-        if let pageId = await bootstrap.vaultSync.createPage(title: "Session Summary", body: content) {
+        if let pageId = await bootstrap.vaultSync.createPage(
+            title: "Session Summary",
+            body: content,
+            allowVaultSelectionPrompt: true
+        ) {
             NoteWindowManager.shared.open(pageId: pageId)
             return "Created session summary note with \(content.count) characters. Opened in a new tab."
         }
@@ -591,9 +595,16 @@ struct SessionIntelligenceOverlay: View {
 
         let pageId: String?
         if let body {
-            pageId = await bootstrap.vaultSync.createPage(title: title, body: body)
+            pageId = await bootstrap.vaultSync.createPage(
+                title: title,
+                body: body,
+                allowVaultSelectionPrompt: true
+            )
         } else {
-            pageId = await bootstrap.vaultSync.createPage(title: title)
+            pageId = await bootstrap.vaultSync.createPage(
+                title: title,
+                allowVaultSelectionPrompt: true
+            )
         }
 
         guard let pageId else { return nil }

@@ -7,14 +7,24 @@ import NaturalLanguage
 nonisolated protocol TextEmbeddingLookup: Sendable {
     var dimension: Int { get }
     func vector(for token: String) -> [Float]?
+
+    /// Whole-text embedding. Return nil to fall back to per-token averaging.
+    /// Lookups that support ANE-accelerated contextual embeddings (e.g.
+    /// `AppleContextualEmbeddingLookup`) should implement this to skip the
+    /// word-averaging code path entirely.
+    func textVector(for text: String) -> [Float]?
+}
+
+extension TextEmbeddingLookup {
+    nonisolated func textVector(for text: String) -> [Float]? { nil }
 }
 
 nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
-    var dimension: Int {
+    nonisolated var dimension: Int {
         NLEmbedding.wordEmbedding(for: .english)?.dimension ?? 0
     }
 
-    func vector(for token: String) -> [Float]? {
+    nonisolated func vector(for token: String) -> [Float]? {
         guard let embedding = NLEmbedding.wordEmbedding(for: .english),
               let vector = embedding.vector(for: token) else {
             return nil
@@ -23,6 +33,102 @@ nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
         var result = [Float](repeating: 0, count: vector.count)
         vDSP.convertElements(of: vector, to: &result)
         return result
+    }
+}
+
+/// NLContextualEmbedding-backed lookup. Runs on ANE on Apple Silicon when
+/// model assets are available (macOS 14+). Returns nil from `vector(for:)`
+/// because per-token contextual lookups defeat the purpose of a contextual
+/// model — the whole-text path is exposed via `textVector(for:)`.
+///
+/// Compose this with `AppleWordEmbeddingLookup` (see `AppleHybridEmbeddingLookup`)
+/// to stay working while the model is downloading or when the query language
+/// is not supported.
+nonisolated struct AppleContextualEmbeddingLookup: TextEmbeddingLookup, @unchecked Sendable {
+    // SAFETY: NLContextualEmbedding is a Foundation-bridged ObjC class. It is
+    // effectively immutable after init (we only call `embeddingResult(...)` and
+    // read `dimension`/`hasAvailableAssets`), and Apple documents those paths as
+    // safe to invoke without external synchronization.
+    private let embedding: NLContextualEmbedding?
+    private let language: NLLanguage
+
+    init(language: NLLanguage = .english) {
+        self.language = language
+        // Contextual activates only when assets are already present on device.
+        // Asset download is not kicked off from here to keep the lookup
+        // Sendable-clean; the hybrid lookup falls back to word embeddings until
+        // assets land via other Apple-framework paths.
+        self.embedding = NLContextualEmbedding(language: language)
+    }
+
+    var dimension: Int {
+        guard let embedding, embedding.hasAvailableAssets else { return 0 }
+        return Int(embedding.dimension)
+    }
+
+    func vector(for token: String) -> [Float]? { nil }
+
+    func textVector(for text: String) -> [Float]? {
+        guard let embedding, embedding.hasAvailableAssets else { return nil }
+        guard let result = try? embedding.embeddingResult(for: text, language: language) else { return nil }
+        return Self.meanPool(result, dimension: Int(embedding.dimension))
+    }
+
+    private static func meanPool(_ result: NLContextualEmbeddingResult, dimension: Int) -> [Float]? {
+        guard dimension > 0 else { return nil }
+        var sum = [Float](repeating: 0, count: dimension)
+        var count = 0
+        let range = result.string.startIndex..<result.string.endIndex
+        result.enumerateTokenVectors(in: range) { vector, _ in
+            guard vector.count == dimension else { return true }
+            var converted = [Float](repeating: 0, count: dimension)
+            vDSP.convertElements(of: vector, to: &converted)
+            vDSP.add(sum, converted, result: &sum)
+            count += 1
+            return true
+        }
+        guard count > 0 else { return nil }
+        var scaled = [Float](repeating: 0, count: dimension)
+        vDSP.multiply(1.0 / Float(count), sum, result: &scaled)
+        return scaled
+    }
+}
+
+/// Composite lookup that prefers ANE-accelerated contextual embeddings when
+/// available and falls back to the stable word-embedding path otherwise.
+/// Dimension is pinned at construction time to keep cached vectors consistent
+/// within a single session; restart the embedding cache to pick up a transition
+/// from word → contextual after assets finish downloading.
+nonisolated struct AppleHybridEmbeddingLookup: TextEmbeddingLookup, @unchecked Sendable {
+    private let contextual: AppleContextualEmbeddingLookup
+    private let word: AppleWordEmbeddingLookup
+    private let pinnedDimension: Int
+    private let usesContextual: Bool
+
+    init() {
+        let ctx = AppleContextualEmbeddingLookup()
+        let wrd = AppleWordEmbeddingLookup()
+        let cdim = ctx.dimension
+        if cdim > 0 {
+            self.usesContextual = true
+            self.pinnedDimension = cdim
+        } else {
+            self.usesContextual = false
+            self.pinnedDimension = wrd.dimension
+        }
+        self.contextual = ctx
+        self.word = wrd
+    }
+
+    var dimension: Int { pinnedDimension }
+
+    func vector(for token: String) -> [Float]? {
+        usesContextual ? nil : word.vector(for: token)
+    }
+
+    func textVector(for text: String) -> [Float]? {
+        guard usesContextual else { return nil }
+        return contextual.textVector(for: text)
     }
 }
 
@@ -44,6 +150,44 @@ private nonisolated struct EmbeddingBatchPayload: Sendable {
 
 private nonisolated struct SendableEngineHandle: @unchecked Sendable {
     let raw: OpaquePointer
+}
+
+private nonisolated final class DetachedEngineUseTracker: @unchecked Sendable {
+    private let lock = NSLock()
+    private let group = DispatchGroup()
+    private var acceptsUse = true
+
+    func open() {
+        lock.lock()
+        acceptsUse = true
+        lock.unlock()
+    }
+
+    func begin() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard acceptsUse else { return false }
+        group.enter()
+        return true
+    }
+
+    func end() {
+        group.leave()
+    }
+
+    func closeAndWait() {
+        lock.lock()
+        acceptsUse = false
+        lock.unlock()
+        group.wait()
+    }
+
+    func closeAndWaitAsync() async {
+        await Task.detached(priority: .utility) {
+            self.closeAndWait()
+        }.value
+    }
 }
 
 // MARK: - EmbeddingService
@@ -83,6 +227,9 @@ final class EmbeddingService {
     private var embeddingCacheCapacityOverride: Int?
     private let fallbackEmbeddingLookup: any TextEmbeddingLookup
     private let preparedRetrievalRuntimeResolver: any PreparedRetrievalRuntimeResolving
+    // SAFETY: written only on MainActor (applyPreparedRetrievalRuntimeConfiguration),
+    // read from nonisolated embedding functions — the values are effectively immutable
+    // between configuration changes.
     nonisolated(unsafe) private var activeEmbeddingLookup: any TextEmbeddingLookup
     nonisolated(unsafe) private var swiftEmbeddingFallbackActive = true
     nonisolated(unsafe) private var preparedQueryEmbeddingActive = false
@@ -92,9 +239,10 @@ final class EmbeddingService {
         preparedRetrievalRuntimeConfiguration?.assetLayout?.indexManifestPath
     }
 
-    /// The compute task handle. Marked nonisolated(unsafe) so deinit can cancel it
-    /// synchronously without requiring @MainActor isolation.
+    // SAFETY: accessed from nonisolated cancelPendingTask/prepareForEngineDestroy only after
+    // the MainActor task that writes it has completed or been cancelled.
     nonisolated(unsafe) private var computeTask: Task<Void, Never>?
+    private let detachedEngineUseTracker = DetachedEngineUseTracker()
 
     /// Weak reference to owning GraphState — used to read the live engine handle
     /// inside MainActor.run instead of capturing a stale pointer by value.
@@ -109,6 +257,10 @@ final class EmbeddingService {
         fallbackEmbeddingLookup = embeddingLookup
         self.preparedRetrievalRuntimeResolver = preparedRetrievalRuntimeResolver
         activeEmbeddingLookup = embeddingLookup
+    }
+
+    func prepareForEngineUse() {
+        detachedEngineUseTracker.open()
     }
 
     func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?) {
@@ -223,10 +375,17 @@ final class EmbeddingService {
             // loop is never blocked by the computation.
             let handle = engineHandle
             let count = completedEmbeddings.count
-            Task.detached(priority: .utility) {
+            guard let detachedEngineUseTracker = self?.detachedEngineUseTracker,
+                  !Task.isCancelled,
+                  detachedEngineUseTracker.begin() else {
+                return
+            }
+            let task = Task.detached(priority: .utility) {
+                defer { detachedEngineUseTracker.end() }
                 graph_engine_recompute_semantic_neighbors(handle.raw, 8, 0.3)
                 Log.app.info("EmbeddingService: pushed \(count) embeddings (dim=\(dim)) to Rust")
             }
+            _ = task
         }
     }
 
@@ -235,6 +394,11 @@ final class EmbeddingService {
     nonisolated func cancelPendingTask() {
         computeTask?.cancel()
         computeTask = nil
+    }
+
+    nonisolated func prepareForEngineDestroy() {
+        cancelPendingTask()
+        detachedEngineUseTracker.closeAndWait()
     }
 
     /// Get embedding for a specific node (for hybrid search).
@@ -383,6 +547,8 @@ final class EmbeddingService {
     func waitForPendingComputationForTesting() async {
         let task = computeTask
         await task?.value
+        await detachedEngineUseTracker.closeAndWaitAsync()
+        detachedEngineUseTracker.open()
     }
 
     private func clearEmbeddingCache() {
@@ -444,6 +610,11 @@ final class EmbeddingService {
         dimension: Int,
         embeddingLookup: any TextEmbeddingLookup
     ) -> [Float]? {
+        if let contextual = embeddingLookup.textVector(for: text),
+           contextual.count == dimension {
+            return contextual
+        }
+
         let words = text.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
             .filter { $0.count > 1 }

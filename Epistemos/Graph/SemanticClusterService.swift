@@ -87,6 +87,12 @@ enum SemanticClusterService {
                 text += " " + theme
             }
 
+            if let contextual = embeddingLookup.textVector(for: text),
+               contextual.count == dimension {
+                result[node.id] = contextual
+                continue
+            }
+
             let words = text.lowercased()
                 .components(separatedBy: .alphanumerics.inverted)
                 .filter { $0.count > 1 }

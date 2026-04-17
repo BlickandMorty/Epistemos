@@ -1065,6 +1065,50 @@ struct VaultSyncServiceAuditTests {
         #expect(issue?.reason == "Epistemos kept only a collapsed local note-body cache after the vault stayed readable.")
     }
 
+    @Test("recovery issues only block the workspace when a readable vault still has note files")
+    func recoveryIssueBlocksWorkspaceOnlyWhenReadableVaultHasNoteFiles() {
+        let blockingIssue = VaultRecoveryIssue(
+            snapshot: VaultHealthSnapshot(
+                vaultURL: URL(fileURLWithPath: "/tmp/blocking-vault", isDirectory: true),
+                isVaultReadable: true,
+                vaultMarkdownCount: 6,
+                indexedPageCount: 1,
+                indexedPagesWithFilePath: 1,
+                totalIndexedPageCount: 2,
+                nonVaultPageCount: 1,
+                duplicateTrackedPathCount: 0,
+                localBodyFileCount: 1,
+                bookmarkExists: true,
+                restoreFailed: false,
+                initialImportCompleted: true,
+                hadPriorLocalState: true
+            ),
+            reason: "Readable vault mismatch"
+        )
+
+        let nonBlockingIssue = VaultRecoveryIssue(
+            snapshot: VaultHealthSnapshot(
+                vaultURL: URL(fileURLWithPath: "/tmp/empty-vault", isDirectory: true),
+                isVaultReadable: true,
+                vaultMarkdownCount: 0,
+                indexedPageCount: 0,
+                indexedPagesWithFilePath: 0,
+                totalIndexedPageCount: 1,
+                nonVaultPageCount: 1,
+                duplicateTrackedPathCount: 0,
+                localBodyFileCount: 1,
+                bookmarkExists: false,
+                restoreFailed: true,
+                initialImportCompleted: false,
+                hadPriorLocalState: true
+            ),
+            reason: "Launch restore failed without a readable vault snapshot to repair against"
+        )
+
+        #expect(blockingIssue.blocksWorkspaceInteraction)
+        #expect(nonBlockingIssue.blocksWorkspaceInteraction == false)
+    }
+
     @Test("detectRecoveryIssue stays nil when indexed vault pages match readable files")
     func detectRecoveryIssueStaysNilWhenVaultIsHealthy() async throws {
         let container = try makeRecoveryContainer()

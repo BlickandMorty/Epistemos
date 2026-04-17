@@ -46,7 +46,7 @@ struct ContextWindowIndicator: View {
                 .foregroundStyle(.secondary)
             Text("\(formatTokens(usedTokens)) / \(formatTokens(maxTokens))")
                 .font(.caption.monospaced())
-            Text("(\(Int(usageFraction * 100))%)")
+            Text("(\(usageFraction.isFinite ? Int(usageFraction * 100) : 0)%)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

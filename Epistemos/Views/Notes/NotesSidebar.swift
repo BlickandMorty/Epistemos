@@ -972,7 +972,7 @@ struct NotesSidebar: View {
                 activePageId: currentSelectedPageId,
                 onNewPage: {
                     Task {
-                        if let pageId = await vaultSync.createPage(title: "Untitled") {
+                        if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                             openInEditor(pageId)
                         }
                     }
@@ -1316,7 +1316,11 @@ struct NotesSidebar: View {
             Task {
                 guard let folder = fetchFolder(folderId) else { return }
                 let subfolder = folder.relativePath
-                if let pageId = await vaultSync.createPage(title: "Untitled", subfolder: subfolder)
+                if let pageId = await vaultSync.createPage(
+                    title: "Untitled",
+                    subfolder: subfolder,
+                    allowVaultSelectionPrompt: true
+                )
                 {
                     if let page = fetchPage(pageId),
                         let folder = fetchFolder(folderId)
@@ -1385,7 +1389,7 @@ struct NotesSidebar: View {
 
         case .createNewPage:
             Task {
-                if let pageId = await vaultSync.createPage(title: "Untitled") {
+                if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                     openInEditor(pageId)
                 }
             }
@@ -1606,7 +1610,8 @@ struct NotesSidebar: View {
         if let pageId = await vaultSync.createPage(
             title: title,
             emoji: "📓",
-            subfolder: dailyFolder.relativePath
+            subfolder: dailyFolder.relativePath,
+            allowVaultSelectionPrompt: true
         ) {
             if let page = fetchPage(pageId) {
                 page.isJournal = true

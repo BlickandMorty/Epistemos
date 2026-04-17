@@ -18,13 +18,13 @@ fi
 cd "$(dirname "$0")/graph-engine"
 
 if [ "$CONFIGURATION" = "Debug" ]; then
-    cargo build --target aarch64-apple-darwin
-    cargo build --target x86_64-apple-darwin
+    cargo build --features bolt-graph,shared-position-buffers --target aarch64-apple-darwin
+    cargo build --features bolt-graph,shared-position-buffers --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/debug/libgraph_engine.a"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/debug/libgraph_engine.a"
 else
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
+    cargo build --release --features bolt-graph,shared-position-buffers --target aarch64-apple-darwin
+    cargo build --release --features bolt-graph,shared-position-buffers --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/release/libgraph_engine.a"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/release/libgraph_engine.a"
 fi

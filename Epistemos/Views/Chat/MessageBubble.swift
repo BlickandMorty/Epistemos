@@ -99,7 +99,8 @@ struct MessageBubble: View {
                 content: displayContent,
                 theme: theme,
                 rippleStyle: .none,
-                foregroundOverride: theme.userBubbleText
+                foregroundOverride: theme.userBubbleText,
+                typographyRole: .user
             )
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
@@ -170,7 +171,11 @@ struct MessageBubble: View {
                     ToolExecutionPreviewList(blocks: contentBlocks)
                 }
 
-                TaggedMarkdownTextView(content: displayContent, theme: theme)
+                TaggedMarkdownTextView(
+                    content: displayContent,
+                    theme: theme,
+                    typographyRole: .assistant
+                )
 
                 // Extended thinking trail — collapsible reasoning section
                 if let thinking = message.contentBlocks?.thinkingContent, !thinking.isEmpty {
@@ -274,7 +279,11 @@ private struct MessageToolbar: View {
                 let fullContent = buildFullExport(message: message)
                 let title = extractTitle(from: message.content)
                 Task {
-                    if let pageId = await vaultSync.createPage(title: title, body: fullContent) {
+                    if let pageId = await vaultSync.createPage(
+                        title: title,
+                        body: fullContent,
+                        allowVaultSelectionPrompt: true
+                    ) {
                         NoteWindowManager.shared.open(pageId: pageId)
                     }
                 }

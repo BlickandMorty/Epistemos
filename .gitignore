@@ -30,6 +30,7 @@ test_results/
 # Rust
 graph-engine/target/
 agent_core/target/
+syntax-core/target/
 build-rust/
 
 # Reference repos

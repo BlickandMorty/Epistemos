@@ -1,4 +1,7 @@
+pub mod ffi;
 pub mod generation;
+pub mod highlight;
+pub mod languages;
 pub mod rope_bridge;
 pub mod token_registry;
 

@@ -380,7 +380,7 @@ struct WeightedContext {
         // Complexity context
         sections.append("""
         Code Complexity Analysis:
-        - Overall Score: \(Int(complexity.overallScore * 100))%
+        - Overall Score: \(complexity.overallScore.isFinite ? Int(complexity.overallScore * 100) : 0)%
         - Cyclomatic Complexity: \(complexity.cyclomaticComplexity)
         - Cognitive Complexity: \(complexity.cognitiveComplexity)
         - Nesting Depth: \(complexity.nestingDepth)
@@ -394,12 +394,12 @@ struct WeightedContext {
         if !matches.isEmpty {
             sections.append("Relevant Context from Vault (weighted by importance):")
             for (index, match) in matches.enumerated() {
-                let relevanceBar = String(repeating: "█", count: Int(match.finalScore * 10))
+                let relevanceBar = String(repeating: "█", count: match.finalScore.isFinite ? Int(match.finalScore * 10) : 0)
                 sections.append("""
                 [\(index + 1)] \(match.title) \(relevanceBar)
-                Relevance: \(Int(match.finalScore * 100))% |
-                Node Weight: \(Int(match.nodeWeight * 100))% |
-                Semantic: \(Int(match.semanticScore * 100))%
+                Relevance: \(match.finalScore.isFinite ? Int(match.finalScore * 100) : 0)% |
+                Node Weight: \(match.nodeWeight.isFinite ? Int(match.nodeWeight * 100) : 0)% |
+                Semantic: \(match.semanticScore.isFinite ? Int(match.semanticScore * 100) : 0)%
                 \(match.snippet.prefix(200))
                 """)
             }

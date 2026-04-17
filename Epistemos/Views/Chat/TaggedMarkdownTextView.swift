@@ -67,13 +67,47 @@ enum EpistemicTag: String, CaseIterable {
 // Used in the Lucid Lens panel's Research Analysis section.
 
 struct TaggedMarkdownTextView: View {
+    enum TypographyRole: Sendable {
+        case assistant
+        case user
+
+        var bodyFontSize: CGFloat {
+            switch self {
+            case .assistant: 16
+            case .user: 15
+            }
+        }
+
+        var bodyLineSpacing: CGFloat {
+            switch self {
+            case .assistant: 7
+            case .user: 5
+            }
+        }
+
+        var paragraphVerticalPadding: CGFloat {
+            switch self {
+            case .assistant: 4
+            case .user: 3
+            }
+        }
+
+        func font(size: CGFloat) -> Font {
+            switch self {
+            case .assistant:
+                ClaudeAppTypography.assistantFont(size: size)
+            case .user:
+                ClaudeAppTypography.userFont(size: size)
+            }
+        }
+    }
+
     let content: String
     let theme: EpistemosTheme
     var rippleStyle: MarkdownRippleStyle = .none
     var foregroundOverride: Color? = nil
+    var typographyRole: TypographyRole = .assistant
     private let blocks: [MarkdownBlock]
-    private static let bodyFontSize: CGFloat = 15
-    private static let bodyLineSpacing: CGFloat = 5
     private static let listMarkerWidth: CGFloat = 11
     private static let numberedMarkerMinWidth: CGFloat = 24
     private static let listIndent: CGFloat = 4
@@ -107,12 +141,14 @@ struct TaggedMarkdownTextView: View {
         content: String,
         theme: EpistemosTheme,
         rippleStyle: MarkdownRippleStyle = .none,
-        foregroundOverride: Color? = nil
+        foregroundOverride: Color? = nil,
+        typographyRole: TypographyRole = .assistant
     ) {
         self.content = content
         self.theme = theme
         self.rippleStyle = rippleStyle
         self.foregroundOverride = foregroundOverride
+        self.typographyRole = typographyRole
         self.blocks = Self.cachedBlocks(for: content)
     }
 
@@ -127,6 +163,22 @@ struct TaggedMarkdownTextView: View {
 
     private var bodyForeground: Color {
         foregroundOverride ?? theme.assistantBubbleForeground
+    }
+
+    private var bodyFontSize: CGFloat {
+        typographyRole.bodyFontSize
+    }
+
+    private var bodyLineSpacing: CGFloat {
+        typographyRole.bodyLineSpacing
+    }
+
+    private var paragraphVerticalPadding: CGFloat {
+        typographyRole.paragraphVerticalPadding
+    }
+
+    private var bodyFont: Font {
+        typographyRole.font(size: bodyFontSize)
     }
 
     private var renderUnits: [MarkdownRenderUnit] {
@@ -525,16 +577,16 @@ struct TaggedMarkdownTextView: View {
         case .paragraph(let text):
             taggedInlineMarkdown(
                 text,
-                baseFontSize: Self.bodyFontSize,
+                baseFontSize: bodyFontSize,
                 strongForegroundColor: theme.chatStrongForeground
             )
-                .font(.system(size: Self.bodyFontSize))
-                .lineSpacing(Self.bodyLineSpacing)
+                .font(bodyFont)
+                .lineSpacing(bodyLineSpacing)
                 .foregroundStyle(bodyForeground)
-                .padding(.vertical, 3)
+                .padding(.vertical, paragraphVerticalPadding)
                 .asciiRippleOverlay(
                     text: MarkdownRippleTextExtractor.displayText(from: text),
-                    font: .system(size: Self.bodyFontSize),
+                    font: bodyFont,
                     color: bodyForeground,
                     enabled: rippleStyle.includesBodyBlocks
                 )
@@ -551,17 +603,17 @@ struct TaggedMarkdownTextView: View {
                 }
                 taggedInlineMarkdown(
                     text,
-                    baseFontSize: Self.bodyFontSize,
+                    baseFontSize: bodyFontSize,
                     strongForegroundColor: theme.chatStrongForeground
                 )
-                    .font(.system(size: Self.bodyFontSize))
-                    .lineSpacing(Self.bodyLineSpacing)
+                    .font(bodyFont)
+                    .lineSpacing(bodyLineSpacing)
                     .italic()
                     .foregroundStyle(theme.textSecondary)
                     .padding(.leading, 12)
                     .asciiRippleOverlay(
                         text: MarkdownRippleTextExtractor.displayText(from: text),
-                        font: .system(size: Self.bodyFontSize),
+                        font: bodyFont,
                         color: theme.textSecondary,
                         enabled: rippleStyle.includesBodyBlocks
                     )
@@ -639,7 +691,7 @@ struct TaggedMarkdownTextView: View {
                 .padding(.top, 1)
         case .numbered(let number):
             Text(number)
-                .font(.system(size: Self.bodyFontSize, weight: .semibold).monospacedDigit())
+                .font(.system(size: bodyFontSize, weight: .semibold).monospacedDigit())
                 .foregroundStyle(theme.resolved.accent.color)
                 .frame(minWidth: Self.numberedMarkerMinWidth, alignment: .trailing)
                 .padding(.top, 1)
@@ -660,17 +712,17 @@ struct TaggedMarkdownTextView: View {
     ) -> some View {
         taggedInlineMarkdown(
             text,
-            baseFontSize: Self.bodyFontSize,
+            baseFontSize: bodyFontSize,
             strongForegroundColor: theme.chatStrongForeground
         )
-        .font(.system(size: Self.bodyFontSize))
-        .lineSpacing(Self.bodyLineSpacing)
+        .font(bodyFont)
+        .lineSpacing(bodyLineSpacing)
         .foregroundStyle(foreground)
         .strikethrough(strikethrough)
         .frame(maxWidth: .infinity, alignment: .leading)
         .asciiRippleOverlay(
             text: MarkdownRippleTextExtractor.displayText(from: text),
-            font: .system(size: Self.bodyFontSize),
+            font: bodyFont,
             color: foreground,
             enabled: rippleStyle.includesBodyBlocks
         )
@@ -693,8 +745,8 @@ struct TaggedMarkdownTextView: View {
             nextLevelSize: AppHeadingRole.h2.fontSize
         )
         let font: Font = {
-            if level == 1 {
-                return AppDisplayTypography.font(size: fontSize)
+            if level == 1 || level == 2 {
+                return .custom(AppDisplayTypography.displayFontName, size: fontSize)
             } else {
                 let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
                 return .system(size: fontSize, weight: weight)

@@ -364,7 +364,7 @@ final class NoteWindowManager {
             queue: .main
         ) { [weak self] notification in
             guard let window = notification.object as? NSWindow else { return }
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleWindowClose(window, pageId: pageId)
             }
         }
@@ -490,7 +490,7 @@ final class NoteWindowManager {
             queue: .main
         ) { [weak self] notification in
             guard let window = notification.object as? NSWindow else { return }
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 self?.handleWindowClose(window, pageId: key)
             }
         }
@@ -595,7 +595,7 @@ private final class NoteTabDelegate: NSObject, NSWindowDelegate {
     @MainActor func newWindowForTab(_ sender: NSWindow) {
         Task { @MainActor in
             guard let vaultSync = AppBootstrap.shared?.vaultSync else { return }
-            if let pageId = await vaultSync.createPage(title: "Untitled") {
+            if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
         }

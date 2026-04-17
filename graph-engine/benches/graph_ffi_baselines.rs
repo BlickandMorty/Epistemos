@@ -18,7 +18,7 @@ fn make_graph(n: usize) -> Graph {
         let uuid = format!("node-{i:06}");
         let x = (i as f32) * 0.1;
         let y = (i as f32) * 0.2;
-        g.add_node(&uuid, x, y, 0, (i as u32) % 8, &format!("Label {i}"));
+        g.add_node(uuid, x, y, 0, (i as u32) % 8, format!("Label {i}"));
     }
     for i in 1..n {
         let src = format!("node-{:06}", i - 1);

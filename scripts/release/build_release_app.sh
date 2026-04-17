@@ -30,15 +30,24 @@ fi
 
 cd "$ROOT_DIR"
 
-"$ROOT_DIR/scripts/xcodebuild_epistemos.sh" \
-    -project Epistemos.xcodeproj \
-    -scheme Epistemos \
-    -configuration Release \
-    -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED_DATA_PATH" \
-    "${PACKAGE_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
+XCODEBUILD_ARGS=(
+    -project Epistemos.xcodeproj
+    -scheme Epistemos
+    -configuration Release
+    -destination 'platform=macOS'
+    -derivedDataPath "$DERIVED_DATA_PATH"
+)
+
+if [ "${#PACKAGE_ARGS[@]}" -gt 0 ]; then
+    XCODEBUILD_ARGS+=("${PACKAGE_ARGS[@]}")
+fi
+
+XCODEBUILD_ARGS+=(
+    CODE_SIGNING_ALLOWED=NO
     build
+)
+
+"$ROOT_DIR/scripts/xcodebuild_epistemos.sh" "${XCODEBUILD_ARGS[@]}"
 
 if [ ! -d "$APP_PATH" ]; then
     echo "Release app missing at $APP_PATH" >&2

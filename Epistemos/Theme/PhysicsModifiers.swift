@@ -298,7 +298,8 @@ enum ASCIIRippleEngine {
     static func characterIndex(forX x: CGFloat, width: CGFloat, textLength: Int) -> Int {
         guard textLength > 0 else { return 0 }
         guard width > 0 else { return textLength / 2 }
-        let position = Int(round((x / width) * CGFloat(textLength)))
+        let raw = round((x / width) * CGFloat(textLength))
+        let position = raw.isFinite ? Int(raw) : textLength / 2
         return max(0, min(position, textLength - 1))
     }
 
@@ -365,8 +366,11 @@ enum ASCIIRippleEngine {
 
             let intensity = max(0, radius - distance)
             if intensity <= configuration.waveThreshold, intensity > 0 {
-                let scrambleIndex = (Int(distance) * configuration.characterMultiplier
-                    + Int(age / configuration.animationStep)) % configuration.characters.count
+                let safeDistance = distance.isFinite ? Int(distance) : 0
+                let safeAgeStep = (age.isFinite && configuration.animationStep > 0)
+                    ? Int(age / configuration.animationStep) : 0
+                let scrambleIndex = (safeDistance * configuration.characterMultiplier
+                    + safeAgeStep) % configuration.characters.count
                 resultChar = configuration.characters[scrambleIndex]
             }
         }

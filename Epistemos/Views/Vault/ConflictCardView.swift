@@ -56,7 +56,7 @@ struct ConflictCardView: View {
 
             // Confidence
             HStack {
-                Text("Confidence: \(Int(contradiction.confidence * 100))%")
+                Text("Confidence: \(contradiction.confidence.isFinite ? Int(contradiction.confidence * 100) : 0)%")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

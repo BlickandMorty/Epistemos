@@ -550,9 +550,10 @@ struct ConcurrencyGraphStateTests {
     @Test("Quality level tracks graph performance mode")
     func qualityLevelChanges() {
         let state = GraphState()
+        let powerOverrideForcesPerformance = PowerGuard.shared.shouldDisableBackground
 
         state.qualityLevel = 0
-        #expect(state.qualityLevel == 0)
+        #expect(state.qualityLevel == (powerOverrideForcesPerformance ? 2 : 0))
         #expect(!state.performanceModeEnabled)
 
         state.qualityLevel = 2
@@ -560,7 +561,7 @@ struct ConcurrencyGraphStateTests {
         #expect(state.performanceModeEnabled)
 
         state.qualityLevel = 1
-        #expect(state.qualityLevel == 0)
+        #expect(state.qualityLevel == (powerOverrideForcesPerformance ? 2 : 0))
         #expect(!state.performanceModeEnabled)
     }
     

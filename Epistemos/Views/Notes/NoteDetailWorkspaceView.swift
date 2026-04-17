@@ -597,8 +597,10 @@ struct NoteDetailWorkspaceView: View {
                     wikilinksNavButtons(nav: nav)
                 }
             }
-            ToolbarItem(placement: .principal) {
-                noteToolbarAskItem
+            if !isCodeFile {
+                ToolbarItem(placement: .principal) {
+                    noteToolbarAskItem
+                }
             }
             ToolbarItemGroup(placement: .primaryAction) {
                 noteToolbarPrimaryActions
@@ -609,7 +611,7 @@ struct NoteDetailWorkspaceView: View {
             // Hidden keyboard shortcut buttons
             Button("") {
                 Task {
-                    if let pageId = await vaultSync.createPage(title: "Untitled") {
+                    if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                         NoteWindowManager.shared.open(pageId: pageId)
                     }
                 }
@@ -1455,7 +1457,10 @@ struct NoteDetailWorkspaceView: View {
             }
         } else {
             Task {
-                if let newId = await vaultSync.createPage(title: trimmed) {
+                if let newId = await vaultSync.createPage(
+                    title: trimmed,
+                    allowVaultSelectionPrompt: true
+                ) {
                     if let navState {
                         navState.push(pageId: newId, title: trimmed)
                     } else {
@@ -3159,7 +3164,7 @@ private struct LegacyRecoverySheet: View {
                 LegacyInfoChip(label: "Encoding", value: presentation.analysis.likelyTrueEncoding)
                 LegacyInfoChip(
                     label: "Padding",
-                    value: "\(Int((presentation.paddingRatio * 100).rounded()))%"
+                    value: "\(presentation.paddingRatio.isFinite ? Int((presentation.paddingRatio * 100).rounded()) : 0)%"
                 )
                 if let candidate = presentation.bestRepairCandidate {
                     LegacyInfoChip(
