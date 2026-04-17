@@ -1851,15 +1851,29 @@ mod tier_tests {
 
     #[test]
     fn chat_lite_exposes_web_search_and_vault_recall() {
+        // web_search only appears when a backend env var is present — the
+        // runtime contract is that the tool must disappear entirely when
+        // no provider is configured. Seed a test-only key so the registry
+        // builds with the expected lite-tier shape, then restore the prior
+        // env value.
+        let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
+        std::env::set_var("TAVILY_API_KEY", "test-fixture-key");
+
         let registry = build_registry(ToolTier::ChatLite);
         let names: Vec<String> = registry
             .get_definitions()
             .into_iter()
             .map(|t| t.name)
             .collect();
+
+        match saved_tavily {
+            Some(v) => std::env::set_var("TAVILY_API_KEY", v),
+            None => std::env::remove_var("TAVILY_API_KEY"),
+        }
+
         assert!(
             names.contains(&"web_search".to_string()),
-            "chat_lite must expose web_search, got: {names:?}"
+            "chat_lite must expose web_search when a backend is configured, got: {names:?}"
         );
         assert!(
             names.contains(&"vault_recall".to_string()),
