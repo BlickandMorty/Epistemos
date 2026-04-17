@@ -1499,7 +1499,19 @@ final class HologramOverlay {
             // MainActor-isolated `graphState` / `routeHostView`.
             MainActor.assumeIsolated {
                 guard let self else { return }
-                self.routeHostView?.isHidden = self.graphState.currentRoute.isCanvas
+                let isCanvas = self.graphState.currentRoute.isCanvas
+                self.routeHostView?.isHidden = isCanvas
+                // When the user drills into a note or folder, dismiss the
+                // notes utility sidebar (it overlays the graph and blocks
+                // content) and pause the physics loop so scrolling/editing
+                // in the detail view stays fluid. Resume physics on return
+                // to canvas.
+                if isCanvas {
+                    self.graphState.startOverlayPhysicsCycle()
+                } else {
+                    UtilityWindowManager.shared.hide(.notes)
+                    self.graphState.cancelOverlayPhysicsCycle()
+                }
             }
         }
 

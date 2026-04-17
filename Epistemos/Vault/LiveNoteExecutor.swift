@@ -74,11 +74,17 @@ final class LiveNoteExecutor {
 
         // 2. Load the note and replace target region
         guard let page = fetchPage(id: task.noteId, context: context) else {
-            log.error("LiveNoteExecutor: page not found: \(task.noteId)")
+            log.error("LiveNoteExecutor: page unavailable: \(task.noteId, privacy: .public)")
             return false
         }
 
         let originalBody = page.loadBody(mapped: true)
+        let originalFilePath = page.filePath
+        let originalWordCount = page.wordCount
+        let originalUpdatedAt = page.updatedAt
+        let originalLastSyncedBodyHash = page.lastSyncedBodyHash
+        let originalLastSyncedAt = page.lastSyncedAt
+        let originalNeedsVaultSync = page.needsVaultSync
         guard let fileURL = resolvedVaultNoteURL(notePath: task.notePath, vaultRoot: vaultRoot) else {
             log.error("LiveNoteExecutor: rejected escaped note path '\(task.notePath, privacy: .public)'")
             return false
@@ -112,11 +118,26 @@ final class LiveNoteExecutor {
                 source: "live-note"
             ) { diff in
                 page.saveBody(diff.after)
+                BlockMirror.sync(pageId: page.id, body: diff.after, modelContext: context)
                 page.filePath = diff.fileURL.path
+                page.wordCount = diff.after.split(separator: " ").count
+                page.updatedAt = .now
                 page.lastSyncedBodyHash = SDPage.bodyHash(diff.after)
                 page.lastSyncedAt = .now
                 page.needsVaultSync = false
-                try context.save()
+                do {
+                    try context.save()
+                } catch {
+                    page.saveBody(originalBody)
+                    BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: context)
+                    page.filePath = originalFilePath
+                    page.wordCount = originalWordCount
+                    page.updatedAt = originalUpdatedAt
+                    page.lastSyncedBodyHash = originalLastSyncedBodyHash
+                    page.lastSyncedAt = originalLastSyncedAt
+                    page.needsVaultSync = originalNeedsVaultSync
+                    throw error
+                }
                 NoteFileStorage.notifyBodyChanged(pageId: page.id)
                 AppBootstrap.shared?.eventBus.emit(.vaultPageChanged(pageId: page.id))
             }
@@ -132,7 +153,14 @@ final class LiveNoteExecutor {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == id }
         )
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            log.error(
+                "LiveNoteExecutor: failed to fetch page \(id, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     private func updatedBody(
@@ -267,6 +295,14 @@ private enum LiveNoteExecutorError: LocalizedError {
 @MainActor
 final class LiveNoteSchedulerService {
 
+    /// Fast cadence when live notes are actively firing.
+    private static let activeInterval: DispatchTimeInterval = .seconds(15)
+    /// Slow cadence when no live notes have been observed in this session.
+    /// Keeps idle CPU/energy low on vaults that don't use live notes (the
+    /// common case — most users have zero live tasks, so the scanner was
+    /// hammering the page graph every 15s for no reason).
+    private static let idleInterval: DispatchTimeInterval = .seconds(120)
+
     private var timer: DispatchSourceTimer?
     private let scanner = LiveNoteScanner()
     private var executor: LiveNoteExecutor?
@@ -274,6 +310,7 @@ final class LiveNoteSchedulerService {
     private var vaultRoot: URL?
     private var activeVaultRootPath: String?
     private var isRunning = false
+    private var currentInterval: DispatchTimeInterval = LiveNoteSchedulerService.idleInterval
 
     func start(
         llmService: (any LLMClientProtocol)?,
@@ -301,8 +338,14 @@ final class LiveNoteSchedulerService {
         self.vaultRoot = vaultRoot
         self.activeVaultRootPath = standardizedRootPath
 
+        scheduleTimer(interval: Self.idleInterval)
+        log.info("LiveNoteSchedulerService: started (adaptive poll — idle 120s, active 15s)")
+    }
+
+    private func scheduleTimer(interval: DispatchTimeInterval) {
+        timer?.cancel()
         let timer = DispatchSource.makeTimerSource(queue: .main)
-        timer.schedule(deadline: .now() + 15, repeating: 15)
+        timer.schedule(deadline: .now() + interval, repeating: interval)
         timer.setEventHandler { [weak self] in
             Task { @MainActor in
                 await self?.tick()
@@ -310,7 +353,7 @@ final class LiveNoteSchedulerService {
         }
         timer.resume()
         self.timer = timer
-        log.info("LiveNoteSchedulerService: started (15s poll interval)")
+        self.currentInterval = interval
     }
 
     func stop() {
@@ -336,6 +379,17 @@ final class LiveNoteSchedulerService {
         let context = ModelContext(container)
         let tasks = await scanner.scanForLiveNotes(modelContainer: container)
         let dueTasks = tasks.filter { scanner.isDue($0) }
+
+        // Adaptive cadence: if the vault has no live notes at all, fall back
+        // to the slow idle interval. Only switch to fast cadence when live
+        // tasks actually exist.
+        if tasks.isEmpty {
+            if currentInterval != Self.idleInterval {
+                scheduleTimer(interval: Self.idleInterval)
+            }
+        } else if currentInterval != Self.activeInterval {
+            scheduleTimer(interval: Self.activeInterval)
+        }
 
         guard !dueTasks.isEmpty else { return }
 
