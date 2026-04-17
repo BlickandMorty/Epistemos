@@ -10,7 +10,6 @@ struct AgentCommandCenterView: View {
     @Environment(AgentCommandCenterState.self) private var accState
     @Environment(AgentChatState.self) private var agentChat
     @Environment(UIState.self) private var ui
-    @Environment(MCPBridge.self) private var mcpBridge
     @State private var landingStatsTab: ACCLandingStatsTab = .overview
 
     private var theme: EpistemosTheme { ui.theme }
@@ -97,24 +96,30 @@ struct AgentCommandCenterView: View {
             terminalBackdrop
                 .ignoresSafeArea()
 
-            HStack(alignment: .top, spacing: 22) {
-                VStack(spacing: 18) {
-                    pageHeader
-                    commandArea
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            VStack(spacing: 0) {
+                agentChatShellToolbar
 
-                if isRightRailVisible {
-                    rightWorkspaceRailCard
-                        .frame(width: rightRailWidth)
-                        .frame(maxHeight: .infinity)
-                        .transition(.opacity.combined(with: .move(edge: .trailing)))
-                }
+                agentTranscriptColumn
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                bottomCommandDock
+                    .frame(maxWidth: 860)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, 18)
+                    .padding(.bottom, 14)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, 34)
-            .padding(.top, 26)
-            .padding(.bottom, 18)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .overlay(alignment: .topTrailing) {
+            if isRightRailVisible {
+                rightWorkspaceRailCard
+                    .frame(width: rightRailWidth)
+                    .frame(maxHeight: .infinity)
+                    .padding(.top, 58)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 96)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
         }
         .onKeyPress(.escape) {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -123,6 +128,102 @@ struct AgentCommandCenterView: View {
             return .handled
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: accState.inspectorState)
+    }
+
+    // MARK: - Agent Chat Shell (main-chat sibling layout)
+
+    private var agentChatShellToolbar: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 6) {
+                Image(systemName: "command.circle.fill")
+                    .foregroundStyle(theme.resolved.accent.color)
+                Text("Agent")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.white.opacity(0.92))
+            }
+
+            Text(currentRuntimeLabel)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(mutedTerminalText)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            Spacer(minLength: 12)
+
+            Text("\(agentChat.agentTurnCount)t · \(agentChat.messages.count)m · \(accState.enabledToolNames.count)tools")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(mutedTerminalText)
+                .lineLimit(1)
+
+            panelMenu
+            BrainPickerMenu()
+
+            Button {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    if case .collapsed = accState.inspectorState {
+                        accState.inspectorState = .expanded(.plan)
+                        if accState.presentationMode == .compact {
+                            accState.presentationMode = .standard
+                        }
+                    } else {
+                        accState.inspectorState = .collapsed
+                    }
+                }
+            } label: {
+                Label(isRightRailVisible ? "Hide Plan" : "Plan", systemImage: "sidebar.right")
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+
+            Button {
+                agentChat.startNewSession()
+                accState.clearInput()
+            } label: {
+                Label("New Session", systemImage: "plus")
+            }
+            .buttonStyle(NativeToolbarButtonStyle())
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 1)
+        }
+    }
+
+    private var agentTranscriptColumn: some View {
+        ScrollView(.vertical, showsIndicators: true) {
+            HStack {
+                Spacer(minLength: 0)
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    if agentChat.hasMessages || agentChat.isStreaming {
+                        ForEach(agentChat.messages) { message in
+                            agentMessageRow(message)
+                        }
+                        if agentChat.isStreaming {
+                            streamingRow
+                        }
+                    } else {
+                        agentSimpleEmptyState
+                    }
+                }
+                .frame(maxWidth: 860, alignment: .leading)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 28)
+            .padding(.bottom, 28)
+        }
+    }
+
+    private var agentSimpleEmptyState: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            agentLandingHero
+            agentQuickStartGrid
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 8)
     }
 
     // MARK: - Shell
