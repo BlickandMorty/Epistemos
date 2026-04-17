@@ -796,7 +796,7 @@ final class TriageService {
         case .cloud:
             guard let model = selectedCloudModel() else {
                 return userFacingStream(
-                    AsyncThrowingStream { continuation in
+                    StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
                     }
                 )
@@ -988,7 +988,7 @@ final class TriageService {
         case .cloud:
             guard let model = selectedCloudModel() else {
                 return userFacingStream(
-                    AsyncThrowingStream { continuation in
+                    StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
                     }
                 )
@@ -1122,7 +1122,7 @@ final class TriageService {
     ) -> AsyncThrowingStream<String, Error> {
         let (aiPrompt, aiSystem) = Self.trimForAppleIntelligence(prompt: prompt, systemPrompt: systemPrompt)
 
-        return AsyncThrowingStream { continuation in
+        return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task { [weak self] in
                 do {
                     let result = try await AppleIntelligenceService.shared.generate(
@@ -1479,12 +1479,12 @@ final class TriageService {
         }()
 
         if let error = cloudConfigurationError(for: model) {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: error)
             }
         }
         guard let cloudLLMService else {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.runtimeUnavailable)
             }
         }
@@ -1595,7 +1595,7 @@ final class TriageService {
         localSelection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        StreamingBufferPolicy.throwingStream { continuation in
             let task = Task { [weak self] in
                 guard let self else {
                     continuation.finish()
@@ -1760,18 +1760,28 @@ final class TriageService {
         selection: LocalModelSelection?,
         steeringHintsJSON: String? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        // If local isn't available, fall back to Apple Intelligence (on-device
+        // and always present on macOS 26+ after the system model is downloaded).
+        // This means a user with no configured local model and no cloud key
+        // still gets a real answer instead of an opaque "modelRequired" error.
         guard let selection else {
-            return AsyncThrowingStream { continuation in
+            if inference.appleIntelligenceAvailable {
+                return appleIntelligenceOnlyStream(prompt: prompt, systemPrompt: systemPrompt)
+            }
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: LocalInferenceRoutingError.modelRequired)
             }
         }
         guard let localLLMService else {
-            return AsyncThrowingStream { continuation in
+            if inference.appleIntelligenceAvailable {
+                return appleIntelligenceOnlyStream(prompt: prompt, systemPrompt: systemPrompt)
+            }
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
             }
         }
         let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
-        return AsyncThrowingStream { continuation in
+        return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 do {
                     let stream: AsyncThrowingStream<String, Error>
@@ -1789,6 +1799,38 @@ final class TriageService {
                     }
                     for try await chunk in stream {
                         continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    /// Stream wrapper around Apple Intelligence's non-streaming `generate(...)`.
+    /// Used when the user has no configured local or cloud model but Apple
+    /// Intelligence is available — the on-device model still answers the turn
+    /// instead of surfacing `modelRequired` to the chat.
+    private func appleIntelligenceOnlyStream(
+        prompt: String,
+        systemPrompt: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        StreamingBufferPolicy.throwingStream { continuation in
+            let task = Task {
+                let (trimmedPrompt, trimmedSystem) = Self.trimForAppleIntelligence(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt
+                )
+                do {
+                    let result = try await AppleIntelligenceService.shared.generate(
+                        prompt: trimmedPrompt,
+                        systemPrompt: trimmedSystem
+                    )
+                    self.lastDecision = .appleIntelligence
+                    if !result.isEmpty {
+                        continuation.yield(result)
                     }
                     continuation.finish()
                 } catch {
@@ -1818,7 +1860,7 @@ final class TriageService {
     private func userFacingStream(
         _ upstream: AsyncThrowingStream<String, Error>
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 var rawText = ""
                 var emittedVisibleText = ""
