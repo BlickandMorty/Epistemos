@@ -84,7 +84,7 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  (Press ⌘J for Agent Command Center)"
+    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  Use Agent from landing for tools, plans, or deeper execution."
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private var incognitoBinding: Binding<Bool> {
         Binding(
@@ -247,6 +247,7 @@ struct ChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        ChatBrainPickerMenu()
                         attachButton
                     }
 
@@ -502,7 +503,14 @@ struct ChatInputBar: View {
     private func recentChats() -> [SDChat] {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = 20
-        return (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            return try modelContext.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "ChatInputBar: failed to fetch recent chats: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
     }
 }
 
@@ -832,12 +840,21 @@ enum FileAttachmentBuilder {
     }
 
     private nonisolated static func fileSize(for url: URL) -> Int {
-        guard
-            let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int
-        else {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            guard let size = attributes[.size] as? Int else {
+                Log.pipeline.error(
+                    "FileAttachmentBuilder: missing file size attribute for \(url.lastPathComponent, privacy: .public)"
+                )
+                return 0
+            }
+            return size
+        } catch {
+            Log.pipeline.error(
+                "FileAttachmentBuilder: failed to read file size for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             return 0
         }
-        return size
     }
 
     private nonisolated static func classify(pathExtension ext: String) -> (AttachmentType, String) {
@@ -858,7 +875,15 @@ enum FileAttachmentBuilder {
     private nonisolated static func previewText(for url: URL, type: AttachmentType, size: Int) -> String? {
         guard type == .text || type == .csv else { return nil }
         guard size > 0, size <= maxPreviewBytes else { return nil }
-        guard let data = try? previewData(for: url) else { return nil }
+        let data: Data
+        do {
+            data = try previewData(for: url)
+        } catch {
+            Log.pipeline.error(
+                "FileAttachmentBuilder: failed to read preview for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
         guard !data.isEmpty else { return nil }
 
         guard let preview = FoundationSafety.decodedText(from: data) else { return nil }
@@ -868,7 +893,15 @@ enum FileAttachmentBuilder {
 
     private nonisolated static func previewData(for url: URL) throws -> Data {
         let handle = try FileHandle(forReadingFrom: url)
-        defer { try? handle.close() }
+        defer {
+            do {
+                try handle.close()
+            } catch {
+                Log.pipeline.error(
+                    "FileAttachmentBuilder: failed to close preview handle for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
         return try handle.read(upToCount: maxPreviewBytes) ?? Data()
     }
 }
