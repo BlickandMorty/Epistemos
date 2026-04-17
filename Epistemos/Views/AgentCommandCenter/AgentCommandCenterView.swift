@@ -1374,7 +1374,19 @@ struct AgentCommandCenterView: View {
     private var rightWorkspaceRailCard: some View {
         rightWorkspaceRail
             .padding(.vertical, 12)
-            .background(workspaceCardBackground(cornerRadius: 28))
+            .background {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 28, style: .continuous)
+                            .strokeBorder(
+                                Color.white.opacity(theme.isDark ? 0.10 : 0.14),
+                                lineWidth: 0.6
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(theme.isDark ? 0.45 : 0.18), radius: 30, y: 14)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
     }
 
     private var agentWorkspaceRail: some View {
