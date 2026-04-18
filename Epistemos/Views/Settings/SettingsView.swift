@@ -13,6 +13,10 @@ private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "Setti
 struct SettingsView: View {
     @Environment(UIState.self) private var ui
     @State private var selection: SettingsSection? = .general
+    /// Single source of truth for the Authority & Installs panel in this
+    /// settings window. Owned here so the store survives view redraws while
+    /// the user navigates between sidebar rows.
+    @State private var sharedAuthorityStore = AgentAuthorityStore()
 
     // MARK: - Settings Categories (Phase 7 Step 7)
     //
@@ -54,6 +58,7 @@ struct SettingsView: View {
         case iMessageDriver = "iMessage Driver"
         case skills = "Skills"
         case agentControl = "Agent Control"
+        case authority = "Authority & Installs"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -70,6 +75,7 @@ struct SettingsView: View {
             .iMessageDriver,
             .skills,
             .agentControl,
+            .authority,
             .landing,
             .appearance,
             .vault,
@@ -86,6 +92,7 @@ struct SettingsView: View {
             case .iMessageDriver: "message.badge.fill"
             case .skills: "shippingbox.fill"
             case .agentControl: "slider.horizontal.3"
+            case .authority: "checkmark.shield.fill"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -104,7 +111,8 @@ struct SettingsView: View {
             case .channels,
                  .iMessageDriver,
                  .skills,
-                 .agentControl:   .automation
+                 .agentControl,
+                 .authority:      .automation
             case .vault:          .privacyStore
             case .general:        .advanced
             }
@@ -133,6 +141,8 @@ struct SettingsView: View {
                 "Installed skills, activation rules, and manifests."
             case .agentControl:
                 "Agent tool permissions, limits, and approval tiers."
+            case .authority:
+                "What the agent can do without asking you first."
             case .landing:
                 "Greeting, quick capture, and landing canvas behavior."
             case .appearance:
@@ -198,6 +208,7 @@ struct SettingsView: View {
         case .iMessageDriver: iMessageDriverDetailView()
         case .skills: SkillsDetailView()
         case .agentControl: AgentControlDetailView()
+        case .authority: AuthoritySettingsView(store: sharedAuthorityStore)
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
@@ -923,6 +934,18 @@ private struct InferenceDetailView: View {
             }
 
             Section {
+                Toggle(isOn: Binding(
+                    get: { inference.chatAutoRouteToCloud },
+                    set: { inference.setChatAutoRouteToCloud($0) }
+                )) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Auto-route local -> cloud")
+                        Text("Keeps fast chat local-first, but lets Pro and Agent escalate to a configured cloud model automatically when that surface needs more capability.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
                 Toggle(isOn: Binding(
                     get: { inference.cloudAutoFallback },
                     set: { inference.cloudAutoFallback = $0 }
@@ -2072,8 +2095,19 @@ private struct InferenceDetailView: View {
 
 private struct LocalModelManagerSheet: View {
     @Environment(LocalModelManager.self) private var localModelManager
-    @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
+
+    private var curatedBaselineDescriptors: [LocalModelDescriptor] {
+        localModelManager.curatedBaselineDescriptors
+    }
+
+    private var optionalBaselineDescriptors: [LocalModelDescriptor] {
+        localModelManager.optionalBaselineDescriptors
+    }
+
+    private var legacyInstalledDescriptors: [LocalModelDescriptor] {
+        localModelManager.legacyInstalledDescriptors
+    }
 
     var body: some View {
         NavigationStack {
@@ -2086,21 +2120,58 @@ private struct LocalModelManagerSheet: View {
                     }
                 }
 
-                Section("Text Models") {
-                    ForEach(localModelManager.textDescriptors, id: \.id) { descriptor in
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Install a stable baseline first")
+                            .font(.headline)
+                        Text("Recommended: Gemma 4 E4B + DeepSeek R1 7B + Qwen 2.5 Coder 7B. Optional roles: Bonsai 4B/8B for tiny fast fallback, Gemma 4 26B A4B for local pro work, and Qwen 3.6 35B A3B for high-memory Macs.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 8) {
+                            Button("Install Recommended Baseline") {
+                                Task {
+                                    try? await localModelManager.installRecommendedBaselineModels()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+
+                            Button("Refresh") {
+                                localModelManager.refreshFromDisk()
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+
+                Section("Recommended Baseline") {
+                    ForEach(curatedBaselineDescriptors, id: \.id) { descriptor in
                         LocalModelRow(descriptor: descriptor)
+                    }
+                }
+
+                if !optionalBaselineDescriptors.isEmpty {
+                    Section("Optional Flagship + Fallbacks") {
+                        ForEach(optionalBaselineDescriptors, id: \.id) { descriptor in
+                            LocalModelRow(descriptor: descriptor)
+                        }
+                    }
+                }
+
+                if !legacyInstalledDescriptors.isEmpty {
+                    Section("Legacy Installed") {
+                        Text("These older local models stay on disk until you delete them, but Epistemos no longer promotes them for new installs or normal routing.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        ForEach(legacyInstalledDescriptors, id: \.id) { descriptor in
+                            LocalModelRow(descriptor: descriptor)
+                        }
                     }
                 }
             }
             .formStyle(.grouped)
             .navigationTitle("Local Models")
-            .toolbar {
-                ToolbarItem(placement: .automatic) {
-                    Button("Refresh") {
-                        localModelManager.refreshFromDisk()
-                    }
-                }
-            }
         }
     }
 }
@@ -2130,6 +2201,12 @@ private struct LocalModelRow: View {
                         Text("Fallback")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundStyle(.secondary)
+                    }
+                    if let model = LocalTextModelID(rawValue: descriptor.id),
+                       model.isExperimentalForEpistemos {
+                        Text("Experimental")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.orange)
                     }
                     Text(state.title)
                         .font(.system(size: 11, weight: .medium))
@@ -2281,6 +2358,9 @@ private struct LocalModelRow: View {
         }
         if lower.contains("404") || lower.contains("not found") {
             return "This model isn't available at the expected path anymore. It may have been renamed on Hugging Face — try the prepared snapshot instead."
+        }
+        if lower.contains("incomplete or corrupted") || lower.contains("corrupted manifest") || lower.contains("corrupted") {
+            return "This local model snapshot looks incomplete or corrupted. Retry the install and Epistemos will restage the snapshot from scratch."
         }
         if lower.contains("disk") || lower.contains("space") || lower.contains("no such file") {
             return "Ran out of space or the staging directory is unavailable. Free up disk and try again."
