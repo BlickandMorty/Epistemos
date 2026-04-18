@@ -145,31 +145,19 @@ struct LandingView: View {
             // their own clicks first, so only background taps fall through.
             // Suppressed while any overlay (brief / welcome back / search) is
             // up so it can't re-trigger search when user taps the scrim.
-            if !showingOverlay && !showingSearchPopover {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture(coordinateSpace: .local) { location in
-                        landingTapLocation = location
-                        activateLandingSearch()
-                    }
-                    .zIndex(0)
-            }
-
-            // ── Greeting Mode ──
-            // Blurs and fades when Daily Brief or Welcome Back is active.
-            greetingContent
-                .blur(radius: showingOverlay ? 4 : 0)
-                .opacity((showingOverlay || showingSearchPopover) ? 0.7 : 1)
-                .allowsHitTesting(!showingOverlay && !showingSearchPopover)
-                .zIndex(1)
-
-            // Real NSPopover anchored exactly at the last tap point on the
-            // landing background (via `AppKitPopoverModifier`). Re-applies the
-            // 271f3634 behavior where the popover opens right under the
-            // cursor, not always dead-centered. Transient dismiss on outside
-            // click + Esc is handled by NSPopover itself.
+            // Tap background — captures the tap location and hosts the
+            // NSPopover anchor so the popover arrow points at the cursor.
+            // The whole layer is gated off while a popover / overlay is open
+            // (controlled by `.allowsHitTesting` on the shape below) so it
+            // never swallows Esc / outside-click dismissal paths.
             Color.clear
-                .allowsHitTesting(false)
+                .contentShape(Rectangle())
+                .onTapGesture(coordinateSpace: .local) { location in
+                    guard !showingOverlay && !showingSearchPopover else { return }
+                    landingTapLocation = location
+                    activateLandingSearch()
+                }
+                .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .appKitPopover(
                     isPresented: $showingSearchPopover,
                     location: landingTapLocation
@@ -190,7 +178,15 @@ struct LandingView: View {
                     .onExitCommand { dismissLandingSearch() }
                     .onDisappear { onLandingPopoverDisappear() }
                 }
-                .zIndex(2)
+                .zIndex(0)
+
+            // ── Greeting Mode ──
+            // Blurs and fades when Daily Brief or Welcome Back is active.
+            greetingContent
+                .blur(radius: showingOverlay ? 4 : 0)
+                .opacity((showingOverlay || showingSearchPopover) ? 0.7 : 1)
+                .allowsHitTesting(!showingOverlay && !showingSearchPopover)
+                .zIndex(1)
 
             // ── Daily Brief Mode ──
             // Fades in on top of the blurred greeting.

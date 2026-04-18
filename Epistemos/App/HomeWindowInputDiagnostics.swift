@@ -12,18 +12,15 @@ final class HomeWindowInputDiagnostics: NSObject {
 
     private override init() {}
 
-    /// True only when diagnostics are explicitly opted-in in a debug build.
-    /// Release builds never swizzle NSView.setAlphaValue / NSWindow.sendEvent,
-    /// which was causing ~10k diagnostic events per idle 8 minutes (seen as
-    /// severe idle CPU/energy + input lag in the main window). Shell env vars
-    /// left over from previous debug sessions no longer slow production.
-    var isEnabled: Bool {
-        #if DEBUG
-        return ProcessInfo.processInfo.environment[Self.environmentKey] == "1"
-        #else
-        return false
-        #endif
-    }
+    /// Compile-time opt-in. Never reads the shell env var because users
+    /// commonly leave `EPI_HOME_WINDOW_INPUT_DIAGNOSTICS=1` in their shell
+    /// rc after a past audit; that was causing the main-window input lag
+    /// regression (swizzled `setAlphaValue` + `sendEvent` fired ~10k
+    /// diagnostic events per 8 idle minutes, confirmed in
+    /// `/tmp/epistemos-runtime.log`). To re-enable for a specific audit,
+    /// flip the literal below to `true`, rebuild, and flip it back when
+    /// done.
+    var isEnabled: Bool { false }
 
     func startIfNeeded() {
         guard isEnabled, !started else { return }
