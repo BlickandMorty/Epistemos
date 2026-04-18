@@ -15,7 +15,7 @@ nonisolated enum HandoffContextType: String, Codable, Hashable, Sendable {
 }
 
 extension HandoffContextType {
-    var defaultHistoryWindow: Int {
+    nonisolated var defaultHistoryWindow: Int {
         switch self {
         case .pipeline: 10
         case .task: 20
