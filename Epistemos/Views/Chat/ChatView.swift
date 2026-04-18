@@ -339,7 +339,8 @@ struct ChatView: View {
             query,
             operatingMode: operatingMode,
             chat: chat,
-            orchestrator: orchestrator
+            orchestrator: orchestrator,
+            inference: inference
         )
     }
 

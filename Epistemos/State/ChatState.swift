@@ -502,20 +502,59 @@ enum MainChatSubmissionRouter {
         _ query: String,
         operatingMode: EpistemosOperatingMode,
         chat: ChatState,
-        orchestrator: OrchestratorState
+        orchestrator: OrchestratorState,
+        inference: InferenceState? = nil
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
-        switch operatingMode {
+        let effectiveMode = inference.map {
+            autoPromotedMode(
+                from: operatingMode,
+                query: trimmed,
+                inference: $0
+            )
+        } ?? operatingMode
+
+        switch effectiveMode {
         case .agent:
             // Agent mode now routes through the main chat pipeline with cloud
             // providers + Rust agent_core tool execution. No separate panel needed.
-            chat.submitQuery(trimmed, operatingMode: operatingMode)
+            chat.submitQuery(trimmed, operatingMode: effectiveMode)
 
         case .fast, .thinking, .pro:
-            chat.submitQuery(trimmed, operatingMode: operatingMode)
+            chat.submitQuery(trimmed, operatingMode: effectiveMode)
         }
+    }
+
+    /// Auto-promote: if the user's prompt reads as agent work AND they're
+    /// on a cloud provider that supports the agent tier (OpenAI / Anthropic
+    /// only), flip an explicit .fast/.thinking/.pro request into .agent so
+    /// the turn actually runs through the Rust agent_core loop with tools.
+    /// Never auto-downgrades — if the user picked .agent explicitly we
+    /// honor it. Never promotes Google / Z.AI / Kimi / MiniMax / DeepSeek
+    /// because their tool-calling either diverges from the Claude/OpenAI
+    /// shape the agent loop expects (Gemini) or isn't offered at all
+    /// (Perplexity-class search models). Local providers can never
+    /// promote — enforced downstream by AgentError::LocalProviderNotAllowed.
+    static func autoPromotedMode(
+        from requested: EpistemosOperatingMode,
+        query: String,
+        inference: InferenceState
+    ) -> EpistemosOperatingMode {
+        if requested == .agent { return requested }
+
+        guard let cloud = inference.activeAIProvider.cloudProvider,
+              cloud.supportsAgentTier else {
+            return requested
+        }
+
+        let prediction = ChatCapability.predictIntent(
+            text: query,
+            isCloudProvider: true
+        )
+
+        return prediction.predicted == .agent ? .agent : requested
     }
 }
 

@@ -10,6 +10,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case qwen35_9B4Bit = "mlx-community/Qwen3.5-9B-4bit"
     case qwen35_27B4Bit = "mlx-community/Qwen3.5-27B-4bit"
     case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
+    case qwen36_35BA3B4Bit = "mlx-community/Qwen3.6-35B-A3B-4bit"
 
     // MARK: - Gemma 4 Family (2026 frontier)
     case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
@@ -24,6 +25,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     // MARK: - Specialist Models
     case deepseekR1Distill7B = "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit"
     case qwen25Coder7B = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
+    case bonsai4B2Bit = "prism-ml/Ternary-Bonsai-4B-mlx-2bit"
+    case bonsai8B2Bit = "prism-ml/Ternary-Bonsai-8B-mlx-2bit"
 
     // MARK: - LFM2.5 (Liquid Foundation Model 2.5 — SSM hybrid, on-device optimized)
     case lfm25_350M = "LiquidAI/LFM2.5-350M-MLX-4bit"
@@ -67,14 +70,17 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit: "Qwen 3.5 9B"
         case .qwen35_27B4Bit: "Qwen 3.5 27B"
         case .qwen35_35BA3B4Bit: "Qwen 3.5 35B APEXMini"
+        case .qwen36_35BA3B4Bit: "Qwen 3.6 35B A3B"
         case .gemma4_2B4Bit: "Gemma 4 2B"
-        case .gemma4_4B4Bit: "Gemma 4 4B"
-        case .gemma4_27BA4B4Bit: "Gemma 4 27B MoE"
+        case .gemma4_4B4Bit: "Gemma 4 E4B"
+        case .gemma4_27BA4B4Bit: "Gemma 4 26B A4B"
         case .gemma4_31BJANG: "Gemma 4 31B JANG"
         case .qwopus27Bv3: "Qwopus 27B v3"
         case .qwopusMoE35BA3B: "Qwopus MoE 35B"
         case .deepseekR1Distill7B: "DeepSeek R1 7B"
         case .qwen25Coder7B: "Qwen 2.5 Coder 7B"
+        case .bonsai4B2Bit: "Ternary Bonsai 4B"
+        case .bonsai8B2Bit: "Ternary Bonsai 8B"
         case .lfm25_350M: "LFM2.5 350M"
         case .lfm25_1BInstruct: "LFM2.5 1.2B"
         case .lfm25_1BThinking: "LFM2.5 1.2B Thinking"
@@ -103,14 +109,17 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit: "Qwen 9B"
         case .qwen35_27B4Bit: "Qwen 27B"
         case .qwen35_35BA3B4Bit: "Qwen 35B APEX"
+        case .qwen36_35BA3B4Bit: "Qwen3.6 35B"
         case .gemma4_2B4Bit: "Gemma 2B"
-        case .gemma4_4B4Bit: "Gemma 4B"
-        case .gemma4_27BA4B4Bit: "Gemma 27B"
+        case .gemma4_4B4Bit: "Gemma E4B"
+        case .gemma4_27BA4B4Bit: "Gemma 26B A4B"
         case .gemma4_31BJANG: "Gemma 31B"
         case .qwopus27Bv3: "Qwopus 27B"
         case .qwopusMoE35BA3B: "Qwopus 35B"
         case .deepseekR1Distill7B: "R1 7B"
         case .qwen25Coder7B: "Coder 7B"
+        case .bonsai4B2Bit: "Bonsai 4B"
+        case .bonsai8B2Bit: "Bonsai 8B"
         case .smolLM3_3B4Bit: "SmolLM3"
         case .devstralSmall2505_4Bit: "Devstral"
         case .mistralSmall31_24B4Bit: "Mistral 24B"
@@ -136,6 +145,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
              .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             "Qwen 3.5"
+        case .qwen36_35BA3B4Bit:
+            "Qwen 3.6"
         case .gemma4_2B4Bit, .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             "Gemma 4"
@@ -145,6 +156,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             "DeepSeek R1"
         case .qwen25Coder7B:
             "Qwen Coder"
+        case .bonsai4B2Bit, .bonsai8B2Bit:
+            "Ternary Bonsai"
         case .smolLM3_3B4Bit:
             "SmolLM3"
         case .devstralSmall2505_4Bit:
@@ -188,16 +201,29 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .gemma4_2B4Bit, .falconH1_1B4Bit,
              .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B: 8
         case .qwen35_2B4Bit, .lfm2_2B4Bit, .mamba2_2B4Bit: 8
-        case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit: 8
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit,
+             .bonsai4B2Bit, .bonsai8B2Bit: 8
         case .deepseekR1Distill7B, .qwen25Coder7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 16
         case .qwen35_9B4Bit, .jamba3B: 18
         case .lfm2_24BA2B4Bit: 24
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 18
+        case .qwen36_35BA3B4Bit: 24
         case .qwopus27Bv3, .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit: 24
         case .qwen35_27B4Bit: 48
         case .qwen35_35BA3B4Bit: 18
         case .qwopusMoE35BA3B, .llama4Scout17B16E4Bit: 24
+        }
+    }
+
+    var minimumRecommendedInteractiveMemoryGB: Int {
+        switch self {
+        case .qwen35_35BA3B4Bit:
+            24
+        case .qwen36_35BA3B4Bit:
+            32
+        default:
+            minimumRecommendedMemoryGB
         }
     }
 
@@ -214,7 +240,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var supportsThinkingMode: Bool {
         switch self {
-        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .lfm25_1BThinking, .jamba3B,
              .qwopus27Bv3, .qwopusMoE35BA3B,
@@ -228,6 +254,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var canActAsAgent: Bool {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit,
              .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwen25Coder7B,
@@ -242,36 +269,84 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Actual local agent-loop execution capability.
+    /// This stays broader than `supportsAgentMode` because the local runtime
+    /// can still execute tool plans through the soft-guidance fallback when
+    /// true constrained decoding packages are not linked into the app target.
+    var canRunLocalAgentLoop: Bool {
+        canActAsAgent && LocalToolGrammar.supportsLocalAgentLoop
+    }
+
+    /// User-visible agent mode exposure for the regular chat picker.
+    /// The UI remains conservative and only advertises agent mode when the
+    /// strict structured-decoding stack is available in this build target.
     var supportsAgentMode: Bool {
         canActAsAgent && LocalToolGrammar.supportsStructuredToolCalling
     }
 
+    var isExperimentalForEpistemos: Bool {
+        switch self {
+        case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking,
+             .lfm25_VL1B, .lfm25_Audio1B,
+             .lfm2_2B4Bit, .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
+             .mamba2_2B4Bit, .jamba3B,
+             .falconH1_1B4Bit, .falconH1R_7B4Bit:
+            true
+        default:
+            false
+        }
+    }
+
+    var isEpistemosShippedLocalModel: Bool {
+        switch self {
+        case .gemma4_4B4Bit,
+             .deepseekR1Distill7B,
+             .qwen25Coder7B,
+             .bonsai4B2Bit,
+             .bonsai8B2Bit,
+             .gemma4_27BA4B4Bit,
+             .qwen36_35BA3B4Bit:
+            true
+        default:
+            false
+        }
+    }
+
+    var isReleaseValidatedForLocalAgentLoop: Bool {
+        !isExperimentalForEpistemos
+    }
+
     var isReleaseValidatedForInteractiveChat: Bool {
         switch self {
-        case .qwen35_4B4Bit, .qwen35_9B4Bit,
-             .lfm25_1BThinking, .lfm2_8BA1B3Bit, .mamba2_2B4Bit, .falconH1_1B4Bit:
+        case .qwen35_4B4Bit, .qwen35_9B4Bit:
             false
         default:
-            true
+            !isExperimentalForEpistemos
         }
     }
 
     var releasePickerVisibilityReason: String? {
+        if isExperimentalForEpistemos {
+            switch self {
+            case .mamba2_2B4Bit:
+                return "Hidden from the release chat picker because the installed MLX artifact has no chat template, the April 9 Mamba-only live sweep rerun corrupted its result bundle, and interactive chat is not release-validated yet."
+            case .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking,
+                 .lfm25_VL1B, .lfm25_Audio1B,
+                 .lfm2_2B4Bit, .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit,
+                 .jamba3B, .falconH1_1B4Bit, .falconH1R_7B4Bit:
+                return "Hidden from the release picker and agent picker until the Epistemos local-tool path is stable on this family. These SSM tiers remain installable for advanced testing, but they are not promoted for normal chat yet."
+            default:
+                break
+            }
+        }
+
         switch self {
         case .qwen35_4B4Bit:
-            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
+            return "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
         case .qwen35_9B4Bit:
-            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
-        case .lfm2_8BA1B3Bit:
-            "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
-        case .lfm25_1BThinking:
-            "Hidden from the release chat picker after the April 9 live sweep failed basic fast-mode quality and thinking-mode arithmetic."
-        case .mamba2_2B4Bit:
-            "Hidden from the release chat picker because the installed MLX artifact has no chat template, the April 9 Mamba-only live sweep rerun corrupted its result bundle, and interactive chat is not release-validated yet."
-        case .falconH1_1B4Bit:
-            "Hidden from the release chat picker after the April 8 live sweep failed basic chat quality and long-context grounding."
+            return "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
         default:
-            nil
+            return nil
         }
     }
 
@@ -287,7 +362,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Gemma 4: all variants support 128K-256K (model card: 256K with p-RoPE)
         case .gemma4_2B4Bit: 128_000       // E2B: 128K (model card)
         case .gemma4_4B4Bit: 128_000       // E4B: 128K
-        case .gemma4_27BA4B4Bit: 256_000   // 27B MoE: 256K
+        case .gemma4_27BA4B4Bit: 256_000   // 26B A4B: 256K
         case .gemma4_31BJANG: 256_000      // 31B JANG: 256K
         // Qwen 3.5: ALL variants support 262K (Unsloth docs, architecture spec)
         case .qwen35_0_8B4Bit: 262_144
@@ -296,12 +371,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit: 262_144
         case .qwen35_27B4Bit: 262_144
         case .qwen35_35BA3B4Bit: 262_144
+        case .qwen36_35BA3B4Bit: 262_144
         // Qwopus: Qwen 3.5 base → 262K / MoE → 131K
         case .qwopus27Bv3: 262_144
         case .qwopusMoE35BA3B: 131_072
         // Specialists
         case .deepseekR1Distill7B: 128_000   // DeepSeek R1 HF card: 128K
         case .qwen25Coder7B: 131_072         // Qwen 2.5 Coder: 131K
+        case .bonsai4B2Bit: 32_768
+        case .bonsai8B2Bit: 65_536
         // Others
         case .smolLM3_3B4Bit: 128_000        // SmolLM3: 128K (with YaRN)
         case .devstralSmall2505_4Bit: 256_000 // Devstral: 256K
@@ -350,7 +428,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             true  // Trained with RL specifically for tool calling
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true  // Gemma 4 supports native JSON tool use
-        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit:
             true  // Qwen 3.5 large supports tool calling
         case .devstralSmall2505_4Bit:
             true  // Devstral designed for coding + tool use
@@ -384,6 +462,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
              .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             0.7
+        case .qwen36_35BA3B4Bit:
+            0.7
         // Qwopus: Qwen base, 0.7 for instruction following
         case .qwopus27Bv3, .qwopusMoE35BA3B:
             0.7
@@ -393,6 +473,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Code models: low temp for correct code
         case .qwen25Coder7B:
             0.4
+        case .bonsai4B2Bit, .bonsai8B2Bit:
+            0.7
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
             0.4
         // SmolLM3: moderate
@@ -419,6 +501,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             0.0   // Qwen 3.5 official: temp=0.0 for thinking mode
+        case .qwen36_35BA3B4Bit:
+            1.0   // Qwen 3.6 model card recommends temp=1.0 for general thinking
         case .qwopus27Bv3, .qwopusMoE35BA3B:
             0.0   // Qwopus inherits Qwen thinking behavior
         case .deepseekR1Distill7B:
@@ -435,6 +519,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// Optimal top-p for this model.
     var optimalTopP: Float {
         switch self {
+        case .qwen36_35BA3B4Bit:
+            0.80
         case .qwopus27Bv3, .qwopusMoE35BA3B:
             0.90
         case .deepseekR1Distill7B, .qwen25Coder7B:
@@ -449,7 +535,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// Optimal top-k for this model (0 = disabled).
     var optimalTopK: Int {
         switch self {
-        case .qwopus27Bv3, .qwopusMoE35BA3B:
+        case .qwen36_35BA3B4Bit, .qwopus27Bv3, .qwopusMoE35BA3B:
             20
         default:
             0
@@ -487,10 +573,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_2B4Bit, .smolLM3_3B4Bit:
             6_144
         // Small models: moderate KV
-        case .qwen35_4B4Bit, .gemma4_4B4Bit:
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai4B2Bit:
             4_096
         // Medium models: balanced KV
-        case .deepseekR1Distill7B, .qwen25Coder7B:
+        case .deepseekR1Distill7B, .qwen25Coder7B, .bonsai8B2Bit:
             3_072
         case .qwen35_9B4Bit:
             2_560
@@ -508,7 +594,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopus27Bv3:
             1_536
         // MoE large: sparse activation = more KV headroom
-        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B:
+        case .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B:
             2_048
         case .llama4Scout17B16E4Bit:
             1_024
@@ -527,7 +613,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// MoE models are faster per token due to sparse activation.
     var isMoE: Bool {
         switch self {
-        case .gemma4_27BA4B4Bit, .qwen35_35BA3B4Bit, .qwopusMoE35BA3B,
+        case .gemma4_27BA4B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B,
              .llama4Scout17B16E4Bit,
              .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:  // LFM2 MoE variants
             true
@@ -543,13 +629,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_2B4Bit, .gemma4_2B4Bit: 2.0
         case .smolLM3_3B4Bit: 3.0
         case .qwen35_4B4Bit, .gemma4_4B4Bit: 4.0
+        case .bonsai4B2Bit: 4.0
         case .deepseekR1Distill7B, .qwen25Coder7B: 7.0
+        case .bonsai8B2Bit: 8.0
         case .qwen35_9B4Bit: 9.0
-        case .gemma4_27BA4B4Bit: 4.0  // MoE: 27B total, 4B active
+        case .gemma4_27BA4B4Bit: 4.0  // MoE: 26B total, 4B active
         case .qwen35_27B4Bit, .qwopus27Bv3: 27.0
         case .gemma4_31BJANG, .gemma3_27BQAT4Bit: 27.0
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit: 24.0
-        case .qwen35_35BA3B4Bit, .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
+        case .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
         case .llama4Scout17B16E4Bit: 17.0
         // SSM models
         case .lfm25_350M: 0.35
@@ -575,11 +663,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             .coding       // Coding specialist
         case .deepseekR1Distill7B:
             .reasoning    // DeepSeek R1 reasoning distilled
+        case .qwen36_35BA3B4Bit:
+            .general      // High-end local agentic/generalist tier
         case .gemma4_31BJANG:
             .general      // Abliterated: unconstrained general use
         case .gemma4_27BA4B4Bit:
             .multimodal   // Vision + reasoning
-        case .gemma4_2B4Bit, .gemma4_4B4Bit:
+        case .gemma4_2B4Bit, .gemma4_4B4Bit,
+             .bonsai4B2Bit, .bonsai8B2Bit:
             .routing      // Fast intent classification
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .smolLM3_3B4Bit:
             .routing      // Ultra-fast routing
@@ -663,16 +754,30 @@ nonisolated enum LocalAgentToolTier: String, Sendable {
     case fullAgent     // + Shell, browser, file write, computer use
 }
 
+private extension LocalAgentToolTier {
+    var priority: Int {
+        switch self {
+        case .readOnly:
+            0
+        case .readWrite:
+            1
+        case .fullAgent:
+            2
+        }
+    }
+}
+
 extension LocalTextModelID {
     /// What tool tier this model is capable of handling reliably.
     /// Specialist models (Coder, R1) get elevated access despite smaller size.
     var agentToolTier: LocalAgentToolTier {
         switch self {
         // Tiny models (≤2B): vault only — too small for tool chains
-        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit, .smolLM3_3B4Bit:
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit, .smolLM3_3B4Bit,
+             .bonsai4B2Bit:
             .readOnly
         // Small general models (4B): vault + read
-        case .qwen35_4B4Bit, .gemma4_4B4Bit:
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai8B2Bit:
             .readWrite
         // Specialist 7B models: elevated to full agent — these are specifically
         // trained for tool calling (Coder) and reasoning (R1)
@@ -686,7 +791,7 @@ extension LocalTextModelID {
         // Large models (27B+): full tool set — smart enough for shell/browser
         case .qwopus27Bv3, .qwopusMoE35BA3B,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG,
-             .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .qwen35_27B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit,
              .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit,
              .gemma3_27BQAT4Bit, .llama4Scout17B16E4Bit:
             .fullAgent
@@ -769,6 +874,21 @@ nonisolated enum CloudModelProvider: String, Codable, Sendable, CaseIterable {
             ["epistemos.apiKey.google"]
         case .zai, .kimi, .minimax, .deepseek:
             []
+        }
+    }
+
+    /// Whether this cloud provider is eligible for the agent tier
+    /// (main-chat-driven Rust agent_core loop with tool execution).
+    /// Matches the product rule: OpenAI + Anthropic support
+    /// Claude/OpenAI-shaped tool-calling well enough to ship as first-
+    /// class agent drivers; Google/Z.AI/Kimi/MiniMax/DeepSeek are
+    /// accepted for chat and research but not promoted to agent tier.
+    /// Local models never qualify (enforced in Rust via
+    /// `ProviderRuntime::Local` + `AgentError::LocalProviderNotAllowed`).
+    var supportsAgentTier: Bool {
+        switch self {
+        case .openAI, .anthropic: true
+        case .google, .zai, .kimi, .minimax, .deepseek: false
         }
     }
 }
@@ -1065,6 +1185,57 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         supportsStructuredOutput ? "Structured JSON" : "Prompt JSON fallback"
     }
 
+    var aboutSheetPurposeSummary: String {
+        switch self {
+        case .openAIGPT54:
+            "Complex reasoning, coding, and agentic professional work."
+        case .openAIGPT54Mini:
+            "Fast cloud coding, subagents, and lower-latency tool work."
+        case .openAIGPT54Nano:
+            "Cheap high-volume routing, rewrites, and lightweight automation."
+        case .openAIGPT52:
+            "Balanced GPT-5 cloud work when GPT-5.4 is unavailable."
+        case .openAIGPT41:
+            "Older general-purpose OpenAI cloud chat and multimodal work."
+        case .openAIGPT41Mini:
+            "Lightweight OpenAI fallback for fast simple cloud tasks."
+        case .openAIO3:
+            "Deliberate reasoning-heavy fallback when GPT-5 is not the right fit."
+        case .openAIO3Mini:
+            "Lean reasoning and lightweight agent loops."
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4:
+            "High-rigor writing, careful analysis, and long-form synthesis."
+        case .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
+            "Fast general Anthropic reasoning, planning, and agent work."
+        case .anthropicClaudeHaiku35:
+            "Low-latency Anthropic chat and lightweight automation."
+        case .googleGemini25Pro, .googleGemini3ProPreview, .googleGemini31ProPreview:
+            "Very long-context multimodal analysis and grounded research."
+        case .googleGemini25Flash, .googleGemini3FlashPreview:
+            "Fast multimodal cloud turns and tool-oriented chat."
+        case .zaiGLM5:
+            "Broad general-purpose GLM reasoning and multilingual chat."
+        case .zaiGLM45Flash:
+            "Fast GLM chat and lightweight cloud routing."
+        case .kimiK25:
+            "Large-context synthesis and general-purpose Kimi work."
+        case .kimiK2Thinking:
+            "Longer-horizon Kimi reasoning and deliberate planning."
+        case .kimiK2TurboPreview:
+            "Fast Kimi cloud turns and agent-style chat."
+        case .minimaxM25:
+            "Large-context MiniMax reasoning and synthesis."
+        case .minimaxM25HighSpeed:
+            "Lower-latency MiniMax chat and automation."
+        case .minimaxM21:
+            "Balanced MiniMax reasoning with broad multimodal support."
+        case .deepseekChat:
+            "Fast DeepSeek cloud chat and lower-latency tool use."
+        case .deepseekReasoner:
+            "DeepSeek reasoning-heavy cloud work and deliberate analysis."
+        }
+    }
+
     /// Whether this model supports native structured output (JSON schema).
     /// OpenAI GPT models support json_schema response format.
     /// Anthropic supports structured output via tool_use with forced tool_choice.
@@ -1204,8 +1375,6 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         switch (self, operatingMode) {
         case (.openAIGPT54, .fast):
             .openAIGPT54Mini
-        case (.openAIGPT54, .thinking):
-            .openAIO3
         case (.zaiGLM5, .fast):
             .zaiGLM45Flash
         case (.kimiK25, .fast):
@@ -2088,7 +2257,7 @@ nonisolated struct LocalModelSelection: Sendable, Equatable {
         guard let model = LocalTextModelID(rawValue: modelID) else {
             return false
         }
-        return model.supportsAgentMode
+        return model.canRunLocalAgentLoop
     }
 }
 
@@ -2099,7 +2268,7 @@ extension CloudModelProvider {
             case (.openAI, .fast):
                 .openAIGPT54Mini
             case (.openAI, .thinking):
-                .openAIO3
+                .openAIGPT54
             case (.openAI, .pro), (.openAI, .agent):
                 .openAIGPT54
             case (.anthropic, .pro):
@@ -2164,34 +2333,39 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         return roundedMemoryGB >= model.minimumRecommendedMemoryGB
     }
 
+    nonisolated func supportsInteractiveChatModel(textModelID: String) -> Bool {
+        guard let model = LocalTextModelID(rawValue: textModelID) else { return false }
+        return roundedMemoryGB >= model.minimumRecommendedInteractiveMemoryGB
+    }
+
     /// Recommends the best local model for the available memory.
     /// Uses the MLX-native release catalog only.
     nonisolated var recommendedLocalTextModelID: LocalTextModelID {
         switch roundedMemoryGB {
-        case ..<12:
-            .gemma4_2B4Bit           // Best 2B: multimodal, 256K context (was Qwen 0.8B)
-        case ..<16:
-            .gemma4_4B4Bit           // Best 4B: multimodal, 131K context (was Qwen 2B)
-        case ..<18:
-            .deepseekR1Distill7B     // Best 7B: reasoning specialist (was Qwen 4B)
-        case ..<48:
-            .qwen35_35BA3B4Bit       // Primary 18GB APEXMini tier with strong reasoning and large context
+        case ..<24:
+            .gemma4_4B4Bit
         default:
-            .qwen35_27B4Bit          // Largest dense MLX tier for high-memory Macs
+            .gemma4_27BA4B4Bit
         }
     }
 
     nonisolated func smallerLocalTextModelID(than modelID: LocalTextModelID) -> LocalTextModelID? {
         switch modelID {
         case .gemma4_2B4Bit:
-            return .qwen35_0_8B4Bit
+            return nil
         case .gemma4_4B4Bit:
-            return .qwen35_2B4Bit
+            return .bonsai4B2Bit
+        case .bonsai4B2Bit:
+            return nil
+        case .bonsai8B2Bit:
+            return .bonsai4B2Bit
         case .deepseekR1Distill7B:
             return .gemma4_4B4Bit
+        case .qwen25Coder7B:
+            return .deepseekR1Distill7B
         case .gemma4_27BA4B4Bit:
             return .deepseekR1Distill7B
-        case .qwen35_35BA3B4Bit, .qwen35_27B4Bit:
+        case .qwen36_35BA3B4Bit:
             return .gemma4_27BA4B4Bit
         default:
             break
@@ -2201,7 +2375,9 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
             LocalModelCatalog.textDescriptors.compactMap { LocalTextModelID(rawValue: $0.id) }
         )
         let orderedModelIDs = LocalTextModelID.ascendingBySize.filter {
-            installableModelIDs.contains($0) && $0.isReleaseValidatedForInteractiveChat
+            installableModelIDs.contains($0)
+                && $0.isReleaseValidatedForInteractiveChat
+                && $0.isEpistemosShippedLocalModel
         }
         if let currentIndex = orderedModelIDs.firstIndex(of: modelID), currentIndex > 0 {
             return orderedModelIDs[currentIndex - 1]
@@ -2221,7 +2397,10 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
     /// Content length derived from the recommended model's actual context window.
     /// Uses a fraction of the model's max to leave room for output + KV cache.
     nonisolated var baseLocalRuntimeContentLength: Int {
-        let model = recommendedLocalTextModelID
+        baseLocalRuntimeContentLength(for: recommendedLocalTextModelID)
+    }
+
+    nonisolated func baseLocalRuntimeContentLength(for model: LocalTextModelID) -> Int {
         // Use 60% of the model's context window for input, leaving 40% for output + overhead
         let modelBudget = Int(Double(model.maxContextTokens) * 0.6)
         // Cap at a practical maximum to avoid VRAM pressure from KV cache
@@ -2248,8 +2427,20 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         for conditions: LocalRuntimeConditions,
         reasoningMode: LocalReasoningMode = .fast
     ) -> Int {
+        recommendedLocalContentLength(
+            for: recommendedLocalTextModelID,
+            conditions: conditions,
+            reasoningMode: reasoningMode
+        )
+    }
+
+    nonisolated func recommendedLocalContentLength(
+        for model: LocalTextModelID,
+        conditions: LocalRuntimeConditions,
+        reasoningMode: LocalReasoningMode = .fast
+    ) -> Int {
         _ = reasoningMode
-        var total = min(maxRecommendedLocalContentLength, baseLocalRuntimeContentLength)
+        var total = min(maxRecommendedLocalContentLength, baseLocalRuntimeContentLength(for: model))
         if conditions.lowPowerModeEnabled {
             total = Int(Double(total) * 0.82)
         }
@@ -2295,6 +2486,7 @@ final class InferenceState {
     private nonisolated static let anthropicExtendedThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
     private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
+    private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let firecrawlAPIKeyKeychainKey = "epistemos.firecrawl.apiKey"
     private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
     private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
@@ -2332,6 +2524,7 @@ final class InferenceState {
     /// a descriptive error instead of silently falling back to other models.
     /// When true, enables the automatic fallback chain across cloud providers and local models.
     var cloudAutoFallback: Bool = false
+    var chatAutoRouteToCloud: Bool = false
     var preferredLocalTextModelID: String = LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     var preferredChatModelSelection: ChatModelSelection = .localMLX(
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
@@ -2408,12 +2601,12 @@ final class InferenceState {
             if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
                 self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
             } else {
-                self.preferredChatModelSelection = selection
+                self.preferredChatModelSelection = normalizedChatModelSelection(selection)
             }
         } else if let migratedSelection = Self.migrateLegacyCloudSelection(defaults: defaults) {
-            self.preferredChatModelSelection = migratedSelection
+            self.preferredChatModelSelection = normalizedChatModelSelection(migratedSelection)
             defaults.set(
-                migratedSelection.rawValue,
+                preferredChatModelSelection.rawValue,
                 forKey: "epistemos.preferredChatModelSelection"
             )
         } else {
@@ -2444,6 +2637,7 @@ final class InferenceState {
             savedBudget > 0 ? savedBudget : 8_000
         )
         self.googleGroundingEnabled = defaults.bool(forKey: Self.googleGroundingDefaultsKey)
+        self.chatAutoRouteToCloud = defaults.bool(forKey: Self.chatAutoRouteToCloudDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
@@ -2510,6 +2704,8 @@ final class InferenceState {
                 || cachedCloudOAuthCredentials[provider] != nil
             partialResult[provider] = hasConfiguredAccess ? .unchecked : .missing
         }
+
+        AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
     }
 
     private nonisolated static func migrateLegacyCloudSelection(
@@ -2549,9 +2745,9 @@ final class InferenceState {
         if let saved = defaults.string(forKey: Self.preferredCloudModelDefaultsKey(for: provider)),
            let model = CloudTextModelID.from(rawValueOrVendorID: saved),
            model.provider == provider {
-            return model
+            return normalizedPreferredCloudModel(model)
         }
-        return provider.defaultChatModel
+        return normalizedPreferredCloudModel(provider.defaultChatModel)
     }
 
     private func persistPreferredCloudModel(
@@ -2681,6 +2877,8 @@ final class InferenceState {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleIntelligenceAvailable,
+            cloudAutoRouteEnabled: chatAutoRouteToCloud,
+            hasConfiguredCloudModels: hasConfiguredCloudModels,
             preferredChatModelSelection: preferredChatModelSelection,
             preferredLocalTextModelID: sanitizedInteractiveLocalTextModelID(
                 for: preferredLocalTextModelID
@@ -2709,14 +2907,20 @@ final class InferenceState {
         )
     }
 
+    private var supportedAvailableLocalAgentModels: [LocalTextModelID] {
+        supportedLocalAgentTextModels(
+            from: installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
+        )
+    }
+
     private func supportedInteractiveLocalTextModels(
         from ids: Set<String>
     ) -> [LocalTextModelID] {
-        ids
+        let supportedModels = ids
             .compactMap(LocalTextModelID.init(rawValue:))
             .filter {
                 availableLocalGenerationRuntimeKinds.contains($0.runtimeKind)
-                    && hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                    && hardwareCapabilitySnapshot.supportsInteractiveChatModel(textModelID: $0.rawValue)
                     && $0.isReleaseValidatedForInteractiveChat
             }
             .sorted { lhs, rhs in
@@ -2725,6 +2929,32 @@ final class InferenceState {
                 }
                 return lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
             }
+        let shippedModels = supportedModels.filter(\.isEpistemosShippedLocalModel)
+        return shippedModels.isEmpty ? supportedModels : shippedModels
+    }
+
+    private func supportedLocalAgentTextModels(
+        from ids: Set<String>
+    ) -> [LocalTextModelID] {
+        let supportedModels = ids
+            .compactMap(LocalTextModelID.init(rawValue:))
+            .filter {
+                availableLocalGenerationRuntimeKinds.contains($0.runtimeKind)
+                    && hardwareCapabilitySnapshot.supportsInteractiveChatModel(textModelID: $0.rawValue)
+                    && $0.isReleaseValidatedForLocalAgentLoop
+                    && $0.canRunLocalAgentLoop
+            }
+            .sorted { lhs, rhs in
+                if lhs.agentToolTier.priority == rhs.agentToolTier.priority {
+                    if lhs.minimumRecommendedMemoryGB == rhs.minimumRecommendedMemoryGB {
+                        return lhs.rawValue < rhs.rawValue
+                    }
+                    return lhs.minimumRecommendedMemoryGB > rhs.minimumRecommendedMemoryGB
+                }
+                return lhs.agentToolTier.priority > rhs.agentToolTier.priority
+            }
+        let shippedModels = supportedModels.filter(\.isEpistemosShippedLocalModel)
+        return shippedModels.isEmpty ? supportedModels : shippedModels
     }
 
     func setAvailableLocalGenerationRuntimeKinds(_ runtimeKinds: Set<BackendRuntimeKind>) {
@@ -2751,23 +2981,26 @@ final class InferenceState {
         sanitizedInteractiveLocalTextModelID(for: preferredLocalTextModelID)
     }
 
+    var effectiveLocalAgentTextModelID: String? {
+        if let interactiveModelID = effectiveLocalTextModelID,
+           let interactiveModel = LocalTextModelID(rawValue: interactiveModelID),
+           interactiveModel.canRunLocalAgentLoop {
+            return interactiveModelID
+        }
+        return supportedAvailableLocalAgentModels.first?.rawValue
+    }
+
     var hasUsableLocalTextModel: Bool {
         effectiveLocalTextModelID != nil
     }
 
     var supportsLocalAgentLoop: Bool {
-        guard let modelID = activeLocalTextModelID,
-              let model = LocalTextModelID(rawValue: modelID) else {
-            return false
-        }
-
-        return model.supportsAgentMode
+        effectiveLocalAgentTextModelID != nil
     }
 
-    var operatingModeCapabilities: OperatingModeCapabilities {
+    private var baseOperatingModeCapabilities: OperatingModeCapabilities {
         switch preferredChatModelSelection {
         case .appleIntelligence:
-            // Apple Intelligence has no agent capability — fast only.
             return OperatingModeCapabilities(availableModes: [.fast])
         case .cloud(let model):
             return OperatingModeCapabilities(availableModes: model.supportedOperatingModes)
@@ -2777,7 +3010,6 @@ final class InferenceState {
                   let model = LocalTextModelID(rawValue: activeModelID) else {
                 return OperatingModeCapabilities(availableModes: [.fast])
             }
-            // Only models with validated mode flags get exposed in the picker.
             var modes: [EpistemosOperatingMode] = [.fast]
             if model.supportsThinkingMode {
                 modes.append(.thinking)
@@ -2787,6 +3019,111 @@ final class InferenceState {
             }
             return OperatingModeCapabilities(availableModes: modes)
         }
+    }
+
+    private var usesAutomaticCloudRouteForChatSurfaces: Bool {
+        chatAutoRouteToCloud
+            && preferredAutoRouteCloudProvider != nil
+            && {
+                if case .cloud = preferredChatModelSelection {
+                    return false
+                }
+                return true
+            }()
+    }
+
+    func effectiveChatSurfaceSelection(for operatingMode: EpistemosOperatingMode) -> ChatModelSelection {
+        if usesAutomaticCloudRouteForChatSurfaces,
+           let autoModel = preferredAutoRouteCloudModel(for: operatingMode) {
+            switch operatingMode {
+            case .pro, .agent:
+                return .cloud(autoModel)
+            case .thinking:
+                if effectiveLocalTextModelID == nil {
+                    return .cloud(autoModel)
+                }
+            case .fast:
+                if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
+                    return .cloud(autoModel)
+                }
+            }
+        }
+
+        switch preferredChatModelSelection {
+        case .localMLX:
+            if let activeLocalTextModelID {
+                return .localMLX(activeLocalTextModelID)
+            }
+            if appleIntelligenceAvailable {
+                return .appleIntelligence
+            }
+            return preferredChatModelSelection
+        case .appleIntelligence, .cloud:
+            return preferredChatModelSelection
+        }
+    }
+
+    var preferredAutoRouteCloudProvider: CloudModelProvider? {
+        guard chatAutoRouteToCloud else { return nil }
+
+        var candidates: [CloudModelProvider] = []
+        if let active = activeAIProvider.cloudProvider {
+            candidates.append(active)
+        }
+        if let last = lastNonLocalAIProvider().cloudProvider {
+            candidates.append(last)
+        }
+        candidates.append(contentsOf: CloudModelProvider.preferredOrder)
+
+        var seen: Set<CloudModelProvider> = []
+        for provider in candidates where seen.insert(provider).inserted {
+            guard hasConfiguredCloudAccess(for: provider) else { continue }
+            return provider
+        }
+        return nil
+    }
+
+    func preferredAutoRouteCloudModel(for operatingMode: EpistemosOperatingMode) -> CloudTextModelID? {
+        guard let provider = preferredAutoRouteCloudProvider else { return nil }
+        let preferredModel = loadPreferredCloudModel(for: provider)
+        if preferredModel.supportedOperatingModes.contains(operatingMode) {
+            return compatibleCloudModel(
+                preferredModel.resolvedModel(for: operatingMode),
+                for: operatingMode
+            )
+        }
+        return compatibleCloudModel(
+            provider.recommendedFallbackCloudModel(operatingMode),
+            for: operatingMode
+        )
+    }
+
+    private var automaticCloudOperatingModes: [EpistemosOperatingMode] {
+        guard usesAutomaticCloudRouteForChatSurfaces else { return [] }
+        return EpistemosOperatingMode.allCases.filter { mode in
+            preferredAutoRouteCloudModel(for: mode) != nil
+        }
+    }
+
+    private var chatSurfaceSelections: [ChatModelSelection] {
+        var selections: [ChatModelSelection] = [preferredChatModelSelection]
+        if usesAutomaticCloudRouteForChatSurfaces {
+            selections.append(contentsOf: EpistemosOperatingMode.allCases.compactMap { mode in
+                preferredAutoRouteCloudModel(for: mode).map(ChatModelSelection.cloud)
+            })
+        }
+
+        var seen: Set<String> = []
+        return selections.filter { selection in
+            seen.insert(selection.rawValue).inserted
+        }
+    }
+
+    var operatingModeCapabilities: OperatingModeCapabilities {
+        var mergedModes = Set(baseOperatingModeCapabilities.availableModes)
+        mergedModes.formUnion(automaticCloudOperatingModes)
+        let orderedModes = EpistemosOperatingMode.allCases.filter { mergedModes.contains($0) }
+        return OperatingModeCapabilities(availableModes: orderedModes.isEmpty ? [.fast] : orderedModes)
     }
 
     var availableOperatingModes: [EpistemosOperatingMode] {
@@ -2819,12 +3156,39 @@ final class InferenceState {
     }
 
     var activeChatModelDisplayName: String {
-        switch preferredChatModelSelection {
+        if usesAutomaticCloudRouteForChatSurfaces {
+            return "Auto Route"
+        }
+        return switch preferredChatModelSelection {
         case .localMLX:
             activeLocalTextModelDisplayName
         case .appleIntelligence, .cloud:
             preferredChatModelSelection.displayName
         }
+    }
+
+    var chatSurfaceMaxContextTokens: Int {
+        chatSurfaceMaxContextTokens(for: .fast)
+    }
+
+    func chatSurfaceMaxContextTokens(for operatingMode: EpistemosOperatingMode) -> Int {
+        effectiveChatSurfaceSelection(for: operatingMode).activeMaxContextTokens
+    }
+
+    var chatSurfaceSupportsVision: Bool {
+        chatSurfaceSupportsVision(for: .fast)
+    }
+
+    func chatSurfaceSupportsVision(for operatingMode: EpistemosOperatingMode) -> Bool {
+        effectiveChatSurfaceSelection(for: operatingMode).activeSupportsVision
+    }
+
+    var chatSurfaceSupportedFileTypes: Set<AttachmentType> {
+        chatSurfaceSupportedFileTypes(for: .fast)
+    }
+
+    func chatSurfaceSupportedFileTypes(for operatingMode: EpistemosOperatingMode) -> Set<AttachmentType> {
+        effectiveChatSurfaceSelection(for: operatingMode).activeSupportedFileTypes
     }
 
     var activeCloudProvider: CloudModelProvider? {
@@ -2837,7 +3201,7 @@ final class InferenceState {
 
     var activeCloudModels: [CloudTextModelID] {
         guard let provider = activeCloudProvider else { return [] }
-        return CloudTextModelID.models(for: provider)
+        return supportedCloudModels(for: provider)
     }
 
     var configuredCloudProviders: [CloudModelProvider] {
@@ -2931,7 +3295,8 @@ final class InferenceState {
     }
 
     private func persistPreferredChatModelSelection(_ selection: ChatModelSelection) {
-        if case .localMLX(let modelID) = selection {
+        let normalizedSelection = normalizedChatModelSelection(selection)
+        if case .localMLX(let modelID) = normalizedSelection {
             let persistedModelID = sanitizedStoredLocalChatModelID(for: modelID)
             preferredChatModelSelection = .localMLX(persistedModelID)
             UserDefaults.standard.set(
@@ -2944,14 +3309,14 @@ final class InferenceState {
                 forKey: "epistemos.preferredLocalTextModelID"
             )
         } else {
-            preferredChatModelSelection = selection
+            preferredChatModelSelection = normalizedSelection
             UserDefaults.standard.set(
-                selection.rawValue,
+                normalizedSelection.rawValue,
                 forKey: "epistemos.preferredChatModelSelection"
             )
         }
 
-        if case .cloud(let model) = selection {
+        if case .cloud(let model) = normalizedSelection {
             persistPreferredCloudModel(model)
             persistActiveAIProvider(AIProviderSelection(cloudProvider: model.provider))
         }
@@ -2964,6 +3329,7 @@ final class InferenceState {
             keychainDelete(provider.apiKeyKeychainKey)
             cachedCloudAPIKeys.removeValue(forKey: provider)
             missingCloudAPIKeyProviders.insert(provider)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
             cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
                 ? .unchecked
                 : .missing
@@ -2978,6 +3344,7 @@ final class InferenceState {
         if didSave {
             cachedCloudAPIKeys[provider] = trimmed
             missingCloudAPIKeyProviders.remove(provider)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
             cloudProviderValidationStates[provider] = .unchecked
         } else {
             cloudProviderValidationStates[provider] = .invalid(
@@ -2994,6 +3361,7 @@ final class InferenceState {
             keychainDelete(provider.oauthKeychainKey)
             cachedCloudOAuthCredentials.removeValue(forKey: provider)
             missingCloudOAuthProviders.insert(provider)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
             cloudProviderValidationStates[provider] = hasConfiguredCloudAccess(for: provider)
                 ? .unchecked
                 : .missing
@@ -3009,7 +3377,12 @@ final class InferenceState {
         if didSave {
             cachedCloudOAuthCredentials[provider] = credential
             missingCloudOAuthProviders.remove(provider)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
             cloudProviderValidationStates[provider] = .unchecked
+            if case .cloud(let model) = preferredChatModelSelection,
+               model.provider == provider {
+                persistPreferredChatModelSelection(.cloud(model))
+            }
         } else {
             cloudProviderValidationStates[provider] = .invalid(
                 message: "Couldn't store this account session in the Apple Keychain.",
@@ -3182,6 +3555,7 @@ final class InferenceState {
                 estimatedTokenLoad: max(1, contentLength / 4),
                 baseComplexity: 0.35,
                 queryComplexity: 0,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -3192,10 +3566,18 @@ final class InferenceState {
 
     func canRouteToLocalAgentLoop(for profile: InferenceRequestProfile) -> Bool {
         guard localRuntimeConditions.allowsAutomaticLocalRouting else { return false }
-        guard let selection = localModelSelection(for: profile) else { return false }
-        guard selection.canActAsAgent else { return false }
-        guard hardwareCapabilitySnapshot.supports(textModelID: selection.modelID) else { return false }
-        return profile.contentLength <= selection.contentBudget
+        guard let modelID = effectiveLocalAgentTextModelID,
+              let model = LocalTextModelID(rawValue: modelID),
+              model.canRunLocalAgentLoop,
+              hardwareCapabilitySnapshot.supports(textModelID: modelID) else {
+            return false
+        }
+        let contentBudget = hardwareCapabilitySnapshot.recommendedLocalContentLength(
+            for: model,
+            conditions: localRuntimeConditions,
+            reasoningMode: profile.requestedReasoningMode
+        )
+        return profile.contentLength <= contentBudget
     }
 
     func setChatOutputTokens(_ tokens: Int) {
@@ -3258,6 +3640,11 @@ final class InferenceState {
     func setRoutingMode(_ mode: LocalRoutingMode) {
         routingMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "epistemos.localRoutingMode")
+    }
+
+    func setChatAutoRouteToCloud(_ isEnabled: Bool) {
+        chatAutoRouteToCloud = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.chatAutoRouteToCloudDefaultsKey)
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
@@ -3329,17 +3716,35 @@ final class InferenceState {
     }
 
     func cloudFallbackChain(for operatingMode: EpistemosOperatingMode) -> [CloudTextModelID] {
-        guard case .cloud(let primaryModel) = preferredChatModelSelection else { return [] }
+        let primaryModel: CloudTextModelID
+        let isExplicitCloudSelection: Bool
 
-        // In manual mode: use the exact selected model, no mode-based resolution
-        // (user picks GPT-5.4, they get GPT-5.4, not GPT-5.4-mini in fast mode)
-        let primaryResolved = cloudAutoFallback
-            ? primaryModel.resolvedModel(for: operatingMode)
-            : primaryModel
+        switch preferredChatModelSelection {
+        case .cloud(let selectedModel):
+            primaryModel = selectedModel
+            isExplicitCloudSelection = true
+        default:
+            guard let autoModel = preferredAutoRouteCloudModel(for: operatingMode) else {
+                return []
+            }
+            primaryModel = autoModel
+            isExplicitCloudSelection = false
+        }
+
+        let primaryResolved: CloudTextModelID = {
+            if isExplicitCloudSelection {
+                return compatibleCloudModel(
+                    cloudAutoFallback
+                        ? primaryModel.resolvedModel(for: operatingMode)
+                        : primaryModel,
+                    for: operatingMode
+                )
+            }
+            return compatibleCloudModel(primaryModel, for: operatingMode)
+        }()
 
         var chain: [CloudTextModelID] = [primaryResolved]
 
-        // Only build fallback chain in auto mode
         guard cloudAutoFallback else { return chain }
 
         for provider in CloudModelProvider.fallbackPriority(after: primaryModel.provider) {
@@ -3348,9 +3753,15 @@ final class InferenceState {
             let preferredModel = loadPreferredCloudModel(for: provider)
             let fallbackModel: CloudTextModelID
             if preferredModel.supportedOperatingModes.contains(operatingMode) {
-                fallbackModel = preferredModel.resolvedModel(for: operatingMode)
+                fallbackModel = compatibleCloudModel(
+                    preferredModel.resolvedModel(for: operatingMode),
+                    for: operatingMode
+                )
             } else {
-                fallbackModel = provider.recommendedFallbackCloudModel(operatingMode)
+                fallbackModel = compatibleCloudModel(
+                    provider.recommendedFallbackCloudModel(operatingMode),
+                    for: operatingMode
+                )
             }
             chain.append(fallbackModel)
         }
@@ -3359,6 +3770,84 @@ final class InferenceState {
         return chain.filter { model in
             seen.insert(model.rawValue).inserted
         }
+    }
+
+    private func normalizedChatModelSelection(_ selection: ChatModelSelection) -> ChatModelSelection {
+        guard case .cloud(let model) = selection else {
+            return selection
+        }
+        return .cloud(normalizedPreferredCloudModel(model))
+    }
+
+    private func normalizedPreferredCloudModel(_ model: CloudTextModelID) -> CloudTextModelID {
+        guard model.provider == .openAI,
+              openAIUsesCodexAccountRuntime else {
+            return model
+        }
+
+        switch model {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
+            return model
+        case .openAIGPT54Nano, .openAIGPT41, .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
+            return .openAIGPT54
+        default:
+            return model
+        }
+    }
+
+    private func compatibleCloudModel(
+        _ model: CloudTextModelID,
+        for operatingMode: EpistemosOperatingMode
+    ) -> CloudTextModelID {
+        let normalized = normalizedPreferredCloudModel(model)
+        guard normalized.provider == .openAI,
+              openAIUsesCodexAccountRuntime else {
+            return normalized
+        }
+
+        switch operatingMode {
+        case .fast:
+            switch normalized {
+            case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
+                return normalized
+            default:
+                return .openAIGPT54Mini
+            }
+        case .thinking, .pro:
+            switch normalized {
+            case .openAIGPT54, .openAIGPT52:
+                return normalized
+            default:
+                return .openAIGPT54
+            }
+        case .agent:
+            switch normalized {
+            case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
+                return normalized
+            default:
+                return .openAIGPT54
+            }
+        }
+    }
+
+    private func supportedCloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
+        let models = CloudTextModelID.models(for: provider)
+        guard provider == .openAI,
+              openAIUsesCodexAccountRuntime else {
+            return models
+        }
+        return models.filter { model in
+            switch model {
+            case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
+                true
+            default:
+                false
+            }
+        }
+    }
+
+    private var openAIUsesCodexAccountRuntime: Bool {
+        oauthCredential(for: .openAI)?.authMode == .openAICodex
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {

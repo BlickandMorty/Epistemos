@@ -927,7 +927,8 @@ struct LandingView: View {
             trimmed,
             operatingMode: selectedOperatingMode,
             chat: chat,
-            orchestrator: orchestrator
+            orchestrator: orchestrator,
+            inference: inference
         )
     }
 
