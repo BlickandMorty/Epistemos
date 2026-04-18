@@ -1215,6 +1215,9 @@ final class HologramOverlay {
             repositionInspector()
             updatePinnedInspectorPositions()
             graphState.startOverlayPhysicsCycle()
+            // Resume the Metal render loop when returning to canvas so the
+            // physics/rendering pipeline starts producing frames again.
+            metalView?.resumeEngine()
             return
         }
 
@@ -1225,6 +1228,14 @@ final class HologramOverlay {
             view.isHidden = true
         }
         graphState.cancelOverlayPhysicsCycle()
+
+        // Fully pause the Metal render loop while the user is on a note or
+        // folder route. Without this the CVDisplayLink keeps ticking and
+        // even if renderNeeded=false the background thread wakes the main
+        // queue at display-refresh rate, stealing cycles from the TextKit 2
+        // prose editor and causing visible stutter while typing / scrolling
+        // inside the graph-native note page.
+        metalView?.pauseEngine()
     }
 
     // MARK: - Fullscreen Handling
