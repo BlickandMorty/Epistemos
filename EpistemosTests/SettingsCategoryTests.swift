@@ -41,7 +41,7 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        #expect(SettingsView.SettingsSection.visibleSections.count == 12)
+        #expect(SettingsView.SettingsSection.visibleSections.count == 13)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -57,6 +57,7 @@ struct SettingsCategoryTests {
             .iMessageDriver:  .automation,
             .skills:          .automation,
             .agentControl:    .automation,
+            .authority:       .automation,
             .vault:           .privacyStore,
             .general:         .advanced,
         ]
@@ -86,12 +87,13 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 12 original sections are still visible")
-    func twelveSectionsStillReachable() {
+    @Test("All 13 visible sections are reachable (12 original + authority)")
+    func allVisibleSectionsAreReachable() {
         let expected: Set<SettingsView.SettingsSection> = [
             .general, .channels, .cognitive, .inference,
             .knowledgeFusion, .modelVaults, .iMessageDriver,
-            .skills, .agentControl, .landing, .appearance, .vault,
+            .skills, .agentControl, .authority,
+            .landing, .appearance, .vault,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }

@@ -674,7 +674,12 @@ struct HologramSearchSidebar: View {
                 // signal reads consistently across surfaces.
                 ChatCapabilityPill(
                     capability: ChatCapability.classify(
-                        isCloudProvider: inference.activeAIProvider.cloudProvider != nil,
+                        isCloudProvider: {
+                            switch inference.preferredChatModelSelection {
+                            case .cloud: true
+                            case .localMLX, .appleIntelligence: false
+                            }
+                        }(),
                         isAgentExecuting: false,
                         isResearchMode: false,
                         isThinkingMode: false
