@@ -1,7 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use std::panic::AssertUnwindSafe;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -336,7 +338,29 @@ impl ToolRegistry {
         if !self.is_tool_permitted(tool) {
             return Err(ToolError::PermissionDenied);
         }
-        tool.handler.execute(input).await
+        // Panic isolation: wrap the handler future in catch_unwind so a
+        // panicking tool (bad unwrap inside a downstream crate, slice OOB
+        // in a parse path, etc.) does NOT take down the whole agent
+        // session. The panic is converted into ToolError::ExecutionFailed
+        // so the agent loop can surface it back to the model, which can
+        // then recover or retry with different input.
+        let fut = AssertUnwindSafe(tool.handler.execute(input));
+        match fut.catch_unwind().await {
+            Ok(result) => result,
+            Err(panic) => {
+                let message = if let Some(s) = panic.downcast_ref::<&str>() {
+                    (*s).to_string()
+                } else if let Some(s) = panic.downcast_ref::<String>() {
+                    s.clone()
+                } else {
+                    format!("tool '{name}' panicked")
+                };
+                tracing::error!("tool handler panic in '{name}': {message}");
+                Err(ToolError::ExecutionFailed(format!(
+                    "tool '{name}' panicked: {message}"
+                )))
+            }
+        }
     }
 
     /// Get a reference to the underlying vault backend (for context loading).
@@ -856,9 +880,7 @@ impl ToolRegistry {
                     tier: ToolTier::Agent,
                 });
             }
-            Err(e) => tracing::warn!(
-                "image_generate delegate-aware registration skipped: {e}"
-            ),
+            Err(e) => tracing::warn!("image_generate delegate-aware registration skipped: {e}"),
         }
     }
 
@@ -2018,7 +2040,11 @@ mod tier_tests {
 
         registry.set_allowed_tool_names(Some(allowed.clone()));
         let after = registry.get_definitions();
-        assert_eq!(after.len(), 2, "explicit allowlist must shrink the visible tool set");
+        assert_eq!(
+            after.len(),
+            2,
+            "explicit allowlist must shrink the visible tool set"
+        );
         for def in &after {
             assert!(allowed.contains(&def.name));
         }

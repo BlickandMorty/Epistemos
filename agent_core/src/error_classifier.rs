@@ -163,6 +163,16 @@ pub fn classify(error: &AgentError) -> ClassifiedError {
             should_fallback: false,
             should_rotate_credential: false,
         },
+
+        AgentError::LocalProviderNotAllowed(_) => ClassifiedError {
+            category: ErrorCategory::Unrecoverable,
+            recovery_hint: "Agent mode requires a cloud provider — switch to Claude, GPT, or Gemini and try again.".into(),
+            should_retry: false,
+            retry_delay: None,
+            should_compress: false,
+            should_fallback: false,
+            should_rotate_credential: false,
+        },
     }
 }
 

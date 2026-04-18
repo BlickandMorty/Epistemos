@@ -35,6 +35,18 @@ pub enum StreamEvent {
 
 pub type MessageStream = Pin<Box<dyn Stream<Item = Result<StreamEvent, AgentError>> + Send>>;
 
+/// Where a provider actually runs. Cloud providers (Anthropic, OpenAI,
+/// Gemini, Perplexity) are the only ones eligible for the agent tier per
+/// CLAUDE.md's honest-capability-gating rule: "Local models get
+/// fast/thinking/research. Cloud models get agent/liveAgent." The agent
+/// loop refuses to start for Local providers so we never silently
+/// downgrade a user's agentic task into plain chat.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderRuntime {
+    Cloud,
+    Local,
+}
+
 #[async_trait]
 pub trait AgentProvider: Send + Sync {
     async fn stream_message(
@@ -49,6 +61,14 @@ pub trait AgentProvider: Send + Sync {
     fn capabilities(&self) -> ProviderCapabilities;
 
     fn name(&self) -> &'static str;
+
+    /// Where this provider physically runs. Defaults to Cloud so existing
+    /// provider impls (Claude / Gemini / OpenAI / Perplexity) need no
+    /// change. Any on-device provider (MLX, llama.cpp, etc.) MUST override
+    /// this to return Local so the agent loop refuses to start for it.
+    fn runtime(&self) -> ProviderRuntime {
+        ProviderRuntime::Cloud
+    }
 }
 
 #[derive(Debug, Clone)]

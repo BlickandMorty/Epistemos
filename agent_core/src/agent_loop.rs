@@ -128,6 +128,8 @@ pub enum AgentError {
     InvalidConfig(String),
     #[error("agent cancelled")]
     Cancelled,
+    #[error("local provider cannot run the agent loop: {0}")]
+    LocalProviderNotAllowed(String),
 }
 
 pub async fn run_agent_loop(
@@ -139,6 +141,19 @@ pub async fn run_agent_loop(
     config: AgentConfig,
     cancel: CancellationToken,
 ) -> Result<AgentResult, AgentError> {
+    // Honest capability gating (CLAUDE.md non-negotiable): local models get
+    // fast / thinking / research tiers only — cloud models get
+    // agent / liveAgent. Reject a local provider at the door instead of
+    // silently downgrading an agentic task into plain chat. Swift-side
+    // routing is expected to upgrade the user to a cloud provider (or
+    // surface an explicit "agent needs cloud" message) before dispatch.
+    if provider.runtime() == crate::provider::ProviderRuntime::Local {
+        return Err(AgentError::LocalProviderNotAllowed(format!(
+            "provider '{}' runs on-device; the agent loop requires a cloud provider",
+            provider.name()
+        )));
+    }
+
     let mut messages = vec![Message::user_text(&objective)];
     let mut turn_count = 0_u32;
     let mut total_usage = TokenUsage::default();
@@ -162,36 +177,44 @@ pub async fn run_agent_loop(
         },
     );
 
+    let prompt_mode = config
+        .prompt_mode_override
+        .unwrap_or_else(|| prompt_mode_for_objective(&objective));
+
     // 5-tier context injection: load identity, facts, skills, and episodes from the vault
-    let context_notes = if let Some(ref vault_root) = config.vault_root {
-        let vault_path = std::path::Path::new(vault_root);
-        let session_ctx = crate::context_loader::load_session_context(
-            tool_registry.vault(),
-            vault_path,
-            &objective,
-            config.context_threshold,
-        )
-        .await;
-        let xml = session_ctx.to_xml();
-        if xml.is_empty() {
-            // Fallback to simple vault search if context loader found nothing
+    let context_notes = if should_preload_vault_context(prompt_mode, &objective) {
+        if let Some(ref vault_root) = config.vault_root {
+            let vault_path = std::path::Path::new(vault_root);
+            let session_ctx = crate::context_loader::load_session_context(
+                tool_registry.vault(),
+                vault_path,
+                &objective,
+                config.context_threshold,
+            )
+            .await;
+            let xml = session_ctx.to_xml();
+            if xml.is_empty() {
+                // Fallback to simple vault search if context loader found nothing.
+                // External research prompts now skip this path unless the user
+                // explicitly referenced notes, files, or attachments.
+                tool_registry
+                    .vault_search(&objective, 5)
+                    .await
+                    .unwrap_or_default()
+            } else {
+                vec![xml]
+            }
+        } else {
+            // No vault root configured — use simple search when note/file context
+            // was explicitly requested and no structured vault session exists.
             tool_registry
                 .vault_search(&objective, 5)
                 .await
                 .unwrap_or_default()
-        } else {
-            vec![xml]
         }
     } else {
-        // No vault root configured — use simple search
-        tool_registry
-            .vault_search(&objective, 5)
-            .await
-            .unwrap_or_default()
+        Vec::new()
     };
-    let prompt_mode = config
-        .prompt_mode_override
-        .unwrap_or_else(|| prompt_mode_for_objective(&objective));
 
     // Read knowledge index from vault if available (written by Swift KnowledgeIndexBuilder)
     let knowledge_index = if let Some(ref root) = config.vault_root {
@@ -276,7 +299,11 @@ pub async fn run_agent_loop(
                 StreamEvent::ThinkingDelta { text, .. } => {
                     if !ttft_recorded {
                         let ttft_ms = turn_stream_start.elapsed().as_millis() as u64;
-                        tracing::info!(turn = turn_count, ttft_ms, "time_to_first_token (thinking)");
+                        tracing::info!(
+                            turn = turn_count,
+                            ttft_ms,
+                            "time_to_first_token (thinking)"
+                        );
                         ttft_recorded = true;
                     }
                     delegate.on_thinking_delta(text);
@@ -964,6 +991,30 @@ fn prompt_mode_for_objective(objective: &str) -> PromptMode {
     }
 }
 
+fn objective_mentions_local_context(objective: &str) -> bool {
+    contains_any(
+        objective,
+        &[
+            "my note",
+            "my notes",
+            "vault",
+            "attached",
+            "attachment",
+            "file",
+            "document",
+            "pdf",
+            "@",
+        ],
+    )
+}
+
+fn should_preload_vault_context(prompt_mode: PromptMode, objective: &str) -> bool {
+    match prompt_mode {
+        PromptMode::Research => objective_mentions_local_context(&objective.to_lowercase()),
+        PromptMode::General | PromptMode::Code | PromptMode::LocalFallback => true,
+    }
+}
+
 fn contains_any(haystack: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| haystack.contains(needle))
 }
@@ -1031,8 +1082,16 @@ fn truncate_tool_output(output: String, max_chars: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_tokens, resolve_approval_requirement, truncate_tool_output};
+    use super::{
+        estimate_tokens,
+        objective_mentions_local_context,
+        prompt_mode_for_objective,
+        resolve_approval_requirement,
+        should_preload_vault_context,
+        truncate_tool_output,
+    };
     use crate::approval::ApprovalDecision;
+    use crate::prompts::PromptMode;
     use crate::tools::registry::RiskLevel;
     use crate::types::{ContentBlock, Message, ToolResult, UserContent};
 
@@ -1115,5 +1174,23 @@ mod tests {
         .expect_err("smart approval denial should short-circuit");
 
         assert!(denial.contains("blocklist"));
+    }
+
+    #[test]
+    fn external_research_queries_do_not_preload_vault_context() {
+        let objective = "research Gemini 2.5 and write a paper";
+        let mode = prompt_mode_for_objective(objective);
+        assert!(matches!(mode, PromptMode::Research));
+        assert!(!should_preload_vault_context(mode, objective));
+    }
+
+    #[test]
+    fn note_scoped_research_queries_keep_vault_preload() {
+        let objective = "research my notes about Gemini and compare them to the latest release";
+        assert!(objective_mentions_local_context(&objective.to_lowercase()));
+        assert!(should_preload_vault_context(
+            prompt_mode_for_objective(objective),
+            objective
+        ));
     }
 }
