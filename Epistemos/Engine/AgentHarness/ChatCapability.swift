@@ -81,3 +81,31 @@ extension ChatCapability {
         }
     }
 }
+
+/// Classify a ChatCapability from the runtime signals a chat session has at
+/// its disposal. Call this on every turn start so the pill updates live as
+/// the user switches provider, toggles thinking mode, or the agent loop
+/// takes over.
+///
+/// Precedence (highest wins): agent → research → thinking → cloud → local.
+/// This matches user intuition: an active tool-using turn should dominate
+/// a "thinking on" flag, which should dominate the plain cloud/local axis.
+extension ChatCapability {
+    static func classify(
+        isCloudProvider: Bool,
+        isAgentExecuting: Bool,
+        isResearchMode: Bool,
+        isThinkingMode: Bool
+    ) -> ChatCapability {
+        if isAgentExecuting && isCloudProvider {
+            return .agent
+        }
+        if isResearchMode {
+            return .research
+        }
+        if isThinkingMode && !isCloudProvider {
+            return .thinking
+        }
+        return isCloudProvider ? .cloud : .local
+    }
+}

@@ -57,6 +57,14 @@ final class ChatState {
     /// Number of agent turns completed in current session.
     var agentTurnCount = 0
 
+    /// The capability tier the current chat turn is operating in. Drives the
+    /// ChatCapabilityPill shown inline in the composer and the chat header.
+    /// Updated by ChatCoordinator when a turn dispatches (so the user sees
+    /// "Agent" light up when a tool-call turn actually begins, not just
+    /// because a cloud model is selected). Default `.local` matches the
+    /// cold-start state where no provider has been asked yet.
+    var currentCapability: ChatCapability = .local
+
     // MARK: - Vault Context (Ambient)
     /// Page IDs of notes whose full bodies have been loaded into context via @-mentions.
     var loadedNoteIds: Set<String> = []
@@ -379,6 +387,8 @@ final class ChatState {
     private nonisolated static func decodeToolInput(_ inputJson: String) -> [String: JSONValue] {
         guard let data = inputJson.data(using: .utf8),
               let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) else {
+            Logger(subsystem: "com.epistemos", category: "ChatState.ToolInput")
+                .error("ChatState: failed to decode tool input JSON; preserving raw payload")
             return ["raw": .string(inputJson)]
         }
         return decoded

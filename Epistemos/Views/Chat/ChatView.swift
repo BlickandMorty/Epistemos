@@ -132,6 +132,8 @@ struct ChatView: View {
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
+    @AppStorage(MainChatOperatingModePreference.defaultsKey)
+    private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
     @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
@@ -139,15 +141,37 @@ struct ChatView: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    /// Main chat is a lightweight conversation surface. Advanced operating modes
-    /// live on the dedicated agent page. Main chat always submits with .fast.
-    private static let mainChatOperatingMode: EpistemosOperatingMode = .fast
-
     /// OLED-black in dark mode, theme background in light mode.
     /// Applied as the root background so main chat reads like the terminal
     /// aesthetic when dark, but stays on-theme when light.
     private var oledAwareBackground: Color {
         theme.isDark ? Color.black : theme.resolved.background.color
+    }
+
+    private var supportedOperatingModes: [EpistemosOperatingMode] {
+        MainChatOperatingModePreference.supportedModes(for: inference)
+    }
+
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        get {
+            MainChatOperatingModePreference.sanitize(
+                EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
+                for: inference
+            )
+        }
+        nonmutating set {
+            mainChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
+                newValue,
+                for: inference
+            ).rawValue
+        }
+    }
+
+    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedOperatingMode },
+            set: { selectedOperatingMode = $0 }
+        )
     }
 
     var body: some View {
@@ -167,7 +191,7 @@ struct ChatView: View {
                                     sourceReferences: row.sourceReferences,
                                     allowsResubmit: !pipeline.isProcessing,
                                     onResubmit: { query in
-                                        submitMainChatQuery(query, operatingMode: Self.mainChatOperatingMode)
+                                        submitMainChatQuery(query, operatingMode: selectedOperatingMode)
                                     }
                                 )
                                 .id(row.id)
@@ -231,16 +255,32 @@ struct ChatView: View {
             // Input bar
             ChatInputBar(
                 onSubmit: { query in
-                    submitMainChatQuery(query, operatingMode: Self.mainChatOperatingMode)
+                    submitMainChatQuery(query, operatingMode: selectedOperatingMode)
                 },
                 onStop: {
                     chat.stopStreaming()
                 },
-                isProcessing: pipeline.isProcessing
+                isProcessing: pipeline.isProcessing,
+                operatingMode: operatingModeBinding,
+                availableOperatingModes: supportedOperatingModes
             )
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(oledAwareBackground.ignoresSafeArea())
+        .onAppear {
+            sanitizeStoredOperatingMode()
+            refreshChatCapability()
+        }
+        .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
+            sanitizeStoredOperatingMode()
+            refreshChatCapability()
+        }
+        .onChange(of: inference.activeAIProvider) { _, _ in
+            refreshChatCapability()
+        }
+        .onChange(of: chat.isAgentExecuting) { _, _ in
+            refreshChatCapability()
+        }
         .navigationTitle("")
         .toolbar {
             // Right: chat controls (title + nav handled by toolbar)
@@ -303,12 +343,36 @@ struct ChatView: View {
         )
     }
 
+    private func sanitizeStoredOperatingMode() {
+        let sanitized = MainChatOperatingModePreference.sanitize(
+            EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
+            for: inference
+        )
+        if sanitized.rawValue != mainChatOperatingModeRaw {
+            mainChatOperatingModeRaw = sanitized.rawValue
+        }
+    }
+
     private func openCurrentChatInMiniChat() {
         if let chatId = chat.activeChatId {
             MiniChatWindowController.shared.openChat(chatId)
         } else {
             MiniChatWindowController.shared.openNewChat()
         }
+    }
+
+    /// Refresh chat.currentCapability to match the active model + runtime
+    /// state. Called on appear and whenever the provider / model / agent
+    /// execution flags change so the ChatCapabilityPill reads live without
+    /// the caller having to touch it by hand.
+    private func refreshChatCapability() {
+        let isCloud = inference.activeAIProvider.cloudProvider != nil
+        chat.currentCapability = ChatCapability.classify(
+            isCloudProvider: isCloud,
+            isAgentExecuting: chat.isAgentExecuting,
+            isResearchMode: false,
+            isThinkingMode: false
+        )
     }
 }
 

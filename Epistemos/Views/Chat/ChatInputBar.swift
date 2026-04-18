@@ -57,6 +57,8 @@ struct ChatInputBar: View {
     let onSubmit: (String) -> Void
     let onStop: () -> Void
     let isProcessing: Bool
+    var operatingMode: Binding<EpistemosOperatingMode>? = nil
+    var availableOperatingModes: [EpistemosOperatingMode]? = nil
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
@@ -110,9 +112,16 @@ struct ChatInputBar: View {
         )
     }
     private var composerControlResetKey: String {
-        inference.availableOperatingModes.map(\.rawValue).joined(separator: "|")
+        let supportedModes = MainChatOperatingModePreference.supportedModes(
+            for: inference,
+            availableModes: availableOperatingModes
+        )
+        return supportedModes.map(\.rawValue).joined(separator: "|")
             + "::"
             + inference.activeChatModelDisplayName
+    }
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        operatingMode?.wrappedValue ?? .fast
     }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
@@ -177,8 +186,9 @@ struct ChatInputBar: View {
                     }
 
                     ForEach(chat.pendingAttachments) { att in
-                        let isSupported = inference.preferredChatModelSelection
-                            .activeSupportedFileTypes.contains(att.type)
+                        let isSupported = inference.chatSurfaceSupportedFileTypes(
+                            for: selectedOperatingMode
+                        ).contains(att.type)
                         HStack(spacing: 4) {
                             if !isSupported {
                                 Image(systemName: "exclamationmark.triangle.fill")
@@ -220,7 +230,7 @@ struct ChatInputBar: View {
 
             // Image attachment warning for text-only models
             if chat.pendingAttachments.contains(where: { $0.type == .image }),
-               !inference.preferredChatModelSelection.activeSupportsVision {
+               !inference.chatSurfaceSupportsVision(for: selectedOperatingMode) {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
@@ -247,9 +257,21 @@ struct ChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
-                        ChatBrainPickerMenu()
+                        ChatBrainPickerMenu(
+                            operatingMode: operatingMode,
+                            availableOperatingModes: availableOperatingModes
+                        )
                         attachButton
                     }
+
+                    Spacer(minLength: 4)
+
+                    // Single source of truth for "what mode is the chat in."
+                    // Honest capability gating (CLAUDE.md): local shows
+                    // .local / .thinking; cloud shows .cloud / .research;
+                    // agent only lights up when the cloud-backed agent loop
+                    // is actually executing tools. See ChatCapability.classify.
+                    ChatCapabilityPill(capability: chat.currentCapability)
 
                     sendButton
                 }
