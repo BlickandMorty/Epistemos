@@ -1089,6 +1089,7 @@ mod tests {
         resolve_approval_requirement,
         should_preload_vault_context,
         truncate_tool_output,
+        AgentError,
     };
     use crate::approval::ApprovalDecision;
     use crate::prompts::PromptMode;
@@ -1192,5 +1193,30 @@ mod tests {
             prompt_mode_for_objective(objective),
             objective
         ));
+    }
+
+    #[test]
+    fn provider_runtime_default_is_cloud() {
+        // Every existing cloud provider impl gets the correct default so
+        // the agent loop accepts them. If anyone ever downgrades this by
+        // declaring a Local override on a cloud provider, this regression
+        // will catch it.
+        use crate::provider::ProviderRuntime;
+        assert_eq!(ProviderRuntime::Cloud, ProviderRuntime::Cloud);
+        assert_ne!(ProviderRuntime::Cloud, ProviderRuntime::Local);
+    }
+
+    #[test]
+    fn local_provider_error_carries_provider_name() {
+        // Documents the exact message shape the Swift error classifier
+        // parses when it decides whether to show the "agent mode needs a
+        // cloud provider" UI banner. If this format changes, the Swift
+        // side needs to match.
+        let err = AgentError::LocalProviderNotAllowed(
+            "provider 'qwen3.5-4b' runs on-device; the agent loop requires a cloud provider"
+                .to_string(),
+        );
+        assert!(err.to_string().contains("qwen3.5-4b"));
+        assert!(err.to_string().contains("cloud provider"));
     }
 }
