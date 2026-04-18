@@ -3,6 +3,7 @@ import Testing
 
 private let isolatedInferenceDefaultsKeys = [
     "epistemos.localRoutingMode",
+    "epistemos.chatAutoRouteToCloud",
     "epistemos.preferredLocalTextModelID",
     "epistemos.preferredChatModelSelection",
     "epistemos.activeAIProvider",
@@ -207,6 +208,10 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.openAIGPT54.aboutSheetBadge == "OpenAI")
         #expect(CloudTextModelID.openAIGPT54.aboutSheetModeSummary == "Fast, Thinking, Pro, Agent")
         #expect(CloudTextModelID.openAIGPT54.aboutSheetStructuredOutputSummary == "Structured JSON")
+        #expect(
+            CloudTextModelID.openAIGPT54.aboutSheetPurposeSummary
+                == "Complex reasoning, coding, and agentic professional work."
+        )
         #expect(CloudTextModelID.kimiK25.aboutSheetStructuredOutputSummary == "Prompt JSON fallback")
         #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
     }
@@ -226,6 +231,79 @@ struct TriageServiceTests {
         #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
         #expect(inference.sanitizedOperatingMode(.pro) == .fast)
     }
+
+    @Test("shared chat mode sanitizer honors surface-specific available modes")
+    @MainActor func sharedChatModeSanitizerHonorsSurfaceSpecificModes() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let noteSurfaceModes: [EpistemosOperatingMode] = [.fast, .thinking, .pro]
+        #expect(
+            MainChatOperatingModePreference.supportedModes(
+                for: inference,
+                availableModes: noteSurfaceModes
+            ) == noteSurfaceModes
+        )
+        #expect(
+            MainChatOperatingModePreference.sanitize(
+                .agent,
+                for: inference,
+                availableModes: noteSurfaceModes
+            ) == .fast
+        )
+        #expect(
+            MainChatOperatingModePreference.sanitize(
+                .thinking,
+                for: inference,
+                availableModes: noteSurfaceModes
+            ) == .thinking
+        )
+    }
+
+    @Test("auto route keeps fast local but escalates pro chat to the configured cloud provider")
+    @MainActor func inferenceStateEffectiveChatSurfaceSelectionTracksAutoRoutePolicy() throws {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_2B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_2B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
+        inference.setChatAutoRouteToCloud(true)
+
+        let expectedProModel = try #require(inference.preferredAutoRouteCloudModel(for: .pro))
+        let expectedAgentModel = try #require(inference.preferredAutoRouteCloudModel(for: .agent))
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
+        #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .cloud(expectedProModel))
+        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == .cloud(expectedAgentModel))
+    }
+
+    @Test("OpenAI auto route keeps GPT-5.4 as the thinking and pro workhorse")
+    @MainActor func openAIAutoRouteKeepsGPT54ForThinkingAndPro() throws {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        inference.setActiveAIProvider(.openAI)
+        inference.setChatAutoRouteToCloud(true)
+
+        #expect(inference.preferredAutoRouteCloudModel(for: .fast) == .openAIGPT54Mini)
+        #expect(inference.preferredAutoRouteCloudModel(for: .thinking) == .openAIGPT54)
+        #expect(inference.preferredAutoRouteCloudModel(for: .pro) == .openAIGPT54)
+    }
 }
 
 @Suite("InferencePolicyEngine")
@@ -244,6 +322,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 120,
                 baseComplexity: 0.25,
                 queryComplexity: 0.05,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -271,6 +350,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 900,
                 baseComplexity: 0.35,
                 queryComplexity: 0.40,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -303,6 +383,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 2_400,
                 baseComplexity: 0.60,
                 queryComplexity: 0.55,
+                operatingMode: .thinking,
                 requestedReasoningMode: .thinking,
                 explicitThinkingRequested: true,
                 explicitFastRequested: false,
@@ -335,6 +416,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 8,
                 baseComplexity: 0.10,
                 queryComplexity: 0.01,
+                operatingMode: .thinking,
                 requestedReasoningMode: .thinking,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -363,6 +445,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 12,
                 baseComplexity: 0.10,
                 queryComplexity: 0.01,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -390,6 +473,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 16,
                 baseComplexity: 0.10,
                 queryComplexity: 0.01,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -418,6 +502,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 180,
                 baseComplexity: 0.20,
                 queryComplexity: 0.08,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: true,
@@ -450,6 +535,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 100,
                 baseComplexity: 0.25,
                 queryComplexity: 0.05,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -479,6 +565,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 90,
                 baseComplexity: 0.25,
                 queryComplexity: 0.04,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -509,6 +596,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 700,
                 baseComplexity: 0.35,
                 queryComplexity: 0.35,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -546,6 +634,7 @@ struct InferencePolicyEngineTests {
                 estimatedTokenLoad: 180,
                 baseComplexity: 0.10,
                 queryComplexity: 0.02,
+                operatingMode: .fast,
                 requestedReasoningMode: .fast,
                 explicitThinkingRequested: false,
                 explicitFastRequested: false,
@@ -560,9 +649,218 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .appleIntelligence)
     }
 
+    @Test("auto cloud routing escalates pro chat to cloud when configured")
+    func autoCloudRoutingEscalatesProChat() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .coding,
+                contentLength: 1_400,
+                promptLength: 1_200,
+                contextBlockCount: 2,
+                estimatedTokenLoad: 420,
+                baseComplexity: 0.35,
+                queryComplexity: 0.28,
+                operatingMode: .pro,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true
+            )
+        )
+
+        #expect(decision.selectedRoute == .cloud)
+        #expect(decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+
+    @Test("auto cloud routing still keeps fast chat local first")
+    func autoCloudRoutingKeepsFastChatLocal() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 48,
+                promptLength: 48,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 16,
+                baseComplexity: 0.10,
+                queryComplexity: 0.02,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+
+    @Test("auto local routing picks the coding specialist before escalating to cloud")
+    func autoLocalRoutingPrefersCoderForCodingWork() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .coding,
+                contentLength: 1_800,
+                promptLength: 1_500,
+                contextBlockCount: 2,
+                estimatedTokenLoad: 520,
+                baseComplexity: 0.34,
+                queryComplexity: 0.25,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                installed: [
+                    .gemma4_4B4Bit,
+                    .deepseekR1Distill7B,
+                    .qwen25Coder7B,
+                    .gemma4_27BA4B4Bit,
+                    .qwen36_35BA3B4Bit,
+                ]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen25Coder7B.rawValue)
+        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+
+    @Test("auto local routing picks the reasoning specialist for thinking work when available")
+    func autoLocalRoutingPrefersReasonerForThinkingWork() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .graph,
+                intent: .graphAnalysis,
+                contentLength: 4_200,
+                promptLength: 4_000,
+                contextBlockCount: 5,
+                estimatedTokenLoad: 1_600,
+                baseComplexity: 0.52,
+                queryComplexity: 0.40,
+                operatingMode: .thinking,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                installed: [
+                    .gemma4_4B4Bit,
+                    .deepseekR1Distill7B,
+                    .qwen25Coder7B,
+                    .gemma4_27BA4B4Bit,
+                    .qwen36_35BA3B4Bit,
+                ]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.deepseekR1Distill7B.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .thinking)
+    }
+
+    @Test("auto local routing uses Bonsai as the fast fallback when Gemma is absent")
+    func autoLocalRoutingUsesBonsaiFallbackWhenGemmaMissing() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 48,
+                promptLength: 44,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 18,
+                baseComplexity: 0.10,
+                queryComplexity: 0.02,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.bonsai4B2Bit, .bonsai8B2Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.bonsai4B2Bit.rawValue)
+    }
+
+    @Test("auto local routing prefers a non-Gemma fallback for general pro work (Gemma 4 excluded until loader ships)")
+    func autoLocalRoutingPrefersFlagshipForGeneralProWork() {
+        // Gemma 4 family was removed from TriageService.preferredOrder (and
+        // the shipped-fallback) in the 2026-04-18 fix because the
+        // MLX-Swift-LM Gemma 4 decoder isn't yet implemented — the old
+        // expected-gemma4 behavior caused user-visible "Unsupported model
+        // type: gemma4" errors on routed turns. With Gemma 4 demoted,
+        // DeepSeek R1 7B is the preferred .pro-synthesis pick that fits
+        // inside this test's 18GB hardware snapshot (qwen36_35BA3B4Bit is
+        // filtered by supportedInstalledModels on 18GB). Installed list
+        // keeps gemma4_27BA4B4Bit to prove the filter actually excludes
+        // it when an alternative is available. When MLX-Swift-LM ships
+        // a real Gemma 4 config decoder, restore Gemma 4 to preferredOrder
+        // at the top of preferredAutomaticLocalModel and revert this.
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .synthesis,
+                contentLength: 3_000,
+                promptLength: 2_600,
+                contextBlockCount: 4,
+                estimatedTokenLoad: 1_100,
+                baseComplexity: 0.48,
+                queryComplexity: 0.28,
+                operatingMode: .pro,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.gemma4_27BA4B4Bit, .qwen36_35BA3B4Bit, .deepseekR1Distill7B]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
+        #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_4B4Bit.rawValue)
+    }
+
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
+        cloudAutoRouteEnabled: Bool = false,
+        hasConfiguredCloudModels: Bool = false,
         preferredChatModelSelection: ChatModelSelection = .localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue),
         installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
         runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
@@ -574,6 +872,8 @@ struct InferencePolicyEngineTests {
         InferencePolicyContext(
             routingMode: routingMode,
             appleIntelligenceAvailable: appleAvailable,
+            cloudAutoRouteEnabled: cloudAutoRouteEnabled,
+            hasConfiguredCloudModels: hasConfiguredCloudModels,
             preferredChatModelSelection: preferredChatModelSelection,
             preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
@@ -621,8 +921,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func complexCodingChatProducesOverseerLocalExecutionPlan() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_27BA4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
 
         let router = OverseerComplexityRouter(inference: inference)
         let executionPlan = router.planForMainChat(
@@ -665,6 +965,55 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.plan.route == .managedAgentSession)
         #expect(executionPlan.plan.depthBudget.maxTurns >= 10)
         #expect(executionPlan.plan.depthBudget.maxToolCalls >= 8)
+    }
+
+    @Test("agent route uses a hidden local agent tier when no release-visible chat tier is available")
+    @MainActor func agentRouteUsesHiddenLocalAgentTierWhenNeeded() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Review this Swift architecture, use the vault tools if needed, and propose the safest local execution plan.",
+            contentLength: 2_600,
+            operatingMode: .agent,
+            hasExplicitContext: true,
+            attachmentCount: 1,
+            notesContext: "Architecture context",
+            conversationHistory: "User: keep this local if possible."
+        )
+
+        #expect(inference.effectiveLocalTextModelID == nil)
+        #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.plan.route == .overseerLocalExecution)
+    }
+
+    @Test("explicit agent mode does not downgrade simple asks into local-only chat")
+    @MainActor func explicitAgentModeDoesNotDowngradeSimpleAsks() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_27BA4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "What changed in this note?",
+            contentLength: 25,
+            operatingMode: .agent,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.localOperatingMode == .agent)
+        #expect(executionPlan.plan.route == .overseerLocalExecution)
+        #expect(executionPlan.plan.depthBudget.maxToolCalls > 0)
+        #expect(!executionPlan.plan.toolPermissions.isEmpty)
     }
 }
 
@@ -1148,6 +1497,43 @@ struct TriageServiceIntegrationTests {
 
             #expect(result == "cloud answer")
             #expect(cloud.generateCalls.count == 1)
+            #expect(triage.lastDecision == .cloud)
+        }
+    }
+
+    @Test("notes pro mode can auto-route to the configured cloud provider")
+    @MainActor func notesProModeCanAutoRouteToCloud() async {
+        await withSavedAPIKey(for: .openAI) {
+            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+
+            let inference = makeIsolatedInferenceState()
+            inference.appleIntelligenceAvailable = false
+            inference.setInstalledLocalTextModelIDs([triageInteractiveReleaseFixtureModelID.rawValue])
+            inference.setPreferredLocalTextModelID(triageInteractiveReleaseFixtureModelID.rawValue)
+            inference.setPreferredChatModelSelection(.localMLX(triageInteractiveReleaseFixtureModelID.rawValue))
+            inference.setChatAutoRouteToCloud(true)
+
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            cloud.streamTokens = ["cloud note answer"]
+
+            let triage = TriageService(
+                inference: inference,
+                localLLMService: TriageIntegrationMockLLMClient(),
+                cloudLLMService: cloud
+            )
+
+            let stream = triage.stream(
+                prompt: "Current note body.\n\nRequest: Compare these arguments.",
+                operation: .ask(query: "Compare these arguments."),
+                contentLength: 72,
+                query: "Compare these arguments.",
+                operatingMode: .pro
+            )
+            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+            #expect(outcome.error == nil)
+            #expect(outcome.tokens.joined() == "cloud note answer")
+            #expect(cloud.streamCalls.count == 1)
             #expect(triage.lastDecision == .cloud)
         }
     }
@@ -1922,6 +2308,23 @@ struct TriageServiceIntegrationTests {
         #expect(request.chatTemplateContext?["enable_thinking"] == true)
     }
 
+    @Test("Qwen 3.6 thinking requests preserve reasoning state across turns")
+    func qwen36ThinkingRequestsPreserveReasoningState() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen36"),
+            prompt: "Think carefully and continue the same chain of thought.",
+            systemPrompt: nil,
+            maxTokens: 512,
+            reasoningMode: .thinking,
+            steeringHintsJSON: nil,
+            imageURLs: []
+        )
+
+        #expect(request.chatTemplateContext?["enable_thinking"] == true)
+        #expect(request.chatTemplateContext?["preserve_thinking"] == true)
+    }
+
     @Test("qwen 4b thinking loop mitigation only enables for the looping tier")
     func qwen4BThinkingLoopMitigationOnlyEnablesForLoopingTier() {
         let guardedRequest = LocalMLXRequest(
@@ -2159,7 +2562,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_35BA3B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
         let preparedDirectory = paths.rootDirectory
             .appendingPathComponent("prepared-primary", isDirectory: true)
         try FileManager.default.createDirectory(at: preparedDirectory, withIntermediateDirectories: true)
@@ -2175,7 +2578,7 @@ struct TriageServiceIntegrationTests {
                 primaryGenerator: PreparedModelDescriptor(
                     key: "generator_primary",
                     role: .generator,
-                    displayName: "Qwen 3.5 35B-A3B APEXMini",
+                    displayName: "Gemma 4 26B A4B",
                     artifactID: nil,
                     modelID: descriptor.id,
                     servedModelID: descriptor.id,

@@ -82,6 +82,7 @@ nonisolated enum InferenceTaskIntent: Sendable, Equatable {
 nonisolated enum InferenceRouteKind: String, Sendable, Equatable {
     case appleIntelligence
     case localMLX
+    case cloud
 }
 
 nonisolated enum InferenceComplexityTier: String, Sendable, Equatable {
@@ -105,6 +106,7 @@ nonisolated enum InferenceDecisionReasonCode: String, Sendable, Equatable, Hasha
     case appleUnavailable
     case appleBypassedForComplexity
     case localModeForced
+    case cloudAutoRoute
     case explicitThinkingRequested
     case explicitFastRequested
     case preferredLocalModelUsed
@@ -121,6 +123,7 @@ nonisolated struct InferenceRequestProfile: Sendable, Equatable {
     let estimatedTokenLoad: Int
     let baseComplexity: Double
     let queryComplexity: Double
+    let operatingMode: EpistemosOperatingMode
     let requestedReasoningMode: LocalReasoningMode
     let explicitThinkingRequested: Bool
     let explicitFastRequested: Bool
@@ -130,6 +133,8 @@ nonisolated struct InferenceRequestProfile: Sendable, Equatable {
 nonisolated struct InferencePolicyContext: Sendable, Equatable {
     let routingMode: LocalRoutingMode
     let appleIntelligenceAvailable: Bool
+    let cloudAutoRouteEnabled: Bool
+    let hasConfiguredCloudModels: Bool
     let preferredChatModelSelection: ChatModelSelection
     let preferredLocalTextModelID: String
     let installedLocalTextModelIDs: Set<String>
@@ -200,6 +205,28 @@ nonisolated struct InferencePolicyEngine {
                 ),
                 localSelection: localSelection.selection,
                 reuseWarmModel: localSelection.reuseWarmModel,
+                complexityTier: complexityTier,
+                contextTier: contextTier,
+                reasonCodes: reasonCodes
+            )
+        }
+
+        if shouldAutoRouteToCloud(
+            profile: profile,
+            context: context,
+            localSelection: localSelection.selection,
+            complexityTier: complexityTier,
+            reasonCodes: &reasonCodes
+        ) {
+            return InferenceRouteDecision(
+                selectedRoute: .cloud,
+                selectedReasoningMode: localSelection.selection?.reasoningMode ?? reasoningMode(
+                    for: profile,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                localSelection: localSelection.selection,
+                reuseWarmModel: false,
                 complexityTier: complexityTier,
                 contextTier: contextTier,
                 reasonCodes: reasonCodes
@@ -281,7 +308,8 @@ nonisolated struct InferencePolicyEngine {
             modelID: preferredModel.rawValue,
             reasoningMode: selectedReasoningMode,
             contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
-                for: context.runtimeConditions,
+                for: preferredModel,
+                conditions: context.runtimeConditions,
                 reasoningMode: selectedReasoningMode
             )
         )
@@ -358,18 +386,47 @@ nonisolated struct InferencePolicyEngine {
             complexityTier: complexityTier,
             contextTier: contextTier
         )
+        let installedModels = supportedInstalledModels(in: context)
+        guard !installedModels.isEmpty else {
+            reasonCodes.insert(.noInstalledLocalModel)
+            return (nil, false)
+        }
+
+        if shouldUseAutomaticLocalRouting(for: context) {
+            return (
+                automaticLocalSelection(
+                    for: profile,
+                    context: context,
+                    installedModels: installedModels,
+                    reasoningMode: selectedReasoningMode,
+                    complexityTier: complexityTier,
+                    contextTier: contextTier
+                ),
+                false
+            )
+        }
+
         let preferred = resolvedPreferredLocalSelection(
             in: context,
             reasoningMode: selectedReasoningMode
         )
         if preferred != nil {
             reasonCodes.insert(.preferredLocalModelUsed)
-        } else if supportedInstalledModels(in: context).isEmpty {
-            reasonCodes.insert(.noInstalledLocalModel)
-        } else {
-            reasonCodes.insert(.preferredLocalModelUnavailable)
+            return (preferred, false)
         }
-        return (preferred, false)
+
+        reasonCodes.insert(.preferredLocalModelUnavailable)
+        return (
+            automaticLocalSelection(
+                for: profile,
+                context: context,
+                installedModels: installedModels,
+                reasoningMode: selectedReasoningMode,
+                complexityTier: complexityTier,
+                contextTier: contextTier
+            ),
+            false
+        )
     }
 
     private func reasoningMode(
@@ -410,7 +467,38 @@ nonisolated struct InferencePolicyEngine {
         case .localMLX(_):
             return localSelection != nil ? .localMLX : nil
         case .cloud(_):
-            return nil
+            return .cloud
+        }
+    }
+
+    private func shouldAutoRouteToCloud(
+        profile: InferenceRequestProfile,
+        context: InferencePolicyContext,
+        localSelection: LocalModelSelection?,
+        complexityTier: InferenceComplexityTier,
+        reasonCodes: inout Set<InferenceDecisionReasonCode>
+    ) -> Bool {
+        guard context.cloudAutoRouteEnabled,
+              context.hasConfiguredCloudModels else {
+            return false
+        }
+
+        switch profile.operatingMode {
+        case .pro, .agent:
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
+        case .thinking:
+            if localSelection == nil || complexityTier == .extreme {
+                reasonCodes.insert(.cloudAutoRoute)
+                return true
+            }
+            return false
+        case .fast:
+            if localSelection == nil && !context.appleIntelligenceAvailable {
+                reasonCodes.insert(.cloudAutoRoute)
+                return true
+            }
+            return false
         }
     }
 
@@ -428,12 +516,167 @@ nonisolated struct InferencePolicyEngine {
     }
 
     private func supportedInstalledModels(in context: InferencePolicyContext) -> [LocalTextModelID] {
-        context.installedLocalTextModelIDs
+        let installedModels = context.installedLocalTextModelIDs
             .compactMap(LocalTextModelID.init(rawValue:))
-            .filter { context.hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue) }
+            .filter {
+                context.hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                    && !$0.isExperimentalForEpistemos
+            }
             .sorted { lhs, rhs in
                 lhs.minimumRecommendedMemoryGB < rhs.minimumRecommendedMemoryGB
             }
+        let shippedModels = installedModels.filter(\.isEpistemosShippedLocalModel)
+        return shippedModels.isEmpty ? installedModels : shippedModels
+    }
+
+    private func shouldUseAutomaticLocalRouting(for context: InferencePolicyContext) -> Bool {
+        if context.cloudAutoRouteEnabled {
+            return true
+        }
+        switch context.preferredChatModelSelection {
+        case .localMLX:
+            return false
+        case .appleIntelligence, .cloud:
+            return true
+        }
+    }
+
+    private func automaticLocalSelection(
+        for profile: InferenceRequestProfile,
+        context: InferencePolicyContext,
+        installedModels: [LocalTextModelID],
+        reasoningMode: LocalReasoningMode,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier
+    ) -> LocalModelSelection? {
+        guard let model = preferredAutomaticLocalModel(
+            for: profile,
+            installedModels: installedModels,
+            reasoningMode: reasoningMode,
+            complexityTier: complexityTier,
+            contextTier: contextTier
+        ) else {
+            return nil
+        }
+
+        let effectiveReasoningMode: LocalReasoningMode = {
+            guard reasoningMode == .thinking else { return .fast }
+            return model.supportsThinkingMode ? .thinking : .fast
+        }()
+
+        return LocalModelSelection(
+            modelID: model.rawValue,
+            reasoningMode: effectiveReasoningMode,
+            contentBudget: context.hardwareCapabilitySnapshot.recommendedLocalContentLength(
+                for: model,
+                conditions: context.runtimeConditions,
+                reasoningMode: effectiveReasoningMode
+            )
+        )
+    }
+
+    private func preferredAutomaticLocalModel(
+        for profile: InferenceRequestProfile,
+        installedModels: [LocalTextModelID],
+        reasoningMode: LocalReasoningMode,
+        complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier
+    ) -> LocalTextModelID? {
+        let oversizedContext = contextTier == .oversized || profile.contextBlockCount >= 6
+        let heavyWork = complexityTier == .heavy || complexityTier == .extreme
+        let candidateModels: [LocalTextModelID]
+        switch profile.operatingMode {
+        case .agent:
+            candidateModels = installedModels.filter(\.canRunLocalAgentLoop)
+        default:
+            if reasoningMode == .thinking {
+                candidateModels = installedModels.filter(\.supportsThinkingMode)
+            } else {
+                candidateModels = installedModels
+            }
+        }
+        guard !candidateModels.isEmpty else {
+            return nil
+        }
+
+        // Gemma 4 family is excluded from automatic preferred orders until
+        // MLX-Swift-LM ships a config decoder that can actually load Gemma 4
+        // weights. The gemma4 registry alias (commit 850cc36d) gets past the
+        // model-type factory but Gemma 3n's required MatFormer fields fail
+        // to decode from Gemma 4's config.json, so any triage path that
+        // picks a Gemma 4 tier today surfaces the user-facing error
+        // "Unsupported model type: gemma4" — breaking e.g. a Bonsai request
+        // that inadvertently gets routed through a .fast/simpleAsk pathway
+        // where Gemma 4 E4B used to be the #1 preferred pick. A user who
+        // explicitly selects Gemma 4 in the picker still hits it (that's
+        // honest — they asked for it), but triage never silently chooses it.
+        let preferredOrder: [LocalTextModelID]
+        switch profile.operatingMode {
+        case .agent:
+            switch profile.intent {
+            case .coding, .debugging:
+                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B]
+            default:
+                preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .qwen25Coder7B]
+            }
+        case .pro:
+            switch profile.intent {
+            case .coding, .debugging:
+                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B]
+            default:
+                preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .qwen25Coder7B]
+            }
+        case .thinking:
+            switch profile.intent {
+            case .coding, .debugging:
+                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+            default:
+                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+            }
+        case .fast:
+            switch profile.intent {
+            case .coding, .debugging:
+                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B, .bonsai8B2Bit, .bonsai4B2Bit]
+            case .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
+                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B, .bonsai8B2Bit, .bonsai4B2Bit]
+            case .rewrite, .summarize, .simpleAsk, .brainstorm:
+                if oversizedContext || heavyWork {
+                    preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .bonsai8B2Bit, .bonsai4B2Bit, .qwen25Coder7B]
+                } else {
+                    preferredOrder = [.bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+                }
+            }
+        }
+
+        for candidate in preferredOrder where candidateModels.contains(candidate) {
+            if reasoningMode != .thinking || candidate.supportsThinkingMode {
+                return candidate
+            }
+        }
+
+        // Triage-ready candidates: same as the input list minus families we
+        // know cannot load today. Right now this is the Gemma 4 family —
+        // mlx-swift-lm has no Gemma 4 config decoder, so letting the
+        // shipped-fallback pick a Gemma 4 tier would reproduce the user-
+        // visible "Unsupported model type: gemma4" error even when the
+        // preferredOrder above successfully demotes it. Qwen 3.6 / Qwen
+        // Coder / DeepSeek R1 / Bonsai all load cleanly so they're safe
+        // fallback picks. When the Gemma 4 decoder ships, drop this
+        // filter and restore Gemma 4 to preferredOrder at the top of
+        // this function.
+        let triageReadyCandidates = candidateModels.filter { candidate in
+            switch candidate {
+            case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+                return false
+            default:
+                return true
+            }
+        }
+
+        if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {
+            return shippedInstalled
+        }
+        return triageReadyCandidates.first ?? candidateModels.first
     }
 
     private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {
@@ -730,15 +973,26 @@ final class TriageService {
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) -> TriageDecision {
+        triage(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: cloudOperatingMode(for: localReasoningMode)
+        )
+    }
+
+    func triage(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String? = nil,
+        operatingMode: EpistemosOperatingMode
+    ) -> TriageDecision {
         prepareForRouting()
-        if selectedCloudModel() != nil {
-            return .cloud
-        }
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode
+            operatingMode: operatingMode
         )
         return triageDecision(for: decision.selectedRoute)
     }
@@ -753,25 +1007,31 @@ final class TriageService {
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: cloudOperatingMode(for: localReasoningMode)
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String? = nil,
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String? = nil,
+        operatingMode: EpistemosOperatingMode
+    ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode
+            operatingMode: operatingMode
         )
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return userFacingStream(
-                streamWithCloudFallbackChain(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    operatingMode: cloudOperatingMode(for: localReasoningMode),
-                    localSelection: decision.localSelection
-                )
-            )
-        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -794,7 +1054,7 @@ final class TriageService {
                 )
             )
         case .cloud:
-            guard let model = selectedCloudModel() else {
+            guard let model = selectedCloudModel(for: operatingMode) else {
                 return userFacingStream(
                     StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
@@ -805,7 +1065,8 @@ final class TriageService {
                 cloudStream(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
-                    model: model
+                    model: model,
+                    operatingMode: operatingMode
                 )
             )
         }
@@ -821,23 +1082,31 @@ final class TriageService {
         query: String? = nil,
         localReasoningMode: LocalReasoningMode? = nil
     ) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: cloudOperatingMode(for: localReasoningMode)
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String? = nil,
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String? = nil,
+        operatingMode: EpistemosOperatingMode
+    ) async throws -> String {
         prepareForRouting()
         let decision = routeDecisionForNotes(
             operation: operation,
             contentLength: contentLength,
             query: query,
-            localReasoningMode: localReasoningMode
+            operatingMode: operatingMode
         )
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return UserFacingModelOutput.finalVisibleText(from: try await generateWithCloudFallbackChain(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                operatingMode: cloudOperatingMode(for: localReasoningMode),
-                localSelection: decision.localSelection
-            ))
-        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -873,13 +1142,14 @@ final class TriageService {
                 selection: decision.localSelection
             ))
         case .cloud:
-            guard let model = selectedCloudModel() else {
+            guard let model = selectedCloudModel(for: operatingMode) else {
                 throw CloudLLMError.modelRequired
             }
             return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                model: model
+                model: model,
+                operatingMode: operatingMode
             ))
         }
     }
@@ -921,9 +1191,6 @@ final class TriageService {
         localSurface: LocalModelSelectionSurface = .mainChat
     ) -> TriageDecision {
         prepareForRouting()
-        if selectedCloudModel() != nil {
-            return .cloud
-        }
         let decision = routeDecisionForGeneral(
             operation: operation,
             contentLength: contentLength,
@@ -949,19 +1216,6 @@ final class TriageService {
             operatingMode: operatingMode,
             localSurface: localSurface
         )
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return userFacingStream(
-                streamWithCloudFallbackChain(
-                    prompt: prompt,
-                    systemPrompt: systemPrompt,
-                    operatingMode: operatingMode,
-                    localSelection: decision.localSelection,
-                    steeringHintsJSON: steeringHintsJSON
-                )
-            )
-        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -986,7 +1240,7 @@ final class TriageService {
                 )
             )
         case .cloud:
-            guard let model = selectedCloudModel() else {
+            guard let model = selectedCloudModel(for: operatingMode) else {
                 return userFacingStream(
                     StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
@@ -997,7 +1251,8 @@ final class TriageService {
                 cloudStream(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
-                    model: model
+                    model: model,
+                    operatingMode: operatingMode
                 )
             )
         }
@@ -1047,17 +1302,6 @@ final class TriageService {
             operatingMode: operatingMode,
             localSurface: localSurface
         )
-        if selectedCloudModel() != nil {
-            lastDecision = .cloud
-            Log.engine.info("Triage: \(operation.displayName) → Cloud Model (content: \(contentLength) chars)")
-            return UserFacingModelOutput.finalVisibleText(from: try await generateWithCloudFallbackChain(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                operatingMode: operatingMode,
-                localSelection: decision.localSelection,
-                steeringHintsJSON: steeringHintsJSON
-            ))
-        }
         let triageDecision = triageDecision(for: decision.selectedRoute)
         lastDecision = triageDecision
         Log.engine.info("Triage: \(operation.displayName) → \(triageDecision.label) (content: \(contentLength) chars)")
@@ -1096,13 +1340,14 @@ final class TriageService {
                 steeringHintsJSON: steeringHintsJSON
             ))
         case .cloud:
-            guard let model = selectedCloudModel() else {
+            guard let model = selectedCloudModel(for: operatingMode) else {
                 throw CloudLLMError.modelRequired
             }
             return UserFacingModelOutput.finalVisibleText(from: try await cloudGenerate(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
-                model: model
+                model: model,
+                operatingMode: operatingMode
             ))
         }
     }
@@ -1194,12 +1439,26 @@ final class TriageService {
         query: String?,
         localReasoningMode: LocalReasoningMode?
     ) -> InferenceRouteDecision {
+        routeDecisionForNotes(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: cloudOperatingMode(for: localReasoningMode)
+        )
+    }
+
+    private func routeDecisionForNotes(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String?,
+        operatingMode: EpistemosOperatingMode
+    ) -> InferenceRouteDecision {
         inference.routeDecision(
             for: requestProfileForNotes(
                 operation: operation,
                 contentLength: contentLength,
                 query: query,
-                localReasoningMode: localReasoningMode
+                operatingMode: operatingMode
             )
         )
     }
@@ -1226,6 +1485,20 @@ final class TriageService {
         query: String?,
         localReasoningMode: LocalReasoningMode?
     ) -> InferenceRequestProfile {
+        requestProfileForNotes(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: cloudOperatingMode(for: localReasoningMode)
+        )
+    }
+
+    private func requestProfileForNotes(
+        operation: NotesOperation,
+        contentLength: Int,
+        query: String?,
+        operatingMode: EpistemosOperatingMode
+    ) -> InferenceRequestProfile {
         let queryText: String
         if case .ask(let prompt) = operation, !prompt.isEmpty {
             queryText = prompt
@@ -1250,9 +1523,10 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
-            requestedReasoningMode: localReasoningMode ?? .fast,
-            explicitThinkingRequested: localReasoningMode == .thinking,
-            explicitFastRequested: localReasoningMode == .fast,
+            operatingMode: operatingMode,
+            requestedReasoningMode: operatingMode.localReasoningMode ?? .fast,
+            explicitThinkingRequested: operatingMode == .thinking || operatingMode == .pro || operatingMode == .agent,
+            explicitFastRequested: operatingMode == .fast,
             visibleThinkingRequested: false
         )
     }
@@ -1287,6 +1561,7 @@ final class TriageService {
             ),
             baseComplexity: operation.baseComplexity,
             queryComplexity: analysis?.complexity ?? 0,
+            operatingMode: operatingMode,
             requestedReasoningMode: operatingMode.localReasoningMode ?? .fast,
             explicitThinkingRequested: operatingMode == .thinking || operatingMode == .pro,
             explicitFastRequested: operatingMode == .fast,
@@ -1319,6 +1594,8 @@ final class TriageService {
             .appleIntelligence
         case .localMLX:
             .localMLX
+        case .cloud:
+            .cloud
         }
     }
 
@@ -1424,15 +1701,15 @@ final class TriageService {
         return .simpleAsk
     }
 
-    private func selectedCloudModel() -> CloudTextModelID? {
-        guard case .cloud(let model) = inference.preferredChatModelSelection else { return nil }
-        return model
+    private func selectedCloudModel(for operatingMode: EpistemosOperatingMode? = nil) -> CloudTextModelID? {
+        if case .cloud(let model) = inference.preferredChatModelSelection {
+            return model
+        }
+        guard let operatingMode else { return nil }
+        return inference.preferredAutoRouteCloudModel(for: operatingMode)
     }
 
     private func cloudConfigurationError(for model: CloudTextModelID) -> CloudLLMError? {
-        guard selectedCloudModel() != nil else {
-            return .modelRequired
-        }
         guard inference.hasConfiguredCloudAccess(for: model.provider) else {
             return .missingAccess(model.provider.displayName)
         }
@@ -1442,7 +1719,8 @@ final class TriageService {
     private func cloudGenerate(
         prompt: String,
         systemPrompt: String?,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) async throws -> String {
         if let error = cloudConfigurationError(for: model) {
             throw error
@@ -1455,7 +1733,8 @@ final class TriageService {
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 maxTokens: inference.chatOutputTokens,
-                model: model
+                model: model,
+                operatingMode: operatingMode
             )
         }
         return try await cloudLLMService.generate(
@@ -1468,7 +1747,8 @@ final class TriageService {
     private func cloudStream(
         prompt: String,
         systemPrompt: String?,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error> {
         // Ensure cloud models always have a baseline identity prompt
         let effectiveSystemPrompt: String = {
@@ -1493,7 +1773,8 @@ final class TriageService {
                 prompt: prompt,
                 systemPrompt: effectiveSystemPrompt,
                 maxTokens: inference.chatOutputTokens,
-                model: model
+                model: model,
+                operatingMode: operatingMode
             )
         }
         return cloudLLMService.stream(
@@ -1521,7 +1802,8 @@ final class TriageService {
                 return try await cloudGenerate(
                     prompt: prompt,
                     systemPrompt: systemPrompt,
-                    model: model
+                    model: model,
+                    operatingMode: operatingMode
                 )
             } catch {
                 lastCloudError = error
@@ -1618,7 +1900,8 @@ final class TriageService {
                         let stream = self.cloudStream(
                             prompt: prompt,
                             systemPrompt: systemPrompt,
-                            model: model
+                            model: model,
+                            operatingMode: operatingMode
                         )
                         for try await chunk in stream {
                             emittedAnyTokens = true

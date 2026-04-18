@@ -103,11 +103,21 @@ struct ChatInputBar: View {
         guard !trimmed.isEmpty else {
             return chat.currentCapability
         }
-        let isCloud = inference.activeAIProvider.cloudProvider != nil
         return ChatCapability.predictIntent(
             text: trimmed,
-            isCloudProvider: isCloud
+            isCloudProvider: isCloudSelection
         ).predicted
+    }
+
+    /// Whether the user has explicitly selected a cloud model. Derives from
+    /// preferredChatModelSelection (the next-turn target), NOT the cloud
+    /// provider preference — a user who keeps OpenAI in activeAIProvider
+    /// but picks Bonsai in the chat picker is on LOCAL for the next turn.
+    private var isCloudSelection: Bool {
+        switch inference.preferredChatModelSelection {
+        case .cloud: true
+        case .localMLX, .appleIntelligence: false
+        }
     }
 
     /// Live-detail sub-signal shown in the pill, e.g., "web_search" while the
@@ -129,10 +139,9 @@ struct ChatInputBar: View {
         guard !chat.isAgentExecuting, !isProcessing else { return false }
         let trimmed = trimmedText
         guard !trimmed.isEmpty else { return false }
-        let isCloud = inference.activeAIProvider.cloudProvider != nil
         return ChatCapability.predictIntent(
             text: trimmed,
-            isCloudProvider: isCloud
+            isCloudProvider: isCloudSelection
         ).needsCloud
     }
 
