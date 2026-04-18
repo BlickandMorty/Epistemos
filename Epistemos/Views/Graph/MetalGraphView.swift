@@ -732,6 +732,19 @@ final class MetalGraphNSView: NSView {
             pushSDFGlyphTable(atlas: atlas, engineHandle: engineHandle)
             graph_engine_set_labels_enabled(engineHandle, 1)
         } catch {
+            let errorDescription = (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+            let labelMaxNodes = graphState?.labelMaxNodes ?? 0
+            let labelZoomBias = graphState?.labelZoomBias ?? 0
+            let labelZoomPivot = graphState?.labelZoomPivot ?? 0
+            let labelFontSizePx = graphState?.labelFontSizePx ?? 0
+            metalGraphLog.error(
+                """
+                MetalGraphNSView: failed to load label atlas \(resourceName, privacy: .public); disabling labels. \
+                labelMaxNodes=\(labelMaxNodes) labelZoomBias=\(labelZoomBias) \
+                labelZoomPivot=\(labelZoomPivot) labelFontSizePx=\(labelFontSizePx) \
+                error=\(errorDescription, privacy: .public)
+                """
+            )
             graph_engine_set_labels_enabled(engineHandle, 0)
         }
         Log.ffiPerf.endInterval("loadSDFLabelAtlas", interval)
@@ -1472,11 +1485,21 @@ final class MetalGraphNSView: NSView {
             resetSelectedNodeScreenPointTracking(for: graphState)
         }
 
-        // Keep rendering while physics is active (result != 0) or while
-        // pinned panels exist — the engine needs update_camera() to keep
-        // running so node_screen_pos() returns accurate coordinates.
-        let hasPinnedPanels = !PinnedInspectorManager.shared.pinnedInspectors.isEmpty
-        needsRender = result != 0 || hasPinnedPanels
+        // Keep rendering only while physics is genuinely active. The prior
+        // `|| hasPinnedPanels` short-circuit kept the Metal render loop
+        // ticking at display-refresh rate whenever a pinned inspector
+        // existed — even after physics fully settled — which read to the
+        // user as continuous canvas stutter.
+        //
+        // Pinned-panel coordinate freshness is already handled by the
+        // 30fps pinnedPanelTimer in HologramOverlay (which reads
+        // graph_engine_node_screen_pos directly) plus the Rust engine's
+        // force_alive flag (d20f416b) that bypasses its own idle skip so
+        // update_camera / node_screen_pos return accurate values even
+        // when no render is in flight. User interactions (pan / zoom /
+        // new physics) set needsRender through other paths, so there is
+        // no staleness window that this line needs to cover.
+        needsRender = result != 0
 
         // Release the in-flight semaphore slot so the next frame can queue.
         // graph_engine_render() calls commandBuffer.commit() + present()
