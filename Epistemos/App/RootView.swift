@@ -121,8 +121,11 @@ struct RootView: View {
             // Pre-paint the window background so transitions from landing
             // into chat / agent don't briefly flash the old theme surface at
             // the title bar. Dark mode = OLED black, light mode = theme bg.
+            // `allowsHitTesting(false)` is CRITICAL — without it the Color
+            // swallows clicks, breaking every button on the window.
             (ui.theme.isDark ? Color.black : ui.theme.resolved.background.color)
                 .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             switch homeSurfaceRoute {
             case .home:
