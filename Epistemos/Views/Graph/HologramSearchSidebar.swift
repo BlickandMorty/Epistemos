@@ -140,7 +140,10 @@ enum HologramSidebarNotesTreeBuilder {
 
 struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
+    @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
+    @AppStorage("epistemos.graphChatOperatingMode")
+    private var graphChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var activeTab: SidebarTab = .notes
     @State private var expandedFolders: Set<String> = []
     @State private var cachedNotesTreeSnapshot = HologramSidebarNotesTreeSnapshot.empty
@@ -163,6 +166,32 @@ struct HologramSearchSidebar: View {
         AssistantComposerStatusPhase.resolve(
             isActive: inspectorState.isChatStreaming,
             streamingText: graphChatStreamingText
+        )
+    }
+    private var supportedGraphChatOperatingModes: [EpistemosOperatingMode] {
+        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        return modes.isEmpty ? [.fast] : modes
+    }
+    private var selectedGraphChatOperatingMode: EpistemosOperatingMode {
+        get {
+            MainChatOperatingModePreference.sanitize(
+                EpistemosOperatingMode(rawValue: graphChatOperatingModeRaw) ?? .fast,
+                for: inference,
+                availableModes: supportedGraphChatOperatingModes
+            )
+        }
+        nonmutating set {
+            graphChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
+                newValue,
+                for: inference,
+                availableModes: supportedGraphChatOperatingModes
+            ).rawValue
+        }
+    }
+    private var graphChatOperatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedGraphChatOperatingMode },
+            set: { selectedGraphChatOperatingMode = $0 }
         )
     }
 
@@ -634,7 +663,24 @@ struct HologramSearchSidebar: View {
                 inspectorState.stopChat()
             }
         ) {
-            LocalModelToolbarMenu(variant: .toolbar)
+            HStack(spacing: 6) {
+                LocalModelToolbarMenu(
+                    variant: .toolbar,
+                    operatingMode: graphChatOperatingModeBinding,
+                    availableOperatingModes: supportedGraphChatOperatingModes
+                )
+                // Capability pill — graph chat lives in the hologram
+                // sidebar. Same classifier as the other chats so the
+                // signal reads consistently across surfaces.
+                ChatCapabilityPill(
+                    capability: ChatCapability.classify(
+                        isCloudProvider: inference.activeAIProvider.cloudProvider != nil,
+                        isAgentExecuting: false,
+                        isResearchMode: false,
+                        isThinkingMode: false
+                    )
+                )
+            }
         }
         .padding(12)
     }
@@ -681,7 +727,11 @@ struct HologramSearchSidebar: View {
 
     private func sendGraphChatMessage() {
         guard let modelContext else { return }
-        inspectorState.sendMessage(store: graphState.store, modelContext: modelContext)
+        inspectorState.sendMessage(
+            store: graphState.store,
+            modelContext: modelContext,
+            operatingMode: selectedGraphChatOperatingMode
+        )
     }
 
     // MARK: - Shared Components

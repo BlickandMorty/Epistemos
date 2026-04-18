@@ -522,6 +522,7 @@ struct NoteDetailWorkspaceView: View {
 
     @Environment(NoteNavigationState.self) private var navState: NoteNavigationState?
     @Environment(GraphState.self) private var graphState
+    @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
@@ -568,6 +569,8 @@ struct NoteDetailWorkspaceView: View {
     @State private var isTransitioning = false
     /// Per-note AI chat state (one per open note tab).
     @State private var noteChatState: NoteChatState
+    @AppStorage("epistemos.noteChatOperatingMode")
+    private var noteChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @MainActor
     init(pageId: String) {
         self.pageId = pageId
@@ -581,6 +584,35 @@ struct NoteDetailWorkspaceView: View {
             return persistedBody
         }
         return page.body
+    }
+
+    private var supportedNoteChatOperatingModes: [EpistemosOperatingMode] {
+        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        return modes.isEmpty ? [.fast] : modes
+    }
+
+    private var selectedNoteChatOperatingMode: EpistemosOperatingMode {
+        get {
+            MainChatOperatingModePreference.sanitize(
+                EpistemosOperatingMode(rawValue: noteChatOperatingModeRaw) ?? .fast,
+                for: inference,
+                availableModes: supportedNoteChatOperatingModes
+            )
+        }
+        nonmutating set {
+            noteChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
+                newValue,
+                for: inference,
+                availableModes: supportedNoteChatOperatingModes
+            ).rawValue
+        }
+    }
+
+    private var noteChatOperatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedNoteChatOperatingMode },
+            set: { selectedNoteChatOperatingMode = $0 }
+        )
     }
 
     var body: some View {
@@ -639,12 +671,12 @@ struct NoteDetailWorkspaceView: View {
                 .hidden()
             Button("") {
                 if let page = pages.first {
+                    let originalShortcutPinned = page.isPinned
                     page.isPinned.toggle()
-                    do { try modelContext.save() } catch {
-                        Log.notes.error(
-                            "Save failed (pin shortcut): \(error.localizedDescription, privacy: .private)"
-                        )
-                    }
+                    _ = persistPageMutation(
+                        failureMessage: "Save failed (pin shortcut)",
+                        restoreState: { page.isPinned = originalShortcutPinned }
+                    )
                 }
             }
             .keyboardShortcut("p", modifiers: [.command, .shift])
@@ -709,12 +741,6 @@ struct NoteDetailWorkspaceView: View {
         .onChange(of: pages.first?.title) { _, newTitle in
             guard let newTitle, !newTitle.isEmpty else { return }
             navState?.syncTitle(pageId: pageId, title: newTitle)
-        }
-        .onChange(of: ui.appearanceSyncKey) { _, _ in
-            if let window = NSApp.keyWindow {
-                window.appearance = nil
-                window.backgroundColor = .windowBackgroundColor
-            }
         }
         .onReceive(
             NotificationCenter.default.publisher(for: NSWindow.didBecomeMainNotification)
@@ -1007,19 +1033,35 @@ struct NoteDetailWorkspaceView: View {
         // Write to file
         do {
             try content.write(toFile: filePath, atomically: true, encoding: .utf8)
-            
-            // Update the page body to match (for consistency with rest of app)
-            page.body = content
-            page.updatedAt = Date()
-            page.needsVaultSync = true
-            
-            // Persist to SwiftData
-            try? modelContext.save()
-            
-            NSLog("[CodeEditor] Saved code file: \(filePath)")
+            try Self.applyDirectCodeFileSave(
+                content,
+                to: page,
+                modelContext: modelContext,
+                graphState: AppBootstrap.shared?.graphState
+            )
         } catch {
-            NSLog("[CodeEditor] Failed to save code file: \(error)")
+            Log.app.error("CodeEditor: failed to save code file: \(error.localizedDescription, privacy: .public)")
         }
+    }
+
+    @MainActor
+    static func applyDirectCodeFileSave(
+        _ content: String,
+        to page: SDPage,
+        modelContext: ModelContext,
+        graphState: GraphState? = nil
+    ) throws {
+        // Code files are already written to their tracked vault path, so keep the page
+        // synchronized without routing them back through markdown export.
+        page.body = content
+        page.blockReferences = SDPage.extractBlockReferences(from: content)
+        page.wordCount = content.split(separator: " ").count
+        page.updatedAt = .now
+        page.lastSyncedBodyHash = SDPage.bodyHash(content)
+        page.lastSyncedAt = .now
+        page.needsVaultSync = false
+        try modelContext.save()
+        graphState?.needsRefresh = true
     }
 
     private var noteToolbarAskItem: some View {
@@ -1121,7 +1163,15 @@ struct NoteDetailWorkspaceView: View {
     private func recoveredPageForMissingTitle(_ title: String?) -> SDPage? {
         guard let title else { return nil }
         let descriptor = FetchDescriptor<SDPage>()
-        guard let allPages = try? modelContext.fetch(descriptor) else { return nil }
+        let allPages: [SDPage]
+        do {
+            allPages = try modelContext.fetch(descriptor)
+        } catch {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: failed to fetch pages for missing-page recovery: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
         let matches = allPages.filter { NoteTitleDisplay.resolvedTitle($0.title) == title }
         guard matches.count == 1 else { return nil }
         return matches[0]
@@ -1321,7 +1371,8 @@ struct NoteDetailWorkspaceView: View {
         noteChatState.submitQuery(
             mapping.userPrompt,
             operation: mapping.operation,
-            triageService: triageService
+            triageService: triageService,
+            operatingMode: selectedNoteChatOperatingMode
         )
     }
 
@@ -1377,7 +1428,14 @@ struct NoteDetailWorkspaceView: View {
         }
         // Direct file read as final fallback (covers newly imported code files
         // whose body hasn't been written to NoteFileStorage yet)
-        return (try? String(contentsOfFile: filePath, encoding: .utf8)) ?? ""
+        do {
+            return try String(contentsOfFile: filePath, encoding: .utf8)
+        } catch {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: failed to read code file \(filePath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return ""
+        }
     }
 
     private func currentEditorBody(for page: SDPage) -> String? {
@@ -1397,9 +1455,9 @@ struct NoteDetailWorkspaceView: View {
             return
         }
         let pageId = page.id
+        guard stageBodyWrite(pageId: pageId, fullText: fullText) else { return }
         persistedBody = fullText
         page.applyInteractiveDerivedState(from: fullText)
-        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: fullText)
         if let modelContainer = AppBootstrap.shared?.modelContainer {
             Task {
                 await BlockMirrorSyncCoordinator.shared.scheduleSync(
@@ -1411,8 +1469,25 @@ struct NoteDetailWorkspaceView: View {
         }
         page.needsVaultSync = true
         page.updatedAt = .now
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: failed to persist flushed editor body for page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
         AppBootstrap.shared?.graphState.needsRefresh = true
+    }
+
+    @discardableResult
+    private func stageBodyWrite(pageId: String, fullText: String) -> Bool {
+        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: fullText) != nil else {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: failed to stage flushed editor body for page \(String(pageId.prefix(8)), privacy: .public)"
+            )
+            return false
+        }
+        return true
     }
 
     // MARK: - Mode Transition Helpers
@@ -1441,13 +1516,27 @@ struct NoteDetailWorkspaceView: View {
             predicate: #Predicate<SDPage> { $0.title == trimmed }
         )
         let lowered = trimmed.lowercased()
-        let existing: SDPage? =
-            (try? modelContext.fetch(exactDesc))?.first
-            ?? {
-                let allDesc = FetchDescriptor<SDPage>()
-                guard let pages = try? modelContext.fetch(allDesc) else { return nil }
+        let exactMatch: SDPage?
+        do {
+            exactMatch = try modelContext.fetch(exactDesc).first
+        } catch {
+            Log.notes.error(
+                "NoteDetailWorkspaceView: failed to fetch exact wikilink target: \(error.localizedDescription, privacy: .public)"
+            )
+            exactMatch = nil
+        }
+        let existing: SDPage? = exactMatch ?? {
+            let allDesc = FetchDescriptor<SDPage>()
+            do {
+                let pages = try modelContext.fetch(allDesc)
                 return pages.first(where: { $0.title.lowercased() == lowered })
-            }()
+            } catch {
+                Log.notes.error(
+                    "NoteDetailWorkspaceView: failed to fetch wikilink target pages: \(error.localizedDescription, privacy: .public)"
+                )
+                return nil
+            }
+        }()
 
         if let existing {
             if let navState {
@@ -1528,14 +1617,33 @@ struct NoteDetailWorkspaceView: View {
             onSubmit: {
                 noteChatState.submitToolbarQuery(
                     noteChatState.inputText,
-                    triageService: triageService
+                    triageService: triageService,
+                    operatingMode: selectedNoteChatOperatingMode
                 )
             },
             onStop: {
                 noteChatState.stopStreaming()
             }
         ) {
-            LocalModelToolbarMenu(variant: .toolbar)
+            HStack(spacing: 6) {
+                LocalModelToolbarMenu(
+                    variant: .toolbar,
+                    operatingMode: noteChatOperatingModeBinding,
+                    availableOperatingModes: supportedNoteChatOperatingModes
+                )
+                // Capability pill (honest gating) — note-scoped chat never
+                // hits the agent loop today, so the isAgentExecuting arg is
+                // always false here. Still reads .local vs .cloud correctly
+                // based on the user's selected provider.
+                ChatCapabilityPill(
+                    capability: ChatCapability.classify(
+                        isCloudProvider: inference.activeAIProvider.cloudProvider != nil,
+                        isAgentExecuting: false,
+                        isResearchMode: false,
+                        isThinkingMode: false
+                    )
+                )
+            }
         }
     }
 
@@ -1552,6 +1660,23 @@ struct NoteDetailWorkspaceView: View {
         MiniChatWindowController.shared.openNewChat(attaching: noteChatContextAttachment)
     }
 
+    @discardableResult
+    private func persistPageMutation(
+        failureMessage: String,
+        restoreState: () -> Void
+    ) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            restoreState()
+            Log.notes.error(
+                "\(failureMessage, privacy: .private): \(error.localizedDescription, privacy: .private)"
+            )
+            return false
+        }
+    }
+
     // MARK: - More Menu
 
     private var moreMenu: some View {
@@ -1559,24 +1684,24 @@ struct NoteDetailWorkspaceView: View {
             // Note actions
             if let page = pages.first {
                 Button {
+                    let originalMenuPinned = page.isPinned
                     page.isPinned.toggle()
-                    do { try modelContext.save() } catch {
-                        Log.notes.error(
-                            "Save failed (pin toggle): \(error.localizedDescription, privacy: .private)"
-                        )
-                    }
+                    _ = persistPageMutation(
+                        failureMessage: "Save failed (pin toggle)",
+                        restoreState: { page.isPinned = originalMenuPinned }
+                    )
                 } label: {
                     Label(
                         page.isPinned ? "Unpin" : "Pin",
                         systemImage: page.isPinned ? "pin.fill" : "pin")
                 }
                 Button {
+                    let originalIsFavorite = page.isFavorite
                     page.isFavorite.toggle()
-                    do { try modelContext.save() } catch {
-                        Log.notes.error(
-                            "Save failed (favorite toggle): \(error.localizedDescription, privacy: .private)"
-                        )
-                    }
+                    _ = persistPageMutation(
+                        failureMessage: "Save failed (favorite toggle)",
+                        restoreState: { page.isFavorite = originalIsFavorite }
+                    )
                 } label: {
                     Label(
                         page.isFavorite ? "Unfavorite" : "Favorite",
@@ -1949,9 +2074,13 @@ private struct IdeasPanel: View {
 
     /// Write ideas through the computed property to keep @Transient cache in sync.
     private func writeIdeas(_ ideas: [NoteIdea]) {
+        let originalIdeas = page.ideas
+        let originalUpdatedAt = page.updatedAt
         page.ideas = ideas
         page.updatedAt = .now
         do { try modelContext.save() } catch {
+            page.ideas = originalIdeas
+            page.updatedAt = originalUpdatedAt
             Log.notes.error(
                 "Save failed (write ideas): \(error.localizedDescription, privacy: .private)")
         }
