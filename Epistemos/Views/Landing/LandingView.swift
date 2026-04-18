@@ -45,6 +45,13 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
+// DEPRECATED (fused chat, 2026-04-18): the Chat / Agent segmented picker
+// that drove this enum was removed in 3d83f377. The enum still exists
+// because several private state/vars in LandingView are typed against it;
+// those branches are now dead (landingPromptSurface is initialized to
+// .chat and never reassigned) and will be collapsed in a follow-up
+// refactor. Do not reintroduce a UI that sets this to .agent — the main
+// chat auto-promotes via MainChatSubmissionRouter.autoPromotedMode.
 enum LandingPromptSurface: String, CaseIterable, Identifiable {
     case chat
     case agent
@@ -681,6 +688,10 @@ struct LandingView: View {
         }
     }
 
+    // DEPRECATED (fused chat, 2026-04-18): unused. Kept as dead code so we
+    // can visually audit what the picker used to look like; remove in the
+    // next LandingView refactor along with landingAgentSpecificControls and
+    // submitLandingAgentPrompt.
     private var landingPromptSurfacePicker: some View {
         Picker("Landing Surface", selection: $landingPromptSurface) {
             ForEach(LandingPromptSurface.allCases) { surface in
@@ -728,6 +739,10 @@ struct LandingView: View {
         }
     }
 
+    // DEPRECATED (fused chat, 2026-04-18): unused since the Chat/Agent
+    // picker was removed. The fused composer uses landingChatSpecificControls
+    // unconditionally; agent-tier behavior is reached by auto-promotion
+    // rather than a separate control strip.
     private var landingAgentSpecificControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
@@ -952,6 +967,11 @@ struct LandingView: View {
         submitLandingSearch()
     }
 
+    // DEPRECATED (fused chat, 2026-04-18): no visible UI path calls this.
+    // The only remaining reference is the enum-switch branch in
+    // submitLandingPrompt (also dead). Kept so any external programmatic
+    // invocation continues to resolve. Removal scheduled when the
+    // LandingPromptSurface enum itself is collapsed.
     private func submitLandingAgentPrompt(
         _ query: String,
         attachments: [ContextAttachment]

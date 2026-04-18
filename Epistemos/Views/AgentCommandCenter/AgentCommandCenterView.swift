@@ -5,6 +5,17 @@ import SwiftUI
 // Dedicated home-window agent workspace.
 // Keeps the OLED palette and agent-specific controls, but uses native page
 // sections and liquid-glass surfaces instead of a centered faux terminal.
+//
+// DEPRECATED (fused chat, 2026-04-18): no UI entry point presents this
+// view anymore. LandingView's Chat/Agent picker was removed in 3d83f377;
+// AppBootstrap.submitAgentWorkspacePrompt is now only reachable from the
+// (orphaned) LandingView.submitLandingAgentPrompt path. Main chat with
+// auto-promotion (MainChatSubmissionRouter.autoPromotedMode) replaces
+// this workspace for all user-visible flows.
+//
+// Deletion safe once the fused experience has been stable for one
+// release cycle. Kept for now so programmatic callers, accessibility
+// audits, and any future rollback continue to resolve the symbol.
 
 struct AgentCommandCenterView: View {
     @Environment(AgentCommandCenterState.self) private var accState
@@ -25,6 +36,30 @@ struct AgentCommandCenterView: View {
     private let syntaxBlue = Color(red: 0.38, green: 0.56, blue: 0.96)
     private let syntaxViolet = Color(red: 0.65, green: 0.43, blue: 0.98)
     private let syntaxCyan = Color(red: 0.31, green: 0.82, blue: 0.94)
+
+    private var toolbarBackgroundStyle: AnyShapeStyle {
+        if theme.isDark {
+            AnyShapeStyle(Color.black)
+        } else {
+            AnyShapeStyle(.ultraThinMaterial)
+        }
+    }
+
+    private var workspaceCardFillStyle: AnyShapeStyle {
+        if theme.isDark {
+            AnyShapeStyle(Color.black)
+        } else {
+            AnyShapeStyle(terminalBlack.opacity(0.76))
+        }
+    }
+
+    private var workspaceSubcardFillStyle: AnyShapeStyle {
+        if theme.isDark {
+            AnyShapeStyle(Color.black)
+        } else {
+            AnyShapeStyle(terminalInset.opacity(0.70))
+        }
+    }
 
     private var disabledToolCount: Int {
         max(accState.toolToggles.count - accState.enabledToolNames.count, 0)
@@ -184,7 +219,7 @@ struct AgentCommandCenterView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
+        .background(toolbarBackgroundStyle)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color.white.opacity(0.08))
@@ -457,8 +492,13 @@ struct AgentCommandCenterView: View {
 
     private func workspaceCardBackground(cornerRadius: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(terminalBlack.opacity(0.76))
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .fill(workspaceCardFillStyle)
+            .background {
+                if !theme.isDark {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                }
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(terminalBorder.opacity(0.95), lineWidth: 0.8)
@@ -468,8 +508,13 @@ struct AgentCommandCenterView: View {
 
     private func workspaceSubcardBackground(cornerRadius: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-            .fill(terminalInset.opacity(0.70))
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .fill(workspaceSubcardFillStyle)
+            .background {
+                if !theme.isDark {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.regularMaterial)
+                }
+            }
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(terminalBorder.opacity(0.85), lineWidth: 0.7)
@@ -563,7 +608,7 @@ struct AgentCommandCenterView: View {
                 syntaxBadge("trace:ready", color: syntaxCyan)
             }
 
-            Text("Start a new agent session below. Epistemos will route models, tools, context, and permission gates from the same control plane.")
+            Text("Start a new agent session below. Epistemos will route notes, models, tools, context, and permission gates from the same control plane.")
                 .font(.system(size: 14, weight: .medium, design: .rounded))
                 .foregroundStyle(mutedTerminalText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -572,7 +617,7 @@ struct AgentCommandCenterView: View {
 
     private var agentQuickStartGrid: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 12)], spacing: 12) {
-            ForEach([ACCSlashCommand.plan, .debug, .research, .review, .summarize], id: \.self) { command in
+            ForEach(ACCSlashCommand.featuredAgentQuickActions, id: \.self) { command in
                 agentQuickActionCard(command)
             }
         }
@@ -582,8 +627,7 @@ struct AgentCommandCenterView: View {
         let isSelected = isSelectedQuickAction(command)
 
         return Button {
-            accState.activeSlashToken = .builtinMode(command)
-            accState.selectedOperatingMode = command.defaultOperatingMode
+            accState.applySpecialist(command)
         } label: {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
@@ -628,8 +672,7 @@ struct AgentCommandCenterView: View {
     }
 
     private func isSelectedQuickAction(_ command: ACCSlashCommand) -> Bool {
-        guard case .builtinMode(let active) = accState.activeSlashToken else { return false }
-        return active == command
+        return accState.activeSpecialistPreset == command
     }
 
     private var agentStatsPanel: some View {
