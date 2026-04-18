@@ -109,6 +109,60 @@ struct ChatInputBar: View {
             isCloudProvider: isCloud
         ).predicted
     }
+
+    /// Live-detail sub-signal shown in the pill, e.g., "web_search" while the
+    /// agent is mid-tool-call. Nil when the pill should read as just the
+    /// tier without extra context (idle, plain streaming, predicted intent).
+    private var pillDetail: String? {
+        guard chat.isAgentExecuting else { return nil }
+        guard let activeTool = chat.activeToolName, !activeTool.isEmpty else {
+            return nil
+        }
+        return activeTool
+    }
+
+    /// True when the composer draft looks like agent-tier work (creating /
+    /// editing / deleting / installing / automating) BUT the user is on a
+    /// local model — agent tier is cloud-only per CLAUDE.md, so the UI
+    /// surfaces an honest nudge instead of silently downgrading.
+    private var pillNeedsCloudWarning: Bool {
+        guard !chat.isAgentExecuting, !isProcessing else { return false }
+        let trimmed = trimmedText
+        guard !trimmed.isEmpty else { return false }
+        let isCloud = inference.activeAIProvider.cloudProvider != nil
+        return ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloud
+        ).needsCloud
+    }
+
+    /// Inline nudge shown when the classifier predicts agent-tier work but
+    /// the user is on a local model. Tappable-looking but non-interactive
+    /// today — a follow-up can wire the inline action into
+    /// InferenceState.setActiveProvider so the user can promote in place.
+    private var needsCloudBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "cloud.bolt.fill")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color.orange)
+            Text("This looks like agent work. Switch to a cloud model to run it with tools.")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.25), lineWidth: 0.75)
+        )
+        .padding(.top, 6)
+        .accessibilityLabel(
+            "Heads up: this prompt looks like agent work, but a local model is selected. Switch to a cloud model to run it with tools."
+        )
+    }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private var incognitoBinding: Binding<Bool> {
         Binding(
@@ -277,6 +331,11 @@ struct ChatInputBar: View {
 
                 composerTextArea
 
+                if pillNeedsCloudWarning {
+                    needsCloudBanner
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
                         ChatBrainPickerMenu(
@@ -295,7 +354,10 @@ struct ChatInputBar: View {
                     // .research for external-info prompts, etc. During a
                     // turn: chat.currentCapability is set by ChatCoordinator
                     // from the live streaming signals (takes precedence).
-                    ChatCapabilityPill(capability: effectiveCapability)
+                    ChatCapabilityPill(
+                        capability: effectiveCapability,
+                        detail: pillDetail
+                    )
 
                     sendButton
                 }

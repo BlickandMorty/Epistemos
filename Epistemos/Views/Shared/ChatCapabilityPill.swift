@@ -7,10 +7,21 @@ import SwiftUI
 /// Kept deliberately tiny — it reads at a glance, never steals focus, and
 /// animates a subtle pulse while agent work is in flight so the user knows
 /// a long-running turn is actually progressing.
+///
+/// Optional `detail` appends a live sub-signal: when the agent is executing
+/// a specific tool, the pill reads e.g. "Agent • web_search" so the user
+/// sees what the agent is doing right now without needing the command
+/// center open. Pass nil to hide the detail.
 struct ChatCapabilityPill: View {
     let capability: ChatCapability
+    let detail: String?
 
     @State private var isPulsing = false
+
+    init(capability: ChatCapability, detail: String? = nil) {
+        self.capability = capability
+        self.detail = detail
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -18,14 +29,30 @@ struct ChatCapabilityPill: View {
                 .font(.system(size: 10, weight: .semibold))
             Text(capability.displayName)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
+            if let detail, !detail.isEmpty {
+                Text("•")
+                    .font(.system(size: 10, weight: .regular))
+                    .opacity(0.55)
+                Text(detail)
+                    .font(.system(size: 10, weight: .regular, design: .monospaced))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .transition(.opacity.combined(with: .scale(scale: 0.92)))
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(background)
         .overlay(border)
         .clipShape(Capsule())
-        .help(capability.shortExplanation)
-        .accessibilityLabel(Text("\(capability.displayName) — \(capability.shortExplanation)"))
+        .help(detail.map { "\(capability.displayName): \($0)" } ?? capability.shortExplanation)
+        .accessibilityLabel(
+            Text(
+                detail.map { "\(capability.displayName) running \($0)" }
+                    ?? "\(capability.displayName) — \(capability.shortExplanation)"
+            )
+        )
+        .animation(.easeOut(duration: 0.18), value: detail)
         .scaleEffect(isPulsing ? 1.035 : 1.0)
         .onChange(of: capability.isAgentActive, initial: true) { _, newValue in
             if newValue {
