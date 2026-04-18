@@ -137,22 +137,32 @@ struct ChatInputBar: View {
     }
 
     /// Inline nudge shown when the classifier predicts agent-tier work but
-    /// the user is on a local model. Tappable-looking but non-interactive
-    /// today — a follow-up can wire the inline action into
-    /// InferenceState.setActiveProvider so the user can promote in place.
+    /// the user is on a local model. Tapping the banner promotes the user
+    /// to OpenAI (our default cloud provider) via
+    /// InferenceState.setActiveAIProvider; ChatView's onChange hook will
+    /// pick up the provider flip and refresh the pill automatically.
     private var needsCloudBanner: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "cloud.bolt.fill")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.orange)
-            Text("This looks like agent work. Switch to a cloud model to run it with tools.")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+        Button {
+            inference.setActiveAIProvider(.openAI)
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "cloud.bolt.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+                Text("This looks like agent work. Tap to switch to OpenAI and run it with tools.")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.orange.opacity(0.7))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .buttonStyle(.plain)
         .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -160,8 +170,9 @@ struct ChatInputBar: View {
         )
         .padding(.top, 6)
         .accessibilityLabel(
-            "Heads up: this prompt looks like agent work, but a local model is selected. Switch to a cloud model to run it with tools."
+            "Switch to OpenAI to run this as an agent. This prompt looks like agent work but a local model is selected."
         )
+        .accessibilityAddTraits(.isButton)
     }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private var incognitoBinding: Binding<Bool> {
