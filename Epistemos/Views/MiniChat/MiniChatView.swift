@@ -703,6 +703,23 @@ private struct MiniChatInputBar: View {
                             .accessibilityLabel("Chat model")
                     }
 
+                    Spacer(minLength: 4)
+
+                    // Capability pill — shared signal across main/mini/note/graph
+                    // chat. Mini chat doesn't own a full ChatState, so the
+                    // capability is derived inline from the active provider +
+                    // whether this composer is currently mid-stream. Agent tier
+                    // is reserved for the main-chat surface today (mini chat
+                    // doesn't drive the agent loop directly).
+                    ChatCapabilityPill(
+                        capability: ChatCapability.classify(
+                            isCloudProvider: inference.activeAIProvider.cloudProvider != nil,
+                            isAgentExecuting: false,
+                            isResearchMode: false,
+                            isThinkingMode: false
+                        )
+                    )
+
                     AssistantSendButton(
                         theme: theme,
                         isEnabled: canSend,
@@ -1085,7 +1102,10 @@ private struct MiniChatInputBar: View {
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.addMiniChatMessage(
-                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
+                    AssistantMessage(
+                        role: .assistant,
+                        content: UserFacingChatError.message(from: error)
+                    ),
                     chatID: chatID
                 )
                 persistMiniChatSession()
@@ -1261,7 +1281,10 @@ private struct MiniChatInputBar: View {
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
                 threadState.addMiniChatMessage(
-                    AssistantMessage(role: .assistant, content: "Error: \(error.localizedDescription)"),
+                    AssistantMessage(
+                        role: .assistant,
+                        content: UserFacingChatError.message(from: error)
+                    ),
                     chatID: chatID
                 )
                 persistMiniChatSession()
