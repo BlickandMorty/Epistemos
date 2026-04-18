@@ -580,6 +580,11 @@ final class HologramOverlay {
             subview.isHidden = false
         }
 
+        // Re-apply route-aware chrome state: the blanket un-hide above would
+        // otherwise show the sidebar / inspector on top of the note or folder
+        // route page, because subviews are inserted above the route host view.
+        syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
+
         // 4. Remove corner radius.
         window.contentView?.layer?.cornerRadius = 0
         window.contentView?.layer?.masksToBounds = false
@@ -931,6 +936,12 @@ final class HologramOverlay {
             return
         }
 
+        guard graphState.currentRoute.isCanvas else {
+            inspectorHostView.isHidden = true
+            lastInspectorFrame = nil
+            return
+        }
+
         let bounds = contentView.bounds
         let dimensions = inspectorDimensions(for: inspectorState.inspectorMode)
 
@@ -1010,6 +1021,13 @@ final class HologramOverlay {
     /// Update all pinned inspector positions based on their node's screen
     /// coordinates. Called from the render-loop observation task.
     func updatePinnedInspectorPositions() {
+        guard graphState.currentRoute.isCanvas else {
+            for view in pinnedInspectorViews.values {
+                view.isHidden = true
+            }
+            return
+        }
+
         guard let contentView = window?.contentView,
               let engineHandle = graphState.engineHandle else { return }
         let mgr = PinnedInspectorManager.shared
@@ -1186,6 +1204,27 @@ final class HologramOverlay {
                 HologramController.shared.hide()
             }
         }
+    }
+
+    private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool) {
+        routeHostView?.isHidden = isCanvas
+        controlsHostView?.isHidden = !isCanvas
+        sidebarHostView?.isHidden = !isCanvas
+
+        if isCanvas {
+            repositionInspector()
+            updatePinnedInspectorPositions()
+            graphState.startOverlayPhysicsCycle()
+            return
+        }
+
+        UtilityWindowManager.shared.hide(.notes)
+        inspectorHostView?.isHidden = true
+        lastInspectorFrame = nil
+        for view in pinnedInspectorViews.values {
+            view.isHidden = true
+        }
+        graphState.cancelOverlayPhysicsCycle()
     }
 
     // MARK: - Fullscreen Handling
@@ -1500,18 +1539,7 @@ final class HologramOverlay {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let isCanvas = self.graphState.currentRoute.isCanvas
-                self.routeHostView?.isHidden = isCanvas
-                // When the user drills into a note or folder, dismiss the
-                // notes utility sidebar (it overlays the graph and blocks
-                // content) and pause the physics loop so scrolling/editing
-                // in the detail view stays fluid. Resume physics on return
-                // to canvas.
-                if isCanvas {
-                    self.graphState.startOverlayPhysicsCycle()
-                } else {
-                    UtilityWindowManager.shared.hide(.notes)
-                    self.graphState.cancelOverlayPhysicsCycle()
-                }
+                self.syncGraphWorkspaceChromeVisibility(isCanvas: isCanvas)
             }
         }
 
@@ -1575,6 +1603,8 @@ final class HologramOverlay {
             self.inspectorHostView = inspectorView
             startInspectorPositionTracking()
         }
+
+        syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
         window.contentView = contentView
 
@@ -1660,6 +1690,9 @@ final class HologramOverlay {
         for subview in window.contentView?.subviews ?? [] {
             subview.isHidden = false
         }
+
+        // Route-aware chrome restore (see restore() above).
+        syncGraphWorkspaceChromeVisibility(isCanvas: graphState.currentRoute.isCanvas)
 
         window.contentView?.layer?.cornerRadius = 0
         window.contentView?.layer?.masksToBounds = false
