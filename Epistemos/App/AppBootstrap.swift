@@ -581,6 +581,16 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    private static let agentCoreManagedOAuthEnvironmentVars: Set<String> = [
+        "OPENAI_ACCESS_TOKEN",
+        "OPENAI_AUTH_MODE",
+        "OPENAI_CLIENT_VERSION",
+        "ANTHROPIC_ACCESS_TOKEN",
+        "ANTHROPIC_AUTH_MODE",
+        "GOOGLE_ACCESS_TOKEN",
+        "GOOGLE_AUTH_MODE",
+        "GOOGLE_PROJECT_ID",
+    ]
     private static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = [
         ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
         ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
@@ -603,11 +613,8 @@ final class AppBootstrap {
         keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
     ) {
         let overrides = agentCoreEnvironmentOverrides(keychainLoad: keychainLoad)
-        let managedVars = Set(agentCoreEnvironmentKeyMappings.map(\.envVar)).union([
-            "OPENAI_ACCESS_TOKEN",
-            "OPENAI_AUTH_MODE",
-            "OPENAI_CLIENT_VERSION",
-        ])
+        let managedVars = Set(agentCoreEnvironmentKeyMappings.map(\.envVar))
+            .union(agentCoreManagedOAuthEnvironmentVars)
 
         for envVar in managedVars {
             if let value = overrides[envVar], !value.isEmpty {
@@ -623,21 +630,66 @@ final class AppBootstrap {
     ) -> [String: String] {
         var overrides: [String: String] = [:]
         for mapping in agentCoreEnvironmentKeyMappings {
-            if let value = keychainLoad(mapping.keychainKey), !value.isEmpty {
+            if let value = normalizedAgentCoreEnvironmentValue(keychainLoad(mapping.keychainKey)) {
                 overrides[mapping.envVar] = value
             }
         }
 
-        if let rawCredential = keychainLoad(CloudModelProvider.openAI.oauthKeychainKey),
-           let credential = CloudProviderOAuthCredential.decode(from: rawCredential),
-           credential.authMode == .openAICodex,
-           !credential.accessToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        if let credential = storedOAuthCredential(
+            for: .openAI,
+            authMode: .openAICodex,
+            keychainLoad: keychainLoad
+        ) {
             overrides["OPENAI_ACCESS_TOKEN"] = credential.accessToken
             overrides["OPENAI_AUTH_MODE"] = "codex"
             overrides["OPENAI_CLIENT_VERSION"] = OpenAICodexRuntimeMetadata.clientVersion
         }
 
+        if let credential = storedOAuthCredential(
+            for: .anthropic,
+            authMode: .anthropicClaudeCode,
+            keychainLoad: keychainLoad
+        ) {
+            overrides["ANTHROPIC_ACCESS_TOKEN"] = credential.accessToken
+            overrides["ANTHROPIC_AUTH_MODE"] = "oauth"
+        }
+
+        if let credential = storedOAuthCredential(
+            for: .google,
+            authMode: .googleGemini,
+            keychainLoad: keychainLoad
+        ),
+           let projectID = normalizedAgentCoreEnvironmentValue(credential.projectID) {
+            overrides["GOOGLE_ACCESS_TOKEN"] = credential.accessToken
+            overrides["GOOGLE_AUTH_MODE"] = "oauth"
+            overrides["GOOGLE_PROJECT_ID"] = projectID
+        }
+
         return overrides
+    }
+
+    private static func storedOAuthCredential(
+        for provider: CloudModelProvider,
+        authMode: CloudProviderOAuthMode,
+        keychainLoad: (String) -> String?
+    ) -> CloudProviderOAuthCredential? {
+        guard let rawCredential = normalizedAgentCoreEnvironmentValue(
+            keychainLoad(provider.oauthKeychainKey)
+        ),
+        let credential = CloudProviderOAuthCredential.decode(from: rawCredential),
+        credential.authMode == authMode,
+        normalizedAgentCoreEnvironmentValue(credential.accessToken) != nil else {
+            return nil
+        }
+        return credential
+    }
+
+    private static func normalizedAgentCoreEnvironmentValue(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
     #if DEBUG
     private nonisolated static let isDebugBuild = true
@@ -782,6 +834,13 @@ final class AppBootstrap {
         let liveBody: String?
     }
 
+    // DEPRECATED (fused chat, 2026-04-18): no UI path calls this method
+    // anymore. Kept so programmatic callers (slash shortcuts, tests,
+    // potential rollback) continue to resolve. The fused main-chat
+    // experience promotes to the agent loop automatically via
+    // MainChatSubmissionRouter.autoPromotedMode on OpenAI/Anthropic
+    // backends — presenting a separate Agent Command Center workspace
+    // is no longer the default UX.
     func presentAgentCommandCenter(
         prefill inputText: String? = nil,
         operatingMode: EpistemosOperatingMode? = nil
@@ -815,6 +874,11 @@ final class AppBootstrap {
         agentCommandCenterState.primeInput(inputText)
     }
 
+    // DEPRECATED (fused chat, 2026-04-18): only LandingView's orphaned
+    // submitLandingAgentPrompt still references this entry. LandingView's
+    // visible submission path (submitLandingPrompt) now routes through
+    // MainChatSubmissionRouter with auto-promotion, so this method no
+    // longer runs for any user-driven action.
     func submitAgentWorkspacePrompt(
         _ inputText: String,
         operatingMode: EpistemosOperatingMode? = nil
@@ -1039,8 +1103,17 @@ final class AppBootstrap {
                     }
                     return config.primaryResolvedModelDirectory
                 }
+                let probeRuntimeKind: BackendRuntimeKind? = configuration.flatMap { config in
+                    if let probeModelID {
+                        return config.resolvedRuntimeKind(for: probeModelID) ?? LocalTextModelID(rawValue: probeModelID)?.runtimeKind
+                    }
+                    return config.primaryGenerator.runtimeKind
+                } ?? probeModelID.flatMap { LocalTextModelID(rawValue: $0)?.runtimeKind }
+                let hasPreparedProbeDirectory = probeModelDirectory.map { directory in
+                    FileManager.default.fileExists(atPath: directory.path)
+                } ?? false
 
-                if let probeModelID {
+                if probeRuntimeKind == .gguf, hasPreparedProbeDirectory, let probeModelID {
                     do {
                         _ = try await localGGUFRuntime.availability(
                             requestedModelID: probeModelID,

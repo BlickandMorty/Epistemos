@@ -385,8 +385,10 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var installableSelectableModels: [LocalModelDescriptor] {
-        localModelManager.textDescriptors.filter { descriptor in
+        let shippedModelIDs = Set(LocalModelCatalog.shippedModelIDs)
+        return localModelManager.textDescriptors.filter { descriptor in
             localModelManager.installRecords[descriptor.id] == nil
+                && shippedModelIDs.contains(descriptor.id)
                 && inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor)
                 && (LocalTextModelID(rawValue: descriptor.id)?.isReleaseValidatedForInteractiveChat ?? true)
         }
@@ -419,17 +421,40 @@ struct LocalModelToolbarMenu: View {
         return nil
     }
 
+    private var usesAutomaticCloudRoute: Bool {
+        inference.chatAutoRouteToCloud
+            && inference.preferredAutoRouteCloudProvider != nil
+            && {
+                if case .cloud = inference.preferredChatModelSelection {
+                    return false
+                }
+                return true
+            }()
+    }
+
+    private var automaticRouteSummary: String {
+        if let provider = inference.preferredAutoRouteCloudProvider {
+            return "Fast stays local-first; Pro and Agent can escalate through \(provider.displayName)."
+        }
+        return "Escalate capable chat surfaces from local to cloud automatically."
+    }
+
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
-        let selectedModelLabel = switch selectedMenuItem {
-        case .appleIntelligence:
-            "Apple Intelligence"
-        case .cloud(let model):
-            model.compactDisplayName
-        case .inProcess(let descriptor):
-            LocalTextModelID(rawValue: descriptor.id)?.compactDisplayName ?? descriptor.displayName
-        case nil:
-            "Select Model"
+        let selectedModelLabel: String
+        if usesAutomaticCloudRoute {
+            selectedModelLabel = "Auto Route"
+        } else {
+            selectedModelLabel = switch selectedMenuItem {
+            case .appleIntelligence:
+                "Apple Intelligence"
+            case .cloud(let model):
+                model.compactDisplayName
+            case .inProcess(let descriptor):
+                LocalTextModelID(rawValue: descriptor.id)?.compactDisplayName ?? descriptor.displayName
+            case nil:
+                "Select Model"
+            }
         }
         guard let operatingMode else { return selectedModelLabel }
             return "\(selectedModelLabel) \(operatingMode.wrappedValue.displayName)"
@@ -463,6 +488,9 @@ struct LocalModelToolbarMenu: View {
         if isTemporaryChatEnabled?.wrappedValue == true {
             return "eye.slash.fill"
         }
+        if usesAutomaticCloudRoute {
+            return "arrow.triangle.branch"
+        }
         if let operatingMode {
             return operatingMode.wrappedValue.systemImage
         }
@@ -477,6 +505,9 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedModeSummary: String {
+        if usesAutomaticCloudRoute {
+            return automaticRouteSummary
+        }
         if let operatingMode {
             return operatingMode.wrappedValue.helpText
         }
@@ -579,6 +610,19 @@ struct LocalModelToolbarMenu: View {
                         .easeInOut(duration: 0.15),
                         value: displayedOperatingModes.map(\.rawValue).joined(separator: "|")
                     )
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    popoverSectionTitle("Routing")
+                    selectionRow(
+                        title: "Auto-route Local -> Cloud",
+                        subtitle: automaticRouteSummary,
+                        systemImage: "arrow.triangle.branch",
+                        isSelected: inference.chatAutoRouteToCloud,
+                        isEnabled: true
+                    ) {
+                        inference.setChatAutoRouteToCloud(!inference.chatAutoRouteToCloud)
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
@@ -1076,6 +1120,13 @@ enum HomeTab: String, CaseIterable {
 
 enum HomeSurfaceRoute {
     case home
+    // DEPRECATED (fused chat, 2026-04-18): this branch only fires if
+    // AgentCommandCenterState.isPresented becomes true, and no UI path
+    // calls .present() anymore (LandingView's picker was removed in
+    // 3d83f377). Kept as a programmatic safety net so any stale call
+    // site doesn't crash — main chat with auto-promotion supersedes
+    // this route for all visible flows. Delete when the orphaned
+    // AgentChatView / AgentCommandCenterView files are removed.
     case agent
 }
 
