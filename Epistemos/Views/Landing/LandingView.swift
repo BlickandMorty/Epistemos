@@ -74,10 +74,13 @@ struct LandingView: View {
 
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(MainChatOperatingModePreference.defaultsKey)
+    private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
     @State private var showWelcomeBack = false
     @State private var welcomeBackDismissTask: Task<Void, Never>?
@@ -119,6 +122,29 @@ struct LandingView: View {
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
+    }
+    private var supportedOperatingModes: [EpistemosOperatingMode] {
+        MainChatOperatingModePreference.supportedModes(for: inference)
+    }
+    private var selectedOperatingMode: EpistemosOperatingMode {
+        get {
+            MainChatOperatingModePreference.sanitize(
+                EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
+                for: inference
+            )
+        }
+        nonmutating set {
+            mainChatOperatingModeRaw = MainChatOperatingModePreference.sanitize(
+                newValue,
+                for: inference
+            ).rawValue
+        }
+    }
+    private var operatingModeBinding: Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { selectedOperatingMode },
+            set: { selectedOperatingMode = $0 }
+        )
     }
     private var landingMentionSearchResults: ChatCoordinator.ReferenceSearchResults {
         ChatCoordinator.searchReferenceResults(
@@ -210,7 +236,11 @@ struct LandingView: View {
         .animation(Motion.smooth, value: showWelcomeBack)
         .animation(Motion.smooth, value: showingSearchPopover)
         .onAppear {
+            sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
+        }
+        .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
+            sanitizeStoredOperatingMode()
         }
         .onDisappear {
             welcomeBackDismissTask?.cancel()
@@ -483,7 +513,13 @@ struct LandingView: View {
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
-                    landingPromptSurfacePicker
+                    // Chat/Agent segmented picker removed — the fused chat
+                    // experience (ChatCapability pill + auto-routing) lets
+                    // a single submission path promote to agent tier when
+                    // the classifier detects tool-use intent, and honestly
+                    // surface "needs cloud" when a local model is selected
+                    // and the intent implies agent. One submission path,
+                    // one visible chat, all modes.
 
                     if !landingContextAttachments.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -515,11 +551,13 @@ struct LandingView: View {
                     }
 
                     VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
-                        if landingPromptSurface == .chat {
-                            landingChatSpecificControls
-                        } else {
-                            landingAgentSpecificControls
-                        }
+                        // Single unified control strip: the chat-specific
+                        // controls are now the only ones. Agent-specific
+                        // controls (slash shortcuts, workspace draft
+                        // options) are folded into chat via the capability
+                        // pill + auto-router; the separate agent-specific
+                        // strip stays available for programmatic callers.
+                        landingChatSpecificControls
 
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
                             Image(systemName: landingPromptSurface.icon)
@@ -658,7 +696,10 @@ struct LandingView: View {
     private var landingChatSpecificControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
-                ChatBrainPickerMenu()
+                ChatBrainPickerMenu(
+                    operatingMode: operatingModeBinding,
+                    availableOperatingModes: supportedOperatingModes
+                )
                 Spacer(minLength: 0)
             }
 
@@ -707,7 +748,7 @@ struct LandingView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach([ACCSlashCommand.plan, .debug, .research, .review, .summarize], id: \.self) { command in
+                    ForEach(ACCSlashCommand.featuredAgentQuickActions, id: \.self) { command in
                         landingAgentCommandChip(for: command)
                     }
                 }
@@ -884,22 +925,30 @@ struct LandingView: View {
         ui.setActivePanel(.home)
         MainChatSubmissionRouter.submit(
             trimmed,
-            operatingMode: .fast,
+            operatingMode: selectedOperatingMode,
             chat: chat,
             orchestrator: orchestrator
         )
     }
 
-    private func submitLandingPrompt() {
-        switch landingPromptSurface {
-        case .chat:
-            submitLandingSearch()
-        case .agent:
-            submitLandingAgentPrompt(
-                trimmedLandingSearchText,
-                attachments: landingContextAttachments
-            )
+    private func sanitizeStoredOperatingMode() {
+        let sanitized = MainChatOperatingModePreference.sanitize(
+            EpistemosOperatingMode(rawValue: mainChatOperatingModeRaw) ?? .fast,
+            for: inference
+        )
+        if sanitized.rawValue != mainChatOperatingModeRaw {
+            mainChatOperatingModeRaw = sanitized.rawValue
         }
+    }
+
+    private func submitLandingPrompt() {
+        // Fused chat — always route through the chat submission path. The
+        // ChatCapability classifier inside ChatView/ChatCoordinator decides
+        // whether a given turn should promote to agent tier (tools / web /
+        // long-running execution) and the pill surfaces that decision.
+        // submitLandingAgentPrompt() remains defined for programmatic
+        // callers that want to force the agent workspace explicitly.
+        submitLandingSearch()
     }
 
     private func submitLandingAgentPrompt(
