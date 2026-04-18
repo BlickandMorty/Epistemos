@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 nonisolated enum SkillDiscoverySource: String, Sendable {
     case bundled
@@ -33,6 +34,8 @@ nonisolated struct SkillDiscoveryEntry: Identifiable, Hashable, Sendable {
 }
 
 nonisolated enum SkillDiscoveryCatalog {
+    private static let log = Logger(subsystem: "com.epistemos", category: "SkillDiscovery")
+
     static func discoverSkillEntries(
         inRoots roots: [SkillDiscoveryRoot] = defaultRoots(),
         fileManager: FileManager = .default
@@ -108,6 +111,18 @@ nonisolated enum SkillDiscoveryCatalog {
             roots.append(SkillDiscoveryRoot(url: currentRoot, source: .bundled))
         }
 
+        // Shipped skills bundled with the app. This is what makes note-first
+        // skills available to the agent in a deployed build — the cwd root
+        // above is only reachable when running from the repo directly, and
+        // most user launches will not have a matching layout there.
+        if let resourceURL = Bundle.main.resourceURL {
+            let bundledRoot = resourceURL
+                .appendingPathComponent("DefaultSkills", isDirectory: true)
+            if fileManager.fileExists(atPath: bundledRoot.path) {
+                roots.append(SkillDiscoveryRoot(url: bundledRoot, source: .bundled))
+            }
+        }
+
         return roots
     }
 
@@ -137,6 +152,7 @@ nonisolated enum SkillDiscoveryCatalog {
         source: SkillDiscoverySource
     ) -> SkillDiscoveryEntry? {
         guard let content = try? String(contentsOf: skillURL, encoding: .utf8) else {
+            log.warning("Skipping unreadable skill file at \(skillURL.path, privacy: .public)")
             return nil
         }
         let frontmatter = parseFrontmatter(content)

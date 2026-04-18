@@ -1,8 +1,8 @@
 import Foundation
 
-/// Minimal message shape the QueryEngine owns across turns. Kept internal to
+/// Minimal message shape the AgentQueryEngine owns across turns. Kept internal to
 /// the harness so the engine doesn't leak UI / SwiftData concerns — the
-/// bridge layer (QueryEngineCoordinator) converts between this and the
+/// bridge layer (AgentQueryEngineCoordinator) converts between this and the
 /// surface-level SDMessage / ChatState.
 nonisolated struct QueryMessage: Codable, Sendable, Equatable {
     enum Role: String, Codable, Sendable {
@@ -23,10 +23,10 @@ nonisolated struct QueryMessage: Codable, Sendable, Equatable {
     }
 }
 
-/// Emitted on the QueryEngine turn stream. Richer than AgentBackendEvent
-/// because QueryEngine owns session state (usage totals, permission denials,
+/// Emitted on the AgentQueryEngine turn stream. Richer than AgentBackendEvent
+/// because AgentQueryEngine owns session state (usage totals, permission denials,
 /// turn number) that the raw backend stream doesn't know about.
-nonisolated enum QueryEngineEvent: Sendable {
+nonisolated enum AgentQueryEngineEvent: Sendable {
     case textDelta(String)
     case thinkingDelta(String)
     case toolStarted(id: String, name: String)
@@ -35,12 +35,12 @@ nonisolated enum QueryEngineEvent: Sendable {
     case permissionDenied(toolID: String, toolName: String, reason: String)
     case usageUpdate(UsageLedger)
     case turnComplete(turnIndex: Int)
-    case sessionComplete(result: QueryEngineResult)
+    case sessionComplete(result: AgentQueryEngineResult)
 }
 
 /// Five-way multi-exit result matching OpenClaude's shape so result-time
 /// analytics can classify why a session stopped without string-matching.
-nonisolated enum QueryEngineResult: Sendable {
+nonisolated enum AgentQueryEngineResult: Sendable {
     case success(usage: UsageLedger, turns: Int)
     case errorMaxTurns(usage: UsageLedger, turns: Int)
     case errorMaxBudgetUSD(usage: UsageLedger, turns: Int)
@@ -74,7 +74,7 @@ nonisolated enum QueryEngineResult: Sendable {
 /// turn. Kept on the engine so result-time telemetry can show the full
 /// audit trail ("the agent tried to curl | sh but the system-protected
 /// policy stopped it").
-nonisolated struct QueryEnginePermissionDenial: Codable, Sendable, Equatable {
+nonisolated struct AgentQueryEnginePermissionDenial: Codable, Sendable, Equatable {
     let toolID: String
     let toolName: String
     let reason: String
@@ -86,18 +86,18 @@ nonisolated struct QueryEnginePermissionDenial: Codable, Sendable, Equatable {
 /// threshold, and the returned replay is swapped in before the next turn.
 /// Kept injectable so the compaction module can stay feature-flagged out of
 /// the core engine file without leaking any feature-gated strings.
-nonisolated protocol QueryEngineCompactor: Sendable {
+nonisolated protocol AgentQueryEngineCompactor: Sendable {
     func compact(store: [QueryMessage]) async throws -> [QueryMessage]?
 }
 
-nonisolated struct QueryEngineConfig: Sendable {
+nonisolated struct AgentQueryEngineConfig: Sendable {
     let backendIdentifier: String
     let systemPrompt: String?
     let maxTurns: Int?
     let maxBudgetUSD: Double?
     let cwd: String
     let model: String?
-    let compactor: (any QueryEngineCompactor)?
+    let compactor: (any AgentQueryEngineCompactor)?
 
     init(
         backendIdentifier: String,
@@ -106,7 +106,7 @@ nonisolated struct QueryEngineConfig: Sendable {
         maxBudgetUSD: Double? = nil,
         cwd: String,
         model: String? = nil,
-        compactor: (any QueryEngineCompactor)? = nil
+        compactor: (any AgentQueryEngineCompactor)? = nil
     ) {
         self.backendIdentifier = backendIdentifier
         self.systemPrompt = systemPrompt
@@ -118,19 +118,19 @@ nonisolated struct QueryEngineConfig: Sendable {
     }
 }
 
-/// Stateful session actor ported from OpenClaude's QueryEngine.ts. One
+/// Stateful session actor ported from OpenClaude's AgentQueryEngine.ts. One
 /// instance per conversation; each `submitMessage` is a turn within that
 /// same instance. State persists across turns: mutable message store,
 /// accumulated usage ledger, permission-denial audit trail.
-actor QueryEngine {
-    private let config: QueryEngineConfig
+actor AgentQueryEngine {
+    private let config: AgentQueryEngineConfig
     private var mutableMessages: [QueryMessage]
     private var usage: UsageLedger
-    private(set) var permissionDenials: [QueryEnginePermissionDenial]
+    private(set) var permissionDenials: [AgentQueryEnginePermissionDenial]
     private var turnCount: Int
 
     init(
-        config: QueryEngineConfig,
+        config: AgentQueryEngineConfig,
         initialMessages: [QueryMessage] = []
     ) {
         self.config = config
@@ -145,7 +145,7 @@ actor QueryEngine {
 
     /// Submit a user prompt and stream incremental events. The stream ends
     /// with exactly one `.sessionComplete(result:)` event.
-    func submitMessage(_ prompt: String) -> AsyncThrowingStream<QueryEngineEvent, Error> {
+    func submitMessage(_ prompt: String) -> AsyncThrowingStream<AgentQueryEngineEvent, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
@@ -160,7 +160,7 @@ actor QueryEngine {
 
     private func runTurn(
         prompt: String,
-        continuation: AsyncThrowingStream<QueryEngineEvent, Error>.Continuation
+        continuation: AsyncThrowingStream<AgentQueryEngineEvent, Error>.Continuation
     ) async throws {
         mutableMessages.append(QueryMessage(role: .user, content: prompt))
 
@@ -259,7 +259,7 @@ actor QueryEngine {
         reason: String,
         at timestamp: Date = Date()
     ) {
-        permissionDenials.append(QueryEnginePermissionDenial(
+        permissionDenials.append(AgentQueryEnginePermissionDenial(
             toolID: toolID,
             toolName: toolName,
             reason: reason,

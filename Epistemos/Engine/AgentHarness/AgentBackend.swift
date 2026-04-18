@@ -100,20 +100,19 @@ final class BackendRegistry {
 /// our harness conventions without stuffing 2K tokens into every system
 /// prompt.
 nonisolated enum RuntimeBootstrapWriter {
-    enum TargetFile: String {
-        case claude = "CLAUDE.md"
-        case codex = "AGENTS.md"
-        case gemini = "GEMINI.md"
-        case generic = "AGENTS.md"
-
+    /// Maps a backend identifier to the canonical runtime-config filename
+    /// that backend reads on entry. AGENTS.md is the fallback for anything
+    /// that isn't Claude or Gemini, matching the convention used by Codex,
+    /// OpenCode, OpenClaw, and the broader open-agent ecosystem.
+    nonisolated enum TargetFile {
         static func fileName(forBackendID identifier: String) -> String {
             switch identifier.lowercased() {
             case "claude", "anthropic", "claude-code", "openclaw":
-                return TargetFile.claude.rawValue
+                return "CLAUDE.md"
             case "gemini", "gemini-cli":
-                return TargetFile.gemini.rawValue
+                return "GEMINI.md"
             default:
-                return TargetFile.generic.rawValue
+                return "AGENTS.md"
             }
         }
     }
