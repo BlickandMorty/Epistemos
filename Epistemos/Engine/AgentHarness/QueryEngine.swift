@@ -1,0 +1,276 @@
+import Foundation
+
+/// Minimal message shape the QueryEngine owns across turns. Kept internal to
+/// the harness so the engine doesn't leak UI / SwiftData concerns — the
+/// bridge layer (QueryEngineCoordinator) converts between this and the
+/// surface-level SDMessage / ChatState.
+nonisolated struct QueryMessage: Codable, Sendable, Equatable {
+    enum Role: String, Codable, Sendable {
+        case user
+        case assistant
+        case system
+        case toolResult = "tool_result"
+    }
+
+    let role: Role
+    let content: String
+    let toolCallID: String?
+
+    init(role: Role, content: String, toolCallID: String? = nil) {
+        self.role = role
+        self.content = content
+        self.toolCallID = toolCallID
+    }
+}
+
+/// Emitted on the QueryEngine turn stream. Richer than AgentBackendEvent
+/// because QueryEngine owns session state (usage totals, permission denials,
+/// turn number) that the raw backend stream doesn't know about.
+nonisolated enum QueryEngineEvent: Sendable {
+    case textDelta(String)
+    case thinkingDelta(String)
+    case toolStarted(id: String, name: String)
+    case toolCompleted(id: String, output: String, isError: Bool)
+    case permissionRequest(toolID: String, toolName: String)
+    case permissionDenied(toolID: String, toolName: String, reason: String)
+    case usageUpdate(UsageLedger)
+    case turnComplete(turnIndex: Int)
+    case sessionComplete(result: QueryEngineResult)
+}
+
+/// Five-way multi-exit result matching OpenClaude's shape so result-time
+/// analytics can classify why a session stopped without string-matching.
+nonisolated enum QueryEngineResult: Sendable {
+    case success(usage: UsageLedger, turns: Int)
+    case errorMaxTurns(usage: UsageLedger, turns: Int)
+    case errorMaxBudgetUSD(usage: UsageLedger, turns: Int)
+    case errorMaxRetries(usage: UsageLedger, turns: Int, detail: String)
+    case errorDuringExecution(usage: UsageLedger, turns: Int, detail: String)
+
+    var usage: UsageLedger {
+        switch self {
+        case .success(let u, _),
+             .errorMaxTurns(let u, _),
+             .errorMaxBudgetUSD(let u, _),
+             .errorMaxRetries(let u, _, _),
+             .errorDuringExecution(let u, _, _):
+            return u
+        }
+    }
+
+    var turns: Int {
+        switch self {
+        case .success(_, let t),
+             .errorMaxTurns(_, let t),
+             .errorMaxBudgetUSD(_, let t),
+             .errorMaxRetries(_, let t, _),
+             .errorDuringExecution(_, let t, _):
+            return t
+        }
+    }
+}
+
+/// A denied tool call the wrapped canUseTool closure recorded during the
+/// turn. Kept on the engine so result-time telemetry can show the full
+/// audit trail ("the agent tried to curl | sh but the system-protected
+/// policy stopped it").
+nonisolated struct QueryEnginePermissionDenial: Codable, Sendable, Equatable {
+    let toolID: String
+    let toolName: String
+    let reason: String
+    let timestamp: Date
+}
+
+/// Pluggable history compactor. Matches OpenClaude's `snipReplay` injection
+/// pattern — the engine calls this when the store crosses a configurable
+/// threshold, and the returned replay is swapped in before the next turn.
+/// Kept injectable so the compaction module can stay feature-flagged out of
+/// the core engine file without leaking any feature-gated strings.
+nonisolated protocol QueryEngineCompactor: Sendable {
+    func compact(store: [QueryMessage]) async throws -> [QueryMessage]?
+}
+
+nonisolated struct QueryEngineConfig: Sendable {
+    let backendIdentifier: String
+    let systemPrompt: String?
+    let maxTurns: Int?
+    let maxBudgetUSD: Double?
+    let cwd: String
+    let model: String?
+    let compactor: (any QueryEngineCompactor)?
+
+    init(
+        backendIdentifier: String,
+        systemPrompt: String? = nil,
+        maxTurns: Int? = 32,
+        maxBudgetUSD: Double? = nil,
+        cwd: String,
+        model: String? = nil,
+        compactor: (any QueryEngineCompactor)? = nil
+    ) {
+        self.backendIdentifier = backendIdentifier
+        self.systemPrompt = systemPrompt
+        self.maxTurns = maxTurns
+        self.maxBudgetUSD = maxBudgetUSD
+        self.cwd = cwd
+        self.model = model
+        self.compactor = compactor
+    }
+}
+
+/// Stateful session actor ported from OpenClaude's QueryEngine.ts. One
+/// instance per conversation; each `submitMessage` is a turn within that
+/// same instance. State persists across turns: mutable message store,
+/// accumulated usage ledger, permission-denial audit trail.
+actor QueryEngine {
+    private let config: QueryEngineConfig
+    private var mutableMessages: [QueryMessage]
+    private var usage: UsageLedger
+    private(set) var permissionDenials: [QueryEnginePermissionDenial]
+    private var turnCount: Int
+
+    init(
+        config: QueryEngineConfig,
+        initialMessages: [QueryMessage] = []
+    ) {
+        self.config = config
+        self.mutableMessages = initialMessages
+        self.usage = .empty
+        self.permissionDenials = []
+        self.turnCount = 0
+    }
+
+    var messageCount: Int { mutableMessages.count }
+    var totalCostUSD: Double { usage.totalCostUSD }
+
+    /// Submit a user prompt and stream incremental events. The stream ends
+    /// with exactly one `.sessionComplete(result:)` event.
+    func submitMessage(_ prompt: String) -> AsyncThrowingStream<QueryEngineEvent, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    try await self.runTurn(prompt: prompt, continuation: continuation)
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+
+    private func runTurn(
+        prompt: String,
+        continuation: AsyncThrowingStream<QueryEngineEvent, Error>.Continuation
+    ) async throws {
+        mutableMessages.append(QueryMessage(role: .user, content: prompt))
+
+        turnCount += 1
+
+        if let maxTurns = config.maxTurns, turnCount > maxTurns {
+            continuation.yield(.sessionComplete(result: .errorMaxTurns(usage: usage, turns: turnCount)))
+            return
+        }
+
+        if let budgetCap = config.maxBudgetUSD, usage.totalCostUSD >= budgetCap {
+            continuation.yield(.sessionComplete(result: .errorMaxBudgetUSD(usage: usage, turns: turnCount)))
+            return
+        }
+
+        if let compactor = config.compactor,
+           let replay = try await compactor.compact(store: mutableMessages) {
+            mutableMessages = replay
+        }
+
+        let backend = await MainActor.run { BackendRegistry.shared.resolve(config.backendIdentifier) }
+        guard let backend else {
+            continuation.yield(.sessionComplete(
+                result: .errorDuringExecution(
+                    usage: usage,
+                    turns: turnCount,
+                    detail: "backend \(config.backendIdentifier) not registered"
+                )
+            ))
+            return
+        }
+
+        let options = AgentExecOptions(
+            cwd: config.cwd,
+            model: config.model,
+            systemPrompt: config.systemPrompt,
+            maxTurns: config.maxTurns
+        )
+
+        let history = mutableMessages.map { $0.content }
+        let stream = try await backend.execute(
+            prompt: prompt,
+            history: history,
+            options: options
+        )
+
+        var assistantBuffer = ""
+        var stopReason: String?
+
+        for try await event in stream {
+            switch event {
+            case .text(let delta):
+                assistantBuffer.append(delta)
+                continuation.yield(.textDelta(delta))
+
+            case .thinking(let delta):
+                continuation.yield(.thinkingDelta(delta))
+
+            case .toolUse(let id, let name, _):
+                continuation.yield(.toolStarted(id: id, name: name))
+
+            case .toolResult(let id, let output, let isError):
+                continuation.yield(.toolCompleted(id: id, output: output, isError: isError))
+
+            case .usage(let model, let usageTokens):
+                usage.add(model: model, usage: usageTokens)
+                continuation.yield(.usageUpdate(usage))
+
+            case .status, .log:
+                break
+
+            case .error(let message):
+                continuation.yield(.sessionComplete(
+                    result: .errorDuringExecution(usage: usage, turns: turnCount, detail: message)
+                ))
+                return
+
+            case .complete(_, let reason):
+                stopReason = reason
+            }
+        }
+
+        if !assistantBuffer.isEmpty {
+            mutableMessages.append(QueryMessage(role: .assistant, content: assistantBuffer))
+        }
+
+        continuation.yield(.turnComplete(turnIndex: turnCount))
+
+        _ = stopReason
+        continuation.yield(.sessionComplete(result: .success(usage: usage, turns: turnCount)))
+    }
+
+    func recordPermissionDenial(
+        toolID: String,
+        toolName: String,
+        reason: String,
+        at timestamp: Date = Date()
+    ) {
+        permissionDenials.append(QueryEnginePermissionDenial(
+            toolID: toolID,
+            toolName: toolName,
+            reason: reason,
+            timestamp: timestamp
+        ))
+    }
+
+    /// Exposes the current mutable-message store for the bridge layer.
+    /// Kept read-only at the caller side — external code must not mutate the
+    /// store directly; it goes through submitMessage.
+    func currentMessages() -> [QueryMessage] {
+        mutableMessages
+    }
+}
