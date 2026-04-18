@@ -22,6 +22,57 @@ nonisolated enum LocalModelKind: String, Codable, Sendable, CaseIterable {
     }
 }
 
+/// User-facing capability role that groups models by the job they're best at.
+/// This is separate from `PreparedModelRole` (retriever/generator/draft) which
+/// describes the model's position in the Knowledge Fusion pipeline. A single
+/// model may have a capability role AND a prepared-pipeline role independently.
+///
+/// The app exposes models to the user via this axis rather than as a flat list
+/// of 20+ names, so a user can pick "Reasoning Local" without memorizing that
+/// DeepSeek R1 7B is the current backing weight for that slot.
+nonisolated enum ModelCapabilityRole: String, Codable, Hashable, Sendable, CaseIterable {
+    /// Quick everyday chat, routing, and low-latency tool calls.
+    case fastLocal = "fast_local"
+    /// Chain-of-thought / math / logic oriented local reasoning.
+    case reasoningLocal = "reasoning_local"
+    /// Code generation, debugging, and local tool-calling.
+    case codingLocal = "coding_local"
+    /// High-memory local pro/agent model for roomier Macs.
+    case highEndLocal = "high_end_local"
+    /// Cloud model with agent / computer-use capability (liveAgent tier).
+    case cloudAgent = "cloud_agent"
+    /// Cloud model with strong reasoning / research but no agentic tooling.
+    case cloudReasoning = "cloud_reasoning"
+    /// General-purpose model that doesn't cleanly fit the roles above.
+    case generalist
+}
+
+extension ModelCapabilityRole {
+    var displayName: String {
+        switch self {
+        case .fastLocal: "Fast Local"
+        case .reasoningLocal: "Reasoning Local"
+        case .codingLocal: "Coding Local"
+        case .highEndLocal: "High-End Local"
+        case .cloudAgent: "Cloud Agent"
+        case .cloudReasoning: "Cloud Reasoning"
+        case .generalist: "Generalist"
+        }
+    }
+
+    var shortSummary: String {
+        switch self {
+        case .fastLocal: "Quick everyday chat and routing."
+        case .reasoningLocal: "Chain-of-thought, math, and logic."
+        case .codingLocal: "Code generation, debugging, and tool use."
+        case .highEndLocal: "Large local model for roomier Macs."
+        case .cloudAgent: "Cloud agent with computer-use and long tool runs."
+        case .cloudReasoning: "Cloud reasoning and deep research."
+        case .generalist: "General-purpose assistant."
+        }
+    }
+}
+
 nonisolated struct LocalModelDescriptor: Identifiable, Codable, Hashable, Sendable {
     let id: String
     let kind: LocalModelKind
@@ -32,6 +83,34 @@ nonisolated struct LocalModelDescriptor: Identifiable, Codable, Hashable, Sendab
     let minimumRecommendedMemoryGB: Int
     let revision: String
     let matchingGlobs: [String]
+    /// Optional capability-role tag used by the role-first model picker.
+    /// Nil means "fall back to unstructured catalog display" so existing
+    /// on-disk install manifests remain backwards-compatible.
+    let capabilityRole: ModelCapabilityRole?
+
+    init(
+        id: String,
+        kind: LocalModelKind,
+        displayName: String,
+        familyName: String,
+        summary: String,
+        approximateDownloadBytes: Int64,
+        minimumRecommendedMemoryGB: Int,
+        revision: String,
+        matchingGlobs: [String],
+        capabilityRole: ModelCapabilityRole? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.displayName = displayName
+        self.familyName = familyName
+        self.summary = summary
+        self.approximateDownloadBytes = approximateDownloadBytes
+        self.minimumRecommendedMemoryGB = minimumRecommendedMemoryGB
+        self.revision = revision
+        self.matchingGlobs = matchingGlobs
+        self.capabilityRole = capabilityRole
+    }
 
     var slug: String {
         id.replacingOccurrences(of: "/", with: "--")
@@ -163,7 +242,13 @@ nonisolated struct LocalModelPaths: Sendable, Equatable {
         var values = URLResourceValues()
         values.isExcludedFromBackup = true
         var backupExcludedRoot = rootDirectory
-        try? backupExcludedRoot.setResourceValues(values)
+        do {
+            try backupExcludedRoot.setResourceValues(values)
+        } catch {
+            Log.engine.error(
+                "LocalModelInfrastructure: failed to exclude \(backupExcludedRoot.path, privacy: .public) from backups: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }
 
@@ -244,7 +329,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.qwen35_35BA3B4Bit.displayName,
             familyName: LocalTextModelID.qwen35_35BA3B4Bit.familyName,
-            summary: "Primary 18GB-class MoE tier. Prefers the prepared APEXMini bundle when present and falls back to the installable MLX snapshot otherwise.",
+            summary: "High-memory Qwen MoE tier. Hidden on 18GB-class interactive laptops because that runtime was crash-prone there; stays available on higher-memory Macs.",
             approximateDownloadBytes: 20_411_668_782,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen35_35BA3B4Bit.minimumRecommendedMemoryGB,
             revision: "1e20fd8d42056f870933bf98ca6211024744f7ec",
@@ -252,6 +337,21 @@ enum LocalModelCatalog {
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
             ]
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen36_35BA3B4Bit.displayName,
+            familyName: LocalTextModelID.qwen36_35BA3B4Bit.familyName,
+            summary: "Optional flagship Qwen 3.6 MoE tier. Best reserved for high-memory Macs that want a stronger local agentic generalist than the baseline stack.",
+            approximateDownloadBytes: 20_400_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B4Bit.minimumRecommendedMemoryGB,
+            revision: "38740b847e4cb78f352aba30aa41c76e08e6eb46",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .highEndLocal
         ),
         // MARK: - Gemma 4 Family (2026 frontier, multimodal)
         LocalModelDescriptor(
@@ -273,28 +373,30 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.gemma4_4B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_4B4Bit.familyName,
-            summary: "Best 4B model of 2026. Multimodal, 128K context. Replaces Qwen 4B as default light assistant.",
+            summary: "Recommended fast local default. Gemma 4 E4B keeps everyday chat quick, grounded, and lightweight enough for the baseline install stack.",
             approximateDownloadBytes: 3_010_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_4B4Bit.minimumRecommendedMemoryGB,
             revision: "62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .fastLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
             kind: .text,
             displayName: LocalTextModelID.gemma4_27BA4B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_27BA4B4Bit.familyName,
-            summary: "Gemma 4 MoE: 27B total, only 4B active per token. Fits 18GB M2 Pro. 256K context, multimodal, fast.",
+            summary: "Optional high-end local pro tier. Gemma 4 26B A4B gives you a stronger multimodal local brain without turning the default stack into bloat.",
             approximateDownloadBytes: 19_327_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_27BA4B4Bit.minimumRecommendedMemoryGB,
-            revision: "8bcfa0de037c2b1bfa323a1e8d1f0132243b9e87",
+            revision: "695690b33533b1f8b0395c1d6b4f00dc411353ef",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .highEndLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.gemma4_31BJANG.rawValue,
@@ -323,7 +425,8 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .reasoningLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.qwen25Coder7B.rawValue,
@@ -337,7 +440,38 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .codingLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.bonsai4B2Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.bonsai4B2Bit.displayName,
+            familyName: LocalTextModelID.bonsai4B2Bit.familyName,
+            summary: "Optional ultra-light fallback. Bonsai 4B is the small, fast local tier for constrained Macs and low-latency chat.",
+            approximateDownloadBytes: 1_130_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.bonsai4B2Bit.minimumRecommendedMemoryGB,
+            revision: "225499636909174ccc8a216574bfa20575c2023f",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .fastLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.bonsai8B2Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.bonsai8B2Bit.displayName,
+            familyName: LocalTextModelID.bonsai8B2Bit.familyName,
+            summary: "Optional fast fallback with more headroom than Bonsai 4B. Great when you want a tiny local model that still feels sharper than the smallest tiers.",
+            approximateDownloadBytes: 2_300_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.bonsai8B2Bit.minimumRecommendedMemoryGB,
+            revision: "9cb0558242b3279d6f31e64020d61a45aa206c3e",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .fastLocal
         ),
         // MARK: - SSM Family
         LocalModelDescriptor(
@@ -557,6 +691,64 @@ enum LocalModelCatalog {
         textDescriptors
     }
 
+    /// Returns the subset of catalog entries tagged with the given capability
+    /// role. Entries without a role are never returned here — they only appear
+    /// in the unstructured catalog list. Callers that need an exhaustive list
+    /// should still use `allDescriptors`.
+    nonisolated static func descriptors(forRole role: ModelCapabilityRole) -> [LocalModelDescriptor] {
+        textDescriptors.filter { $0.capabilityRole == role }
+    }
+
+    /// Returns the catalog entry that should back the given capability role by
+    /// default. Preference order inside a role: the baseline-curated pick
+    /// first, then the lightest optional baseline, then the first catalog
+    /// match. Returns nil when no descriptor is tagged with this role yet.
+    nonisolated static func preferredDescriptor(forRole role: ModelCapabilityRole) -> LocalModelDescriptor? {
+        let roleMatches = descriptors(forRole: role)
+        if roleMatches.isEmpty { return nil }
+        let curated = Set(curatedBaselineModelIDs)
+        if let hit = roleMatches.first(where: { curated.contains($0.id) }) {
+            return hit
+        }
+        let optional = Set(optionalBaselineModelIDs)
+        if let hit = roleMatches.first(where: { optional.contains($0.id) }) {
+            return hit
+        }
+        return roleMatches.first
+    }
+
+    nonisolated static let curatedBaselineModelIDs: [String] = [
+        LocalTextModelID.gemma4_4B4Bit.rawValue,
+        LocalTextModelID.deepseekR1Distill7B.rawValue,
+        LocalTextModelID.qwen25Coder7B.rawValue,
+    ]
+
+    nonisolated static let optionalBaselineModelIDs: [String] = [
+        LocalTextModelID.bonsai4B2Bit.rawValue,
+        LocalTextModelID.bonsai8B2Bit.rawValue,
+        LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
+        LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
+    ]
+
+    nonisolated static let shippedModelIDs: [String] =
+        curatedBaselineModelIDs + optionalBaselineModelIDs
+
+    nonisolated static var curatedBaselineDescriptors: [LocalModelDescriptor] {
+        curatedBaselineModelIDs.compactMap(descriptor(for:))
+    }
+
+    nonisolated static var optionalBaselineDescriptors: [LocalModelDescriptor] {
+        optionalBaselineModelIDs.compactMap(descriptor(for:))
+    }
+
+    nonisolated static var experimentalDescriptors: [LocalModelDescriptor] {
+        []
+    }
+
+    nonisolated static var advancedDescriptors: [LocalModelDescriptor] {
+        []
+    }
+
     nonisolated static func descriptor(for modelID: String) -> LocalModelDescriptor? {
         allDescriptors.first { $0.id == modelID }
     }
@@ -564,7 +756,10 @@ enum LocalModelCatalog {
 
 extension LocalHardwareCapabilitySnapshot {
     nonisolated func supports(descriptor: LocalModelDescriptor) -> Bool {
-        roundedMemoryGB >= descriptor.minimumRecommendedMemoryGB
+        if let model = LocalTextModelID(rawValue: descriptor.id) {
+            return roundedMemoryGB >= model.minimumRecommendedInteractiveMemoryGB
+        }
+        return roundedMemoryGB >= descriptor.minimumRecommendedMemoryGB
     }
 }
 
@@ -813,6 +1008,17 @@ nonisolated struct PreparedGenerationRuntimeConfiguration: Sendable, Equatable {
         return nil
     }
 
+    func hasUsablePreparedRuntime(
+        for modelID: String,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard resolvedRuntimeKind(for: modelID) != nil,
+              let resolvedDirectory = resolvedModelDirectory(for: modelID) else {
+            return false
+        }
+        return fileManager.fileExists(atPath: resolvedDirectory.path)
+    }
+
     func interactiveLocalTextModelIDs(
         availableRuntimeKinds: Set<BackendRuntimeKind> = [.mlx, .gguf],
         fileManager: FileManager = .default
@@ -958,8 +1164,15 @@ nonisolated struct PreparedRetrievalAssetLayout: Equatable, Sendable {
 
     var indexManifest: PreparedRetrievalIndexManifest? {
         guard FileManager.default.fileExists(atPath: indexManifestPath) else { return nil }
-        guard let data = try? Data(contentsOf: URL(fileURLWithPath: indexManifestPath)) else { return nil }
-        return try? JSONDecoder().decode(PreparedRetrievalIndexManifest.self, from: data)
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: indexManifestPath))
+            return try JSONDecoder().decode(PreparedRetrievalIndexManifest.self, from: data)
+        } catch {
+            Log.engine.error(
+                "PreparedRetrievalAssetLayout: failed to load manifest at \(indexManifestPath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 
     var expectedIndexManifest: PreparedRetrievalIndexManifest {
@@ -1265,6 +1478,8 @@ final class PreparedModelRegistry {
 
 @MainActor @Observable
 final class LocalModelManager {
+    private nonisolated static let staleStagingDirectoryGraceInterval: TimeInterval = 30 * 60
+
     private let inference: InferenceState
     private let installer: any LocalModelArtifactInstalling
     private let fileManager: FileManager
@@ -1292,6 +1507,34 @@ final class LocalModelManager {
 
     var textDescriptors: [LocalModelDescriptor] {
         LocalModelCatalog.textDescriptors
+    }
+
+    var curatedBaselineDescriptors: [LocalModelDescriptor] {
+        LocalModelCatalog.curatedBaselineDescriptors
+    }
+
+    var optionalBaselineDescriptors: [LocalModelDescriptor] {
+        LocalModelCatalog.optionalBaselineDescriptors
+    }
+
+    var experimentalDescriptors: [LocalModelDescriptor] {
+        LocalModelCatalog.experimentalDescriptors
+    }
+
+    var advancedDescriptors: [LocalModelDescriptor] {
+        LocalModelCatalog.advancedDescriptors
+    }
+
+    var legacyInstalledDescriptors: [LocalModelDescriptor] {
+        installRecords.keys
+            .sorted()
+            .compactMap(LocalModelCatalog.descriptor(for:))
+            .filter { descriptor in
+                guard let model = LocalTextModelID(rawValue: descriptor.id) else {
+                    return false
+                }
+                return !model.isEpistemosShippedLocalModel
+            }
     }
 
     var hardwareSummary: String {
@@ -1344,6 +1587,7 @@ final class LocalModelManager {
     func refreshFromDisk() {
         do {
             try paths.ensureBaseDirectories(fileManager: fileManager)
+            _ = purgeStaleStagingDirectories()
             installRecords = try loadManifest()
             let removedLegacyInstalls = purgeLegacyNonQwenInstalls()
             let removedMissingInstalls = pruneMissingInstalls()
@@ -1378,6 +1622,9 @@ final class LocalModelManager {
             lastErrorMessage = error.localizedDescription
             throw error
         }
+        if activeInstalls.isEmpty {
+            _ = purgeStaleStagingDirectories()
+        }
         try assertSufficientDiskSpace(for: descriptor)
 
         activeInstalls.insert(modelID)
@@ -1407,6 +1654,18 @@ final class LocalModelManager {
             installErrors[modelID] = error.localizedDescription
             lastErrorMessage = error.localizedDescription
             throw error
+        }
+    }
+
+    func installRecommendedBaselineModels() async throws {
+        for descriptor in curatedBaselineDescriptors {
+            guard inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) else {
+                continue
+            }
+            guard installRecords[descriptor.id] == nil else {
+                continue
+            }
+            try await install(modelID: descriptor.id)
         }
     }
 
@@ -1449,7 +1708,13 @@ final class LocalModelManager {
         guard !staleRecords.isEmpty else { return false }
 
         for record in staleRecords {
-            try? removeIfPresent(record.activeDirectoryURL)
+            do {
+                try removeIfPresent(record.activeDirectoryURL)
+            } catch {
+                Log.engine.error(
+                    "LocalModelInfrastructure: failed to remove stale install at \(record.activeDirectoryURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
             installErrors[record.modelID] = nil
         }
 
@@ -1470,14 +1735,94 @@ final class LocalModelManager {
         guard !staleRecords.isEmpty || hasLegacyDirectories else { return false }
 
         for record in staleRecords {
-            try? removeIfPresent(record.activeDirectoryURL)
+            do {
+                try removeIfPresent(record.activeDirectoryURL)
+            } catch {
+                Log.engine.error(
+                    "LocalModelInfrastructure: failed to remove legacy install at \(record.activeDirectoryURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
-        try? removeIfPresent(legacyVoiceDirectory)
-        try? removeIfPresent(legacyVoiceHubDirectory)
+        do {
+            try removeIfPresent(legacyVoiceDirectory)
+        } catch {
+            Log.engine.error(
+                "LocalModelInfrastructure: failed to remove legacy voice directory at \(self.legacyVoiceDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        do {
+            try removeIfPresent(legacyVoiceHubDirectory)
+        } catch {
+            Log.engine.error(
+                "LocalModelInfrastructure: failed to remove legacy voice hub directory at \(self.legacyVoiceHubDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
         let filteredRecords = installRecords.filter { LocalModelCatalog.descriptor(for: $0.key) != nil }
         let didChangeRecords = filteredRecords != installRecords
         installRecords = filteredRecords
         return didChangeRecords
+    }
+
+    private func purgeStaleStagingDirectories() -> Bool {
+        guard self.activeInstalls.isEmpty else { return false }
+        guard self.fileManager.fileExists(atPath: self.paths.stagingDirectory.path) else { return false }
+        let staleCutoff = Date().addingTimeInterval(-Self.staleStagingDirectoryGraceInterval)
+
+        let kindDirectories: [URL]
+        do {
+            kindDirectories = try self.fileManager.contentsOfDirectory(
+                at: self.paths.stagingDirectory,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )
+        } catch {
+            Log.engine.error(
+                "LocalModelInfrastructure: failed to enumerate staging root \(self.paths.stagingDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+
+        var removedAny = false
+        for kindDirectory in kindDirectories {
+            let isDirectory = (try? kindDirectory.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
+            guard isDirectory else { continue }
+
+            let stagedEntries: [URL]
+            do {
+                stagedEntries = try self.fileManager.contentsOfDirectory(
+                    at: kindDirectory,
+                    includingPropertiesForKeys: [.isDirectoryKey, .contentModificationDateKey],
+                    options: [.skipsHiddenFiles]
+                )
+            } catch {
+                Log.engine.error(
+                    "LocalModelInfrastructure: failed to enumerate staged installs in \(kindDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                continue
+            }
+
+            for stagedEntry in stagedEntries {
+                let metadata = try? stagedEntry.resourceValues(
+                    forKeys: [.isDirectoryKey, .contentModificationDateKey]
+                )
+                guard metadata?.isDirectory == true else { continue }
+                guard let modificationDate = metadata?.contentModificationDate,
+                      modificationDate <= staleCutoff else {
+                    continue
+                }
+
+                do {
+                    try self.removeIfPresent(stagedEntry)
+                    removedAny = true
+                } catch {
+                    Log.engine.error(
+                        "LocalModelInfrastructure: failed to remove stale staging entry \(stagedEntry.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
+
+        return removedAny
     }
 
     private var legacyVoiceDirectory: URL {
