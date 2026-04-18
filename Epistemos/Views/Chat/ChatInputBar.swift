@@ -86,7 +86,29 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  Use Agent from landing for tools, plans, or deeper execution."
+    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  The chat auto-routes — tools and longer runs promote to agent tier when your prompt needs it."
+
+    /// Capability the pill should display right now. During a streaming /
+    /// agent turn, chat.currentCapability (set by ChatCoordinator from live
+    /// delegate signals) wins — the user sees what's actually happening.
+    /// When idle and the composer is non-empty, we run the pre-submit
+    /// intent classifier on the draft text so the pill previews where
+    /// the turn is about to go. Empty composer falls back to the live
+    /// capability so cold state reads correctly.
+    private var effectiveCapability: ChatCapability {
+        if chat.isAgentExecuting || isProcessing {
+            return chat.currentCapability
+        }
+        let trimmed = trimmedText
+        guard !trimmed.isEmpty else {
+            return chat.currentCapability
+        }
+        let isCloud = inference.activeAIProvider.cloudProvider != nil
+        return ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloud
+        ).predicted
+    }
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private var incognitoBinding: Binding<Bool> {
         Binding(
@@ -267,11 +289,13 @@ struct ChatInputBar: View {
                     Spacer(minLength: 4)
 
                     // Single source of truth for "what mode is the chat in."
-                    // Honest capability gating (CLAUDE.md): local shows
-                    // .local / .thinking; cloud shows .cloud / .research;
-                    // agent only lights up when the cloud-backed agent loop
-                    // is actually executing tools. See ChatCapability.classify.
-                    ChatCapabilityPill(capability: chat.currentCapability)
+                    // Pre-submit: ChatCapability.predictIntent scans the
+                    // composer text and lights up the pill the moment the
+                    // user's intent is obvious — .agent for tool-use verbs,
+                    // .research for external-info prompts, etc. During a
+                    // turn: chat.currentCapability is set by ChatCoordinator
+                    // from the live streaming signals (takes precedence).
+                    ChatCapabilityPill(capability: effectiveCapability)
 
                     sendButton
                 }

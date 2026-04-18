@@ -108,4 +108,97 @@ extension ChatCapability {
         }
         return isCloudProvider ? .cloud : .local
     }
+
+    /// Pre-submission intent classification: heuristically scan the user's
+    /// draft text to predict which capability the turn WILL need, so the
+    /// pill can light up the moment the user's intent is obvious — before
+    /// they hit send. This is the "smart indicator" half of the fused chat:
+    /// the chat feels like one surface because the pill tells the user
+    /// what's about to happen, not just what's happening.
+    ///
+    /// Honest gating: if the heuristic predicts `.agent` but the user is on
+    /// a local model, we return `.cloud` as the BEST AVAILABLE prediction
+    /// and let the UI layer surface a "needs cloud" affordance separately.
+    /// We never pretend `.agent` is running on a local model.
+    static func predictIntent(
+        text: String,
+        isCloudProvider: Bool
+    ) -> IntentPrediction {
+        let normalized = text
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if normalized.isEmpty {
+            return IntentPrediction(
+                predicted: isCloudProvider ? .cloud : .local,
+                needsCloud: false
+            )
+        }
+
+        // Agent-tier signals: create/read/write/delete operations, git /
+        // filesystem / install / web-fetch verbs. These demand the tool
+        // loop, which is cloud-only.
+        let agentSignals = [
+            "create a note", "create note", "save a note", "save to",
+            "delete a note", "delete note", "remove a note",
+            "update my note", "update the note", "edit the note",
+            "clone", "git pull", "git push",
+            "install ", "brew install", "pip install", "cargo install",
+            "npm install",
+            "download ", "fetch the ",
+            "run the command", "execute ", "automate ",
+            "organize my files", "move the file",
+            "send a message", "open the app",
+        ]
+
+        for signal in agentSignals {
+            if normalized.contains(signal) {
+                return IntentPrediction(
+                    predicted: isCloudProvider ? .agent : .cloud,
+                    needsCloud: !isCloudProvider
+                )
+            }
+        }
+
+        // Research signals: anything pointing at external / current info.
+        let researchSignals = [
+            "research", "latest", "current ", "cite ", "citations",
+            "find information", "what is the latest", "recent news",
+            "compare ", "sources for", "references for", "look up ",
+        ]
+        for signal in researchSignals {
+            if normalized.contains(signal) {
+                return IntentPrediction(predicted: .research, needsCloud: false)
+            }
+        }
+
+        // Thinking signals: deep reasoning cues.
+        let thinkingSignals = [
+            "think step by step", "reason through", "analyze deeply",
+            "walk through the logic", "prove that ", "derive ",
+        ]
+        for signal in thinkingSignals {
+            if normalized.contains(signal) {
+                return IntentPrediction(
+                    predicted: .thinking,
+                    needsCloud: false
+                )
+            }
+        }
+
+        return IntentPrediction(
+            predicted: isCloudProvider ? .cloud : .local,
+            needsCloud: false
+        )
+    }
+}
+
+/// Output of the pre-submission intent classifier. `predicted` is the
+/// capability the turn should run at; `needsCloud` is true only when the
+/// heuristic wanted `.agent` but the user is on a local model — a cue the
+/// UI uses to surface a "switch to cloud to run this as an agent" banner
+/// instead of silently downgrading the user's intent.
+nonisolated struct IntentPrediction: Equatable, Sendable {
+    public let predicted: ChatCapability
+    public let needsCloud: Bool
 }
