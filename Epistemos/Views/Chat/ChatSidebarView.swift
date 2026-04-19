@@ -14,6 +14,7 @@ struct ChatSidebarView: View {
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
     @State private var showNotesOnly = false
+    @State private var deleteErrorMessage: String?
     private var theme: EpistemosTheme { ui.theme }
 
     private var filteredChats: [SDChat] {
@@ -64,6 +65,18 @@ struct ChatSidebarView: View {
             }
 
             Spacer(minLength: 0)
+        }
+        .alert("Couldn't Delete Chat", isPresented: Binding(
+            get: { deleteErrorMessage != nil },
+            set: { isPresented in
+                if !isPresented {
+                    deleteErrorMessage = nil
+                }
+            }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage ?? "Epistemos couldn't delete that chat.")
         }
         .onAppear {
             Task { @MainActor in
@@ -217,12 +230,24 @@ struct ChatSidebarView: View {
     // MARK: - Data
 
     private func deleteChat(_ sdChat: SDChat) {
-        // If the deleted chat is currently active, clear the session
-        if sdChat.id == chat.activeChatId {
-            chat.clearMessages()
-        }
+        let deletingActiveChat = sdChat.id == chat.activeChatId
+        let originalMessages = sdChat.messages ?? []
         modelContext.delete(sdChat)
-        do { try modelContext.save() } catch { Log.app.error("Save failed (delete chat): \(error.localizedDescription, privacy: .private)") }
+        do {
+            try modelContext.save()
+            if deletingActiveChat {
+                chat.clearMessages()
+            }
+        } catch {
+            modelContext.insert(sdChat)
+            sdChat.messages = originalMessages
+            for message in originalMessages {
+                modelContext.insert(message)
+                message.chat = sdChat
+            }
+            deleteErrorMessage = error.localizedDescription
+            Log.app.error("Save failed (delete chat): \(error.localizedDescription, privacy: .private)")
+        }
         loadChats()
     }
 
@@ -231,7 +256,14 @@ struct ChatSidebarView: View {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 50
-        recentChats = (try? modelContext.fetch(descriptor)) ?? []
+        do {
+            recentChats = try modelContext.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "ChatSidebarView: failed to fetch chats: \(error.localizedDescription, privacy: .public)"
+            )
+            recentChats = []
+        }
     }
 
     private func loadChatIntoSession(_ sdChat: SDChat) {

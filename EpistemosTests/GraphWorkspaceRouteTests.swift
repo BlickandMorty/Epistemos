@@ -368,24 +368,47 @@ struct GraphWorkspaceRouteOpenNodeDispatchTests {
 @Suite("Graph Workspace Route — Change Notification")
 @MainActor
 struct GraphWorkspaceRouteNotificationTests {
+    actor NotificationProbe {
+        private var didMatch = false
+        private var count = 0
+
+        func recordMatch(_ matched: Bool) {
+            didMatch = matched
+        }
+
+        func increment() {
+            count += 1
+        }
+
+        func matched() -> Bool {
+            didMatch
+        }
+
+        func value() -> Int {
+            count
+        }
+    }
 
     @Test("Notification posts on push")
     func notificationOnPush() async {
         let gs = GraphState()
-        var receivedObject: AnyObject?
+        let probe = NotificationProbe()
         let token = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,
             object: gs,
             queue: .main
         ) { note in
-            receivedObject = note.object as AnyObject?
+            let matched = note.object as AnyObject? === gs
+            Task {
+                await probe.recordMatch(matched)
+            }
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
         gs.openNote("note-1")
         // Allow the main queue to drain the delivery.
         await Task.yield()
-        #expect(receivedObject === gs)
+        #expect(await probe.matched())
     }
 
     @Test("Notification posts on goBack")
@@ -393,19 +416,21 @@ struct GraphWorkspaceRouteNotificationTests {
         let gs = GraphState()
         gs.openNote("note-1")
 
-        var count = 0
+        let probe = NotificationProbe()
         let token = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,
             object: gs,
             queue: .main
         ) { _ in
-            count += 1
+            Task {
+                await probe.increment()
+            }
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
         gs.goBack()
         await Task.yield()
-        #expect(count == 1)
+        #expect(await probe.value() == 1)
     }
 
     @Test("No notification when duplicate route is pushed")
@@ -413,19 +438,21 @@ struct GraphWorkspaceRouteNotificationTests {
         let gs = GraphState()
         gs.openNote("note-1")
 
-        var count = 0
+        let probe = NotificationProbe()
         let token = NotificationCenter.default.addObserver(
             forName: .graphRouteDidChange,
             object: gs,
             queue: .main
         ) { _ in
-            count += 1
+            Task {
+                await probe.increment()
+            }
         }
         defer { NotificationCenter.default.removeObserver(token) }
 
         gs.openNote("note-1") // same route
         await Task.yield()
-        #expect(count == 0)
+        #expect(await probe.value() == 0)
     }
 }
 
