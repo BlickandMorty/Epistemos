@@ -1261,7 +1261,10 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.wrapLines") private var wrapLines = false
     // Minimap removed — outline navigator replaces it
     @AppStorage("codeEditor.showInvisibles") private var showInvisibles = false
-    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 13
+    // Default matches the prose editor's body font size so code notes
+    // share the same visual rhythm; users who previously bumped the
+    // size up or down keep their saved choice.
+    @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
     
@@ -1733,10 +1736,15 @@ struct CodeEditorView: View {
     // MARK: - Editor Configuration
 
     private var editorConfiguration: SourceEditorConfiguration {
-        SourceEditorConfiguration(
+        // On themes that ride native window blur, the editor surface is
+        // `.clear`; telling CodeEditSourceEditor NOT to paint its own
+        // background lets the surrounding NSVisualEffectView show through
+        // — no rectangle floating on the material.
+        let paintBackground = !ui.theme.followsSystemAppearance
+        return SourceEditorConfiguration(
             appearance: .init(
                 theme: editorTheme,
-                useThemeBackground: true,
+                useThemeBackground: paintBackground,
                 font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
                 lineHeightMultiple: 1.35,
                 wrapLines: wrapLines,
@@ -1745,9 +1753,12 @@ struct CodeEditorView: View {
             ),
             behavior: .init(),
             peripherals: .init(
-                showGutter: true,
+                // Matching the prose editor's chrome — no gutter, no
+                // folding ribbon, no minimap. The code pane is "prose
+                // that happens to be monospaced with syntax colors."
+                showGutter: false,
                 showMinimap: false,
-                showFoldingRibbon: true
+                showFoldingRibbon: false
             )
         )
     }
@@ -1761,12 +1772,14 @@ struct CodeEditorView: View {
     @MainActor private var editorTheme: EditorTheme {
         let resolved = ui.theme.resolved
         let accent = resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
-        let background = MarkdownPreviewSurfaceStyle
-            .canvasNSColor(for: ui.theme)
+        // Match the prose editor's background rule exactly: on system-
+        // appearance themes (native window blur) the editor surface is
+        // `.clear` so the material shows through; on custom themes it
+        // uses the same solid canvas color prose uses. That stops the
+        // "two themes fighting" seam at the editor edge.
+        let background = ProseTextView2
+            .editorBackgroundColor(for: ui.theme)
             .rgbSafeForCodeEditorTheme()
-        // Source the editor's text + subtle tones from the active
-        // EpistemosTheme so the syntax palette moves with the app theme
-        // instead of clashing via hardcoded hex values.
         let text = resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
         let subtle = resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
         if useMinimalTheme {
