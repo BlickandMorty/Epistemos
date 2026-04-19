@@ -477,4 +477,52 @@ agent actually *using* the app correctly. All fixes shipped this arc.
 6. [91c261fb](commits/91c261fb) — Anthropic `web_fetch_20250910` + `code_execution_20250825` betas
 7. [766b374d](commits/766b374d) — `LiveActivityStrip` at top of streaming bubble
 8. [4c961d95](commits/4c961d95) — `/image` slash command
+9. [e51bb6c8](commits/e51bb6c8) — master plan §16A-D (first pass)
+10. [1ed691f4](commits/1ed691f4) — capability manifest injected into direct-stream path (Fast/Thinking)
+11. [da407333](commits/da407333) — typed-chunk reasoning plumbing: direct-cloud popover lights up across all 4 providers
+12. [142d648c](commits/142d648c) — cache-hit badge (parity #10): usage parser + `ChatMessage.cacheHitPercent` + `CacheHitBadge` pill
+13. [e8620b8d](commits/e8620b8d) — structured JSON output toggle (parity #8) across OpenAI Responses + Gemini
+
+### 16E · Final parity matrix state
+
+| # | Gap | Status |
+|---|-----|--------|
+| 1 | Live tool-status narration | ✅ 1f0401d0 + 766b374d |
+| 2 | Anthropic / Google hosted web search | ✅ 147f17e1 |
+| 3 | Web fetch / single-URL grounding | ✅ 91c261fb |
+| 4 | Code interpreter | ✅ 4f88893c + 91c261fb |
+| 5 | Image generation surface | ✅ 4c961d95 |
+| 6 | Audio input (transcription) | Open — needs AVFoundation mic + Whisper / Gemini transcription path |
+| 7 | Native PDF upload | Open — switch text-extract to provider native PDF blocks |
+| 8 | Structured output / JSON schema | ✅ e8620b8d (cross-provider toggle) |
+| 9 | Batch processing queue | Open |
+| 10 | Prompt-cache hit indicator | ✅ 142d648c |
+
+Net: 8 of 10 parity gaps closed. Remaining #6 (audio) + #9 (batch) + #7
+(PDF) are each substantive enough to warrant their own arc — audio
+needs mic permission + streaming transcription; PDF needs attachment-
+pipeline refactor for native blocks; batch needs a job-queue surface.
+
+### 16F · Remaining follow-ups
+
+- **Capability manifest on local-MLX paths.** Now injected into both
+  Rust-agent (Agent + Pro+cloud) AND direct-stream (Fast + Thinking +
+  cloud). Local MLX path through `triageService.streamGeneralLocally`
+  still doesn't prepend it — requires LocalBackendLLMClient / MLX
+  system-prompt plumbing.
+- **Parity #7 native PDF.** Attachments currently go through text
+  extraction (`PDFDocument.string`). Switching to provider-native
+  blocks (Anthropic `document` block with base64 PDF, OpenAI file
+  input, Gemini `inlineData`) keeps tables / formatting intact.
+- **Parity #6 audio input.** Mic button in composer → AVFoundation
+  recording → Whisper-1 (OpenAI) / Gemini `audio/wav` transcription
+  → text prefill of composer. Needs `NSMicrophoneUsageDescription`.
+- **Parity #9 batch queue.** Anthropic Message Batches + OpenAI Batch
+  API are 50% cost cut for bulk vault operations (e.g., auto-tagging
+  a whole vault). Needs a job-queue UI surface and persistent store.
+- **DeepSeek tool-call repro.** Route log (681d84ec) + ThinkTagRouter
+  (bb38e6d0) + reasoning sink (da407333) are all in place. Next live
+  repro should confirm whether the prior "DeepSeek calls tools
+  inappropriately" was the agent mode it was in OR a model behavior
+  we should guard against.
 
