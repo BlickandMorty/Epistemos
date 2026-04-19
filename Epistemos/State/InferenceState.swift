@@ -2578,15 +2578,12 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         return roundedMemoryGB >= model.minimumRecommendedInteractiveMemoryGB
     }
 
-    /// Recommends the best local model for the available memory.
-    /// Uses the MLX-native release catalog only.
+    /// Recommends the default interactive local model Epistemos should
+    /// seed on new installs and sanitized fallbacks. Keep this pinned to
+    /// a release-validated, loader-working tier until larger families
+    /// are proven end-to-end in the shipped runtime.
     nonisolated var recommendedLocalTextModelID: LocalTextModelID {
-        switch roundedMemoryGB {
-        case ..<24:
-            .gemma4_4B4Bit
-        default:
-            .gemma4_27BA4B4Bit
-        }
+        .qwen3_4B4Bit
     }
 
     nonisolated func smallerLocalTextModelID(than modelID: LocalTextModelID) -> LocalTextModelID? {
@@ -2594,19 +2591,21 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
         case .gemma4_2B4Bit:
             return nil
         case .gemma4_4B4Bit:
+            return .qwen3_4B4Bit
+        case .qwen3_4B4Bit:
             return .bonsai4B2Bit
         case .bonsai4B2Bit:
             return nil
         case .bonsai8B2Bit:
             return .bonsai4B2Bit
         case .deepseekR1Distill7B:
-            return .gemma4_4B4Bit
+            return .qwen3_4B4Bit
         case .qwen25Coder7B:
-            return .deepseekR1Distill7B
+            return .qwen3_4B4Bit
         case .gemma4_27BA4B4Bit:
             return .deepseekR1Distill7B
-        case .qwen36_35BA3B4Bit:
-            return .gemma4_27BA4B4Bit
+        case .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit:
+            return .deepseekR1Distill7B
         default:
             break
         }
@@ -4370,6 +4369,14 @@ final class InferenceState {
     private func sanitizedInteractiveLocalTextModelID(for modelID: String) -> String? {
         if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == modelID }) {
             return modelID
+        }
+        let recommendedModelID = hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        if supportedAvailableLocalTextModels.contains(where: { $0.rawValue == recommendedModelID }) {
+            return recommendedModelID
+        }
+        if let constrainedModelID = hardwareCapabilitySnapshot.recommendedConstrainedLocalTextModelID?.rawValue,
+           supportedAvailableLocalTextModels.contains(where: { $0.rawValue == constrainedModelID }) {
+            return constrainedModelID
         }
         return supportedAvailableLocalTextModels.first?.rawValue
     }

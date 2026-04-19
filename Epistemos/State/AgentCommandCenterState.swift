@@ -258,8 +258,11 @@ final class AgentCommandCenterState {
     func refreshBrainCatalog(from inference: InferenceState) {
         var brains: [ACCBrainSelection] = []
 
-        // Local models — only installed ones
+        // Local models — only installed, release-validated interactive
+        // chat tiers. Preview-gated families like Gemma 4 should never
+        // surface here because ACC submits real interactive turns.
         for modelId in LocalTextModelID.allCases where inference.installedLocalTextModelIDs.contains(modelId.rawValue) {
+            guard modelId.isReleaseValidatedForInteractiveChat else { continue }
             brains.append(.local(
                 modelId: modelId.rawValue,
                 displayName: modelId.compactDisplayName,
@@ -515,27 +518,27 @@ final class AgentCommandCenterState {
     private func recommendedBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
         switch command {
         case .notes:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_4B4Bit, .gemma4_27BA4B4Bit])
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen3_4B4Bit, .bonsai8B2Bit])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .code:
-            return localBrain(preferredModels: [.qwen25Coder7B, .qwen36_35BA3B4Bit, .gemma4_27BA4B4Bit])
+            return localBrain(preferredModels: [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .debug:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen25Coder7B, .gemma4_27BA4B4Bit])
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen25Coder7B, .qwen36_35BA3B4Bit])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .plan, .review:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_4B4Bit, .gemma4_27BA4B4Bit])
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen3_4B4Bit, .qwen36_35BA3B4Bit])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .research, .securityReview:
             return cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_27BA4B4Bit, .qwen36_35BA3B4Bit])
+                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B])
                 ?? availableBrains.first
         case .ask, .summarize, .explain, .readBranch:
-            return localBrain(preferredModels: [.gemma4_4B4Bit, .gemma4_2B4Bit, .bonsai4B2Bit, .bonsai8B2Bit])
+            return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .image:
