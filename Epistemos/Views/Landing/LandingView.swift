@@ -45,6 +45,25 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
+/// Tracks whether the landing intro (OLED + blur → dynamic native) has
+/// already played this process. Keyed to process lifetime, not view
+/// lifetime, so navigating back to landing after it's already played
+/// once doesn't replay the fade — only a cold app launch triggers it.
+@MainActor
+final class LandingIntroAnimator {
+    static let shared = LandingIntroAnimator()
+    private(set) var hasPlayed = false
+
+    func markPlayed() { hasPlayed = true }
+}
+
+enum LandingIntroMotion {
+    /// How long the OLED intro holds before the cross-fade begins.
+    static let holdSeconds: Double = 0.55
+    /// Duration of the cross-fade from OLED to dynamic native backdrop.
+    static let fadeSeconds: Double = 0.90
+}
+
 // DEPRECATED (fused chat, 2026-04-18): the Chat / Agent segmented picker
 // that drove this enum was removed in 3d83f377. The enum still exists
 // because several private state/vars in LandingView are typed against it;
@@ -112,6 +131,13 @@ struct LandingView: View {
     /// Last tap location on the landing background. The appKitPopover anchors
     /// its arrow at this point so the popover opens right where the cursor is.
     @State private var landingTapLocation: CGPoint? = nil
+
+    /// True while the OLED + bottom-blur intro backdrop is still painted
+    /// on top of the dynamic native backdrop. On cold launch this starts
+    /// as `true`, then flips to `false` after `LandingIntroMotion.hold`
+    /// so the cross-fade plays. After the intro has played once per
+    /// process, new LandingView instances start with it already `false`.
+    @State private var showIntroBackdrop: Bool = !LandingIntroAnimator.shared.hasPlayed
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
@@ -245,6 +271,7 @@ struct LandingView: View {
         .onAppear {
             sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
+            playLandingIntroIfNeeded()
         }
         .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
             sanitizeStoredOperatingMode()
@@ -298,10 +325,19 @@ struct LandingView: View {
 
     private var landingBackdrop: some View {
         ZStack {
-            if theme.isDark {
+            // Dynamic native backdrop — matches the notes window's
+            // `.clear` behavior so the NSVisualEffectView material shows
+            // through. This is the "regular" landing the user wants to
+            // settle into after the intro fades.
+            Color.clear
+
+            // Intro: OLED + blurred bottom gradient. Painted on top at
+            // cold launch, then cross-faded out to reveal the dynamic
+            // backdrop above. Removed from the hierarchy once faded so
+            // it doesn't keep the blur layers resident in memory.
+            if showIntroBackdrop {
                 darkModeLandingBackdrop
-            } else {
-                Color.clear
+                    .transition(.opacity)
             }
         }
         .ignoresSafeArea()
@@ -925,6 +961,26 @@ struct LandingView: View {
             showWelcomeBack = true
             welcomeBackDismissTask = nil
             // Do NOT auto-dismiss — persist until user interacts (ESC, click, or button)
+        }
+    }
+
+    /// Plays the landing intro exactly once per process: holds the OLED
+    /// + bottom-blur backdrop briefly, then cross-fades it out to reveal
+    /// the dynamic native backdrop underneath. No-op on subsequent
+    /// visits to the landing (e.g. returning from a note or chat).
+    private func playLandingIntroIfNeeded() {
+        guard !LandingIntroAnimator.shared.hasPlayed else {
+            if showIntroBackdrop {
+                showIntroBackdrop = false
+            }
+            return
+        }
+        LandingIntroAnimator.shared.markPlayed()
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(LandingIntroMotion.holdSeconds))
+            withAnimation(.easeInOut(duration: LandingIntroMotion.fadeSeconds)) {
+                showIntroBackdrop = false
+            }
         }
     }
 
