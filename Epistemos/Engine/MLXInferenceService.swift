@@ -51,7 +51,8 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
         // the user's "all models try to think even when set to Fast"
         // bug lives here.
         switch model {
-        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit,
+             .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
              .qwen3_4B4Bit,
              .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
              .qwen25Coder7B,

@@ -595,7 +595,13 @@ nonisolated struct InferencePolicyEngine {
                 candidateModels = installedModels
             }
         }
-        guard !candidateModels.isEmpty else {
+        let fastEligibleCandidateModels =
+            reasoningMode == .fast
+            ? candidateModels.filter { !$0.cannotDisableThinkingInFast }
+            : candidateModels
+        let effectiveCandidateModels =
+            fastEligibleCandidateModels.isEmpty ? candidateModels : fastEligibleCandidateModels
+        guard !effectiveCandidateModels.isEmpty else {
             return nil
         }
 
@@ -698,7 +704,7 @@ nonisolated struct InferencePolicyEngine {
             }
         }
 
-        for candidate in preferredOrder where candidateModels.contains(candidate) {
+        for candidate in preferredOrder where effectiveCandidateModels.contains(candidate) {
             if reasoningMode != .thinking || candidate.supportsThinkingMode {
                 return candidate
             }
@@ -714,7 +720,7 @@ nonisolated struct InferencePolicyEngine {
         // fallback picks. When the Gemma 4 decoder ships, drop this
         // filter and restore Gemma 4 to preferredOrder at the top of
         // this function.
-        let triageReadyCandidates = candidateModels.filter { candidate in
+        let triageReadyCandidates = effectiveCandidateModels.filter { candidate in
             switch candidate {
             case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
                 return false
@@ -726,7 +732,7 @@ nonisolated struct InferencePolicyEngine {
         if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {
             return shippedInstalled
         }
-        return triageReadyCandidates.first ?? candidateModels.first
+        return triageReadyCandidates.first ?? effectiveCandidateModels.first
     }
 
     private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {

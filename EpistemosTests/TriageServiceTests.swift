@@ -1085,6 +1085,36 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_4B4Bit.rawValue)
     }
 
+    @Test("fast local routing avoids always-thinking DeepSeek when a non-thinking fast tier is available")
+    func fastLocalRoutingAvoidsAlwaysThinkingDeepSeek() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .synthesis,
+                contentLength: 2_600,
+                promptLength: 2_200,
+                contextBlockCount: 3,
+                estimatedTokenLoad: 900,
+                baseComplexity: 0.34,
+                queryComplexity: 0.24,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.deepseekR1Distill7B, .qwen3_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.reasoningMode == .fast)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+    }
+
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
@@ -2535,6 +2565,33 @@ struct TriageServiceIntegrationTests {
         )
 
         #expect(request.chatTemplateContext?["enable_thinking"] == true)
+    }
+
+    @Test("fast-mode Qwen requests explicitly disable thinking across smaller Qwen 3.5 variants")
+    func fastModeQwenRequestsExplicitlyDisableThinking() {
+        let smallQwenRequest = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_0_8B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen08"),
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .fast,
+            steeringHintsJSON: nil,
+            imageURLs: []
+        )
+        let mediumQwenRequest = LocalMLXRequest(
+            modelID: LocalTextModelID.qwen35_2B4Bit.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/qwen2"),
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            reasoningMode: .fast,
+            steeringHintsJSON: nil,
+            imageURLs: []
+        )
+
+        #expect(smallQwenRequest.chatTemplateContext?["enable_thinking"] == false)
+        #expect(mediumQwenRequest.chatTemplateContext?["enable_thinking"] == false)
     }
 
     @Test("Qwen 3.6 thinking requests preserve reasoning state across turns")
