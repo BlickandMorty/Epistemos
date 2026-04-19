@@ -77,6 +77,15 @@ struct ChatInputBar: View {
     @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
 
+    /// Slash-command menu. Surfaces the ACCSlashCommand catalog — plan,
+    /// notes, code, debug, research, etc. — the moment the user types
+    /// `/` at the start of the composer. Preserves the shortcut users
+    /// had in the pre-fuse Agent Command Center; wires it into the
+    /// fused main chat composer so slash commands + skills keep working
+    /// everywhere.
+    @State private var showSlashMenu = false
+    @State private var slashFilter = ""
+
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedMentionFilter: String {
@@ -150,6 +159,70 @@ struct ChatInputBar: View {
     /// to OpenAI (our default cloud provider) via
     /// InferenceState.setActiveAIProvider; ChatView's onChange hook will
     /// pick up the provider flip and refresh the pill automatically.
+    /// Inspect the current composer text and show / hide / filter the
+    /// slash-command menu accordingly. Menu opens when the user types `/`
+    /// at the very start of the composer (or after whitespace at the
+    /// start). Closes once `/` is deleted or the user commits an input.
+    private func refreshSlashMenu(for newValue: String) {
+        let trimmedLeading = newValue.drop(while: \.isWhitespace)
+        guard trimmedLeading.first == "/" else {
+            if showSlashMenu {
+                showSlashMenu = false
+                slashFilter = ""
+            }
+            return
+        }
+        let afterSlash = String(trimmedLeading.dropFirst())
+        // Close the menu as soon as the user adds whitespace — the
+        // intent has become a free-form prompt that happens to start
+        // with /something.
+        if afterSlash.contains(where: { $0.isWhitespace || $0.isNewline }) {
+            showSlashMenu = false
+            slashFilter = ""
+            return
+        }
+        slashFilter = afterSlash
+        showSlashMenu = true
+    }
+
+    /// Apply the selected slash command: promote the operating mode to
+    /// the command's default, strip the `/name` prefix from the
+    /// composer, leaving a clean ready-to-type prompt, and optionally
+    /// prefill with the command's suggested opener.
+    private func applySlashCommand(_ command: ACCSlashCommand) {
+        if let operatingMode {
+            operatingMode.wrappedValue = MainChatOperatingModePreference.sanitize(
+                command.defaultOperatingMode,
+                for: inference,
+                availableModes: availableOperatingModes
+            )
+        }
+
+        // Trim the leading `/token` plus any single trailing space so
+        // the user can start typing immediately. If the user had already
+        // typed additional text after the slash (unlikely given the
+        // menu closes on whitespace, but safe), preserve it.
+        let leadingWhitespace = text.prefix { $0.isWhitespace }
+        let afterLeading = text.dropFirst(leadingWhitespace.count)
+        if afterLeading.hasPrefix("/") {
+            let slug = "/" + command.rawValue
+            if afterLeading.hasPrefix(slug) {
+                let suffix = afterLeading.dropFirst(slug.count)
+                text = String(leadingWhitespace) + suffix
+            } else {
+                // Partial token — replace everything up to the next
+                // whitespace with an empty string.
+                let afterSlash = afterLeading.dropFirst()
+                let partialEnd = afterSlash.firstIndex(where: { $0.isWhitespace }) ?? afterSlash.endIndex
+                let remainder = afterSlash[partialEnd...]
+                text = String(leadingWhitespace) + String(remainder)
+            }
+        }
+
+        showSlashMenu = false
+        slashFilter = ""
+    }
+
     private var needsCloudBanner: some View {
         Button {
             inference.setActiveAIProvider(.openAI)
@@ -350,6 +423,17 @@ struct ChatInputBar: View {
                 }
 
                 composerTextArea
+                    .onChange(of: text) { _, newValue in
+                        refreshSlashMenu(for: newValue)
+                    }
+                    .popover(isPresented: $showSlashMenu, arrowEdge: .top) {
+                        SlashCommandPopover(
+                            filter: slashFilter,
+                            onSelect: { command in
+                                applySlashCommand(command)
+                            }
+                        )
+                    }
 
                 if pillNeedsCloudWarning {
                     needsCloudBanner
