@@ -41,7 +41,9 @@ struct SettingsCategoryTests {
             // mostly a compile-time guarantee that the switch is total.
             _ = section.category
         }
-        #expect(SettingsView.SettingsSection.visibleSections.count == 14)
+        // 12 visible after Agent consolidation: agentControl + authority +
+        // overseer rolled up into a single .agent entry.
+        #expect(SettingsView.SettingsSection.visibleSections.count == 12)
     }
 
     @Test("Category mapping matches the Phase 7 spec")
@@ -56,6 +58,9 @@ struct SettingsCategoryTests {
             .channels:        .automation,
             .iMessageDriver:  .automation,
             .skills:          .automation,
+            .agent:           .automation,
+            // Legacy entries still map to .automation for deep-link
+            // compatibility but are hidden from the sidebar.
             .agentControl:    .automation,
             .authority:       .automation,
             .overseer:        .automation,
@@ -88,12 +93,15 @@ struct SettingsCategoryTests {
         }
     }
 
-    @Test("All 14 visible sections are reachable (12 original + authority + overseer)")
+    @Test("All 12 visible sections are reachable (Agent consolidation)")
     func allVisibleSectionsAreReachable() {
+        // .agent replaces .agentControl + .authority + .overseer in the
+        // sidebar; the legacy entries remain enum cases for deep-link
+        // compatibility but are not in visibleSections.
         let expected: Set<SettingsView.SettingsSection> = [
             .general, .channels, .cognitive, .inference,
             .knowledgeFusion, .modelVaults, .iMessageDriver,
-            .skills, .agentControl, .authority, .overseer,
+            .skills, .agent,
             .landing, .appearance, .vault,
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)

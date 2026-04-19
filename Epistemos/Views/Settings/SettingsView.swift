@@ -57,15 +57,24 @@ struct SettingsView: View {
         case modelVaults = "Model Vaults"
         case iMessageDriver = "iMessage Driver"
         case skills = "Skills"
-        case agentControl = "Agent Control"
-        case authority = "Authority & Installs"
-        case overseer = "Overseer"
+        /// Consolidated agent surface. Hosts Agent Control + Authority +
+        /// Overseer as sub-tabs inside a single detail view.
+        case agent = "Agent"
+        /// Retained for direct-deep-link paths (e.g., notifications that
+        /// opened Agent Control before consolidation). Not visible in the
+        /// sidebar. Renders the same AgentSectionDetailView.
+        case agentControl = "Agent Control (legacy)"
+        case authority = "Authority & Installs (legacy)"
+        case overseer = "Overseer (legacy)"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
 
         var id: String { rawValue }
 
+        /// Sidebar-visible sections. The three legacy agent entries
+        /// (agentControl, authority, overseer) roll up under .agent and
+        /// are hidden from the sidebar to reduce nav clutter.
         static let visibleSections: [SettingsSection] = [
             .general,
             .channels,
@@ -75,9 +84,7 @@ struct SettingsView: View {
             .modelVaults,
             .iMessageDriver,
             .skills,
-            .agentControl,
-            .authority,
-            .overseer,
+            .agent,
             .landing,
             .appearance,
             .vault,
@@ -93,6 +100,7 @@ struct SettingsView: View {
             case .modelVaults: "tray.2.fill"
             case .iMessageDriver: "message.badge.fill"
             case .skills: "shippingbox.fill"
+            case .agent: "cpu.fill"
             case .agentControl: "slider.horizontal.3"
             case .authority: "checkmark.shield.fill"
             case .overseer: "brain.head.profile"
@@ -114,6 +122,7 @@ struct SettingsView: View {
             case .channels,
                  .iMessageDriver,
                  .skills,
+                 .agent,
                  .agentControl,
                  .authority,
                  .overseer:       .automation
@@ -143,6 +152,8 @@ struct SettingsView: View {
                 "Route a trusted iMessage contact to the local agent."
             case .skills:
                 "Installed skills, activation rules, and manifests."
+            case .agent:
+                "Tools, permissions, and routing — one place for everything agent-related."
             case .agentControl:
                 "Agent tool permissions, limits, and approval tiers."
             case .authority:
@@ -213,9 +224,12 @@ struct SettingsView: View {
         case .modelVaults: ModelVaultsSettingsView()
         case .iMessageDriver: iMessageDriverDetailView()
         case .skills: SkillsDetailView()
-        case .agentControl: AgentControlDetailView()
-        case .authority: AuthoritySettingsView(store: sharedAuthorityStore)
-        case .overseer: OverseerSettingsView()
+        // Consolidated Agent section — three tabs (Overview / Authority /
+        // Overseer) inside one detail view. The .agentControl / .authority /
+        // .overseer legacy deep-links all resolve to the same consolidated
+        // view so any external notification or shortcut keeps working.
+        case .agent, .agentControl, .authority, .overseer:
+            AgentSectionDetailView(authorityStore: sharedAuthorityStore)
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
