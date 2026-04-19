@@ -19,6 +19,10 @@ shippable and tested.
 | B | `18664605` | Codex backend no longer receives GPT-5 native controls (typo-heavy prose fix) + spelling-hint system prompt |
 | C | `06cc013e` | Agent path now routes `.thinkingDelta` into `AgentChatState`; thinking popover state no longer dropped |
 | D | `9cf31cf7` | `ChatState` / `AgentChatState` `completeProcessing` surface empty streams as real errors instead of ghost bubbles |
+| G | `526b7279` | Main-chat thinking lifecycle regression tests mirroring the Agent coverage |
+| H | `98897428` | QwQ 32B flagship reasoner added to the catalog (Perplexity-style cascade: flagship local thinking model now leads `.thinking` preferredOrder on 24GB+ Macs) |
+| I | `5ddd6db9` | `ChatMessage.resolvedModelLabel` + `InferenceState.effectiveModelLabel(for:)` helper — data layer for the Perplexity #1 transparency pattern |
+| J | `cfad9a99` | `EffectiveModelBadge` rendered under every assistant reply — **P1 #1 complete: routing is now visible** |
 
 Runtime/model batch (Codex pre-staged) remains in the index, separate, untouched.
 
@@ -52,25 +56,16 @@ Severity tiers:
 
 Each item states scope, files, test plan, and risk.
 
-### P1 — Effective-model badge on every assistant message
+### ✅ P1 — Effective-model badge on every assistant message — SHIPPED 2026-04-19
 
-**Why:** the #1 research finding. Every assistant reply should wear a small
-pill showing which model actually answered ("Qwen 35B" / "Claude Sonnet 4.6"
-/ "Apple Intelligence"). When auto-route or a fallback flips the model mid-
-session, the user learns the routing logic by observation instead of being
-told "you picked Fast but got Sonnet" without explanation. Kills the
-audit's Issue #2 (mode selection feels ignored) and #6 (silent fallback)
-at the source.
-
-**Scope:**
-- Add `resolvedModelLabel: String?` to `ChatMessage` in [Models/ChatTypes.swift](Epistemos/Models/ChatTypes.swift).
-- Persist in [Models/SDMessage.swift](Epistemos/Models/SDMessage.swift) as an optional String column (nil-safe migration).
-- Add `currentResolvedModelLabel(for operatingMode:)` helper on `InferenceState` that resolves: Apple → `"Apple Intelligence"`, localMLX → the local model's display name, cloud → provider + model display name. When auto-fallback fired mid-turn, the pipeline-side code should override with the *actually used* label.
-- Populate in `ChatState.completeProcessing` and `AgentChatState.completeProcessing`.
-- Render as a small pill in the existing `MessageBubble` footer, clickable → small HUD "Why this model?" with the routing reason (audit's Issue #7 reuses this).
-
-**Files touched:** ~6. **Risk:** medium — SwiftData migration + message rendering regression guards.
-**Test plan:** unit test label resolution for each provider; snapshot tests for MessageBubble with/without label; verify legacy messages (label nil) render unchanged.
+**Landed** as Batch I (`5ddd6db9`, data layer) + Batch J (`cfad9a99`, UI).
+`ChatMessage.resolvedModelLabel: String?` is populated at turn completion
+from `InferenceState.effectiveModelLabel(for:)`, which resolves Apple →
+`"Apple Intelligence"`, local → the local model's displayName, cloud →
+`"<Provider> <Model>"`. `EffectiveModelBadge` renders a subtle sparkle-
+pill under every assistant reply. Non-interactive in v1 — the click-
+through "why this model?" rationale is tracked below as the next P2
+item (reuses the same badge as the anchor).
 
 ### P1 — Toggleable Brain / Context side panel (stable affordance)
 
