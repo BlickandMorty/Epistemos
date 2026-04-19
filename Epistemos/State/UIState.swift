@@ -291,13 +291,10 @@ final class UIState {
         effectiveReduceTransparency ? Color(nsColor: .windowBackgroundColor) : .clear
     }
     var notesSidebarBackgroundColor: NSColor {
-        // Dark themes pull the notes sidebar onto a near-OLED surface
-        // matching the note window canvas; light themes stay on `.clear`
-        // so the system window material shows through as before.
-        NotesNearOLEDPalette.surfaceNSColor(for: theme) ?? .clear
+        .clear
     }
     var notesSidebarBackground: Color {
-        NotesNearOLEDPalette.surfaceColor(for: theme) ?? .clear
+        .clear
     }
     var overlayChromeBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
