@@ -721,3 +721,47 @@ and fallback routing.
    if still freezing, add progress and timeout.
 5. Crash diagnostics:
    get a real macOS crash log / sysdiagnose before claiming closure.
+
+## 21 · External-doc corrections — build, runtime, and visibility contract
+
+The extra April 19 context docs sharpened one key point: the remaining
+problem is not just "what should we build next?" but "how do we prove
+the fix actually reached the binary the user is launching?" Several
+late-session regressions were effectively verification failures rather
+than missing code.
+
+### 21A · Agent-to-app integration contract
+
+Any user-visible batch now has to satisfy all of these:
+
+- `git status --short` is clean or the dirty tree is explicitly scoped.
+- The batch name, exact file list, and target symptom are declared first.
+- Manual edits use `apply_patch`.
+- `xcodegen -s project.yml` runs if a Swift file is created, moved, or newly included.
+- Rust crates are rebuilt or checked when the touched path includes Rust.
+- Focused tests pass and leave behind a log or `.xcresult`.
+- Epistemos `DerivedData` is refreshed before the verification build.
+- The actual `Epistemos` product scheme is built and the app is launched.
+- The original symptom is reproduced in the running app and visibly confirmed fixed.
+- The commit is scoped to the declared files only.
+- Handoff/progress docs record the batch, verification method, and residual risk.
+
+If one of those boxes is unchecked, the batch is only "code landed," not
+"fix shipped."
+
+### 21B · Planning batches added by the external docs
+
+| Batch | What |
+|------|------|
+| Ship-0 | Build/ship stabilization checklist: dirty-tree hygiene, explicit scope, `xcodegen`, clean `DerivedData`, real app launch, screenshot/log verification |
+| Ship-1 | Artifact integrity: signing, entitlements, nested binaries, `Package.resolved`, and "this is the binary being launched" verification |
+| Ship-2 | Runtime contract: invalid provider/model/tool combos must be blocked before dispatch; attachment resolution, tool-loop continuation, and context accounting are hard blockers |
+| Ship-3 | Live legibility: route badge, activity strip, tool cards, context/source rail, and plan/todo surfaces are required runtime UI, not polish |
+| Ship-4 | Residual live regressions: direct-cloud thinking popover, Rust OpenAI structured tool calls, attached-content fake `read_file`, Fast-mode always-thinking exclusions, and the other later re-reported bugs |
+
+### 21C · Evidence rules
+
+- stdout tails are not enough; preserve `.xcresult`, logs, or screenshots
+- "tests passed" is not enough if the user cannot reproduce the fix in the launched app
+- provider/runtime bugs should be diagnosed from the exact route, payload shape, and stream events whenever possible
+- any fix that depends on a new file is unverified until Xcode project inclusion is confirmed after `xcodegen`
