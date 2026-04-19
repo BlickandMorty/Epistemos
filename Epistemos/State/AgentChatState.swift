@@ -16,6 +16,20 @@ final class AgentChatState {
 
     var isStreaming = false
     var streamingText = ""
+    /// Accumulated thinking-mode deltas for the currently streaming agent turn.
+    /// Populated live as `onThinkingDelta` events arrive so the agent surface
+    /// can show an in-flight "Thinking…" popover just like main chat does,
+    /// rather than appearing frozen during the reasoning phase. Cleared when
+    /// a new agent turn starts or when a turn completes.
+    var streamingThinking = ""
+    /// True while the agent is in its thinking phase. Flips to false on the
+    /// first text delta (thinking closes, answer begins) or when the turn
+    /// finalizes without a thinking block.
+    var isThinkingActive = false
+    /// Timestamp when thinking started this turn.
+    var thinkingStartedAt: Date?
+    /// Timestamp when thinking ended this turn (first text delta).
+    var thinkingEndedAt: Date?
 
     // MARK: - Session Identity
 
@@ -104,6 +118,7 @@ final class AgentChatState {
         executionPlanSummary = nil
         resetPlanDocument()
         estimatedContextTokens = 0
+        resetThinkingState()
         log.info("[AgentChat] New session: \(self.activeSessionId ?? "nil")")
     }
 
@@ -139,10 +154,39 @@ final class AgentChatState {
         pendingContentBlocks = []
         activeToolName = nil
         isAgentExecuting = false
+        resetThinkingState()
     }
 
     func appendStreamingText(_ text: String) {
+        // First text delta closes the thinking phase — the popover flips
+        // from the live "Thinking…" pulse to the persisted "Thought for Ns"
+        // summary badge on the agent surface.
+        if isThinkingActive {
+            isThinkingActive = false
+            thinkingEndedAt = Date()
+        }
         streamBuffer.append(text, scheduleFlush: true)
+    }
+
+    /// Accumulate a live thinking delta for the streaming agent turn.
+    /// The first delta starts the popover (isThinkingActive = true +
+    /// thinkingStartedAt); subsequent deltas append to streamingThinking so
+    /// the UI can render the reasoning live instead of a blank spinner.
+    func appendStreamingThinking(_ text: String) {
+        if !isThinkingActive {
+            isThinkingActive = true
+            thinkingStartedAt = Date()
+            streamingThinking.removeAll(keepingCapacity: true)
+        }
+        streamingThinking.append(text)
+    }
+
+    /// Reset all thinking-popover state between turns.
+    func resetThinkingState() {
+        streamingThinking.removeAll(keepingCapacity: false)
+        isThinkingActive = false
+        thinkingStartedAt = nil
+        thinkingEndedAt = nil
     }
 
     func stopStreaming() {

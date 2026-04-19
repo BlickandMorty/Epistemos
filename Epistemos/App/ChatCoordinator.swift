@@ -434,8 +434,9 @@ final class ChatCoordinator {
         let accSessionInterval = Log.agentStreaming.beginInterval("accAgentSession")
         for await event in stream {
             switch event {
-            case .thinkingDelta:
-                Log.agentStreaming.emitEvent("acc.thinkingDelta")
+            case .thinkingDelta(let text):
+                Log.agentStreaming.emitEvent("acc.thinkingDelta", "\(text.count) chars")
+                agentChat.appendStreamingThinking(text)
 
             case .textDelta(let text):
                 Log.agentStreaming.emitEvent("acc.textDelta", "\(text.count) chars")

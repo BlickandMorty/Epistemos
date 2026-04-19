@@ -2256,8 +2256,8 @@ struct RuntimeValidationTests {
         #expect(root.contains("inference.configuredCloudProviders.contains(provider)"))
         #expect(root.contains("inference.preferredCloudModel(for: provider)"))
         #expect(root.contains("return \"Finish setup to unlock\""))
-        #expect(root.contains("\"Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.\""))
-        #expect(root.contains("Button(\"Change cloud model in Settings\")"))
+        #expect(root.contains("\"Connect a cloud provider in Settings → Inference to give the chat stack a cloud escalation path.\""))
+        #expect(root.contains("Button(\"Open Settings\")"))
         #expect(root.contains("systemImage: provider.systemImage"))
     }
 
@@ -2267,8 +2267,8 @@ struct RuntimeValidationTests {
         let setupAssistant = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
         let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
 
-        #expect(root.contains("Button(\"Change cloud model in Settings\")"))
-        #expect(root.contains("\"Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.\""))
+        #expect(root.contains("Button(\"Open Settings\")"))
+        #expect(root.contains("\"Connect a cloud provider in Settings → Inference to give the chat stack a cloud escalation path.\""))
         #expect(setupAssistant.contains("CloudProviderSetupCard("))
         #expect(setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(sharedCard.contains("provider.accountActionTitle"))

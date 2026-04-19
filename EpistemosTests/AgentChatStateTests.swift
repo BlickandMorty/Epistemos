@@ -200,6 +200,66 @@ struct AgentChatStateTests {
         )
     }
 
+    // MARK: - Thinking popover lifecycle
+
+    @Test("streaming thinking deltas populate the popover state")
+    func appendStreamingThinkingActivatesPopover() {
+        let state = AgentChatState()
+        state.startStreaming()
+
+        #expect(!state.isThinkingActive)
+        #expect(state.streamingThinking.isEmpty)
+
+        state.appendStreamingThinking("considering")
+        state.appendStreamingThinking(" options")
+
+        #expect(state.isThinkingActive)
+        #expect(state.thinkingStartedAt != nil)
+        #expect(state.thinkingEndedAt == nil)
+        #expect(state.streamingThinking == "considering options")
+    }
+
+    @Test("first text delta closes the thinking phase")
+    func firstTextDeltaClosesThinking() {
+        let state = AgentChatState()
+        state.startStreaming()
+        state.appendStreamingThinking("thought")
+
+        #expect(state.isThinkingActive)
+
+        state.appendStreamingText("answer")
+
+        #expect(!state.isThinkingActive)
+        #expect(state.thinkingEndedAt != nil)
+        #expect(state.streamingThinking == "thought")
+    }
+
+    @Test("starting a new streaming turn resets stale thinking state")
+    func startStreamingResetsThinkingState() {
+        let state = AgentChatState()
+        state.appendStreamingThinking("prior turn")
+        #expect(state.isThinkingActive)
+
+        state.startStreaming()
+
+        #expect(!state.isThinkingActive)
+        #expect(state.streamingThinking.isEmpty)
+        #expect(state.thinkingStartedAt == nil)
+        #expect(state.thinkingEndedAt == nil)
+    }
+
+    @Test("starting a new session clears lingering thinking state")
+    func startNewSessionResetsThinkingState() {
+        let state = AgentChatState()
+        state.appendStreamingThinking("carryover")
+
+        state.startNewSession()
+
+        #expect(!state.isThinkingActive)
+        #expect(state.streamingThinking.isEmpty)
+        #expect(state.thinkingStartedAt == nil)
+    }
+
     // MARK: - Error Message
 
     @Test func addErrorMessage() {
