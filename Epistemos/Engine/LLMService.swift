@@ -2411,19 +2411,48 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func resolvedAnthropicMaxTokens(requestedMaxTokens: Int) -> Int {
         let baseTokens = max(requestedMaxTokens, 512)
-        guard inference.anthropicExtendedThinkingEnabled else {
+        let tier = inference.chatReasoningTier
+        switch tier {
+        case .off:
             return baseTokens
+        case .extended:
+            // Extended tier forces a 16k budget regardless of the
+            // Settings slider so `max_tokens` has to grow to fit it.
+            return max(baseTokens, 16_000 + 512)
+        case .standard:
+            guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
+            return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
         }
-        return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
     }
 
     private func anthropicThinkingConfiguration(maxTokens: Int) -> [String: Any]? {
-        guard inference.anthropicExtendedThinkingEnabled else { return nil }
-        let budget = min(inference.anthropicThinkingBudgetTokens, max(1_024, maxTokens - 128))
-        return [
-            "type": "enabled",
-            "budget_tokens": budget,
-        ]
+        // Tier-driven thinking config. Standard respects the existing
+        // Settings toggle + slider so power users keep their tuning; Off
+        // force-skips; Extended forces a 16k budget per research 1's
+        // recommendation. Adaptive (Opus 4.7+) would go here too, but
+        // our catalog tops out at Opus 4.1 / Sonnet 4 which use manual
+        // `enabled` — no 400 risk.
+        let tier = inference.chatReasoningTier
+        switch tier {
+        case .off:
+            return nil
+        case .extended:
+            let budget = min(16_000, max(1_024, maxTokens - 128))
+            return [
+                "type": "enabled",
+                "budget_tokens": budget,
+            ]
+        case .standard:
+            guard inference.anthropicExtendedThinkingEnabled else { return nil }
+            let budget = min(
+                inference.anthropicThinkingBudgetTokens,
+                max(1_024, maxTokens - 128)
+            )
+            return [
+                "type": "enabled",
+                "budget_tokens": budget,
+            ]
+        }
     }
 }
 
