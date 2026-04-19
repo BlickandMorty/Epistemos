@@ -181,6 +181,13 @@ final class AgentChatState {
         streamingThinking.append(text)
     }
 
+    /// Convenience: classify an Error through UserFacingChatError and
+    /// record both the user-facing copy AND the typed kind.
+    func addErrorMessage(from error: Error) {
+        let kind = UserFacingChatError.classify(error)
+        addErrorMessage(UserFacingChatError.message(from: error), kind: kind)
+    }
+
     /// Reset all thinking-popover state between turns.
     func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
@@ -299,14 +306,15 @@ final class AgentChatState {
 
     // MARK: - Error
 
-    func addErrorMessage(_ message: String) {
+    func addErrorMessage(_ message: String, kind: UserFacingChatErrorKind? = nil) {
         let sessionId = activeSessionId ?? UUID().uuidString
         let errorMessage = ChatMessage(
             id: UUID().uuidString,
             chatId: sessionId,
             role: .assistant,
             content: message,
-            isError: true
+            isError: true,
+            errorKind: kind
         )
         messages.append(errorMessage)
         hasMessages = true

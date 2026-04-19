@@ -454,14 +454,15 @@ final class ChatState {
 
     // MARK: - Error Messages
 
-    func addErrorMessage(_ message: String) {
+    func addErrorMessage(_ message: String, kind: UserFacingChatErrorKind? = nil) {
         let chatId = activeChatId ?? UUID().uuidString
         let errorMessage = ChatMessage(
             id: UUID().uuidString,
             chatId: chatId,
             role: .assistant,
             content: message,
-            isError: true
+            isError: true,
+            errorKind: kind
         )
         messages.append(errorMessage)
         markTranscriptChanged()
@@ -471,6 +472,14 @@ final class ChatState {
         pendingContentBlocks = []
         activeToolName = nil
         isAgentExecuting = false
+    }
+
+    /// Convenience: classify an Error through UserFacingChatError and
+    /// record both the user-facing copy AND the typed kind so the error
+    /// bubble can render a recovery affordance (Open Settings, etc.).
+    func addErrorMessage(from error: Error) {
+        let kind = UserFacingChatError.classify(error)
+        addErrorMessage(UserFacingChatError.message(from: error), kind: kind)
     }
 
     // MARK: - Streaming
