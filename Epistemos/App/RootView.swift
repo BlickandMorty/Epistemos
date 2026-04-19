@@ -427,27 +427,31 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var usesAutomaticCloudRoute: Bool {
-        inference.chatAutoRouteToCloud
-            && inference.preferredAutoRouteCloudProvider != nil
-            && {
-                if case .cloud = inference.preferredChatModelSelection {
-                    return false
-                }
-                return true
-            }()
+        inference.chatAutoRouteActive
     }
 
     private var automaticRouteSummary: String {
-        if let provider = inference.preferredAutoRouteCloudProvider {
-            return "Fast stays local-first; Pro and Agent can escalate through \(provider.displayName)."
+        if let operatingMode {
+            return inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue).summary
         }
-        return "Escalate capable chat surfaces from local to cloud automatically."
+        if let provider = inference.preferredAutoRouteCloudProvider {
+            return "Fast stays local-first, while higher-capability chat modes can escalate through \(provider.displayName)."
+        }
+        return "Connect a cloud provider to let higher-capability chat modes escalate beyond the local runtime."
+    }
+
+    private var displayedCloudProvider: CloudModelProvider? {
+        inference.activeCloudProvider ?? inference.preferredAutoRouteCloudProvider
     }
 
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
         let selectedModelLabel: String
-        if usesAutomaticCloudRoute {
+        if let operatingMode {
+            selectedModelLabel = inference.chatSurfaceRouteDescription(
+                for: operatingMode.wrappedValue
+            ).headline
+        } else if usesAutomaticCloudRoute {
             selectedModelLabel = "Auto Route"
         } else {
             selectedModelLabel = switch selectedMenuItem {
@@ -462,7 +466,7 @@ struct LocalModelToolbarMenu: View {
             }
         }
         guard let operatingMode else { return selectedModelLabel }
-            return "\(selectedModelLabel) \(operatingMode.wrappedValue.displayName)"
+        return "\(operatingMode.wrappedValue.displayName) · \(selectedModelLabel)"
     }
 
     private var labelFont: Font {
@@ -493,11 +497,11 @@ struct LocalModelToolbarMenu: View {
         if isTemporaryChatEnabled?.wrappedValue == true {
             return "eye.slash.fill"
         }
-        if usesAutomaticCloudRoute {
-            return "arrow.triangle.branch"
-        }
         if let operatingMode {
             return operatingMode.wrappedValue.systemImage
+        }
+        if usesAutomaticCloudRoute {
+            return "arrow.triangle.branch"
         }
         switch selectedMenuItem {
         case .appleIntelligence:
@@ -510,11 +514,11 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedModeSummary: String {
+        if let operatingMode {
+            return inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue).summary
+        }
         if usesAutomaticCloudRoute {
             return automaticRouteSummary
-        }
-        if let operatingMode {
-            return operatingMode.wrappedValue.helpText
         }
         return "Choose the model that should power this surface."
     }
@@ -617,13 +621,7 @@ struct LocalModelToolbarMenu: View {
                     )
                 }
 
-                // Routing section removed in the picker simplification
-                // pass — the ChatCapabilityPill + Overseer panel now
-                // surface routing state, and auto-route behavior is
-                // handled automatically by MainChatSubmissionRouter's
-                // autoPromotedMode. Having a toggle here duplicated that
-                // logic and confused users. Cloud provider preference is
-                // now edited in Settings → Inference.
+                routingSection
 
                 VStack(alignment: .leading, spacing: 8) {
                     popoverSectionTitle("Models")
@@ -782,21 +780,108 @@ struct LocalModelToolbarMenu: View {
                     title: provider.displayName,
                     subtitle: providerSelectionSubtitle(for: provider),
                     systemImage: provider.systemImage,
-                    isSelected: inference.activeAIProvider == selection
+                    isSelected: displayedCloudProvider == provider
                 ) {
+                    inference.setCloudModelsEnabled(true)
                     inference.setActiveAIProvider(selection)
                 }
             }
 
             selectionRow(
                 title: "Local Only",
-                subtitle: "Hide cloud models from this picker and stay on-device.",
+                subtitle: "Keep chat on-device. Auto-route can only escalate again after you reactivate a cloud workspace.",
                 systemImage: "memorychip",
-                isSelected: inference.activeAIProvider == .localOnly
+                isSelected: inference.activeAIProvider == .localOnly && displayedCloudProvider == nil
             ) {
+                inference.setChatAutoRouteToCloud(false)
                 inference.setActiveAIProvider(.localOnly)
             }
         }
+    }
+
+    @ViewBuilder
+    private var routingSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            popoverSectionTitle("Routing")
+
+            Toggle(isOn: Binding(
+                get: { inference.chatAutoRouteToCloud },
+                set: { inference.setChatAutoRouteToCloud($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-route local -> cloud")
+                    Text("Keep chat local-first, but let higher-capability modes escalate to the selected cloud workspace when they need it.")
+                        .font(.caption)
+                        .foregroundStyle(theme.textTertiary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            if inference.chatAutoRouteToCloud {
+                if inference.preferredAutoRouteCloudProvider != nil {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Current stack")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(theme.textTertiary)
+                        ForEach(displayedOperatingModes, id: \.self) { option in
+                            routeSummaryCard(for: inference.chatSurfaceRouteDescription(for: option))
+                        }
+                    }
+                } else {
+                    Text("Auto-route is on, but no configured cloud workspace is ready yet. Connect one below to give Pro and Agent a cloud path.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                        .padding(.leading, 4)
+                }
+            } else if let operatingMode {
+                routeSummaryCard(for: inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue))
+            }
+
+            Toggle(isOn: Binding(
+                get: { inference.cloudAutoFallback },
+                set: { inference.setCloudAutoFallback($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Auto-route on failure")
+                    Text("If the chosen cloud model errors, keep trying the fallback chain instead of surfacing the first failure immediately.")
+                        .font(.caption)
+                        .foregroundStyle(theme.textTertiary)
+                }
+            }
+            .toggleStyle(.switch)
+        }
+    }
+
+    @ViewBuilder
+    private func routeSummaryCard(for route: ChatSurfaceRouteDescription) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: route.systemImage)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(theme.resolved.accent.color)
+                .frame(width: 14, height: 14)
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(route.operatingMode.displayName) -> \(route.headline)")
+                    .font(.system(size: 12, weight: .semibold))
+                Text(route.summary)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(theme.textTertiary)
+            }
+
+            Spacer(minLength: 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(theme.muted.opacity(theme.isDark ? 0.28 : 0.55))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.45), lineWidth: 0.6)
+        )
     }
 
     @ViewBuilder
@@ -885,42 +970,73 @@ struct LocalModelToolbarMenu: View {
 
     private func cloudModelSubtitle(for model: CloudTextModelID) -> String {
         let provider = model.provider
+        let routeSummary = inference.chatAutoRouteToCloud
+            ? "Used when the stack escalates"
+            : "Runs directly when selected"
         let configuration = inference.configuredCloudProviders.contains(provider)
             ? "Ready"
             : "Finish setup"
-        return "\(provider.displayName) • \(configuration)"
+        return "\(provider.displayName) • \(routeSummary) • \(configuration)"
     }
 
-    /// Single cloud row rendered in the picker. If a cloud provider is
-    /// configured, shows exactly one tappable entry (the user's preferred
-    /// cloud model for that provider) plus a link to change it in
-    /// Settings. If nothing is configured yet, a compact "set up a cloud
-    /// provider in Settings" note takes its place.
+    /// Cloud provider + model controls rendered in the runtime popover.
+    /// When auto-route is on, choosing a cloud model configures the
+    /// escalation target without forcing the current chat off local.
     @ViewBuilder
     private var pickerCloudSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             popoverSectionTitle("Cloud")
 
-            if let provider = inference.activeCloudProvider,
-               inference.configuredCloudProviders.contains(provider) {
-                let model = inference.preferredCloudModel(for: provider)
-                selectionRow(
-                    title: model.compactDisplayName,
-                    subtitle: "\(provider.displayName) • Change in Settings → Inference",
-                    systemImage: provider.systemImage,
-                    isSelected: selectedMenuItem == .cloud(model)
-                ) {
-                    inference.setPreferredChatModelSelection(.cloud(model))
-                    isPresented = false
+            DisclosureGroup(
+                isExpanded: $showsCloudProviderOptions,
+                content: { cloudProviderSelectionRows },
+                label: {
+                    disclosureTitle(
+                        title: "Cloud Provider",
+                        subtitle: cloudProviderDisclosureSubtitle
+                    )
                 }
+            )
+
+            if let provider = displayedCloudProvider,
+               inference.configuredCloudProviders.contains(provider) {
+                DisclosureGroup(
+                    isExpanded: $showsActiveCloudModelOptions,
+                    content: {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(inference.cloudModels(for: provider), id: \.rawValue) { model in
+                                selectionRow(
+                                    title: model.displayName,
+                                    subtitle: cloudModelSubtitle(for: model),
+                                    systemImage: provider.systemImage,
+                                    isSelected: isCloudModelSelected(model)
+                                ) {
+                                    inference.setCloudModelsEnabled(true)
+                                    if inference.chatAutoRouteToCloud {
+                                        inference.setPreferredCloudModel(model)
+                                    } else {
+                                        inference.setPreferredChatModelSelection(.cloud(model))
+                                    }
+                                    isPresented = false
+                                }
+                            }
+                        }
+                    },
+                    label: {
+                        disclosureTitle(
+                            title: "Cloud Model",
+                            subtitle: cloudAccessSubtitle
+                        )
+                    }
+                )
             } else {
-                Text("Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.")
+                Text("Connect a cloud provider in Settings → Inference to give the chat stack a cloud escalation path.")
                     .font(.system(size: 11))
                     .foregroundStyle(theme.textTertiary)
                     .padding(.leading, 4)
             }
 
-            Button("Change cloud model in Settings") {
+            Button("Open Settings") {
                 openSettings()
             }
             .buttonStyle(.borderless)
@@ -930,23 +1046,31 @@ struct LocalModelToolbarMenu: View {
         }
     }
 
+    private func isCloudModelSelected(_ model: CloudTextModelID) -> Bool {
+        if inference.chatAutoRouteToCloud {
+            return inference.preferredCloudModel(for: model.provider) == model
+        }
+        return selectedMenuItem == .cloud(model)
+    }
+
     private var cloudAccessSubtitle: String {
-        guard let provider = inference.activeCloudProvider else {
+        guard let provider = displayedCloudProvider else {
             return "Local Only"
         }
+        let preferredModel = inference.preferredCloudModel(for: provider)
         let validation = inference.cloudValidationState(for: provider)
         if inference.configuredCloudProviders.contains(provider) {
-            return "\(provider.displayName) • \(validation.statusBadge)"
+            return "\(preferredModel.compactDisplayName) • \(validation.statusBadge)"
         }
         return "Finish setup to unlock"
     }
 
     private var cloudProviderDisclosureSubtitle: String {
-        guard let provider = inference.activeCloudProvider else {
+        guard let provider = displayedCloudProvider else {
             return "Choose a provider"
         }
         if inference.configuredCloudProviders.contains(provider) {
-            return "\(provider.displayName) • Active"
+            return "\(provider.displayName) • Active stack"
         }
         if provider.supportsAccountConnection {
             return "\(provider.displayName) • Account first"

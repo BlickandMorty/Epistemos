@@ -4,6 +4,7 @@ import Testing
 private let isolatedInferenceDefaultsKeys = [
     "epistemos.localRoutingMode",
     "epistemos.chatAutoRouteToCloud",
+    "epistemos.cloudAutoFallback",
     "epistemos.preferredLocalTextModelID",
     "epistemos.preferredChatModelSelection",
     "epistemos.activeAIProvider",
@@ -303,6 +304,58 @@ struct TriageServiceTests {
         #expect(inference.preferredAutoRouteCloudModel(for: .fast) == .openAIGPT54Mini)
         #expect(inference.preferredAutoRouteCloudModel(for: .thinking) == .openAIGPT54)
         #expect(inference.preferredAutoRouteCloudModel(for: .pro) == .openAIGPT54)
+    }
+
+    @Test("configuring the auto-route cloud model keeps the current local chat selection")
+    @MainActor func configuringAutoRouteCloudModelKeepsLocalSelection() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        let localModelID = LocalTextModelID.qwen35_2B4Bit.rawValue
+        inference.setInstalledLocalTextModelIDs([localModelID])
+        inference.setPreferredLocalTextModelID(localModelID)
+        inference.setPreferredChatModelSelection(.localMLX(localModelID))
+        inference.setChatAutoRouteToCloud(true)
+
+        inference.setPreferredCloudModel(.openAIGPT52)
+
+        #expect(inference.preferredChatModelSelection == .localMLX(localModelID))
+        #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT52)
+        #expect(inference.preferredAutoRouteCloudModel(for: .pro) == .openAIGPT52)
+    }
+
+    @Test("cloud auto fallback persists across inference state reloads")
+    @MainActor func cloudAutoFallbackPersistsAcrossInferenceStateReloads() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.cloudAutoFallback"
+        let savedValue = defaults.object(forKey: key)
+        defer {
+            if let savedValue {
+                defaults.set(savedValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        defaults.removeObject(forKey: key)
+
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setCloudAutoFallback(true)
+
+        let reloaded = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        #expect(reloaded.cloudAutoFallback)
     }
 }
 

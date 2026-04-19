@@ -197,9 +197,9 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("pickerCloudSection"))
         #expect(rootView.contains("popoverSectionTitle(\"Cloud\")"))
         #expect(rootView.contains("title: \"Temporary Chat\""))
-        #expect(rootView.contains("if let provider = inference.activeCloudProvider"))
+        #expect(rootView.contains("if let provider = displayedCloudProvider"))
         #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
-        #expect(rootView.contains("Button(\"Change cloud model in Settings\")"))
+        #expect(rootView.contains("Button(\"Open Settings\")"))
     }
 
     @Test("inference settings expose the shared local to cloud auto-route toggle")
@@ -4393,6 +4393,19 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("ForEach(displayedOperatingModes"))
         #expect(!source.contains("ForEach(EpistemosOperatingMode.allCases"))
         #expect(source.contains(".easeInOut(duration: 0.15)"))
+    }
+
+    @Test("runtime popover exposes explicit chat routing controls")
+    func runtimePopoverExposesExplicitChatRoutingControls() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("Text(\"Auto-route local -> cloud\")"))
+        #expect(source.contains("Text(\"Auto-route on failure\")"))
+        #expect(source.contains("inference.setChatAutoRouteToCloud($0)"))
+        #expect(source.contains("inference.setPreferredCloudModel(model)"))
     }
 
     @MainActor
