@@ -175,14 +175,17 @@ struct ChatPresentationTests {
         #expect(thinkingSource.contains(".breathe("))
     }
 
-    @Test("main chat exposes a toggleable brain side panel for context transparency")
+    @Test("main chat exposes a toggleable context side panel for transparency")
     func mainChatExposesAToggleableBrainSidePanelForContextTransparency() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
 
         #expect(source.contains("@State private var showBrainPanel = false"))
         #expect(source.contains("ChatBrainPanelView("))
         #expect(source.contains("chat.latestBrainSnapshot"))
-        #expect(source.contains("Label(showBrainPanel ? \"Hide Brain\" : \"Show Brain\""))
+        // Toolbar label uses "Context" (clear) rather than the opaque
+        // "Brain" jargon the panel shipped with initially.
+        #expect(source.contains("\"Hide Context\""))
+        #expect(source.contains("\"Show Context\""))
     }
 
     @Test("chat text export support writes content and throws for unwritable destinations")
