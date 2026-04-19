@@ -146,33 +146,22 @@ struct ChatPresentationTests {
         #expect(source.contains("@State private var isExpanded = false"))
     }
 
-    @Test("chat brain picker mirrors the release-selectable local model set")
-    func chatBrainPickerMirrorsReleaseSelectableLocalModels() throws {
+    @Test("chat brain picker keeps the shared main-chat operating mode preference key")
+    func chatBrainPickerKeepsSharedOperatingModePreferenceKey() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
 
-        #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
-        #expect(!source.contains("Array(inference.installedLocalTextModelIDs)"))
-        #expect(source.contains("inference.activeChatModelDisplayName"))
+        #expect(source.contains("enum MainChatOperatingModePreference"))
+        #expect(source.contains("static let defaultsKey = \"epistemos.mainChatOperatingMode\""))
     }
 
-    @Test("chat brain picker exposes operating mode choices when chat surfaces pass a binding")
-    func chatBrainPickerExposesOperatingModes() throws {
+    @Test("chat brain picker delegates the runtime UI to the shared local model toolbar menu")
+    func chatBrainPickerDelegatesToSharedRuntimePopover() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
 
-        #expect(source.contains("Section(\"Mode\")"))
         #expect(source.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
         #expect(source.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
-    }
-
-    @Test("chat brain picker simplifies cloud switching to one shared cloud row")
-    func chatBrainPickerSimplifiesCloudSwitching() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
-
-        #expect(source.contains("private var pickerCloudModel: CloudTextModelID?"))
-        #expect(source.contains("Section(\"Cloud\")"))
-        #expect(source.contains("inference.preferredCloudModel(for: provider)"))
-        #expect(!source.contains("Section(\"Routing\")"))
-        #expect(!source.contains("inference.setChatAutoRouteToCloud("))
+        #expect(source.contains("LocalModelToolbarMenu("))
+        #expect(!source.contains("Menu {"))
     }
 
     @Test("chat capability surfaces avoid repeatForever pulse loops")

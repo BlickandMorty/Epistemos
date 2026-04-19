@@ -969,9 +969,42 @@ private struct InferenceDetailView: View {
                     }
                 }
 
+                if inference.chatAutoRouteToCloud {
+                    SettingsDescriptionText(
+                        text: inference.preferredAutoRouteCloudProvider != nil
+                            ? "The chat picker now follows an explicit stack. Choose a mode in chat, and Epistemos uses the route below instead of hiding the escalation."
+                            : "Auto-route is on, but no configured cloud workspace is ready yet. Connect one below so Pro and Agent have somewhere to escalate."
+                    )
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(inference.availableOperatingModes, id: \.self) { mode in
+                            let route = inference.chatSurfaceRouteDescription(for: mode)
+                            VStack(alignment: .leading, spacing: 3) {
+                                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                    Label(mode.displayName, systemImage: mode.systemImage)
+                                        .font(.system(size: 12, weight: .semibold))
+                                    Spacer(minLength: 8)
+                                    Text(route.headline)
+                                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(route.summary)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.vertical, 2)
+                        }
+                    }
+                } else {
+                    SettingsDescriptionText(
+                        text: "With auto-route off, the chat popover uses the local or cloud model you explicitly pick. The mode selector only exposes capabilities that current selection actually supports."
+                    )
+                }
+
                 Toggle(isOn: Binding(
                     get: { inference.cloudAutoFallback },
-                    set: { inference.cloudAutoFallback = $0 }
+                    set: { inference.setCloudAutoFallback($0) }
                 )) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Auto-route on failure")
@@ -1333,11 +1366,11 @@ private struct InferenceDetailView: View {
                    model.provider == provider {
                     return model
                 }
-                return provider.defaultChatModel
+                return inference.preferredCloudModel(for: provider)
             },
             set: { model in
                 inference.setActiveAIProvider(AIProviderSelection(cloudProvider: provider))
-                inference.setPreferredChatModelSelection(.cloud(model))
+                inference.setPreferredCloudModel(model)
             }
         )
     }

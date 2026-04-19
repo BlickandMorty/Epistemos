@@ -2219,6 +2219,15 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
     }
 }
 
+nonisolated struct ChatSurfaceRouteDescription: Sendable, Equatable {
+    let operatingMode: EpistemosOperatingMode
+    let selection: ChatModelSelection
+    let headline: String
+    let summary: String
+    let systemImage: String
+    let usesAutomaticRouting: Bool
+}
+
 nonisolated enum LocalRoutingMode: String, Codable, Sendable, CaseIterable {
     case auto
     case localOnly
@@ -2630,6 +2639,7 @@ final class InferenceState {
     private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
+    private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
     private nonisolated static let firecrawlAPIKeyKeychainKey = "epistemos.firecrawl.apiKey"
     private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
     private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
@@ -2781,6 +2791,7 @@ final class InferenceState {
         )
         self.googleGroundingEnabled = defaults.bool(forKey: Self.googleGroundingDefaultsKey)
         self.chatAutoRouteToCloud = defaults.bool(forKey: Self.chatAutoRouteToCloudDefaultsKey)
+        self.cloudAutoFallback = defaults.bool(forKey: Self.cloudAutoFallbackDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
@@ -3148,6 +3159,10 @@ final class InferenceState {
         effectiveLocalAgentTextModelID != nil
     }
 
+    var chatAutoRouteActive: Bool {
+        usesAutomaticCloudRouteForChatSurfaces
+    }
+
     private var baseOperatingModeCapabilities: OperatingModeCapabilities {
         switch preferredChatModelSelection {
         case .appleIntelligence:
@@ -3317,6 +3332,49 @@ final class InferenceState {
         }
     }
 
+    func chatSurfaceRouteDescription(
+        for operatingMode: EpistemosOperatingMode
+    ) -> ChatSurfaceRouteDescription {
+        let selection = effectiveChatSurfaceSelection(for: operatingMode)
+        let headline = selection.compactDisplayName
+        let summary: String = {
+            switch selection {
+            case .appleIntelligence:
+                return usesAutomaticCloudRouteForChatSurfaces
+                    ? "\(operatingMode.displayName) stays on Apple Intelligence until a cloud escalation is needed."
+                    : "\(operatingMode.displayName) runs directly on Apple Intelligence."
+            case .localMLX(let modelID):
+                let label = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+                return usesAutomaticCloudRouteForChatSurfaces
+                    ? "\(operatingMode.displayName) stays local on \(label) unless the chat stack needs a cloud escalation."
+                    : "\(operatingMode.displayName) runs directly on \(label)."
+            case .cloud(let model):
+                let providerLabel = model.provider.displayName
+                return usesAutomaticCloudRouteForChatSurfaces
+                    ? "\(operatingMode.displayName) escalates to \(model.displayName) on \(providerLabel)."
+                    : "\(operatingMode.displayName) runs directly on \(model.displayName) on \(providerLabel)."
+            }
+        }()
+        let systemImage: String = {
+            switch selection {
+            case .appleIntelligence:
+                "apple.logo"
+            case .localMLX:
+                "memorychip"
+            case .cloud(let model):
+                model.provider.systemImage
+            }
+        }()
+        return ChatSurfaceRouteDescription(
+            operatingMode: operatingMode,
+            selection: selection,
+            headline: headline,
+            summary: summary,
+            systemImage: systemImage,
+            usesAutomaticRouting: usesAutomaticCloudRouteForChatSurfaces
+        )
+    }
+
     var chatSurfaceMaxContextTokens: Int {
         chatSurfaceMaxContextTokens(for: .fast)
     }
@@ -3352,6 +3410,10 @@ final class InferenceState {
     var activeCloudModels: [CloudTextModelID] {
         guard let provider = activeCloudProvider else { return [] }
         return supportedCloudModels(for: provider)
+    }
+
+    func cloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
+        supportedCloudModels(for: provider)
     }
 
     var configuredCloudProviders: [CloudModelProvider] {
@@ -3797,6 +3859,11 @@ final class InferenceState {
         UserDefaults.standard.set(isEnabled, forKey: Self.chatAutoRouteToCloudDefaultsKey)
     }
 
+    func setCloudAutoFallback(_ isEnabled: Bool) {
+        cloudAutoFallback = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.cloudAutoFallbackDefaultsKey)
+    }
+
     func setActiveAIProvider(_ provider: AIProviderSelection) {
         persistActiveAIProvider(provider)
 
@@ -3857,6 +3924,17 @@ final class InferenceState {
         }
     }
 
+    func setPreferredCloudModel(_ model: CloudTextModelID) {
+        let normalizedModel = normalizedPreferredCloudModel(model)
+        persistPreferredCloudModel(normalizedModel)
+        persistActiveAIProvider(AIProviderSelection(cloudProvider: normalizedModel.provider))
+
+        if case .cloud(let currentModel) = preferredChatModelSelection,
+           currentModel.provider == normalizedModel.provider {
+            persistPreferredChatModelSelection(.cloud(normalizedModel))
+        }
+    }
+
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
         if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
             persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
@@ -3883,12 +3961,14 @@ final class InferenceState {
 
         let primaryResolved: CloudTextModelID = {
             if isExplicitCloudSelection {
-                return compatibleCloudModel(
-                    cloudAutoFallback
-                        ? primaryModel.resolvedModel(for: operatingMode)
-                        : primaryModel,
-                    for: operatingMode
-                )
+                let base: CloudTextModelID
+                if cloudAutoFallback,
+                   !(primaryModel.provider == .openAI && openAIUsesCodexAccountRuntime) {
+                    base = primaryModel.resolvedModel(for: operatingMode)
+                } else {
+                    base = primaryModel
+                }
+                return compatibleCloudModel(base, for: operatingMode)
             }
             return compatibleCloudModel(primaryModel, for: operatingMode)
         }()
