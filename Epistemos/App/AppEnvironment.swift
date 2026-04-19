@@ -41,6 +41,7 @@ extension View {
             .environment(bootstrap.iMessageDriver)
             .environment(bootstrap.agentCommandCenterState)
             .environment(bootstrap.agentChatState)
+            .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
     }
 }

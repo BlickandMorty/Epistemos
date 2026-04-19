@@ -91,9 +91,14 @@ struct RootView: View {
     }
 
     private var homeSurfaceRoute: HomeSurfaceRoute {
-        if accState.isPresented {
-            return .agent
-        }
+        // Fused chat (2026-04-18): accState.isPresented is no longer a
+        // legitimate signal — no user-facing path calls present() anymore,
+        // and keeping the branch active meant stale workspace restores or
+        // programmatic paths could still pop the deprecated Agent Chat
+        // view on launch. Always return .home; main chat auto-promotes
+        // to agent tier when intent + cloud support it. The .agent case
+        // on HomeSurfaceRoute is kept for type compat with existing
+        // call sites but is now unreachable.
         return .home
     }
 
