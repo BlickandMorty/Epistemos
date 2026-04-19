@@ -599,51 +599,98 @@ nonisolated struct InferencePolicyEngine {
             return nil
         }
 
-        // Gemma 4 family is excluded from automatic preferred orders until
-        // MLX-Swift-LM ships a config decoder that can actually load Gemma 4
-        // weights. The gemma4 registry alias (commit 850cc36d) gets past the
-        // model-type factory but Gemma 3n's required MatFormer fields fail
-        // to decode from Gemma 4's config.json, so any triage path that
-        // picks a Gemma 4 tier today surfaces the user-facing error
-        // "Unsupported model type: gemma4" — breaking e.g. a Bonsai request
-        // that inadvertently gets routed through a .fast/simpleAsk pathway
-        // where Gemma 4 E4B used to be the #1 preferred pick. A user who
-        // explicitly selects Gemma 4 in the picker still hits it (that's
-        // honest — they asked for it), but triage never silently chooses it.
+        // Stack refresh 2026-04-18 (see docs/MASTER_MODEL_STACK_PLAN.md).
+        // Preferred orders now prefer, in priority order:
+        //   - Qwen 3 Coder Next / 30B A3B for coding (Qwen 3 generation
+        //     with native tool-calling).
+        //   - DeepSeek R1 7B for reasoning (until OpenThinker3-7B is
+        //     converted to MLX 4-bit and lands next session).
+        //   - Hermes 4.3 36B for on-device agent/function-calling work.
+        //   - Qwen 3.6 35B A3B (Unsloth UD preferred, DWQ secondary) for
+        //     flagship generalist.
+        //   - Qwen 3 4B + Bonsai for fast/light work.
+        // Gemma 4 family remains excluded from every automatic order
+        // until the MLX-Swift Gemma 4 loader is ported from
+        // SharpAI/SwiftLM (tracked in MASTER_MODEL_STACK_PLAN §3a).
+        // Legacy mlx-community Qwen 3.6 4-bit and Qwen 2.5 Coder 7B
+        // stay as last-resort installed fallbacks so existing installs
+        // don't break.
         let preferredOrder: [LocalTextModelID]
         switch profile.operatingMode {
         case .agent:
             switch profile.intent {
             case .coding, .debugging:
-                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B]
+                preferredOrder = [
+                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+                    .hermes43_36B4Bit, .hermes43_36B3Bit,
+                    .qwen25Coder7B, .deepseekR1Distill7B,
+                ]
             default:
-                preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .qwen25Coder7B]
+                preferredOrder = [
+                    .hermes43_36B4Bit, .hermes43_36B3Bit,
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen3Coder30BA3B4Bit, .deepseekR1Distill7B,
+                ]
             }
         case .pro:
             switch profile.intent {
             case .coding, .debugging:
-                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B]
+                preferredOrder = [
+                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .deepseekR1Distill7B, .qwen25Coder7B,
+                ]
             default:
-                preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .qwen25Coder7B]
+                preferredOrder = [
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .deepseekR1Distill7B, .hermes43_36B4Bit,
+                    .qwen3_4B4Bit, .qwen25Coder7B,
+                ]
             }
         case .thinking:
             switch profile.intent {
             case .coding, .debugging:
-                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+                preferredOrder = [
+                    .deepseekR1Distill7B, .qwen3Coder30BA3B4Bit,
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen25Coder7B,
+                ]
             default:
-                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+                preferredOrder = [
+                    .deepseekR1Distill7B,
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen3_4B4Bit, .qwen25Coder7B,
+                ]
             }
         case .fast:
             switch profile.intent {
             case .coding, .debugging:
-                preferredOrder = [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B, .bonsai8B2Bit, .bonsai4B2Bit]
+                preferredOrder = [
+                    .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+                    .qwen25Coder7B, .deepseekR1Distill7B,
+                    .qwen3_4B4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
+                ]
             case .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
-                preferredOrder = [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B, .bonsai8B2Bit, .bonsai4B2Bit]
+                preferredOrder = [
+                    .deepseekR1Distill7B,
+                    .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen3_4B4Bit, .qwen3CoderNext4Bit,
+                    .bonsai8B2Bit, .bonsai4B2Bit,
+                ]
             case .rewrite, .summarize, .simpleAsk, .brainstorm:
                 if oversizedContext || heavyWork {
-                    preferredOrder = [.qwen36_35BA3B4Bit, .deepseekR1Distill7B, .bonsai8B2Bit, .bonsai4B2Bit, .qwen25Coder7B]
+                    preferredOrder = [
+                        .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                        .deepseekR1Distill7B, .qwen3_4B4Bit,
+                        .bonsai8B2Bit, .bonsai4B2Bit, .qwen25Coder7B,
+                    ]
                 } else {
-                    preferredOrder = [.bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B]
+                    preferredOrder = [
+                        .qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit,
+                        .deepseekR1Distill7B,
+                        .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                        .qwen25Coder7B,
+                    ]
                 }
             }
         }

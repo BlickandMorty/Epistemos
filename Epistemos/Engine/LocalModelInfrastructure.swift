@@ -37,6 +37,10 @@ nonisolated enum ModelCapabilityRole: String, Codable, Hashable, Sendable, CaseI
     case reasoningLocal = "reasoning_local"
     /// Code generation, debugging, and local tool-calling.
     case codingLocal = "coding_local"
+    /// Function-calling specialist — trained specifically for reliable
+    /// tool-use on device. Distinct from codingLocal (code-heavy) and
+    /// highEndLocal (generalist). Hermes 4.3 36B is the canonical fit.
+    case functionCallingLocal = "function_calling_local"
     /// High-memory local pro/agent model for roomier Macs.
     case highEndLocal = "high_end_local"
     /// Cloud model with agent / computer-use capability (liveAgent tier).
@@ -53,6 +57,7 @@ extension ModelCapabilityRole {
         case .fastLocal: "Fast Local"
         case .reasoningLocal: "Reasoning Local"
         case .codingLocal: "Coding Local"
+        case .functionCallingLocal: "Function-Calling Local"
         case .highEndLocal: "High-End Local"
         case .cloudAgent: "Cloud Agent"
         case .cloudReasoning: "Cloud Reasoning"
@@ -65,6 +70,7 @@ extension ModelCapabilityRole {
         case .fastLocal: "Quick everyday chat and routing."
         case .reasoningLocal: "Chain-of-thought, math, and logic."
         case .codingLocal: "Code generation, debugging, and tool use."
+        case .functionCallingLocal: "Reliable on-device tool use and agent loops."
         case .highEndLocal: "Large local model for roomier Macs."
         case .cloudAgent: "Cloud agent with computer-use and long tool runs."
         case .cloudReasoning: "Cloud reasoning and deep research."
@@ -343,7 +349,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.qwen36_35BA3B4Bit.displayName,
             familyName: LocalTextModelID.qwen36_35BA3B4Bit.familyName,
-            summary: "Optional flagship Qwen 3.6 MoE tier. Best reserved for high-memory Macs that want a stronger local agentic generalist than the baseline stack.",
+            summary: "Legacy plain 4-bit quantization of Qwen 3.6 35B A3B. Existing installs still resolve; new downloads prefer the Unsloth UD or DWQ variants below for better quality at the same size.",
             approximateDownloadBytes: 20_400_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B4Bit.minimumRecommendedMemoryGB,
             revision: "38740b847e4cb78f352aba30aa41c76e08e6eb46",
@@ -352,6 +358,114 @@ enum LocalModelCatalog {
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
             ],
             capabilityRole: .highEndLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.displayName,
+            familyName: LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.familyName,
+            summary: "Flagship local generalist. Unsloth's Dynamic 4-bit quantization preserves more quality than the plain community 4-bit at roughly the same download size. First-class pick for local .pro and .agent work.",
+            approximateDownloadBytes: 20_400_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .highEndLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen36_35BA3B_DWQ4Bit.displayName,
+            familyName: LocalTextModelID.qwen36_35BA3B_DWQ4Bit.familyName,
+            summary: "Alternative 4-bit Dynamic Weight Quantization of Qwen 3.6 35B A3B. Ships alongside the Unsloth UD variant so A/B comparisons on your own prompts are possible without downloading from outside the app.",
+            approximateDownloadBytes: 20_400_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B_DWQ4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .highEndLocal
+        ),
+        // MARK: - Qwen 3 Family (tool-calling native, official MLX)
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen3_4B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen3_4B4Bit.displayName,
+            familyName: LocalTextModelID.qwen3_4B4Bit.familyName,
+            summary: "Fast local default with native tool-calling. Official Qwen MLX build — the clean non-Gemma-4 replacement for the fast tier. Routing, quick chat, and light agentic work all ride this model.",
+            approximateDownloadBytes: 2_400_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen3_4B4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .fastLocal
+        ),
+        // MARK: - Qwen 3 Coder (tool-calling code specialists)
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen3CoderNext4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen3CoderNext4Bit.displayName,
+            familyName: LocalTextModelID.qwen3CoderNext4Bit.familyName,
+            summary: "Qwen 3 generation coder sized for everyday development. Native tool-calling makes it the first choice for code + vault write workflows without needing the flagship 30B MoE.",
+            approximateDownloadBytes: 5_500_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen3CoderNext4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .codingLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen3Coder30BA3B4Bit.displayName,
+            familyName: LocalTextModelID.qwen3Coder30BA3B4Bit.familyName,
+            summary: "Flagship local coder. Qwen 3 Coder 30B A3B is a Mixture-of-Experts model with strong repository-scale code generation and debugging. Preferred for .pro and .agent coding turns on roomier Macs.",
+            approximateDownloadBytes: 17_500_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen3Coder30BA3B4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .codingLocal
+        ),
+        // MARK: - Hermes 4.3 (function-calling specialist, ByteDance Seed 36B base)
+        LocalModelDescriptor(
+            id: LocalTextModelID.hermes43_36B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.hermes43_36B4Bit.displayName,
+            familyName: LocalTextModelID.hermes43_36B4Bit.familyName,
+            summary: "On-device agent specialist. NousResearch Hermes 4.3 36B is built for reliable function calling with dedicated tool-call tokens and a verified reasoning-trace training set. When you want an agent loop without leaving the device, this is it.",
+            approximateDownloadBytes: 21_500_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.hermes43_36B4Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .functionCallingLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.hermes43_36B3Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.hermes43_36B3Bit.displayName,
+            familyName: LocalTextModelID.hermes43_36B3Bit.familyName,
+            summary: "3-bit Hermes 4.3 for Macs that can't hold the 4-bit 36B in memory. Same function-calling training, tighter quality budget.",
+            approximateDownloadBytes: 15_500_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.hermes43_36B3Bit.minimumRecommendedMemoryGB,
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .functionCallingLocal
         ),
         // MARK: - Gemma 4 Family (2026 frontier, multimodal)
         LocalModelDescriptor(
@@ -717,17 +831,44 @@ enum LocalModelCatalog {
         return roleMatches.first
     }
 
+    /// Curated baseline — the three models that define the shipping
+    /// experience. Fast tier, reasoning tier, coding tier. Every user
+    /// gets these on first run; everything else is optional.
     nonisolated static let curatedBaselineModelIDs: [String] = [
-        LocalTextModelID.gemma4_4B4Bit.rawValue,
+        // Fast local with native tool-calling (Qwen 3 4B official).
+        LocalTextModelID.qwen3_4B4Bit.rawValue,
+        // Reasoning local (DeepSeek R1 7B; OpenThinker3-7B lands next
+        // session once converted to MLX 4-bit).
         LocalTextModelID.deepseekR1Distill7B.rawValue,
-        LocalTextModelID.qwen25Coder7B.rawValue,
+        // Coding local (Qwen 3 Coder Next; the 30B A3B flagship is
+        // optional because it needs 24GB).
+        LocalTextModelID.qwen3CoderNext4Bit.rawValue,
     ]
 
+    /// Optional baseline — models the user may want but that require
+    /// more memory or are specialists. Offered during onboarding but
+    /// not auto-installed.
     nonisolated static let optionalBaselineModelIDs: [String] = [
+        // Ultra-light fallbacks for constrained Macs.
         LocalTextModelID.bonsai4B2Bit.rawValue,
         LocalTextModelID.bonsai8B2Bit.rawValue,
-        LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
+        // Flagship coder (30B A3B MoE — 24GB class).
+        LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
+        // Function-calling specialist (Hermes 4.3 36B — both quants).
+        LocalTextModelID.hermes43_36B4Bit.rawValue,
+        LocalTextModelID.hermes43_36B3Bit.rawValue,
+        // Flagship generalist — Qwen 3.6 35B A3B, two upgraded quants
+        // so users can A/B compare Unsloth UD vs DWQ.
+        LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
+        LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
+        // Legacy Qwen 3.6 plain 4-bit (kept for existing installs).
         LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
+        // Legacy Qwen 2.5 Coder 7B (16GB fallback).
+        LocalTextModelID.qwen25Coder7B.rawValue,
+        // Gemma 4 family — preview-gated until a Swift MLX loader
+        // lands. Kept installable so weights download cleanly.
+        LocalTextModelID.gemma4_4B4Bit.rawValue,
+        LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
     ]
 
     nonisolated static let shippedModelIDs: [String] =
