@@ -22,6 +22,11 @@ struct LocalModelInfrastructureTests {
         let unpinnedExemptions: Set<String> = [
             LocalTextModelID.hermes43_36B4Bit.rawValue,
             LocalTextModelID.hermes43_36B3Bit.rawValue,
+            // QwQ-32B was added 2026-04-19 from docs/MASTER_MODEL_STACK_PLAN.md §3.c.
+            // `mlx-community/QwQ-32B-4bit` on HF exists but the commit SHA
+            // wasn't captured at add time; `scripts/pin_catalog_revisions.sh`
+            // will pin it on the next automated sweep.
+            LocalTextModelID.qwqFlagship32B4Bit.rawValue,
         ]
 
         let descriptors = LocalModelCatalog.allDescriptors
@@ -112,6 +117,7 @@ struct LocalModelInfrastructureTests {
             LocalTextModelID.hermes43_36B3Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
+            LocalTextModelID.qwqFlagship32B4Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
             LocalTextModelID.qwen25Coder7B.rawValue,
             LocalTextModelID.gemma4_4B4Bit.rawValue,
@@ -629,6 +635,7 @@ struct LocalModelInfrastructureTests {
                 LocalTextModelID.hermes43_36B3Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
+                LocalTextModelID.qwqFlagship32B4Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
                 LocalTextModelID.qwen25Coder7B.rawValue,
                 LocalTextModelID.gemma4_4B4Bit.rawValue,

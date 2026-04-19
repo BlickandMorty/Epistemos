@@ -543,6 +543,23 @@ enum LocalModelCatalog {
             capabilityRole: .reasoningLocal
         ),
         LocalModelDescriptor(
+            id: LocalTextModelID.qwqFlagship32B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwqFlagship32B4Bit.displayName,
+            familyName: LocalTextModelID.qwqFlagship32B4Bit.familyName,
+            summary: "QwQ 32B — Qwen team's flagship on-device reasoner (comparable to DeepSeek R1 at 32B). Reuses the Qwen MLX arch; no new loader required. 24 GB memory class.",
+            approximateDownloadBytes: 19_200_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwqFlagship32B4Bit.minimumRecommendedMemoryGB,
+            // Pinned revision — update with scripts/pin_catalog_revisions.sh
+            // when a new QwQ build lands on mlx-community.
+            revision: "main",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .reasoningLocal
+        ),
+        LocalModelDescriptor(
             id: LocalTextModelID.qwen25Coder7B.rawValue,
             kind: .text,
             displayName: LocalTextModelID.qwen25Coder7B.displayName,
@@ -861,6 +878,8 @@ enum LocalModelCatalog {
         // so users can A/B compare Unsloth UD vs DWQ.
         LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
         LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
+        // Flagship reasoner — QwQ 32B, 24GB class.
+        LocalTextModelID.qwqFlagship32B4Bit.rawValue,
         // Legacy Qwen 3.6 plain 4-bit (kept for existing installs).
         LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
         // Legacy Qwen 2.5 Coder 7B (16GB fallback).
