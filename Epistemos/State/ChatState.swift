@@ -231,11 +231,37 @@ final class ChatState {
     /// Titles of notes loaded via @-mentions (for UI chips on messages).
     var loadedNoteTitles: [String] = []
 
-    /// Exact context envelope assembled for the latest main-chat turn.
-    /// Powers the transparency side panel so the user can inspect the
-    /// notes, ambient context, history, and execution plan that were
-    /// actually injected before dispatch.
-    var latestBrainSnapshot: ChatBrainSnapshot?
+    /// Per-chat history of context envelopes, keyed by `activeChatId`.
+    /// Every completed turn appends its snapshot so the side panel can
+    /// show both the most-recent pack AND the cumulative set of notes,
+    /// attachments, and routes the user has seen on this thread.
+    /// Persists across chat switches — switching back restores the
+    /// full history instead of starting over. Capped per chat to
+    /// `maxBrainSnapshotsPerChat` so long sessions don't grow unbounded.
+    private(set) var brainSnapshotsByChat: [String: [ChatBrainSnapshot]] = [:]
+
+    /// Convenience: the latest snapshot for the currently-active chat,
+    /// or nil if the chat hasn't captured one yet. Replaces the old
+    /// single-snapshot property while preserving the same callsite
+    /// shape the UI uses today.
+    var latestBrainSnapshot: ChatBrainSnapshot? {
+        guard let chatId = activeChatId else { return nil }
+        return brainSnapshotsByChat[chatId]?.last
+    }
+
+    /// Full history of context envelopes for the currently-active chat,
+    /// oldest → newest. Powers the "accumulate honestly" view of the
+    /// transparency panel where the user can scroll through every
+    /// turn's context pack.
+    var brainSnapshotHistoryForActiveChat: [ChatBrainSnapshot] {
+        guard let chatId = activeChatId else { return [] }
+        return brainSnapshotsByChat[chatId] ?? []
+    }
+
+    /// Max snapshots kept per chat. Chosen so 50 turns of Pro-mode
+    /// context stays inspectable without ballooning memory on a user
+    /// who leaves a thread open for a week.
+    private static let maxBrainSnapshotsPerChat = 50
 
     /// Transient flag — true when the current streaming response is a vault briefing.
     /// Set by AppBootstrap, read by finalizeStreaming to stamp the ChatMessage.
@@ -301,7 +327,11 @@ final class ChatState {
         loadedNoteIds = []
         loadedNoteTitles = []
         pendingContextAttachments = []
-        latestBrainSnapshot = nil
+        // startNewChat nils the activeChatId and lets the next
+        // submitQuery assign a fresh one. The brain-snapshot dict is
+        // keyed by chatId so any old chat's history stays put; when
+        // the new chatId is created it simply starts with an empty
+        // history. No need to mutate the dictionary here.
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
@@ -752,15 +782,34 @@ final class ChatState {
     }
 
     func captureBrainSnapshot(_ snapshot: ChatBrainSnapshot) {
-        latestBrainSnapshot = snapshot
+        guard let chatId = activeChatId else { return }
+        var history = brainSnapshotsByChat[chatId] ?? []
+        history.append(snapshot)
+        if history.count > Self.maxBrainSnapshotsPerChat {
+            history.removeFirst(history.count - Self.maxBrainSnapshotsPerChat)
+        }
+        brainSnapshotsByChat[chatId] = history
     }
 
     func updateBrainSnapshotSection(
         _ section: ChatBrainSection,
         matchingCapturedAt capturedAt: Date
     ) {
-        guard let snapshot = latestBrainSnapshot, snapshot.capturedAt == capturedAt else { return }
-        latestBrainSnapshot = snapshot.updatingSection(section)
+        guard let chatId = activeChatId,
+              var history = brainSnapshotsByChat[chatId],
+              let index = history.lastIndex(where: { $0.capturedAt == capturedAt }) else {
+            return
+        }
+        history[index] = history[index].updatingSection(section)
+        brainSnapshotsByChat[chatId] = history
+    }
+
+    /// Clear the snapshot history for a given chat. Called when the
+    /// chat is deleted OR when the user explicitly resets it; switching
+    /// chats MUST NOT trigger this (the whole point of the per-chat
+    /// dictionary is persistence across switches).
+    func clearBrainSnapshotHistory(for chatId: String) {
+        brainSnapshotsByChat[chatId] = nil
     }
 
     // MARK: - Load / Clear
@@ -772,7 +821,10 @@ final class ChatState {
         showLanding = msgs.isEmpty
         pendingAttachments = []
         restoreConversationContext(from: msgs)
-        latestBrainSnapshot = nil
+        // Brain-snapshot history is keyed by chatId and persisted
+        // across chat switches. Do NOT nil it here — that was the old
+        // behavior the user explicitly asked to change so the Context
+        // panel stays populated when they come back to a thread.
         pendingContentBlocks = []
         activeToolName = nil
         activeToolInputJson = nil
@@ -794,7 +846,10 @@ final class ChatState {
         pendingContextAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
-        latestBrainSnapshot = nil
+        // Explicit user action to clear this chat → discard the
+        // matching brain-snapshot history. Other chats' snapshots are
+        // untouched because the dictionary is keyed by chatId.
+        if let chatId { clearBrainSnapshotHistory(for: chatId) }
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
