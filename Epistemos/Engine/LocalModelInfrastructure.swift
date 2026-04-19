@@ -487,30 +487,28 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.gemma4_4B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_4B4Bit.familyName,
-            summary: "Recommended fast local default. Gemma 4 E4B keeps everyday chat quick, grounded, and lightweight enough for the baseline install stack.",
+            summary: "Gemma 4 E4B preview weights. Keep available for loader bring-up work, but not recommended for the shipping interactive stack until the Swift runtime loader lands.",
             approximateDownloadBytes: 3_010_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_4B4Bit.minimumRecommendedMemoryGB,
             revision: "62b0e4e2d06c2f3baeeb0f8b7b18d7308c7786fc",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ],
-            capabilityRole: .fastLocal
+            ]
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
             kind: .text,
             displayName: LocalTextModelID.gemma4_27BA4B4Bit.displayName,
             familyName: LocalTextModelID.gemma4_27BA4B4Bit.familyName,
-            summary: "Optional high-end local pro tier. Gemma 4 26B A4B gives you a stronger multimodal local brain without turning the default stack into bloat.",
+            summary: "Gemma 4 26B preview weights. Keep available for loader bring-up work, but do not surface as a recommended local pro tier until the Swift runtime loader lands.",
             approximateDownloadBytes: 19_327_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.gemma4_27BA4B4Bit.minimumRecommendedMemoryGB,
             revision: "695690b33533b1f8b0395c1d6b4f00dc411353ef",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ],
-            capabilityRole: .highEndLocal
+            ]
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.gemma4_31BJANG.rawValue,
@@ -884,10 +882,6 @@ enum LocalModelCatalog {
         LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
         // Legacy Qwen 2.5 Coder 7B (16GB fallback).
         LocalTextModelID.qwen25Coder7B.rawValue,
-        // Gemma 4 family — preview-gated until a Swift MLX loader
-        // lands. Kept installable so weights download cleanly.
-        LocalTextModelID.gemma4_4B4Bit.rawValue,
-        LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
     ]
 
     nonisolated static let shippedModelIDs: [String] =
