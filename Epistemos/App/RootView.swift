@@ -617,18 +617,13 @@ struct LocalModelToolbarMenu: View {
                     )
                 }
 
-                VStack(alignment: .leading, spacing: 8) {
-                    popoverSectionTitle("Routing")
-                    selectionRow(
-                        title: "Auto-route Local -> Cloud",
-                        subtitle: automaticRouteSummary,
-                        systemImage: "arrow.triangle.branch",
-                        isSelected: inference.chatAutoRouteToCloud,
-                        isEnabled: true
-                    ) {
-                        inference.setChatAutoRouteToCloud(!inference.chatAutoRouteToCloud)
-                    }
-                }
+                // Routing section removed in the picker simplification
+                // pass — the ChatCapabilityPill + Overseer panel now
+                // surface routing state, and auto-route behavior is
+                // handled automatically by MainChatSubmissionRouter's
+                // autoPromotedMode. Having a toggle here duplicated that
+                // logic and confused users. Cloud provider preference is
+                // now edited in Settings → Inference.
 
                 VStack(alignment: .leading, spacing: 8) {
                     popoverSectionTitle("Models")
@@ -715,123 +710,17 @@ struct LocalModelToolbarMenu: View {
                         }
                     )
 
-                    DisclosureGroup(
-                        isExpanded: $showsCloudModels,
-                        content: {
-                            VStack(alignment: .leading, spacing: 10) {
-                                if let provider = inference.activeCloudProvider {
-                                    let providerConfigured = inference.configuredCloudProviders.contains(provider)
-
-                                    if !providerConfigured {
-                                        CloudProviderSetupCard(
-                                            provider: provider,
-                                            compact: true,
-                                            showsOpenSettings: false,
-                                            showsDismissTip: inference.shouldShowCloudSetupHint
-                                        )
-                                    }
-
-                                    DisclosureGroup(
-                                        isExpanded: $showsCloudProviderOptions,
-                                        content: {
-                                            cloudProviderSelectionRows
-                                        },
-                                        label: {
-                                            disclosureTitle(
-                                                title: "Provider",
-                                                subtitle: cloudProviderDisclosureSubtitle
-                                            )
-                                        }
-                                    )
-
-                                    DisclosureGroup(
-                                        isExpanded: $showsActiveCloudModelOptions,
-                                        content: {
-                                            VStack(alignment: .leading, spacing: 6) {
-                                                if providerConfigured {
-                                                    ForEach(CloudTextModelID.models(for: provider), id: \.rawValue) { model in
-                                                        HStack(spacing: 0) {
-                                                            selectionRow(
-                                                                title: model.compactDisplayName,
-                                                                subtitle: cloudModelSubtitle(for: model),
-                                                                systemImage: provider.systemImage,
-                                                                isSelected: selectedMenuItem == .cloud(model),
-                                                                isEnabled: providerConfigured
-                                                            ) {
-                                                                inference.setPreferredChatModelSelection(.cloud(model))
-                                                                isPresented = false
-                                                            }
-
-                                                            Button {
-                                                                aboutSelection = .cloud(model)
-                                                            } label: {
-                                                                Image(systemName: "info.circle")
-                                                                    .font(.system(size: 11))
-                                                                    .foregroundStyle(.secondary)
-                                                                    .frame(width: 24, height: 24)
-                                                            }
-                                                            .buttonStyle(.plain)
-                                                            .help("Model details")
-                                                        }
-                                                    }
-                                                } else {
-                                                    Text(
-                                                        provider.supportsAccountConnection
-                                                            ? "Finish account setup first. If you prefer the manual path, expand Legacy API Key above."
-                                                            : "Finish API key setup first. Open the provider portal, create a key, then use Paste + Save."
-                                                    )
-                                                        .font(.system(size: 10.5))
-                                                        .foregroundStyle(theme.textTertiary)
-                                                        .padding(.leading, 4)
-                                                        .padding(.top, 2)
-                                                }
-                                            }
-                                        },
-                                        label: {
-                                            disclosureTitle(
-                                                title: "Models",
-                                                subtitle: providerConfigured
-                                                    ? provider.modelSummary
-                                                    : "Finish setup to unlock"
-                                            )
-                                        }
-                                    )
-                                } else {
-                                    Text("Local Only is active. Switch the AI Provider to browse cloud models here.")
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(theme.textTertiary)
-                                        .padding(.leading, 4)
-
-                                    DisclosureGroup(
-                                        isExpanded: $showsCloudProviderOptions,
-                                        content: {
-                                            cloudProviderSelectionRows
-                                        },
-                                        label: {
-                                            disclosureTitle(
-                                                title: "Provider",
-                                                subtitle: cloudProviderDisclosureSubtitle
-                                            )
-                                        }
-                                    )
-                                }
-
-                                Button("Open Inference Settings") {
-                                    openSettings()
-                                }
-                                .buttonStyle(.borderless)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(theme.resolved.accent.color)
-                                .padding(.leading, 4)
-                            }
-                        },
-                        label: {
-                            disclosureTitle(
-                                title: "Cloud Access",
-                                subtitle: cloudAccessSubtitle
-                            )
-                        }
-                    )
+                    // Cloud section — drastically simplified. Picker shows
+                    // ONE cloud row (the user's preferred cloud model),
+                    // never the full multi-provider + multi-model catalog.
+                    // To change which cloud model is preferred, users go
+                    // to Settings → Inference. Two things only here:
+                    //   1. A single selectable row for the preferred cloud
+                    //      model (tap to switch the next turn to cloud)
+                    //   2. A "Change in Settings" link
+                    // If no cloud provider is configured, show a compact
+                    // hint linking to setup.
+                    pickerCloudSection
                 }
 
                 if let isTemporaryChatEnabled {
@@ -1000,6 +889,45 @@ struct LocalModelToolbarMenu: View {
             ? "Ready"
             : "Finish setup"
         return "\(provider.displayName) • \(configuration)"
+    }
+
+    /// Single cloud row rendered in the picker. If a cloud provider is
+    /// configured, shows exactly one tappable entry (the user's preferred
+    /// cloud model for that provider) plus a link to change it in
+    /// Settings. If nothing is configured yet, a compact "set up a cloud
+    /// provider in Settings" note takes its place.
+    @ViewBuilder
+    private var pickerCloudSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            popoverSectionTitle("Cloud")
+
+            if let provider = inference.activeCloudProvider,
+               inference.configuredCloudProviders.contains(provider) {
+                let model = inference.preferredCloudModel(for: provider)
+                selectionRow(
+                    title: model.compactDisplayName,
+                    subtitle: "\(provider.displayName) • Change in Settings → Inference",
+                    systemImage: provider.systemImage,
+                    isSelected: selectedMenuItem == .cloud(model)
+                ) {
+                    inference.setPreferredChatModelSelection(.cloud(model))
+                    isPresented = false
+                }
+            } else {
+                Text("Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.leading, 4)
+            }
+
+            Button("Change cloud model in Settings") {
+                openSettings()
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(theme.resolved.accent.color)
+            .padding(.leading, 4)
+        }
     }
 
     private var cloudAccessSubtitle: String {

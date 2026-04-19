@@ -2893,6 +2893,13 @@ final class InferenceState {
         return normalizedPreferredCloudModel(provider.defaultChatModel)
     }
 
+    /// Public read of the user's preferred cloud model for a given
+    /// provider. Used by the simplified chat model picker to surface a
+    /// single cloud row without exposing every CloudTextModelID.
+    func preferredCloudModel(for provider: CloudModelProvider) -> CloudTextModelID {
+        loadPreferredCloudModel(for: provider)
+    }
+
     private func persistPreferredCloudModel(
         _ model: CloudTextModelID,
         defaults: UserDefaults = .standard
