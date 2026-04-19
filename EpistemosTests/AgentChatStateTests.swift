@@ -152,6 +152,54 @@ struct AgentChatStateTests {
         #expect(state.latestBrainSnapshot == nil)
     }
 
+    @Test func mainChatBrainSnapshotUpdatesSectionsForMatchingTurnOnly() {
+        let state = ChatState()
+        let capturedAt = Date(timeIntervalSince1970: 42)
+        state.captureBrainSnapshot(
+            ChatBrainSnapshot(
+                capturedAt: capturedAt,
+                query: "Review this thread",
+                resolvedQuery: "Current request:\nReview this thread",
+                operatingMode: .agent,
+                routeLabel: "Managed agent session",
+                routeSummary: "Managed agent session",
+                providerLabel: "OpenAI",
+                modelLabel: "GPT-5",
+                allowedToolNames: ["web_search"],
+                loadedNoteTitles: ["Graph Notes"],
+                contextAttachments: [],
+                sections: [
+                    ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits"),
+                ]
+            )
+        )
+
+        state.updateBrainSnapshotSection(
+            ChatBrainSection(title: "Session Wake-Up Context", body: "<session-context>"),
+            matchingCapturedAt: capturedAt
+        )
+        state.updateBrainSnapshotSection(
+            ChatBrainSection(title: "Session Wake-Up Context", body: "updated"),
+            matchingCapturedAt: capturedAt
+        )
+        state.updateBrainSnapshotSection(
+            ChatBrainSection(title: "Should Not Apply", body: "stale"),
+            matchingCapturedAt: Date(timeIntervalSince1970: 43)
+        )
+
+        #expect(state.latestBrainSnapshot?.sections.count == 2)
+        #expect(
+            state.latestBrainSnapshot?.sections.contains(
+                ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits")
+            ) == true
+        )
+        #expect(
+            state.latestBrainSnapshot?.sections.contains(
+                ChatBrainSection(title: "Session Wake-Up Context", body: "updated")
+            ) == true
+        )
+    }
+
     // MARK: - Error Message
 
     @Test func addErrorMessage() {

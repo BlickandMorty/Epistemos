@@ -1170,22 +1170,21 @@ final class ChatCoordinator {
                 }
 
                 let effectiveOperatingMode = executionPlan?.localOperatingMode ?? operatingMode
-                chatState.captureBrainSnapshot(
-                    buildMainChatBrainSnapshot(
-                        originalQuery: query,
-                        resolvedQuery: effectiveQuery,
-                        operatingMode: effectiveOperatingMode,
-                        executionPlan: executionPlan,
-                        contextAttachments: chatState.pendingContextAttachments,
-                        loadedNoteTitles: chatState.loadedNoteTitles,
-                        requiredContextContract: requiredContextContract,
-                        vaultBriefingContext: vaultBriefingContext,
-                        notesContext: notesContext,
-                        fileAttachmentContext: fileAttachmentContext,
-                        workspaceContextSection: workspaceContextSection,
-                        conversationHistory: conversationHistory
-                    )
+                let brainSnapshot = buildMainChatBrainSnapshot(
+                    originalQuery: query,
+                    resolvedQuery: effectiveQuery,
+                    operatingMode: effectiveOperatingMode,
+                    executionPlan: executionPlan,
+                    contextAttachments: chatState.pendingContextAttachments,
+                    loadedNoteTitles: chatState.loadedNoteTitles,
+                    requiredContextContract: requiredContextContract,
+                    vaultBriefingContext: vaultBriefingContext,
+                    notesContext: notesContext,
+                    fileAttachmentContext: fileAttachmentContext,
+                    workspaceContextSection: workspaceContextSection,
+                    conversationHistory: conversationHistory
                 )
+                chatState.captureBrainSnapshot(brainSnapshot)
 
                 // Route: managed-agent sessions escalate to Rust agent_core,
                 // while local-only and overseer-local plans stay on the Swift
@@ -1204,7 +1203,8 @@ final class ChatCoordinator {
                                 originalQuery: query,
                                 hasVault: hasVault,
                                 pendingAssistantId: pendingAssistantId,
-                                executionPlan: executionPlan
+                                executionPlan: executionPlan,
+                                brainSnapshotCapturedAt: brainSnapshot.capturedAt
                             )
                             usedRustAgent = true
                         } catch {
@@ -1328,7 +1328,8 @@ final class ChatCoordinator {
         originalQuery: String,
         hasVault: Bool,
         pendingAssistantId: String,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan
+        executionPlan: OverseerComplexityRouter.ExecutionPlan,
+        brainSnapshotCapturedAt: Date?
     ) async throws {
         let sessionId = UUID().uuidString
         let parentSessionID = AgentSessionLineageStore.shared.parentSessionID(forChatThread: chatId)
@@ -1353,6 +1354,13 @@ final class ChatCoordinator {
         let providerName = resolveRustProviderName()
 
         let vaultPath = bootstrap.vaultSync.vaultURL?.path ?? ""
+        if let brainSnapshotCapturedAt {
+            refreshManagedAgentBrainPreview(
+                objective: objective,
+                vaultPath: vaultPath,
+                capturedAt: brainSnapshotCapturedAt
+            )
+        }
         let toolConfig = ToolConfig(
             vaultPath: vaultPath,
             enableBash: true,
@@ -1589,6 +1597,37 @@ final class ChatCoordinator {
         case .minimax:    return "minimax"
         case .deepseek:   return "deepseek"
         case .localOnly:  return "ollama"
+        }
+    }
+
+    private func refreshManagedAgentBrainPreview(
+        objective: String,
+        vaultPath: String,
+        capturedAt: Date
+    ) {
+        guard !vaultPath.isEmpty else { return }
+        let maxTokens = UInt32(clamping: max(1024, chatState.maxContextTokens))
+        Task {
+            let sectionTitle = "Session Wake-Up Context"
+            do {
+                let preview = try await previewSessionContext(
+                    vaultPath: vaultPath,
+                    objective: objective,
+                    maxTokens: maxTokens
+                )
+                chatState.updateBrainSnapshotSection(
+                    ChatBrainSection(title: sectionTitle, body: preview),
+                    matchingCapturedAt: capturedAt
+                )
+            } catch {
+                chatState.updateBrainSnapshotSection(
+                    ChatBrainSection(
+                        title: sectionTitle,
+                        body: "Unavailable: \(error.localizedDescription)"
+                    ),
+                    matchingCapturedAt: capturedAt
+                )
+            }
         }
     }
 
