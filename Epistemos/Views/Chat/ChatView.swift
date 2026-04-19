@@ -429,6 +429,8 @@ struct ChatView: View {
 private struct StreamingIndicator: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
+    @Environment(PipelineState.self) private var pipeline
+    @Environment(InferenceState.self) private var inference
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -486,6 +488,14 @@ private struct StreamingIndicator: View {
             } else if !chat.isStreaming, !finalStreamingText.isEmpty {
                 TaggedMarkdownTextView(content: finalStreamingText, theme: theme)
                     .frame(maxWidth: .infinity, alignment: .leading)
+            } else if pipeline.isProcessing && !chat.isStreaming && !chat.isAgentExecuting {
+                HStack(spacing: Spacing.sm) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Loading \(inference.activeChatModelDisplayName)…")
+                        .font(.custom("Anthropic Sans", size: 13))
+                        .foregroundStyle(theme.textSecondary)
+                }
             } else {
                 AssistantTypingIndicatorDots(
                     theme: theme,
