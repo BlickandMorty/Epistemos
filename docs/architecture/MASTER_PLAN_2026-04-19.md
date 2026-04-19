@@ -331,3 +331,93 @@ This becomes **Batch FF (expanded)** — originally TodoWrite checklist + contex
 
 Each batch stays on the same cadence: small commits, each tested, no mixing.
 
+---
+
+## 15 · April 20 2026 delta — landing, reasoning, transparency, parity
+
+Second arc of work after the sprint reboot. Driven by the user's
+focused testing of the app end-to-end: landing polish, reasoning
+routing bugs discovered while testing DeepSeek, and a full pass at
+the FF transparency surfaces + start of II parity gap fills.
+
+### 15A · Shipped
+
+#### Style priority (user-requested)
+
+| SHA | What |
+|-----|------|
+| [d64aa88f](commits/d64aa88f) | Revert near-OLED notes theme — sidebar + note window back to `.clear` over native material |
+| [627bbfb9](commits/627bbfb9) | Landing intro: OLED+bottom-blur holds 0.55s then cross-fades over 0.9s into the dynamic native backdrop. Process-scoped flag so it only plays on cold launch |
+
+#### Reasoning routing (Rust + Swift)
+
+| SHA | What |
+|-----|------|
+| [e710d993](commits/e710d993) | agent_core OpenAI provider: `response.reasoning_summary_text.delta` + `response.reasoning_text.delta` (Codex Responses) and `delta.reasoning_content` (chat-completions / DeepSeek / Together / Groq / Novita) now yield `StreamEvent::ThinkingDelta` instead of being silently dropped |
+| [13612bee](commits/13612bee) | Gemini parser drops `parts[*].thought == true` from the visible-text stream; added `googleReasoningDelta` helper as the parallel reasoning source |
+| [bb38e6d0](commits/bb38e6d0) | **The fix for the "thinking types in chat then disappears" bug the user reported.** New `ThinkTagStreamRouter` walks each text delta, classifies inline `<think>…</think>` segments into a reasoning channel, handles tag boundaries across chunks, resets per turn. `ChatState.appendStreamingText` now dispatches visible→main stream, thinking→popover. `ChatMessage.thinkingTrace` + `thinkingDurationSeconds` persist per message so reasoning is always click-accessible after completion |
+| [6df2e788](commits/6df2e788) | `ThinkingTrailView` header renders "Thought for Ns" from the persisted duration |
+
+#### Transparency surfaces (Batch FF, all 4 slices)
+
+| SHA | What |
+|-----|------|
+| [1f0401d0](commits/1f0401d0) | `ToolActivityNarrator` turns tool_name + inputJson into readable phrases ("Searching the web for 'X'", "Reading filename", "Editing file.txt", "Running 'npm test'"). Quoted args truncate at 48 chars. `activeToolInputJson` captured on both ChatState + AgentChatState so the narrator has data to render |
+| [7c2943d8](commits/7c2943d8) | Compact context-usage badge in the composer control row ("2.3K · 18%") with color thresholds matching the thin bar. `addAttachment`/`addContextAttachment` now call `recalculateContextEstimate()` so the meter budges live on attach |
+| [f6a957eb](commits/f6a957eb) | `ToolExecutionPreviewCard` auto-expands while actively running; user manual toggle is sticky so historical cards stay collapsed |
+| [95039107](commits/95039107) | Sticky plan card driven by the Rust `todo_write` tool: `TodoSnapshot` model types mirror the Rust schema, `ChatState.currentTodos` populated on tool-use dispatch, `TodoSnapshotCard` renders a collapsible checklist with per-status icons + in-progress item highlighted in the header |
+
+#### Capability manifest + parity (Batch II)
+
+| SHA | What |
+|-----|------|
+| [5f6fb20a](commits/5f6fb20a) | `CapabilityManifestBuilder` — markdown narrative (identity · vault · enabled tools · unavailable tools · skills · prefs · how-to-act with user overrides from `Capabilities.md.user`). Persists to `~/Library/Application Support/Epistemos/runtime/Capabilities.md` via `persist(_:)` |
+| [147f17e1](commits/147f17e1) | Anthropic hosted web search: `InferenceState.anthropicWebSearchEnabled` + setter, `LLMService.anthropicWebSearchTool` emits the `web_search_20250305` spec, `applyAnthropicAuthorization` composes `anthropic-beta` header conditionally on the flag (both direct-API-key and OAuth branches), Settings → Anthropic Runtime Controls toggle |
+
+#### Stream reliability + visibility
+
+| SHA | What |
+|-----|------|
+| [681d84ec](commits/681d84ec) | SSE 120s idle watchdog: any stream that goes silent past the window aborts with a clear 504-style error instead of leaving the chat bubble stuck on "Thinking…" forever. Per-turn cloud route log at `.notice` level: `provider=X model=Y mode=Z reasoning=W` so Console.app confirms the wire-level identity |
+
+### 15B · User-reported bugs discovered this arc
+
+1. **DeepSeek reasoning leaked as main chat text** — fixed by the `<think>` tag router (bb38e6d0) + persisted trace (bb38e6d0, 6df2e788).
+2. **ChatGPT stream froze mid-reasoning with no recovery** — fixed by the SSE idle watchdog (681d84ec).
+3. **"Not sure if it's actually using ChatGPT"** — fixed by the per-turn cloud route log (681d84ec).
+4. **DeepSeek appears to call tool functions unexpectedly** — pending. Hypothesis: user was in Pro or Agent mode where tools are legitimately enabled, and the newly-expanded tool cards (f6a957eb) surface calls that were already happening. Need a repro with the route log visible to confirm.
+
+### 15C · Still open from the parity matrix (§13B)
+
+Ordered by impact per the original research pack.
+
+| # | Gap | Status |
+|---|-----|--------|
+| 1 | Live tool-status narration | ✅ 1f0401d0 |
+| 2 | Anthropic / Google hosted web search | ✅ Anthropic: 147f17e1. Google: already wired via `googleGroundingEnabled` |
+| 3 | Web fetch / single-URL grounding | Open — Anthropic `web_fetch` beta + OpenAI `web_search` URL mode |
+| 4 | Code interpreter | Open — re-add OpenAI `code_interpreter` (regression) + Anthropic `code_execution_20250825` beta |
+| 5 | Image generation surface | Open — MLXImageGenerationService exists, needs `/image` slash command + result card |
+| 6 | Audio input (transcription) | Open — mic button → Whisper / Gemini transcription |
+| 7 | Native PDF upload to providers | Open — switch from text-extract to provider native PDF blocks |
+| 8 | Structured output / JSON schema | Open — toggle in Pro/Agent mode |
+| 9 | Batch processing queue | Open — 50% cost savings for bulk vault ops |
+| 10 | Prompt-cache hit indicator | Open — badge on assistant message showing cache hit % |
+
+### 15D · Tracked follow-ups
+
+- **Direct-cloud reasoning popover (typed-chunk plumbing)** — deferred from Batch EE. Rust-agent paths (Agent, Pro+Cloud via HH) already route reasoning to the popover correctly. Direct-cloud Thinking mode (LLMService's streamSSE) still silently drops reasoning — not a visible leak, but the popover stays empty. Follow-up: `AsyncThrowingStream<LLMStreamChunk, Error>` where `LLMStreamChunk` is `.text | .reasoning`. Touches URLSessionTransportSupport + 4 provider streams + triageService + PipelineService + ChatCoordinator.
+- **Capability manifest → system-prompt injection** — builder exists + persists, needs wiring into all 4 provider system-prompt builders (Anthropic/OpenAI/Google/OpenAI-compatible) with `cache_control: ephemeral` on the stable prefix.
+- **DeepSeek tool-call diagnostic repro** — route log + watchdog shipped; need a live session to confirm the call path.
+- **Bundled Codex dirty edits in 0eb97f9e / facabd97 / e710d993** — acknowledged, not unbundled. Pre-existing dirty tree at session start.
+
+### 15E · Next batch priority
+
+1. **II.3 — web_fetch parity gap #3.** OpenAI `web_search` URL mode already works; add Anthropic `web_fetch` beta tool + toggle alongside the existing web_search toggle.
+2. **II.4 — code_interpreter regression fix.** User lost the OpenAI toggle at some point; restore it and add Anthropic `code_execution_20250825` beta as sibling.
+3. **II.5 — image generation surface.** `/image` slash command → `MLXImageGenerationService` → inline ArtifactCard with the image.
+4. **II.10 — prompt-cache hit indicator.** Small win, high visibility: parse cache-hit usage field from Anthropic / OpenAI responses and badge the assistant bubble with hit%.
+5. **Capability manifest system-prompt injection.** Hook `CapabilityManifestBuilder` into all 4 LLMService system-prompt paths.
+6. **Typed-chunk plumbing for direct-cloud reasoning popover.** The last remaining source of empty thinking popovers (Thinking mode + cloud).
+7. **DeepSeek tool-call investigation with Console log.**
+
