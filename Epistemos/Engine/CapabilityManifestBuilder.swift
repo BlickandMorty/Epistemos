@@ -37,50 +37,59 @@ enum CapabilityManifestBuilder {
 
     // MARK: - Public API
 
-    /// Render the markdown manifest for the given context. Pure — no
-    /// side effects. Call `persist(_:)` to write to disk for inspection.
+    /// Render the system-prompt brief. Deliberately short — ~400
+    /// bytes — because stuffing 3KB of meta-instruction into every
+    /// turn hurts model quality more than it helps. Models don't
+    /// need a map of app surfaces or a "user preferences" block to
+    /// answer; they need to know who they are, what they have access
+    /// to, and a couple of rules to avoid obvious pitfalls (fetch-
+    /// tool-on-inlined-content, hallucinating capabilities). The
+    /// user's custom overrides still come in via
+    /// `Capabilities.md.user` when present.
     static func render(_ context: Context) -> String {
-        var sections: [String] = []
-        sections.append(identitySection(context))
-        sections.append(vaultSection(context))
-        sections.append(appSurfacesSection())
-        sections.append(enabledToolsSection(context))
-        if !context.disabledToolNames.isEmpty {
-            sections.append(disabledToolsSection(context))
-        }
-        if !context.skillNames.isEmpty {
-            sections.append(skillsSection(context))
-        }
-        sections.append(preferencesSection(context))
-        sections.append(howToActSection())
-        return sections.joined(separator: "\n\n")
-    }
-
-    /// Condensed manifest for small local models (Gemma 2B, Bonsai 4B,
-    /// Qwen ~4B, etc.) where the full 3–4KB markdown would crowd out
-    /// the actual content in their limited context windows. Keeps the
-    /// identity + "don't lie about capabilities" rules + enabled
-    /// tools. Skips app-surfaces, skills, prefs sections that rarely
-    /// matter for on-device turns. Local-path callers use this form.
-    static func renderCompact(_ context: Context) -> String {
         var lines: [String] = []
-        lines.append("# Epistemos local assistant")
-        lines.append(
-            "Model: **\(context.modelLabel)** · Mode: **\(context.operatingMode.displayName)** · Max context: \(formatTokens(context.maxContextTokens))."
-        )
+        lines.append("You are Epistemos' assistant — a macOS PKM app with on-device AI.")
+
+        var identity = "Running on **\(context.modelLabel)**"
+        if !context.providerLabel.isEmpty {
+            identity += " (\(context.providerLabel))"
+        }
+        identity += " in **\(context.operatingMode.displayName)** mode."
+        lines.append(identity)
+
         if let vaultName = context.vaultName {
             lines.append("Active vault: **\(vaultName)**.")
         }
+
         if !context.enabledToolNames.isEmpty {
-            lines.append("Tools: " + context.enabledToolNames.map { "`\($0)`" }.joined(separator: ", ") + ".")
+            let toolList = context.enabledToolNames
+                .prefix(12)
+                .map { "`\($0)`" }
+                .joined(separator: ", ")
+            let more = context.enabledToolNames.count > 12 ? " (+more)" : ""
+            lines.append("Tools available: \(toolList)\(more).")
         }
+
         lines.append("")
-        lines.append("## Rules")
-        lines.append("- The user's attached notes / files have their full text inlined in the user prompt — answer from the inlined text; don't call fetch tools for content already present.")
-        lines.append("- Don't claim browsing, agent mode, or cloud capabilities you don't have right now.")
-        lines.append("- If the answer is uncertain, say so plainly.")
-        lines.append("- Identify as the on-device Epistemos assistant when asked.")
+        lines.append("Rules:")
+        lines.append("1. Attached notes/files are inlined in the user prompt already — answer from the inlined text; don't call read/fetch tools for content that's right there.")
+        lines.append("2. Don't claim capabilities you don't currently have (no browsing unless a web tool is listed, no shell unless terminal is listed, etc.).")
+        lines.append("3. Be direct and concise. If you're uncertain, say so.")
+
+        if let overrides = loadUserOverrides() {
+            lines.append("")
+            lines.append("User preferences:")
+            lines.append(overrides)
+        }
+
         return lines.joined(separator: "\n")
+    }
+
+    /// Alias for `render` — kept for source compatibility with callers
+    /// that used to route local paths to a separate compact variant.
+    /// The single `render` is already lean enough for every model.
+    static func renderCompact(_ context: Context) -> String {
+        render(context)
     }
 
     /// Persist the manifest at `~/Library/Application Support/Epistemos/runtime/Capabilities.md`
@@ -118,134 +127,6 @@ enum CapabilityManifestBuilder {
         }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
-    }
-
-    // MARK: - Sections
-
-    private static func identitySection(_ ctx: Context) -> String {
-        """
-        # Capabilities
-
-        You are Epistemos — a macOS-native personal knowledge
-        management app with an on-device AI layer. You're currently
-        running through \(ctx.providerLabel) on model
-        **\(ctx.modelLabel)** in **\(ctx.operatingMode.displayName)**
-        mode. Reasoning tier: **\(ctx.reasoningTier.displayName)**.
-        Max context: \(formatTokens(ctx.maxContextTokens)).
-        """
-    }
-
-    private static func vaultSection(_ ctx: Context) -> String {
-        var lines = ["## Vault"]
-        if let vaultName = ctx.vaultName {
-            lines.append("- Active vault: **\(vaultName)**")
-        } else {
-            lines.append("- No vault is currently open.")
-        }
-        if let noteCount = ctx.vaultNoteCount {
-            lines.append("- Notes indexed: \(noteCount)")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    /// Map of the app's user-facing surfaces so the model can give
-    /// navigation advice ("open Settings → Inference to pick a model")
-    /// instead of hallucinating or saying "I don't know how". Stable
-    /// across turns — if the user changes the app they can override
-    /// via `Capabilities.md.user`.
-    private static func appSurfacesSection() -> String {
-        """
-        ## Epistemos surfaces you can direct the user to
-        The app has these primary windows / panels — use their exact
-        names when telling the user where to go:
-
-        - **Chat** — the main conversation surface (⌘1). Tool calls,
-          web search, vault search, and agent runs all originate here.
-          The capability pill shows the active tier; the Context panel
-          (right side) lists loaded notes, attachments, and routing.
-        - **Notes** — the prose editor workspace (⌘2). Supports
-          markdown, wikilinks ([[Note Title]]), block refs, transclusion,
-          syntax-highlighted code blocks, and AI-assisted edits. ⌘N to
-          create a new note; ⌘I for quick capture; ⌘⇧F for vault-wide
-          search.
-        - **Agent Command Center** — dedicated agent surface with an
-          inspector panel (plan / execution / tools / attached context
-          tabs). Opens its own session separate from main chat.
-        - **Graph** — force-directed knowledge graph (⌘4). Hologram
-          inspector, search sidebar, backlink view, workspace organizer.
-        - **Daily Brief** — per-day summary surfaced on the landing
-          page. ⌘R toggles Session Intelligence; ⌘T for Time Machine.
-        - **Workspaces** — save + restore entire window arrangements.
-          ⌘⌃W opens the switcher; ⌘⌃S to save the current layout.
-        - **Settings** — keys, model selection, reasoning tier,
-          runtime controls, provider toggles, vault location, theme.
-        - **MiniChat** — floating window (⌘3) for quick questions
-          without leaving the current surface.
-
-        When the user asks how to do something in the app, name the
-        exact surface + shortcut. If the user asks you to search their
-        notes, you have tools to do it — don't redirect them to a
-        surface unless the task actually requires manual action.
-        """
-    }
-
-    private static func enabledToolsSection(_ ctx: Context) -> String {
-        var lines = ["## Enabled tools"]
-        if ctx.enabledToolNames.isEmpty {
-            lines.append("_No tools are enabled for the current tier._")
-        } else {
-            for tool in ctx.enabledToolNames {
-                lines.append("- `\(tool)`")
-            }
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private static func disabledToolsSection(_ ctx: Context) -> String {
-        var lines = ["## Unavailable tools (not enabled for this tier)"]
-        for tool in ctx.disabledToolNames {
-            lines.append("- `\(tool)`")
-        }
-        lines.append(
-            "\n_Do not claim to be able to use these tools right now. If the user asks for an action that requires one, say plainly that it's not available in the current mode and suggest switching tiers._"
-        )
-        return lines.joined(separator: "\n")
-    }
-
-    private static func skillsSection(_ ctx: Context) -> String {
-        var lines = ["## Skills available"]
-        for skill in ctx.skillNames {
-            lines.append("- \(skill)")
-        }
-        return lines.joined(separator: "\n")
-    }
-
-    private static func preferencesSection(_ ctx: Context) -> String {
-        """
-        ## User preferences
-        - Operating mode: **\(ctx.operatingMode.displayName)** — \
-        \(ctx.operatingMode.helpText)
-        - Reasoning: **\(ctx.reasoningTier.displayName)** — \
-        \(ctx.reasoningTier.summary)
-        """
-    }
-
-    private static func howToActSection() -> String {
-        let defaultGuidance = """
-        ## How to act
-        - Answer directly and concisely. Avoid padding.
-        - Never claim capabilities you don't have in the current tier.
-        - When asked about your identity, say you are Epistemos running
-          on the user's machine.
-        - If a tool fails or times out, surface the failure — don't
-          fabricate a success.
-        - Quote user text verbatim when echoing it; don't paraphrase
-          into your own voice.
-        """
-        if let user = loadUserOverrides() {
-            return defaultGuidance + "\n\n### User overrides\n\n" + user
-        }
-        return defaultGuidance
     }
 
     // MARK: - Paths
