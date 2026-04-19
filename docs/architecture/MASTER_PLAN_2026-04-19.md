@@ -505,24 +505,52 @@ pipeline refactor for native blocks; batch needs a job-queue surface.
 
 ### 16F · Remaining follow-ups
 
-- **Capability manifest on local-MLX paths.** Now injected into both
-  Rust-agent (Agent + Pro+cloud) AND direct-stream (Fast + Thinking +
-  cloud). Local MLX path through `triageService.streamGeneralLocally`
-  still doesn't prepend it — requires LocalBackendLLMClient / MLX
-  system-prompt plumbing.
 - **Parity #7 native PDF.** Attachments currently go through text
   extraction (`PDFDocument.string`). Switching to provider-native
   blocks (Anthropic `document` block with base64 PDF, OpenAI file
   input, Gemini `inlineData`) keeps tables / formatting intact.
-- **Parity #6 audio input.** Mic button in composer → AVFoundation
-  recording → Whisper-1 (OpenAI) / Gemini `audio/wav` transcription
-  → text prefill of composer. Needs `NSMicrophoneUsageDescription`.
+  Scoped for a follow-up — needs `resolvedPDFPayloads` helper +
+  extending `anthropicMessageContent` to accept pdf blocks + gating
+  on `.anthropic` provider support.
 - **Parity #9 batch queue.** Anthropic Message Batches + OpenAI Batch
   API are 50% cost cut for bulk vault operations (e.g., auto-tagging
   a whole vault). Needs a job-queue UI surface and persistent store.
 - **DeepSeek tool-call repro.** Route log (681d84ec) + ThinkTagRouter
-  (bb38e6d0) + reasoning sink (da407333) are all in place. Next live
-  repro should confirm whether the prior "DeepSeek calls tools
-  inappropriately" was the agent mode it was in OR a model behavior
-  we should guard against.
+  (bb38e6d0 + ff9fa21e) + reasoning sink (da407333) are all in place.
+  Next live repro should confirm whether the prior "DeepSeek calls
+  tools inappropriately" was the agent mode it was in OR a model
+  behavior we should guard against.
+
+## 17 · April 20 night delta — local-model quality arc
+
+Continuation round focused on the user's "even local models still
+have issues" report. Five commits:
+
+| SHA | What |
+|-----|------|
+| [1ed691f4](commits/1ed691f4) | Capability manifest in direct-stream path (already logged in §16) |
+| [da407333](commits/da407333) | Typed-chunk reasoning plumbing (already logged in §16) |
+| [142d648c](commits/142d648c) | Cache-hit badge (already logged in §16) |
+| [e8620b8d](commits/e8620b8d) | Structured JSON output toggle (already logged in §16) |
+| [54250400](commits/54250400) | Composer mic button (parity #6): `ComposerVoiceInputService` + `ComposerMicButton` tap-to-record → AudioTranscriber → composer insertion. Uses existing mic entitlement; no Info.plist change. |
+| [ba320dd1](commits/ba320dd1) | Compact capability manifest variant for small local models: identity + tools + 4 rules, ~400 bytes vs. ~3KB. PipelineService routes `.localMLX` / `.appleIntelligence` to `renderCompact`, cloud stays on full `render`. |
+| [ff9fa21e](commits/ff9fa21e) | ThinkTagStreamRouter now matches 4 reasoning-tag variants: `<think>`, `<thinking>`, `<thought>`, `<reasoning>`. Each mode carries its paired close tag. Covers DeepSeek-R1, Claude inline, Qwen / Bonsai fine-tune variants. |
+
+### 17A · Final parity matrix
+
+| # | Gap | Status |
+|---|-----|--------|
+| 1 | Live tool-status narration | ✅ |
+| 2 | Anthropic / Google hosted web search | ✅ |
+| 3 | Web fetch / single-URL grounding | ✅ |
+| 4 | Code interpreter | ✅ |
+| 5 | Image generation surface | ✅ |
+| 6 | Audio input (transcription) | ✅ 54250400 |
+| 7 | Native PDF upload | Deferred — documented scope, keep text-extract fallback in place |
+| 8 | Structured output / JSON schema | ✅ |
+| 9 | Batch processing queue | Deferred |
+| 10 | Prompt-cache hit indicator | ✅ |
+
+**8 of 10 parity gaps closed this sprint.** Remaining 2 (#7 PDF,
+#9 batch queue) are documented + scoped, safe to defer.
 
