@@ -2023,14 +2023,18 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func openAICompatibleMessageText(from json: [String: Any]) -> String? {
+        // Only return the final `content` channel. Never fall through to
+        // `reasoning_content` — that's the model's private chain-of-
+        // thought and rendering it as the chat reply makes the app look
+        // broken ("Okay, so I'm trying to figure out..." shown as the
+        // answer). If the model returns only reasoning with no content,
+        // yield nil so the empty-stream guard surfaces a real error
+        // instead of rendering the monologue.
         let choices = json["choices"] as? [[String: Any]] ?? []
         let text = choices.compactMap { choice -> String? in
             guard let message = choice["message"] as? [String: Any] else { return nil }
             if let content = message["content"] as? String, !content.isEmpty {
                 return content
-            }
-            if let reasoning = message["reasoning_content"] as? String, !reasoning.isEmpty {
-                return reasoning
             }
             return nil
         }
@@ -2419,12 +2423,36 @@ nonisolated enum CloudStreamingParser {
     }
 
     static func openAICompatibleTextDelta(from json: [String: Any]) -> String? {
+        // Only emit `delta.content`. The `delta.reasoning_content`
+        // channel is the model's private chain-of-thought and must
+        // never be rendered as the chat reply — doing so made the app
+        // read as a stream-of-consciousness monologue ("Okay, so I'm
+        // trying to figure out...") instead of an answer. Reasoning
+        // should route into the thinking popover via a separate
+        // parser; that wiring is tracked in the follow-up.
         let choices = json["choices"] as? [[String: Any]] ?? []
         let text = choices.compactMap { choice -> String? in
             guard let delta = choice["delta"] as? [String: Any] else { return nil }
             if let content = delta["content"] as? String, !content.isEmpty {
                 return content
             }
+            return nil
+        }
+        .joined()
+        return text.isEmpty ? nil : text
+    }
+
+    /// Emit the OpenAI-compatible reasoning delta separately from the
+    /// visible text stream. Callers that want to surface thinking in a
+    /// popover route this to the reasoning channel; callers that don't
+    /// just ignore it. Keeping the parser available as a static so
+    /// future wiring (PipelineEvent.reasoningDelta → ChatState
+    /// .appendStreamingThinking) can land without changing the call
+    /// site that currently uses openAICompatibleTextDelta.
+    static func openAICompatibleReasoningDelta(from json: [String: Any]) -> String? {
+        let choices = json["choices"] as? [[String: Any]] ?? []
+        let text = choices.compactMap { choice -> String? in
+            guard let delta = choice["delta"] as? [String: Any] else { return nil }
             if let reasoning = delta["reasoning_content"] as? String, !reasoning.isEmpty {
                 return reasoning
             }

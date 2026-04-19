@@ -44,6 +44,54 @@ struct CloudStreamingParserTests {
         #expect(CloudStreamingParser.googleTextDelta(from: json) == "chunk")
     }
 
+    @Test("OpenAI-compatible streaming never leaks reasoning_content as the text delta")
+    func openAIReasoningNeverLeaksIntoText() {
+        // When the model emits only reasoning tokens (no final content),
+        // the text parser MUST return nil. Falling through to
+        // reasoning_content made the chat render the model's private
+        // monologue as the answer — the black-box bug reported on
+        // 2026-04-19. Reasoning flows through its own parser below.
+        let reasoningOnly: [String: Any] = [
+            "choices": [[
+                "delta": [
+                    "reasoning_content": "Okay, the user is asking…"
+                ]
+            ]]
+        ]
+        #expect(CloudStreamingParser.openAICompatibleTextDelta(from: reasoningOnly) == nil)
+        #expect(
+            CloudStreamingParser.openAICompatibleReasoningDelta(from: reasoningOnly)
+                == "Okay, the user is asking…"
+        )
+    }
+
+    @Test("OpenAI-compatible streaming still yields content deltas unchanged")
+    func openAIContentStillYields() {
+        let contentOnly: [String: Any] = [
+            "choices": [[
+                "delta": ["content": "hello"]
+            ]]
+        ]
+        #expect(CloudStreamingParser.openAICompatibleTextDelta(from: contentOnly) == "hello")
+        #expect(CloudStreamingParser.openAICompatibleReasoningDelta(from: contentOnly) == nil)
+    }
+
+    @Test("OpenAI-compatible content wins when both channels are present")
+    func openAIContentWinsOverReasoning() {
+        let both: [String: Any] = [
+            "choices": [[
+                "delta": [
+                    "content": "final answer",
+                    "reasoning_content": "internal thought"
+                ]
+            ]]
+        ]
+        #expect(CloudStreamingParser.openAICompatibleTextDelta(from: both) == "final answer")
+        #expect(
+            CloudStreamingParser.openAICompatibleReasoningDelta(from: both) == "internal thought"
+        )
+    }
+
     @Test("stream parser surfaces top level and nested provider errors")
     func streamErrorParsing() {
         let nested: [String: Any] = [
