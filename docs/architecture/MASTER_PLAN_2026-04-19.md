@@ -543,7 +543,7 @@ have issues" report. Five commits:
 | 1 | Live tool-status narration | ✅ |
 | 2 | Anthropic / Google hosted web search | ✅ |
 | 3 | Web fetch / single-URL grounding | ✅ |
-| 4 | Code interpreter | ✅ |
+| 4 | Code interpreter | ⚠️ Anthropic ✅ 91c261fb; OpenAI parked at 0ac5003b — API returns 400 `Unsupported tool type` on multiple accounts/models. Toggle persists but tool is not attached until a reliable schema-detection path is wired. |
 | 5 | Image generation surface | ✅ |
 | 6 | Audio input (transcription) | ✅ 54250400 |
 | 7 | Native PDF upload | Deferred — documented scope, keep text-extract fallback in place |
@@ -553,4 +553,68 @@ have issues" report. Five commits:
 
 **8 of 10 parity gaps closed this sprint.** Remaining 2 (#7 PDF,
 #9 batch queue) are documented + scoped, safe to defer.
+
+## 18 · April 20 late-night delta — quality + build fixes
+
+User reported a log-analysis revealing three distinct failure modes:
+AMFI kernel kills on `uniffi_bindgen`, SwiftLint sandbox crashes,
+and OpenAI `code_interpreter` 400. Plus a request to simplify what
+we're feeding the models because they were getting "super dumb" with
+a 3-4KB manifest on every turn.
+
+### 18A · Shipped
+
+| SHA | What |
+|-----|------|
+| [0ac5003b](commits/0ac5003b) | Slim capability manifest (~400B) + park OpenAI code_interpreter attach (production 400 repro) |
+| [8c6b85e3](commits/8c6b85e3) | Rust build scripts: sign `uniffi_bindgen` BEFORE invoking — AMFI kernel kills fixed. Applied to all 4 scripts (omega-mcp, omega-ax, epistemos-core, agent-core). Replaces `cargo run --bin uniffi_bindgen` with `cargo build` + codesign + direct invoke. |
+| [74e49d19](commits/74e49d19) | Reasoning tier refactor: 5 levels (off/low/medium/high/heavy). Mode-specific subsets — Thinking exposes all 4 effort levels; Pro/Agent expose `.medium` ("Standard") + `.heavy`; Fast disables. Migrating initializer aliases old UserDefaults values (standard→medium, extended→high). All 3 provider wire-ups (OpenAI Responses, Anthropic, Gemini) updated with explicit 5-way switches. |
+
+### 18B · Model picker simplification
+
+User: "there still feels like there's a lot of buttons in the model
+picker." Acknowledged — `LocalModelToolbarMenu` in `RootView.swift`
+is ~700 lines with separate sections for Apple Intelligence, local
+models (installed + installable), cloud models, operating mode,
+temporary chat toggle. A reduction would need a dedicated UX pass
+(probably moving installable models to Settings and leaving only
+installed + Apple Intelligence + cloud in the composer picker).
+
+**Deferred** — shipping more UX regressions risks worse than the
+current state. The reasoning tier refactor already simplified one
+axis (5 levels instead of 3 overloaded ones).
+
+### 18C · Build environment issues (documented for the user)
+
+Two issues flagged by the user's log analysis that are environment-
+level, not code-level:
+
+1. **AMFI library validation on Rust dylibs.** Debug entitlements
+   (`Epistemos-Debug.entitlements`) already set
+   `com.apple.security.cs.disable-library-validation = true` and
+   `embed-and-sign-rust-dylib.sh` handles signing. The remaining
+   issue was the uniffi_bindgen invocation order — fixed in
+   8c6b85e3. If the user still sees runtime dylib kills,
+   `Signing & Capabilities → Hardened Runtime → Disable Library
+   Validation` is the UI equivalent of what the entitlements plist
+   already declares.
+
+2. **SwiftLint sandbox violations.** `project.yml` already sets
+   `ENABLE_USER_SCRIPT_SANDBOXING: false` (line 14). The failures
+   the user sees in Claude Code's `xcodebuild` invocations are from
+   the sandbox Claude Code runs under, not the Xcode project
+   setting. Running builds directly from Xcode / native Terminal
+   sidesteps this — my own `xcodebuild` runs hit the same issue
+   and log the same errors.
+
+### 18D · What's still left
+
+- **Parity #7 native PDF upload.** Documented in §17.
+- **Parity #9 batch processing queue.** Documented in §17.
+- **Model picker UX simplification.** Documented in 18B.
+- **OpenAI code_interpreter schema-detection.** Toggle persists
+  but the tool doesn't attach; need per-model / per-account
+  detection before re-enabling.
+- **DeepSeek tool-call repro.** Still awaiting a live session
+  with the route log visible.
 
