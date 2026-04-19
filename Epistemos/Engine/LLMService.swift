@@ -1688,6 +1688,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 ]
             ]
         }
+        applyGoogleThinkingConfig(to: &body, model: model)
 
         var request = try googleContentRequest(
             modelID: model.vendorModelID,
@@ -1743,6 +1744,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 ]
             ]
         }
+        applyGoogleThinkingConfig(to: &body, model: model)
 
         let baseRequest: URLRequest
         do {
@@ -2423,6 +2425,65 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
             return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
         }
+    }
+
+    /// Google `generationConfig.thinkingConfig` per tier. Per research 1:
+    /// - Gemini 3.x uses `thinkingLevel` ("minimal"/"low"/"medium"/"high");
+    ///   Gemini 2.5 uses `thinkingBudget` (int token count; -1 = dynamic).
+    /// - `thinkingBudget` and `thinkingLevel` in one request is a 400;
+    ///   each model is exclusively one or the other.
+    /// - `includeThoughts: true` is mandatory to actually receive any
+    ///   thinking parts back — Google defaults it to false.
+    /// - 2.5 Pro cannot set `thinkingBudget: 0` (can't disable thinking).
+    private func googleThinkingConfiguration(
+        for model: CloudTextModelID
+    ) -> [String: Any]? {
+        let tier = inference.chatReasoningTier
+        let isGemini3 = switch model {
+        case .googleGemini3FlashPreview, .googleGemini3ProPreview,
+             .googleGemini31ProPreview:
+            true
+        default:
+            false
+        }
+        let isGemini25Pro = model == .googleGemini25Pro
+
+        switch tier {
+        case .off:
+            if isGemini3 {
+                return ["thinkingLevel": "minimal", "includeThoughts": false]
+            }
+            // 2.5 Pro rejects thinkingBudget: 0, so we can't truly disable
+            // there — fall through to standard (dynamic budget) and just
+            // skip includeThoughts so the user doesn't see reasoning.
+            if isGemini25Pro {
+                return ["thinkingBudget": -1, "includeThoughts": false]
+            }
+            // 2.5 Flash / Flash-Lite: 0 is allowed.
+            return ["thinkingBudget": 0, "includeThoughts": false]
+        case .standard:
+            if isGemini3 {
+                return ["thinkingLevel": "medium", "includeThoughts": true]
+            }
+            return ["thinkingBudget": -1, "includeThoughts": true]
+        case .extended:
+            if isGemini3 {
+                return ["thinkingLevel": "high", "includeThoughts": true]
+            }
+            return ["thinkingBudget": 16_384, "includeThoughts": true]
+        }
+    }
+
+    private func applyGoogleThinkingConfig(
+        to body: inout [String: Any],
+        model: CloudTextModelID
+    ) {
+        guard let thinkingConfig = googleThinkingConfiguration(for: model) else {
+            return
+        }
+        var generationConfig = body["generationConfig"] as? [String: Any] ?? [:]
+        generationConfig["thinkingConfig"] = thinkingConfig
+        body["generationConfig"] = generationConfig
     }
 
     private func anthropicThinkingConfiguration(maxTokens: Int) -> [String: Any]? {
