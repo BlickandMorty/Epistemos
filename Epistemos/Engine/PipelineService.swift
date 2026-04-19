@@ -26,48 +26,103 @@ nonisolated enum PipelineError: LocalizedError {
     }
 }
 
+/// Structured classification of chat-surface errors. The UI reads the
+/// kind to decide what affordance to show — generic-message, retry-with-
+/// countdown, deep-link to Settings, etc. — instead of pattern-matching
+/// on a free-form String. Raw catch paths still accept `Error` and get
+/// mapped through `UserFacingChatError.classify(_:)`.
+nonisolated enum UserFacingChatErrorKind: Equatable, Sendable {
+    /// 401 / bad API key / OAuth token invalid. UI should deep-link to
+    /// Settings → AI so the user can re-authenticate without hunting.
+    case authFailure
+    /// 429 / rate limited. UI should suggest waiting and offer an
+    /// escape hatch to switch models.
+    case rateLimited
+    /// Connectivity / DNS / VPN. UI can suggest checking network.
+    case providerUnreachable
+    /// Timeout. UI can suggest retry or switching to a faster model.
+    case timedOut
+    /// Context-window overflow. UI can suggest starting a new chat.
+    case contextOverflow
+    /// The model / runtime isn't installed or ready (local path only).
+    /// UI deep-links to Settings → Models.
+    case modelNotReady
+    /// User hit Stop. UI treats as a silent "stopped" message, not red.
+    case cancelled
+    /// Anything else — treated as a generic "something went wrong".
+    case generic
+}
+
 /// Converts infrastructure errors into copy suitable for the chat error
 /// bubble. Users should never see an opaque stack-level message — the chat
 /// surface is a user experience, not a log viewer.
 nonisolated enum UserFacingChatError {
-    static func message(from error: Error) -> String {
-        let underlying = (error as NSError).localizedDescription
-
+    static func classify(_ error: Error) -> UserFacingChatErrorKind {
         switch error {
-        case PipelineError.noLLMService:
-            return "No model is ready to answer yet. Open Settings → Models to install a local model, sign in to a cloud provider, or enable Apple Intelligence on macOS 26+."
-        case let PipelineError.analysisFailure(msg):
-            return msg
-        case LocalInferenceRoutingError.modelRequired:
-            return "No local model is installed. You can add one in Settings → Models, connect a cloud provider, or enable Apple Intelligence."
-        case LocalInferenceRoutingError.runtimeUnavailable:
-            return "The local model runtime isn't ready. Try again in a moment — if this keeps happening, restart Epistemos."
+        case PipelineError.noLLMService,
+             LocalInferenceRoutingError.modelRequired,
+             LocalInferenceRoutingError.runtimeUnavailable:
+            return .modelNotReady
         case is CancellationError:
-            return "Stopped."
+            return .cancelled
         default:
             break
         }
 
-        let lower = underlying.lowercased()
-        if lower.contains("network") || lower.contains("offline") || lower.contains("internet") || lower.contains("connection") {
-            return "Couldn't reach the provider. Check your internet connection and try again."
-        }
+        let lower = (error as NSError).localizedDescription.lowercased()
         if lower.contains("unauthorized") || lower.contains("api key") || lower.contains("401") {
-            return "The provider rejected your credentials. Open Settings → AI to re-authenticate."
+            return .authFailure
         }
         if lower.contains("rate limit") || lower.contains("429") || lower.contains("too many requests") {
-            return "The provider is rate-limiting requests. Wait a moment and try again, or switch to a different model in the picker."
+            return .rateLimited
+        }
+        if lower.contains("network") || lower.contains("offline") || lower.contains("internet") || lower.contains("connection") {
+            return .providerUnreachable
         }
         if lower.contains("timed out") || lower.contains("timeout") {
-            return "The request timed out. Try again, or pick a faster model."
+            return .timedOut
         }
-        if lower.contains("context length") || lower.contains("too long") || lower.contains("token") && lower.contains("limit") {
-            return "This conversation is longer than the model can hold. Start a new chat or switch to a model with a larger context window."
+        if lower.contains("context length") || lower.contains("too long") || (lower.contains("token") && lower.contains("limit")) {
+            return .contextOverflow
         }
+        return .generic
+    }
 
-        return underlying.isEmpty
-            ? "Something went wrong. Please try again."
-            : underlying
+    /// Default copy for each error kind — used by the String-returning
+    /// `message(from:)` below and by views that want a fallback label.
+    static func message(for kind: UserFacingChatErrorKind, fallback: String = "") -> String {
+        switch kind {
+        case .modelNotReady:
+            return "No model is ready to answer yet. Open Settings → Models to install a local model, sign in to a cloud provider, or enable Apple Intelligence on macOS 26+."
+        case .authFailure:
+            return "The provider rejected your credentials. Open Settings → AI to re-authenticate."
+        case .rateLimited:
+            return "The provider is rate-limiting requests. Wait a moment and try again, or switch to a different model in the picker."
+        case .providerUnreachable:
+            return "Couldn't reach the provider. Check your internet connection and try again."
+        case .timedOut:
+            return "The request timed out. Try again, or pick a faster model."
+        case .contextOverflow:
+            return "This conversation is longer than the model can hold. Start a new chat or switch to a model with a larger context window."
+        case .cancelled:
+            return "Stopped."
+        case .generic:
+            return fallback.isEmpty ? "Something went wrong. Please try again." : fallback
+        }
+    }
+
+    static func message(from error: Error) -> String {
+        // PipelineError.analysisFailure carries its own message — preserve
+        // it verbatim instead of replacing with a generic classification.
+        if case let PipelineError.analysisFailure(msg) = error {
+            return msg
+        }
+        let kind = classify(error)
+        if kind == .generic {
+            let underlying = (error as NSError).localizedDescription
+            return message(for: .generic, fallback: underlying)
+        }
+        return message(for: kind)
     }
 }
 

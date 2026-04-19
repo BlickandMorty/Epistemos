@@ -681,6 +681,89 @@ private func normalizedJSONString(_ string: String) throws -> String {
 
 // MARK: - Pipeline Contract Tests
 
+@Suite("User-Facing Chat Error")
+struct UserFacingChatErrorKindTests {
+
+    private struct FakeError: LocalizedError {
+        let description: String
+        var errorDescription: String? { description }
+    }
+
+    @Test("401 / unauthorized surfaces as auth failure")
+    func classifiesAuthFailure() {
+        let kind = UserFacingChatError.classify(FakeError(description: "401 Unauthorized"))
+        #expect(kind == .authFailure)
+    }
+
+    @Test("429 / too many requests surfaces as rate limit")
+    func classifiesRateLimited() {
+        let kind = UserFacingChatError.classify(
+            FakeError(description: "Rate limit exceeded; HTTP 429")
+        )
+        #expect(kind == .rateLimited)
+    }
+
+    @Test("network / offline surfaces as provider unreachable")
+    func classifiesProviderUnreachable() {
+        let kind = UserFacingChatError.classify(
+            FakeError(description: "The Internet connection appears to be offline.")
+        )
+        #expect(kind == .providerUnreachable)
+    }
+
+    @Test("timeout surfaces as timed out")
+    func classifiesTimedOut() {
+        let kind = UserFacingChatError.classify(FakeError(description: "Request timed out."))
+        #expect(kind == .timedOut)
+    }
+
+    @Test("context-length errors surface as context overflow")
+    func classifiesContextOverflow() {
+        let kind = UserFacingChatError.classify(
+            FakeError(description: "maximum context length exceeded")
+        )
+        #expect(kind == .contextOverflow)
+    }
+
+    @Test("local runtime unavailable surfaces as model not ready")
+    func classifiesModelNotReady() {
+        let kind = UserFacingChatError.classify(LocalInferenceRoutingError.runtimeUnavailable)
+        #expect(kind == .modelNotReady)
+    }
+
+    @Test("CancellationError surfaces as cancelled")
+    func classifiesCancelled() {
+        let kind = UserFacingChatError.classify(CancellationError())
+        #expect(kind == .cancelled)
+    }
+
+    @Test("unrecognized errors fall back to generic")
+    func classifiesGeneric() {
+        let kind = UserFacingChatError.classify(
+            FakeError(description: "something unusual happened")
+        )
+        #expect(kind == .generic)
+    }
+
+    @Test("message(for:) returns distinct copy per kind")
+    func messageCopyPerKind() {
+        let kinds: [UserFacingChatErrorKind] = [
+            .authFailure, .rateLimited, .providerUnreachable,
+            .timedOut, .contextOverflow, .modelNotReady, .cancelled,
+        ]
+        let copies = kinds.map { UserFacingChatError.message(for: $0) }
+        #expect(Set(copies).count == copies.count, "each error kind should have its own copy")
+        #expect(copies.allSatisfy { !$0.isEmpty })
+    }
+
+    @Test("message(from:) preserves analysisFailure text verbatim")
+    func preservesAnalysisFailureText() {
+        let raw = "very specific analyzer message"
+        let output = UserFacingChatError.message(from: PipelineError.analysisFailure(raw))
+        #expect(output == raw)
+    }
+}
+
 @Suite("Pipeline Contracts")
 struct PipelineContractTests {
 
