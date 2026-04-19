@@ -319,6 +319,19 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Some local families expose "thinking" as an always-on behavior in
+    /// the runtime/template path Epistemos currently uses. Fast mode must
+    /// not auto-route to them until a real disable switch exists.
+    var cannotDisableThinkingInFast: Bool {
+        switch self {
+        case .deepseekR1Distill7B,
+             .qwopus27Bv3, .qwopusMoE35BA3B:
+            true
+        default:
+            false
+        }
+    }
+
     var canActAsAgent: Bool {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
