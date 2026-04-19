@@ -521,7 +521,14 @@ impl ToolRegistry {
         ];
 
         // Tier: ChatPro — adds cloud-backed and macOS-privileged read-only
-        // tools. Anything on CHAT_LITE is also available here.
+        // tools plus narrowly-scoped vault writes the user explicitly asked
+        // for in Pro mode (Research 3, 2026-04-19). `vault_write` and
+        // vault-scoped `patch` gate behind the AgentAuthority
+        // `vaultWrite` category so destructive side-effects still prompt
+        // the user; elevating them out of Agent-only was the single gap
+        // that made "save this to a note" hallucinate instead of writing.
+        // `memory` is session-level and self-repairing so it rides along.
+        // Anything on CHAT_LITE is also available here.
         const CHAT_PRO_EXTRA: &[&str] = &[
             "vision_analyze",
             "text_to_speech",
@@ -532,6 +539,10 @@ impl ToolRegistry {
             "self_evolve",
             // Clarify is fine — it just asks the user a question
             "clarify",
+            // Vault writes (gated by AgentAuthority.vaultWrite approval)
+            "vault_write",
+            "patch",
+            "memory",
         ];
 
         for name in CHAT_LITE {
