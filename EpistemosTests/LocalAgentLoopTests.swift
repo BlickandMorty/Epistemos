@@ -95,6 +95,246 @@ struct LocalAgentLoopTests {
         #expect(answer == "Transformer notes found: self-attention, multi-head attention, residual connections.")
     }
 
+    @Test("local loop executes legacy Qwen XML tool calls before returning the final answer")
+    func localLoopExecutesLegacyQwenXmlToolCalls() async throws {
+        let promptRecorder = PromptRecorder()
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            <scratch_pad>Use the vault search tool.</scratch_pad>
+            <tool_call><function=vault_search><parameter=query>transformer architecture</parameter></function></tool_call>
+            """,
+            """
+            <scratch_pad>Summarizing the returned notes.</scratch_pad>
+            Transformer notes found from legacy XML tool calling.
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Legacy XML path still triggers tools."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        #expect(prompts.count == 2)
+        #expect(prompts[1].contains("<tool_response>"))
+        #expect(answer == "Transformer notes found from legacy XML tool calling.")
+    }
+
+    @Test("local loop executes inline training-style tool call JSON before returning the final answer")
+    func localLoopExecutesInlineTrainingStyleToolCallJson() async throws {
+        let promptRecorder = PromptRecorder()
+        let responseQueue = ResponseQueue(outputs: [
+            #"""
+            **[OBSERVE]:** ready
+            **[REASON]:** <think>I should use the vault search tool.</think>
+            **[ACT]:** `{"toolName":"vault_search","argumentsJson":"{\"query\":\"transformer architecture\"}","agentName":"notes"}`
+            """#,
+            """
+            Transformer notes found from inline training-style tool calling.
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Inline training JSON now triggers tools."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        #expect(prompts.count == 2)
+        #expect(prompts[1].contains("<tool_response>"))
+        #expect(answer == "Transformer notes found from inline training-style tool calling.")
+    }
+
+    @Test("local loop canonicalizes case-variant tool calls to the declared schema")
+    func localLoopCanonicalizesCaseVariantToolCalls() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            {"NAME":"VAULT_SEARCH","ARGUMENTS":{"QUERY":"transformer architecture"}}
+            """,
+            """
+            Transformer notes found after case-variant tool normalization.
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Case-variant JSON now resolves to the declared tool schema."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "Transformer notes found after case-variant tool normalization.")
+    }
+
+    @Test("local loop executes function-wrapper tool call JSON before returning the final answer")
+    func localLoopExecutesFunctionWrapperToolCallJson() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            {"function":"vault_search","parameters":{"query":"transformer architecture"}}
+            """,
+            """
+            Transformer notes found after function-wrapper tool normalization.
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Function-wrapper JSON now resolves to the declared tool schema."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "Transformer notes found after function-wrapper tool normalization.")
+    }
+
+    @Test("reflex mode hides tool call markup and stops streaming once the tool call closes")
+    @MainActor
+    func reflexModeHidesToolCallMarkupAndStopsStreamingAtToolBoundary() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                "Planning the next step. ",
+                """
+                <tool_call>
+                {"name":"vault_search","arguments":{"query":"transformer architecture"}}
+                </tool_call>
+                """,
+                "THIS SHOULD NEVER REACH THE USER",
+            ],
+            [
+                "Transformer notes found after reflex execution.",
+            ],
+        ])
+
+        var visibleText = ""
+        let toolRecorder = ToolInvocationRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                            try? await Task.sleep(for: .milliseconds(1))
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolRecorder.append(name)
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Reflex mode executed the search immediately."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let executedToolNames = await toolRecorder.snapshot()
+        #expect(executedToolNames == ["vault_search"])
+        #expect(visibleText.contains("Planning the next step. "))
+        #expect(visibleText.contains("Transformer notes found after reflex execution."))
+        #expect(!visibleText.contains("<tool_call>"))
+        #expect(!visibleText.contains("\"vault_search\""))
+        #expect(!visibleText.contains("THIS SHOULD NEVER REACH THE USER"))
+        #expect(answer == "Transformer notes found after reflex execution.")
+    }
+
     @Test("local loop prefers the structured generator when one is available")
     func localLoopPrefersTheStructuredGeneratorWhenOneIsAvailable() async throws {
         let promptRecorder = PromptRecorder()
@@ -163,6 +403,42 @@ struct LocalAgentLoopTests {
                 onToken: { _ in }
             )
         }
+    }
+
+    @Test("local loop strips an unclosed scratch pad when the final answer follows")
+    func localLoopStripsUnclosedScratchPadWhenAnswerFollows() async throws {
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = """
+                <scratch_pad>
+                The tool call failed because the guessed path was missing.
+
+                The attached note compares app stages to organs because each stage has a specialized job inside one coordinated system.
+                """
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { _, _ in
+                Issue.record("The final answer should not call tools.")
+                return LocalToolResult(
+                    toolName: "vault_search",
+                    resultJson: #"{"name":"vault_search","content":[]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Summarize the attached note.",
+            tools: [sampleTool()],
+            maxTurns: 2,
+            onToken: { _ in }
+        )
+
+        #expect(
+            answer
+                == "The attached note compares app stages to organs because each stage has a specialized job inside one coordinated system."
+        )
     }
 
     @Test("weak local tiers are rejected before the loop starts")
@@ -294,6 +570,33 @@ private actor ResponseQueue {
             return "No queued output."
         }
         return outputs.removeFirst()
+    }
+}
+
+private actor StreamChunkQueue {
+    private var streams: [[String]]
+
+    init(streams: [[String]]) {
+        self.streams = streams
+    }
+
+    func nextStream() -> [String] {
+        guard !streams.isEmpty else {
+            return []
+        }
+        return streams.removeFirst()
+    }
+}
+
+private actor ToolInvocationRecorder {
+    private var names: [String] = []
+
+    func append(_ name: String) {
+        names.append(name)
+    }
+
+    func snapshot() -> [String] {
+        names
     }
 }
 

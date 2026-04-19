@@ -256,6 +256,7 @@ actor LocalAgentLoop {
             if useReflex {
                 let output = try await runReflexTurn(
                     promptText: promptText,
+                    tools: tools,
                     effectiveReasoningMode: effectiveReasoningMode,
                     history: &history,
                     onTreeMutated: onTreeMutated,
@@ -295,7 +296,10 @@ actor LocalAgentLoop {
                 )
             }
 
-            let toolCalls = Self.parseToolCalls(from: output)
+            let toolCalls = Self.canonicalizeToolCalls(
+                Self.parseToolCalls(from: output),
+                availableTools: tools
+            )
             if toolCalls.isEmpty {
                 return Self.stripAssistantMeta(from: output)
             }
@@ -315,6 +319,7 @@ actor LocalAgentLoop {
     /// or the final stripped response if no tool call was found.
     private func runReflexTurn(
         promptText: String,
+        tools: [OmegaToolDefinition],
         effectiveReasoningMode: LocalReasoningMode,
         history: inout [LocalMessage],
         onTreeMutated: (@Sendable () async -> String?)?,
@@ -327,6 +332,7 @@ actor LocalAgentLoop {
         let detector = IncrementalToolCallDetector()
         var accumulatedOutput = ""
         var reflexDetection: IncrementalToolCallDetector.Detection?
+        var emittedPendingCount = 0
 
         let stream = await streamingGenerator(
             promptText, nil, maxResponseTokens, effectiveReasoningMode, modelID
@@ -335,8 +341,22 @@ actor LocalAgentLoop {
         do {
             for try await chunk in stream {
                 accumulatedOutput.append(chunk)
-                await onToken(chunk)
-                if let detection = detector.feed(chunk) {
+                let detection = detector.feed(chunk)
+
+                let pendingText = detector.pendingText
+                if pendingText.count > emittedPendingCount {
+                    let deltaStart = pendingText.index(
+                        pendingText.startIndex,
+                        offsetBy: emittedPendingCount
+                    )
+                    let visibleDelta = String(pendingText[deltaStart...])
+                    emittedPendingCount = pendingText.count
+                    if !visibleDelta.isEmpty {
+                        await onToken(visibleDelta)
+                    }
+                }
+
+                if let detection {
                     reflexDetection = detection
                     // Breaking exits the for-await loop, which triggers the stream's
                     // onTermination handler → cancels the MLX generation Task.
@@ -351,8 +371,9 @@ actor LocalAgentLoop {
 
         if let detection = reflexDetection {
             // Immediate tool execution — the core latency win.
+            let toolCall = Self.canonicalizeToolCall(detection.toolCall, availableTools: tools)
             history.append(LocalMessage(role: .assistant, content: output))
-            let result = await toolExecutor(detection.toolCall.name, detection.toolCall.argumentsJson)
+            let result = await toolExecutor(toolCall.name, toolCall.argumentsJson)
 
             // Check for AX tree mutation (new window, popup, etc.)
             if let onTreeMutated, let freshTree = await onTreeMutated() {
@@ -371,7 +392,10 @@ actor LocalAgentLoop {
         }
 
         // No tool call detected — check if the full output has one (fallback parse).
-        let toolCalls = Self.parseToolCalls(from: output)
+        let toolCalls = Self.canonicalizeToolCalls(
+            Self.parseToolCalls(from: output),
+            availableTools: tools
+        )
         if toolCalls.isEmpty {
             return Self.stripAssistantMeta(from: output)
         }
@@ -401,6 +425,65 @@ actor LocalAgentLoop {
                 argumentsJson: parsed.argumentsJson
             )
         }
+    }
+
+    private nonisolated static func canonicalizeToolCalls(
+        _ toolCalls: [ParsedToolCall],
+        availableTools: [OmegaToolDefinition]
+    ) -> [ParsedToolCall] {
+        toolCalls.map { canonicalizeToolCall($0, availableTools: availableTools) }
+    }
+
+    private nonisolated static func canonicalizeToolCall(
+        _ toolCall: ParsedToolCall,
+        availableTools: [OmegaToolDefinition]
+    ) -> ParsedToolCall {
+        guard let tool = availableTools.first(where: {
+            $0.name.caseInsensitiveCompare(toolCall.name) == .orderedSame
+        }) else {
+            return toolCall
+        }
+
+        guard let argumentsData = toolCall.argumentsJson.data(using: .utf8),
+              let arguments = try? JSONSerialization.jsonObject(with: argumentsData) as? [String: Any] else {
+            return ParsedToolCall(name: tool.name, argumentsJson: toolCall.argumentsJson)
+        }
+
+        let normalizedArguments = canonicalizeArguments(arguments, schemaJson: tool.schemaJson)
+        guard let normalizedData = try? JSONSerialization.data(
+            withJSONObject: normalizedArguments,
+            options: [.sortedKeys]
+        ),
+        let normalizedJson = String(data: normalizedData, encoding: .utf8) else {
+            return ParsedToolCall(name: tool.name, argumentsJson: toolCall.argumentsJson)
+        }
+
+        return ParsedToolCall(name: tool.name, argumentsJson: normalizedJson)
+    }
+
+    private nonisolated static func canonicalizeArguments(
+        _ arguments: [String: Any],
+        schemaJson: String
+    ) -> [String: Any] {
+        guard let data = schemaJson.data(using: .utf8),
+              let schema = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let properties = schema["properties"] as? [String: Any],
+              !properties.isEmpty else {
+            return arguments
+        }
+
+        let canonicalKeys = Dictionary(
+            uniqueKeysWithValues: properties.keys.map { ($0.lowercased(), $0) }
+        )
+        var normalized: [String: Any] = [:]
+        normalized.reserveCapacity(arguments.count)
+
+        for (key, value) in arguments {
+            let canonicalKey = canonicalKeys[key.lowercased()] ?? key
+            normalized[canonicalKey] = value
+        }
+
+        return normalized
     }
 
     nonisolated static func trimHistory(
@@ -463,16 +546,7 @@ actor LocalAgentLoop {
         """
     }
 
-    private nonisolated static let stripMetaRegex: NSRegularExpression? = {
-        try? NSRegularExpression(
-            pattern: #"(?s)<(?:scratch_pad|think|tool_call)>.*?</(?:scratch_pad|think|tool_call)>"#
-        )
-    }()
-
     private nonisolated static func stripAssistantMeta(from text: String) -> String {
-        guard let regex = stripMetaRegex else { return text }
-        let range = NSRange(text.startIndex..., in: text)
-        let cleaned = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
-        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        UserFacingModelOutput.finalVisibleText(from: text)
     }
 }

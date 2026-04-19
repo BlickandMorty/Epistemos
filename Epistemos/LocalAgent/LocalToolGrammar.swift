@@ -43,6 +43,14 @@ nonisolated enum LocalToolGrammar {
         #endif
     }
 
+    static var supportsSoftGuidanceToolCalling: Bool {
+        true
+    }
+
+    static var supportsLocalAgentLoop: Bool {
+        supportsStructuredToolCalling || supportsSoftGuidanceToolCalling
+    }
+
     static func buildToolCallingPlan(
         tools: [OmegaToolDefinition],
         forceThinking: Bool

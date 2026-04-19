@@ -29,6 +29,51 @@ struct ToolCallParserTests {
         #expect(calls[0].arguments["query"] as? String == "hello")
     }
 
+    @Test("Parses JSON with function and parameters keys")
+    func parseFunctionParametersKey() {
+        let input = """
+        {"function": "neural_recall", "parameters": {"query": "Hegemony", "temporal_minutes_ago": 60}}
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "neural_recall")
+        #expect(calls[0].arguments["query"] as? String == "Hegemony")
+        #expect(calls[0].arguments["temporal_minutes_ago"] as? Int == 60)
+    }
+
+    @Test("Parses training-style JSON with toolName and argumentsJson")
+    func parseToolNameArgumentsJson() {
+        let input = #"""
+        {"toolName":"run_command","argumentsJson":"{\"command\":\"git diff --stat\"}","agentName":"terminal"}
+        """#
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "run_command")
+        #expect(calls[0].arguments["command"] as? String == "git diff --stat")
+    }
+
+    @Test("Parses training-style JSON with tool and arguments")
+    func parseToolArguments() {
+        let input = """
+        {"tool":"open_url","arguments":{"url":"https://apple.com"}}
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "open_url")
+        #expect(calls[0].arguments["url"] as? String == "https://apple.com")
+    }
+
+    @Test("Parses uppercase wrapper keys from local model output")
+    func parseUppercaseWrapperKeys() {
+        let input = """
+        {"NAME":"RELEASE_PROBE","ARGUMENTS":{"REQUEST":""}}
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "RELEASE_PROBE")
+        #expect(calls[0].arguments["REQUEST"] as? String == "")
+    }
+
     // MARK: - JSON Array Parsing
 
     @Test("Parses array of tool calls")
@@ -71,6 +116,60 @@ struct ToolCallParserTests {
         #expect(calls[1].name == "write_file")
     }
 
+    @Test("Parses legacy Qwen XML function and parameter tags")
+    func parseLegacyQwenXmlFunctionParameters() {
+        let input = """
+        <tool_call><function=search_web><parameter=query>agentic tool calling</parameter><parameter=limit>2</parameter></function></tool_call>
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "search_web")
+        #expect(calls[0].arguments["query"] as? String == "agentic tool calling")
+        #expect(calls[0].arguments["limit"] as? Int == 2)
+    }
+
+    @Test("Parses bare legacy Qwen XML function bodies")
+    func parseBareLegacyQwenXmlFunctionBody() {
+        let input = """
+        <function=read_file><parameter=path>/tmp/test.txt</parameter></function>
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "read_file")
+        #expect(calls[0].arguments["path"] as? String == "/tmp/test.txt")
+    }
+
+    @Test("Parses structured scratch pad tool plans without surfacing them as raw XML")
+    func parseStructuredScratchPadToolPlan() {
+        let input = """
+        <scratch_pad>
+        <name>vault_recall</name>
+        <arguments>
+        <query>Metal and Rust neuroscience</query>
+        <top_k>5</top_k>
+        </arguments>
+        </scratch_pad>
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "vault_recall")
+        #expect(calls[0].arguments["query"] as? String == "Metal and Rust neuroscience")
+        #expect(calls[0].arguments["top_k"] as? Int == 5)
+    }
+
+    @Test("Repairs malformed XML-like tool call bodies from local models")
+    func parseMalformedXmlLikeToolCallBody() {
+        let input = """
+        <tool_call<name>read_file</name<arguments><path>~/workspace/neurology/metal_philosophy_notes.txt</path><limit>500</limit><offset>1</offset></arguments></tool_call>
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "read_file")
+        #expect(calls[0].arguments["path"] as? String == "~/workspace/neurology/metal_philosophy_notes.txt")
+        #expect(calls[0].arguments["limit"] as? Int == 500)
+        #expect(calls[0].arguments["offset"] as? Int == 1)
+    }
+
     // MARK: - Code Block Extraction
 
     @Test("Parses JSON from markdown code block")
@@ -84,6 +183,17 @@ struct ToolCallParserTests {
         let calls = ToolCallParser.parse(input)
         #expect(calls.count == 1)
         #expect(calls[0].name == "run_command")
+    }
+
+    @Test("Parses training-style JSON from inline markdown code")
+    func parseInlineMarkdownCode() {
+        let input = #"""
+        **[ACT]:** `{"toolName":"read_file","argumentsJson":"{\"path\":\"CLAUDE.md\"}","agentName":"file"}`
+        """#
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "read_file")
+        #expect(calls[0].arguments["path"] as? String == "CLAUDE.md")
     }
 
     // MARK: - Edge Cases
