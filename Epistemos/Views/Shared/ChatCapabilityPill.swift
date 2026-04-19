@@ -16,14 +16,21 @@ struct ChatCapabilityPill: View {
     let capability: ChatCapability
     let detail: String?
 
-    @State private var isPulsing = false
-
     init(capability: ChatCapability, detail: String? = nil) {
         self.capability = capability
         self.detail = detail
     }
 
     var body: some View {
+        if capability.isAgentActive {
+            pillBody
+                .breathe(amplitude: 0.01, period: 1.6)
+        } else {
+            pillBody
+        }
+    }
+
+    private var pillBody: some View {
         HStack(spacing: 4) {
             Image(systemName: capability.iconSystemName)
                 .font(.system(size: 10, weight: .semibold))
@@ -53,18 +60,6 @@ struct ChatCapabilityPill: View {
             )
         )
         .animation(.easeOut(duration: 0.18), value: detail)
-        .scaleEffect(isPulsing ? 1.035 : 1.0)
-        .onChange(of: capability.isAgentActive, initial: true) { _, newValue in
-            if newValue {
-                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                    isPulsing = true
-                }
-            } else {
-                withAnimation(.easeOut(duration: 0.2)) {
-                    isPulsing = false
-                }
-            }
-        }
     }
 
     private var tint: Color {
@@ -101,4 +96,5 @@ struct ChatCapabilityPill: View {
     }
     .padding()
     .frame(width: 500)
+    .environment(UIState())
 }

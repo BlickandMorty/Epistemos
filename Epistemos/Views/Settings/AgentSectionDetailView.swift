@@ -33,7 +33,15 @@ struct AgentSectionDetailView: View {
 
     let authorityStore: AgentAuthorityStore
 
-    @State private var selectedTab: AgentTab = .control
+    @State private var selectedTab: AgentTab
+
+    init(
+        authorityStore: AgentAuthorityStore,
+        initialTab: AgentTab = .control
+    ) {
+        self.authorityStore = authorityStore
+        self._selectedTab = State(initialValue: initialTab)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {

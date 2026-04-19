@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -122,5 +123,101 @@ struct ChatPresentationTests {
         #expect(source.contains("MarkdownDocumentModeToggle(mode: documentPresentationModeBinding)"))
         #expect(source.contains("case .csv, .table, .markdown:"))
         #expect(source.contains("rawSourceContent"))
+    }
+
+    @Test("chat export surfaces use the shared text export helper instead of silent raw writes")
+    func chatExportSurfacesUseSharedTextExportHelper() throws {
+        let messageSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+        let artifactSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ArtifactBlockView.swift")
+        let chatViewSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
+
+        #expect(messageSource.contains("ChatTextExportSupport.save("))
+        #expect(artifactSource.contains("ChatTextExportSupport.save("))
+        #expect(chatViewSource.contains("ChatTextExportSupport.save("))
+        #expect(!messageSource.contains("try? fullContent.write(to: url"))
+        #expect(!artifactSource.contains("try? content.write(to: url"))
+        #expect(!chatViewSource.contains("try md.write(to: url"))
+    }
+
+    @Test("tool preview cards start collapsed so read-only tool chatter stays out of the way")
+    func toolPreviewCardsStartCollapsed() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+
+        #expect(source.contains("@State private var isExpanded = false"))
+    }
+
+    @Test("chat brain picker mirrors the release-selectable local model set")
+    func chatBrainPickerMirrorsReleaseSelectableLocalModels() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
+
+        #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
+        #expect(!source.contains("Array(inference.installedLocalTextModelIDs)"))
+        #expect(source.contains("inference.activeChatModelDisplayName"))
+    }
+
+    @Test("chat brain picker exposes operating mode choices when chat surfaces pass a binding")
+    func chatBrainPickerExposesOperatingModes() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
+
+        #expect(source.contains("Section(\"Mode\")"))
+        #expect(source.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
+        #expect(source.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
+    }
+
+    @Test("chat brain picker simplifies cloud switching to one shared cloud row")
+    func chatBrainPickerSimplifiesCloudSwitching() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
+
+        #expect(source.contains("private var pickerCloudModel: CloudTextModelID?"))
+        #expect(source.contains("Section(\"Cloud\")"))
+        #expect(source.contains("inference.preferredCloudModel(for: provider)"))
+        #expect(!source.contains("Section(\"Routing\")"))
+        #expect(!source.contains("inference.setChatAutoRouteToCloud("))
+    }
+
+    @Test("chat capability surfaces avoid repeatForever pulse loops")
+    func chatCapabilitySurfacesAvoidRepeatForeverPulseLoops() throws {
+        let pillSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatCapabilityPill.swift")
+        let thinkingSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ThinkingPopoverView.swift")
+
+        #expect(!pillSource.contains("repeatForever("))
+        #expect(!thinkingSource.contains("repeatForever("))
+        #expect(pillSource.contains(".breathe("))
+        #expect(thinkingSource.contains(".breathe("))
+    }
+
+    @Test("chat text export support writes content and throws for unwritable destinations")
+    func chatTextExportSupportWritesContentAndThrowsForUnwritableDestinations() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "chat-export-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let fileURL = directory.appendingPathComponent("message.md")
+        try ChatTextExportSupport.write("export body", to: fileURL)
+
+        let written = try String(contentsOf: fileURL, encoding: .utf8)
+        #expect(written == "export body")
+
+        #expect(throws: CocoaError.self) {
+            try ChatTextExportSupport.write("should fail", to: directory)
+        }
+    }
+
+    @Test("chat sidebar delete only clears the active session after a saved delete and surfaces failures")
+    func chatSidebarDeleteDefersClearingUntilSaveSucceeds() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+
+        let saveRange = try #require(source.range(of: "try modelContext.save()"))
+        let clearRange = try #require(source.range(of: "chat.clearMessages()"))
+
+        #expect(!source.contains("modelContext.rollback()"))
+        #expect(source.contains("modelContext.insert(sdChat)"))
+        #expect(source.contains("sdChat.messages = originalMessages"))
+        #expect(source.contains("deleteErrorMessage = error.localizedDescription"))
+        #expect(source.contains(".alert(\"Couldn't Delete Chat\""))
+        #expect(saveRange.lowerBound < clearRange.lowerBound)
     }
 }

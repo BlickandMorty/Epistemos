@@ -26,9 +26,17 @@ struct ThinkingPopoverView: View {
     let thinkingEndedAt: Date?
 
     @State private var isShowingPopover = false
-    @State private var isPulsing = false
 
     var body: some View {
+        if isThinkingActive {
+            popoverButton
+                .breathe(amplitude: 0.012, period: 1.4)
+        } else {
+            popoverButton
+        }
+    }
+
+    private var popoverButton: some View {
         Button {
             isShowingPopover = true
         } label: {
@@ -50,7 +58,6 @@ struct ThinkingPopoverView: View {
             .background(background)
             .overlay(border)
             .clipShape(Capsule())
-            .scaleEffect(isPulsing ? 1.04 : 1.0)
         }
         .buttonStyle(.plain)
         .help(helpText)
@@ -58,17 +65,6 @@ struct ThinkingPopoverView: View {
         .popover(isPresented: $isShowingPopover, arrowEdge: .top) {
             thinkingPopoverContent
                 .frame(minWidth: 360, idealWidth: 480, maxWidth: 640, minHeight: 220, idealHeight: 360, maxHeight: 560)
-        }
-        .onChange(of: isThinkingActive, initial: true) { _, newValue in
-            if newValue {
-                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                    isPulsing = true
-                }
-            } else {
-                withAnimation(.easeOut(duration: 0.24)) {
-                    isPulsing = false
-                }
-            }
         }
     }
 
@@ -196,6 +192,7 @@ struct ThinkingPopoverView: View {
         thinkingEndedAt: nil
     )
     .padding()
+    .environment(UIState())
 }
 
 #Preview("Thought complete") {
@@ -206,4 +203,5 @@ struct ThinkingPopoverView: View {
         thinkingEndedAt: Date()
     )
     .padding()
+    .environment(UIState())
 }

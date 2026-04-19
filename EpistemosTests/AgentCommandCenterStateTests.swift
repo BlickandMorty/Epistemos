@@ -399,15 +399,16 @@ struct AgentCommandCenterStateTests {
         #expect(!source.contains(".background(.ultraThinMaterial)"))
     }
 
-    @Test func agentSurfaceRoutesAsDedicatedHomePageInsteadOfOverlay() throws {
+    @Test func fusedChatLeavesLegacyAgentSurfaceDeprecatedAndUnreachableByDefault() throws {
         let rootSource = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
         let agentViewSource = try loadMirroredSourceTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
 
-        #expect(rootSource.contains("enum HomeSurfaceRoute"))
         #expect(rootSource.contains("case agent"))
-        #expect(rootSource.contains("if accState.isPresented"))
+        #expect(rootSource.contains("return .home"))
         #expect(rootSource.contains("AgentChatView()"))
         #expect(!rootSource.contains(".overlay { agentCommandCenterOverlay }"))
+        #expect(!rootSource.contains("if accState.isPresented"))
+        #expect(agentViewSource.contains("DEPRECATED (fused chat, 2026-04-18)"))
         #expect(agentViewSource.contains("struct AgentChatView: View"))
         #expect(agentViewSource.contains("InspectorPanelView()"))
         #expect(agentViewSource.contains("CommandBarView()"))
