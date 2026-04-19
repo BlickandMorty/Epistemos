@@ -237,6 +237,14 @@ struct MessageBubble: View {
 
                 AssistantSourcesFooter(sources: sourceReferences, theme: theme, style: .popoverPanel)
 
+                // Effective-model badge — quiet byline showing which model
+                // actually produced this reply. Transparent routing is a
+                // first-class UX affordance (see docs/architecture/
+                // CHAT_TRANSPARENCY_PLAN_2026-04-19.md P1).
+                if let label = message.resolvedModelLabel, !label.isEmpty {
+                    EffectiveModelBadge(label: label, theme: theme)
+                }
+
                 // Toolbar — always rendered at fixed height, opacity-only transition
                 MessageToolbar(
                     message: message,
@@ -252,6 +260,32 @@ struct MessageBubble: View {
         }
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - Effective-Model Badge
+
+/// Small byline-style pill shown under assistant replies listing the
+/// model that actually answered. Non-interactive in v1 — Batch K adds
+/// click-through for routing rationale.
+private struct EffectiveModelBadge: View {
+    let label: String
+    let theme: EpistemosTheme
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "sparkle")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(theme.textTertiary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(theme.textTertiary.opacity(0.08), in: Capsule())
+        .accessibilityLabel("Answered by \(label)")
     }
 }
 
