@@ -8,6 +8,7 @@ Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `cod
 - Authoritative correction notes now live in:
   - `docs/handoffs/2026-04-20-claude-to-codex-session-handoff.md` §9
   - `docs/architecture/MASTER_PLAN_2026-04-19.md` §20
+- External April 19 context docs added a stricter ship contract: scope the dirty tree, declare the exact batch and files first, `xcodegen` after new Swift files, refresh `DerivedData`, build the actual `Epistemos` scheme, launch the app, and verify the fix visually before calling it shipped. See `MASTER_PLAN_2026-04-19.md` §21.
 - Immediate verification priorities:
   - Fast mode must not auto-route to always-thinking families like DeepSeek / GGUF Qwopus
   - GPT-5.4 and DeepSeek reasoning must stay in the thinking UI on both direct-cloud and Rust-agent paths
