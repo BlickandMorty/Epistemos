@@ -175,6 +175,15 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// turn completion so the persisted badge renders without needing
     /// the live timestamps.
     var thinkingDurationSeconds: Double?
+    /// Fraction of input tokens served from the provider's prompt cache
+    /// on this turn (0.0 … 1.0). Populated when the provider's usage
+    /// payload exposes cache hit counts (Anthropic
+    /// `cache_read_input_tokens`, OpenAI `prompt_tokens_details
+    /// .cached_tokens`). Nil when the provider didn't report it OR
+    /// when there was no cacheable prefix. MessageBubble renders a
+    /// small "cache 78%" badge next to the model label so the user
+    /// can see the prompt-caching win land turn-to-turn.
+    var cacheHitPercent: Double?
 
     init(
         id: String = UUID().uuidString,
@@ -197,7 +206,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         resolvedModelLabel: String? = nil,
         errorKind: UserFacingChatErrorKind? = nil,
         thinkingTrace: String? = nil,
-        thinkingDurationSeconds: Double? = nil
+        thinkingDurationSeconds: Double? = nil,
+        cacheHitPercent: Double? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -220,6 +230,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.errorKind = errorKind
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
+        self.cacheHitPercent = cacheHitPercent
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

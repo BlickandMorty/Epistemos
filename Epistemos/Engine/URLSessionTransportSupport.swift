@@ -66,13 +66,25 @@ nonisolated enum URLSessionTransportSupport {
     /// `parts[*].thought: true`). Callers that don't care about
     /// reasoning pass nil for `reasoningExtractor` / `onReasoning` and
     /// the behavior is identical to the legacy form.
+    /// Usage snapshot extracted from a provider's streaming `usage`
+    /// payload. Input + output totals + how many of the input tokens
+    /// were served from the prompt cache. Used to compute the
+    /// `ChatMessage.cacheHitPercent` badge.
+    struct UsageSnapshot: Sendable {
+        let inputTokens: Int
+        let outputTokens: Int
+        let cacheReadTokens: Int
+    }
+
     static func streamSSE(
         using urlSession: URLSession,
         request: URLRequest,
         invalidResponse: @escaping @Sendable () -> Error,
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
-        onReasoning: (@Sendable (String) -> Void)? = nil
+        onReasoning: (@Sendable (String) -> Void)? = nil,
+        usageExtractor: (@Sendable ([String: Any]) -> UsageSnapshot?)? = nil,
+        onUsage: (@Sendable (UsageSnapshot) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         ProcessActivity.makeStream(reason: "Streaming OpenAI-compatible response") { continuation in
             // Shared watchdog state: last time we saw any bytes from
@@ -147,6 +159,16 @@ nonisolated enum URLSessionTransportSupport {
                        let reasoning = reasoningExtractor(json),
                        !reasoning.isEmpty {
                         onReasoning(reasoning)
+                    }
+
+                    // Usage side-channel: provider emits a final usage
+                    // event (Anthropic `message_delta`, OpenAI Responses
+                    // `response.completed`) carrying cache-read tokens.
+                    // Caller uses it to badge the bubble with cache hit %.
+                    if let usageExtractor,
+                       let onUsage,
+                       let usage = usageExtractor(json) {
+                        onUsage(usage)
                     }
 
                     if let chunk = chunkExtractor(json), !chunk.isEmpty {

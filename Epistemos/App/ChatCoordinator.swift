@@ -1020,13 +1020,29 @@ final class ChatCoordinator {
                 chatState.appendStreamingThinking(delta)
             }
         }
+        // Usage sink: per-turn cache + token totals get stashed on
+        // ChatState so `completeProcessing` can stamp the assistant
+        // message with a cache hit % for the MessageBubble badge.
+        llmService.usageSink = { [weak chatState] input, output, cacheRead in
+            guard let chatState else { return }
+            Task { @MainActor in
+                chatState.recordUsageSnapshot(
+                    inputTokens: input,
+                    outputTokens: output,
+                    cacheReadTokens: cacheRead
+                )
+            }
+        }
 
         bootstrap.queryTask = Task {
             // Clear the LLMService reasoningSink when the task ends so
             // background turns that outlive chat-state lifetimes can't
             // write reasoning into a disposed chat.
             defer {
-                Task { @MainActor [weak self] in self?.llmService.reasoningSink = nil }
+                Task { @MainActor [weak self] in
+                    self?.llmService.reasoningSink = nil
+                    self?.llmService.usageSink = nil
+                }
             }
             do {
                 let mode = inferenceState.inferenceMode
