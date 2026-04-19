@@ -123,6 +123,12 @@ final class ChatState {
     var thinkingStartedAt: Date?
     /// Timestamp when thinking ended this turn (first text delta).
     var thinkingEndedAt: Date?
+    /// Cache-hit fraction captured from the most recent turn's
+    /// provider-reported usage. Populated by `recordUsageSnapshot` and
+    /// consumed at `completeProcessing` when building the assistant
+    /// ChatMessage so the persisted bubble can render a "cache N%"
+    /// badge. Nil when the provider didn't report cache tokens.
+    var lastTurnCacheHitPercent: Double?
     var activeChatId: String?
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
@@ -489,8 +495,10 @@ final class ChatState {
             contentBlocks: completedContentBlocks,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: thinkingTraceForMessage,
-            thinkingDurationSeconds: thinkingDuration
+            thinkingDurationSeconds: thinkingDuration,
+            cacheHitPercent: lastTurnCacheHitPercent
         )
+        lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
         markTranscriptChanged()
@@ -618,6 +626,21 @@ final class ChatState {
         flushStreamingTokens()
         isStreaming = false
         onStopRequested?()
+    }
+
+    /// Capture the provider-reported usage snapshot for this turn.
+    /// Called from the CloudLLMClient `usageSink` wired by
+    /// ChatCoordinator. Computes the cache-hit fraction and stashes
+    /// it so `completeProcessing` can stamp the assistant message.
+    func recordUsageSnapshot(inputTokens: Int, outputTokens: Int, cacheReadTokens: Int) {
+        let cachedInput = max(0, cacheReadTokens)
+        let freshInput = max(0, inputTokens)
+        let total = freshInput + cachedInput
+        guard total > 0, cachedInput > 0 else {
+            lastTurnCacheHitPercent = nil
+            return
+        }
+        lastTurnCacheHitPercent = Double(cachedInput) / Double(total)
     }
 
     /// Flush any partial-tag buffer held by the router at stream end.

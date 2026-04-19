@@ -315,7 +315,12 @@ struct MessageBubble: View {
                 // the per-row view is pure text — no HStack/Image/Capsule
                 // cost on every scroll update.
                 if let label = message.resolvedModelLabel, !label.isEmpty {
-                    EffectiveModelBadge(label: label, foreground: theme.textTertiary)
+                    HStack(spacing: 6) {
+                        EffectiveModelBadge(label: label, foreground: theme.textTertiary)
+                        if let hit = message.cacheHitPercent, hit > 0 {
+                            CacheHitBadge(fraction: hit)
+                        }
+                    }
                 }
 
                 // Toolbar — always rendered at fixed height, opacity-only transition
@@ -343,6 +348,30 @@ struct MessageBubble: View {
 /// routing rationale — built lazily so the non-interactive scroll path
 /// stays as cheap as the plain-Text baseline (see Batch U: scroll
 /// stutter came from expensive per-row subviews).
+/// Small "cache 78%" pill shown next to the model byline when the
+/// provider served prefix tokens from its prompt cache. High values
+/// mean the stable part of the system prompt (capability manifest +
+/// attached notes, etc.) is living on the cheaper cached path.
+private struct CacheHitBadge: View {
+    let fraction: Double
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "bolt.horizontal.fill")
+                .font(.system(size: 8, weight: .semibold))
+            Text("cache \(Int((fraction * 100).rounded()))%")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+        }
+        .foregroundStyle(.green)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(Color.green.opacity(0.10), in: Capsule())
+        .help(
+            "\(Int((fraction * 100).rounded()))% of input tokens were served from the prompt cache on this turn — faster + cheaper"
+        )
+    }
+}
+
 private struct EffectiveModelBadge: View {
     let label: String
     let foreground: Color

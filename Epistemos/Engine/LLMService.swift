@@ -277,6 +277,13 @@ final class LLMService: LLMClientProtocol {
         set { (cloudLLMClient as? CloudLLMClient)?.reasoningSink = newValue }
     }
 
+    /// Forwarding setter for the per-turn usage sink (cache-hit
+    /// tracking). See CloudLLMClient.usageSink for semantics.
+    var usageSink: (@Sendable (_ inputTokens: Int, _ outputTokens: Int, _ cacheReadTokens: Int) -> Void)? {
+        get { (cloudLLMClient as? CloudLLMClient)?.usageSink }
+        set { (cloudLLMClient as? CloudLLMClient)?.usageSink = newValue }
+    }
+
     func generate(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 4096) async throws -> String {
         let snapshot = configSnapshot()
         return try await Self.generate(
@@ -644,6 +651,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     /// popover fills from the reasoning channel. Scoped per turn by
     /// the caller — this class does not auto-clear.
     var reasoningSink: (@Sendable (String) -> Void)?
+
+    /// Active sink for per-turn usage + cache statistics. Called once
+    /// the stream has exposed `usage` (Anthropic `cache_read_input_tokens`,
+    /// OpenAI `prompt_tokens_details.cached_tokens`). Consumers use
+    /// it to set `ChatMessage.cacheHitPercent` so the bubble can show
+    /// a "cache 78%" badge. Same ownership contract as reasoningSink.
+    var usageSink: (@Sendable (_ inputTokens: Int, _ outputTokens: Int, _ cacheReadTokens: Int) -> Void)?
 
     init(
         inference: InferenceState,
@@ -1376,14 +1390,23 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
 
         let sink = self.reasoningSink
+        let usage = self.usageSink
         let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
             ? nil
             : { @Sendable json in CloudStreamingParser.openAIResponsesReasoningDelta(from: json) }
+        let usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = usage == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.openAIResponsesUsage(from: json) }
+        let onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = usage.map { cb in
+            { @Sendable snapshot in cb(snapshot.inputTokens, snapshot.outputTokens, snapshot.cacheReadTokens) }
+        }
         return streamSSE(
             request,
             chunkExtractor: { @Sendable json in CloudStreamingParser.openAITextDelta(from: json) },
             reasoningExtractor: reasoningExtractor,
-            onReasoning: sink
+            onReasoning: sink,
+            usageExtractor: usageExtractor,
+            onUsage: onUsage
         )
     }
 
@@ -1619,14 +1642,23 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
 
         let sink = self.reasoningSink
+        let usage = self.usageSink
         let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
             ? nil
             : { @Sendable json in CloudStreamingParser.anthropicThinkingDelta(from: json) }
+        let usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = usage == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.anthropicUsage(from: json) }
+        let onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = usage.map { cb in
+            { @Sendable snapshot in cb(snapshot.inputTokens, snapshot.outputTokens, snapshot.cacheReadTokens) }
+        }
         return streamSSE(
             request,
-            chunkExtractor: { json in CloudStreamingParser.anthropicTextDelta(from: json) },
+            chunkExtractor: { @Sendable json in CloudStreamingParser.anthropicTextDelta(from: json) },
             reasoningExtractor: reasoningExtractor,
-            onReasoning: sink
+            onReasoning: sink,
+            usageExtractor: usageExtractor,
+            onUsage: onUsage
         )
     }
 
@@ -1694,14 +1726,23 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
 
         let sink = self.reasoningSink
+        let usage = self.usageSink
         let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
             ? nil
             : { @Sendable json in CloudStreamingParser.openAICompatibleReasoningDelta(from: json) }
+        let usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = usage == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.openAICompatibleUsage(from: json) }
+        let onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = usage.map { cb in
+            { @Sendable snapshot in cb(snapshot.inputTokens, snapshot.outputTokens, snapshot.cacheReadTokens) }
+        }
         return streamSSE(
             request,
-            chunkExtractor: { json in CloudStreamingParser.openAICompatibleTextDelta(from: json) },
+            chunkExtractor: { @Sendable json in CloudStreamingParser.openAICompatibleTextDelta(from: json) },
             reasoningExtractor: reasoningExtractor,
-            onReasoning: sink
+            onReasoning: sink,
+            usageExtractor: usageExtractor,
+            onUsage: onUsage
         )
     }
 
@@ -2251,7 +2292,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         _ request: URLRequest,
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
         reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
-        onReasoning: (@Sendable (String) -> Void)? = nil
+        onReasoning: (@Sendable (String) -> Void)? = nil,
+        usageExtractor: (@Sendable ([String: Any]) -> URLSessionTransportSupport.UsageSnapshot?)? = nil,
+        onUsage: (@Sendable (URLSessionTransportSupport.UsageSnapshot) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         URLSessionTransportSupport.streamSSE(
             using: urlSession,
@@ -2259,7 +2302,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             invalidResponse: { CloudLLMError.invalidResponse },
             chunkExtractor: chunkExtractor,
             reasoningExtractor: reasoningExtractor,
-            onReasoning: onReasoning
+            onReasoning: onReasoning,
+            usageExtractor: usageExtractor,
+            onUsage: onUsage
         )
     }
 
@@ -2796,6 +2841,70 @@ nonisolated enum CloudStreamingParser {
         }
         .joined()
         return text.isEmpty ? nil : text
+    }
+
+    /// Extract the usage snapshot from an Anthropic SSE chunk. Appears
+    /// in `message_start.message.usage` and again in the final
+    /// `message_delta.usage` with cache-read totals populated.
+    static func anthropicUsage(from json: [String: Any]) -> URLSessionTransportSupport.UsageSnapshot? {
+        let type = json["type"] as? String
+        let usage: [String: Any]?
+        switch type {
+        case "message_start":
+            usage = (json["message"] as? [String: Any])?["usage"] as? [String: Any]
+        case "message_delta":
+            usage = json["usage"] as? [String: Any]
+        default:
+            usage = nil
+        }
+        guard let usage else { return nil }
+        let input = (usage["input_tokens"] as? Int) ?? 0
+        let output = (usage["output_tokens"] as? Int) ?? 0
+        let cacheRead = (usage["cache_read_input_tokens"] as? Int) ?? 0
+        // Only emit if there's *something* useful — skip empty deltas.
+        guard input > 0 || output > 0 || cacheRead > 0 else { return nil }
+        return URLSessionTransportSupport.UsageSnapshot(
+            inputTokens: input,
+            outputTokens: output,
+            cacheReadTokens: cacheRead
+        )
+    }
+
+    /// Extract the usage snapshot from an OpenAI Responses SSE chunk.
+    /// `response.completed` carries the final `response.usage` object
+    /// with `input_tokens_details.cached_tokens`.
+    static func openAIResponsesUsage(from json: [String: Any]) -> URLSessionTransportSupport.UsageSnapshot? {
+        guard json["type"] as? String == "response.completed",
+              let response = json["response"] as? [String: Any],
+              let usage = response["usage"] as? [String: Any] else {
+            return nil
+        }
+        let input = (usage["input_tokens"] as? Int) ?? 0
+        let output = (usage["output_tokens"] as? Int) ?? 0
+        let cacheRead = ((usage["input_tokens_details"] as? [String: Any])?["cached_tokens"] as? Int) ?? 0
+        guard input > 0 || output > 0 || cacheRead > 0 else { return nil }
+        return URLSessionTransportSupport.UsageSnapshot(
+            inputTokens: input,
+            outputTokens: output,
+            cacheReadTokens: cacheRead
+        )
+    }
+
+    /// Extract the usage snapshot from an OpenAI-compatible
+    /// Chat-Completions SSE chunk. Final chunk carries `usage` with
+    /// `prompt_tokens`, `completion_tokens`, and (on providers that
+    /// honor prompt caching) `prompt_tokens_details.cached_tokens`.
+    static func openAICompatibleUsage(from json: [String: Any]) -> URLSessionTransportSupport.UsageSnapshot? {
+        guard let usage = json["usage"] as? [String: Any] else { return nil }
+        let input = (usage["prompt_tokens"] as? Int) ?? 0
+        let output = (usage["completion_tokens"] as? Int) ?? 0
+        let cacheRead = ((usage["prompt_tokens_details"] as? [String: Any])?["cached_tokens"] as? Int) ?? 0
+        guard input > 0 || output > 0 || cacheRead > 0 else { return nil }
+        return URLSessionTransportSupport.UsageSnapshot(
+            inputTokens: input,
+            outputTokens: output,
+            cacheReadTokens: cacheRead
+        )
     }
 
     static func streamError(from json: [String: Any], eventName: String?) -> LLMError? {
