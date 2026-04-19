@@ -2665,6 +2665,12 @@ final class InferenceState {
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
+    /// One-time migration flag: users who were pinned to OpenAI GPT-5.2
+    /// when 5.2 was the flagship get bumped to GPT-5.4 (the current
+    /// flagship per docs/MASTER_MODEL_STACK_PLAN.md). Users who later
+    /// explicitly pick 5.2 again won't be migrated a second time because
+    /// this flag persists.
+    private nonisolated static let migratedOpenAI52To54DefaultsKey = "epistemos.migratedOpenAI52To54"
     private nonisolated static let firecrawlAPIKeyKeychainKey = "epistemos.firecrawl.apiKey"
     private nonisolated static let cloudSetupHintShownDefaultsKey = "epistemos.cloudSetupHintShown"
     private nonisolated static let cloudValidationTimeout: Duration = .seconds(90)
@@ -2737,6 +2743,13 @@ final class InferenceState {
     var anthropicThinkingBudgetTokens = 8_000
     var googleGroundingEnabled = false
     private(set) var hasShownCloudSetupHint = false
+    /// Observed mirror of the user's preferred cloud model per provider.
+    /// `loadPreferredCloudModel` seeds entries lazily from UserDefaults;
+    /// `persistPreferredCloudModel` writes here so SwiftUI observers
+    /// (the chat picker's "selected" indicator) re-render immediately
+    /// after a selection — without this @Observable mirror, the UI read
+    /// straight from UserDefaults and missed the update.
+    private(set) var observedPreferredCloudModels: [CloudModelProvider: CloudTextModelID] = [:]
 
     init(
         hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
@@ -2761,6 +2774,7 @@ final class InferenceState {
         refreshCachedCloudAPIKeys()
 
         let defaults = UserDefaults.standard
+        Self.migrateLegacyOpenAI52To54(defaults: defaults)
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
            let mode = LocalRoutingMode(rawValue: saved) {
             self.routingMode = mode
@@ -2887,6 +2901,30 @@ final class InferenceState {
         AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
     }
 
+    /// One-time migration from the legacy OpenAI GPT-5.2 default to the
+    /// current GPT-5.4 flagship. Runs once per install (gated by a
+    /// UserDefaults flag) and only flips persisted values that are
+    /// exactly `.openAIGPT52`; users who explicitly pick 5.2 after the
+    /// migration flag is set keep their choice.
+    nonisolated static func migrateLegacyOpenAI52To54(defaults: UserDefaults) {
+        guard !defaults.bool(forKey: migratedOpenAI52To54DefaultsKey) else { return }
+        defer { defaults.set(true, forKey: migratedOpenAI52To54DefaultsKey) }
+
+        let preferredKey = preferredCloudModelDefaultsKey(for: .openAI)
+        if defaults.string(forKey: preferredKey) == CloudTextModelID.openAIGPT52.rawValue {
+            defaults.set(CloudTextModelID.openAIGPT54.rawValue, forKey: preferredKey)
+        }
+
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        let legacyRaw = ChatModelSelection.cloud(.openAIGPT52).rawValue
+        if defaults.string(forKey: selectionKey) == legacyRaw {
+            defaults.set(
+                ChatModelSelection.cloud(.openAIGPT54).rawValue,
+                forKey: selectionKey
+            )
+        }
+    }
+
     private nonisolated static func migrateLegacyCloudSelection(
         defaults: UserDefaults
     ) -> ChatModelSelection? {
@@ -2920,13 +2958,22 @@ final class InferenceState {
     }
 
     private func loadPreferredCloudModel(for provider: CloudModelProvider) -> CloudTextModelID {
-        let defaults = UserDefaults.standard
-        if let saved = defaults.string(forKey: Self.preferredCloudModelDefaultsKey(for: provider)),
-           let model = CloudTextModelID.from(rawValueOrVendorID: saved),
-           model.provider == provider {
-            return normalizedPreferredCloudModel(model)
+        // Read the observed mirror first so SwiftUI dependencies register
+        // on every read; falls back to UserDefaults on the cold path.
+        if let cached = observedPreferredCloudModels[provider] {
+            return normalizedPreferredCloudModel(cached)
         }
-        return normalizedPreferredCloudModel(provider.defaultChatModel)
+        let defaults = UserDefaults.standard
+        let resolved: CloudTextModelID = {
+            if let saved = defaults.string(forKey: Self.preferredCloudModelDefaultsKey(for: provider)),
+               let model = CloudTextModelID.from(rawValueOrVendorID: saved),
+               model.provider == provider {
+                return model
+            }
+            return provider.defaultChatModel
+        }()
+        observedPreferredCloudModels[provider] = resolved
+        return normalizedPreferredCloudModel(resolved)
     }
 
     /// Public read of the user's preferred cloud model for a given
@@ -2944,6 +2991,10 @@ final class InferenceState {
             model.rawValue,
             forKey: Self.preferredCloudModelDefaultsKey(for: model.provider)
         )
+        // Publish to the @Observable mirror so the chat picker refreshes
+        // immediately — the old direct-UserDefaults read never triggered
+        // a SwiftUI update, which looked like "I can't change the model".
+        observedPreferredCloudModels[model.provider] = model
     }
 
     private func persistActiveAIProvider(
