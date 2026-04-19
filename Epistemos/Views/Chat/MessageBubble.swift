@@ -240,9 +240,12 @@ struct MessageBubble: View {
                 // Effective-model badge — quiet byline showing which model
                 // actually produced this reply. Transparent routing is a
                 // first-class UX affordance (see docs/architecture/
-                // CHAT_TRANSPARENCY_PLAN_2026-04-19.md P1).
+                // CHAT_TRANSPARENCY_PLAN_2026-04-19.md P1). Colour is
+                // resolved here (once) rather than inside the badge so
+                // the per-row view is pure text — no HStack/Image/Capsule
+                // cost on every scroll update.
                 if let label = message.resolvedModelLabel, !label.isEmpty {
-                    EffectiveModelBadge(label: label, theme: theme)
+                    EffectiveModelBadge(label: label, foreground: theme.textTertiary)
                 }
 
                 // Toolbar — always rendered at fixed height, opacity-only transition
@@ -265,27 +268,23 @@ struct MessageBubble: View {
 
 // MARK: - Effective-Model Badge
 
-/// Small byline-style pill shown under assistant replies listing the
-/// model that actually answered. Non-interactive in v1 — Batch K adds
-/// click-through for routing rationale.
+/// Small byline-style label shown under assistant replies listing the
+/// model that actually answered. Kept deliberately lightweight (single
+/// Text node, no icon, no background shape, no HStack) so it adds near-
+/// zero per-row cost in the LazyVStack transcript — scroll stutter got
+/// flagged after the initial HStack+Image+Capsule version shipped.
+/// Non-interactive in v1 — Batch K will add click-through for routing
+/// rationale.
 private struct EffectiveModelBadge: View {
     let label: String
-    let theme: EpistemosTheme
+    let foreground: Color
 
     var body: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "sparkle")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(theme.textTertiary)
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(theme.textTertiary.opacity(0.08), in: Capsule())
-        .accessibilityLabel("Answered by \(label)")
+        Text(label)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(foreground)
+            .lineLimit(1)
+            .accessibilityLabel("Answered by \(label)")
     }
 }
 
