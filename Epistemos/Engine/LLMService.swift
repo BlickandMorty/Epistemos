@@ -1486,6 +1486,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
             body["thinking"] = thinking
         }
+        if let webSearch = anthropicWebSearchTool(provider: provider) {
+            body["tools"] = [webSearch]
+        }
 
         guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
             throw CloudLLMError.invalidResponse
@@ -1563,6 +1566,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
         if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
             body["thinking"] = thinking
+        }
+        if let webSearch = anthropicWebSearchTool(provider: provider) {
+            body["tools"] = [webSearch]
         }
 
         guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
@@ -1846,23 +1852,52 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             } else {
                 request.setValue(token, forHTTPHeaderField: "x-api-key")
-                // Enable prompt caching + structured outputs for direct API key auth
+                // Enable prompt caching + structured outputs for direct
+                // API key auth. Web search beta appends only when the
+                // user has the toggle on (and only for .anthropic —
+                // Anthropic-compatible gateways don't all support it).
+                var betas = [
+                    "prompt-caching-2024-07-31",
+                    "structured-outputs-2025-11-13",
+                ]
+                if provider == .anthropic, inference.anthropicWebSearchEnabled {
+                    betas.append("web-search-2025-03-05")
+                }
                 request.setValue(
-                    "prompt-caching-2024-07-31,structured-outputs-2025-11-13",
+                    betas.joined(separator: ","),
                     forHTTPHeaderField: "anthropic-beta"
                 )
             }
         case .anthropicOAuth(let accessToken):
             request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-            request.setValue(
-                "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20",
-                forHTTPHeaderField: "anthropic-beta"
-            )
+            var betas = [
+                "interleaved-thinking-2025-05-14",
+                "fine-grained-tool-streaming-2025-05-14",
+                "claude-code-20250219",
+                "oauth-2025-04-20",
+            ]
+            if inference.anthropicWebSearchEnabled {
+                betas.append("web-search-2025-03-05")
+            }
+            request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "anthropic-beta")
             request.setValue("claude-cli/2.1.74 (external, cli)", forHTTPHeaderField: "User-Agent")
             request.setValue("cli", forHTTPHeaderField: "x-app")
         case .openAICodex, .googleOAuth:
             break
         }
+    }
+
+    /// Anthropic hosted web-search tool spec. Nil when the user hasn't
+    /// enabled the toggle OR the provider isn't the first-party
+    /// Anthropic endpoint (other Anthropic-compatible gateways vary in
+    /// beta support, so we only attach this for `.anthropic`).
+    private func anthropicWebSearchTool(provider: CloudModelProvider) -> [String: Any]? {
+        guard provider == .anthropic, inference.anthropicWebSearchEnabled else { return nil }
+        return [
+            "type": "web_search_20250305",
+            "name": "web_search",
+            "max_uses": 5,
+        ]
     }
 
     private func anthropicBaseURL(for provider: CloudModelProvider) -> String {
