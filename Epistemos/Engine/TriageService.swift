@@ -651,13 +651,16 @@ nonisolated struct InferencePolicyEngine {
             switch profile.intent {
             case .coding, .debugging:
                 preferredOrder = [
-                    .deepseekR1Distill7B, .qwen3Coder30BA3B4Bit,
+                    .qwqFlagship32B4Bit, .deepseekR1Distill7B,
+                    .qwen3Coder30BA3B4Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .qwen25Coder7B,
                 ]
             default:
                 preferredOrder = [
-                    .deepseekR1Distill7B,
+                    // QwQ 32B leads thinking mode — comparable reasoning
+                    // quality to DeepSeek R1 at 32B on harder prompts.
+                    .qwqFlagship32B4Bit, .deepseekR1Distill7B,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .qwen3_4B4Bit, .qwen25Coder7B,
                 ]

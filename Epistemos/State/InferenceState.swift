@@ -44,6 +44,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     // MARK: - Specialist Models
     case deepseekR1Distill7B = "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit"
+    /// QwQ 32B — Qwen team's flagship reasoning model (comparable to DeepSeek-R1
+    /// at 32B). Uses the existing Qwen MLX arch; no new loader required.
+    case qwqFlagship32B4Bit = "mlx-community/QwQ-32B-4bit"
     case qwen25Coder7B = "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit"
     case bonsai4B2Bit = "prism-ml/Ternary-Bonsai-4B-mlx-2bit"
     case bonsai8B2Bit = "prism-ml/Ternary-Bonsai-8B-mlx-2bit"
@@ -105,6 +108,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopus27Bv3: "Qwopus 27B v3"
         case .qwopusMoE35BA3B: "Qwopus MoE 35B"
         case .deepseekR1Distill7B: "DeepSeek R1 7B"
+        case .qwqFlagship32B4Bit: "QwQ 32B"
         case .qwen25Coder7B: "Qwen 2.5 Coder 7B"
         case .bonsai4B2Bit: "Ternary Bonsai 4B"
         case .bonsai8B2Bit: "Ternary Bonsai 8B"
@@ -151,6 +155,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopus27Bv3: "Qwopus 27B"
         case .qwopusMoE35BA3B: "Qwopus 35B"
         case .deepseekR1Distill7B: "R1 7B"
+        case .qwqFlagship32B4Bit: "QwQ 32B"
         case .qwen25Coder7B: "Coder 7B"
         case .bonsai4B2Bit: "Bonsai 4B"
         case .bonsai8B2Bit: "Bonsai 8B"
@@ -196,6 +201,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             "Qwopus"
         case .deepseekR1Distill7B:
             "DeepSeek R1"
+        case .qwqFlagship32B4Bit:
+            "QwQ"
         case .qwen25Coder7B:
             "Qwen Coder"
         case .bonsai4B2Bit, .bonsai8B2Bit:
@@ -246,6 +253,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit,
              .bonsai4B2Bit, .bonsai8B2Bit: 8
         case .deepseekR1Distill7B, .qwen25Coder7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 16
+        case .qwqFlagship32B4Bit: 24
         case .qwen35_9B4Bit, .jamba3B: 18
         case .lfm2_24BA2B4Bit: 24
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 18
@@ -303,6 +311,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .lfm25_1BThinking, .jamba3B,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B,
+             .qwqFlagship32B4Bit,
              .hermes43_36B4Bit, .hermes43_36B3Bit:
             true
         default:
@@ -319,7 +328,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .hermes43_36B4Bit, .hermes43_36B3Bit,
              .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .qwopus27Bv3, .qwopusMoE35BA3B,
-             .deepseekR1Distill7B, .qwen25Coder7B,
+             .deepseekR1Distill7B, .qwqFlagship32B4Bit, .qwen25Coder7B,
              .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit,
              .llama4Scout17B16E4Bit,
              .lfm2_2B4Bit,
@@ -366,8 +375,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen3_4B4Bit,
              .bonsai4B2Bit,
              .bonsai8B2Bit,
-             // Reasoning local.
+             // Reasoning local (DeepSeek R1 7B + QwQ 32B flagship).
              .deepseekR1Distill7B,
+             .qwqFlagship32B4Bit,
              // Coding local (Qwen 3 gen + legacy).
              .qwen3CoderNext4Bit,
              .qwen3Coder30BA3B4Bit,
@@ -468,6 +478,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopusMoE35BA3B: 131_072
         // Specialists
         case .deepseekR1Distill7B: 128_000   // DeepSeek R1 HF card: 128K
+        case .qwqFlagship32B4Bit: 131_072   // QwQ 32B: Qwen2 base → 131K
         case .qwen25Coder7B: 131_072         // Qwen 2.5 Coder: 131K
         case .bonsai4B2Bit: 32_768
         case .bonsai8B2Bit: 65_536
@@ -572,6 +583,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // DeepSeek R1: 0.6 in fast mode (HF card recommendation)
         case .deepseekR1Distill7B:
             0.6
+        case .qwqFlagship32B4Bit:
+            0.6   // QwQ: Qwen team recommendation
         // Code models: low temp for correct code
         case .qwen25Coder7B:
             0.4
@@ -609,6 +622,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.0   // Qwopus inherits Qwen thinking behavior
         case .deepseekR1Distill7B:
             0.1   // DeepSeek R1: very low but not greedy (HF card)
+        case .qwqFlagship32B4Bit:
+            0.6   // QwQ 32B model card: thinking temp 0.6, top_p 0.95
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             1.0   // Gemma 4: trained at temp=1.0, thinking uses same (model card)
         case .lfm25_1BThinking:
@@ -627,6 +642,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.90
         case .deepseekR1Distill7B, .qwen25Coder7B:
             0.85
+        case .qwqFlagship32B4Bit:
+            0.95   // QwQ 32B model card: top_p 0.95 for thinking
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
             0.90
         default:
@@ -680,6 +697,9 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Medium models: balanced KV
         case .deepseekR1Distill7B, .qwen25Coder7B, .bonsai8B2Bit:
             3_072
+        // QwQ 32B (dense reasoning flagship, 24GB class)
+        case .qwqFlagship32B4Bit:
+            2_048
         case .qwen35_9B4Bit:
             2_560
         // Large models: conservative KV (VRAM constrained)
@@ -751,6 +771,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_4B4Bit, .gemma4_4B4Bit: 4.0
         case .bonsai4B2Bit: 4.0
         case .deepseekR1Distill7B, .qwen25Coder7B: 7.0
+        case .qwqFlagship32B4Bit: 32.0
         case .bonsai8B2Bit: 8.0
         case .qwen35_9B4Bit: 9.0
         case .gemma4_27BA4B4Bit: 4.0  // MoE: 26B total, 4B active
@@ -792,6 +813,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             .coding       // Coding specialist
         case .deepseekR1Distill7B:
             .reasoning    // DeepSeek R1 reasoning distilled
+        case .qwqFlagship32B4Bit:
+            .reasoning    // QwQ 32B — flagship on-device reasoner
         case .qwen36_35BA3B4Bit:
             .general      // High-end local agentic/generalist tier
         case .gemma4_31BJANG:
@@ -914,6 +937,8 @@ extension LocalTextModelID {
             .fullAgent    // Best sub-10B coding model, native tool calling
         case .deepseekR1Distill7B:
             .readWrite    // Strong reasoning but tool call JSON can be unreliable
+        case .qwqFlagship32B4Bit:
+            .fullAgent    // QwQ 32B: flagship reasoning with reliable tool calling
         // Medium local models: Qwen 9B gets full agent (thinking + 262K)
         case .qwen35_9B4Bit:
             .fullAgent
