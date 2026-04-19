@@ -2552,21 +2552,20 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if inference.openAIWebSearchEnabled {
             tools.append(["type": "web_search"])
         }
-        // Code interpreter restored per parity matrix #4. The Responses
-        // API requires a `container` field; the previous attach-form
-        // (just `{"type": "code_interpreter"}`) 400'd with "Unsupported
-        // tool type" on most accounts because the schema was rejected
-        // at the param validator, not the feature gate. `container.type
-        // = "auto"` lets the platform provision the default Python
-        // sandbox. Accounts without code-interpreter entitlement will
-        // still see a 400 — that surfaces via the typed-error path
-        // just like web_search on accounts without it.
-        if inference.openAICodeInterpreterEnabled {
-            tools.append([
-                "type": "code_interpreter",
-                "container": ["type": "auto"],
-            ])
-        }
+        // NOTE (parity #4): `code_interpreter` attach is parked. User's
+        // production logs show the Responses API returning 400
+        // `"Unsupported tool type: code_interpreter"` even with the
+        // `container: { type: "auto" }` schema. That happens for at
+        // least three reasons on different accounts/models: (a) the
+        // model ID doesn't support code_interpreter (most of the
+        // GPT-5.x chat line), (b) the org lacks the feature
+        // entitlement, (c) the correct schema varies by model family.
+        // Until we can detect which of these applies per selection,
+        // we keep the toggle user-facing but do NOT attach the tool,
+        // so the toggle becomes a no-op instead of a hard 400. The
+        // Anthropic `code_execution_20250825` beta in
+        // `anthropicServerSideTools` still works and is the
+        // currently-functional code-interpreter-parity path.
         return tools
     }
 
