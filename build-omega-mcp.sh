@@ -40,13 +40,33 @@ if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then
         "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/libomega_mcp.dylib"
 fi
 
-# Generate Swift bindings from UDL
+# Sign uniffi_bindgen BEFORE invoking it — cargo emits adhoc binaries
+# that AMFI kills on hardened systems. User's production logs showed
+# repeated kernel kills here; signing after the `cargo run` invocation
+# was the bug. Use `cargo build` to produce the binary without
+# running it, sign it, then invoke it directly.
 mkdir -p ../build-rust/swift-bindings
-cargo run --bin uniffi_bindgen -- generate \
-    uniffi/omega_mcp.udl \
-    --language swift \
-    --no-format \
-    --out-dir ../build-rust/swift-bindings/ 2>/dev/null || true
+cargo build --bin uniffi_bindgen --target aarch64-apple-darwin 2>/dev/null || true
+for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
+           target/x86_64-apple-darwin/debug/uniffi_bindgen \
+           target/aarch64-apple-darwin/release/uniffi_bindgen \
+           target/x86_64-apple-darwin/release/uniffi_bindgen; do
+    [ -f "$bin" ] && codesign --force --sign - "$bin" 2>/dev/null || true
+done
+
+# Generate Swift bindings from UDL (call the signed binary directly
+# rather than `cargo run` so AMFI can't kill a fresh unsigned build).
+UNIFFI_BIN="target/aarch64-apple-darwin/debug/uniffi_bindgen"
+if [ ! -f "$UNIFFI_BIN" ]; then
+    UNIFFI_BIN="target/aarch64-apple-darwin/release/uniffi_bindgen"
+fi
+if [ -f "$UNIFFI_BIN" ]; then
+    "$UNIFFI_BIN" generate \
+        uniffi/omega_mcp.udl \
+        --language swift \
+        --no-format \
+        --out-dir ../build-rust/swift-bindings/ 2>/dev/null || true
+fi
 
 # Patch generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor compatibility
 python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/omega_mcp.swift
@@ -55,14 +75,6 @@ python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/omega_mcp.swift
 mkdir -p ../build-rust/swift-bindings/omega_mcpFFI
 cp ../build-rust/swift-bindings/omega_mcpFFI.h ../build-rust/swift-bindings/omega_mcpFFI/ 2>/dev/null || true
 cp ../build-rust/swift-bindings/omega_mcpFFI.modulemap ../build-rust/swift-bindings/omega_mcpFFI/module.modulemap 2>/dev/null || true
-
-# Ad-hoc sign uniffi_bindgen build tools (prevents AMFI kills during code generation).
-for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
-           target/x86_64-apple-darwin/debug/uniffi_bindgen \
-           target/aarch64-apple-darwin/release/uniffi_bindgen \
-           target/x86_64-apple-darwin/release/uniffi_bindgen; do
-    [ -f "$bin" ] && codesign --force --sign - "$bin"
-done
 
 # Only ad-hoc sign the staging dylib if NOT running inside Xcode.
 # When Xcode is driving, embed-and-sign-rust-dylib.sh already signed with
