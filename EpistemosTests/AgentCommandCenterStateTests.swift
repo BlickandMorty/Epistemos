@@ -155,6 +155,33 @@ struct AgentCommandCenterStateTests {
         #expect(state.selectedOperatingMode == .fast)
     }
 
+    @Test func refreshBrainCatalogHidesGemmaFourEvenWhenInstalled() {
+        let state = AgentCommandCenterState(userDefaults: Self.makeDefaults())
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.gemma4_4B4Bit.rawValue,
+            LocalTextModelID.bonsai4B2Bit.rawValue,
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+        ])
+
+        state.refreshBrainCatalog(from: inference)
+
+        #expect(
+            !state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.gemma4_4B4Bit.rawValue)" })
+        )
+        #expect(
+            state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.bonsai4B2Bit.rawValue)" })
+        )
+        #expect(
+            state.availableBrains.contains(where: { $0.id == "local:\(LocalTextModelID.qwen3_4B4Bit.rawValue)" })
+        )
+    }
+
     @Test func changingBrainSanitizesUnsupportedOperatingModes() {
         let state = AgentCommandCenterState()
         state.selectedOperatingMode = .pro

@@ -396,8 +396,8 @@ struct LocalModelInfrastructureTests {
         #expect(!selected.contains(.falconH1_1B4Bit))
     }
 
-    @Test("18GB hardware defaults to Gemma E4B and keeps the optional flagships behind their gates")
-    func eighteenGBHardwareDefaultsToGemmaE4B() throws {
+    @Test("18GB hardware defaults to Qwen 3 4B and keeps Bonsai as the constrained fallback")
+    func eighteenGBHardwareDefaultsToQwen3FourB() throws {
         let snapshot = LocalHardwareCapabilitySnapshot(
             physicalMemoryBytes: 18_000_000_000,
             roundedMemoryGB: 18,
@@ -405,7 +405,7 @@ struct LocalModelInfrastructureTests {
         )
         let constrained = try #require(snapshot.recommendedConstrainedLocalTextModelID)
 
-        #expect(snapshot.recommendedLocalTextModelID == .gemma4_4B4Bit)
+        #expect(snapshot.recommendedLocalTextModelID == .qwen3_4B4Bit)
         #expect(constrained == .bonsai4B2Bit)
         #expect(LocalModelCatalog.descriptor(for: constrained.rawValue) != nil)
         #expect(!snapshot.supportsInteractiveChatModel(textModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue))
