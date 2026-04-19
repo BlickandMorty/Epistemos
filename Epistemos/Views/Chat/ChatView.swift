@@ -498,15 +498,12 @@ private struct ChatBrainPanelView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
                 if hasPendingContext {
-                    // Pre-submit preview of everything the user has
-                    // explicitly attached so they can see exactly what
-                    // will be sent before hitting return. Removals
-                    // happen in the composer pill row; this panel is
-                    // read-only on purpose (one source of truth).
-                    summaryCard(title: "Ready to send with the next turn") {
-                        VStack(alignment: .leading, spacing: 6) {
+                    // Pre-submit preview — removals still happen in the
+                    // composer pill row so the panel stays read-only.
+                    section(title: "READY TO SEND", defaultExpanded: true) {
+                        VStack(alignment: .leading, spacing: 8) {
                             ForEach(pendingContextAttachments) { attachment in
                                 detailRow(
                                     attachment.title,
@@ -514,106 +511,155 @@ private struct ChatBrainPanelView: View {
                                 )
                             }
                             ForEach(pendingAttachments) { attachment in
-                                detailRow(attachment.name, attachment.type.rawValue.capitalized)
+                                detailRow(
+                                    attachment.name,
+                                    attachment.type.rawValue.capitalized,
+                                    valueMonospaced: true
+                                )
                             }
                         }
                     }
                 }
 
                 if let snapshot {
-                    summaryCard(title: "Context Envelope") {
-                        detailRow("Route", snapshot.routeLabel)
-                        detailRow("Summary", snapshot.routeSummary)
-                        detailRow("Runtime", snapshot.providerLabel)
-                        detailRow("Model", snapshot.modelLabel ?? "Unknown")
-                        detailRow("Mode", snapshot.operatingMode.displayName)
-                        detailRow(
-                            "Captured",
-                            snapshot.capturedAt.formatted(date: .abbreviated, time: .standard)
-                        )
+                    section(title: "ROUTING", defaultExpanded: true) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            detailRow("Route", snapshot.routeLabel)
+                            detailRow("Summary", snapshot.routeSummary)
+                            detailRow("Runtime", snapshot.providerLabel, valueMonospaced: true)
+                            detailRow(
+                                "Model",
+                                snapshot.modelLabel ?? "Unknown",
+                                valueMonospaced: true
+                            )
+                            detailRow("Mode", snapshot.operatingMode.displayName)
+                            detailRow(
+                                "Captured",
+                                snapshot.capturedAt.formatted(date: .abbreviated, time: .standard)
+                            )
+                        }
                     }
 
-                    summaryCard(title: "Request") {
-                        bodyBlock(snapshot.query)
-                        if snapshot.resolvedQuery != snapshot.query {
-                            Divider()
-                            detailRow("Resolved", "After explicit-context cleanup and routing")
-                            bodyBlock(snapshot.resolvedQuery)
+                    section(title: "REQUEST", defaultExpanded: true) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            bodyBlock(snapshot.query)
+                            if snapshot.resolvedQuery != snapshot.query {
+                                Divider().opacity(0.4)
+                                detailRow("Resolved", "After explicit-context cleanup and routing")
+                                bodyBlock(snapshot.resolvedQuery)
+                            }
                         }
                     }
 
                     if !snapshot.contextAttachments.isEmpty {
-                        summaryCard(title: "Explicit Attachments") {
-                            ForEach(snapshot.contextAttachments) { attachment in
-                                detailRow(
-                                    attachment.title,
-                                    attachment.subtitle ?? attachment.kind.rawValue.capitalized
-                                )
+                        section(title: "EXPLICIT ATTACHMENTS", defaultExpanded: true) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(snapshot.contextAttachments) { attachment in
+                                    detailRow(
+                                        attachment.title,
+                                        attachment.subtitle ?? attachment.kind.rawValue.capitalized
+                                    )
+                                }
                             }
                         }
                     }
 
                     if !snapshot.loadedNoteTitles.isEmpty {
-                        summaryCard(title: "Loaded Notes") {
-                            ForEach(snapshot.loadedNoteTitles, id: \.self) { title in
-                                detailRow(title, "Loaded into this turn")
+                        section(title: "LOADED NOTES", defaultExpanded: true) {
+                            VStack(alignment: .leading, spacing: 6) {
+                                ForEach(snapshot.loadedNoteTitles, id: \.self) { title in
+                                    Text(title)
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(theme.textPrimary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
                             }
                         }
                     }
 
                     if !snapshot.allowedToolNames.isEmpty {
-                        summaryCard(title: "Allowed Tools") {
-                            bodyBlock(snapshot.allowedToolNames.joined(separator: "\n"))
+                        section(title: "ALLOWED TOOLS", defaultExpanded: false) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(snapshot.allowedToolNames, id: \.self) { tool in
+                                    HStack(spacing: 6) {
+                                        Text("▸")
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundStyle(theme.textTertiary)
+                                        Text(tool)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(theme.textSecondary)
+                                            .textSelection(.enabled)
+                                    }
+                                }
+                            }
                         }
                     }
 
-                    ForEach(snapshot.sections) { section in
-                        summaryCard(title: section.title) {
-                            bodyBlock(section.body)
+                    ForEach(snapshot.sections) { sectionBlock in
+                        section(title: sectionBlock.title.uppercased(), defaultExpanded: false) {
+                            bodyBlock(sectionBlock.body)
                         }
                     }
                 } else if !hasPendingContext {
-                    summaryCard(title: "What the model sees") {
-                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing that were fed to the model — so you always know what it saw. @-mention or attach files to preview them here before sending.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("WHAT THE MODEL SEES")
+                            .font(.system(size: 10, weight: .semibold))
+                            .tracking(0.8)
+                            .foregroundStyle(theme.textTertiary)
+                            .padding(.top, 4)
+                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing fed to the model. @-mention or attach files to preview them here before sending.")
                             .font(.system(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
             }
-            .padding(16)
+            .padding(.horizontal, 0)
+            .padding(.vertical, 8)
         }
         .background(theme.resolved.background.color)
     }
 
+    /// Collapsible section header styled like Claude Code's sidebar —
+    /// small uppercase heading with tracking, chevron disclosure, no
+    /// card chrome, thin divider underneath.
     @ViewBuilder
-    private func summaryCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(title)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(theme.textPrimary)
-
-            content()
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.6)
-        }
+    private func section<Content: View>(
+        title: String,
+        defaultExpanded: Bool,
+        @ViewBuilder content: @escaping () -> Content
+    ) -> some View {
+        BrainPanelSection(
+            title: title,
+            defaultExpanded: defaultExpanded,
+            theme: theme,
+            content: content
+        )
     }
 
     @ViewBuilder
-    private func detailRow(_ label: String, _ value: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+    private func detailRow(
+        _ label: String,
+        _ value: String,
+        valueMonospaced: Bool = false
+    ) -> some View {
+        HStack(alignment: .top, spacing: 10) {
             Text(label)
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11))
                 .foregroundStyle(theme.textTertiary)
+                .frame(width: 72, alignment: .leading)
             Text(value)
-                .font(.system(size: 12))
-                .foregroundStyle(theme.textSecondary)
+                .font(
+                    valueMonospaced
+                        ? .system(size: 11, design: .monospaced)
+                        : .system(size: 12)
+                )
+                .foregroundStyle(theme.textPrimary)
+                .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -624,5 +670,59 @@ private struct ChatBrainPanelView: View {
             .foregroundStyle(theme.textSecondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .textSelection(.enabled)
+    }
+}
+
+/// Claude Code-style section: uppercase tracked header, chevron on the
+/// right, no card chrome, thin bottom divider. Manages its own expand
+/// state; the row is one big Button so the whole line is the tap target.
+private struct BrainPanelSection<Content: View>: View {
+    let title: String
+    let defaultExpanded: Bool
+    let theme: EpistemosTheme
+    @ViewBuilder let content: () -> Content
+
+    @State private var isExpanded: Bool?
+
+    private var expanded: Bool {
+        isExpanded ?? defaultExpanded
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isExpanded = !expanded
+                }
+            } label: {
+                HStack {
+                    Text(title)
+                        .font(.system(size: 10, weight: .semibold))
+                        .tracking(0.8)
+                        .foregroundStyle(theme.textTertiary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                        .rotationEffect(.degrees(expanded ? 90 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+
+            if expanded {
+                content()
+                    .padding(.horizontal, 16)
+                    .padding(.top, 2)
+                    .padding(.bottom, 12)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(theme.border.opacity(0.35))
+                .frame(height: 0.5)
+        }
     }
 }
