@@ -188,6 +188,17 @@ struct ChatPresentationTests {
         #expect(source.contains("\"Show Context\""))
     }
 
+    @Test("streaming indicator shows an explicit loading-model state before first token")
+    func streamingIndicatorShowsLoadingModelState() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
+
+        #expect(source.contains("@Environment(PipelineState.self) private var pipeline"))
+        #expect(source.contains("@Environment(InferenceState.self) private var inference"))
+        #expect(source.contains("pipeline.isProcessing && !chat.isStreaming && !chat.isAgentExecuting"))
+        #expect(source.contains("Text(\"Loading \\(inference.activeChatModelDisplayName)…\")"))
+        #expect(source.contains(".foregroundStyle(theme.textSecondary)"))
+    }
+
     @Test("chat text export support writes content and throws for unwritable destinations")
     func chatTextExportSupportWritesContentAndThrowsForUnwritableDestinations() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
