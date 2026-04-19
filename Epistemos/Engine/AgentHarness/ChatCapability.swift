@@ -136,8 +136,12 @@ extension ChatCapability {
         }
 
         // Agent-tier signals: create/read/write/delete operations, git /
-        // filesystem / install / web-fetch verbs. These demand the tool
-        // loop, which is cloud-only.
+        // filesystem / install / web-fetch verbs, AND lookup verbs that
+        // require a real vault_search/vault_read tool call instead of a
+        // hallucinated answer. Research 3 (2026-04-19 tool-surface audit)
+        // flagged that "find / look up / summarize my note X" was missing
+        // here — the user would land in cloud chat with no tools and the
+        // model would hallucinate instead of calling a tool.
         let agentSignals = [
             "create a note", "create note", "save a note", "save to",
             "delete a note", "delete note", "remove a note",
@@ -149,6 +153,13 @@ extension ChatCapability {
             "run the command", "execute ", "automate ",
             "organize my files", "move the file",
             "send a message", "open the app",
+            // Vault lookup verbs — require a real tool call, not a guess.
+            "find the note", "find a note", "find my note",
+            "look up ", "search for ", "locate ", "show me the note",
+            "open the note", "which note", "which of my notes",
+            "summarize my note", "summarize the note",
+            "what am i working on", "what am i currently working on",
+            "what's in my note", "what is in my note", "read my note",
         ]
 
         for signal in agentSignals {
