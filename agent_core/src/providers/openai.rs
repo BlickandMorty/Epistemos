@@ -286,33 +286,12 @@ impl OpenAIProvider {
     ) -> Result<MessageStream, AgentError> {
         let input = build_codex_input(messages);
         let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_codex_json).collect();
-        let mut body = json!({
-            "model": self.model,
-            "instructions": config.system_prompt.clone().unwrap_or_else(|| "You are a helpful assistant.".to_string()),
-            "input": input,
-            "stream": true,
-            "store": false,
-            "text": { "verbosity": "low" },
-        });
-
-        if !api_tools.is_empty() {
-            body["tools"] = json!(api_tools);
-        }
-
-        let reasoning_effort = codex_reasoning_effort(config);
-        if reasoning_effort != "none" {
-            // `summary: "auto"` is critical: without it GPT-5.4 does
-            // its reasoning privately and emits zero
-            // `response.reasoning_summary_text.delta` events, so the
-            // user sees the model's planning monologue leak into
-            // `response.output_text.delta` (the chat body) instead of
-            // the thinking popover. With summary enabled the reasoning
-            // routes through ThinkingDelta events per e710d993.
-            body["reasoning"] = json!({
-                "effort": reasoning_effort,
-                "summary": "auto",
-            });
-        }
+        let body = build_codex_responses_body(
+            self.model.to_string(),
+            config,
+            input,
+            api_tools,
+        );
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -955,6 +934,38 @@ fn tool_schema_to_codex_json(tool: &ToolSchema) -> Value {
     })
 }
 
+fn build_codex_responses_body(
+    model: String,
+    config: &AgentConfig,
+    input: Vec<Value>,
+    api_tools: Vec<Value>,
+) -> Value {
+    let mut body = json!({
+        "model": model,
+        "instructions": config.system_prompt.clone().unwrap_or_else(|| "You are a helpful assistant.".to_string()),
+        "input": input,
+        "stream": true,
+        "store": false,
+        "text": { "verbosity": "low" },
+    });
+
+    if !api_tools.is_empty() {
+        body["tools"] = json!(api_tools);
+        body["tool_choice"] = json!("auto");
+        body["parallel_tool_calls"] = json!(true);
+    }
+
+    let reasoning_effort = codex_reasoning_effort(config);
+    if reasoning_effort != "none" {
+        body["reasoning"] = json!({
+            "effort": reasoning_effort,
+            "summary": "auto",
+        });
+    }
+
+    body
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -1492,5 +1503,39 @@ mod tests {
         assert_eq!(tool_json["description"], "Read a file");
         assert_eq!(tool_json["strict"], true);
         assert!(tool_json["parameters"]["properties"]["path"].is_object());
+    }
+
+    #[test]
+    fn codex_request_body_enables_auto_parallel_tool_calls_when_tools_exist() {
+        let config = AgentConfig {
+            system_prompt: Some("You are Hermes.".to_string()),
+            ..Default::default()
+        };
+        let body = build_codex_responses_body(
+            "gpt-5.4".to_string(),
+            &config,
+            vec![json!({
+                "type": "message",
+                "role": "user",
+                "content": [{ "type": "input_text", "text": "Ping" }],
+            })],
+            vec![tool_schema_to_codex_json(&ToolSchema {
+                name: "terminal".to_string(),
+                description: "Run a shell command".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "command": { "type": "string" }
+                    },
+                    "required": ["command"]
+                }),
+            })],
+        );
+
+        assert_eq!(body["tool_choice"], "auto");
+        assert_eq!(body["parallel_tool_calls"], true);
+        assert_eq!(body["tools"][0]["type"], "function");
+        assert_eq!(body["tools"][0]["name"], "terminal");
+        assert!(body["tools"][0]["function"].is_null());
     }
 }
