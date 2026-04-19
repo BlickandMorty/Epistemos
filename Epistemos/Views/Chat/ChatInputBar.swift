@@ -458,6 +458,25 @@ struct ChatInputBar: View {
 
                     Spacer(minLength: 4)
 
+                    // Compact context-usage badge: visible any time the
+                    // chat has messages OR the user has attached context,
+                    // so pending attachments (which the full-bar hides
+                    // behind a hover) still produce a visible number.
+                    // The thin bar above the input continues to show a
+                    // fill — this badge is the concrete "x / y (z%)"
+                    // readout the user asked for when they noticed
+                    // attachments weren't budging the meter.
+                    if chat.hasMessages
+                        || !chat.pendingAttachments.isEmpty
+                        || !chat.pendingContextAttachments.isEmpty {
+                        ContextWindowCompactBadge(
+                            usageFraction: chat.contextUsageFraction,
+                            usedTokens: chat.estimatedContextTokens,
+                            maxTokens: chat.maxContextTokens
+                        )
+                        .transition(.opacity.combined(with: .scale(scale: 0.92)))
+                    }
+
                     // Single source of truth for "what mode is the chat in."
                     // Pre-submit: ChatCapability.predictIntent scans the
                     // composer text and lights up the pill the moment the
