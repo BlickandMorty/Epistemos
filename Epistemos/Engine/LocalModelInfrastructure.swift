@@ -367,7 +367,7 @@ enum LocalModelCatalog {
             summary: "Flagship local generalist. Unsloth's Dynamic 4-bit quantization preserves more quality than the plain community 4-bit at roughly the same download size. First-class pick for local .pro and .agent work.",
             approximateDownloadBytes: 20_400_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.minimumRecommendedMemoryGB,
-            revision: "main",
+            revision: "2cb4f08026a8e152e37d5044b25e47df4b3a9e87",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
@@ -382,7 +382,7 @@ enum LocalModelCatalog {
             summary: "Alternative 4-bit Dynamic Weight Quantization of Qwen 3.6 35B A3B. Ships alongside the Unsloth UD variant so A/B comparisons on your own prompts are possible without downloading from outside the app.",
             approximateDownloadBytes: 20_400_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen36_35BA3B_DWQ4Bit.minimumRecommendedMemoryGB,
-            revision: "main",
+            revision: "73c707af4243243b18193444467872d20cff9399",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
@@ -398,7 +398,7 @@ enum LocalModelCatalog {
             summary: "Fast local default with native tool-calling. Official Qwen MLX build — the clean non-Gemma-4 replacement for the fast tier. Routing, quick chat, and light agentic work all ride this model.",
             approximateDownloadBytes: 2_400_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen3_4B4Bit.minimumRecommendedMemoryGB,
-            revision: "main",
+            revision: "52a5ab34fa604bc8af6d3ce0cac0cab10b7eb495",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
@@ -414,7 +414,7 @@ enum LocalModelCatalog {
             summary: "Qwen 3 generation coder sized for everyday development. Native tool-calling makes it the first choice for code + vault write workflows without needing the flagship 30B MoE.",
             approximateDownloadBytes: 5_500_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen3CoderNext4Bit.minimumRecommendedMemoryGB,
-            revision: "main",
+            revision: "7b9321eabb85ce79625cac3f61ea691e4ea984b5",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
@@ -429,7 +429,7 @@ enum LocalModelCatalog {
             summary: "Flagship local coder. Qwen 3 Coder 30B A3B is a Mixture-of-Experts model with strong repository-scale code generation and debugging. Preferred for .pro and .agent coding turns on roomier Macs.",
             approximateDownloadBytes: 17_500_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen3Coder30BA3B4Bit.minimumRecommendedMemoryGB,
-            revision: "main",
+            revision: "6e302ea604ad9ab206367e2c501d1571023e7b6d",
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",

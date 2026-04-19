@@ -16,6 +16,23 @@ struct AgentCommandCenterStateTests {
         )
     }
 
+    private static func makeDefaults() -> UserDefaults {
+        let suiteName = "AgentCommandCenterStateTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    private static func makeLocalBrain(_ model: LocalTextModelID) -> ACCBrainSelection {
+        .local(
+            modelId: model.rawValue,
+            displayName: model.compactDisplayName,
+            supportsThinking: model.supportsThinkingMode,
+            supportsVision: model.supportsVision,
+            supportsTools: model.supportsNativeToolCalling
+        )
+    }
+
     // MARK: - Presentation Lifecycle
 
     @Test func present() {
@@ -79,7 +96,13 @@ struct AgentCommandCenterStateTests {
     }
 
     @Test func defaultsToStandardPresentationAndProMode() {
-        let state = AgentCommandCenterState()
+        // Use an ephemeral UserDefaults to isolate this test from any
+        // persisted activeSpecialistPreset left over from parallel or
+        // prior test runs. `AgentCommandCenterState()` with default args
+        // reads from UserDefaults.standard, which leaks state across the
+        // suite under parallel execution.
+        let defaults = Self.makeDefaults()
+        let state = AgentCommandCenterState(userDefaults: defaults)
         #expect(state.presentationMode == .standard)
         #expect(state.selectedOperatingMode == .pro)
         #expect(state.nativeProviderEffort == .medium)
@@ -87,6 +110,20 @@ struct AgentCommandCenterStateTests {
 
     @Test func nativeProviderEffortStringsMatchRustBridgeContract() {
         #expect(ACCNativeProviderEffort.allCases.map(\.rustValue) == ["low", "medium", "high", "max"])
+    }
+
+    @Test func curatedAgentSpecialistsExposePurposefulModesAndExperts() {
+        #expect(
+            ACCSlashCommand.featuredAgentQuickActions == [
+                .plan, .notes, .code, .debug, .research, .securityReview,
+            ]
+        )
+        #expect(ACCSlashCommand.notes.defaultOperatingMode == .agent)
+        #expect(ACCSlashCommand.code.defaultOperatingMode == .agent)
+        #expect(ACCSlashCommand.securityReview.defaultOperatingMode == .pro)
+        #expect(ACCSlashCommand.notes.preferredToolNames.contains("vault_write"))
+        #expect(ACCSlashCommand.code.expertAllowlist.contains("coding"))
+        #expect(ACCSlashCommand.securityReview.expertAllowlist.contains("security-review"))
     }
 
     @Test func nativeProviderEffortOnlyAppearsForSupportedCloudBrains() {
@@ -101,6 +138,36 @@ struct AgentCommandCenterStateTests {
         state.selectedBrain = .cloud(provider: .openAI)
         #expect(state.supportedNativeProviderEfforts.isEmpty)
         #expect(state.selectedNativeProviderEffort == nil)
+    }
+
+    @Test func localBrainOnlyExposesValidatedModes() {
+        let state = AgentCommandCenterState()
+        state.selectedOperatingMode = .agent
+        state.selectedBrain = .local(
+            modelId: LocalTextModelID.gemma4_2B4Bit.rawValue,
+            displayName: "Gemma 2B",
+            supportsThinking: false,
+            supportsVision: true,
+            supportsTools: false
+        )
+
+        #expect(state.availableOperatingModes == [.fast])
+        #expect(state.selectedOperatingMode == .fast)
+    }
+
+    @Test func changingBrainSanitizesUnsupportedOperatingModes() {
+        let state = AgentCommandCenterState()
+        state.selectedOperatingMode = .pro
+        state.selectedBrain = .local(
+            modelId: LocalTextModelID.qwen25Coder7B.rawValue,
+            displayName: "Coder 7B",
+            supportsThinking: false,
+            supportsVision: false,
+            supportsTools: true
+        )
+
+        #expect(state.availableOperatingModes == [.fast, .agent])
+        #expect(state.selectedOperatingMode == .fast)
     }
 
     @Test func refreshToolCatalogUsesCurrentOperatingMode() {
@@ -136,14 +203,21 @@ struct AgentCommandCenterStateTests {
             Self.makeTool(name: "vault_search"),
             Self.makeTool(name: "send_message"),
         ]
-        let state = AgentCommandCenterState(toolCatalogLoader: { _, mode in
-            switch mode {
-            case .fast: return fastTools
-            case .thinking: return fastTools
-            case .pro: return fastTools
-            case .agent: return agentTools
-            }
-        })
+        // Isolated defaults — AgentCommandCenterState reads activeSpecialist
+        // preset from UserDefaults at init. Without isolation, a lingering
+        // preset from another test in the same suite overrides this test's
+        // .fast → .agent sequence with the preset's defaultOperatingMode.
+        let state = AgentCommandCenterState(
+            toolCatalogLoader: { _, mode in
+                switch mode {
+                case .fast: return fastTools
+                case .thinking: return fastTools
+                case .pro: return fastTools
+                case .agent: return agentTools
+                }
+            },
+            userDefaults: Self.makeDefaults()
+        )
         let bridge = MCPBridge()
 
         state.selectedOperatingMode = .fast
@@ -156,6 +230,96 @@ struct AgentCommandCenterStateTests {
         #expect(state.toolToggles["vault_search"] == false)
         #expect(state.toolToggles["send_message"] == true)
         #expect(state.toolToggles["web_search"] == nil)
+    }
+
+    @Test func applyingCodeSpecialistPrefersCoderBrainAndFocusedToolBundle() {
+        let defaults = Self.makeDefaults()
+        let fastTools = [
+            Self.makeTool(name: "vault_search"),
+            Self.makeTool(name: "read_file"),
+            Self.makeTool(name: "web_search"),
+        ]
+        let agentTools = [
+            Self.makeTool(name: "vault_search"),
+            Self.makeTool(name: "vault_read"),
+            Self.makeTool(name: "read_file"),
+            Self.makeTool(name: "search_files"),
+            Self.makeTool(name: "write_file"),
+            Self.makeTool(name: "patch"),
+            Self.makeTool(name: "bash_execute"),
+            Self.makeTool(name: "execute_code"),
+            Self.makeTool(name: "web_search"),
+        ]
+        let state = AgentCommandCenterState(
+            toolCatalogLoader: { _, mode in
+                switch mode {
+                case .agent: return agentTools
+                case .fast, .thinking, .pro: return fastTools
+                }
+            },
+            userDefaults: defaults
+        )
+        state.availableBrains = [
+            Self.makeLocalBrain(.gemma4_4B4Bit),
+            Self.makeLocalBrain(.qwen25Coder7B),
+            .cloud(provider: .openAI),
+        ]
+
+        state.refreshToolCatalog(from: MCPBridge(), vaultPath: "/tmp/test-vault")
+        state.applySpecialist(.code)
+
+        #expect(state.activeSpecialistPreset == .code)
+        #expect(state.selectedOperatingMode == .agent)
+        #expect(state.selectedBrain?.id == "local:\(LocalTextModelID.qwen25Coder7B.rawValue)")
+        #expect(
+            state.enabledToolNames == Set([
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "write_file",
+                "patch",
+                "bash_execute",
+                "execute_code",
+            ])
+        )
+        #expect(state.harnessHeadline == "Code")
+        #expect(state.harnessPostureLine?.lowercased().contains("asks before risky writes") == true)
+    }
+
+    @Test func researchSpecialistRestoresStoredBrainPerRole() {
+        let defaults = Self.makeDefaults()
+        let state = AgentCommandCenterState(userDefaults: defaults)
+        let deepseek = Self.makeLocalBrain(.deepseekR1Distill7B)
+        let openAI = ACCBrainSelection.cloud(provider: .openAI)
+        let anthropic = ACCBrainSelection.cloud(provider: .anthropic)
+        state.availableBrains = [deepseek, openAI, anthropic]
+
+        state.applySpecialist(.research)
+        #expect(state.selectedBrain == openAI)
+
+        state.selectedBrain = anthropic
+        state.applySpecialist(.code)
+        state.applySpecialist(.research)
+
+        #expect(state.selectedBrain == anthropic)
+
+        let restored = AgentCommandCenterState(userDefaults: defaults)
+        restored.availableBrains = [deepseek, openAI, anthropic]
+        restored.applySpecialist(.research)
+
+        #expect(restored.selectedBrain == anthropic)
+    }
+
+    @Test func clearInputKeepsActiveSpecialistHarness() {
+        let state = AgentCommandCenterState(userDefaults: Self.makeDefaults())
+        state.applySpecialist(.review)
+        state.inputText = "/review check this draft"
+
+        state.clearInput()
+
+        #expect(state.activeSpecialistPreset == .review)
+        #expect(state.activeSlashToken == nil)
     }
 
     // MARK: - Build Command Request
@@ -224,14 +388,29 @@ struct AgentCommandCenterStateTests {
         #expect(source.contains("inlineDiffCard"))
     }
 
+    @Test func agentShellUsesOLEDBackgroundAndChromeInDarkMode() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
+
+        #expect(source.contains("if theme.isDark {"))
+        #expect(source.contains("Color.black"))
+        #expect(source.contains("toolbarBackgroundStyle"))
+        #expect(source.contains("workspaceCardFillStyle"))
+        #expect(source.contains("workspaceSubcardFillStyle"))
+        #expect(!source.contains(".background(.ultraThinMaterial)"))
+    }
+
     @Test func agentSurfaceRoutesAsDedicatedHomePageInsteadOfOverlay() throws {
         let rootSource = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        let agentViewSource = try loadMirroredSourceTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
 
         #expect(rootSource.contains("enum HomeSurfaceRoute"))
         #expect(rootSource.contains("case agent"))
         #expect(rootSource.contains("if accState.isPresented"))
-        #expect(rootSource.contains("AgentCommandCenterView()"))
+        #expect(rootSource.contains("AgentChatView()"))
         #expect(!rootSource.contains(".overlay { agentCommandCenterOverlay }"))
+        #expect(agentViewSource.contains("struct AgentChatView: View"))
+        #expect(agentViewSource.contains("InspectorPanelView()"))
+        #expect(agentViewSource.contains("CommandBarView()"))
     }
 
     // MARK: - Graph Chat Receiver

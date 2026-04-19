@@ -406,6 +406,21 @@ private struct StreamingIndicator: View {
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            // ChatGPT-style thinking popover — shown above the streaming
+            // response whenever we have either an active thinking phase
+            // OR captured thinking text from this turn. Collapses into a
+            // "Thought for Ns" badge as soon as the first answer token
+            // arrives, persists until the turn finalizes into a ChatMessage.
+            if chat.isThinkingActive || !chat.streamingThinking.isEmpty {
+                ThinkingPopoverView(
+                    thinkingContent: chat.streamingThinking,
+                    isThinkingActive: chat.isThinkingActive,
+                    thinkingStartedAt: chat.thinkingStartedAt,
+                    thinkingEndedAt: chat.thinkingEndedAt
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             ToolExecutionPreviewList(
                 blocks: chat.pendingContentBlocks,
                 isStreaming: chat.isStreaming
