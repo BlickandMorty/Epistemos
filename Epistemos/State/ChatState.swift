@@ -2,6 +2,82 @@ import Foundation
 import Observation
 import os
 
+struct ChatBrainSection: Identifiable, Sendable, Equatable {
+    let title: String
+    let body: String
+
+    var id: String { title }
+
+    init(title: String, body: String) {
+        self.title = title
+        self.body = body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct ChatBrainSnapshot: Sendable, Equatable {
+    let capturedAt: Date
+    let query: String
+    let resolvedQuery: String
+    let operatingMode: EpistemosOperatingMode
+    let routeLabel: String
+    let routeSummary: String
+    let providerLabel: String
+    let modelLabel: String?
+    let allowedToolNames: [String]
+    let loadedNoteTitles: [String]
+    let contextAttachments: [ContextAttachment]
+    let sections: [ChatBrainSection]
+
+    init(
+        capturedAt: Date = Date(),
+        query: String,
+        resolvedQuery: String,
+        operatingMode: EpistemosOperatingMode,
+        routeLabel: String,
+        routeSummary: String,
+        providerLabel: String,
+        modelLabel: String?,
+        allowedToolNames: [String],
+        loadedNoteTitles: [String],
+        contextAttachments: [ContextAttachment],
+        sections: [ChatBrainSection]
+    ) {
+        self.capturedAt = capturedAt
+        self.query = query
+        self.resolvedQuery = resolvedQuery
+        self.operatingMode = operatingMode
+        self.routeLabel = routeLabel
+        self.routeSummary = routeSummary
+        self.providerLabel = providerLabel
+        self.modelLabel = modelLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.allowedToolNames = Self.uniquePreservingOrder(
+            allowedToolNames.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        )
+        self.loadedNoteTitles = Self.uniquePreservingOrder(
+            loadedNoteTitles.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        )
+        self.contextAttachments = contextAttachments
+        self.sections = sections.filter { !$0.body.isEmpty }
+    }
+
+    var hasVisibleContext: Bool {
+        !sections.isEmpty
+            || !loadedNoteTitles.isEmpty
+            || !contextAttachments.isEmpty
+            || !allowedToolNames.isEmpty
+    }
+
+    private static func uniquePreservingOrder(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        ordered.reserveCapacity(values.count)
+        for value in values where !value.isEmpty && seen.insert(value).inserted {
+            ordered.append(value)
+        }
+        return ordered
+    }
+}
+
 // MARK: - Chat State
 // In-memory streaming and message state for the active chat session.
 // AppBootstrap persists completed messages to SDChat/SDMessage via SwiftData.
@@ -87,6 +163,12 @@ final class ChatState {
     /// Titles of notes loaded via @-mentions (for UI chips on messages).
     var loadedNoteTitles: [String] = []
 
+    /// Exact context envelope assembled for the latest main-chat turn.
+    /// Powers the transparency side panel so the user can inspect the
+    /// notes, ambient context, history, and execution plan that were
+    /// actually injected before dispatch.
+    var latestBrainSnapshot: ChatBrainSnapshot?
+
     /// Transient flag — true when the current streaming response is a vault briefing.
     /// Set by AppBootstrap, read by finalizeStreaming to stamp the ChatMessage.
     var isCurrentVaultBriefing = false
@@ -151,6 +233,7 @@ final class ChatState {
         loadedNoteIds = []
         loadedNoteTitles = []
         pendingContextAttachments = []
+        latestBrainSnapshot = nil
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
@@ -474,6 +557,10 @@ final class ChatState {
         pendingContextAttachments.removeAll { $0.id == id }
     }
 
+    func captureBrainSnapshot(_ snapshot: ChatBrainSnapshot) {
+        latestBrainSnapshot = snapshot
+    }
+
     // MARK: - Load / Clear
 
     func loadMessages(_ msgs: [ChatMessage]) {
@@ -483,6 +570,7 @@ final class ChatState {
         showLanding = msgs.isEmpty
         pendingAttachments = []
         restoreConversationContext(from: msgs)
+        latestBrainSnapshot = nil
         pendingContentBlocks = []
         activeToolName = nil
         isAgentExecuting = false
@@ -503,6 +591,7 @@ final class ChatState {
         pendingContextAttachments = []
         loadedNoteIds = []
         loadedNoteTitles = []
+        latestBrainSnapshot = nil
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil

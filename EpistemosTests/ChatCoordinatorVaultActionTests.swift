@@ -32,4 +32,17 @@ struct ChatCoordinatorVaultActionTests {
         #expect(sanitized.cleaned == response)
         #expect(sanitized.blockedActions.isEmpty)
     }
+
+    @Test("prompt envelope keeps retrieval context in the objective instead of bloating the system prompt")
+    func promptEnvelopeKeepsRetrievalContextInTheObjective() {
+        let prompt = PipelineService.buildPromptEnvelope(
+            query: "Find the regression in the latest canvas work",
+            notesContext: "Requested Note Context\n- Graph canvas regressions",
+            conversationHistory: "User: check the graph stutter fix"
+        )
+
+        #expect(prompt.contains("Requested Note Context"))
+        #expect(prompt.contains("Conversation history:\nUser: check the graph stutter fix"))
+        #expect(prompt.contains("Current request:\nFind the regression in the latest canvas work"))
+    }
 }
