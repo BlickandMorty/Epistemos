@@ -100,7 +100,10 @@ struct ArtifactBlockView: View {
             Button {
                 ArtifactExporter.copyToClipboard(artifact)
                 copied = true
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(1500))
+                    copied = false
+                }
             } label: {
                 Image(systemName: copied ? "checkmark" : "doc.on.doc")
                     .font(.system(size: 11, weight: .medium))
@@ -288,14 +291,11 @@ enum ArtifactExporter {
             content = artifact.content
         }
 
-        let panel = NSSavePanel()
-        panel.nameFieldStringValue = "\(sanitizeFilename(artifact.title)).\(targetKind.fileExtension)"
-        panel.allowedContentTypes = [utType(for: targetKind)]
-        panel.canCreateDirectories = true
-
-        if panel.runModal() == .OK, let url = panel.url {
-            try? content.write(to: url, atomically: true, encoding: .utf8)
-        }
+        ChatTextExportSupport.save(
+            content,
+            suggestedFilename: "\(sanitizeFilename(artifact.title)).\(targetKind.fileExtension)",
+            contentType: utType(for: targetKind)
+        )
     }
 
     // MARK: - Conversion

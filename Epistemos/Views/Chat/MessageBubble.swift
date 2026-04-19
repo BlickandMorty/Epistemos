@@ -19,6 +19,46 @@ private func buildFullExport(message: ChatMessage) -> String {
     UserFacingModelOutput.finalVisibleText(from: stripBracketTags(message.content))
 }
 
+@MainActor
+enum ChatTextExportSupport {
+    static func save(_ content: String, suggestedFilename: String, contentType: UTType) {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = suggestedFilename
+        panel.allowedContentTypes = [contentType]
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        do {
+            try write(content, to: url)
+        } catch {
+            presentWriteFailure(error, destination: url)
+        }
+    }
+
+    static func write(_ content: String, to url: URL) throws {
+        try content.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    private static func presentWriteFailure(_ error: Error, destination: URL) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Couldn't Save File"
+        alert.informativeText = """
+        Epistemos couldn't save "\(destination.lastPathComponent)".
+
+        \(error.localizedDescription)
+        """
+        alert.addButton(withTitle: "OK")
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window) { _ in }
+        } else {
+            alert.runModal()
+        }
+    }
+}
+
 // MARK: - Assistant Transcript Chrome
 
 struct AssistantTranscriptChrome<Content: View>: View {
@@ -298,14 +338,12 @@ private struct MessageToolbar: View {
             // Export as .md file
             Button {
                 let fullContent = buildFullExport(message: message)
-                let panel = NSSavePanel()
-                panel.nameFieldStringValue =
-                    "message-\(ISO8601DateFormatter().string(from: message.createdAt).prefix(10)).md"
-                panel.allowedContentTypes = [.plainText]
-                panel.canCreateDirectories = true
-                if panel.runModal() == .OK, let url = panel.url {
-                    try? fullContent.write(to: url, atomically: true, encoding: .utf8)
-                }
+                ChatTextExportSupport.save(
+                    fullContent,
+                    suggestedFilename:
+                        "message-\(ISO8601DateFormatter().string(from: message.createdAt).prefix(10)).md",
+                    contentType: .plainText
+                )
             } label: {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 12, weight: .medium))
@@ -411,7 +449,7 @@ private struct ToolExecutionPreviewCard: View {
     let preview: ToolExecutionPreview
     let isStreaming: Bool
 
-    @State private var isExpanded = true
+    @State private var isExpanded = false
 
     private var iconName: String {
         if preview.name.localizedCaseInsensitiveContains("bash")

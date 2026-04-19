@@ -990,9 +990,15 @@ private struct ComposerReferencePopoverContent: View {
         )
         folderDescriptor.fetchLimit = 1_000
 
-        guard let pages = try? modelContext.fetch(SDPage.activePagesDescriptor),
-              let folders = try? modelContext.fetch(folderDescriptor)
-        else {
+        let pages: [SDPage]
+        let folders: [SDFolder]
+        do {
+            pages = try modelContext.fetch(SDPage.activePagesDescriptor)
+            folders = try modelContext.fetch(folderDescriptor)
+        } catch {
+            Log.app.error(
+                "NotesMentionDropdown: failed to fetch browse inventory: \(error.localizedDescription, privacy: .public)"
+            )
             browseInventory = .empty
             return
         }

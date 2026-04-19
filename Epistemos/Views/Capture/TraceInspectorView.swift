@@ -1,5 +1,6 @@
 import SwiftUI
 import Foundation
+import os
 
 struct ParsedTraceEvent: Identifiable, Sendable {
     let id = UUID()
@@ -15,47 +16,74 @@ class TraceInspectorViewModel {
     var traces: [ParsedTraceEvent] = []
     
     func loadTraces() {
-        Task {
-            let sortedTraces = await Task.detached {
-                let appSupport = try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-                guard let baseDir = appSupport?.appendingPathComponent("com.epistemos.app/traces/production") else { return [ParsedTraceEvent]() }
-                
-                var loadedTraces: [ParsedTraceEvent] = []
-                
+        Task(priority: .utility) {
+            let sortedTraces = await Task.detached(priority: .utility) { () -> [ParsedTraceEvent] in
                 let fileManager = FileManager.default
-                guard let dateDirs = try? fileManager.contentsOfDirectory(at: baseDir, includingPropertiesForKeys: nil) else { return [ParsedTraceEvent]() }
-                
-                for dir in dateDirs {
-                    var isDir: ObjCBool = false
-                    guard fileManager.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else { continue }
-                    
-                    guard let files = try? fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { continue }
-                    for file in files where file.pathExtension == "jsonl" {
-                        if let content = try? String(contentsOf: file, encoding: .utf8) {
-                            let lines = content.components(separatedBy: .newlines)
-                            for line in lines where !line.isEmpty {
-                                if let data = line.data(using: .utf8),
-                                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                                    let eventType = json["type"] as? String ?? ""
-                                    if eventType.hasPrefix("capture_") || eventType == "structure_generated" || eventType == "note_persisted" || eventType == "graph_write_attempted" || eventType == "evidence_linked" {
-                                        let parsed = ParsedTraceEvent(
-                                            type: eventType,
-                                            sessionId: json["sessionId"] as? String ?? "",
-                                            content: json["content"] as? String ?? "",
-                                            timestamp: json["ts"] as? String ?? ""
-                                        )
-                                        loadedTraces.append(parsed)
+                let logger = Logger(
+                    subsystem: "com.epistemos.app",
+                    category: "TraceInspector"
+                )
+
+                do {
+                    let appSupport = try fileManager.url(
+                        for: .applicationSupportDirectory,
+                        in: .userDomainMask,
+                        appropriateFor: nil,
+                        create: false
+                    )
+                    let baseDir = appSupport.appendingPathComponent("com.epistemos.app/traces/production")
+
+                    let dateDirs = try fileManager.contentsOfDirectory(at: baseDir, includingPropertiesForKeys: nil)
+                    var loadedTraces: [ParsedTraceEvent] = []
+
+                    for dir in dateDirs {
+                        var isDir: ObjCBool = false
+                        guard fileManager.fileExists(atPath: dir.path, isDirectory: &isDir), isDir.boolValue else {
+                            continue
+                        }
+
+                        do {
+                            let files = try fileManager.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+                            for file in files where file.pathExtension == "jsonl" {
+                                do {
+                                    let content = try String(contentsOf: file, encoding: .utf8)
+                                    for line in content.components(separatedBy: .newlines) where !line.isEmpty {
+                                        guard let data = line.data(using: .utf8),
+                                              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                                            continue
+                                        }
+
+                                        let eventType = json["type"] as? String ?? ""
+                                        if eventType.hasPrefix("capture_") || eventType == "structure_generated" || eventType == "note_persisted" || eventType == "graph_write_attempted" || eventType == "evidence_linked" {
+                                            loadedTraces.append(
+                                                ParsedTraceEvent(
+                                                    type: eventType,
+                                                    sessionId: json["sessionId"] as? String ?? "",
+                                                    content: json["content"] as? String ?? "",
+                                                    timestamp: json["ts"] as? String ?? ""
+                                                )
+                                            )
+                                        }
                                     }
+                                } catch {
+                                    logger.error("Failed reading trace file \(file.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                                 }
                             }
+                        } catch {
+                            logger.error("Failed reading trace directory \(dir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
                         }
                     }
+
+                    return loadedTraces.sorted { $0.timestamp > $1.timestamp }
+                } catch {
+                    logger.error("Failed loading capture traces: \(error.localizedDescription, privacy: .public)")
+                    return []
                 }
-                
-                return loadedTraces.sorted { $0.timestamp > $1.timestamp }
             }.value
-            
-            self.traces = sortedTraces
+
+            await MainActor.run {
+                self.traces = sortedTraces
+            }
         }
     }
 }
