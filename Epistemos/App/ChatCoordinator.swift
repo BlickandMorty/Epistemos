@@ -1033,6 +1033,20 @@ final class ChatCoordinator {
                     conversationHistory: conversationHistory
                 )
 
+                // Record the Overseer decision for Settings → Overseer
+                // transparency. Read-only audit trail, capped at the last
+                // ten turns. Done on MainActor because OverseerAuditState
+                // is @MainActor @Observable.
+                if let executionPlan {
+                    await MainActor.run {
+                        AppBootstrap.shared?.overseerAuditState.record(
+                            turnID: pendingAssistantId,
+                            objective: query,
+                            plan: executionPlan
+                        )
+                    }
+                }
+
                 // Route: managed-agent sessions escalate to Rust agent_core,
                 // while local-only and overseer-local plans stay on the Swift
                 // pipeline with an explicit local execution plan.

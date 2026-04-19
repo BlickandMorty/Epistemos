@@ -59,6 +59,7 @@ struct SettingsView: View {
         case skills = "Skills"
         case agentControl = "Agent Control"
         case authority = "Authority & Installs"
+        case overseer = "Overseer"
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
@@ -76,6 +77,7 @@ struct SettingsView: View {
             .skills,
             .agentControl,
             .authority,
+            .overseer,
             .landing,
             .appearance,
             .vault,
@@ -93,6 +95,7 @@ struct SettingsView: View {
             case .skills: "shippingbox.fill"
             case .agentControl: "slider.horizontal.3"
             case .authority: "checkmark.shield.fill"
+            case .overseer: "brain.head.profile"
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
@@ -112,7 +115,8 @@ struct SettingsView: View {
                  .iMessageDriver,
                  .skills,
                  .agentControl,
-                 .authority:      .automation
+                 .authority,
+                 .overseer:       .automation
             case .vault:          .privacyStore
             case .general:        .advanced
             }
@@ -143,6 +147,8 @@ struct SettingsView: View {
                 "Agent tool permissions, limits, and approval tiers."
             case .authority:
                 "What the agent can do without asking you first."
+            case .overseer:
+                "Read-only audit trail of the routing + mask decisions the Overseer makes per turn."
             case .landing:
                 "Greeting, quick capture, and landing canvas behavior."
             case .appearance:
@@ -209,6 +215,7 @@ struct SettingsView: View {
         case .skills: SkillsDetailView()
         case .agentControl: AgentControlDetailView()
         case .authority: AuthoritySettingsView(store: sharedAuthorityStore)
+        case .overseer: OverseerSettingsView()
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()

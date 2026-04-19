@@ -946,6 +946,10 @@ final class AppBootstrap {
     let localLLMClient: any LocalConfigurableLLMClient
     let cloudLLMClient: CloudLLMClient
     let triageService: TriageService
+    /// Transparency-only audit trail of recent Overseer planning
+    /// decisions. Populated by ChatCoordinator on every main-chat turn;
+    /// surfaced in Settings → Overseer.
+    let overseerAuditState = OverseerAuditState()
     let vaultSync: VaultSyncService
     let vaultChatMutator: VaultChatMutator
     let liveNoteScheduler = LiveNoteSchedulerService()
