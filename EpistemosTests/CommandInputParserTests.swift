@@ -45,6 +45,18 @@ struct CommandInputParserTests {
         #expect(result.slashToken == .builtinMode(.research))
     }
 
+    @Test func codeSlashCommand() {
+        let result = CommandInputParser.parse("/code fix the tool call parser")
+        #expect(result.slashToken == .builtinMode(.code))
+        #expect(result.cleanedQuery == "fix the tool call parser")
+    }
+
+    @Test func securityReviewSlashCommand() {
+        let result = CommandInputParser.parse("/security-review audit the pending changes")
+        #expect(result.slashToken == .builtinMode(.securityReview))
+        #expect(result.cleanedQuery == "audit the pending changes")
+    }
+
     @Test func slashCommandOnly() {
         let result = CommandInputParser.parse("/ask")
         #expect(result.slashToken == .builtinMode(.ask))

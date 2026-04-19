@@ -197,7 +197,7 @@ struct CommandCenterRequestCompiler {
             maxToolCalls: 0,
             maxOutputTokens: 4_096,
             expertAllowlist: ["general"],
-            summary: "Command Center: compile failed — \(reason)"
+            summary: "Agent: compile failed — \(reason)"
         )
         return CompiledCommandCenterRequest(
             contractVersion: Self.contractVersion,

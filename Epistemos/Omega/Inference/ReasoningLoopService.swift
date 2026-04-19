@@ -74,16 +74,23 @@ final class ReasoningLoopService {
         systemPrompt: String? = nil,
         operation: NotesOperation,
         contentLength: Int,
-        query: String? = nil
+        query: String? = nil,
+        operatingMode: EpistemosOperatingMode = .fast
     ) -> AsyncThrowingStream<String, Error> {
         // Fast path: skip reasoning for simple operations or when disabled
-        guard shouldEngageReasoning(operation: operation, contentLength: contentLength, query: query) else {
+        guard shouldEngageReasoning(
+            operation: operation,
+            contentLength: contentLength,
+            query: query,
+            operatingMode: operatingMode
+        ) else {
             return triageService.stream(
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 operation: operation,
                 contentLength: contentLength,
-                query: query
+                query: query,
+                operatingMode: operatingMode
             )
         }
 
@@ -108,7 +115,8 @@ final class ReasoningLoopService {
                         prompt: prompt,
                         systemPrompt: systemPrompt,
                         operation: operation,
-                        contentLength: contentLength
+                        contentLength: contentLength,
+                        operatingMode: operatingMode
                     )
 
                     self.totalRoundsLastQuery = rounds.count
@@ -132,7 +140,8 @@ final class ReasoningLoopService {
                         systemPrompt: systemPrompt,
                         operation: operation,
                         contentLength: contentLength,
-                        query: query
+                        query: query,
+                        operatingMode: operatingMode
                     )
 
                     for try await chunk in finalStream {
@@ -149,9 +158,11 @@ final class ReasoningLoopService {
     func shouldEngageReasoning(
         operation: NotesOperation,
         contentLength: Int,
-        query: String?
+        query: String?,
+        operatingMode: EpistemosOperatingMode = .fast
     ) -> Bool {
         guard config.enabled else { return false }
+        guard operatingMode != .fast else { return false }
         return effectiveComplexity(operation: operation, contentLength: contentLength, query: query)
             >= config.minComplexity
     }
@@ -180,7 +191,8 @@ final class ReasoningLoopService {
         prompt: String,
         systemPrompt: String?,
         operation: NotesOperation,
-        contentLength: Int
+        contentLength: Int,
+        operatingMode: EpistemosOperatingMode
     ) async throws -> (answer: String, rounds: [ReasoningRound]) {
         var rounds: [ReasoningRound] = []
         var bestAnswer = ""
@@ -208,7 +220,8 @@ final class ReasoningLoopService {
                 prompt: thinkPrompt,
                 systemPrompt: nil,
                 operation: operation,
-                contentLength: contentLength
+                contentLength: contentLength,
+                operatingMode: operatingMode
             )
 
             log.debug("Reasoning round \(roundIdx + 1) THINK: \(thinkOutput.prefix(200))")
@@ -219,7 +232,8 @@ final class ReasoningLoopService {
                 prompt: critiquePrompt,
                 systemPrompt: nil,
                 operation: operation,
-                contentLength: contentLength
+                contentLength: contentLength,
+                operatingMode: operatingMode
             )
 
             let score = parseQualityScore(from: critiqueOutput)
@@ -255,7 +269,8 @@ final class ReasoningLoopService {
                     prompt: refinePrompt,
                     systemPrompt: nil,
                     operation: operation,
-                    contentLength: contentLength
+                    contentLength: contentLength,
+                    operatingMode: operatingMode
                 )
             }
 

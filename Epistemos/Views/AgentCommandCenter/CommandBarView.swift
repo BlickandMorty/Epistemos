@@ -16,31 +16,44 @@ struct CommandBarView: View {
     @State private var placeholderAccentProgress = 0.0
     @State private var placeholderBreathes = false
 
-    private let terminalInset = Color(red: 0.115, green: 0.116, blue: 0.116)
-    private let terminalBorder = Color.white.opacity(0.10)
-    private let mutedTerminalText = Color.white.opacity(0.54)
-    private let placeholderText = "Type / for commands"
+    private let placeholderText = "Research notes, plan work, or make a focused change"
+    private let composerMetrics = AssistantComposerMetrics.mainChat
     private var theme: EpistemosTheme { ui.theme }
+    private var mutedText: Color { theme.textTertiary }
+    private var composerIsActive: Bool {
+        isInputFocused || !accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agentChat.isStreaming
+    }
+    private var haloStyle: AssistantComposerHaloStyle? {
+        AssistantComposerHaloStyle.resolve(
+            for: agentChat.isAgentExecuting ? .analyzing : (agentChat.isStreaming ? .typing : .idle)
+        )
+    }
 
     var body: some View {
         @Bindable var state = accState
 
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
                 BrainPickerMenu()
 
                 if let token = accState.activeSlashToken {
                     slashTokenBadge(token)
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                Text(agentChat.isStreaming ? "Running" : "Ready")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                    .foregroundStyle(agentChat.isStreaming ? theme.resolved.accent.color : mutedTerminalText)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.035), in: Capsule())
+                if agentChat.isStreaming {
+                    Text("Running")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.resolved.accent.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(theme.muted.opacity(theme.isDark ? 0.75 : 0.42), in: Capsule())
+                }
+            }
+
+            if let preset = accState.activeSpecialistPreset {
+                specialistHarnessStrip(for: preset)
             }
 
             if !accState.activeMentions.isEmpty {
@@ -63,8 +76,8 @@ struct CommandBarView: View {
 
                     TextField("", text: $state.inputText, axis: .vertical)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 16, weight: .regular, design: .rounded))
-                        .foregroundStyle(Color.white.opacity(0.86))
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(theme.textPrimary)
                         .lineLimit(1...6)
                         .focused($isInputFocused)
                         .accessibilityLabel("Agent command input")
@@ -73,45 +86,35 @@ struct CommandBarView: View {
                         }
                 }
 
-                Button {
+                AssistantSendButton(
+                    theme: theme,
+                    isEnabled: !accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agentChat.isStreaming,
+                    isProcessing: agentChat.isStreaming,
+                    metrics: composerMetrics
+                ) {
                     if agentChat.isStreaming {
                         agentChat.stopStreaming()
                     } else {
                         submitCommand()
                     }
-                } label: {
-                    Image(systemName: agentChat.isStreaming ? "stop.fill" : "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(
-                            accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agentChat.isStreaming
-                                ? mutedTerminalText.opacity(0.36)
-                                : Color.white.opacity(0.88)
-                        )
-                        .frame(width: 32, height: 32)
-                        .background(
-                            (agentChat.isStreaming ? theme.resolved.accent.color.opacity(0.24) : Color.white.opacity(0.06)),
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        )
                 }
-                .buttonStyle(.plain)
                 .disabled(accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !agentChat.isStreaming)
                 .help(agentChat.isStreaming ? "Stop" : "Send (Return)")
             }
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 16)
             .padding(.vertical, 13)
+            .assistantComposerChrome(
+                theme: theme,
+                metrics: composerMetrics,
+                isActive: composerIsActive
+            )
             .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(terminalInset.opacity(0.82))
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .strokeBorder(
-                                isInputFocused
-                                    ? theme.resolved.accent.color.opacity(0.42)
-                                    : terminalBorder,
-                                lineWidth: isInputFocused ? 1.1 : 0.9
-                            )
-                    }
+                AssistantComposerOuterHalo(
+                    style: haloStyle,
+                    accent: theme.resolved.accent.color,
+                    cornerRadius: composerMetrics.cornerRadius,
+                    animatesContinuously: false
+                )
             }
             .animation(.easeInOut(duration: 0.2), value: isInputFocused)
 
@@ -119,16 +122,6 @@ struct CommandBarView: View {
                 SuggestionPopoverView()
                     .frame(maxWidth: 420, alignment: .leading)
                     .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-
-            HStack(spacing: 8) {
-                Text("Use `/` for tasks, `@` for note context, and the sidebar for plan + execution detail.")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(mutedTerminalText)
-                Spacer()
-                Text("Return to send")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(mutedTerminalText.opacity(0.85))
             }
         }
         .task(id: placeholderRunID) {
@@ -141,6 +134,58 @@ struct CommandBarView: View {
         }
         .onAppear {
             isInputFocused = true
+        }
+    }
+
+    // MARK: - Harness Strip
+
+    private func specialistHarnessStrip(for preset: ACCSlashCommand) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Label("Harness preset", systemImage: preset.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+
+                Text(preset.displayName)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.textPrimary)
+
+                Spacer(minLength: 8)
+
+                Button {
+                    accState.clearSpecialistPreset()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(theme.textTertiary)
+                }
+                .buttonStyle(.plain)
+                .help("Clear harness preset")
+            }
+
+            if let focus = accState.harnessFocusLine {
+                Text(focus)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let posture = accState.harnessPostureLine {
+                Text(posture)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(
+            theme.muted.opacity(theme.isDark ? 0.72 : 0.32),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.6), lineWidth: 0.7)
         }
     }
 
@@ -161,14 +206,14 @@ struct CommandBarView: View {
     private func placeholderStack(_ text: String) -> some View {
         ZStack(alignment: .leading) {
             Text(text)
-                .foregroundStyle(mutedTerminalText.opacity(0.86))
+                .foregroundStyle(mutedText.opacity(0.92))
                 .opacity(1.0 - placeholderAccentProgress)
 
             Text(text)
                 .foregroundStyle(placeholderSyntaxGradient)
                 .opacity(placeholderAccentProgress)
         }
-        .font(.system(size: 16, weight: .regular, design: .rounded))
+        .font(.system(size: 16, weight: .regular))
         .lineLimit(1)
         .accessibilityHidden(true)
     }
@@ -236,11 +281,11 @@ struct CommandBarView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .foregroundStyle(Color.white.opacity(0.72))
-        .background(Color.white.opacity(0.055), in: Capsule())
+        .foregroundStyle(theme.textSecondary)
+        .background(theme.muted.opacity(theme.isDark ? 0.82 : 0.45), in: Capsule())
         .overlay {
             Capsule()
-                .strokeBorder(terminalBorder, lineWidth: 0.5)
+                .strokeBorder(theme.border.opacity(0.7), lineWidth: 0.6)
         }
         .onTapGesture {
             accState.activeSlashToken = nil
@@ -261,17 +306,17 @@ struct CommandBarView: View {
             } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(mutedTerminalText.opacity(0.7))
+                    .foregroundStyle(theme.textTertiary.opacity(0.7))
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
-        .foregroundStyle(Color.white.opacity(0.68))
-        .background(Color.white.opacity(0.055), in: Capsule())
+        .foregroundStyle(theme.textSecondary)
+        .background(theme.muted.opacity(theme.isDark ? 0.82 : 0.45), in: Capsule())
         .overlay {
             Capsule()
-                .strokeBorder(terminalBorder, lineWidth: 0.5)
+                .strokeBorder(theme.border.opacity(0.7), lineWidth: 0.6)
         }
     }
 

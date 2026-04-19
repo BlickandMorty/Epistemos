@@ -182,4 +182,80 @@ struct UserFacingModelOutputTests {
                 == "Great! Let's help you create boilerplate code for an iOS app. Below is a basic structure to get you started:"
         )
     }
+
+    @Test("streaming text suppresses scratch pad tool scaffolding until an answer appears")
+    func streamingTextSuppressesScratchPadToolScaffolding() {
+        let partial = """
+        <scratch_pad>
+        <name>vault_recall</name>
+        <arguments>
+        <query>Metal philosophy</query>
+        </arguments>
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: partial).isEmpty)
+
+        let completed = """
+        <scratch_pad>
+        <name>vault_recall</name>
+        <arguments>
+        <query>Metal philosophy</query>
+        <top_k>5</top_k>
+        </arguments>
+        </scratch_pad>
+
+        Final Answer:
+        Metal is compared to organs here as an analogy for tightly coordinated subsystems.
+        """
+
+        #expect(
+            UserFacingModelOutput.streamingVisibleText(from: completed)
+                == "Metal is compared to organs here as an analogy for tightly coordinated subsystems."
+        )
+    }
+
+    @Test("final text strips scratch pad tool plans that never produce a user answer")
+    func finalTextStripsScratchPadToolPlansWithoutAnswer() {
+        let raw = """
+        <scratch_pad>
+        <name>vault_recall</name>
+        <arguments>
+        <query>Metal philosophy</query>
+        <top_k>5</top_k>
+        </arguments>
+        </scratch_pad>
+        """
+
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
+    @Test("final text strips malformed XML tool scaffolding before the answer")
+    func finalTextStripsMalformedXmlToolScaffolding() {
+        let raw = """
+        <tool_call<name>read_file</name<arguments><path>~/workspace/neurology/metal_philosophy_notes.txt</path><limit>500</limit><offset>1</offset></arguments></tool_call>
+
+        Final Answer:
+        The attached note argues that Metal coordinates compute stages the way organs coordinate bodily functions.
+        """
+
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "The attached note argues that Metal coordinates compute stages the way organs coordinate bodily functions."
+        )
+    }
+
+    @Test("final text recovers an answer inside an unclosed scratch pad block")
+    func finalTextRecoversAnswerInsideUnclosedScratchPadBlock() {
+        let raw = """
+        <scratch_pad>
+        The tool call failed because the guessed path was missing.
+
+        The attached note compares app stages to organs because each stage has a distinct role that only makes sense inside the larger coordinated system.
+        """
+
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "The attached note compares app stages to organs because each stage has a distinct role that only makes sense inside the larger coordinated system."
+        )
+    }
 }

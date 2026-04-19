@@ -12,6 +12,8 @@ nonisolated enum ToolSurfacePolicy {
 
     static func isSurfacedToolName(_ toolName: String) -> Bool {
         switch toolName {
+        case "think":
+            return false
         case "image_generate":
             return BackendRuntimeKind.allCases.contains {
                 BackendRuntimeCapabilities.runtime($0).supportsImageGenerate

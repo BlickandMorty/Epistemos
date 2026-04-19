@@ -128,10 +128,7 @@ pub struct CompiledCommandCenterRequest {
     pub graph_context: Option<GraphContext>,
 }
 
-fn serialize_iso8601<S: serde::Serializer>(
-    dt: &DateTime<Utc>,
-    s: S,
-) -> Result<S::Ok, S::Error> {
+fn serialize_iso8601<S: serde::Serializer>(dt: &DateTime<Utc>, s: S) -> Result<S::Ok, S::Error> {
     // Swift `JSONDecoder` with `.iso8601` strategy uses `ISO8601DateFormatter`
     // in its default mode which rejects fractional seconds. Emit seconds
     // precision with a trailing Z so Swift can decode without churn.
@@ -348,8 +345,11 @@ pub fn compile_with_catalog(
         input.preferred_auto_brain.as_ref(),
     );
 
-    let enabled_set: std::collections::BTreeSet<&str> =
-        input.enabled_tool_names.iter().map(String::as_str).collect();
+    let enabled_set: std::collections::BTreeSet<&str> = input
+        .enabled_tool_names
+        .iter()
+        .map(String::as_str)
+        .collect();
     let resolved_tool_permissions = resolve_tool_permissions(&enabled_set, &catalog);
 
     let resolved_policy = build_execution_policy(
@@ -432,10 +432,9 @@ fn build_catalog_for_tier(vault_path: &str, tier: &str) -> Vec<ToolCatalogEntry>
         .filter(|schema| crate::tools::registry::is_user_visible_tool(&schema.name))
         .map(|schema| {
             let risk = registry.get_risk_level(&schema.name);
-            let destructive =
-                matches!(risk, crate::tools::registry::RiskLevel::Destructive);
-            let requires_confirmation = destructive
-                || matches!(risk, crate::tools::registry::RiskLevel::Modification);
+            let destructive = matches!(risk, crate::tools::registry::RiskLevel::Destructive);
+            let requires_confirmation =
+                destructive || matches!(risk, crate::tools::registry::RiskLevel::Modification);
             ToolCatalogEntry {
                 name: schema.name,
                 // Display-only categorization. The Command Center inspector
@@ -599,7 +598,14 @@ fn build_execution_policy(
     };
 
     let experts = match slash_token {
-        Some(token) if token.kind == SlashTokenKind::BuiltinMode => match token.identifier.as_str() {
+        Some(token) if token.kind == SlashTokenKind::BuiltinMode => match token.identifier.as_str()
+        {
+            "code" => vec![
+                "coding".to_string(),
+                "implementation".to_string(),
+                "refactoring".to_string(),
+                "tool-use".to_string(),
+            ],
             "debug" => vec![
                 "debugging".to_string(),
                 "code-analysis".to_string(),
@@ -614,6 +620,11 @@ fn build_execution_policy(
                 "code-review".to_string(),
                 "critique".to_string(),
                 "analysis".to_string(),
+            ],
+            "security-review" => vec![
+                "security-review".to_string(),
+                "threat-modeling".to_string(),
+                "vulnerability-analysis".to_string(),
             ],
             "summarize" => vec!["summarization".to_string(), "distillation".to_string()],
             "explain" => vec![
@@ -652,9 +663,7 @@ fn build_execution_policy(
     };
 
     let summary = if explicit_context_count > 0 || has_notes_context {
-        format!(
-            "{summary_base} with {explicit_context_count} explicit context attachment(s)"
-        )
+        format!("{summary_base} with {explicit_context_count} explicit context attachment(s)")
     } else {
         summary_base
     };
@@ -680,11 +689,12 @@ fn builtin_help_text(identifier: &str) -> &'static str {
         "debug" => "find and fix issues in the attached context",
         "research" => "gather and synthesize external context",
         "review" => "critique the attached work for correctness and quality",
+        "security-review" => "audit the attached code and config for vulnerabilities",
         "summarize" => "distill the attached context into a short summary",
         "explain" => "walk through the attached context in plain terms",
         "ask" => "ask a question against the attached context",
         "plan" => "build a step-by-step plan for the task",
-        "code" => "write or modify code against the attached context",
+        "code" => "write or modify code with tools and file context",
         _ => "command center mode",
     }
 }
@@ -788,7 +798,10 @@ mod tests {
             runtime.resolved,
             ResolvedBrainDescriptor::Unavailable { .. }
         ));
-        assert_eq!(runtime.fallback_reason.as_deref(), Some("no_brains_available"));
+        assert_eq!(
+            runtime.fallback_reason.as_deref(),
+            Some("no_brains_available")
+        );
     }
 
     #[test]
@@ -826,8 +839,7 @@ mod tests {
             sample_tool("bash_command", true),
             sample_tool("memory_search", false),
         ];
-        let enabled: std::collections::BTreeSet<&str> =
-            ["bash_command"].iter().copied().collect();
+        let enabled: std::collections::BTreeSet<&str> = ["bash_command"].iter().copied().collect();
         let perms = resolve_tool_permissions(&enabled, &catalog);
         assert_eq!(perms.len(), 3);
         let allow: Vec<&str> = perms
@@ -842,10 +854,9 @@ mod tests {
     fn empty_tool_toggles_deny_everything() {
         let catalog = vec![sample_tool("read_file", false), sample_tool("bash", true)];
         let perms = resolve_tool_permissions(&Default::default(), &catalog);
-        assert!(perms.iter().all(|p| matches!(
-            p.decision,
-            ToolDecision::Deny { .. }
-        )));
+        assert!(perms
+            .iter()
+            .all(|p| matches!(p.decision, ToolDecision::Deny { .. })));
     }
 
     #[test]
@@ -907,9 +918,58 @@ mod tests {
             identifier: "debug".to_string(),
             display_name: "Debug".to_string(),
         };
-        let policy = build_execution_policy(OperatingMode::Pro, &runtime, Some(&slash), false, 0, false);
+        let policy =
+            build_execution_policy(OperatingMode::Pro, &runtime, Some(&slash), false, 0, false);
         assert!(policy.expert_allowlist.contains(&"debugging".to_string()));
         assert!(policy.summary.starts_with("Command Center: /debug"));
+    }
+
+    #[test]
+    fn execution_policy_slash_code_sets_coding_experts() {
+        let runtime = ResolvedRuntime {
+            requested: None,
+            resolved: ResolvedBrainDescriptor::Local {
+                model_id: "qwen-coder".to_string(),
+                display_name: "Qwen Coder".to_string(),
+            },
+            fallback_reason: None,
+        };
+        let slash = SerializedSlashToken {
+            kind: SlashTokenKind::BuiltinMode,
+            identifier: "code".to_string(),
+            display_name: "Code".to_string(),
+        };
+        let policy =
+            build_execution_policy(OperatingMode::Agent, &runtime, Some(&slash), false, 0, false);
+        assert!(policy.expert_allowlist.contains(&"coding".to_string()));
+        assert!(policy.expert_allowlist.contains(&"tool-use".to_string()));
+        assert!(policy.summary.starts_with("Command Center: /code"));
+    }
+
+    #[test]
+    fn execution_policy_security_review_sets_security_experts() {
+        let runtime = ResolvedRuntime {
+            requested: None,
+            resolved: ResolvedBrainDescriptor::Cloud {
+                provider: "openai".to_string(),
+                display_name: "OpenAI".to_string(),
+            },
+            fallback_reason: None,
+        };
+        let slash = SerializedSlashToken {
+            kind: SlashTokenKind::BuiltinMode,
+            identifier: "security-review".to_string(),
+            display_name: "Security Review".to_string(),
+        };
+        let policy =
+            build_execution_policy(OperatingMode::Pro, &runtime, Some(&slash), false, 0, false);
+        assert!(policy
+            .expert_allowlist
+            .contains(&"security-review".to_string()));
+        assert!(policy
+            .expert_allowlist
+            .contains(&"vulnerability-analysis".to_string()));
+        assert!(policy.summary.starts_with("Command Center: /security-review"));
     }
 
     #[test]
@@ -924,7 +984,14 @@ mod tests {
             identifier: "research-dive".to_string(),
             display_name: "Research Dive".to_string(),
         };
-        let policy = build_execution_policy(OperatingMode::Agent, &runtime, Some(&slash), false, 0, false);
+        let policy = build_execution_policy(
+            OperatingMode::Agent,
+            &runtime,
+            Some(&slash),
+            false,
+            0,
+            false,
+        );
         assert_eq!(policy.expert_allowlist, vec!["research-dive".to_string()]);
         assert!(policy.summary.contains("skill research-dive"));
     }
@@ -1041,13 +1108,8 @@ mod tests {
         let perms = out["resolvedToolPermissions"].as_array().unwrap();
         assert_eq!(perms.len(), 2);
         for perm in perms {
-            let deny = perm["decision"]["deny"]
-                .as_object()
-                .expect("deny object");
-            assert_eq!(
-                deny["reason"].as_str(),
-                Some("tool_catalog_unavailable")
-            );
+            let deny = perm["decision"]["deny"].as_object().expect("deny object");
+            assert_eq!(deny["reason"].as_str(), Some("tool_catalog_unavailable"));
         }
     }
 
@@ -1096,7 +1158,10 @@ mod tests {
     #[test]
     fn tier_for_operating_mode_maps_expected_tiers() {
         assert_eq!(tier_for_operating_mode(OperatingMode::Fast), "chat_lite");
-        assert_eq!(tier_for_operating_mode(OperatingMode::Thinking), "chat_lite");
+        assert_eq!(
+            tier_for_operating_mode(OperatingMode::Thinking),
+            "chat_lite"
+        );
         assert_eq!(tier_for_operating_mode(OperatingMode::Pro), "chat_pro");
         assert_eq!(tier_for_operating_mode(OperatingMode::Agent), "agent");
     }
@@ -1139,7 +1204,9 @@ mod tests {
             graph_context: Some(ctx),
         };
         let compiled = compile_with_catalog(input, vec![]);
-        let gc = compiled.graph_context.expect("graph_context must pass through");
+        let gc = compiled
+            .graph_context
+            .expect("graph_context must pass through");
         assert_eq!(gc.graph_node_id, "g-node-1");
         assert_eq!(gc.source_id.as_deref(), Some("page-abc"));
         assert_eq!(gc.node_type, "note");

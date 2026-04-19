@@ -550,7 +550,13 @@ final class OverseerComplexityRouter {
         hasExplicitContext: Bool,
         attachmentCount: Int
     ) -> OverseerExecutionRoute {
-        guard inference.effectiveLocalTextModelID != nil else {
+        let hasUsableLocalRuntime = if operatingMode == .agent {
+            inference.effectiveLocalAgentTextModelID != nil
+        } else {
+            inference.effectiveLocalTextModelID != nil
+        }
+
+        guard hasUsableLocalRuntime else {
             return .managedAgentSession
         }
 
@@ -561,6 +567,10 @@ final class OverseerComplexityRouter {
             attachmentCount: attachmentCount
         ) {
             return .managedAgentSession
+        }
+
+        if operatingMode == .agent {
+            return .overseerLocalExecution
         }
 
         if operatingMode == .fast && !hasExplicitContext && attachmentCount == 0 && contentLength < 2_000 {
@@ -1050,14 +1060,7 @@ final class OverseerComplexityRouter {
         let experts: [String]
         switch slashToken {
         case .builtinMode(let cmd):
-            switch cmd {
-            case .debug: experts = ["debugging", "code-analysis", "error-diagnosis"]
-            case .research: experts = ["research", "web-search", "summarization"]
-            case .review: experts = ["code-review", "critique", "analysis"]
-            case .summarize: experts = ["summarization", "distillation"]
-            case .explain: experts = ["teaching", "explanation", "simplification"]
-            default: experts = ["general"]
-            }
+            experts = cmd.expertAllowlist
         case .skill(let entry):
             experts = [entry.identifier]
         case nil:
@@ -1068,11 +1071,11 @@ final class OverseerComplexityRouter {
         let summary: String
         switch slashToken {
         case .builtinMode(let cmd):
-            summary = "Command Center: /\(cmd.rawValue) — \(cmd.helpText)"
+            summary = "Agent: /\(cmd.rawValue) — \(cmd.helpText)"
         case .skill(let entry):
-            summary = "Command Center: skill \(entry.identifier) — \(entry.description)"
+            summary = "Agent: skill \(entry.identifier) — \(entry.description)"
         case nil:
-            summary = "Command Center: agent mode"
+            summary = "Agent: agent mode"
         }
 
         let plan = OverseerPlanV1(

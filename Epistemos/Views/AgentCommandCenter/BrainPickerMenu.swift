@@ -10,8 +10,6 @@ struct BrainPickerMenu: View {
     @Environment(AgentCommandCenterState.self) private var accState
     @Environment(UIState.self) private var ui
 
-    private let terminalInset = Color(red: 0.115, green: 0.116, blue: 0.116)
-    private let terminalBorder = Color.white.opacity(0.10)
     private var theme: EpistemosTheme { ui.theme }
 
     private var currentBrainLabel: String {
@@ -51,7 +49,7 @@ struct BrainPickerMenu: View {
                 Text(currentModeLabel)
                     .font(.system(size: 12.5, weight: .medium, design: .rounded))
                     .lineLimit(1)
-                if let currentNativeEffortLabel {
+                if let currentNativeEffortLabel, currentNativeEffortLabel != ACCNativeProviderEffort.medium.displayName {
                     Text("·")
                         .foregroundStyle(theme.textTertiary)
                     Text(currentNativeEffortLabel)
@@ -62,14 +60,14 @@ struct BrainPickerMenu: View {
                     .font(.system(size: 8, weight: .bold))
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 7)
+            .padding(.vertical, 8)
             .foregroundStyle(theme.textPrimary)
             .background(
-                terminalInset.opacity(theme.isDark ? 0.82 : 0.74),
-                in: Capsule()
+                theme.muted.opacity(theme.isDark ? 0.82 : 0.45),
+                in: RoundedRectangle(cornerRadius: 12, style: .continuous)
             )
             .overlay {
-                Capsule()
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(theme.border.opacity(0.75), lineWidth: 0.7)
             }
         }
@@ -102,7 +100,7 @@ struct BrainPickerMenu: View {
 
     private var modeSection: some View {
         Section("Mode") {
-            ForEach(EpistemosOperatingMode.allCases, id: \.self) { mode in
+            ForEach(accState.availableOperatingModes, id: \.self) { mode in
                 Button {
                     accState.selectedOperatingMode = mode
                 } label: {
