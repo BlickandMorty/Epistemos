@@ -210,6 +210,47 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     }
 }
 
+/// User-visible reasoning/thinking tier, mapped per-provider in LLMService
+/// (OpenAI `reasoning.effort` + `text.verbosity`, Anthropic
+/// `thinking.type`/`effort`/`budget_tokens`, Google `thinkingLevel` /
+/// `thinkingBudget`). A single app-level taxonomy keeps the settings
+/// control consistent across providers; `LLMService` is responsible for
+/// silently dropping the control for models that don't support it.
+public enum ChatReasoningTier: String, Codable, Sendable, CaseIterable {
+    /// Disable reasoning/thinking. Fastest + cheapest per turn.
+    case off
+    /// Default — balanced reasoning. Maps to medium effort on OpenAI,
+    /// adaptive/medium on Anthropic Opus 4.7+, medium thinkingLevel on
+    /// Gemini 3.x, dynamic thinkingBudget on Gemini 2.5.
+    case standard
+    /// Maximum reasoning the model supports. High effort on OpenAI,
+    /// adaptive/high on Anthropic (or 16k manual budget with
+    /// interleaved-thinking beta on older models), high thinkingLevel
+    /// on Gemini 3.x, 16k+ thinkingBudget on Gemini 2.5.
+    case extended
+
+    /// Human-readable label for UI surfaces.
+    public var displayName: String {
+        switch self {
+        case .off: "Off"
+        case .standard: "Standard"
+        case .extended: "Extended"
+        }
+    }
+
+    /// Short explanation for Settings / picker subtitles.
+    public var summary: String {
+        switch self {
+        case .off:
+            "Skip the reasoning pass. Fastest replies, lowest cost."
+        case .standard:
+            "Balanced reasoning. Good default for most turns."
+        case .extended:
+            "Maximum reasoning. Slower and more expensive, but the best answers on hard questions."
+        }
+    }
+}
+
 struct ChatThread: Identifiable, Codable, Sendable {
     var id: String
     var type: String

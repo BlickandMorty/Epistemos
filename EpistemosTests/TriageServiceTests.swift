@@ -475,6 +475,39 @@ struct TriageServiceTests {
         #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT54)
     }
 
+    @Test("chatReasoningTier persists across inference state reloads")
+    @MainActor func chatReasoningTierPersistsAcrossReloads() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.chatReasoningTier"
+        let savedValue = defaults.object(forKey: key)
+        defer {
+            if let savedValue {
+                defaults.set(savedValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        defaults.removeObject(forKey: key)
+
+        let first = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        // Default is Standard — matches the documented cheat-sheet
+        // recommendation for the middle tier.
+        #expect(first.chatReasoningTier == .standard)
+
+        first.setChatReasoningTier(.extended)
+
+        let reloaded = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        #expect(reloaded.chatReasoningTier == .extended)
+    }
+
     @Test("effectiveModelLabel resolves Apple Intelligence to user-visible text")
     @MainActor func effectiveModelLabelResolvesAppleIntelligence() {
         let inference = InferenceState(
