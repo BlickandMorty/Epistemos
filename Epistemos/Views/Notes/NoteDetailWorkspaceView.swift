@@ -132,7 +132,16 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        theme.followsSystemAppearance ? .clear : MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
+        // Previously returned .clear for system-appearance themes so the
+        // window's system material would show through. That created a
+        // visible seam in the code editor because CodeEditSourceEditor
+        // paints its own solid background (NSColor.textBackgroundColor,
+        // also used for the code-editor theme's background), and the
+        // surrounding SwiftUI wrapper was clear on top of a material — a
+        // classic "two themes attacking each other" look at the panel
+        // edges. Mirror the editor-side solid color so outer and inner
+        // match for both system and custom appearances.
+        MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
     }
 
     static func editorCardSize(for availableSize: CGSize) -> CGSize {
