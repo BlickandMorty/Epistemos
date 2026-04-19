@@ -161,6 +161,20 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// non-error messages and for legacy errors whose classifier wasn't
     /// called; in both cases the UI falls back to plain text rendering.
     var errorKind: UserFacingChatErrorKind?
+    /// Persisted reasoning trace for this turn — the model's
+    /// chain-of-thought if it produced one (streamed in via `<think>…
+    /// </think>` tags, Anthropic `thinking` blocks, OpenAI reasoning
+    /// summaries, or Gemini thought parts). Optional so legacy
+    /// messages without a captured trace keep working. The message
+    /// bubble surfaces a click-to-expand button whenever this is
+    /// non-empty, so the user can always revisit the reasoning that
+    /// produced the answer — not just during the streaming window.
+    var thinkingTrace: String?
+    /// Wall-clock duration of the thinking phase (popover "Thought for
+    /// Ns"). Populated from `thinkingStartedAt`/`thinkingEndedAt` at
+    /// turn completion so the persisted badge renders without needing
+    /// the live timestamps.
+    var thinkingDurationSeconds: Double?
 
     init(
         id: String = UUID().uuidString,
@@ -181,7 +195,9 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         artifacts: [Artifact] = [],
         contentBlocks: [MessageContentBlock]? = nil,
         resolvedModelLabel: String? = nil,
-        errorKind: UserFacingChatErrorKind? = nil
+        errorKind: UserFacingChatErrorKind? = nil,
+        thinkingTrace: String? = nil,
+        thinkingDurationSeconds: Double? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -202,6 +218,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.contentBlocks = contentBlocks
         self.resolvedModelLabel = resolvedModelLabel
         self.errorKind = errorKind
+        self.thinkingTrace = thinkingTrace
+        self.thinkingDurationSeconds = thinkingDurationSeconds
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.
