@@ -56,6 +56,33 @@ enum CapabilityManifestBuilder {
         return sections.joined(separator: "\n\n")
     }
 
+    /// Condensed manifest for small local models (Gemma 2B, Bonsai 4B,
+    /// Qwen ~4B, etc.) where the full 3–4KB markdown would crowd out
+    /// the actual content in their limited context windows. Keeps the
+    /// identity + "don't lie about capabilities" rules + enabled
+    /// tools. Skips app-surfaces, skills, prefs sections that rarely
+    /// matter for on-device turns. Local-path callers use this form.
+    static func renderCompact(_ context: Context) -> String {
+        var lines: [String] = []
+        lines.append("# Epistemos local assistant")
+        lines.append(
+            "Model: **\(context.modelLabel)** · Mode: **\(context.operatingMode.displayName)** · Max context: \(formatTokens(context.maxContextTokens))."
+        )
+        if let vaultName = context.vaultName {
+            lines.append("Active vault: **\(vaultName)**.")
+        }
+        if !context.enabledToolNames.isEmpty {
+            lines.append("Tools: " + context.enabledToolNames.map { "`\($0)`" }.joined(separator: ", ") + ".")
+        }
+        lines.append("")
+        lines.append("## Rules")
+        lines.append("- The user's attached notes / files have their full text inlined in the user prompt — answer from the inlined text; don't call fetch tools for content already present.")
+        lines.append("- Don't claim browsing, agent mode, or cloud capabilities you don't have right now.")
+        lines.append("- If the answer is uncertain, say so plainly.")
+        lines.append("- Identify as the on-device Epistemos assistant when asked.")
+        return lines.joined(separator: "\n")
+    }
+
     /// Persist the manifest at `~/Library/Application Support/Epistemos/runtime/Capabilities.md`
     /// so it's visible to the user and can be read by external tooling.
     /// Creates the directory lazily; failures log and return false so
