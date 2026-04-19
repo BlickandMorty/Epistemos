@@ -2438,10 +2438,21 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if inference.openAIWebSearchEnabled {
             tools.append(["type": "web_search"])
         }
-        // NOTE: code_interpreter removed — causes "Unsupported tool type" 400 errors
-        // on many GPT-5.4 accounts/regions. The Responses API tool type name may have
-        // changed or require specific account-level feature enablement.
-        // If needed in future, re-add with the verified API format.
+        // Code interpreter restored per parity matrix #4. The Responses
+        // API requires a `container` field; the previous attach-form
+        // (just `{"type": "code_interpreter"}`) 400'd with "Unsupported
+        // tool type" on most accounts because the schema was rejected
+        // at the param validator, not the feature gate. `container.type
+        // = "auto"` lets the platform provision the default Python
+        // sandbox. Accounts without code-interpreter entitlement will
+        // still see a 400 — that surfaces via the typed-error path
+        // just like web_search on accounts without it.
+        if inference.openAICodeInterpreterEnabled {
+            tools.append([
+                "type": "code_interpreter",
+                "container": ["type": "auto"],
+            ])
+        }
         return tools
     }
 

@@ -301,7 +301,17 @@ impl OpenAIProvider {
 
         let reasoning_effort = codex_reasoning_effort(config);
         if reasoning_effort != "none" {
-            body["reasoning"] = json!({ "effort": reasoning_effort });
+            // `summary: "auto"` is critical: without it GPT-5.4 does
+            // its reasoning privately and emits zero
+            // `response.reasoning_summary_text.delta` events, so the
+            // user sees the model's planning monologue leak into
+            // `response.output_text.delta` (the chat body) instead of
+            // the thinking popover. With summary enabled the reasoning
+            // routes through ThinkingDelta events per e710d993.
+            body["reasoning"] = json!({
+                "effort": reasoning_effort,
+                "summary": "auto",
+            });
         }
 
         let retry_config = self.retry_config.clone();

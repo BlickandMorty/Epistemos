@@ -2628,7 +2628,17 @@ final class ChatCoordinator {
         return NotesContextResolution(
             context: wrapRequiredContextSection(
                 title: "Required Attached Notes",
-                instruction: "These notes were explicitly attached by the user for this request. Use their contents whenever they are relevant. Use these notes before recall/search tools. Only broaden beyond them if the user asks or the attached notes are clearly insufficient.",
+                instruction: """
+                THE FULL TEXT of each attached note is inlined in the `Content:` \
+                block below — it has ALREADY been resolved for you. You DO NOT \
+                need to call read_file, file_read, vault_read, or any other \
+                fetch tool to obtain this content, and you MUST NOT ask the \
+                user for a file path. Treat the inlined text as the authoritative \
+                source and answer directly from it. Only use recall/search tools \
+                (vault_search, web_search, etc.) when the user explicitly asks \
+                you to look beyond the attached notes or when the attached \
+                content is clearly insufficient to answer the question.
+                """,
                 body: sections.joined(separator: "\n\n")
             ),
             cleanedQuery: "",
