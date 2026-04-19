@@ -438,6 +438,22 @@ private struct StreamingIndicator: View {
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            // Big visible status strip: "🔎 Searching the web for 'X'"
+            // / "🧠 Thinking 12s" / "✍️ Writing reply…". Pops in the
+            // moment the stream starts and swaps live as the phase
+            // changes — first thing the user sees so tool use + thinking
+            // is never a black box.
+            if chat.isStreaming || chat.isAgentExecuting {
+                LiveActivityStrip(
+                    toolName: chat.isAgentExecuting ? chat.activeToolName : nil,
+                    toolInputJson: chat.activeToolInputJson,
+                    isThinkingActive: chat.isThinkingActive,
+                    thinkingStartedAt: chat.thinkingStartedAt,
+                    isStreaming: chat.isStreaming
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             // ChatGPT-style thinking popover — shown above the streaming
             // response whenever we have either an active thinking phase
             // OR captured thinking text from this turn. Collapses into a
