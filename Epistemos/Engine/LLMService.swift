@@ -2236,6 +2236,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     private struct OpenAIResponseControls {
         let reasoningEffort: String?
         let verbosity: String?
+        /// `reasoning.summary`: `auto` / `concise` / `detailed`. Only set
+        /// when the user picks the Extended tier — at Standard we rely
+        /// on OpenAI's default summary behavior to keep latency low.
+        var reasoningSummary: String? = nil
     }
 
     private func openAIResponseControls(
@@ -2245,6 +2249,51 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     ) -> OpenAIResponseControls? {
         guard case .apiKey = credential else {
             return nil
+        }
+
+        // Non-reasoning models (GPT-4.1, o3-*) hard-400 on reasoning.effort
+        // per OpenAI's responses API. Gate at the model-type level.
+        let isReasoningModel: Bool
+        switch model {
+        case .openAIGPT54, .openAIGPT52, .openAIGPT54Mini, .openAIGPT54Nano:
+            isReasoningModel = true
+        default:
+            isReasoningModel = false
+        }
+        guard isReasoningModel else { return nil }
+
+        // User-selected reasoning tier takes precedence over the operating-
+        // mode defaults. `.standard` keeps the existing per-mode tuning so
+        // Fast mode stays cheap and fast; `.off` forces effort=none; and
+        // `.extended` forces the highest effort the model supports plus a
+        // detailed summary. Per research 1 (docs.claude.com/openai/... — see
+        // docs/architecture/MASTER_PLAN_2026-04-19.md §13).
+        let tier = inference.chatReasoningTier
+
+        switch tier {
+        case .off:
+            return OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+        case .extended:
+            let effort: String
+            switch model {
+            case .openAIGPT54:
+                effort = "high"     // xhigh exists but gated to opt-in
+            case .openAIGPT52:
+                effort = "high"
+            case .openAIGPT54Mini:
+                effort = "high"
+            case .openAIGPT54Nano:
+                effort = "low"      // Nano caps below high
+            default:
+                effort = "high"
+            }
+            return OpenAIResponseControls(
+                reasoningEffort: effort,
+                verbosity: "high",
+                reasoningSummary: "detailed"
+            )
+        case .standard:
+            break  // fall through to per-mode defaults
         }
 
         return switch model {
@@ -2296,7 +2345,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return
         }
         if let effort = controls.reasoningEffort {
-            body["reasoning"] = ["effort": effort]
+            var reasoning: [String: Any] = ["effort": effort]
+            if let summary = controls.reasoningSummary {
+                reasoning["summary"] = summary
+            }
+            body["reasoning"] = reasoning
         }
         if let verbosity = controls.verbosity {
             var text = body["text"] as? [String: Any] ?? [:]
