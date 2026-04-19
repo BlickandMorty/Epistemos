@@ -154,6 +154,13 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     /// the user can see exactly which model answered — the Perplexity
     /// pattern: transparent routing as first-class UX.
     var resolvedModelLabel: String?
+    /// Typed classification of an error message so the UI can render the
+    /// right recovery affordance (Open Settings deep-link for 401s,
+    /// "Switch to local" for 429s, tool-failure vs model-refusal visuals,
+    /// etc.) instead of pattern-matching on free-form copy. Nil for
+    /// non-error messages and for legacy errors whose classifier wasn't
+    /// called; in both cases the UI falls back to plain text rendering.
+    var errorKind: UserFacingChatErrorKind?
 
     init(
         id: String = UUID().uuidString,
@@ -173,7 +180,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         contextAttachments: [ContextAttachment]? = nil,
         artifacts: [Artifact] = [],
         contentBlocks: [MessageContentBlock]? = nil,
-        resolvedModelLabel: String? = nil
+        resolvedModelLabel: String? = nil,
+        errorKind: UserFacingChatErrorKind? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -193,6 +201,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.artifacts = artifacts
         self.contentBlocks = contentBlocks
         self.resolvedModelLabel = resolvedModelLabel
+        self.errorKind = errorKind
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

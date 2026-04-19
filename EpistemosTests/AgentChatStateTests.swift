@@ -260,6 +260,32 @@ struct AgentChatStateTests {
         #expect(state.thinkingStartedAt == nil)
     }
 
+    // MARK: - Typed error kind plumbing
+
+    @Test("addErrorMessage(from:) classifies the error and attaches the kind")
+    func addErrorMessageFromClassifiesKind() {
+        let state = AgentChatState()
+        state.startNewSession()
+
+        state.addErrorMessage(from: LocalInferenceRoutingError.runtimeUnavailable)
+
+        let msg = state.messages.last
+        #expect(msg?.isError == true)
+        #expect(msg?.errorKind == .modelNotReady)
+    }
+
+    @Test("addErrorMessage(_:kind:) preserves the caller-supplied kind")
+    func addErrorMessageWithExplicitKind() {
+        let state = AgentChatState()
+        state.startNewSession()
+
+        state.addErrorMessage("Your key expired.", kind: .authFailure)
+
+        let msg = state.messages.last
+        #expect(msg?.errorKind == .authFailure)
+        #expect(msg?.content == "Your key expired.")
+    }
+
     // MARK: - Effective-model badge
 
     @Test("completeProcessing attaches the resolved model label to the assistant turn")

@@ -169,17 +169,64 @@ struct MessageBubble: View {
                 .foregroundStyle(theme.error)
                 .frame(width: 28, height: 28)
 
-            Text(message.content)
-                .font(.epBody)
-                .foregroundStyle(theme.error)
-                .textSelection(.enabled)
-                .padding(Spacing.md)
-                .background(theme.error.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(theme.error.opacity(0.2), lineWidth: 1)
-                )
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text(message.content)
+                    .font(.epBody)
+                    .foregroundStyle(theme.error)
+                    .textSelection(.enabled)
+
+                if let recovery = errorRecoveryAction {
+                    Button(action: recovery.perform) {
+                        Label(recovery.title, systemImage: recovery.systemImage)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(theme.error)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 5)
+                            .background(theme.error.opacity(0.12), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.md)
+            .background(theme.error.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(theme.error.opacity(0.2), lineWidth: 1)
+            )
         }
+    }
+
+    private struct ErrorRecoveryAction {
+        let title: String
+        let systemImage: String
+        let perform: @MainActor () -> Void
+    }
+
+    private var errorRecoveryAction: ErrorRecoveryAction? {
+        guard let kind = message.errorKind else { return nil }
+        switch kind {
+        case .authFailure:
+            return ErrorRecoveryAction(
+                title: "Open Settings → AI",
+                systemImage: "key.fill",
+                perform: openSettingsWindow
+            )
+        case .modelNotReady:
+            return ErrorRecoveryAction(
+                title: "Open Settings → Models",
+                systemImage: "cpu.fill",
+                perform: openSettingsWindow
+            )
+        case .rateLimited, .providerUnreachable, .timedOut,
+             .contextOverflow, .cancelled, .generic:
+            return nil
+        }
+    }
+
+    @MainActor
+    private func openSettingsWindow() {
+        UtilityWindowManager.shared.show(.settings)
+        NSApp.activate()
     }
 
     private var assistantBubble: some View {

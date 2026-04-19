@@ -31,7 +31,7 @@ nonisolated enum PipelineError: LocalizedError {
 /// countdown, deep-link to Settings, etc. — instead of pattern-matching
 /// on a free-form String. Raw catch paths still accept `Error` and get
 /// mapped through `UserFacingChatError.classify(_:)`.
-nonisolated enum UserFacingChatErrorKind: Equatable, Sendable {
+nonisolated enum UserFacingChatErrorKind: String, Codable, Equatable, Sendable, CaseIterable {
     /// 401 / bad API key / OAuth token invalid. UI should deep-link to
     /// Settings → AI so the user can re-authenticate without hunting.
     case authFailure
