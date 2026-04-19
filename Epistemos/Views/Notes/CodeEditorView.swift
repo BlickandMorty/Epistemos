@@ -29,12 +29,21 @@ extension EditorTheme {
         color.rgbSafeForCodeEditorTheme()
     }
 
-    /// Flat light theme - matches prose editor's simplicity
-    static func flatLight(accent: NSColor, background: NSColor) -> EditorTheme {
+    /// Flat light theme - matches prose editor's simplicity.
+    /// Text and subtle colors default to the neutral grays tuned for the
+    /// base light theme, but callers should pass the active EpistemosTheme's
+    /// foreground + mutedForeground so syntax colors track the app theme
+    /// instead of fighting it.
+    static func flatLight(
+        accent: NSColor,
+        background: NSColor,
+        text: NSColor? = nil,
+        subtle: NSColor? = nil
+    ) -> EditorTheme {
         let accent = normalized(accent)
         let background = normalized(background)
-        let textColor = normalized(NSColor(hex: "1C1C1E"))
-        let subtleColor = normalized(NSColor(hex: "6B6B6B"))
+        let textColor = normalized(text ?? NSColor(hex: "1C1C1E"))
+        let subtleColor = normalized(subtle ?? NSColor(hex: "6B6B6B"))
         let lineHighlightColor = normalized(
             background.blended(withFraction: 0.05, of: .black) ?? NSColor(hex: "F5F5F7")
         )
@@ -61,12 +70,21 @@ extension EditorTheme {
         )
     }
     
-    /// Flat dark theme - matches prose editor's simplicity
-    static func flatDark(accent: NSColor, background: NSColor) -> EditorTheme {
+    /// Flat dark theme - matches prose editor's simplicity.
+    /// Text and subtle colors default to the neutral grays tuned for the
+    /// base dark theme, but callers should pass the active EpistemosTheme's
+    /// foreground + mutedForeground so syntax colors track the app theme
+    /// instead of fighting it.
+    static func flatDark(
+        accent: NSColor,
+        background: NSColor,
+        text: NSColor? = nil,
+        subtle: NSColor? = nil
+    ) -> EditorTheme {
         let accent = normalized(accent)
         let background = normalized(background)
-        let textColor = normalized(NSColor(hex: "DFDFE0"))
-        let subtleColor = normalized(NSColor(hex: "8A8A8A"))
+        let textColor = normalized(text ?? NSColor(hex: "DFDFE0"))
+        let subtleColor = normalized(subtle ?? NSColor(hex: "8A8A8A"))
         let lineHighlightColor = normalized(
             background.blended(withFraction: 0.07, of: .white) ?? NSColor(hex: "2C2C2E")
         )
@@ -93,11 +111,17 @@ extension EditorTheme {
         )
     }
     
-    /// Ultra-minimal: no syntax highlighting at all (everything same color)
-    static func minimalLight(accent: NSColor, background: NSColor) -> EditorTheme {
+    /// Ultra-minimal: no syntax highlighting at all (everything same color).
+    /// Text color defaults to the base light tone; pass the app theme's
+    /// foreground when you want the editor to move with the theme.
+    static func minimalLight(
+        accent: NSColor,
+        background: NSColor,
+        text: NSColor? = nil
+    ) -> EditorTheme {
         let accent = normalized(accent)
         let background = normalized(background)
-        let textColor = normalized(NSColor(hex: "1C1C1E"))
+        let textColor = normalized(text ?? NSColor(hex: "1C1C1E"))
         let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.28))
         
         return EditorTheme(
@@ -121,11 +145,17 @@ extension EditorTheme {
         )
     }
     
-    /// Ultra-minimal dark: no syntax highlighting at all
-    static func minimalDark(accent: NSColor, background: NSColor) -> EditorTheme {
+    /// Ultra-minimal dark: no syntax highlighting at all.
+    /// Text color defaults to the base dark tone; pass the app theme's
+    /// foreground when you want the editor to move with the theme.
+    static func minimalDark(
+        accent: NSColor,
+        background: NSColor,
+        text: NSColor? = nil
+    ) -> EditorTheme {
         let accent = normalized(accent)
         let background = normalized(background)
-        let textColor = normalized(NSColor(hex: "DFDFE0"))
+        let textColor = normalized(text ?? NSColor(hex: "DFDFE0"))
         let selectionColor = normalized(NSColor.selectedTextBackgroundColor.withAlphaComponent(0.22))
         
         return EditorTheme(
@@ -1638,12 +1668,37 @@ struct CodeEditorView: View {
             if let container = AppBootstrap.shared?.modelContainer {
                 let context = ModelContext(container)
                 let newPage = SDPage(title: noteTitle)
-                newPage.body = noteContent
+                let failedPageId = newPage.id
+                newPage.saveBody(noteContent)
+                newPage.wordCount = noteContent.split(separator: " ").count
+                newPage.needsVaultSync = true
+                newPage.updatedAt = .now
                 context.insert(newPage)
-                try? context.save()
-                
-                // Open the new note
-                NoteWindowManager.shared.open(pageId: newPage.id)
+                BlockMirror.sync(pageId: newPage.id, body: noteContent, modelContext: context)
+                do {
+                    try context.save()
+                    AppBootstrap.shared?.graphState.needsRefresh = true
+
+                    // Open the new note
+                    NoteWindowManager.shared.open(pageId: newPage.id)
+                } catch {
+                    context.delete(newPage)
+                    let blockDescriptor = FetchDescriptor<SDBlock>(
+                        predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
+                    )
+                    do {
+                        let transientBlocks = try context.fetch(blockDescriptor)
+                        for block in transientBlocks {
+                            context.delete(block)
+                        }
+                    } catch {
+                        Log.app.error(
+                            "CodeEditor: failed to clean transient blocks for page \(failedPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
+                    NoteFileStorage.deleteBody(pageId: failedPageId)
+                    Log.app.error("CodeEditor: failed to persist note from code: \(error.localizedDescription, privacy: .public)")
+                }
             }
         }
     }
@@ -1704,18 +1759,24 @@ struct CodeEditorView: View {
     private let useMinimalTheme = false  // Set to true for no syntax highlighting at all
 
     @MainActor private var editorTheme: EditorTheme {
-        let accent = ui.theme.resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
+        let resolved = ui.theme.resolved
+        let accent = resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
         let background = MarkdownPreviewSurfaceStyle
             .canvasNSColor(for: ui.theme)
             .rgbSafeForCodeEditorTheme()
+        // Source the editor's text + subtle tones from the active
+        // EpistemosTheme so the syntax palette moves with the app theme
+        // instead of clashing via hardcoded hex values.
+        let text = resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
+        let subtle = resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()
         if useMinimalTheme {
             return ui.theme.isDark
-                ? .minimalDark(accent: accent, background: background)
-                : .minimalLight(accent: accent, background: background)
+                ? .minimalDark(accent: accent, background: background, text: text)
+                : .minimalLight(accent: accent, background: background, text: text)
         } else {
             return ui.theme.isDark
-                ? .flatDark(accent: accent, background: background)
-                : .flatLight(accent: accent, background: background)
+                ? .flatDark(accent: accent, background: background, text: text, subtle: subtle)
+                : .flatLight(accent: accent, background: background, text: text, subtle: subtle)
         }
     }
 }
@@ -2697,6 +2758,8 @@ struct CodeSemanticSidebar: View {
         }
         .onDisappear {
             insightRefreshTask?.cancel()
+            bridge.cancelPendingWork()
+            insightGenerator.cancelGeneration()
         }
     }
 
@@ -3467,6 +3530,9 @@ struct CodeInsightsPanel: View {
                 language: language,
                 relatedMatches: relatedMatches
             )
+        }
+        .onDisappear {
+            generator.cancelGeneration()
         }
     }
     
