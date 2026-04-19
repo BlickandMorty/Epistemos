@@ -286,7 +286,10 @@ struct MessageBubble: View {
                 // for legacy persisted messages whose reasoning arrived
                 // as structured Anthropic thinking blocks pre-router.
                 if let thinking = persistedThinking, !thinking.isEmpty {
-                    ThinkingTrailView(content: thinking)
+                    ThinkingTrailView(
+                        content: thinking,
+                        durationSeconds: message.thinkingDurationSeconds
+                    )
                 }
 
                 // Structured artifacts — interactive cards for JSON, code, tables

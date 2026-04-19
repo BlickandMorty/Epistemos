@@ -12,6 +12,12 @@ import SwiftUI
 
 struct ThinkingTrailView: View {
     let content: String
+    let durationSeconds: Double?
+
+    init(content: String, durationSeconds: Double? = nil) {
+        self.content = content
+        self.durationSeconds = durationSeconds
+    }
 
     @State private var isExpanded = false
 
@@ -28,7 +34,7 @@ struct ThinkingTrailView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(.purple.opacity(0.7))
 
-                    Text("Reasoning")
+                    Text(headerLabel)
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
 
@@ -74,5 +80,20 @@ struct ThinkingTrailView: View {
 
     private var wordCount: Int {
         content.split(separator: " ").count
+    }
+
+    /// Header label. Shows "Thought for Ns" when we have a captured
+    /// duration (ChatState populates this at turn completion from the
+    /// thinkingStartedAt → thinkingEndedAt window), or falls back to
+    /// plain "Reasoning" for legacy messages that pre-date the field.
+    private var headerLabel: String {
+        guard let seconds = durationSeconds, seconds >= 1 else { return "Reasoning" }
+        if seconds < 60 {
+            return "Thought for \(Int(seconds.rounded()))s"
+        }
+        let minutes = Int(seconds / 60)
+        let remainingSeconds = Int(seconds.truncatingRemainder(dividingBy: 60).rounded())
+        if remainingSeconds == 0 { return "Thought for \(minutes)m" }
+        return "Thought for \(minutes)m \(remainingSeconds)s"
     }
 }
