@@ -106,4 +106,15 @@ struct SettingsCategoryTests {
         ]
         #expect(Set(SettingsView.SettingsSection.visibleSections) == expected)
     }
+
+    @Test("Legacy agent deep-links preserve the matching consolidated tab")
+    func legacyAgentDeepLinksPreserveMatchingTab() throws {
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let agentSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentSectionDetailView.swift")
+
+        #expect(agentSource.contains("initialTab: AgentTab = .control"))
+        #expect(settingsSource.contains("initialTab: .control"))
+        #expect(settingsSource.contains("initialTab: .authority"))
+        #expect(settingsSource.contains("initialTab: .overseer"))
+    }
 }

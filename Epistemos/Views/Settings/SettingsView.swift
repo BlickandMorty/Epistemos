@@ -224,12 +224,14 @@ struct SettingsView: View {
         case .modelVaults: ModelVaultsSettingsView()
         case .iMessageDriver: iMessageDriverDetailView()
         case .skills: SkillsDetailView()
-        // Consolidated Agent section — three tabs (Overview / Authority /
-        // Overseer) inside one detail view. The .agentControl / .authority /
-        // .overseer legacy deep-links all resolve to the same consolidated
-        // view so any external notification or shortcut keeps working.
-        case .agent, .agentControl, .authority, .overseer:
+        case .agent:
             AgentSectionDetailView(authorityStore: sharedAuthorityStore)
+        case .agentControl:
+            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .control)
+        case .authority:
+            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .authority)
+        case .overseer:
+            AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .overseer)
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
