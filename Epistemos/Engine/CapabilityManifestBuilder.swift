@@ -43,6 +43,7 @@ enum CapabilityManifestBuilder {
         var sections: [String] = []
         sections.append(identitySection(context))
         sections.append(vaultSection(context))
+        sections.append(appSurfacesSection())
         sections.append(enabledToolsSection(context))
         if !context.disabledToolNames.isEmpty {
             sections.append(disabledToolsSection(context))
@@ -118,6 +119,47 @@ enum CapabilityManifestBuilder {
             lines.append("- Notes indexed: \(noteCount)")
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// Map of the app's user-facing surfaces so the model can give
+    /// navigation advice ("open Settings → Inference to pick a model")
+    /// instead of hallucinating or saying "I don't know how". Stable
+    /// across turns — if the user changes the app they can override
+    /// via `Capabilities.md.user`.
+    private static func appSurfacesSection() -> String {
+        """
+        ## Epistemos surfaces you can direct the user to
+        The app has these primary windows / panels — use their exact
+        names when telling the user where to go:
+
+        - **Chat** — the main conversation surface (⌘1). Tool calls,
+          web search, vault search, and agent runs all originate here.
+          The capability pill shows the active tier; the Context panel
+          (right side) lists loaded notes, attachments, and routing.
+        - **Notes** — the prose editor workspace (⌘2). Supports
+          markdown, wikilinks ([[Note Title]]), block refs, transclusion,
+          syntax-highlighted code blocks, and AI-assisted edits. ⌘N to
+          create a new note; ⌘I for quick capture; ⌘⇧F for vault-wide
+          search.
+        - **Agent Command Center** — dedicated agent surface with an
+          inspector panel (plan / execution / tools / attached context
+          tabs). Opens its own session separate from main chat.
+        - **Graph** — force-directed knowledge graph (⌘4). Hologram
+          inspector, search sidebar, backlink view, workspace organizer.
+        - **Daily Brief** — per-day summary surfaced on the landing
+          page. ⌘R toggles Session Intelligence; ⌘T for Time Machine.
+        - **Workspaces** — save + restore entire window arrangements.
+          ⌘⌃W opens the switcher; ⌘⌃S to save the current layout.
+        - **Settings** — keys, model selection, reasoning tier,
+          runtime controls, provider toggles, vault location, theme.
+        - **MiniChat** — floating window (⌘3) for quick questions
+          without leaving the current surface.
+
+        When the user asks how to do something in the app, name the
+        exact surface + shortcut. If the user asks you to search their
+        notes, you have tools to do it — don't redirect them to a
+        surface unless the task actually requires manual action.
+        """
     }
 
     private static func enabledToolsSection(_ ctx: Context) -> String {
