@@ -1194,9 +1194,13 @@ final class ChatCoordinator {
                 )
                 chatState.captureBrainSnapshot(brainSnapshot)
 
-                // Route: managed-agent sessions escalate to Rust agent_core,
-                // while local-only and overseer-local plans stay on the Swift
-                // pipeline with an explicit local execution plan.
+                // Route: Agent mode uses managed-agent (full tool surface),
+                // Pro mode on cloud gets a bounded chat_pro tool loop so
+                // note lookups / writes actually hit tools instead of
+                // hallucinating (fixes the root cause research 3 surfaced:
+                // Pro+cloud fell through to a zero-tools direct stream).
+                // Fast / Thinking stay on the existing Swift pipeline so
+                // we don't regress the simplest paths.
                 var usedRustAgent = false
                 if let executionPlan, mode == .api, operatingMode == .agent {
                     switch executionPlan.route {
@@ -1220,6 +1224,30 @@ final class ChatCoordinator {
                         }
                     case .localOnly, .overseerLocalExecution:
                         break
+                    }
+                } else if let executionPlan, mode == .api, operatingMode == .pro {
+                    // Pro + cloud → chat_pro tier, bounded turns (3) +
+                    // bounded tools (8) per ResolvedExecutionPolicy. Tool
+                    // use gated by AgentAuthority; vault_write/patch are
+                    // now ChatPro-tier after research 3.
+                    do {
+                        try await self.runRustAgentPath(
+                            query: effectiveQuery,
+                            notesContext: effectiveNotesContextWithWorkspace,
+                            conversationHistory: conversationHistory,
+                            chatState: chatState,
+                            chatId: capturedChatId,
+                            originalQuery: query,
+                            hasVault: hasVault,
+                            pendingAssistantId: pendingAssistantId,
+                            executionPlan: executionPlan,
+                            brainSnapshotCapturedAt: brainSnapshot.capturedAt,
+                            toolTier: "chat_pro",
+                            maxTurns: 3
+                        )
+                        usedRustAgent = true
+                    } catch {
+                        Log.pipeline.warning("Pro-mode Rust agent path unavailable, falling back to direct stream: \(error.localizedDescription)")
                     }
                 }
 
@@ -1339,7 +1367,15 @@ final class ChatCoordinator {
         hasVault: Bool,
         pendingAssistantId: String,
         executionPlan: OverseerComplexityRouter.ExecutionPlan,
-        brainSnapshotCapturedAt: Date?
+        brainSnapshotCapturedAt: Date?,
+        // Tier + bounds let Pro mode share this path with Agent mode,
+        // just with ChatPro-tier tools and a shorter turn budget — per
+        // research 3's recommendation that the root cause of "find my
+        // note on Pro+cloud hallucinates" is Pro falling through to a
+        // zero-tools direct-stream path. Defaults match the legacy
+        // Agent-only behavior so no existing caller changes.
+        toolTier: String = "agent",
+        maxTurns: UInt32 = 25
     ) async throws {
         let sessionId = UUID().uuidString
         let parentSessionID = AgentSessionLineageStore.shared.parentSessionID(forChatThread: chatId)
@@ -1375,13 +1411,13 @@ final class ChatCoordinator {
             vaultPath: vaultPath,
             enableBash: true,
             enableWebSearch: true,
-            toolTier: "agent",
+            toolTier: toolTier,
             // Main chat path has no per-tool UI — tier is the only gate.
             allowedToolNames: nil
         )
 
         let agentConfig = AgentConfigFFI(
-            maxTurns: 25,
+            maxTurns: maxTurns,
             maxOutputTokens: 16384,
             contextThreshold: UInt32(chatState.maxContextTokens),
             enableThinking: true,
