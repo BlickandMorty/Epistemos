@@ -125,10 +125,10 @@ final class VaultSyncService {
         subsystem: "com.epistemos",
         category: "VaultSync"
     )
-    private nonisolated static let defaultRecoveryVaultURL = URL(
-        fileURLWithPath: "/Users/jojo/My mind",
-        isDirectory: true
-    )
+    private nonisolated static let defaultRecoveryVaultURL: URL = {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        return home.appendingPathComponent("My mind", isDirectory: true)
+    }()
 
     private nonisolated static var isRunningTests: Bool {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -230,8 +230,16 @@ final class VaultSyncService {
     private var autoSaveTask: Task<Void, Never>?
     private var versionCaptureTask: Task<Void, Never>?
     private var manifestRefreshTask: Task<Void, Never>?
+    /// Monotonic counter of vault mutations. Bumped whenever a vault
+    /// event is emitted so the periodic manifest-refresh timer can tell
+    /// whether anything has actually changed since its last tick and
+    /// skip the rebuild otherwise. Idle = zero work.
     @ObservationIgnored
-    nonisolated(unsafe) private var powerModeObserverTask: Task<Void, Never>?
+    private var vaultMutationEpoch: UInt64 = 0
+    @ObservationIgnored
+    private var lastManifestRefreshEpoch: UInt64 = 0
+    @ObservationIgnored
+    private var powerModeObserverTask: Task<Void, Never>?
     private var inFlightDirtySaveTask: Task<Void, Never>?
     private var pendingDirtySaveRequest = false
     private var initialImportCompleted = false
@@ -398,6 +406,13 @@ final class VaultSyncService {
 
     func setVaultURLForTesting(_ vaultURL: URL?) {
         self.vaultURL = vaultURL
+        if vaultURL == nil {
+            indexActor = nil
+            return
+        }
+        if indexActor == nil {
+            indexActor = VaultIndexActor(modelContainer: modelContainer)
+        }
     }
 
     func importVaultForTesting(from vaultURL: URL) async throws {
@@ -1957,6 +1972,11 @@ final class VaultSyncService {
         return didClearLocalData
     }
 
+    func forceClearDerivedLocalStateForFullReset() async {
+        await clearDerivedLocalStateForRecovery()
+        dismissRecoveryIssue()
+    }
+
     private func prepareToStopWatching() {
         importTask?.cancel()
         importTask = nil
@@ -2213,7 +2233,7 @@ final class VaultSyncService {
 
         let pageCount = await actor.allPageTimestamps().count
         log.info("Sync from vault complete: \(pageCount) pages")
-        eventBus?.emit(.vaultChanged)
+        publishVaultMutation(.vaultChanged)
         return []
     }
 
@@ -2242,6 +2262,7 @@ final class VaultSyncService {
             try context.save()
         } catch {
             Log.vault.error("Failed to save before page export (\(pageId.prefix(8), privacy: .public)): \(error.localizedDescription, privacy: .public)")
+            return nil
         }
 
         suppressFileWatcherForSelfOriginatedChange()
@@ -2279,7 +2300,7 @@ final class VaultSyncService {
                 }
 
                 await MainActor.run { [weak self] in
-                    self?.eventBus?.emit(.vaultPageChanged(pageId: pageId))
+                    self?.publishVaultMutation(.vaultPageChanged(pageId: pageId))
                 }
             } catch {
                 log.error("Failed to save page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
@@ -2362,6 +2383,7 @@ final class VaultSyncService {
             try context.save()
         } catch {
             Log.vault.error("Failed to save before dirty pages export: \(error.localizedDescription, privacy: .public)")
+            return nil
         }
 
         return DirtySaveBatch(
@@ -2553,10 +2575,37 @@ final class VaultSyncService {
                     label: "manifest refresh timer"
                 ) else { return }
                 guard !Task.isCancelled else { return }
-                guard self != nil else { return }
+                // Only refresh when the vault has actually mutated since
+                // the last refresh. Without this guard the 5-minute timer
+                // rebuilt the full ambient manifest forever at idle and
+                // churned both CPU and log noise even when nothing had
+                // changed. See docs/AGENT_PROGRESS.md 2026-04-19 entry.
+                guard let self else { return }
+                guard self.vaultMutationEpoch != self.lastManifestRefreshEpoch else {
+                    continue
+                }
+                self.lastManifestRefreshEpoch = self.vaultMutationEpoch
                 AppBootstrap.shared?.refreshAmbientManifest()
             }
         }
+    }
+
+    /// Emit a vault mutation event AND bump the internal epoch so the
+    /// manifest-refresh timer can tell whether anything has actually
+    /// changed. Every direct `eventBus?.emit(.vaultChanged)` /
+    /// `.vaultPageChanged` call path should go through this helper so
+    /// the idle path stays quiet.
+    private func publishVaultMutation(_ event: AppEvent) {
+        vaultMutationEpoch &+= 1
+        eventBus?.emit(event)
+    }
+
+    /// Exposed to external mutation paths (file watcher) that refresh
+    /// the ambient manifest directly without going through
+    /// `publishVaultMutation`. Bumps the epoch so the idle-guard in the
+    /// periodic timer still sees the change on its next tick.
+    func markVaultMutated() {
+        vaultMutationEpoch &+= 1
     }
 
     // MARK: - File System Watcher
@@ -2653,9 +2702,13 @@ final class VaultSyncService {
                 log.info("File watcher: re-import complete")
                 await VaultSyncService.rebuildInstantRecallIndex(from: actor)
 
-                // Hop back to main actor for UI state updates
-                await MainActor.run {
+                // Hop back to main actor for UI state updates. Mark the
+                // vault as mutated so the idle manifest-refresh timer
+                // also notices (even though we refresh here directly,
+                // the epoch bump keeps the polling tick honest).
+                await MainActor.run { [weak vaultSync = AppBootstrap.shared?.vaultSync] in
                     AppBootstrap.shared?.graphState.needsRefresh = true
+                    vaultSync?.markVaultMutated()
                     AppBootstrap.shared?.refreshAmbientManifest()
                 }
 
@@ -2705,7 +2758,9 @@ final class VaultSyncService {
         do {
             try context.save()
         } catch {
+            context.delete(version)
             Log.vault.error("Failed to save captured version for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
         }
         log.info("Captured version for page \(pageId.prefix(8))")
         Self.pruneVersions(pageId: pageId, modelContainer: modelContainer)
@@ -2898,6 +2953,7 @@ final class VaultSyncService {
         }
 
         let page = SDPage(title: title, emoji: emoji)
+        let failedPageId = page.id
         page.saveBody(body)
         page.subfolder = subfolder
         page.wordCount = body.split(separator: " ").count
@@ -2905,11 +2961,27 @@ final class VaultSyncService {
         // Insert into main context (we're on MainActor)
         let context = modelContainer.mainContext
         context.insert(page)
-        BlockMirror.sync(pageId: page.id, body: body, modelContext: context)
+        BlockMirror.sync(pageId: failedPageId, body: body, modelContext: context)
         do {
             try context.save()  // Explicit save ensures the page is persisted before background export
         } catch {
+            context.delete(page)
+            let blockDescriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
+            )
+            do {
+                let transientBlocks = try context.fetch(blockDescriptor)
+                for block in transientBlocks {
+                    context.delete(block)
+                }
+            } catch {
+                Log.vault.error(
+                    "Failed to clean up transient blocks for new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                )
+            }
+            NoteFileStorage.deleteBody(pageId: failedPageId)
             Log.vault.error("Failed to save new page '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            return nil
         }
 
         // Index in Spotlight
@@ -2919,7 +2991,7 @@ final class VaultSyncService {
         page.needsVaultSync = false
 
         // Export to disk in background
-        let pageId = page.id
+        let pageId = failedPageId
         suppressFileWatcherForSelfOriginatedChange()
         Task { [weak self] in
             do {
@@ -2930,7 +3002,7 @@ final class VaultSyncService {
                 )
             }
             await MainActor.run {
-                self?.eventBus?.emit(.vaultChanged)
+                self?.publishVaultMutation(.vaultChanged)
             }
         }
 
@@ -2945,12 +3017,12 @@ final class VaultSyncService {
             var trashedURL: NSURL?
             try FileManager.default.trashItem(at: url, resultingItemURL: &trashedURL)
             log.info("Moved \(label, privacy: .public) to Trash: \(url.path, privacy: .private)")
-            eventBus?.emit(.vaultChanged)
+            publishVaultMutation(.vaultChanged)
         } catch {
             do {
                 try FileManager.default.removeItem(at: url)
                 log.info("Deleted \(label, privacy: .public): \(url.path, privacy: .private)")
-                eventBus?.emit(.vaultChanged)
+                publishVaultMutation(.vaultChanged)
             } catch {
                 log.error(
                     "Failed to remove \(label, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -3105,7 +3177,7 @@ final class VaultSyncService {
             if page.filePath == nil {
                 savePage(pageId: pageId)
             }
-            eventBus?.emit(.vaultChanged)
+            publishVaultMutation(.vaultChanged)
         } catch {
             log.error("Failed to move page: \(error.localizedDescription, privacy: .public)")
         }
