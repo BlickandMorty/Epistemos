@@ -358,6 +358,55 @@ struct TriageServiceTests {
         #expect(reloaded.cloudAutoFallback)
     }
 
+    @Test("stale Gemma 4 local selections auto-migrate to a runnable default")
+    @MainActor func migrateStaleGemma4Selection() {
+        let defaults = UserDefaults.standard
+        let localKey = "epistemos.preferredLocalTextModelID"
+        let selectionKey = "epistemos.preferredChatModelSelection"
+
+        let savedLocal = defaults.object(forKey: localKey)
+        let savedSelection = defaults.object(forKey: selectionKey)
+        defer {
+            if let savedLocal {
+                defaults.set(savedLocal, forKey: localKey)
+            } else {
+                defaults.removeObject(forKey: localKey)
+            }
+            if let savedSelection {
+                defaults.set(savedSelection, forKey: selectionKey)
+            } else {
+                defaults.removeObject(forKey: selectionKey)
+            }
+        }
+
+        defaults.set(LocalTextModelID.gemma4_4B4Bit.rawValue, forKey: localKey)
+        defaults.set(
+            ChatModelSelection.localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue).rawValue,
+            forKey: selectionKey
+        )
+
+        InferenceState.migrateStaleGemma4Selection(defaults: defaults)
+
+        #expect(
+            defaults.string(forKey: localKey) == LocalTextModelID.qwen3_4B4Bit.rawValue
+        )
+        #expect(
+            defaults.string(forKey: selectionKey)
+                == ChatModelSelection.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue).rawValue
+        )
+    }
+
+    @Test("Gemma 4 tiers are hidden from the interactive chat picker")
+    func gemma4TiersHiddenFromPicker() {
+        #expect(!LocalTextModelID.gemma4_2B4Bit.isReleaseValidatedForInteractiveChat)
+        #expect(!LocalTextModelID.gemma4_4B4Bit.isReleaseValidatedForInteractiveChat)
+        #expect(!LocalTextModelID.gemma4_27BA4B4Bit.isReleaseValidatedForInteractiveChat)
+        #expect(!LocalTextModelID.gemma4_31BJANG.isReleaseValidatedForInteractiveChat)
+
+        #expect(LocalTextModelID.gemma4_4B4Bit.isAwaitingSwiftRuntimeLoader)
+        #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason?.contains("Swift MLX loader") == true)
+    }
+
     @Test("legacy OpenAI GPT-5.2 preference migrates forward to GPT-5.4")
     @MainActor func migrateLegacyOpenAI52To54() {
         let defaults = UserDefaults.standard
