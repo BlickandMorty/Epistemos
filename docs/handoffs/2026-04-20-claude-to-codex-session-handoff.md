@@ -255,3 +255,95 @@ If the user reports any more "thinking in main chat" turns: ask them to open Con
 ---
 
 Good luck. Don't ship without running the full test suite + at least one `xcodebuild` + launching the app at least once.
+
+---
+
+## 9 · Correction After Later User Validation
+
+This file was originally written at commit `73a950e6`. After that
+draft, the user manually tested again and re-reported several bugs.
+Codex should treat the earlier ✅ rows as "code landed" rather than
+"user-verified resolved" unless explicitly re-checked live.
+
+### 9A · Bugs still reported after the original handoff draft
+
+- **Fast mode still thinks on some local models.**
+  `63184b78` fixed the MLX Qwen-family template gate, but later
+  testing still reported "all models try to think even when set to
+  Fast." The remaining hole is not upstream coercion — Fast stays
+  `.fast` — it's that Fast can still auto-route to families that
+  cannot actually disable thinking.
+  - Confirmed hole from code audit:
+    - `deepseekR1Distill7B` is always-on reasoning in
+      `MLXInferenceService.swift` and must be excluded from Fast
+      routing.
+    - Qwopus GGUF installs are not controlled by the MLX
+      `enable_thinking` gate and should also be excluded from Fast
+      until GGUF gets a real disable channel.
+  - Codex should live-test Fast on:
+    - Qwen 3 4B
+    - `qwen25Coder7B`
+    - DeepSeek R1 7B
+    - Hermes 4.3
+    - Bonsai variants
+    - any installed Qwopus tiers
+
+- **Crash / freeze status remained open in live use.**
+  User again reported:
+  - app still crashes
+  - `qwen25Coder7B` still freezes
+  - "DeepSeek / ChatGPT / all chats think and then never provide the
+    final answer"
+  Do not treat `681d84ec` or `34a345cd` as fully closed until
+  reproduced live.
+
+- **Thinking UI still needs live verification on both paths.**
+  Even after `bb38e6d0`, `da407333`, `e710d993`, and `4f88893c`,
+  user later still reported reasoning typing into the main bubble
+  instead of living only in the thinking UI. Codex must verify both:
+  - direct-cloud path
+  - Rust-agent path
+  Success criteria:
+  - reasoning stays in `ThinkingTrailView` / popover only
+  - final answer still arrives
+  - no visible interim reasoning text in the main reply
+
+- **Agent OpenAI tool-call path still looks broken.**
+  Later user screenshot showed GPT-5.4 / agent printing literal JSON
+  like `{"name":"read_file",..."/path/to document.txt"}` instead of
+  making a structured tool call. This suggests the Rust OpenAI
+  Responses agent path still has a tool-call schema / parsing issue,
+  especially when attached-note content is already resolved.
+
+- **Gemma 4 still needs defensive verification.**
+  User later reported an auto-routed path still landing on Gemma 4 and
+  hitting `Unsupported model type: gemma4`. Codex must verify Gemma 4
+  stays hidden / migrated away everywhere and no routing or
+  preferred-order path can still resolve to it.
+
+### 9B · Important state of the current tree
+
+- There is **no hidden uncommitted rescue work** sitting in
+  `Epistemos/Engine/LLMService.swift` or
+  `Epistemos/Engine/MLXInferenceService.swift` at the time of this
+  audit. Remaining fixes need to be diagnosed from committed state.
+- `docs/architecture/MASTER_PLAN_2026-04-19.md` was partially stale
+  relative to shipped work and needed a correction pass. If any section
+  still says direct-cloud reasoning popover, direct-stream manifest,
+  audio input, structured JSON, or cache-hit badge are open/deferred,
+  trust the commit log over the stale wording.
+
+### 9C · Immediate next actions for Codex
+
+1. Reproduce Fast mode across local families and confirm the routing
+   never picks DeepSeek / Qwopus in Fast.
+2. Reproduce GPT-5.4 and DeepSeek in Pro / Agent and direct-cloud
+   Thinking mode; confirm reasoning stays in the thinking UI and final
+   answers always arrive.
+3. Reproduce attached-essay flow end-to-end and ensure no `read_file`
+   / placeholder-path hallucination happens when content is already
+   resolved.
+4. Diagnose `qwen25Coder7B` freeze in the local runtime with load
+   progress / timeout work if needed.
+5. Get a real crash log or sysdiagnose for the app-crash report if the
+   user can provide one.

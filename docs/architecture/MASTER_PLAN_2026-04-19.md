@@ -663,3 +663,61 @@ current mode after the cap.
   needs a live Console log of the Cloud-route line + the actual SSE
   events to isolate the remaining path.
 
+## 20 · April 20 postscript — later user validation contradicted some "fixed" states
+
+After the earlier overnight handoff draft, the user manually tested
+again and re-reported several bugs. Treat the earlier ✅ rows as
+"code landed" rather than "fully verified resolved" unless confirmed
+live after this point.
+
+### 20A · Fast-mode local thinking is only partially fixed
+
+`63184b78` fixed the MLX Qwen-family gate by explicitly sending
+`enable_thinking: false` in Fast mode, but later live testing still
+reported "all models try to think even when set to Fast."
+
+Subsequent audit found the remaining root cause:
+
+- Fast routing can still land on local families that cannot actually
+  disable thinking:
+  - `deepseekR1Distill7B` — template/runtime path is always-on
+  - GGUF `Qwopus` tiers — not controlled by the MLX template extras
+- Fast itself is **not** being coerced to Thinking. The bug is model
+  selection, not mode selection.
+
+Codex should verify and, if not already landed by the current tree,
+ensure Fast excludes always-thinking families from automatic routing
+and fallback routing.
+
+### 20B · Still-open live issues
+
+- **App crashing** — still no crash log or sysdiagnose.
+- **Qwen Coder freeze** — user still reports `qwen25Coder7B` freezing.
+- **"Thinks forever, never answers"** — user later said DeepSeek /
+  ChatGPT / all chats could still exhibit this live; do not treat
+  `34a345cd` as user-verified closed.
+- **Thinking UI leak still needs live verification** — user later
+  reported reasoning still appearing in the main bubble on some turns
+  despite the inline-tag router + typed reasoning sinks.
+- **Agent OpenAI tool-call path still looks broken** — GPT-5.4 agent
+  later printed literal JSON tool-call objects instead of making
+  structured tool calls.
+- **Gemma 4 routing guard must be rechecked** — user later reported an
+  auto-routed path still landing on `gemma4` and hitting
+  `Unsupported model type: gemma4`.
+
+### 20C · Verification order for Codex
+
+1. Fast mode across local families:
+   Qwen 3 4B, `qwen25Coder7B`, DeepSeek R1 7B, Hermes 4.3, Bonsai,
+   any installed Qwopus tiers.
+2. Direct-cloud Thinking mode and Rust-agent path:
+   reasoning must stay in thinking UI only; final answer must still
+   arrive.
+3. Attached-note / attached-essay flow:
+   model must consume resolved content and not ask for a file path or
+   emit fake `read_file` JSON.
+4. Qwen Coder cold-load behavior:
+   if still freezing, add progress and timeout.
+5. Crash diagnostics:
+   get a real macOS crash log / sysdiagnose before claiming closure.
