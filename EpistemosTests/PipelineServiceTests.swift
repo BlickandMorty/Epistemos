@@ -1818,6 +1818,52 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.pendingContextAttachments == [attachment])
     }
 
+    @Test("streaming thinking deltas populate the main chat popover state")
+    func chatStateAppendStreamingThinkingActivatesPopover() {
+        let chatState = ChatState()
+        chatState.submitQuery("ask")
+        chatState.startStreaming()
+
+        #expect(!chatState.isThinkingActive)
+        #expect(chatState.streamingThinking.isEmpty)
+
+        chatState.appendStreamingThinking("weighing")
+        chatState.appendStreamingThinking(" options")
+
+        #expect(chatState.isThinkingActive)
+        #expect(chatState.thinkingStartedAt != nil)
+        #expect(chatState.streamingThinking == "weighing options")
+    }
+
+    @Test("main chat first text delta closes the thinking phase")
+    func chatStateFirstTextDeltaClosesThinking() {
+        let chatState = ChatState()
+        chatState.submitQuery("ask")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking("thought")
+        #expect(chatState.isThinkingActive)
+
+        chatState.appendStreamingText("answer")
+
+        #expect(!chatState.isThinkingActive)
+        #expect(chatState.thinkingEndedAt != nil)
+    }
+
+    @Test("main chat resetThinkingState clears lingering popover state")
+    func chatStateResetThinkingStateClearsPopoverState() {
+        let chatState = ChatState()
+        chatState.submitQuery("ask")
+        chatState.appendStreamingThinking("prior")
+        #expect(chatState.isThinkingActive)
+
+        chatState.resetThinkingState()
+
+        #expect(!chatState.isThinkingActive)
+        #expect(chatState.streamingThinking.isEmpty)
+        #expect(chatState.thinkingStartedAt == nil)
+        #expect(chatState.thinkingEndedAt == nil)
+    }
+
     @Test("empty streams surface as a readable error instead of a ghost bubble")
     func completeProcessingOnEmptyStreamEmitsError() {
         let chatState = ChatState()
