@@ -47,6 +47,14 @@ final class ProseTextView2: NSTextView {
     private var requestedTheme: EpistemosTheme = .nativeDefault
 
     static func editorBackgroundColor(for theme: EpistemosTheme) -> NSColor {
+        // Dark themes share a near-OLED surface with the notes sidebar +
+        // note canvas so the prose editor blends seamlessly into the
+        // dark chrome. Light themes (and light system-appearance) keep
+        // their original behavior — `.clear` when following system so
+        // native material shows through, MarkdownPreview canvas otherwise.
+        if let nearOLED = NotesNearOLEDPalette.surfaceNSColor(for: theme) {
+            return nearOLED
+        }
         if theme.followsSystemAppearance {
             return .clear
         }
