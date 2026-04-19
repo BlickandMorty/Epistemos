@@ -267,7 +267,11 @@ struct ChatView: View {
 
             if showBrainPanel {
                 Divider()
-                ChatBrainPanelView(snapshot: chat.latestBrainSnapshot)
+                ChatBrainPanelView(
+                    snapshot: chat.latestBrainSnapshot,
+                    pendingContextAttachments: chat.pendingContextAttachments,
+                    pendingAttachments: chat.pendingAttachments
+                )
                     .frame(width: ChatLayout.brainPanelWidth)
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
@@ -483,12 +487,39 @@ private struct StreamingIndicator: View {
 private struct ChatBrainPanelView: View {
     @Environment(UIState.self) private var ui
     let snapshot: ChatBrainSnapshot?
+    let pendingContextAttachments: [ContextAttachment]
+    let pendingAttachments: [FileAttachment]
 
     private var theme: EpistemosTheme { ui.theme }
+
+    private var hasPendingContext: Bool {
+        !pendingContextAttachments.isEmpty || !pendingAttachments.isEmpty
+    }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if hasPendingContext {
+                    // Pre-submit preview of everything the user has
+                    // explicitly attached so they can see exactly what
+                    // will be sent before hitting return. Removals
+                    // happen in the composer pill row; this panel is
+                    // read-only on purpose (one source of truth).
+                    summaryCard(title: "Ready to send with the next turn") {
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(pendingContextAttachments) { attachment in
+                                detailRow(
+                                    attachment.title,
+                                    attachment.subtitle ?? attachment.kind.rawValue.capitalized
+                                )
+                            }
+                            ForEach(pendingAttachments) { attachment in
+                                detailRow(attachment.name, attachment.type.rawValue.capitalized)
+                            }
+                        }
+                    }
+                }
+
                 if let snapshot {
                     summaryCard(title: "Context Envelope") {
                         detailRow("Route", snapshot.routeLabel)
@@ -541,9 +572,9 @@ private struct ChatBrainPanelView: View {
                             bodyBlock(section.body)
                         }
                     }
-                } else {
+                } else if !hasPendingContext {
                     summaryCard(title: "What the model sees") {
-                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing that were fed to the model — so you always know what it saw.")
+                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing that were fed to the model — so you always know what it saw. @-mention or attach files to preview them here before sending.")
                             .font(.system(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
