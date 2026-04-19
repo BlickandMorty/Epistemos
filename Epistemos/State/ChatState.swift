@@ -67,6 +67,25 @@ struct ChatBrainSnapshot: Sendable, Equatable {
             || !allowedToolNames.isEmpty
     }
 
+    func updatingSection(_ section: ChatBrainSection) -> ChatBrainSnapshot {
+        var updatedSections = sections.filter { $0.title != section.title }
+        updatedSections.append(section)
+        return ChatBrainSnapshot(
+            capturedAt: capturedAt,
+            query: query,
+            resolvedQuery: resolvedQuery,
+            operatingMode: operatingMode,
+            routeLabel: routeLabel,
+            routeSummary: routeSummary,
+            providerLabel: providerLabel,
+            modelLabel: modelLabel,
+            allowedToolNames: allowedToolNames,
+            loadedNoteTitles: loadedNoteTitles,
+            contextAttachments: contextAttachments,
+            sections: updatedSections
+        )
+    }
+
     private static func uniquePreservingOrder(_ values: [String]) -> [String] {
         var seen = Set<String>()
         var ordered: [String] = []
@@ -559,6 +578,14 @@ final class ChatState {
 
     func captureBrainSnapshot(_ snapshot: ChatBrainSnapshot) {
         latestBrainSnapshot = snapshot
+    }
+
+    func updateBrainSnapshotSection(
+        _ section: ChatBrainSection,
+        matchingCapturedAt capturedAt: Date
+    ) {
+        guard let snapshot = latestBrainSnapshot, snapshot.capturedAt == capturedAt else { return }
+        latestBrainSnapshot = snapshot.updatingSection(section)
     }
 
     // MARK: - Load / Clear

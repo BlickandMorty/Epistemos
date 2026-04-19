@@ -137,6 +137,14 @@ func executeToolCall(
 ) async throws -> ToolExecutionResultFFI {
     throw AgentRuntimeBridgeError.bindingsUnavailable
 }
+
+func previewSessionContext(
+    vaultPath: String,
+    objective: String,
+    maxTokens: UInt32
+) async throws -> String {
+    throw AgentRuntimeBridgeError.bindingsUnavailable
+}
 #endif
 
 // MARK: - Agent Stream Types (self-contained, no external dependencies)
@@ -300,8 +308,10 @@ nonisolated enum AgentRuntimeRiskLevel: Sendable {
     }
 }
 
-nonisolated struct AgentRuntimeError: Error, Sendable {
+nonisolated struct AgentRuntimeError: Error, LocalizedError, Sendable {
     let message: String
+
+    var errorDescription: String? { message }
 }
 
 nonisolated private final class LockedStringBox: @unchecked Sendable {
