@@ -417,6 +417,70 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
+    @Test("OpenAI Codex account requests omit native GPT-5 API controls")
+    func openAICodexRequestsOmitNativeGPT54Controls() async throws {
+        let expiration = Date(timeIntervalSinceNow: 3_600)
+        let credential = CloudProviderOAuthCredential(
+            provider: .openAI,
+            accessToken: makeJWT(expiration: expiration),
+            refreshToken: "refresh-token",
+            expiresAt: expiration,
+            clientID: OpenAICodexRuntimeMetadata.clientID,
+            clientSecret: nil,
+            projectID: nil,
+            authMode: .openAICodex,
+            accountLabel: "chatgpt@example.com"
+        )
+        let encoded = try JSONEncoder().encode(credential)
+        let encodedString = try #require(String(data: encoded, encoding: .utf8))
+
+        var keychainValues: [String: String] = [
+            CloudModelProvider.openAI.oauthKeychainKey: encodedString
+        ]
+
+        let inference = InferenceState(
+            keychainLoad: { keychainValues[$0] },
+            keychainSave: { value, key in
+                keychainValues[key] = value
+                return true
+            },
+            keychainDelete: { keychainValues.removeValue(forKey: $0) }
+        )
+        let session = makeURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/backend-api/codex/responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+            #expect(json["reasoning"] == nil)
+            #expect(json["text"] == nil)
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":"clean"}
+
+            event: response.completed
+            data: {"type":"response.completed"}
+
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        _ = try await client.generate(
+            prompt: "Write a polished answer.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            model: .openAIGPT54,
+            operatingMode: .pro
+        )
+    }
+
+    @MainActor
     @Test("OpenAI account structured generation streams Codex JSON schema output")
     func openAIAccountStructuredGenerationStreamsCodexJSONSchemaOutput() async throws {
         let expiration = Date(timeIntervalSinceNow: 3_600)

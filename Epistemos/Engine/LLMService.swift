@@ -1168,7 +1168,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         applyOpenAIResponsesControls(
             to: &body,
             model: resolvedModel,
-            operatingMode: operatingMode
+            operatingMode: operatingMode,
+            credential: credential
         )
         let tools = openAIToolsConfiguration()
         if !tools.isEmpty {
@@ -1260,7 +1261,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         applyOpenAIResponsesControls(
             to: &body,
             model: resolvedModel,
-            operatingMode: operatingMode
+            operatingMode: operatingMode,
+            credential: credential
         )
         let tools = openAIToolsConfiguration()
         if !tools.isEmpty {
@@ -2199,7 +2201,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         applyOpenAIResponsesControls(
             to: &body,
             model: model,
-            operatingMode: operatingMode
+            operatingMode: operatingMode,
+            credential: credential
         )
         let tools = openAIToolsConfiguration()
         if !tools.isEmpty {
@@ -2233,9 +2236,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func openAIResponseControls(
         for model: CloudTextModelID,
-        operatingMode: EpistemosOperatingMode
+        operatingMode: EpistemosOperatingMode,
+        credential: CloudProviderResolvedCredential
     ) -> OpenAIResponseControls? {
-        switch model {
+        guard case .apiKey = credential else {
+            return nil
+        }
+
+        return switch model {
         case .openAIGPT54, .openAIGPT52:
             switch operatingMode {
             case .fast:
@@ -2273,9 +2281,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     private func applyOpenAIResponsesControls(
         to body: inout [String: Any],
         model: CloudTextModelID,
-        operatingMode: EpistemosOperatingMode
+        operatingMode: EpistemosOperatingMode,
+        credential: CloudProviderResolvedCredential
     ) {
-        guard let controls = openAIResponseControls(for: model, operatingMode: operatingMode) else {
+        guard let controls = openAIResponseControls(
+            for: model,
+            operatingMode: operatingMode,
+            credential: credential
+        ) else {
             return
         }
         if let effort = controls.reasoningEffort {
