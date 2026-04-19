@@ -266,6 +266,17 @@ final class LLMService: LLMClientProtocol {
         self.cloudLLMClient = cloudLLMClient
     }
 
+    /// Forwarding setter: lets callers plumb a reasoning sink into
+    /// the underlying CloudLLMClient without reaching into the
+    /// protocol type they see from outside. No-op when the cloud
+    /// client isn't the CloudLLMClient concrete type (e.g., in
+    /// tests with a fake). Set to nil on turn end to avoid leaking
+    /// the sink across turns.
+    var reasoningSink: (@Sendable (String) -> Void)? {
+        get { (cloudLLMClient as? CloudLLMClient)?.reasoningSink }
+        set { (cloudLLMClient as? CloudLLMClient)?.reasoningSink = newValue }
+    }
+
     func generate(prompt: String, systemPrompt: String? = nil, maxTokens: Int = 4096) async throws -> String {
         let snapshot = configSnapshot()
         return try await Self.generate(
@@ -623,6 +634,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     private let inference: InferenceState
     private let urlSession: URLSession
     private let knowledgeProfileStore: KnowledgeProfileStore
+
+    /// Active sink for reasoning deltas extracted from direct-cloud
+    /// streams (DeepSeek-R1 `reasoning_content`, OpenAI Responses
+    /// `response.reasoning_summary_text.delta`, Anthropic
+    /// `thinking_delta`, Gemini `parts[*].thought`). Callers set this
+    /// at the start of a turn and clear it at the end so the main
+    /// chat bubble receives only visible text while the thinking
+    /// popover fills from the reasoning channel. Scoped per turn by
+    /// the caller — this class does not auto-clear.
+    var reasoningSink: (@Sendable (String) -> Void)?
 
     init(
         inference: InferenceState,
@@ -1354,9 +1375,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             }
         }
 
-        return streamSSE(request) { json in
-            CloudStreamingParser.openAITextDelta(from: json)
-        }
+        let sink = self.reasoningSink
+        let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.openAIResponsesReasoningDelta(from: json) }
+        return streamSSE(
+            request,
+            chunkExtractor: { @Sendable json in CloudStreamingParser.openAITextDelta(from: json) },
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: sink
+        )
     }
 
     private func generateAnthropic(
@@ -1590,9 +1618,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             }
         }
 
-        return streamSSE(request) { json in
-            CloudStreamingParser.anthropicTextDelta(from: json)
-        }
+        let sink = self.reasoningSink
+        let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.anthropicThinkingDelta(from: json) }
+        return streamSSE(
+            request,
+            chunkExtractor: { json in CloudStreamingParser.anthropicTextDelta(from: json) },
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: sink
+        )
     }
 
     private func generateOpenAICompatible(
@@ -1658,9 +1693,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             }
         }
 
-        return streamSSE(request) { json in
-            CloudStreamingParser.openAICompatibleTextDelta(from: json)
-        }
+        let sink = self.reasoningSink
+        let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.openAICompatibleReasoningDelta(from: json) }
+        return streamSSE(
+            request,
+            chunkExtractor: { json in CloudStreamingParser.openAICompatibleTextDelta(from: json) },
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: sink
+        )
     }
 
     private func generateGoogle(
@@ -1772,9 +1814,16 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             }
         }
 
-        return streamSSE(request) { json in
-            CloudStreamingParser.googleTextDelta(from: json)
-        }
+        let sink = self.reasoningSink
+        let reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = sink == nil
+            ? nil
+            : { @Sendable json in CloudStreamingParser.googleReasoningDelta(from: json) }
+        return streamSSE(
+            request,
+            chunkExtractor: { json in CloudStreamingParser.googleTextDelta(from: json) },
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: sink
+        )
     }
 
     private func openAIBaseURL(for credential: CloudProviderResolvedCredential) -> String {
@@ -2200,13 +2249,17 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func streamSSE(
         _ request: URLRequest,
-        chunkExtractor: @escaping @Sendable ([String: Any]) -> String?
+        chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
+        reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
+        onReasoning: (@Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         URLSessionTransportSupport.streamSSE(
             using: urlSession,
             request: request,
             invalidResponse: { CloudLLMError.invalidResponse },
-            chunkExtractor: chunkExtractor
+            chunkExtractor: chunkExtractor,
+            reasoningExtractor: reasoningExtractor,
+            onReasoning: onReasoning
         )
     }
 
@@ -2634,6 +2687,34 @@ nonisolated enum CloudStreamingParser {
             return nil
         }
         return delta["text"] as? String
+    }
+
+    /// Returns the reasoning-only text from an Anthropic SSE chunk —
+    /// `content_block_delta` events where `delta.type == "thinking_delta"`.
+    /// Complements `anthropicTextDelta` (which skips non-text deltas)
+    /// so a caller that wants to drive the thinking popover from the
+    /// direct-cloud path can route reasoning to it instead of dropping
+    /// the delta silently.
+    static func anthropicThinkingDelta(from json: [String: Any]) -> String? {
+        guard json["type"] as? String == "content_block_delta",
+              let delta = json["delta"] as? [String: Any],
+              delta["type"] as? String == "thinking_delta" else {
+            return nil
+        }
+        return delta["thinking"] as? String
+    }
+
+    /// Returns the reasoning summary text from an OpenAI Responses SSE
+    /// chunk. Matches both `response.reasoning_summary_text.delta` and
+    /// the rarer `response.reasoning_text.delta`. Complements
+    /// `openAITextDelta` which only catches `response.output_text.delta`.
+    static func openAIResponsesReasoningDelta(from json: [String: Any]) -> String? {
+        guard let type = json["type"] as? String else { return nil }
+        guard type == "response.reasoning_summary_text.delta"
+            || type == "response.reasoning_text.delta" else {
+            return nil
+        }
+        return json["delta"] as? String
     }
 
     static func googleTextDelta(from json: [String: Any]) -> String? {

@@ -1007,7 +1007,27 @@ final class ChatCoordinator {
         chatState.isCurrentVaultBriefing = isVaultBriefing
         chatState.startStreaming()
 
+        // Wire the reasoning side-channel so direct-cloud streams
+        // (Fast / Thinking mode — not the Rust-agent path) route
+        // reasoning deltas to the thinking popover instead of
+        // silently dropping them. Captures the current chatState by
+        // weak reference so cancelled turns don't write into a stale
+        // state. Cleared at the end of the Task so sinks don't leak
+        // across turns on different chats.
+        llmService.reasoningSink = { [weak chatState] delta in
+            guard let chatState else { return }
+            Task { @MainActor in
+                chatState.appendStreamingThinking(delta)
+            }
+        }
+
         bootstrap.queryTask = Task {
+            // Clear the LLMService reasoningSink when the task ends so
+            // background turns that outlive chat-state lifetimes can't
+            // write reasoning into a disposed chat.
+            defer {
+                Task { @MainActor [weak self] in self?.llmService.reasoningSink = nil }
+            }
             do {
                 let mode = inferenceState.inferenceMode
                 let hasVault = bootstrap.ambientManifest != nil

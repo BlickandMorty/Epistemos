@@ -58,11 +58,21 @@ nonisolated enum URLSessionTransportSupport {
     /// staring at a frozen "Thinking…" bubble indefinitely.
     private static let streamIdleWatchdogSeconds: Double = 120
 
+    /// Streaming SSE read that can optionally emit reasoning deltas
+    /// through a side-channel callback in addition to the main string
+    /// stream. Used by providers whose wire format carries reasoning in
+    /// a separate field (OpenAI Responses `response.reasoning_summary_text.delta`,
+    /// chat-completions `delta.reasoning_content`, Gemini
+    /// `parts[*].thought: true`). Callers that don't care about
+    /// reasoning pass nil for `reasoningExtractor` / `onReasoning` and
+    /// the behavior is identical to the legacy form.
     static func streamSSE(
         using urlSession: URLSession,
         request: URLRequest,
         invalidResponse: @escaping @Sendable () -> Error,
-        chunkExtractor: @escaping @Sendable ([String: Any]) -> String?
+        chunkExtractor: @escaping @Sendable ([String: Any]) -> String?,
+        reasoningExtractor: (@Sendable ([String: Any]) -> String?)? = nil,
+        onReasoning: (@Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         ProcessActivity.makeStream(reason: "Streaming OpenAI-compatible response") { continuation in
             // Shared watchdog state: last time we saw any bytes from
@@ -126,6 +136,17 @@ nonisolated enum URLSessionTransportSupport {
 
                     if let error = CloudStreamingParser.streamError(from: json, eventName: currentEventName) {
                         throw error
+                    }
+
+                    // Reasoning side-channel: if the caller provided a
+                    // reasoning extractor, pipe any extracted reasoning
+                    // chunk through `onReasoning` so it lands in the
+                    // thinking popover rather than the visible stream.
+                    if let reasoningExtractor,
+                       let onReasoning,
+                       let reasoning = reasoningExtractor(json),
+                       !reasoning.isEmpty {
+                        onReasoning(reasoning)
                     }
 
                     if let chunk = chunkExtractor(json), !chunk.isEmpty {
