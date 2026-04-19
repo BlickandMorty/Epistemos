@@ -2553,11 +2553,39 @@ nonisolated enum CloudStreamingParser {
     }
 
     static func googleTextDelta(from json: [String: Any]) -> String? {
+        // Drop any part flagged as `thought: true`. With includeThoughts
+        // enabled on `thinkingConfig`, Gemini 2.5 / 3.x streams each
+        // reasoning summary as a `parts[i]` with { text, thought: true }
+        // alongside the real answer parts. Before this filter the
+        // reasoning leaked into the main chat body and was rendered as
+        // the reply, which looked like a stream-of-consciousness
+        // monologue instead of an answer. Reasoning routing to the
+        // thinking popover is tracked separately.
         if let candidates = json["candidates"] as? [[String: Any]] {
             let text = candidates
                 .compactMap { $0["content"] as? [String: Any] }
                 .compactMap { $0["parts"] as? [[String: Any]] }
                 .flatMap { $0 }
+                .filter { ($0["thought"] as? Bool) != true }
+                .compactMap { $0["text"] as? String }
+                .joined()
+            return text.isEmpty ? nil : text
+        }
+        return nil
+    }
+
+    /// Returns the reasoning-only text from a Gemini SSE chunk (parts
+    /// flagged `thought: true`). Complements `googleTextDelta`: the
+    /// text-delta parser drops thought parts so they don't leak into the
+    /// chat reply, and this parser surfaces them so a future call site
+    /// can route them into the thinking popover.
+    static func googleReasoningDelta(from json: [String: Any]) -> String? {
+        if let candidates = json["candidates"] as? [[String: Any]] {
+            let text = candidates
+                .compactMap { $0["content"] as? [String: Any] }
+                .compactMap { $0["parts"] as? [[String: Any]] }
+                .flatMap { $0 }
+                .filter { ($0["thought"] as? Bool) == true }
                 .compactMap { $0["text"] as? String }
                 .joined()
             return text.isEmpty ? nil : text
