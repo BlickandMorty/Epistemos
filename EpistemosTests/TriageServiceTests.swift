@@ -358,6 +358,74 @@ struct TriageServiceTests {
         #expect(reloaded.cloudAutoFallback)
     }
 
+    @Test("legacy OpenAI GPT-5.2 preference migrates forward to GPT-5.4")
+    @MainActor func migrateLegacyOpenAI52To54() {
+        let defaults = UserDefaults.standard
+        let preferredKey = "epistemos.preferredCloudModel.openAI"
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        let migrationKey = "epistemos.migratedOpenAI52To54"
+
+        let savedPreferred = defaults.object(forKey: preferredKey)
+        let savedSelection = defaults.object(forKey: selectionKey)
+        let savedMigration = defaults.object(forKey: migrationKey)
+        defer {
+            if let savedPreferred {
+                defaults.set(savedPreferred, forKey: preferredKey)
+            } else {
+                defaults.removeObject(forKey: preferredKey)
+            }
+            if let savedSelection {
+                defaults.set(savedSelection, forKey: selectionKey)
+            } else {
+                defaults.removeObject(forKey: selectionKey)
+            }
+            if let savedMigration {
+                defaults.set(savedMigration, forKey: migrationKey)
+            } else {
+                defaults.removeObject(forKey: migrationKey)
+            }
+        }
+
+        defaults.set(CloudTextModelID.openAIGPT52.rawValue, forKey: preferredKey)
+        defaults.set(
+            ChatModelSelection.cloud(.openAIGPT52).rawValue,
+            forKey: selectionKey
+        )
+        defaults.removeObject(forKey: migrationKey)
+
+        InferenceState.migrateLegacyOpenAI52To54(defaults: defaults)
+
+        #expect(defaults.string(forKey: preferredKey) == CloudTextModelID.openAIGPT54.rawValue)
+        #expect(
+            defaults.string(forKey: selectionKey)
+                == ChatModelSelection.cloud(.openAIGPT54).rawValue
+        )
+        #expect(defaults.bool(forKey: migrationKey))
+
+        // Second run is a no-op even if the user later picks 5.2 manually.
+        defaults.set(CloudTextModelID.openAIGPT52.rawValue, forKey: preferredKey)
+        InferenceState.migrateLegacyOpenAI52To54(defaults: defaults)
+        #expect(defaults.string(forKey: preferredKey) == CloudTextModelID.openAIGPT52.rawValue)
+    }
+
+    @Test("preferredCloudModel publishes through the observable mirror so pickers refresh")
+    @MainActor func setPreferredCloudModelUpdatesObservableMirror() {
+        let inference = InferenceState(
+            keychainLoad: { _ in "sk-test" },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        // Seed a mid-tier preference, then flip to GPT-5.4 and assert
+        // the observable mirror reflects it immediately (the bug was
+        // picker reads going to UserDefaults without @Observable signal).
+        inference.setPreferredCloudModel(.openAIGPT52)
+        inference.setPreferredCloudModel(.openAIGPT54)
+
+        #expect(inference.observedPreferredCloudModels[.openAI] == .openAIGPT54)
+        #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT54)
+    }
+
     @Test("effectiveModelLabel resolves Apple Intelligence to user-visible text")
     @MainActor func effectiveModelLabelResolvesAppleIntelligence() {
         let inference = InferenceState(
