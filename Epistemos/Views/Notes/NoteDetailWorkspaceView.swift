@@ -132,16 +132,20 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        // Previously returned .clear for system-appearance themes so the
-        // window's system material would show through. That created a
-        // visible seam in the code editor because CodeEditSourceEditor
-        // paints its own solid background (NSColor.textBackgroundColor,
-        // also used for the code-editor theme's background), and the
-        // surrounding SwiftUI wrapper was clear on top of a material — a
-        // classic "two themes attacking each other" look at the panel
-        // edges. Mirror the editor-side solid color so outer and inner
-        // match for both system and custom appearances.
-        MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
+        // Themes that ride on the native window material (system-appearance
+        // modes) get .clear so the AppKit NSVisualEffectView shows through
+        // — that's the original "pure native" note canvas the user prefers.
+        // The code editor's inner syntax palette now sources text + subtle
+        // tones from the same EpistemosTheme (see CodeEditorView's
+        // editorTheme), so the panel-edge seam Codex was working around
+        // in f9b6ea26 no longer needs a solid outer canvas to hide it.
+        // Custom (non-native-blur) themes still get a solid canvas
+        // matching MarkdownPreviewSurfaceStyle so those themes stay
+        // visually consistent with the rest of the chrome.
+        if theme.usesNativeWindowBlur {
+            return .clear
+        }
+        return MarkdownPreviewSurfaceStyle.canvasBackground(for: theme)
     }
 
     static func editorCardSize(for availableSize: CGSize) -> CGSize {
