@@ -260,6 +260,22 @@ struct AgentChatStateTests {
         #expect(state.thinkingStartedAt == nil)
     }
 
+    // MARK: - Effective-model badge
+
+    @Test("completeProcessing attaches the resolved model label to the assistant turn")
+    func completeProcessingAttachesResolvedModelLabel() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingText("hello")
+
+        state.completeProcessing(mode: .api, resolvedModelLabel: "Claude Sonnet 4.6")
+
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.resolvedModelLabel == "Claude Sonnet 4.6")
+    }
+
     // MARK: - Empty-stream guard
 
     @Test("empty streams surface as a readable error instead of a ghost bubble")

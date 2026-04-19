@@ -233,7 +233,7 @@ final class AgentChatState {
 
     // MARK: - Completion
 
-    func completeProcessing(mode: InferenceMode) {
+    func completeProcessing(mode: InferenceMode, resolvedModelLabel: String? = nil) {
         guard let sessionId = activeSessionId else { return }
         flushStreamingTokens()
 
@@ -274,7 +274,8 @@ final class AgentChatState {
             content: answerText,
             mode: mode,
             artifacts: artifacts,
-            contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks
+            contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
+            resolvedModelLabel: resolvedModelLabel
         )
 
         messages.append(assistantMessage)

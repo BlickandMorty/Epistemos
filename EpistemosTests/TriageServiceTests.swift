@@ -357,6 +357,32 @@ struct TriageServiceTests {
 
         #expect(reloaded.cloudAutoFallback)
     }
+
+    @Test("effectiveModelLabel resolves Apple Intelligence to user-visible text")
+    @MainActor func effectiveModelLabelResolvesAppleIntelligence() {
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        inference.setPreferredChatModelSelection(.appleIntelligence)
+        #expect(inference.effectiveModelLabel(for: .fast) == "Apple Intelligence")
+    }
+
+    @Test("effectiveModelLabel returns non-empty text for every operating mode")
+    @MainActor func effectiveModelLabelAlwaysReturnsNonEmpty() {
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        for mode: EpistemosOperatingMode in [.fast, .thinking, .pro, .agent] {
+            let label = inference.effectiveModelLabel(for: mode)
+            #expect(!label.isEmpty, "label was empty for mode=\(mode)")
+        }
+    }
 }
 
 @Suite("InferencePolicyEngine")

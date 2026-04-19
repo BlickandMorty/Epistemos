@@ -3222,6 +3222,24 @@ final class InferenceState {
             }()
     }
 
+    /// Human-readable label for whichever model will actually serve a turn
+    /// at this operating mode — the Perplexity-style "effective model" so
+    /// the UI can render a small badge on each assistant message. Matches
+    /// the resolution logic of effectiveChatSurfaceSelection.
+    func effectiveModelLabel(for operatingMode: EpistemosOperatingMode) -> String {
+        switch effectiveChatSurfaceSelection(for: operatingMode) {
+        case .appleIntelligence:
+            return "Apple Intelligence"
+        case .localMLX(let modelID):
+            if let resolved = LocalTextModelID(rawValue: modelID) {
+                return resolved.displayName
+            }
+            return modelID
+        case .cloud(let model):
+            return "\(model.provider.displayName) \(model.displayName)"
+        }
+    }
+
     func effectiveChatSurfaceSelection(for operatingMode: EpistemosOperatingMode) -> ChatModelSelection {
         if usesAutomaticCloudRouteForChatSurfaces,
            let autoModel = preferredAutoRouteCloudModel(for: operatingMode) {

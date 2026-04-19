@@ -1864,6 +1864,20 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.thinkingEndedAt == nil)
     }
 
+    @Test("completeProcessing attaches the resolved model label to the assistant turn")
+    func chatStateCompleteProcessingAttachesResolvedModelLabel() {
+        let chatState = ChatState()
+        chatState.submitQuery("hi")
+        chatState.startStreaming()
+        chatState.appendStreamingText("hello")
+
+        chatState.completeProcessing(mode: .api, resolvedModelLabel: "Qwen 3 4B")
+
+        let message = chatState.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.resolvedModelLabel == "Qwen 3 4B")
+    }
+
     @Test("empty streams surface as a readable error instead of a ghost bubble")
     func completeProcessingOnEmptyStreamEmitsError() {
         let chatState = ChatState()
