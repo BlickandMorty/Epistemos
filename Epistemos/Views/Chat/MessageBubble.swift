@@ -316,22 +316,60 @@ struct MessageBubble: View {
 // MARK: - Effective-Model Badge
 
 /// Small byline-style label shown under assistant replies listing the
-/// model that actually answered. Kept deliberately lightweight (single
-/// Text node, no icon, no background shape, no HStack) so it adds near-
-/// zero per-row cost in the LazyVStack transcript — scroll stutter got
-/// flagged after the initial HStack+Image+Capsule version shipped.
-/// Non-interactive in v1 — Batch K will add click-through for routing
-/// rationale.
+/// model that actually answered. Tap opens a SwiftUI popover with the
+/// routing rationale — built lazily so the non-interactive scroll path
+/// stays as cheap as the plain-Text baseline (see Batch U: scroll
+/// stutter came from expensive per-row subviews).
 private struct EffectiveModelBadge: View {
     let label: String
     let foreground: Color
 
+    @State private var isShowingRationale = false
+
     var body: some View {
-        Text(label)
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(foreground)
-            .lineLimit(1)
-            .accessibilityLabel("Answered by \(label)")
+        Button {
+            isShowingRationale.toggle()
+        } label: {
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(foreground)
+                .lineLimit(1)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Answered by \(label). Tap for routing rationale.")
+        .help("Answered by \(label) — tap to see why this model was chosen")
+        .popover(isPresented: $isShowingRationale, arrowEdge: .top) {
+            EffectiveModelRationaleView(label: label)
+        }
+    }
+}
+
+private struct EffectiveModelRationaleView: View {
+    @Environment(UIState.self) private var ui
+    let label: String
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Answered by")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(theme.textSecondary)
+
+            Text(label)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+                .textSelection(.enabled)
+
+            Divider()
+
+            Text("Epistemos' auto-router picks a model per turn based on the active provider, the operating mode you chose, and the task intent. Change the active model in the chat picker or in Settings → Inference.")
+                .font(.system(size: 11))
+                .foregroundStyle(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .frame(maxWidth: 280, alignment: .leading)
     }
 }
 
