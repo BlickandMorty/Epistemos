@@ -1835,6 +1835,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 ]
             ]
         }
+        if inference.structuredJSONOutputEnabled {
+            var generationConfig = body["generationConfig"] as? [String: Any] ?? [:]
+            generationConfig["responseMimeType"] = "application/json"
+            body["generationConfig"] = generationConfig
+        }
         applyGoogleThinkingConfig(to: &body, model: model)
 
         let baseRequest: URLRequest
@@ -2527,6 +2532,17 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let verbosity = controls.verbosity {
             var text = body["text"] as? [String: Any] ?? [:]
             text["verbosity"] = verbosity
+            body["text"] = text
+        }
+        // Force-JSON output: OpenAI Responses accepts `text.format` with
+        // `{ type: "json_object" }` for unconstrained JSON output. The
+        // more expressive `{ type: "json_schema", schema: … }` form is
+        // attached separately by callers that have a schema in hand.
+        if inference.structuredJSONOutputEnabled {
+            var text = body["text"] as? [String: Any] ?? [:]
+            if text["format"] == nil {
+                text["format"] = ["type": "json_object"]
+            }
             body["text"] = text
         }
     }

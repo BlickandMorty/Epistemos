@@ -1748,6 +1748,17 @@ private struct InferenceDetailView: View {
                         set: { inference.setOpenAICodeInterpreterEnabled($0) }
                     )
                 )
+                Divider().padding(.vertical, 2)
+                Toggle(
+                    "Force JSON output (cross-provider)",
+                    isOn: Binding(
+                        get: { inference.structuredJSONOutputEnabled },
+                        set: { inference.setStructuredJSONOutputEnabled($0) }
+                    )
+                )
+                SettingsDescriptionText(
+                    text: "Guarantees valid JSON on every reply. Attaches `text.format: json_object` for OpenAI Responses, `responseMimeType: application/json` for Gemini, and a JSON-only instruction for Anthropic."
+                )
             }
             .padding(.vertical, 4)
 
