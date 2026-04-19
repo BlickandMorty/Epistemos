@@ -1394,6 +1394,28 @@ final class ChatCoordinator {
         // instructions.
         var systemParts: [String] = []
         systemParts.append("You are Epistemos, an intelligent knowledge assistant. Be concise and actionable.")
+
+        // Capability manifest: tell the model explicitly which tools it
+        // has, which it DOESN'T have in this tier, and the rules for
+        // using (or skipping) them. Regenerated per turn so the model
+        // always reads from fresh state. Persisted to disk for user
+        // inspection (no-op if dir write fails).
+        let manifestContext = CapabilityManifestBuilder.Context(
+            providerLabel: resolveRustProviderName(),
+            modelLabel: inferenceState.effectiveModelLabel(for: .agent) ?? "",
+            operatingMode: (toolTier == "agent") ? .agent : .pro,
+            reasoningTier: inferenceState.chatReasoningTier,
+            enabledToolNames: Array(executionPlan.allowedToolNames).sorted(),
+            disabledToolNames: [],
+            vaultName: bootstrap.vaultSync.vaultURL?.lastPathComponent,
+            vaultNoteCount: nil,
+            skillNames: [],
+            maxContextTokens: Int(chatState.maxContextTokens)
+        )
+        let manifest = CapabilityManifestBuilder.render(manifestContext)
+        CapabilityManifestBuilder.persist(manifest)
+        systemParts.append(manifest)
+
         systemParts.append(executionPlan.additionalSystemPrompt())
 
         // Resolve provider name from current inference configuration
