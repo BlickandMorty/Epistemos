@@ -197,6 +197,11 @@ final class ChatState {
 
     /// Active tool executions shown inline in the chat stream.
     var activeToolName: String?
+    /// Live tool-input JSON for the currently-running tool call. Used by
+    /// the composer pill narrator to turn a bare tool name into a
+    /// human-readable phrase (e.g., `web_search` + `{"query": "X"}` →
+    /// "Searching the web for "X"…"). Cleared on completion / error.
+    var activeToolInputJson: String?
     var pendingContentBlocks: [MessageContentBlock] = []
 
     /// Whether the agent is currently executing (vs just streaming text).
@@ -294,6 +299,7 @@ final class ChatState {
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
     }
 
@@ -411,6 +417,7 @@ final class ChatState {
             isStreaming = false
             pendingContentBlocks = []
             activeToolName = nil
+        activeToolInputJson = nil
             isAgentExecuting = false
             addErrorMessage(
                 "No response received. The model returned an empty stream — try again or switch models."
@@ -440,6 +447,7 @@ final class ChatState {
         isStreaming = false
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
     }
@@ -462,6 +470,7 @@ final class ChatState {
             isStreaming = false
             pendingContentBlocks = []
             activeToolName = nil
+        activeToolInputJson = nil
             isAgentExecuting = false
         }
 
@@ -509,6 +518,7 @@ final class ChatState {
         isStreaming = false
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
     }
 
@@ -535,6 +545,7 @@ final class ChatState {
         streamingText.reserveCapacity(16_384)
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
     }
 
@@ -586,6 +597,7 @@ final class ChatState {
     func recordToolUse(id: String, name: String, inputJson: String) {
         let input = Self.decodeToolInput(inputJson)
         pendingContentBlocks.append(.toolUse(id: id, name: name, input: input))
+        activeToolInputJson = inputJson
         markTranscriptChanged()
     }
 
@@ -593,6 +605,7 @@ final class ChatState {
         pendingContentBlocks.append(
             .toolResult(toolUseId: toolUseId, content: result, isError: isError)
         )
+        activeToolInputJson = nil
         markTranscriptChanged()
     }
 
@@ -671,6 +684,7 @@ final class ChatState {
         latestBrainSnapshot = nil
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
     }
 
@@ -693,6 +707,7 @@ final class ChatState {
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         activeChatId = nil
         chatTitle = nil
