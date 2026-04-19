@@ -2689,6 +2689,7 @@ final class InferenceState {
     private nonisolated static let anthropicWebSearchDefaultsKey = "epistemos.anthropicWebSearchEnabled"
     private nonisolated static let anthropicWebFetchDefaultsKey = "epistemos.anthropicWebFetchEnabled"
     private nonisolated static let anthropicCodeExecutionDefaultsKey = "epistemos.anthropicCodeExecutionEnabled"
+    private nonisolated static let structuredJSONOutputDefaultsKey = "epistemos.structuredJSONOutputEnabled"
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
@@ -2789,6 +2790,14 @@ final class InferenceState {
     /// OpenAI's `code_interpreter`. Requires the matching
     /// `code-execution-2025-08-25` beta header.
     var anthropicCodeExecutionEnabled = false
+    /// Cross-provider "force JSON output" toggle. Attaches the right
+    /// wire-level knob per provider so the model's reply is guaranteed
+    /// valid JSON (OpenAI Responses `text.format`, Anthropic prompt
+    /// nudge backed by `structured-outputs-2025-11-13`, Gemini
+    /// `responseMimeType: application/json`, OpenAI chat-completions
+    /// `response_format`). Off by default — enabling is a per-user
+    /// preference for Pro/Agent JSON workflows.
+    var structuredJSONOutputEnabled = false
     /// The user's current reasoning/thinking tier. Providers that
     /// support native reasoning map this to their own controls:
     /// OpenAI `reasoning.effort` + `text.verbosity`,
@@ -2882,6 +2891,7 @@ final class InferenceState {
         self.anthropicWebSearchEnabled = defaults.bool(forKey: Self.anthropicWebSearchDefaultsKey)
         self.anthropicWebFetchEnabled = defaults.bool(forKey: Self.anthropicWebFetchDefaultsKey)
         self.anthropicCodeExecutionEnabled = defaults.bool(forKey: Self.anthropicCodeExecutionDefaultsKey)
+        self.structuredJSONOutputEnabled = defaults.bool(forKey: Self.structuredJSONOutputDefaultsKey)
         if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
            let tier = ChatReasoningTier(rawValue: savedTier) {
             self.chatReasoningTier = tier
@@ -4011,6 +4021,11 @@ final class InferenceState {
     func setAnthropicCodeExecutionEnabled(_ isEnabled: Bool) {
         anthropicCodeExecutionEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.anthropicCodeExecutionDefaultsKey)
+    }
+
+    func setStructuredJSONOutputEnabled(_ isEnabled: Bool) {
+        structuredJSONOutputEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.structuredJSONOutputDefaultsKey)
     }
 
     func setAnthropicThinkingBudgetTokens(_ tokens: Int) {
