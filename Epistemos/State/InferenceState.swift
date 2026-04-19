@@ -2689,6 +2689,10 @@ final class InferenceState {
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
+    /// Stores the user's preferred reasoning/thinking tier (off / standard
+    /// / extended). Wire-level mapping to each provider's native field
+    /// happens in LLMService; this key just holds the user's policy.
+    private nonisolated static let chatReasoningTierDefaultsKey = "epistemos.chatReasoningTier"
     /// One-time migration flag: users who were pinned to OpenAI GPT-5.2
     /// when 5.2 was the flagship get bumped to GPT-5.4 (the current
     /// flagship per docs/MASTER_MODEL_STACK_PLAN.md). Users who later
@@ -2765,6 +2769,12 @@ final class InferenceState {
     var openAICodeInterpreterEnabled = false
     var anthropicExtendedThinkingEnabled = false
     var anthropicThinkingBudgetTokens = 8_000
+    /// The user's current reasoning/thinking tier. Providers that
+    /// support native reasoning map this to their own controls:
+    /// OpenAI `reasoning.effort` + `text.verbosity`,
+    /// Anthropic `thinking.type`/`effort`/`budget_tokens`,
+    /// Google `thinkingConfig.thinkingLevel`/`thinkingBudget`.
+    var chatReasoningTier: ChatReasoningTier = .standard
     var googleGroundingEnabled = false
     private(set) var hasShownCloudSetupHint = false
     /// Observed mirror of the user's preferred cloud model per provider.
@@ -2849,6 +2859,10 @@ final class InferenceState {
         self.openAIWebSearchEnabled = defaults.bool(forKey: Self.openAIWebSearchDefaultsKey)
         self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
         self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
+        if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
+           let tier = ChatReasoningTier(rawValue: savedTier) {
+            self.chatReasoningTier = tier
+        }
         let savedBudget = defaults.integer(forKey: Self.anthropicThinkingBudgetDefaultsKey)
         self.anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(
             savedBudget > 0 ? savedBudget : 8_000
@@ -4011,6 +4025,11 @@ final class InferenceState {
     func setCloudAutoFallback(_ isEnabled: Bool) {
         cloudAutoFallback = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.cloudAutoFallbackDefaultsKey)
+    }
+
+    func setChatReasoningTier(_ tier: ChatReasoningTier) {
+        chatReasoningTier = tier
+        UserDefaults.standard.set(tier.rawValue, forKey: Self.chatReasoningTierDefaultsKey)
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
