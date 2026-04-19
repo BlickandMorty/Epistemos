@@ -67,7 +67,21 @@ Each commit is independently reviewable, each passed its focused test sweep.
 
 ---
 
-## 2 · Batch HH — URGENT tool-path fix (in progress)
+## 2 · Batch HH — URGENT tool-path fix ✅ COMPLETE
+
+All four sub-batches shipped. "Find my note X" on Pro + cloud GPT-5.4
+now has a wired path from user input → intent classifier → Rust agent
+loop → ChatPro-tier tools → `vault_search` / `vault_read` → real
+answer. No more hallucinations about notes the model couldn't see.
+
+| Sub | SHA | What |
+|-----|------|------|
+| HH.1 | [2e0e095f](commits/2e0e095f) | Intent classifier recognizes "find the note / look up / search for" as agent signals |
+| HH.2 | [965782a5](commits/965782a5) | `FileBackedAgentAuthorityPersistence` — allow/ask/deny survives relaunch |
+| HH.3 | [3b8e1386](commits/3b8e1386) | `vault_write` / `patch` / `memory` downgrade to ChatPro tier |
+| HH.4 | [7d2ffa66](commits/7d2ffa66) | Pro + cloud routes through Rust agent loop with chat_pro tools |
+
+### (legacy) HH plan (kept for reference)
 
 The biggest root-cause finding from Research 3: **the "find my note" / "what am I working on" failures have a single-line root cause.** Pro mode on a cloud brain drops into a path with zero tools, so GPT-5.4 hallucinates about notes it has no way to actually look up.
 
@@ -250,4 +264,70 @@ Lands as Batch **FF extended** — originally planned as TodoWrite checklist + c
 6. **Parity audit threshold** — should the app aim to expose every capability each provider offers, or a curated PKM-scoped subset (vault-read / vault-write / web search / embeddings / long context / reasoning — skip code interpreter, TTS, image gen)?
 7. **Live narration verbosity** — per-step ("Searching vault → 3 hits → Reading note 1…") or summary ("Searching vault…"). Perplexity does per-step for Pro Search and summary for regular.
 8. **Tool-status card permanence** — collapse to summary after completion, or keep expanded so the user can see what was run?
+
+---
+
+## 13 · Research 4 findings (landed 2026-04-19 evening)
+
+Primary-source research is back on all three threads. Full brief is in the agent transcript (`a9a4fc222a59517cf`); action items below.
+
+### 13A · Capability manifest — recommended shape
+
+- **File**: `~/Library/Application Support/Epistemos/runtime/Capabilities.md` — regenerated per turn by a `CapabilityManifestBuilder`.
+- **Format**: Markdown narrative + tool JSON schemas appended separately. Models read prose far better than structured data for descriptive context.
+- **Sections**: Who you are / Vault state / Enabled tools / Disabled-unavailable / Skills registry / User preferences / How to act.
+- **Cache**: stable prefix wrapped in `cache_control: ephemeral` for Anthropic (90% discount) and as `instructions` for OpenAI Responses.
+- **Authoring split**: header/identity/tools auto-generated; "How to act" user-editable (`~/Library/Application Support/Epistemos/Capabilities.md.user`).
+- **Precedent**: Claude Code's `CLAUDE.md` + `AGENTS.md` loaded into system prompt; Cursor's `.cursorrules`; Aider's repo-map + `CONVENTIONS.md`. MCP has no document pattern — the wire protocol is the manifest.
+
+### 13B · Parity matrix — top 10 UI gaps ranked by impact
+
+1. **Live tool-status narration during web search** — the "app feels dead" fix (see 13C)
+2. **Provider-hosted web search for Anthropic + Google** — today only OpenAI `web_search` has a toggle
+3. **Web fetch / single-URL grounding** — Anthropic `web_fetch` beta, OpenAI `web_search` URL mode
+4. **Code interpreter** — OpenAI `code_interpreter` was removed (regression); add Anthropic `code_execution_20250825` beta
+5. **Image generation surface** — `MLXImageGenerationService` wired but invisible; add `/image` slash command + result card
+6. **Audio input (transcription)** — mic button in composer → Whisper / Gemini transcription
+7. **Native PDF upload to providers** — currently text-extracted; switch to provider native PDF blocks
+8. **Structured output / JSON schema** — toggle when Pro/Agent mode active
+9. **Batch processing queue** — 50% cost savings for bulk vault ops
+10. **Prompt-cache hit indicator** — badge on assistant message showing cache hit %
+
+### 13C · "App feels dead" — diagnosis and MVP fix
+
+**Rust backend already emits every event needed**: `onThinkingDelta`, `onToolStarted`, `onToolInputDelta` (streaming), `onToolCompleted`, `onTurnStarted`, `onContextCompacting`, `onContextCompacted`, `onPermissionRequired`. The `StreamingDelegate` has 14 distinct event types.
+
+**UI just doesn't listen loudly enough.** Today between `toolStarted` and `toolCompleted`, the user sees a static status chip + tool name. Long-running tools (web search 3-8s, code execution 5-20s) fill that gap with silence = "dead".
+
+**Three-layer MVP (no Rust changes, no FFI changes — pure Swift)**:
+
+1. **`ToolActivityNarrator`** — humanized status line above the streaming response:
+   - `web_search` + partial query → "Searching the web for '…'..."
+   - `web_fetch` + url → "Reading example.com..."
+   - `vault_read` → "Looking up 'Daily brief'..."
+   - `bash` → "Running ls..."
+   - generic → "Using \(prettifiedToolName)..."
+   - Updates from `onToolInputDelta`; becomes "Searched for '…' (N results)" on complete.
+
+2. **Auto-expanded active tool card** — `ToolExecutionPreviewCard` defaults to expanded while `result == nil && isStreaming`. Shows tool name + icon + running timer (`TimelineView(.periodic)`) + live input stream + cancel button. For `bash` / `code_execution`, render stdout line-by-line.
+
+3. **Web-search-specific `WebSearchProgressView`** — three phases: Querying (shows query + rotating globe), Reading sources (each URL appears as favicon+hostname chip as it's pulled), Synthesizing (fades into normal text). Citations parsed from `web_search_tool_result` into `sourceReferences` on complete.
+
+**State additions to `ChatState`** (no new FFI): `activeToolPhase: Phase`, `activeToolStartedAt: Date`, `activeToolPartialInput: String`, `activeToolCitations: [WebCitation]`.
+
+**Principle**: every event `StreamingDelegate` emits must become a visible, humanized UI pulse within 100ms. Silence during tool execution is the bug — not the backend, just the UI.
+
+This becomes **Batch FF (expanded)** — originally TodoWrite checklist + context meter, now also these three live-tool layers.
+
+---
+
+## 14 · Refreshed batch priority (post-HH + post-research-4)
+
+1. **DD.2-5** — reasoning tier wire-up for OpenAI/Anthropic/Google + Settings picker. Spec is fully documented in §3; just implementation.
+2. **Batch EE** — route reasoning streams into the thinking popover (pairs with DD.2-4; adds the live "Thinking..." surface).
+3. **Batch FF (expanded)** — TodoWrite checklist + context meter + live tool narration + animated tool cards (the "app feels dead" fix).
+4. **Batch II** — capability manifest `Capabilities.md` + top-10 parity gap fills (starting with #2 Anthropic/Google web_search since that's the quickest ship).
+5. **Batch GG** — embedded terminal view + bundled rg/fd (optional polish, only after FF lands).
+
+Each batch stays on the same cadence: small commits, each tested, no mixing.
 
