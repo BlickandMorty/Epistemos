@@ -11,8 +11,28 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case qwen35_27B4Bit = "mlx-community/Qwen3.5-27B-4bit"
     case qwen35_35BA3B4Bit = "mlx-community/Qwen3.5-35B-A3B-4bit"
     case qwen36_35BA3B4Bit = "mlx-community/Qwen3.6-35B-A3B-4bit"
+    // Qwen 3.6 35B A3B — upgraded quant variants (see MASTER_MODEL_STACK_PLAN).
+    // Unsloth Dynamic 4-bit: best-quality quant, drop-in replacement.
+    case qwen36_35BA3B_Unsloth4Bit = "unsloth/Qwen3.6-35B-A3B-UD-MLX-4bit"
+    // Dynamic Weight Quantization 4-bit: alternative high-quality quant.
+    case qwen36_35BA3B_DWQ4Bit = "mlx-community/Qwen3.6-35B-A3B-4bit-DWQ"
+
+    // MARK: - Qwen 3 Family (newer gen, official MLX, tool-calling native)
+    case qwen3_4B4Bit = "Qwen/Qwen3-4B-MLX-4bit"
+
+    // MARK: - Qwen 3 Coder (tool-calling code specialists)
+    case qwen3CoderNext4Bit = "mlx-community/Qwen3-Coder-Next-4bit"
+    case qwen3Coder30BA3B4Bit = "mlx-community/Qwen3-Coder-30B-A3B-Instruct-4bit"
+
+    // MARK: - Hermes 4.3 (function-calling flagship, ByteDance Seed 36B base)
+    case hermes43_36B4Bit = "leonsarmiento/Hermes-4.3-36B-4bit-mlx"
+    case hermes43_36B3Bit = "leonsarmiento/Hermes-4.3-36B-3bit-mlx"
 
     // MARK: - Gemma 4 Family (2026 frontier)
+    // PREVIEW ONLY until a Swift MLX Gemma 4 loader ships. Current
+    // mlx-swift-lm aliases gemma4 → Gemma 3n but Gemma 3n's config
+    // decoder fails on Gemma 4's MatFormer fields. Do not surface
+    // these as default triage picks.
     case gemma4_2B4Bit = "mlx-community/gemma-4-e2b-it-4bit"
     case gemma4_4B4Bit = "mlx-community/gemma-4-e4b-it-4bit"
     case gemma4_27BA4B4Bit = "mlx-community/gemma-4-26b-a4b-it-4bit"
@@ -71,6 +91,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_27B4Bit: "Qwen 3.5 27B"
         case .qwen35_35BA3B4Bit: "Qwen 3.5 35B APEXMini"
         case .qwen36_35BA3B4Bit: "Qwen 3.6 35B A3B"
+        case .qwen36_35BA3B_Unsloth4Bit: "Qwen 3.6 35B A3B — Unsloth UD"
+        case .qwen36_35BA3B_DWQ4Bit: "Qwen 3.6 35B A3B — DWQ"
+        case .qwen3_4B4Bit: "Qwen 3 4B"
+        case .qwen3CoderNext4Bit: "Qwen 3 Coder Next"
+        case .qwen3Coder30BA3B4Bit: "Qwen 3 Coder 30B A3B"
+        case .hermes43_36B4Bit: "Hermes 4.3 36B"
+        case .hermes43_36B3Bit: "Hermes 4.3 36B (3-bit)"
         case .gemma4_2B4Bit: "Gemma 4 2B"
         case .gemma4_4B4Bit: "Gemma 4 E4B"
         case .gemma4_27BA4B4Bit: "Gemma 4 26B A4B"
@@ -110,6 +137,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_27B4Bit: "Qwen 27B"
         case .qwen35_35BA3B4Bit: "Qwen 35B APEX"
         case .qwen36_35BA3B4Bit: "Qwen3.6 35B"
+        case .qwen36_35BA3B_Unsloth4Bit: "Qwen3.6 UD"
+        case .qwen36_35BA3B_DWQ4Bit: "Qwen3.6 DWQ"
+        case .qwen3_4B4Bit: "Qwen3 4B"
+        case .qwen3CoderNext4Bit: "Qwen3 Coder"
+        case .qwen3Coder30BA3B4Bit: "Qwen3 Coder 30B"
+        case .hermes43_36B4Bit: "Hermes 4.3"
+        case .hermes43_36B3Bit: "Hermes 4.3 (3b)"
         case .gemma4_2B4Bit: "Gemma 2B"
         case .gemma4_4B4Bit: "Gemma E4B"
         case .gemma4_27BA4B4Bit: "Gemma 26B A4B"
@@ -145,8 +179,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
              .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             "Qwen 3.5"
-        case .qwen36_35BA3B4Bit:
+        case .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit:
             "Qwen 3.6"
+        case .qwen3_4B4Bit:
+            "Qwen 3"
+        case .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit:
+            "Qwen 3 Coder"
+        case .hermes43_36B4Bit, .hermes43_36B3Bit:
+            "Hermes 4.3"
         case .gemma4_2B4Bit, .gemma4_4B4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             "Gemma 4"
@@ -207,7 +249,14 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_9B4Bit, .jamba3B: 18
         case .lfm2_24BA2B4Bit: 24
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG: 18
-        case .qwen36_35BA3B4Bit: 24
+        case .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit: 24
+        case .qwen3_4B4Bit: 8
+        case .qwen3CoderNext4Bit: 12
+        case .qwen3Coder30BA3B4Bit: 24
+        case .hermes43_36B4Bit: 24
+        case .hermes43_36B3Bit: 18
         case .qwopus27Bv3, .devstralSmall2505_4Bit,
              .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit: 24
         case .qwen35_27B4Bit: 48
@@ -220,8 +269,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_35BA3B4Bit:
             24
-        case .qwen36_35BA3B4Bit:
+        case .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit:
             32
+        case .qwen3Coder30BA3B4Bit:
+            32
+        case .hermes43_36B4Bit:
+            32
+        case .hermes43_36B3Bit:
+            24
         default:
             minimumRecommendedMemoryGB
         }
@@ -241,10 +298,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var supportsThinkingMode: Bool {
         switch self {
         case .qwen35_27B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
              .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .lfm25_1BThinking, .jamba3B,
              .qwopus27Bv3, .qwopusMoE35BA3B,
-             .deepseekR1Distill7B:
+             .deepseekR1Distill7B,
+             .hermes43_36B4Bit, .hermes43_36B3Bit:
             true
         default:
             false
@@ -254,7 +313,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var canActAsAgent: Bool {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
-             .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3_4B4Bit,
+             .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+             .hermes43_36B4Bit, .hermes43_36B3Bit,
              .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwen25Coder7B,
@@ -299,13 +361,32 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var isEpistemosShippedLocalModel: Bool {
         switch self {
-        case .gemma4_4B4Bit,
-             .deepseekR1Distill7B,
-             .qwen25Coder7B,
+        // Current shipping stack (2026-04-18 refresh).
+        // Fast local: Qwen3-4B official, Bonsai fallback.
+        case .qwen3_4B4Bit,
              .bonsai4B2Bit,
              .bonsai8B2Bit,
-             .gemma4_27BA4B4Bit,
-             .qwen36_35BA3B4Bit:
+             // Reasoning local.
+             .deepseekR1Distill7B,
+             // Coding local (Qwen 3 gen + legacy).
+             .qwen3CoderNext4Bit,
+             .qwen3Coder30BA3B4Bit,
+             .qwen25Coder7B,
+             // Function-calling local.
+             .hermes43_36B4Bit,
+             .hermes43_36B3Bit,
+             // Flagship local (Qwen 3.6 35B A3B — two upgraded quants).
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit,
+             // Legacy plain 4-bit Qwen 3.6 kept shippable so existing
+             // installs still resolve; new installs prefer UD/DWQ via
+             // TriageService preferredOrder.
+             .qwen36_35BA3B4Bit,
+             // Gemma 4 tiers — SHIPPED but preview-gated (loader pending).
+             // Listed here so users can install weights; triage excludes
+             // them until the Swift loader lands.
+             .gemma4_4B4Bit,
+             .gemma4_27BA4B4Bit:
             true
         default:
             false
@@ -372,6 +453,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_27B4Bit: 262_144
         case .qwen35_35BA3B4Bit: 262_144
         case .qwen36_35BA3B4Bit: 262_144
+        case .qwen36_35BA3B_Unsloth4Bit: 262_144
+        case .qwen36_35BA3B_DWQ4Bit: 262_144
+        // Qwen 3 4B (official): 128K
+        case .qwen3_4B4Bit: 128_000
+        // Qwen 3 Coder: 128K+ (architecture spec)
+        case .qwen3CoderNext4Bit: 128_000
+        case .qwen3Coder30BA3B4Bit: 262_144
+        // Hermes 4.3 36B: Llama-3 chat format, ~128K context from base model
+        case .hermes43_36B4Bit: 131_072
+        case .hermes43_36B3Bit: 131_072
         // Qwopus: Qwen 3.5 base → 262K / MoE → 131K
         case .qwopus27Bv3: 262_144
         case .qwopusMoE35BA3B: 131_072
@@ -462,7 +553,18 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .qwen35_4B4Bit,
              .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit:
             0.7
-        case .qwen36_35BA3B4Bit:
+        case .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit,
+             .qwen36_35BA3B_DWQ4Bit:
+            0.7
+        // Qwen 3 family — 0.7 is Qwen's recommendation across generations.
+        case .qwen3_4B4Bit,
+             .qwen3CoderNext4Bit,
+             .qwen3Coder30BA3B4Bit:
+            0.7
+        // Hermes 4.3 — Llama-3 chat base, 0.7 is Nous Research's recommended
+        // default for instruction following and tool calling.
+        case .hermes43_36B4Bit, .hermes43_36B3Bit:
             0.7
         // Qwopus: Qwen base, 0.7 for instruction following
         case .qwopus27Bv3, .qwopusMoE35BA3B:
@@ -594,8 +696,22 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwopus27Bv3:
             1_536
         // MoE large: sparse activation = more KV headroom
-        case .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B:
+        case .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3Coder30BA3B4Bit,
+             .qwopusMoE35BA3B:
             2_048
+        // Qwen 3 4B and Qwen 3 Coder Next — small + native tool-calling.
+        case .qwen3_4B4Bit:
+            4_096
+        case .qwen3CoderNext4Bit:
+            3_072
+        // Hermes 4.3 36B dense (ByteDance Seed base) — moderate KV
+        // headroom; 3-bit variant tightens it further.
+        case .hermes43_36B4Bit:
+            2_048
+        case .hermes43_36B3Bit:
+            1_536
         case .llama4Scout17B16E4Bit:
             1_024
         // SSM models: no KV cache (fixed state), but MLX still allocates a buffer
@@ -613,7 +729,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// MoE models are faster per token due to sparse activation.
     var isMoE: Bool {
         switch self {
-        case .gemma4_27BA4B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B,
+        case .gemma4_27BA4B4Bit,
+             .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3Coder30BA3B4Bit,
+             .qwopusMoE35BA3B,
              .llama4Scout17B16E4Bit,
              .lfm2_8BA1B3Bit, .lfm2_24BA2B4Bit:  // LFM2 MoE variants
             true
@@ -637,7 +757,16 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_27B4Bit, .qwopus27Bv3: 27.0
         case .gemma4_31BJANG, .gemma3_27BQAT4Bit: 27.0
         case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit: 24.0
-        case .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit, .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
+        case .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
+        // Qwen 3 4B + Qwen 3 Coder Next — small dense.
+        case .qwen3_4B4Bit: 4.0
+        case .qwen3CoderNext4Bit: 7.0
+        // Qwen 3 Coder 30B A3B — MoE, 3B active out of 30B.
+        case .qwen3Coder30BA3B4Bit: 3.0
+        // Hermes 4.3 36B — dense, 36B active.
+        case .hermes43_36B4Bit, .hermes43_36B3Bit: 36.0
         case .llama4Scout17B16E4Bit: 17.0
         // SSM models
         case .lfm25_350M: 0.35
@@ -787,6 +916,20 @@ extension LocalTextModelID {
             .readWrite    // Strong reasoning but tool call JSON can be unreliable
         // Medium local models: Qwen 9B gets full agent (thinking + 262K)
         case .qwen35_9B4Bit:
+            .fullAgent
+        // Qwen 3 4B (official, native tool-calling): full agent despite
+        // size — the whole point of this tier is reliable tool use.
+        case .qwen3_4B4Bit:
+            .fullAgent
+        // Qwen 3 Coder (Next + 30B A3B): coding + tools, first-class.
+        case .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit:
+            .fullAgent
+        // Hermes 4.3 36B (4bit + 3bit): function-calling specialist —
+        // built for tool use, full agent tier.
+        case .hermes43_36B4Bit, .hermes43_36B3Bit:
+            .fullAgent
+        // Qwen 3.6 35B A3B — three quant variants, all flagship tier.
+        case .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit:
             .fullAgent
         // Large models (27B+): full tool set — smart enough for shell/browser
         case .qwopus27Bv3, .qwopusMoE35BA3B,
