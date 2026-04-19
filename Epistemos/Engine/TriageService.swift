@@ -854,6 +854,13 @@ nonisolated enum TriageDecision: Sendable, Equatable {
 nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     case modelRequired
     case runtimeUnavailable
+    /// Thrown when code tries to load a model whose Swift MLX decoder
+    /// isn't ported yet (see `LocalTextModelID.isAwaitingSwiftRuntimeLoader`
+    /// — currently the Gemma 4 family). Distinct from
+    /// `runtimeUnavailable` so the UI can surface a clearer message than
+    /// the opaque "Unsupported model type: gemma4" that mlx-swift-lm
+    /// would otherwise emit.
+    case modelLoaderUnavailable(modelID: String)
 
     var errorDescription: String? {
         switch self {
@@ -861,6 +868,8 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
             "No usable local model is available. Open Settings and install or select a supported local model."
         case .runtimeUnavailable:
             "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
+        case .modelLoaderUnavailable(let modelID):
+            "The \(modelID) loader hasn't shipped yet. Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
         }
     }
 }

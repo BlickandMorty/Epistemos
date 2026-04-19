@@ -143,8 +143,46 @@ final class ChatState {
     }
 
     func recalculateContextEstimate() {
-        estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
+        // Rough char-to-token conversion (~4 chars per token) plus static
+        // allowances for things the raw `.content` string doesn't capture
+        // but that DO fill the model's window:
+        //   - pending file attachments (byte size / 4)
+        //   - pending @-mentioned context notes (flat per-note estimate
+        //     since the body isn't resolved yet on the main actor)
+        //   - loaded note titles on completed assistant turns (proxy
+        //     for the note bodies that were injected into prior prompts)
+        //   - system prompt + tool-schema overhead baseline
+        //
+        // Previously the counter read only `messages[].content`, so
+        // attaching an essay + having the model respond left the meter
+        // stuck at "29" — the attached body never counted. This at least
+        // makes the meter MOVE on attach, which is the user-visible ask.
+        // Exact accounting of already-injected note bodies lands when
+        // we persist resolved token counts on ChatMessage (future batch).
+        let messageChars = messages.reduce(0) { $0 + $1.content.count }
+        let attachmentChars = pendingAttachments.reduce(0) { $0 + $1.size }
+        let pendingContextTokensEstimate = pendingContextAttachments.count
+            * Self.averageNoteTokenEstimate
+        let loadedNoteHistoryTokens = messages.reduce(0) { total, msg in
+            total + (msg.loadedNoteTitles?.count ?? 0) * Self.averageNoteTokenEstimate
+        }
+        let systemOverheadTokens = Self.systemPromptTokenEstimate
+        estimatedContextTokens =
+            (messageChars + attachmentChars) / 4
+            + pendingContextTokensEstimate
+            + loadedNoteHistoryTokens
+            + systemOverheadTokens
     }
+
+    /// Rough average note body size in tokens. Real vault notes span
+    /// 200–5000 tokens; 1500 is the midpoint that keeps the meter
+    /// useful without wildly over- or under-counting any single note.
+    private static let averageNoteTokenEstimate = 1_500
+
+    /// Baseline tokens the provider sees even on an empty user turn —
+    /// system prompt + tool schemas + vault-briefing wrapper. Roughly
+    /// constant per provider; 500 is a conservative midpoint.
+    private static let systemPromptTokenEstimate = 500
 
     /// Controls whether the landing page or chat view is shown on the Home panel.
     /// `true` = landing page visible (even if messages exist in memory).

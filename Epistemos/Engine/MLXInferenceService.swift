@@ -32,6 +32,8 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
 
     /// Per-model chat template context for thinking mode activation.
     /// Qwen 3.5/Qwopus: uses "enable_thinking" Jinja variable.
+    /// Qwen 3.6 also supports preserved reasoning history through
+    /// "preserve_thinking" when thinking mode is enabled.
     /// DeepSeek R1: thinking is always on via its template — no key needed.
     /// Gemma 4: thinking requires specific template setup not in MLX pipeline.
     var chatTemplateContext: [String: Bool]? {
@@ -44,6 +46,11 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
              .qwopus27Bv3, .qwopusMoE35BA3B:
             return ["enable_thinking": reasoningMode == .thinking]
+        case .qwen36_35BA3B4Bit:
+            return [
+                "enable_thinking": reasoningMode == .thinking,
+                "preserve_thinking": reasoningMode == .thinking,
+            ]
         case .deepseekR1Distill7B:
             // DeepSeek R1 Distill: thinking is its primary mode, always active.
             // The model template handles <think> tags natively — no key needed.
@@ -575,10 +582,16 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 cancelled: true,
                 errorClass: .cancelled
             )
-            try? await runtimeControlPlane.finishCancelled(
-                streamHandle: launch.streamHandle,
-                summary: summary
-            )
+            do {
+                try await runtimeControlPlane.finishCancelled(
+                    streamHandle: launch.streamHandle,
+                    summary: summary
+                )
+            } catch {
+                Log.engine.error(
+                    "MLXInferenceService: failed to mark cancelled stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
             throw CancellationError()
         } catch {
             let mapped = Self.mapBackendError(error)
@@ -589,12 +602,18 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 cancelled: false,
                 errorClass: mapped
             )
-            try? await runtimeControlPlane.finishFailed(
-                streamHandle: launch.streamHandle,
-                errorClass: mapped,
-                message: error.localizedDescription,
-                summary: summary
-            )
+            do {
+                try await runtimeControlPlane.finishFailed(
+                    streamHandle: launch.streamHandle,
+                    errorClass: mapped,
+                    message: error.localizedDescription,
+                    summary: summary
+                )
+            } catch {
+                Log.engine.error(
+                    "MLXInferenceService: failed to mark failed stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
             throw error
         }
     }
@@ -650,7 +669,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 for: request,
                 requestedRuntimeKind: requestedRuntimeKind
             )
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 let task = Task {
                     await self.prepareForRequest()
                     var launch: BackendGenerationLaunch?
@@ -696,10 +715,16 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                                 cancelled: true,
                                 errorClass: .cancelled
                             )
-                            try? await self.runtimeControlPlane.finishCancelled(
-                                streamHandle: launch.streamHandle,
-                                summary: summary
-                            )
+                            do {
+                                try await self.runtimeControlPlane.finishCancelled(
+                                    streamHandle: launch.streamHandle,
+                                    summary: summary
+                                )
+                            } catch {
+                                Log.engine.error(
+                                    "MLXInferenceService: failed to mark cancelled stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                )
+                            }
                         }
                         continuation.finish(throwing: CancellationError())
                     } catch {
@@ -712,12 +737,18 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                                 cancelled: false,
                                 errorClass: mapped
                             )
-                            try? await self.runtimeControlPlane.finishFailed(
-                                streamHandle: launch.streamHandle,
-                                errorClass: mapped,
-                                message: error.localizedDescription,
-                                summary: summary
-                            )
+                            do {
+                                try await self.runtimeControlPlane.finishFailed(
+                                    streamHandle: launch.streamHandle,
+                                    errorClass: mapped,
+                                    message: error.localizedDescription,
+                                    summary: summary
+                                )
+                            } catch {
+                                Log.engine.error(
+                                    "MLXInferenceService: failed to mark failed stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                )
+                            }
                         }
                         continuation.finish(throwing: error)
                     }
@@ -725,7 +756,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 continuation.onTermination = { _ in task.cancel() }
             }
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: error)
             }
         }
@@ -917,6 +948,8 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 return .modelNotLoaded
             case .runtimeUnavailable:
                 return .runtimeUnavailable
+            case .modelLoaderUnavailable:
+                return .modelNotLoaded
             }
         }
         return .backendFailure
@@ -1165,7 +1198,7 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
         cancelScheduledUnload()
-        return AsyncThrowingStream { continuation in
+        return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 let policy = await self.beginRequestAndResolvePolicy()
                 do {
@@ -1360,6 +1393,18 @@ actor MLXInferenceService: LocalMLXRuntime {
         if loadedModelID == request.modelID, let container {
             await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
             return (container, false, 0)
+        }
+
+        // Defensive guard: Gemma 4 weights install but the Swift MLX
+        // loader isn't ported yet (see LocalTextModelID.isAwaitingSwiftRuntimeLoader
+        // + docs/MASTER_MODEL_STACK_PLAN.md §3.a). The picker filter
+        // (Batch T) + the startup migration already try to keep users
+        // off Gemma 4, but if ANY path still resolves to a gemma4 ID
+        // we want a friendly error instead of the opaque
+        // "Unsupported model type: gemma4" the user has been seeing.
+        if let modelID = LocalTextModelID(rawValue: request.modelID),
+           modelID.isAwaitingSwiftRuntimeLoader {
+            throw LocalInferenceRoutingError.modelLoaderUnavailable(modelID: request.modelID)
         }
 
         try recordTurnBoundaryReadaheadIfNeeded()
@@ -1839,7 +1884,7 @@ actor MLXInferenceService: LocalMLXRuntime {
 
     func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
         _ = request
-        return AsyncThrowingStream { continuation in
+        return StreamingBufferPolicy.throwingStream { continuation in
             continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
         }
     }
