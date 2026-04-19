@@ -220,8 +220,7 @@ struct SuggestionPopoverView: View {
     // MARK: - Actions
 
     private func selectSlashCommand(_ cmd: ACCSlashCommand) {
-        accState.activeSlashToken = .builtinMode(cmd)
-        accState.selectedOperatingMode = cmd.defaultOperatingMode
+        accState.applySpecialist(cmd)
         accState.suggestionMenuState = .hidden
 
         // Remove the /partial from input text

@@ -14,7 +14,14 @@ final class AgentCommandCenterState {
 
     private let log = Logger(subsystem: "com.epistemos", category: "AgentCommandCenter")
     @ObservationIgnored private let toolCatalogLoader: ToolCatalogLoader
+    @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private var catalogVaultPath: String = ""
+    @ObservationIgnored private var isApplyingSpecialistConfiguration = false
+
+    private enum PersistenceKey {
+        static let activeSpecialistPreset = "epistemos.agent.specialist.active"
+        static let specialistBrainPrefix = "epistemos.agent.specialist.brain."
+    }
 
     // MARK: - Presentation
 
@@ -52,12 +59,27 @@ final class AgentCommandCenterState {
     /// Index of the currently highlighted suggestion (keyboard navigation).
     var highlightedSuggestionIndex: Int = 0
 
+    /// Persistent specialist preset. Unlike the transient slash token, this
+    /// survives submissions so the agent page behaves like a purpose-built
+    /// harness rather than a one-off command shortcut.
+    var activeSpecialistPreset: ACCSlashCommand? = nil {
+        didSet {
+            guard !isApplyingSpecialistConfiguration else { return }
+            persistActiveSpecialistPreset()
+        }
+    }
+
     // MARK: - Operating Mode
 
     /// Start in a middle lane: capable, but not full destructive-agent scope.
     /// The user can explicitly choose Agent when they want the full tier.
     var selectedOperatingMode: EpistemosOperatingMode = .pro {
         didSet {
+            let sanitizedMode = sanitizedOperatingMode(selectedOperatingMode)
+            guard sanitizedMode == selectedOperatingMode else {
+                selectedOperatingMode = sanitizedMode
+                return
+            }
             rebuildToolCatalog()
         }
     }
@@ -75,7 +97,20 @@ final class AgentCommandCenterState {
     // MARK: - Brain / Model Selection (registry-backed)
 
     /// Explicit brain override. nil = auto-route via TriageService.
-    var selectedBrain: ACCBrainSelection? = nil
+    var selectedBrain: ACCBrainSelection? = nil {
+        didSet {
+            let sanitizedMode = sanitizedOperatingMode(selectedOperatingMode)
+            if sanitizedMode != selectedOperatingMode {
+                selectedOperatingMode = sanitizedMode
+            }
+            guard !isApplyingSpecialistConfiguration else { return }
+            persistSelectedBrainForActiveSpecialist()
+        }
+    }
+
+    var availableOperatingModes: [EpistemosOperatingMode] {
+        selectedBrain?.supportedOperatingModes ?? EpistemosOperatingMode.allCases
+    }
 
     var supportedNativeProviderEfforts: [ACCNativeProviderEffort] {
         selectedBrain?.supportedNativeProviderEfforts ?? []
@@ -111,6 +146,21 @@ final class AgentCommandCenterState {
         Set(toolToggles.filter(\.value).map(\.key))
     }
 
+    var harnessHeadline: String? {
+        activeSpecialistPreset?.displayName
+    }
+
+    var harnessFocusLine: String? {
+        activeSpecialistPreset?.focusSummary
+    }
+
+    var harnessPostureLine: String? {
+        guard let preset = activeSpecialistPreset else { return nil }
+        let toolCount = enabledToolNames.count
+        let toolSummary = toolCount == 1 ? "1 tool enabled" : "\(toolCount) tools enabled"
+        return "\(preset.postureSummary) · \(preset.brainPreferenceSummary) · \(toolSummary)"
+    }
+
     // MARK: - Skill Discovery (registry-backed)
 
     /// Skills discovered from the filesystem via SkillDiscoveryCatalog.
@@ -140,8 +190,18 @@ final class AgentCommandCenterState {
     @ObservationIgnored
     private var parseDebounceTask: Task<Void, Never>?
 
-    init(toolCatalogLoader: @escaping ToolCatalogLoader = AgentCommandCenterState.defaultToolCatalogLoader) {
+    init(
+        toolCatalogLoader: @escaping ToolCatalogLoader = AgentCommandCenterState.defaultToolCatalogLoader,
+        userDefaults: UserDefaults = .standard
+    ) {
         self.toolCatalogLoader = toolCatalogLoader
+        self.userDefaults = userDefaults
+
+        if let rawValue = userDefaults.string(forKey: PersistenceKey.activeSpecialistPreset),
+           let preset = ACCSlashCommand(rawValue: rawValue) {
+            activeSpecialistPreset = preset
+            selectedOperatingMode = preset.defaultOperatingMode
+        }
     }
 
     private func scheduleInputParse() {
@@ -158,6 +218,7 @@ final class AgentCommandCenterState {
             self.activeMentions = result.mentions
             self.suggestionMenuState = result.suggestionState
             self.highlightedSuggestionIndex = 0
+            self.syncSpecialistPreset(with: result.slashToken)
         }
     }
 
@@ -219,6 +280,14 @@ final class AgentCommandCenterState {
         }
 
         availableBrains = brains
+        if let selectedBrain, !brains.contains(selectedBrain) {
+            withSpecialistConfigurationMutation {
+                self.selectedBrain = nil
+            }
+        }
+        if activeSpecialistPreset != nil {
+            reapplyActiveSpecialistConfiguration()
+        }
         log.info("[ACC] Brain catalog refreshed: \(brains.count) brains")
     }
 
@@ -263,6 +332,9 @@ final class AgentCommandCenterState {
             }
         )
         mcpToolsByAgent = Dictionary(grouping: tools, by: \.agent)
+        if let preset = activeSpecialistPreset {
+            applySpecialistToolBundle(for: preset)
+        }
     }
 
     private static func defaultToolCatalogLoader(
@@ -373,6 +445,153 @@ final class AgentCommandCenterState {
         activeMentions = result.mentions
         suggestionMenuState = result.suggestionState
         highlightedSuggestionIndex = 0
+        syncSpecialistPreset(with: result.slashToken)
+    }
+
+    func applySpecialist(_ command: ACCSlashCommand) {
+        withSpecialistConfigurationMutation {
+            activeSpecialistPreset = command
+            activeSlashToken = .builtinMode(command)
+            selectedBrain = preferredBrain(for: command)
+            selectedOperatingMode = command.defaultOperatingMode
+            applySpecialistToolBundle(for: command)
+        }
+        persistActiveSpecialistPreset()
+        persistSelectedBrainForActiveSpecialist()
+    }
+
+    func clearSpecialistPreset() {
+        withSpecialistConfigurationMutation {
+            activeSpecialistPreset = nil
+        }
+        persistActiveSpecialistPreset()
+    }
+
+    private func sanitizedOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
+        guard availableOperatingModes.contains(mode) else {
+            return availableOperatingModes.first ?? .fast
+        }
+        return mode
+    }
+
+    private func rebuildSpecialistToolToggles(for command: ACCSlashCommand) {
+        var nextToggles: [String: Bool] = [:]
+        for tool in availableTools {
+            nextToggles[tool.name] = command.preferredToolNames.contains(tool.name)
+        }
+        if nextToggles.values.contains(true) {
+            toolToggles = nextToggles
+        }
+    }
+
+    private func applySpecialistToolBundle(for command: ACCSlashCommand) {
+        guard !availableTools.isEmpty else { return }
+        rebuildSpecialistToolToggles(for: command)
+    }
+
+    private func reapplyActiveSpecialistConfiguration() {
+        guard let preset = activeSpecialistPreset else { return }
+        withSpecialistConfigurationMutation {
+            if let preferred = preferredBrain(for: preset) {
+                selectedBrain = preferred
+            }
+            selectedOperatingMode = sanitizedOperatingMode(preset.defaultOperatingMode)
+            applySpecialistToolBundle(for: preset)
+        }
+    }
+
+    private func syncSpecialistPreset(with token: ParsedSlashToken?) {
+        guard case .builtinMode(let command) = token else { return }
+        applySpecialist(command)
+    }
+
+    private func preferredBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
+        if let stored = storedBrainSelection(for: command) {
+            return stored
+        }
+        return recommendedBrain(for: command)
+    }
+
+    private func recommendedBrain(for command: ACCSlashCommand) -> ACCBrainSelection? {
+        switch command {
+        case .notes:
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_4B4Bit, .gemma4_27BA4B4Bit])
+                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? availableBrains.first
+        case .code:
+            return localBrain(preferredModels: [.qwen25Coder7B, .qwen36_35BA3B4Bit, .gemma4_27BA4B4Bit])
+                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? availableBrains.first
+        case .debug:
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen25Coder7B, .gemma4_27BA4B4Bit])
+                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? availableBrains.first
+        case .plan, .review:
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_4B4Bit, .gemma4_27BA4B4Bit])
+                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? availableBrains.first
+        case .research, .securityReview:
+            return cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .gemma4_27BA4B4Bit, .qwen36_35BA3B4Bit])
+                ?? availableBrains.first
+        case .ask, .summarize, .explain, .readBranch:
+            return localBrain(preferredModels: [.gemma4_4B4Bit, .gemma4_2B4Bit, .bonsai4B2Bit, .bonsai8B2Bit])
+                ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
+                ?? availableBrains.first
+        }
+    }
+
+    private func localBrain(preferredModels: [LocalTextModelID]) -> ACCBrainSelection? {
+        for model in preferredModels {
+            if let match = availableBrains.first(where: { $0.matches(localModel: model) }) {
+                return match
+            }
+        }
+        return availableBrains.first(where: \.isLocal)
+    }
+
+    private func cloudBrain(preferredProviders: [CloudModelProvider]) -> ACCBrainSelection? {
+        for provider in preferredProviders {
+            if let match = availableBrains.first(where: { $0.matches(cloudProvider: provider) }) {
+                return match
+            }
+        }
+        return availableBrains.first(where: \.isCloud)
+    }
+
+    private func storedBrainSelection(for command: ACCSlashCommand) -> ACCBrainSelection? {
+        let key = PersistenceKey.specialistBrainPrefix + command.rawValue
+        guard let storedID = userDefaults.string(forKey: key), storedID != "auto" else {
+            return nil
+        }
+        return availableBrains.first(where: { $0.id == storedID })
+    }
+
+    private func persistActiveSpecialistPreset() {
+        let key = PersistenceKey.activeSpecialistPreset
+        if let preset = activeSpecialistPreset {
+            userDefaults.set(preset.rawValue, forKey: key)
+        } else {
+            userDefaults.removeObject(forKey: key)
+        }
+    }
+
+    private func persistSelectedBrainForActiveSpecialist() {
+        guard let preset = activeSpecialistPreset else { return }
+        guard !availableBrains.isEmpty else { return }
+        let key = PersistenceKey.specialistBrainPrefix + preset.rawValue
+        if let selectedBrain {
+            userDefaults.set(selectedBrain.id, forKey: key)
+        } else {
+            userDefaults.set("auto", forKey: key)
+        }
+    }
+
+    private func withSpecialistConfigurationMutation(_ updates: () -> Void) {
+        let previous = isApplyingSpecialistConfiguration
+        isApplyingSpecialistConfiguration = true
+        updates()
+        isApplyingSpecialistConfiguration = previous
     }
 }
 
@@ -401,23 +620,33 @@ enum ParsedSlashToken: Equatable, Hashable {
 /// Built-in slash commands for modes and common operations.
 enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     case ask
+    case notes
+    case code
     case debug
     case plan
     case research
     case review
+    case securityReview = "security-review"
     case summarize
     case readBranch = "read-branch"
     case explain
 
     var id: String { rawValue }
 
+    static let featuredAgentQuickActions: [ACCSlashCommand] = [
+        .plan, .notes, .code, .debug, .research, .securityReview,
+    ]
+
     var displayName: String {
         switch self {
         case .ask: "Ask"
+        case .notes: "Notes"
+        case .code: "Code"
         case .debug: "Debug"
         case .plan: "Plan"
         case .research: "Research"
         case .review: "Review"
+        case .securityReview: "Security Review"
         case .summarize: "Summarize"
         case .readBranch: "Read Branch"
         case .explain: "Explain"
@@ -427,10 +656,13 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     var icon: String {
         switch self {
         case .ask: "questionmark.circle"
+        case .notes: "book.closed"
+        case .code: "hammer"
         case .debug: "ladybug"
         case .plan: "list.bullet.clipboard"
         case .research: "magnifyingglass"
         case .review: "eye"
+        case .securityReview: "lock.shield"
         case .summarize: "doc.text.magnifyingglass"
         case .readBranch: "arrow.triangle.branch"
         case .explain: "lightbulb"
@@ -440,10 +672,13 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     var defaultOperatingMode: EpistemosOperatingMode {
         switch self {
         case .ask: .fast
+        case .notes: .agent
+        case .code: .agent
         case .debug: .thinking
         case .plan: .agent
         case .research: .pro
         case .review: .thinking
+        case .securityReview: .pro
         case .summarize: .fast
         case .readBranch: .fast
         case .explain: .fast
@@ -453,13 +688,207 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     var helpText: String {
         switch self {
         case .ask: "Quick conversational answer"
-        case .debug: "Deep analysis with reasoning trace"
-        case .plan: "Multi-step agent task planning"
-        case .research: "Thorough research with multiple sources"
-        case .review: "Review and critique content"
+        case .notes: "Read, write, create, and organize notes with vault-first tools"
+        case .code: "Implement focused changes with repo tools and note context"
+        case .debug: "Investigate failures from files, logs, and repro steps"
+        case .plan: "Break work into steps with vault and graph context first"
+        case .research: "Research from notes, graph context, and cited sources"
+        case .review: "Read-only critique for drafts, notes, or code"
+        case .securityReview: "Audit code and config with tighter, read-only permissions"
         case .summarize: "Condense content to key points"
         case .readBranch: "Read and understand a code branch"
         case .explain: "Explain a concept clearly"
+        }
+    }
+
+    var focusSummary: String {
+        switch self {
+        case .ask:
+            "Fast note-aware help without opening the full tool belt."
+        case .notes:
+            "Work directly with notes, folders, and graph context before reaching for generic file tools."
+        case .code:
+            "Implement focused changes while keeping vault context and repo state in reach."
+        case .debug:
+            "Trace failures from logs, files, and repeatable repro steps."
+        case .plan:
+            "Plan from notes and graph context before the agent starts acting."
+        case .research:
+            "Synthesize notes, graph context, and external sources into useful research."
+        case .review:
+            "Stay read-only and critique drafts, notes, or code before changing anything."
+        case .securityReview:
+            "Inspect code and configuration with a tight, audit-first posture."
+        case .summarize:
+            "Condense attached or recalled context into the shortest useful summary."
+        case .readBranch:
+            "Orient on code changes before deciding whether to review or edit them."
+        case .explain:
+            "Turn complex context into a clearer explanation anchored in your notes."
+        }
+    }
+
+    var postureSummary: String {
+        switch self {
+        case .ask, .summarize, .explain:
+            "Minimal tools, minimal interruption"
+        case .notes:
+            "Vault-first, asks before destructive note changes"
+        case .plan:
+            "Notes first, asks before external actions"
+        case .research:
+            "Notes and sources first, asks before external actions"
+        case .review:
+            "Read-only by default"
+        case .securityReview:
+            "Read-only by default, tighter approvals"
+        case .debug:
+            "Asks before shell and external actions"
+        case .code:
+            "Asks before risky writes"
+        case .readBranch:
+            "Read-only branch orientation"
+        }
+    }
+
+    var brainPreferenceSummary: String {
+        switch self {
+        case .notes:
+            "Reasoning local with vault context preferred"
+        case .code:
+            "Coder stack preferred"
+        case .research:
+            "Cloud plus sources preferred"
+        case .securityReview:
+            "Reasoning model preferred"
+        case .debug:
+            "Reasoning local preferred"
+        case .plan, .review:
+            "Reasoning local with note context preferred"
+        case .ask, .summarize, .explain:
+            "Fast local preferred"
+        case .readBranch:
+            "Local review brain preferred"
+        }
+    }
+
+    var preferredToolNames: Set<String> {
+        switch self {
+        case .ask, .summarize, .explain:
+            return [
+                "vault_search",
+                "vault_read",
+                "graph_query",
+                "pkm_graph_neighbors",
+            ]
+        case .notes:
+            return [
+                "vault_search",
+                "vault_read",
+                "vault_write",
+                "vault_navigate",
+                "graph_query",
+                "pkm_graph_neighbors",
+            ]
+        case .plan:
+            return [
+                "vault_search",
+                "vault_read",
+                "graph_query",
+                "pkm_graph_neighbors",
+                "vault_navigate",
+                "todo",
+            ]
+        case .research:
+            return [
+                "vault_search",
+                "vault_read",
+                "graph_query",
+                "pkm_graph_neighbors",
+                "vault_navigate",
+                "web_search",
+                "web_extract",
+                "web_fetch",
+            ]
+        case .review:
+            return [
+                "vault_search",
+                "vault_read",
+                "graph_query",
+                "pkm_graph_neighbors",
+                "read_file",
+                "search_files",
+                "web_search",
+                "web_extract",
+            ]
+        case .securityReview:
+            return [
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "graph_query",
+                "pkm_graph_neighbors",
+            ]
+        case .debug:
+            return [
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "bash_execute",
+                "run_command",
+                "terminal",
+                "process",
+                "execute_code",
+            ]
+        case .code:
+            return [
+                "vault_search",
+                "vault_read",
+                "read_file",
+                "search_files",
+                "write_file",
+                "patch",
+                "bash_execute",
+                "run_command",
+                "process",
+                "execute_code",
+            ]
+        case .readBranch:
+            return [
+                "read_file",
+                "search_files",
+                "vault_search",
+                "vault_read",
+            ]
+        }
+    }
+
+    var expertAllowlist: [String] {
+        switch self {
+        case .ask:
+            ["general"]
+        case .notes:
+            ["note-taking", "vault-editing", "knowledge-management"]
+        case .code:
+            ["coding", "implementation", "refactoring", "tool-use"]
+        case .debug:
+            ["debugging", "code-analysis", "error-diagnosis"]
+        case .plan:
+            ["planning", "task-decomposition", "agent-orchestration"]
+        case .research:
+            ["research", "web-search", "summarization"]
+        case .review:
+            ["code-review", "critique", "analysis"]
+        case .securityReview:
+            ["security-review", "threat-modeling", "vulnerability-analysis"]
+        case .summarize:
+            ["summarization", "distillation"]
+        case .readBranch:
+            ["branch-analysis", "codebase-orientation", "review"]
+        case .explain:
+            ["teaching", "explanation", "simplification"]
         }
     }
 }
@@ -579,6 +1008,27 @@ enum ACCBrainSelection: Hashable, Identifiable {
         }
     }
 
+    var supportedOperatingModes: [EpistemosOperatingMode] {
+        switch self {
+        case .local(_, _, let supportsThinking, _, let supportsTools):
+            var modes: [EpistemosOperatingMode] = [.fast]
+            if supportsThinking {
+                modes.append(.thinking)
+            }
+            if supportsTools {
+                modes.append(.agent)
+            }
+            return modes
+        case .appleIntelligence:
+            return [.fast]
+        case .cloud(let provider):
+            let providerModes = Set(
+                CloudTextModelID.models(for: provider).flatMap(\.supportedOperatingModes)
+            )
+            return EpistemosOperatingMode.allCases.filter(providerModes.contains)
+        }
+    }
+
     var supportedNativeProviderEfforts: [ACCNativeProviderEffort] {
         switch self {
         case .cloud(.anthropic), .cloud(.google):
@@ -586,6 +1036,30 @@ enum ACCBrainSelection: Hashable, Identifiable {
         case .local, .appleIntelligence, .cloud:
             []
         }
+    }
+
+    var isLocal: Bool {
+        if case .local = self { return true }
+        return false
+    }
+
+    var isCloud: Bool {
+        if case .cloud = self { return true }
+        return false
+    }
+
+    func matches(localModel: LocalTextModelID) -> Bool {
+        if case .local(let modelId, _, _, _, _) = self {
+            return modelId == localModel.rawValue
+        }
+        return false
+    }
+
+    func matches(cloudProvider: CloudModelProvider) -> Bool {
+        if case .cloud(let provider) = self {
+            return provider == cloudProvider
+        }
+        return false
     }
 }
 

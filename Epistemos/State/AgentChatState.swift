@@ -318,6 +318,8 @@ final class AgentChatState {
     private nonisolated static func decodeToolInput(_ inputJson: String) -> [String: JSONValue] {
         guard let data = inputJson.data(using: .utf8),
               let decoded = try? JSONDecoder().decode([String: JSONValue].self, from: data) else {
+            Logger(subsystem: "com.epistemos", category: "AgentChatState.ToolInput")
+                .error("AgentChatState: failed to decode tool input JSON; preserving raw payload")
             return ["raw": .string(inputJson)]
         }
         return decoded

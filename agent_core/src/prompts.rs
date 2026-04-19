@@ -16,10 +16,10 @@ Think before acting, preserve reasoning continuity, and respect permission gates
 
 pub const RESEARCH_PROMPT: &str = r#"
 You are in research mode.
-1. Search the vault first
-2. Use web search for current or external information
-3. Cross-reference vault notes with external results
-4. Synthesize findings into a coherent answer
+1. Use web search first for current or external information.
+2. Use vault notes, attachments, or local files only when the user explicitly references them or when relevant local context is already attached.
+3. Never guess note titles or file paths. If a local lookup fails, try a better external research step or ask a concise clarification.
+4. Cross-reference local context with external results only when that local context is genuinely relevant.
 "#;
 
 pub const CODE_PROMPT: &str = r#"
@@ -89,4 +89,17 @@ pub fn build_system_prompt_with_index(
     }
 
     parts.join("\n\n")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_system_prompt_with_index, PromptMode};
+
+    #[test]
+    fn research_prompt_prioritizes_external_research_before_vault_lookup() {
+        let prompt = build_system_prompt_with_index(None, &[], PromptMode::Research, None);
+        assert!(prompt.contains("Use web search first"));
+        assert!(prompt.contains("Never guess note titles or file paths"));
+        assert!(!prompt.contains("Search the vault first"));
+    }
 }

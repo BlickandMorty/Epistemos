@@ -188,6 +188,31 @@ nonisolated enum ThinkingTagSyntax {
     }
 }
 
+nonisolated enum AssistantControlTagSyntax {
+    private static let tagPairs: [(open: String, close: String)] = [
+        ("<scratch_pad>", "</scratch_pad>"),
+        ("<tool_response>", "</tool_response>"),
+        ("<tool_call>", "</tool_call>"),
+        ("<tool_call<", "</tool_call>"),
+    ]
+
+    static func openingMatch(in text: String) -> (range: Range<String.Index>, closingTag: String)? {
+        tagPairs
+            .compactMap { pair in
+                text.range(of: pair.open).map { ($0, pair.close) }
+            }
+            .min { $0.range.lowerBound < $1.range.lowerBound }
+    }
+
+    static func closingMatch(in text: String) -> Range<String.Index>? {
+        tagPairs
+            .compactMap { pair in
+                text.range(of: pair.close)
+            }
+            .min { $0.lowerBound < $1.lowerBound }
+    }
+}
+
 nonisolated enum ThinkingPreludeSyntax {
     private static let openingMarkers = [
         "Thinking Process:",
@@ -767,7 +792,33 @@ nonisolated enum UserFacingModelOutput {
         recoveryMode: IncompleteThinkingRecoveryMode
     ) -> String {
         var cleaned = raw
-        while let match = ThinkingTagSyntax.openingMatch(in: cleaned) {
+        cleaned = stripDelimitedArtifacts(
+            in: cleaned,
+            openingMatch: ThinkingTagSyntax.openingMatch(in:),
+            closingMatch: ThinkingTagSyntax.closingMatch(in:),
+            suppressIncompleteTail: suppressIncompleteThinkingTail,
+            recoveryMode: recoveryMode
+        )
+        cleaned = stripDelimitedArtifacts(
+            in: cleaned,
+            openingMatch: AssistantControlTagSyntax.openingMatch(in:),
+            closingMatch: AssistantControlTagSyntax.closingMatch(in:),
+            suppressIncompleteTail: suppressIncompleteThinkingTail,
+            recoveryMode: recoveryMode
+        )
+        return cleaned
+    }
+
+    private static func stripDelimitedArtifacts(
+        in text: String,
+        openingMatch: (String) -> (range: Range<String.Index>, closingTag: String)?,
+        closingMatch: (String) -> Range<String.Index>?,
+        suppressIncompleteTail: Bool,
+        recoveryMode: IncompleteThinkingRecoveryMode
+    ) -> String {
+        var cleaned = text
+
+        while let match = openingMatch(cleaned) {
             if let endRange = cleaned.range(
                 of: match.closingTag,
                 range: match.range.upperBound..<cleaned.endIndex
@@ -776,7 +827,7 @@ nonisolated enum UserFacingModelOutput {
                 continue
             }
 
-            guard suppressIncompleteThinkingTail else { break }
+            guard suppressIncompleteTail else { break }
             let incompleteTail = String(cleaned[match.range.upperBound...])
             if let recovered = recoveredTextFromIncompleteThinkingTail(
                 incompleteTail,
@@ -789,7 +840,7 @@ nonisolated enum UserFacingModelOutput {
             break
         }
 
-        while let closingRange = ThinkingTagSyntax.closingMatch(in: cleaned) {
+        while let closingRange = closingMatch(cleaned) {
             let trailingVisibleText = String(cleaned[closingRange.upperBound...])
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             if trailingVisibleText.isEmpty {
@@ -830,10 +881,13 @@ nonisolated enum UserFacingModelOutput {
     }
 
     private static func containsReasoningArtifacts(raw: String, cleaned: String) -> Bool {
-        if ThinkingTagSyntax.openingMatch(in: raw) != nil {
+        if ThinkingTagSyntax.openingMatch(in: raw) != nil
+            || AssistantControlTagSyntax.openingMatch(in: raw) != nil
+            || AssistantControlTagSyntax.closingMatch(in: raw) != nil {
             return true
         }
         return containsResidualReasoningArtifacts(in: cleaned)
+            || containsResidualAssistantControlArtifacts(in: cleaned)
     }
 
     private static func containsResidualReasoningArtifacts(in cleaned: String) -> Bool {
@@ -848,6 +902,11 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return paragraphs(in: cleaned).contains(where: isReasoningParagraph)
+    }
+
+    private static func containsResidualAssistantControlArtifacts(in cleaned: String) -> Bool {
+        AssistantControlTagSyntax.openingMatch(in: cleaned) != nil
+            || AssistantControlTagSyntax.closingMatch(in: cleaned) != nil
     }
 
     private static func directAnswerText(in text: String) -> String? {
