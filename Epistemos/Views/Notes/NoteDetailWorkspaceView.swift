@@ -123,6 +123,26 @@ enum NoteToolbarDisplay {
     static let hidesMenuIndicators = true
 }
 
+/// Near-OLED surface for notes sidebar + note window on DARK themes only.
+/// Returns nil for light themes (caller keeps its existing background).
+/// The tone is a hair lighter than Apple's system-tertiary dark
+/// (#1C1C1E) so it reads as "almost OLED" without crushing the edges
+/// against pure black — matches Claude Desktop's dark chrome feel.
+/// Scoped intentionally: only the notes sidebar and the note-editor
+/// canvas call this; chat surfaces, settings, graph, and light mode
+/// stay on their existing theme colors.
+enum NotesNearOLEDPalette {
+    private static let nearOLEDHex = "1E1E20"
+
+    static func surfaceNSColor(for theme: EpistemosTheme) -> NSColor? {
+        theme.isDark ? NSColor(hex: nearOLEDHex) : nil
+    }
+
+    static func surfaceColor(for theme: EpistemosTheme) -> Color? {
+        surfaceNSColor(for: theme).map(Color.init(nsColor:))
+    }
+}
+
 enum NoteWorkspaceSurfaceStyle {
     static let minimumEditorSize = CGSize(width: 400, height: 300)
     static let editorCornerRadius: CGFloat = 26
@@ -132,16 +152,16 @@ enum NoteWorkspaceSurfaceStyle {
     static let bottomPadding: CGFloat = 72
 
     static func canvasBackground(for theme: EpistemosTheme) -> Color {
-        // Themes that ride on the native window material (system-appearance
-        // modes) get .clear so the AppKit NSVisualEffectView shows through
-        // — that's the original "pure native" note canvas the user prefers.
-        // The code editor's inner syntax palette now sources text + subtle
-        // tones from the same EpistemosTheme (see CodeEditorView's
-        // editorTheme), so the panel-edge seam Codex was working around
-        // in f9b6ea26 no longer needs a solid outer canvas to hide it.
-        // Custom (non-native-blur) themes still get a solid canvas
-        // matching MarkdownPreviewSurfaceStyle so those themes stay
-        // visually consistent with the rest of the chrome.
+        // Dark themes: near-OLED surface that matches the notes sidebar
+        // for a single seamless dark chrome on the note window. Applied
+        // on both system-appearance dark and custom dark so a user on
+        // dark gets the desired feel regardless of which theme they pick.
+        if let nearOLED = NotesNearOLEDPalette.surfaceColor(for: theme) {
+            return nearOLED
+        }
+        // Light themes: unchanged. Native-blur light stays on `.clear`
+        // so the NSVisualEffectView material shows through; custom light
+        // themes keep the MarkdownPreview canvas color.
         if theme.usesNativeWindowBlur {
             return .clear
         }

@@ -291,10 +291,13 @@ final class UIState {
         effectiveReduceTransparency ? Color(nsColor: .windowBackgroundColor) : .clear
     }
     var notesSidebarBackgroundColor: NSColor {
-        .clear
+        // Dark themes pull the notes sidebar onto a near-OLED surface
+        // matching the note window canvas; light themes stay on `.clear`
+        // so the system window material shows through as before.
+        NotesNearOLEDPalette.surfaceNSColor(for: theme) ?? .clear
     }
     var notesSidebarBackground: Color {
-        .clear
+        NotesNearOLEDPalette.surfaceColor(for: theme) ?? .clear
     }
     var overlayChromeBackground: Color {
         Color(nsColor: .underPageBackgroundColor)
@@ -608,9 +611,6 @@ final class UIState {
         } catch {
             Self.log.error(
                 "UIState: failed to encode custom landing greetings: \(error.localizedDescription, privacy: .public)"
-            )
-            UserDefaults.standard.removeObject(
-                forKey: LandingGreetingLibraryPolicy.customGreetingsDefaultsKey
             )
             return
         }
