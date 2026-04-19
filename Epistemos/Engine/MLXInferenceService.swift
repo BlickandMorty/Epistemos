@@ -37,16 +37,27 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     /// DeepSeek R1: thinking is always on via its template — no key needed.
     /// Gemma 4: thinking requires specific template setup not in MLX pipeline.
     var chatTemplateContext: [String: Bool]? {
-        guard let model = LocalTextModelID(rawValue: modelID),
-              model.supportsThinkingMode else {
+        guard let model = LocalTextModelID(rawValue: modelID) else {
             return nil
         }
-        // Qwen-family and Qwopus use the "enable_thinking" Jinja key
+        // Qwen-family and Qwopus use the "enable_thinking" Jinja key.
+        // IMPORTANT: we must send `enable_thinking: false` in Fast mode
+        // for EVERY Qwen model (including ones without
+        // `supportsThinkingMode`) because Qwen 3 / 3.5 / 3.6 default
+        // templates emit `<think>…</think>` on every turn unless
+        // explicitly told not to. The old guard that returned nil for
+        // non-thinking-mode-capable models left Qwen 3 4B / Qwen 3
+        // Coder / etc. unconditionally thinking even in Fast mode —
+        // the user's "all models try to think even when set to Fast"
+        // bug lives here.
         switch model {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .qwen3_4B4Bit,
+             .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+             .qwen25Coder7B,
              .qwopus27Bv3, .qwopusMoE35BA3B:
             return ["enable_thinking": reasoningMode == .thinking]
-        case .qwen36_35BA3B4Bit:
+        case .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit:
             return [
                 "enable_thinking": reasoningMode == .thinking,
                 "preserve_thinking": reasoningMode == .thinking,
@@ -56,6 +67,10 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
             // The model template handles <think> tags natively — no key needed.
             return nil
         default:
+            // Other families: only gate thinking if the model actually
+            // supports it; otherwise leave extras empty so we don't
+            // send unknown Jinja keys that could break the template.
+            guard model.supportsThinkingMode else { return nil }
             return ["enable_thinking": reasoningMode == .thinking]
         }
     }
