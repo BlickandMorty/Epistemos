@@ -31,9 +31,6 @@ nonisolated enum OpenAICompatibleChatSupport {
             if let content = message["content"] as? String, !content.isEmpty {
                 return content
             }
-            if let reasoning = message["reasoning_content"] as? String, !reasoning.isEmpty {
-                return reasoning
-            }
             return nil
         }
         .joined()

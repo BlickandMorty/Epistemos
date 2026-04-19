@@ -599,8 +599,11 @@ nonisolated struct InferencePolicyEngine {
             reasoningMode == .fast
             ? candidateModels.filter { !$0.cannotDisableThinkingInFast }
             : candidateModels
+        if reasoningMode == .fast && fastEligibleCandidateModels.isEmpty {
+            return nil
+        }
         let effectiveCandidateModels =
-            fastEligibleCandidateModels.isEmpty ? candidateModels : fastEligibleCandidateModels
+            reasoningMode == .fast ? fastEligibleCandidateModels : candidateModels
         guard !effectiveCandidateModels.isEmpty else {
             return nil
         }

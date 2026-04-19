@@ -92,6 +92,27 @@ struct CloudStreamingParserTests {
         )
     }
 
+    @Test("OpenAI-compatible non-stream message parser never treats reasoning as the answer")
+    func openAICompatibleNonStreamReasoningNeverBecomesAnswerText() {
+        let reasoningOnly: [String: Any] = [
+            "choices": [[
+                "message": [
+                    "reasoning_content": "internal reasoning"
+                ]
+            ]]
+        ]
+        let contentOnly: [String: Any] = [
+            "choices": [[
+                "message": [
+                    "content": "final answer"
+                ]
+            ]]
+        ]
+
+        #expect(OpenAICompatibleChatSupport.messageText(from: reasoningOnly) == nil)
+        #expect(OpenAICompatibleChatSupport.messageText(from: contentOnly) == "final answer")
+    }
+
     @Test("stream parser surfaces top level and nested provider errors")
     func streamErrorParsing() {
         let nested: [String: Any] = [

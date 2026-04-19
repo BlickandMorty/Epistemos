@@ -1115,6 +1115,38 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
     }
 
+    @Test("fast local routing refuses always-thinking fallback models when no fast-safe local tier exists")
+    func fastLocalRoutingRefusesAlwaysThinkingFallbacks() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 120,
+                promptLength: 90,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 80,
+                baseComplexity: 0.12,
+                queryComplexity: 0.08,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                installed: [.deepseekR1Distill7B]
+            )
+        )
+
+        #expect(decision.selectedRoute == .cloud)
+        #expect(decision.localSelection == nil)
+        #expect(decision.reasonCodes.contains(.cloudAutoRoute))
+    }
+
     private func makeContext(
         routingMode: LocalRoutingMode = .auto,
         appleAvailable: Bool,
@@ -2592,6 +2624,11 @@ struct TriageServiceIntegrationTests {
 
         #expect(smallQwenRequest.chatTemplateContext?["enable_thinking"] == false)
         #expect(mediumQwenRequest.chatTemplateContext?["enable_thinking"] == false)
+    }
+
+    @Test("qwen25 coder participates in the thinking loop guard")
+    func qwen25CoderRequiresThinkingLoopGuard() {
+        #expect(LocalTextModelID.qwen25Coder7B.requiresThinkingLoopGuard)
     }
 
     @Test("Qwen 3.6 thinking requests preserve reasoning state across turns")
