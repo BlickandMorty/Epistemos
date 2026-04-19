@@ -110,7 +110,9 @@ final class PipelineService {
         notesContext: String? = nil,
         conversationHistory: String? = nil,
         operatingMode: EpistemosOperatingMode = .fast,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
+        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil,
+        toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)? = nil,
+        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
         let runID = UUID()
@@ -132,13 +134,18 @@ final class PipelineService {
                 do {
                     pipelineState.startProcessing()
 
+                    let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
+                        for: operatingMode
+                    )
+
                     let useToolLoop = shouldUseToolLoop(
                         operatingMode: operatingMode,
-                        executionPlan: executionPlan
+                        executionPlan: executionPlan,
+                        effectiveChatSelection: effectiveChatSelection
                     )
                     let isLocalModelSelected: Bool = {
                         if executionPlan?.forcesLocalExecution == true { return true }
-                        if case .localMLX = inference.preferredChatModelSelection { return true }
+                        if case .localMLX = effectiveChatSelection { return true }
                         return false
                     }()
                     var emittedVisibleText = ""
@@ -158,6 +165,8 @@ final class PipelineService {
                             executionPlan: executionPlan,
                             vaultPath: vaultPath,
                             localClient: localClient,
+                            toolEventHandler: toolEventHandler,
+                            toolApprovalHandler: toolApprovalHandler,
                             onToken: { token in
                                 continuation.yield(.textDelta(token))
                             }
@@ -221,7 +230,8 @@ final class PipelineService {
     /// agent loop instead (handled by ChatCoordinator, not here).
     private func shouldUseToolLoop(
         operatingMode: EpistemosOperatingMode,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan?
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?,
+        effectiveChatSelection: ChatModelSelection
     ) -> Bool {
         if let executionPlan {
             switch executionPlan.route {
@@ -232,6 +242,10 @@ final class PipelineService {
             case .overseerLocalExecution:
                 return executionPlan.allowsToolExecution
             }
+        }
+
+        guard case .localMLX = effectiveChatSelection else {
+            return false
         }
 
         switch operatingMode {
@@ -253,6 +267,8 @@ final class PipelineService {
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         vaultPath: String,
         localClient: any LocalConfigurableLLMClient,
+        toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)?,
+        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)?,
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String {
         let tier = ChatToolTier.from(operatingMode: operatingMode)
@@ -285,15 +301,11 @@ final class PipelineService {
         // Build the objective: include notes context and history inline so
         // the loop sees a single self-contained prompt. LocalAgentLoop
         // manages its own turn history internally once the loop starts.
-        var objectiveParts: [String] = []
-        if let notesContext, !notesContext.isEmpty {
-            objectiveParts.append(notesContext)
-        }
-        if let conversationHistory, !conversationHistory.isEmpty {
-            objectiveParts.append(conversationHistory)
-        }
-        objectiveParts.append(query)
-        let objective = objectiveParts.joined(separator: "\n\n")
+        let objective = Self.buildPromptEnvelope(
+            query: query,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
 
         let reasoningMode: LocalReasoningMode = switch operatingMode {
         case .thinking: .thinking
@@ -312,10 +324,21 @@ final class PipelineService {
             }
             return inference.effectiveLocalAgentTextModelID
         }()
+        let executorBridge = ToolTierBridge(
+            vaultPath: vaultPath,
+            tier: tier,
+            allowedToolNames: Set(tools.map(\.name))
+        )
+        let toolMetadataByName = Dictionary(uniqueKeysWithValues: tools.map { ($0.name, $0) })
         let loop = LocalAgentLoop.liveLoop(
             using: localClient,
             constrainedDecoding: constrainedDecoding,
-            toolExecutor: bridge.toolExecutor(),
+            toolExecutor: observedToolExecutor(
+                executorBridge.toolExecutor(),
+                toolMetadataByName: toolMetadataByName,
+                toolEventHandler: toolEventHandler,
+                toolApprovalHandler: toolApprovalHandler
+            ),
             modelID: modelID,
             steeringHintsJSON: executionPlan?.steeringHintsJSON,
             defaultReasoningMode: reasoningMode
@@ -332,6 +355,7 @@ final class PipelineService {
             maxTurns: 6,
             reasoningMode: reasoningMode,
             additionalSystemPrompt: additional,
+            reflexMode: true,
             onToken: { token in
                 Task { @MainActor in
                     onToken(token)
@@ -339,6 +363,105 @@ final class PipelineService {
             }
         )
         return result
+    }
+
+    func observedToolExecutor(
+        _ baseExecutor: @escaping LocalAgentToolExecutor,
+        toolMetadataByName: [String: OmegaToolDefinition] = [:],
+        toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)?,
+        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil
+    ) -> LocalAgentToolExecutor {
+        { name, argumentsJson in
+            let callID = UUID().uuidString
+            let startedAt = Date()
+            let metadata = toolMetadataByName[name]
+            let permissionRequest = AgentPermissionRequest(
+                id: callID,
+                toolName: name,
+                inputJson: argumentsJson,
+                riskLevel: Self.pipelineToolRiskLevel(for: metadata),
+                description: "Local tool execution requested \(name)."
+            )
+
+            await MainActor.run {
+                toolEventHandler?(.started(id: callID, name: name, inputJson: argumentsJson))
+            }
+
+            if permissionRequest.requiresHumanApproval {
+                let approved = await toolApprovalHandler?(permissionRequest) ?? false
+                if !approved {
+                    let deniedResult = LocalToolResult(
+                        toolName: name,
+                        resultJson: Self.toolErrorJSON("Tool '\(name)' was denied by the user."),
+                        isError: true
+                    )
+                    let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
+                    let durationMs = UInt64(elapsedSeconds * 1000)
+
+                    await MainActor.run {
+                        toolEventHandler?(
+                            .completed(
+                                id: callID,
+                                name: name,
+                                inputJson: argumentsJson,
+                                resultJson: deniedResult.resultJson,
+                                isError: true,
+                                durationMs: durationMs
+                            )
+                        )
+                    }
+
+                    return deniedResult
+                }
+            }
+
+            let result = await baseExecutor(name, argumentsJson)
+            let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
+            let durationMs = UInt64(elapsedSeconds * 1000)
+
+            await MainActor.run {
+                toolEventHandler?(
+                    .completed(
+                        id: callID,
+                        name: name,
+                        inputJson: argumentsJson,
+                        resultJson: result.resultJson,
+                        isError: result.isError,
+                        durationMs: durationMs
+                    )
+                )
+            }
+
+            return result
+        }
+    }
+
+    nonisolated private static func pipelineToolRiskLevel(
+        for tool: OmegaToolDefinition?
+    ) -> AgentRuntimeRiskLevel {
+        guard let tool else { return .readOnly }
+        if tool.destructive {
+            return .destructive
+        }
+        if tool.requiresConfirmation {
+            return .modification
+        }
+        return .readOnly
+    }
+
+    nonisolated private static func toolErrorJSON(_ message: String) -> String {
+        let payload: [String: Any] = [
+            "error": message,
+            "success": false,
+        ]
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        ),
+        let json = String(data: data, encoding: .utf8) else {
+            return "{\"error\":\"\(message)\",\"success\":false}"
+        }
+        return json
     }
 
     func cancelActiveRun() {
@@ -377,6 +500,32 @@ final class PipelineService {
         activeRunID = nil
     }
 
+    nonisolated static func buildPromptEnvelope(
+        query: String,
+        notesContext: String? = nil,
+        conversationHistory: String? = nil
+    ) -> String {
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNotes = notesContext?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedHistory = conversationHistory?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let hasNotes = trimmedNotes?.isEmpty == false
+        let hasHistory = trimmedHistory?.isEmpty == false
+        guard hasNotes || hasHistory else {
+            return trimmedQuery
+        }
+
+        var sections: [String] = []
+        if let trimmedNotes, !trimmedNotes.isEmpty {
+            sections.append(trimmedNotes)
+        }
+        if let trimmedHistory, !trimmedHistory.isEmpty {
+            sections.append("Conversation history:\n\(trimmedHistory)")
+        }
+        sections.append("Current request:\n\(trimmedQuery)")
+        return sections.joined(separator: "\n\n")
+    }
+
     private func generateDirectStream(
         query: String,
         notesContext: String? = nil,
@@ -386,17 +535,11 @@ final class PipelineService {
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
-        var promptParts: [String] = []
-        if let notesContext, !notesContext.isEmpty {
-            promptParts.append(notesContext)
-        }
-        if let conversationHistory, !conversationHistory.isEmpty {
-            promptParts.append(conversationHistory)
-            promptParts.append("User: \(query)")
-        } else {
-            promptParts.append(query)
-        }
-        let finalPrompt = promptParts.joined(separator: "\n\n")
+        let finalPrompt = Self.buildPromptEnvelope(
+            query: query,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
 
         Log.pipeline.info(
             "🔬 systemPrompt length=0 chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"

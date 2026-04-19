@@ -861,6 +861,125 @@ final class ChatCoordinator {
         }
     }
 
+    private func buildMainChatBrainSnapshot(
+        originalQuery: String,
+        resolvedQuery: String,
+        operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?,
+        contextAttachments: [ContextAttachment],
+        loadedNoteTitles: [String],
+        requiredContextContract: String?,
+        vaultBriefingContext: String?,
+        notesContext: String?,
+        fileAttachmentContext: String?,
+        workspaceContextSection: String?,
+        conversationHistory: String?
+    ) -> ChatBrainSnapshot {
+        let selection = inferenceState.effectiveChatSurfaceSelection(for: operatingMode)
+        let allowedToolNames = executionPlan?.allowedToolNames.sorted() ?? []
+        let executionPlanPrompt = executionPlan?.additionalSystemPrompt()
+        let sections = Self.buildMainChatBrainSections(
+            originalQuery: originalQuery,
+            resolvedQuery: resolvedQuery,
+            requiredContextContract: requiredContextContract,
+            vaultBriefingContext: vaultBriefingContext,
+            notesContext: notesContext,
+            fileAttachmentContext: fileAttachmentContext,
+            workspaceContextSection: workspaceContextSection,
+            conversationHistory: conversationHistory,
+            executionPlanPrompt: executionPlanPrompt
+        )
+
+        return ChatBrainSnapshot(
+            query: originalQuery,
+            resolvedQuery: resolvedQuery,
+            operatingMode: operatingMode,
+            routeLabel: Self.mainChatRouteLabel(for: executionPlan?.route),
+            routeSummary: executionPlan?.summary ?? "Standard chat turn",
+            providerLabel: Self.mainChatProviderLabel(for: selection),
+            modelLabel: selection.displayName,
+            allowedToolNames: allowedToolNames,
+            loadedNoteTitles: loadedNoteTitles,
+            contextAttachments: contextAttachments,
+            sections: sections
+        )
+    }
+
+    private static func buildMainChatBrainSections(
+        originalQuery: String,
+        resolvedQuery: String,
+        requiredContextContract: String?,
+        vaultBriefingContext: String?,
+        notesContext: String?,
+        fileAttachmentContext: String?,
+        workspaceContextSection: String?,
+        conversationHistory: String?,
+        executionPlanPrompt: String?
+    ) -> [ChatBrainSection] {
+        var sections: [ChatBrainSection] = []
+        if resolvedQuery != originalQuery {
+            sections.append(ChatBrainSection(title: "Resolved Request", body: resolvedQuery))
+        }
+        if let requiredContextContract {
+            sections.append(
+                ChatBrainSection(title: "Attachment Contract", body: requiredContextContract)
+            )
+        }
+        if let vaultBriefingContext {
+            sections.append(
+                ChatBrainSection(title: "Vault Briefing Context", body: vaultBriefingContext)
+            )
+        }
+        if let notesContext {
+            sections.append(ChatBrainSection(title: "Resolved Note Context", body: notesContext))
+        }
+        if let fileAttachmentContext {
+            sections.append(ChatBrainSection(title: "File Attachments", body: fileAttachmentContext))
+        }
+        if let workspaceContextSection {
+            sections.append(
+                ChatBrainSection(title: "Workspace Awareness", body: workspaceContextSection)
+            )
+        }
+        if let conversationHistory {
+            sections.append(
+                ChatBrainSection(title: "Conversation History", body: conversationHistory)
+            )
+        }
+        if let executionPlanPrompt {
+            sections.append(ChatBrainSection(title: "Execution Plan", body: executionPlanPrompt))
+        }
+        return sections
+    }
+
+    private static func mainChatRouteLabel(
+        for route: OverseerExecutionRoute?
+    ) -> String {
+        switch route {
+        case .localOnly:
+            return "Local Only"
+        case .overseerLocalExecution:
+            return "Overseer + Local Tools"
+        case .managedAgentSession:
+            return "Managed Agent Session"
+        case nil:
+            return "Standard Chat"
+        }
+    }
+
+    private static func mainChatProviderLabel(
+        for selection: ChatModelSelection
+    ) -> String {
+        switch selection {
+        case .appleIntelligence:
+            return "Apple Intelligence"
+        case .localMLX:
+            return "Local MLX"
+        case .cloud(let model):
+            return model.provider.displayName
+        }
+    }
+
     // MARK: - Query Lifecycle
 
     /// Process a user query through the direct local answer path, streaming tokens back to ChatState.
@@ -945,10 +1064,13 @@ final class ChatCoordinator {
                 // For vault briefing, override notesContext with full manifest (includes bodies)
                 let effectiveNotesContext: String?
                 let effectiveQuery: String
+                let vaultBriefingContext = isVaultBriefing
+                    ? chatState.vaultBriefingManifest?.asContext()
+                    : nil
                 if isVaultBriefing {
                     effectiveNotesContext = Self.mergedContextSections(
                         requiredContextContract,
-                        chatState.vaultBriefingManifest?.asContext(),
+                        vaultBriefingContext,
                         notesContext,
                         fileAttachmentContext
                     )
@@ -1047,6 +1169,24 @@ final class ChatCoordinator {
                     }
                 }
 
+                let effectiveOperatingMode = executionPlan?.localOperatingMode ?? operatingMode
+                chatState.captureBrainSnapshot(
+                    buildMainChatBrainSnapshot(
+                        originalQuery: query,
+                        resolvedQuery: effectiveQuery,
+                        operatingMode: effectiveOperatingMode,
+                        executionPlan: executionPlan,
+                        contextAttachments: chatState.pendingContextAttachments,
+                        loadedNoteTitles: chatState.loadedNoteTitles,
+                        requiredContextContract: requiredContextContract,
+                        vaultBriefingContext: vaultBriefingContext,
+                        notesContext: notesContext,
+                        fileAttachmentContext: fileAttachmentContext,
+                        workspaceContextSection: workspaceContextSection,
+                        conversationHistory: conversationHistory
+                    )
+                )
+
                 // Route: managed-agent sessions escalate to Rust agent_core,
                 // while local-only and overseer-local plans stay on the Swift
                 // pipeline with an explicit local execution plan.
@@ -1081,7 +1221,7 @@ final class ChatCoordinator {
                         mode: mode,
                         notesContext: effectiveNotesContextWithWorkspace,
                         conversationHistory: conversationHistory,
-                        operatingMode: executionPlan?.localOperatingMode ?? operatingMode,
+                        operatingMode: effectiveOperatingMode,
                         executionPlan: executionPlan,
                         toolEventHandler: { event in
                             switch event {
@@ -1195,15 +1335,18 @@ final class ChatCoordinator {
         var receivedAgentContent = false
         var terminalAgentError: AgentRuntimeError?
 
-        // Build system prompt with context
+        let objective = PipelineService.buildPromptEnvelope(
+            query: query,
+            notesContext: notesContext,
+            conversationHistory: conversationHistory
+        )
+
+        // Keep the managed-agent system prompt lean. Retrieved note context,
+        // ambient workspace context, and history now live in the objective
+        // envelope so they remain visible and don't masquerade as hidden
+        // instructions.
         var systemParts: [String] = []
         systemParts.append("You are Epistemos, an intelligent knowledge assistant. Be concise and actionable.")
-        if let ctx = notesContext {
-            systemParts.append("Context from the user's vault:\n\(ctx)")
-        }
-        if let history = conversationHistory {
-            systemParts.append("Conversation history:\n\(history)")
-        }
         systemParts.append(executionPlan.additionalSystemPrompt())
 
         // Resolve provider name from current inference configuration
@@ -1244,7 +1387,7 @@ final class ChatCoordinator {
                 do {
                     let result = try await runAgentSession(
                         sessionId: sessionId,
-                        objective: query,
+                        objective: objective,
                         providerName: providerName,
                         toolConfig: toolConfig,
                         agentConfig: agentConfig,

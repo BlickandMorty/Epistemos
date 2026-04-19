@@ -124,6 +124,34 @@ struct AgentChatStateTests {
         #expect(state.toolHistory.isEmpty)
     }
 
+    @Test func mainChatBrainSnapshotClearsWithConversationReset() {
+        let state = ChatState()
+        state.captureBrainSnapshot(
+            ChatBrainSnapshot(
+                capturedAt: Date(timeIntervalSince1970: 0),
+                query: "Review this thread",
+                resolvedQuery: "Current request:\nReview this thread",
+                operatingMode: .agent,
+                routeLabel: "Managed agent session",
+                routeSummary: "Managed agent session",
+                providerLabel: "OpenAI",
+                modelLabel: "GPT-5",
+                allowedToolNames: ["web_search"],
+                loadedNoteTitles: ["Graph Notes"],
+                contextAttachments: [
+                    ContextAttachment(kind: .note, targetId: "note-1", title: "Graph Notes"),
+                ],
+                sections: [
+                    ChatBrainSection(title: "Workspace Awareness", body: "Recent graph edits"),
+                ]
+            )
+        )
+
+        #expect(state.latestBrainSnapshot?.sections.count == 1)
+        state.startNewChat()
+        #expect(state.latestBrainSnapshot == nil)
+    }
+
     // MARK: - Error Message
 
     @Test func addErrorMessage() {

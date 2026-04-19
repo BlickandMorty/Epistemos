@@ -62,6 +62,7 @@ enum ChatLayout {
     static let mainComposerMaxWidth: CGFloat = 860
     static let mainComposerHorizontalPadding: CGFloat = 10
     static let transcriptSpacing: CGFloat = 28
+    static let brainPanelWidth: CGFloat = 388
 }
 
 enum ChatStreamingDisplayPolicy {
@@ -135,6 +136,7 @@ struct ChatView: View {
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
+    @State private var showBrainPanel = false
     @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
@@ -175,98 +177,104 @@ struct ChatView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Message list
-            ScrollViewReader { proxy in
-                ScrollView {
-                    HStack {
-                        Spacer(minLength: 0)
-                        LazyVStack(spacing: ChatLayout.transcriptSpacing) {
-                            ForEach(transcriptRows) { row in
-                                MessageBubble(
-                                    message: row.message,
-                                    originalQuery: row.originalQuery,
-                                    displayContent: row.displayContent,
-                                    heading: row.heading,
-                                    sourceReferences: row.sourceReferences,
-                                    allowsResubmit: !pipeline.isProcessing,
-                                    onResubmit: { query in
-                                        submitMainChatQuery(query, operatingMode: selectedOperatingMode)
-                                    }
-                                )
-                                .id(row.id)
-                            }
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        HStack {
+                            Spacer(minLength: 0)
+                            LazyVStack(spacing: ChatLayout.transcriptSpacing) {
+                                ForEach(transcriptRows) { row in
+                                    MessageBubble(
+                                        message: row.message,
+                                        originalQuery: row.originalQuery,
+                                        displayContent: row.displayContent,
+                                        heading: row.heading,
+                                        sourceReferences: row.sourceReferences,
+                                        allowsResubmit: !pipeline.isProcessing,
+                                        onResubmit: { query in
+                                            submitMainChatQuery(query, operatingMode: selectedOperatingMode)
+                                        }
+                                    )
+                                    .id(row.id)
+                                }
 
-                            // Streaming indicator
-                            if pipeline.isProcessing || chat.isStreaming {
-                                StreamingIndicator()
-                                    .id("streaming-bottom")
-                            }
+                                if pipeline.isProcessing || chat.isStreaming {
+                                    StreamingIndicator()
+                                        .id("streaming-bottom")
+                                }
 
-                            // Anchor for scroll-to-bottom
-                            Color.clear
-                                .frame(height: 1)
-                                .id("bottom-anchor")
+                                Color.clear
+                                    .frame(height: 1)
+                                    .id("bottom-anchor")
+                            }
+                            .frame(maxWidth: ChatLayout.messageColumnMaxWidth)
+                            Spacer(minLength: 0)
                         }
-                        .frame(maxWidth: ChatLayout.messageColumnMaxWidth)
-                        Spacer(minLength: 0)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.bottom, Spacing.lg)
                     }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.bottom, Spacing.lg)
-                }
-                .contentMargins(.top, 0, for: .scrollContent)
-                .onScrollGeometryChange(
-                    for: Bool.self,
-                    of: { geometry in
-                        ScrollStability.followMode(for: geometry, from: autoFollow)
+                    .contentMargins(.top, 0, for: .scrollContent)
+                    .onScrollGeometryChange(
+                        for: Bool.self,
+                        of: { geometry in
+                            ScrollStability.followMode(for: geometry, from: autoFollow)
+                        }
+                    ) { _, isFollowingBottom in
+                        guard isFollowingBottom != autoFollow.isFollowingBottom else { return }
+                        autoFollow.setFollowingBottom(isFollowingBottom)
                     }
-                ) { _, isFollowingBottom in
-                    guard isFollowingBottom != autoFollow.isFollowingBottom else { return }
-                    autoFollow.setFollowingBottom(isFollowingBottom)
-                }
-                .onChange(of: chat.messages.count) { _, _ in
-                    guard autoFollow.isFollowingBottom else { return }
-                    autoFollow.markProgrammaticScrollToBottom()
-                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
-                }
-                .onChange(of: chat.transcriptRevision) { _, _ in
-                    transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
-                }
-                .onChange(of: chat.streamingText) { _, _ in
-                    // Throttle to ~4fps during streaming for "smooth" feel
-                    let now = ContinuousClock.now
-                    guard autoFollow.isFollowingBottom,
-                          (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming),
-                          now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
-                    else { return }
-                    lastScrollTime = now
-                    autoFollow.markProgrammaticScrollToBottom()
-                    proxy.scrollTo("bottom-anchor", anchor: .bottom)
-                }
-                .onAppear {
-                    Task { @MainActor in
-                        transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
+                    .onChange(of: chat.messages.count) { _, _ in
+                        guard autoFollow.isFollowingBottom else { return }
                         autoFollow.markProgrammaticScrollToBottom()
                         proxy.scrollTo("bottom-anchor", anchor: .bottom)
                     }
+                    .onChange(of: chat.transcriptRevision) { _, _ in
+                        transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
+                    }
+                    .onChange(of: chat.streamingText) { _, _ in
+                        let now = ContinuousClock.now
+                        guard autoFollow.isFollowingBottom,
+                              (ChatStreamingDisplayPolicy.showsLiveResponseText || !chat.isStreaming),
+                              now - lastScrollTime > ChatScrollFollowPolicy.streamingThrottle
+                        else { return }
+                        lastScrollTime = now
+                        autoFollow.markProgrammaticScrollToBottom()
+                        proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                    }
+                    .onAppear {
+                        Task { @MainActor in
+                            transcriptRows = makeChatTranscriptRows(from: chat.messages, chatTitle: chat.chatTitle)
+                            autoFollow.markProgrammaticScrollToBottom()
+                            proxy.scrollTo("bottom-anchor", anchor: .bottom)
+                        }
+                    }
                 }
-            }
 
-            // Input bar
-            ChatInputBar(
-                onSubmit: { query in
-                    submitMainChatQuery(query, operatingMode: selectedOperatingMode)
-                },
-                onStop: {
-                    chat.stopStreaming()
-                },
-                isProcessing: pipeline.isProcessing,
-                operatingMode: operatingModeBinding,
-                availableOperatingModes: supportedOperatingModes
-            )
+                ChatInputBar(
+                    onSubmit: { query in
+                        submitMainChatQuery(query, operatingMode: selectedOperatingMode)
+                    },
+                    onStop: {
+                        chat.stopStreaming()
+                    },
+                    isProcessing: pipeline.isProcessing,
+                    operatingMode: operatingModeBinding,
+                    availableOperatingModes: supportedOperatingModes
+                )
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if showBrainPanel {
+                Divider()
+                ChatBrainPanelView(snapshot: chat.latestBrainSnapshot)
+                    .frame(width: ChatLayout.brainPanelWidth)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(oledAwareBackground.ignoresSafeArea())
+        .animation(.spring(response: 0.32, dampingFraction: 0.9), value: showBrainPanel)
         .onAppear {
             sanitizeStoredOperatingMode()
             refreshChatCapability()
@@ -286,6 +294,7 @@ struct ChatView: View {
             // Right: chat controls (title + nav handled by toolbar)
             ToolbarItemGroup(placement: .primaryAction) {
                 historyToolbarButton
+                brainToolbarButton
                 miniChatToolbarButton
                 
                 Button(action: exportChat) {
@@ -324,6 +333,18 @@ struct ChatView: View {
                 .frame(width: 300, height: 500)
                 .preferredColorScheme(ui.preferredColorScheme)
         }
+    }
+
+    private var brainToolbarButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showBrainPanel.toggle()
+            }
+        } label: {
+            Label(showBrainPanel ? "Hide Brain" : "Show Brain", systemImage: "sidebar.right")
+        }
+        .accessibilityLabel(showBrainPanel ? "Hide Brain" : "Show Brain")
+        .help(showBrainPanel ? "Hide Brain" : "Show Brain")
     }
 
     private var miniChatToolbarButton: some View {
@@ -449,5 +470,121 @@ private struct StreamingIndicator: View {
         .padding(.vertical, 14)
         .assistantInsetChrome(theme: theme, cornerRadius: 20)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct ChatBrainPanelView: View {
+    @Environment(UIState.self) private var ui
+    let snapshot: ChatBrainSnapshot?
+
+    private var theme: EpistemosTheme { ui.theme }
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                if let snapshot {
+                    summaryCard(title: "Context Envelope") {
+                        detailRow("Route", snapshot.routeLabel)
+                        detailRow("Summary", snapshot.routeSummary)
+                        detailRow("Runtime", snapshot.providerLabel)
+                        detailRow("Model", snapshot.modelLabel ?? "Unknown")
+                        detailRow("Mode", snapshot.operatingMode.displayName)
+                        detailRow(
+                            "Captured",
+                            snapshot.capturedAt.formatted(date: .abbreviated, time: .standard)
+                        )
+                    }
+
+                    summaryCard(title: "Request") {
+                        bodyBlock(snapshot.query)
+                        if snapshot.resolvedQuery != snapshot.query {
+                            Divider()
+                            detailRow("Resolved", "After explicit-context cleanup and routing")
+                            bodyBlock(snapshot.resolvedQuery)
+                        }
+                    }
+
+                    if !snapshot.contextAttachments.isEmpty {
+                        summaryCard(title: "Explicit Attachments") {
+                            ForEach(snapshot.contextAttachments) { attachment in
+                                detailRow(
+                                    attachment.title,
+                                    attachment.subtitle ?? attachment.kind.rawValue.capitalized
+                                )
+                            }
+                        }
+                    }
+
+                    if !snapshot.loadedNoteTitles.isEmpty {
+                        summaryCard(title: "Loaded Notes") {
+                            ForEach(snapshot.loadedNoteTitles, id: \.self) { title in
+                                detailRow(title, "Loaded into this turn")
+                            }
+                        }
+                    }
+
+                    if !snapshot.allowedToolNames.isEmpty {
+                        summaryCard(title: "Allowed Tools") {
+                            bodyBlock(snapshot.allowedToolNames.joined(separator: "\n"))
+                        }
+                    }
+
+                    ForEach(snapshot.sections) { section in
+                        summaryCard(title: section.title) {
+                            bodyBlock(section.body)
+                        }
+                    }
+                } else {
+                    summaryCard(title: "Brain") {
+                        Text("Submit a chat turn to inspect the exact note context, workspace awareness, history, and execution plan that were injected.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(theme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(16)
+        }
+        .background(theme.resolved.background.color)
+    }
+
+    @ViewBuilder
+    private func summaryCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(theme.textPrimary)
+
+            content()
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(theme.border.opacity(0.55), lineWidth: 0.6)
+        }
+    }
+
+    @ViewBuilder
+    private func detailRow(_ label: String, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textTertiary)
+            Text(value)
+                .font(.system(size: 12))
+                .foregroundStyle(theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    @ViewBuilder
+    private func bodyBlock(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11, design: .monospaced))
+            .foregroundStyle(theme.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .textSelection(.enabled)
     }
 }

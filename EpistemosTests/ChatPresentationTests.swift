@@ -186,6 +186,16 @@ struct ChatPresentationTests {
         #expect(thinkingSource.contains(".breathe("))
     }
 
+    @Test("main chat exposes a toggleable brain side panel for context transparency")
+    func mainChatExposesAToggleableBrainSidePanelForContextTransparency() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
+
+        #expect(source.contains("@State private var showBrainPanel = false"))
+        #expect(source.contains("ChatBrainPanelView("))
+        #expect(source.contains("chat.latestBrainSnapshot"))
+        #expect(source.contains("Label(showBrainPanel ? \"Hide Brain\" : \"Show Brain\""))
+    }
+
     @Test("chat text export support writes content and throws for unwritable destinations")
     func chatTextExportSupportWritesContentAndThrowsForUnwritableDestinations() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
