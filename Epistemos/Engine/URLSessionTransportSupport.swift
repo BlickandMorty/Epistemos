@@ -1,5 +1,23 @@
 import Foundation
 
+/// Tiny actor used by the SSE watchdog to track the last time activity
+/// (any incoming byte or line, including heartbeats) was seen on the
+/// stream. An actor so the monitor task and the read loop can update /
+/// inspect the timestamp without races.
+actor LastActivityTracker {
+    private var last: ContinuousClock.Instant = .now
+
+    func touch() {
+        last = .now
+    }
+
+    func secondsSinceTouch() -> Double {
+        let elapsed = ContinuousClock.Instant.now - last
+        return Double(elapsed.components.seconds)
+            + Double(elapsed.components.attoseconds) / 1e18
+    }
+}
+
 nonisolated enum StreamingBufferPolicy {
     private static let limit = 256
 
@@ -33,6 +51,13 @@ nonisolated enum URLSessionTransportSupport {
         return json
     }
 
+    /// How long the stream may go idle (no bytes, no heartbeat) before
+    /// we abort with a watchdog error. Some reasoning turns legitimately
+    /// take 30–60s of silent thinking; 120s is generous but still short
+    /// enough to unstick a truly-dropped connection without the user
+    /// staring at a frozen "Thinking…" bubble indefinitely.
+    private static let streamIdleWatchdogSeconds: Double = 120
+
     static func streamSSE(
         using urlSession: URLSession,
         request: URLRequest,
@@ -40,8 +65,34 @@ nonisolated enum URLSessionTransportSupport {
         chunkExtractor: @escaping @Sendable ([String: Any]) -> String?
     ) -> AsyncThrowingStream<String, Error> {
         ProcessActivity.makeStream(reason: "Streaming OpenAI-compatible response") { continuation in
+            // Shared watchdog state: last time we saw any bytes from
+            // the stream. The monitor task polls this and aborts the
+            // run if we've been silent past `streamIdleWatchdogSeconds`.
+            let lastActivity = LastActivityTracker()
+            await lastActivity.touch()
+
+            let watchdog = Task.detached { [lastActivity] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(15))
+                    if Task.isCancelled { return }
+                    let idle = await lastActivity.secondsSinceTouch()
+                    if idle > Self.streamIdleWatchdogSeconds {
+                        continuation.finish(
+                            throwing: LLMError.apiError(
+                                statusCode: 504,
+                                body: "Model stream went idle for \(Int(idle))s. The provider may be overloaded — try again or switch models."
+                            )
+                        )
+                        return
+                    }
+                }
+            }
+            defer { watchdog.cancel() }
+
             do {
                 let (bytes, response) = try await urlSession.bytes(for: request)
+                await lastActivity.touch()
+
                 guard let httpResponse = response as? HTTPURLResponse else {
                     throw invalidResponse()
                 }
@@ -87,6 +138,12 @@ nonisolated enum URLSessionTransportSupport {
                         continuation.finish()
                         return
                     }
+                    // Any line (even an empty SSE keep-alive) counts as
+                    // activity for the watchdog. Providers send `\n`
+                    // heartbeats during long reasoning phases
+                    // specifically so intermediaries don't kill idle
+                    // connections.
+                    await lastActivity.touch()
 
                     if line.isEmpty {
                         try flushEvent()

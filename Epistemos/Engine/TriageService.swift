@@ -1307,6 +1307,13 @@ final class TriageService {
                     }
                 )
             }
+            // Prominent per-turn log so "is it actually hitting
+            // ChatGPT?" has a definitive answer without code-diving.
+            // Prints the wire-level identity: provider brand + vendor
+            // model id + operating mode + reasoning tier.
+            Log.engine.notice(
+                "Cloud route: provider=\(model.provider.rawValue, privacy: .public) model=\(model.vendorModelID, privacy: .public) mode=\(operatingMode.rawValue, privacy: .public) reasoning=\(self.inference.chatReasoningTier.rawValue, privacy: .public)"
+            )
             return userFacingStream(
                 cloudStream(
                     prompt: prompt,
