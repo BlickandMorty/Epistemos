@@ -65,6 +65,13 @@ nonisolated final class ThinkTagStreamRouter {
     /// give a bit of headroom.
     private static let maxPartialTagLength = 12
 
+    /// Safety valve: if pending buffer grows past this without ever
+    /// finding an open tag, force-flush as visible so a misbehaving
+    /// model can't cause the router to buffer forever. Chosen high
+    /// enough (16k chars ≈ 4k tokens) that real `<think>` blocks
+    /// always complete before the cap fires.
+    private static let maxPendingBufferChars = 16_384
+
     private var mode: Mode = .visible
     private var pending: String = ""
 
@@ -74,6 +81,22 @@ nonisolated final class ThinkTagStreamRouter {
     func ingest(_ chunk: String) -> Emit {
         guard !chunk.isEmpty else { return .empty }
         pending.append(chunk)
+
+        // Safety valve — a misbehaving model that spews text without
+        // ever closing a tag (or confused whitespace that looks like
+        // a tag prefix forever) can't balloon memory. If we're well
+        // past any plausible partial-tag window, flush what we have
+        // via the current mode's channel.
+        if pending.count > Self.maxPendingBufferChars {
+            let drained = pending
+            pending = ""
+            switch mode {
+            case .visible:
+                return Emit(visible: drained, thinking: "")
+            case .thinking:
+                return Emit(visible: "", thinking: drained)
+            }
+        }
 
         var emit = Emit.empty
 
