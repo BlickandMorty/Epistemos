@@ -165,7 +165,7 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         requestedRuntimeKind: BackendRuntimeKind?,
         steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             let task = Task { @MainActor in
                 do {
                     let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)
@@ -236,6 +236,7 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
 
     private func snapshotRuntimeKind(for modelID: String) -> BackendRuntimeKind {
         if let preparedRuntimeKind = preparedGenerationRuntimeConfiguration?.resolvedRuntimeKind(for: modelID),
+           preparedGenerationRuntimeConfiguration?.hasUsablePreparedRuntime(for: modelID) == true,
            inference.availableLocalGenerationRuntimeKinds.contains(preparedRuntimeKind) {
             return preparedRuntimeKind
         }
@@ -258,7 +259,8 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
 
         let resolvedModelID = modelID ?? inference.effectiveLocalTextModelID
         if let resolvedModelID,
-           let preparedRuntimeKind = preparedGenerationRuntimeConfiguration?.resolvedRuntimeKind(for: resolvedModelID) {
+           let preparedRuntimeKind = preparedGenerationRuntimeConfiguration?.resolvedRuntimeKind(for: resolvedModelID),
+           preparedGenerationRuntimeConfiguration?.hasUsablePreparedRuntime(for: resolvedModelID) == true {
             let allowMLXFallback =
                 preparedRuntimeKind == .gguf
                 ? LocalTextModelID(rawValue: resolvedModelID)?.runtimeKind != .gguf

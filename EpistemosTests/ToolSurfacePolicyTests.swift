@@ -23,4 +23,13 @@ struct ToolSurfacePolicyTests {
 
         #expect(filtered.map(\.name) == ["vision_analyze", "text_to_speech"])
     }
+
+    @Test func thinkDisappearsFromVisibleToolSurfaces() {
+        let filtered = ToolSurfacePolicy.surfacedTools([
+            Self.makeTool(name: "think"),
+            Self.makeTool(name: "vault_search"),
+        ])
+
+        #expect(filtered.map(\.name) == ["vault_search"])
+    }
 }

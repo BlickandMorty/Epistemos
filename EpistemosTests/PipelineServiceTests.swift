@@ -5,6 +5,15 @@ import Testing
 
 private let interactiveReleaseFixtureModelID = LocalTextModelID.qwen35_2B4Bit
 
+@MainActor
+private final class PipelineToolEventRecorder {
+    private(set) var events: [PipelineToolEvent] = []
+
+    func append(_ event: PipelineToolEvent) {
+        events.append(event)
+    }
+}
+
 // MARK: - MockLLMClient
 
 /// Test double for LLMClientProtocol. Records calls and returns canned responses.
@@ -148,7 +157,13 @@ struct PipelineServiceTests {
         mock.streamTokens = ["Test", " answer"]
 
         let pipelineState = PipelineState()
-        let inference = InferenceState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
@@ -187,7 +202,13 @@ struct PipelineServiceTests {
         mock.streamTokens = ["Direct", " answer"]
 
         let pipelineState = PipelineState()
-        let inference = InferenceState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
         inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
@@ -414,7 +435,13 @@ struct PipelineServiceTests {
         mock.streamTokens = ["Local", " plan"]
 
         let pipelineState = PipelineState()
-        let inference = InferenceState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
@@ -467,7 +494,13 @@ struct PipelineServiceTests {
     @MainActor func localExecutionPlanForwardsSteeringHintsToLocalRuntime() async throws {
         let localClient = RecordingConfigurableLocalLLMClient()
         let pipelineState = PipelineState()
-        let inference = InferenceState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
@@ -512,6 +545,129 @@ struct PipelineServiceTests {
         let normalizedActual = try normalizedJSONString(actualHints)
         let normalizedExpected = try normalizedJSONString(expectedHints)
         #expect(normalizedActual == normalizedExpected)
+    }
+
+    @Test("observed local tool executor emits lifecycle events around tool execution")
+    @MainActor func observedLocalToolExecutorEmitsLifecycleEvents() async {
+        let mock = MockLLMClient()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let recorder = PipelineToolEventRecorder()
+        let executor = pipeline.observedToolExecutor(
+            { name, argumentsJson in
+                #expect(name == "tool_ping")
+                #expect(argumentsJson.contains("\"request\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"content":[{"path":"ml/transformers.md"}],"success":true}"#,
+                    isError: false
+                )
+            },
+            toolEventHandler: { event in
+                recorder.append(event)
+            }
+        )
+
+        let result = await executor(
+            "tool_ping",
+            #"{"request":"transformer architecture"}"#
+        )
+
+        #expect(result.isError == false)
+        let events = recorder.events
+        #expect(events.count == 2)
+
+        guard case let .started(startID, startedName, startedInput) = events[0] else {
+            Issue.record("Expected a started tool event before the tool result.")
+            return
+        }
+        #expect(!startID.isEmpty)
+        #expect(startedName == "tool_ping")
+        #expect(startedInput.contains("\"request\":\"transformer architecture\""))
+
+        guard case let .completed(completedID, completedName, completedInput, resultJson, isError, durationMs) = events[1] else {
+            Issue.record("Expected a completed tool event after the tool result.")
+            return
+        }
+        #expect(completedID == startID)
+        #expect(completedName == "tool_ping")
+        #expect(completedInput == startedInput)
+        #expect(resultJson.contains("\"success\":true"))
+        #expect(isError == false)
+        #expect(durationMs >= 0)
+    }
+
+    @Test("observed local tool executor blocks sensitive tools when the user denies approval")
+    @MainActor func observedLocalToolExecutorHonorsDeniedApproval() async {
+        let mock = MockLLMClient()
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let recorder = PipelineToolEventRecorder()
+        let executor = pipeline.observedToolExecutor(
+            { _, _ in
+                preconditionFailure("Observed tool executor should not execute the tool after approval is denied.")
+            },
+            toolMetadataByName: [
+                "read_file": OmegaToolDefinition(
+                    name: "read_file",
+                    agent: "rust",
+                    description: "Read a local file",
+                    argumentsExample: "{}",
+                    schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}}}"#,
+                    destructive: false,
+                    requiresConfirmation: false
+                )
+            ],
+            toolEventHandler: { event in
+                recorder.append(event)
+            },
+            toolApprovalHandler: { request in
+                #expect(request.toolName == "read_file")
+                #expect(request.requiresHumanApproval)
+                return false
+            }
+        )
+
+        let result = await executor(
+            "read_file",
+            #"{"path":"/tmp/test.txt"}"#
+        )
+
+        #expect(result.isError)
+        #expect(result.resultJson.contains("denied by the user"))
+
+        let events = recorder.events
+        #expect(events.count == 2)
+        guard case .started = events[0] else {
+            Issue.record("Expected a started event before the denial result.")
+            return
+        }
+        guard case let .completed(_, _, _, resultJson, isError, _) = events[1] else {
+            Issue.record("Expected a completed event carrying the denial result.")
+            return
+        }
+        #expect(isError)
+        #expect(resultJson.contains("denied by the user"))
     }
 }
 
@@ -764,6 +920,14 @@ struct PipelineContractTests {
         }
 
         #expect(gotCompleted, "Pipeline should emit a .completed event")
+    }
+
+    @Test("local tool loop uses reflex execution and guards the executor to surfaced tools")
+    func localToolLoopUsesReflexExecutionAndAllowlistedExecutor() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
+
+        #expect(source.contains("allowedToolNames: Set(tools.map(\\.name))"))
+        #expect(source.contains("reflexMode: true"))
     }
 
 }
@@ -1196,6 +1360,7 @@ struct ChatCoordinatorPersistenceTests {
 
         #expect(resolution.cleanedQuery == "Compare this with the selected note")
         #expect(resolution.context?.contains("## Required Attached Notes") == true)
+        #expect(resolution.context?.contains("Use these notes before recall/search tools.") == true)
         #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
         #expect(resolution.context?.contains("Priority: Required context.") == true)
         #expect(resolution.context?.contains("Beta full body") == true)

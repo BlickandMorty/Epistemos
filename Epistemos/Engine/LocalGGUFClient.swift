@@ -229,9 +229,7 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
 
         try serialController.beginTurn()
         do {
-            if serialController.snapshot().turnBoundaryReadaheadAllowed {
-                try? serialController.recordTurnBoundaryReadahead()
-            }
+            recordTurnBoundaryReadaheadIfNeeded()
 
             try serialController.beginSsdRead()
             let engine = try await engine(
@@ -247,10 +245,17 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
                 request.systemPrompt,
                 request.maxTokens
             )
-            try serialController.finishGpuCompute()
-
+            do {
+                try serialController.finishGpuCompute()
+            } catch {
+                logSerialControllerCleanupFailure("finishGpuCompute", error: error)
+            }
+            do {
+                try serialController.endTurn()
+            } catch {
+                logSerialControllerCleanupFailure("endTurn", error: error)
+            }
             let finalSnapshot = serialController.refreshAvailableMemory()
-            try serialController.endTurn()
             let profile = makeProfile(
                 request: request,
                 resolvedModelID: resolvedModelID,
@@ -264,15 +269,13 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
             lastRunProfile = profile
             return output
         } catch {
-            try? serialController.finishGpuCompute()
-            try? serialController.finishSsdRead()
-            try? serialController.endTurn()
+            finishSerialTurnAfterFailure()
             throw error
         }
     }
 
     func stream(request: LocalGGUFRequest) async -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 let start = ContinuousClock.now
                 let resolvedModelID = request.artifactID ?? request.modelURL.deletingPathExtension().lastPathComponent
@@ -283,9 +286,7 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
 
                 do {
                     try self.serialController.beginTurn()
-                    if self.serialController.snapshot().turnBoundaryReadaheadAllowed {
-                        try? self.serialController.recordTurnBoundaryReadahead()
-                    }
+                    self.recordTurnBoundaryReadaheadIfNeeded()
 
                     try self.serialController.beginSsdRead()
                     let engine = try await self.engine(
@@ -311,10 +312,17 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
                         output += chunk
                         continuation.yield(chunk)
                     }
-                    try self.serialController.finishGpuCompute()
-
+                    do {
+                        try self.serialController.finishGpuCompute()
+                    } catch {
+                        self.logSerialControllerCleanupFailure("finishGpuCompute", error: error)
+                    }
+                    do {
+                        try self.serialController.endTurn()
+                    } catch {
+                        self.logSerialControllerCleanupFailure("endTurn", error: error)
+                    }
                     let finalSnapshot = self.serialController.refreshAvailableMemory()
-                    try self.serialController.endTurn()
                     let profile = self.makeProfile(
                         request: request,
                         resolvedModelID: resolvedModelID,
@@ -328,9 +336,7 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
                     self.lastRunProfile = profile
                     continuation.finish()
                 } catch {
-                    try? self.serialController.finishGpuCompute()
-                    try? self.serialController.finishSsdRead()
-                    try? self.serialController.endTurn()
+                    self.finishSerialTurnAfterFailure()
                     continuation.finish(throwing: error)
                 }
             }
@@ -396,6 +402,39 @@ actor LocalGGUFInProcessRuntime: LocalGGUFRuntime {
             fallbackMode: fallbackMode,
             availableMemoryBytes: availableMemoryBytes
         )
+    }
+
+    private func logSerialControllerCleanupFailure(_ action: String, error: Error) {
+        Log.engine.warning(
+            "LocalGGUFInProcessRuntime: \(action, privacy: .public) failed: \(error.localizedDescription, privacy: .public)"
+        )
+    }
+
+    private func recordTurnBoundaryReadaheadIfNeeded() {
+        guard serialController.snapshot().turnBoundaryReadaheadAllowed else { return }
+        do {
+            try serialController.recordTurnBoundaryReadahead()
+        } catch {
+            logSerialControllerCleanupFailure("recordTurnBoundaryReadahead", error: error)
+        }
+    }
+
+    private func finishSerialTurnAfterFailure() {
+        do {
+            try serialController.finishGpuCompute()
+        } catch {
+            logSerialControllerCleanupFailure("finishGpuCompute", error: error)
+        }
+        do {
+            try serialController.finishSsdRead()
+        } catch {
+            logSerialControllerCleanupFailure("finishSsdRead", error: error)
+        }
+        do {
+            try serialController.endTurn()
+        } catch {
+            logSerialControllerCleanupFailure("endTurn", error: error)
+        }
     }
 
     private nonisolated static func defaultEngineBuilder(
@@ -721,7 +760,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             )
             let contractRequest = backendGenerationRequest(for: request)
 
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 let task = Task {
                     await self.prepareForRequest()
                     var launch: BackendGenerationLaunch?
@@ -769,10 +808,16 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                                 cancelled: true,
                                 errorClass: .cancelled
                             )
-                            try? await self.runtimeControlPlane.finishCancelled(
-                                streamHandle: launch.streamHandle,
-                                summary: summary
-                            )
+                            do {
+                                try await self.runtimeControlPlane.finishCancelled(
+                                    streamHandle: launch.streamHandle,
+                                    summary: summary
+                                )
+                            } catch {
+                                Log.engine.error(
+                                    "LocalGGUFClient: failed to mark cancelled stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                )
+                            }
                         }
                         continuation.finish(throwing: CancellationError())
                     } catch {
@@ -785,12 +830,18 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                                 cancelled: false,
                                 errorClass: mapped
                             )
-                            try? await self.runtimeControlPlane.finishFailed(
-                                streamHandle: launch.streamHandle,
-                                errorClass: mapped,
-                                message: error.localizedDescription,
-                                summary: summary
-                            )
+                            do {
+                                try await self.runtimeControlPlane.finishFailed(
+                                    streamHandle: launch.streamHandle,
+                                    errorClass: mapped,
+                                    message: error.localizedDescription,
+                                    summary: summary
+                                )
+                            } catch {
+                                Log.engine.error(
+                                    "LocalGGUFClient: failed to mark failed stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                                )
+                            }
                         }
                         continuation.finish(throwing: error)
                     }
@@ -798,7 +849,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                 continuation.onTermination = { _ in task.cancel() }
             }
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: error)
             }
         }

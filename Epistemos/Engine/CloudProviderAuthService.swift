@@ -12,6 +12,8 @@ nonisolated enum CloudProviderOAuthMode: String, Codable, Sendable, Equatable {
 }
 
 nonisolated struct CloudProviderOAuthCredential: Codable, Sendable, Equatable {
+    private static let log = Logger(subsystem: "com.epistemos.auth", category: "CloudProviderOAuthCredential")
+
     let provider: CloudModelProvider
     var accessToken: String
     var refreshToken: String?
@@ -54,8 +56,16 @@ nonisolated struct CloudProviderOAuthCredential: Codable, Sendable, Equatable {
     }
 
     static func decode(from rawValue: String) -> CloudProviderOAuthCredential? {
-        guard let data = rawValue.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(Self.self, from: data)
+        guard let data = rawValue.data(using: .utf8) else {
+            Self.log.error("Failed to decode OAuth credential blob: stored value was not valid UTF-8")
+            return nil
+        }
+        do {
+            return try JSONDecoder().decode(Self.self, from: data)
+        } catch {
+            Self.log.error("Failed to decode OAuth credential blob: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     var displayAccountLabel: String? {

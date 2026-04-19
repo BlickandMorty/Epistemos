@@ -17,6 +17,7 @@ private func loadRepoTextFileWithRetry(
 struct RuntimeValidationTests {
     private let inferenceDefaultsKeys = [
         "epistemos.localRoutingMode",
+        "epistemos.chatAutoRouteToCloud",
         "epistemos.preferredLocalTextModelID",
         "epistemos.preferredChatModelSelection",
         "epistemos.activeAIProvider",
@@ -186,19 +187,57 @@ struct RuntimeValidationTests {
         #expect(source.contains("\"epistemos.preferredCloudModel.\\(provider.rawValue)\""))
     }
 
-    @Test("chat model selector uses a popover with an active provider and scoped cloud section")
+    @Test("chat model selector uses a popover with simplified local and cloud sections")
     func chatModelSelectorUsesPopoverWithFoldableSections() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
         #expect(rootView.contains("AnchoredPopoverButton("))
         #expect(rootView.contains("DisclosureGroup("))
-        #expect(rootView.contains("\"Local Models\""))
-        #expect(rootView.contains("\"Cloud Access\""))
-        #expect(rootView.contains("\"Provider\""))
-        #expect(rootView.contains("\"Temporary Chat\""))
-        #expect(rootView.contains("ForEach(CloudModelProvider.preferredOrder"))
-        #expect(rootView.contains("inference.activeAIProvider"))
-        #expect(rootView.contains("ForEach(CloudTextModelID.models(for: provider)"))
+        #expect(rootView.contains("title: \"Local Models\""))
+        #expect(rootView.contains("pickerCloudSection"))
+        #expect(rootView.contains("popoverSectionTitle(\"Cloud\")"))
+        #expect(rootView.contains("title: \"Temporary Chat\""))
+        #expect(rootView.contains("if let provider = inference.activeCloudProvider"))
+        #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
+        #expect(rootView.contains("Button(\"Change cloud model in Settings\")"))
+    }
+
+    @Test("inference settings expose the shared local to cloud auto-route toggle")
+    func inferenceSettingsExposeLocalToCloudAutoRouteToggle() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(settings.contains("Text(\"Auto-route local -> cloud\")"))
+        #expect(settings.contains("inference.setChatAutoRouteToCloud($0)"))
+    }
+
+    @Test("pipeline only enters the local tool loop when the effective chat surface stays local")
+    func pipelineOnlyUsesToolLoopForEffectiveLocalSelections() throws {
+        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
+
+        #expect(pipeline.contains("let effectiveChatSelection = inference.effectiveChatSurfaceSelection("))
+        #expect(pipeline.contains("guard case .localMLX = effectiveChatSelection else"))
+    }
+
+    @Test("note reasoning loop preserves the selected operating mode")
+    func noteReasoningLoopPreservesOperatingMode() throws {
+        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+        let reasoningLoop = try loadRepoTextFile("Epistemos/Omega/Inference/ReasoningLoopService.swift")
+        let graphInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        let pinnedInspector = try loadRepoTextFile("Epistemos/Views/Graph/PinnedInspector.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+        let streamingDelegate = try loadRepoTextFile("Epistemos/Bridge/StreamingDelegate.swift")
+
+        #expect(noteChat.contains("operatingMode: operatingMode"))
+        #expect(noteChat.contains("let message = UserFacingChatError.message(from: error)"))
+        #expect(reasoningLoop.contains("operatingMode: EpistemosOperatingMode = .fast"))
+        #expect(reasoningLoop.contains("guard operatingMode != .fast else { return false }"))
+        #expect(reasoningLoop.contains("query: query,\n                operatingMode: operatingMode"))
+        #expect(graphInspector.contains("appendToLastAssistant(UserFacingChatError.message(from: error))"))
+        #expect(pinnedInspector.contains("appendToLastAssistant(UserFacingChatError.message(from: error))"))
+        #expect(miniChat.contains("content: UserFacingChatError.message(from: error)"))
+        #expect(chatCoordinator.contains("UserFacingChatError.message("))
+        #expect(streamingDelegate.contains("struct AgentRuntimeError: Error, LocalizedError, Sendable"))
     }
 
     @Test("root toolbar only mounts a principal item when there is visible content")
@@ -208,9 +247,10 @@ struct RuntimeValidationTests {
             testsFilePath: #filePath
         )
 
-        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat"))
+        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat || activeAgentWorkspace"))
         #expect(rootView.contains("ToolbarItem(placement: .principal)"))
-        #expect(rootView.contains("if ui.homeTab == .home && !chat.messages.isEmpty && !chat.showLanding"))
+        #expect(rootView.contains("private var activeAgentWorkspace: Bool"))
+        #expect(rootView.contains("private var showLandingToolbarControls: Bool"))
         #expect(rootView.contains("ToolbarItem(placement: .navigation)"))
     }
 
@@ -286,6 +326,20 @@ struct RuntimeValidationTests {
         #expect(!liveNoteExecutor.contains("try? body.write(to: fileURL"))
     }
 
+    @Test("live note approval restores managed note state if persistence fails before commit")
+    func liveNoteApprovalRestoresManagedNoteStateIfPersistenceFails() throws {
+        let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
+
+        #expect(source.contains("let originalFilePath = page.filePath"))
+        #expect(source.contains("let originalWordCount = page.wordCount"))
+        #expect(source.contains("let originalLastSyncedBodyHash = page.lastSyncedBodyHash"))
+        #expect(source.contains("page.saveBody(originalBody)"))
+        #expect(source.contains("BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: context)"))
+        #expect(source.contains("page.filePath = originalFilePath"))
+        #expect(source.contains("page.lastSyncedBodyHash = originalLastSyncedBodyHash"))
+        #expect(source.contains("page.needsVaultSync = originalNeedsVaultSync"))
+    }
+
     @Test("live note scheduler timer stays on the main queue to avoid actor isolation crashes")
     func liveNoteSchedulerTimerStaysOnMainQueue() throws {
         let source = try loadRepoTextFile("Epistemos/Vault/LiveNoteExecutor.swift")
@@ -312,15 +366,62 @@ struct RuntimeValidationTests {
     @Test("main scene disables macOS window restoration so bad saved state cannot trap launch")
     func mainSceneDisablesMacOSWindowRestoration() throws {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
-        #expect(app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
         #expect(app.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool"))
         #expect(app.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool"))
         #expect(app.contains(".restorationBehavior(.disabled)"))
-        #expect(app.contains("window.isRestorable = false"))
-        #expect(app.contains("appendingPathComponent(\"\\(bundleIdentifier).savedState\", isDirectory: true)"))
-        #expect(app.contains("try fileManager.removeItem(at: directory)"))
+        #expect(!app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
+        #expect(!app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
+        #expect(!app.contains("window.isRestorable = false"))
+        #expect(appBootstrap.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
+    }
+
+    @Test("main scene avoids imperative home window mutation during SwiftUI startup")
+    func mainSceneAvoidsImperativeHomeWindowMutationDuringStartup() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(!app.contains("ModularZoomWindowObserver"))
+        #expect(!app.contains("applyMainWindowPolicyIfNeeded"))
+        #expect(!app.contains("NSWindow.didBecomeMainNotification"))
+        #expect(!app.contains("NSWindow.didBecomeKeyNotification"))
+        #expect(!app.contains("NSWindow.didDeminiaturizeNotification"))
+    }
+
+    @Test("home window diagnostics instrument sendEvent hit testing and alpha writes behind an opt-in flag")
+    func homeWindowDiagnosticsInstrumentSendEventHitTestingAndAlphaWrites() throws {
+        let diagnostics = try loadRepoTextFile("Epistemos/App/HomeWindowInputDiagnostics.swift")
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(diagnostics.contains("EPI_HOME_WINDOW_INPUT_DIAGNOSTICS"))
+        #expect(diagnostics.contains("#selector(NSWindow.sendEvent(_:))"))
+        #expect(diagnostics.contains("#selector(setter: NSView.alphaValue)"))
+        #expect(diagnostics.contains("contentView.hitTest("))
+        #expect(diagnostics.contains("contentView.alphaValue"))
+        #expect(diagnostics.contains("contentView.layer?.opacity"))
+        #expect(app.contains("HomeWindowInputDiagnostics.shared.startIfNeeded()"))
+        #expect(app.contains("HomeWindowInputDiagnostics.shared.stop()"))
+    }
+
+    @Test("runtime audit can swap the home scene to a bare button without launch gate or root sheets")
+    func runtimeAuditCanSwapHomeSceneToBareButton() throws {
+        let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
+
+        #expect(app.contains("EPI_HOME_WINDOW_MINIMAL_CONTENT"))
+        #expect(app.contains("AuditMinimalHomeSceneView()"))
+        #expect(app.contains("Button(\"test\")"))
+        #expect(app.contains("if RuntimeAuditFlags.minimalHomeSceneEnabled"))
+        #expect(app.contains("LaunchIntegrityGateView(bootstrap: bootstrap)"))
+    }
+
+    @Test("runtime audit can keep the root shell while swapping home content to a bare button")
+    func runtimeAuditCanKeepRootShellWhileSwappingHomeContent() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+
+        #expect(rootView.contains("EPI_HOME_WINDOW_ROOT_SHELL_MINIMAL_CONTENT"))
+        #expect(rootView.contains("AuditRootShellMinimalContentView()"))
+        #expect(rootView.contains("root_shell_button_pressed"))
+        #expect(rootView.contains("if RuntimeAuditRootFlags.rootShellMinimalContentEnabled"))
     }
 
     @Test("workspace restore offers a one-shot skip restore relaunch escape hatch")
@@ -575,20 +676,22 @@ struct RuntimeValidationTests {
         #expect(snapshot.supports(textModelID: LocalTextModelID.qwen35_9B4Bit.rawValue))
     }
 
-    @Test("mini chat retains the consolidated runtime popover while main chat delegates it to the Agent Command Center")
+    @Test("chat, landing, and mini chat all use the shared chat brain picker for model and mode selection")
     func composerSurfacesUseConsolidatedRuntimePopover() throws {
         let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        // Main chat + landing must NOT host runtime operating-mode controls —
-        // these now live in the Agent Command Center (⌘J).
-        #expect(!chatInputBar.contains("operatingMode: operatingModeBinding"))
-        #expect(!landing.contains("operatingMode: operatingModeBinding"))
+        // Main chat, landing, and mini chat should all use the shared
+        // ChatBrainPickerMenu instead of reviving the older selector view.
+        #expect(chatInputBar.contains("ChatBrainPickerMenu("))
+        #expect(landing.contains("ChatBrainPickerMenu("))
+        #expect(landing.contains("operatingMode: operatingModeBinding"))
+        #expect(landing.contains("availableOperatingModes: supportedOperatingModes"))
         #expect(!chatInputBar.contains("OperatingModeSelectorView("))
         #expect(!landing.contains("OperatingModeSelectorView("))
 
-        // Mini chat is still a standalone surface and keeps its popover.
+        // Mini chat is still a standalone surface and keeps the same picker.
         #expect(miniChat.contains("operatingMode: operatingModeBinding"))
         #expect(!miniChat.contains("OperatingModeSelectorView("))
     }
@@ -1004,6 +1107,29 @@ struct RuntimeValidationTests {
         #expect(vaultSync.contains("func startupBookmarkValidation() -> VaultBookmarkStartupValidation"))
     }
 
+    @Test("body migration cleans up managed note files when persistence fails")
+    func bodyMigrationCleansUpManagedBodiesWhenSaveFails() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("func migrateInlineBodiesToFiles() throws -> Int"))
+        #expect(bootstrap.contains("NoteFileStorage.writeBody(pageId: page.id, content: page.body)"))
+        #expect(bootstrap.contains("modelContext.rollback()"))
+        #expect(bootstrap.contains("NoteFileStorage.deleteBody(pageId: pageId)"))
+    }
+
+    @Test("vault export paths abort when pre-export persistence fails")
+    func vaultExportPathsAbortWhenPreExportPersistenceFails() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let normalized = source.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+
+        #expect(normalized.range(of: #"Failed to save before page export.*return nil"#, options: .regularExpression) != nil)
+        #expect(normalized.range(of: #"Failed to save before dirty pages export.*return nil"#, options: .regularExpression) != nil)
+    }
+
     @Test("launch integrity gate lives above RootView and owns automatic vault restore")
     func launchIntegrityGateLivesAboveRootViewAndOwnsAutomaticVaultRestore() throws {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
@@ -1224,7 +1350,8 @@ struct RuntimeValidationTests {
         let workspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
 
         #expect(miniChat.contains(".onAppear {\n            Task { @MainActor in"))
-        #expect(chatView.contains(".onAppear {\n                    Task { @MainActor in"))
+        #expect(chatView.contains(".onAppear {"))
+        #expect(chatView.contains("Task { @MainActor in"))
         #expect(noteSidebar.contains(".onAppear {\n                Task { @MainActor in"))
         #expect(chatSidebar.contains(".onAppear {\n            Task { @MainActor in"))
         #expect(settings.contains(".onAppear {\n            Task { @MainActor in"))
@@ -1626,6 +1753,19 @@ struct RuntimeValidationTests {
         #expect(!inspectorState.contains("store.neighbors(of: node.id).map(\\.label)"))
     }
 
+    @Test("manual graph mutations clean up transient state when persistence fails")
+    func manualGraphMutationsCleanUpTransientStateOnSaveFailure() throws {
+        let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
+
+        #expect(graphState.contains("private func persistManualGraphMutation("))
+        #expect(graphState.contains("rollback()"))
+        #expect(graphState.contains("guard persistManualGraphMutation("))
+        #expect(graphState.contains("store.positionHints.removeValue(forKey: sdNode.id)"))
+        #expect(graphState.contains("context.delete(sdNode)"))
+        #expect(graphState.contains("context.delete(sdEdge)"))
+        #expect(graphState.contains("interactionMode = .idle"))
+    }
+
     @Test("graph selection tracking throttles inspector position churn")
     func graphSelectionTrackingThrottlesInspectorPositionChurn() throws {
         let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
@@ -1843,7 +1983,7 @@ struct RuntimeValidationTests {
         #expect(controller.contains("styleMask: [.titled, .closable, .resizable, .fullSizeContentView]"))
         #expect(controller.contains("window.maxSize = NSSize(width: 1600, height: 1400)"))
         #expect(miniChat.contains(".padding(.horizontal, 28)"))
-        #expect(miniChat.contains(".padding(.top, 18)"))
+        #expect(miniChat.contains(".padding(.top, 36)"))
         #expect(miniChat.contains(".padding(.bottom, 20)"))
         #expect(miniChat.contains(".frame(maxWidth: .infinity, maxHeight: .infinity)"))
         #expect(!miniChat.contains("AssistantSurfaceChrome(theme: theme, metrics: surfaceMetrics)"))
@@ -1932,27 +2072,32 @@ struct RuntimeValidationTests {
         #expect(triage.contains("case .mainChat, .miniChat:"))
     }
 
-    @Test("chat surfaces route lightweight submissions through the shared main chat router while operating-mode selection lives in the Agent Command Center")
+    @Test("chat surfaces expose mode selection while the dedicated agent page owns advanced agent controls")
     func chatSurfacesExposeOperatingModeSelectionAndRouteOnlyAgentModeThroughOmega() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let agentView = try loadRepoTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
+        let agentCommandBar = try loadRepoTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")
         let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(inference.contains("enum EpistemosOperatingMode"))
-        // Main chat + landing no longer bind an operating-mode control — that moved
-        // to the Agent Command Center (⌘J).
-        #expect(!chatInput.contains("operatingMode: operatingModeBinding"))
-        #expect(!landing.contains("operatingMode: operatingModeBinding"))
-        // Mini chat is a standalone surface and keeps its picker.
+        #expect(chatInput.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
+        #expect(chatInput.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
+        #expect(chatView.contains("operatingMode: operatingModeBinding"))
+        #expect(landing.contains("operatingMode: operatingModeBinding"))
         #expect(miniChat.contains("operatingMode: operatingModeBinding"))
         #expect(chatState.contains("enum MainChatSubmissionRouter"))
         #expect(chatState.contains("case .agent"))
         #expect(chatView.contains("MainChatSubmissionRouter.submit("))
         #expect(landing.contains("MainChatSubmissionRouter.submit("))
+        #expect(root.contains("AgentChatView()"))
+        #expect(agentView.contains("CommandBarView()"))
+        #expect(agentCommandBar.contains("BrainPickerMenu()"))
         #expect(miniChat.contains("let modes = inference.availableOperatingModes.filter { $0 != .agent }"))
         #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
         #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
@@ -1963,22 +2108,30 @@ struct RuntimeValidationTests {
         #expect(pipeline.contains("operatingMode: operatingMode"))
     }
 
-    @Test("main chat and landing composers delegate advanced controls to the Agent Command Center")
+    @Test("agent page keeps a quiet utility row and a lighter empty-state launch surface")
+    func agentPageUsesCompactUtilityRowAndGridLaunchSurface() throws {
+        let agentView = try loadRepoTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
+
+        #expect(agentView.contains("ControlGroup"))
+        #expect(agentView.contains("quickActionGrid"))
+        #expect(agentView.contains("ViewThatFits(in: .horizontal)"))
+    }
+
+    @Test("main chat and landing composers keep the lightweight chat surface free of advanced agent chrome")
     func mainChatAndLandingDelegateAdvancedControlsToAgentCommandCenter() throws {
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
-        // Main chat + landing must NOT host the advanced model/mode picker any more —
-        // that surface is owned exclusively by the Agent Command Center (⌘J).
         #expect(!chatInput.contains("LocalModelToolbarMenu("))
         #expect(!landing.contains("LocalModelToolbarMenu("))
         #expect(!chatInput.contains("ComposerContextShortcutBar("))
         #expect(!landing.contains("ComposerContextShortcutBar("))
         #expect(chatInput.contains("ComposerAttachmentEntryHints.mainChatPlaceholder"))
         #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
+        #expect(!chatInput.contains("⌘J"))
+        #expect(!landing.contains("Command Center"))
 
-        // Mini chat is a standalone surface and may still host its own picker.
         #expect(miniChat.contains("LocalModelToolbarMenu("))
     }
 
@@ -1993,20 +2146,78 @@ struct RuntimeValidationTests {
         #expect(landing.contains("submitLandingAgentPrompt("))
     }
 
-    @Test("main chat submits with the lightweight .fast operating mode only")
-    func mainChatAlwaysSubmitsWithFastOperatingMode() throws {
+    @Test("interactive surfaces use Task.sleep instead of DispatchQueue.main.asyncAfter")
+    func interactiveSurfacesUseTaskSleepInsteadOfDispatchAsyncAfter() throws {
+        let artifactBlock = try loadRepoTextFile("Epistemos/Views/Chat/ArtifactBlockView.swift")
+        let focusedResponsePanel = try loadRepoTextFile("Epistemos/Views/Notes/FocusedResponsePanel.swift")
+        let codeAskBar = try loadRepoTextFile("Epistemos/Views/Notes/CodeAskBar.swift")
+        let inspectMode = try loadRepoTextFile("Epistemos/Views/Graph/GraphInspectModeView.swift")
+
+        #expect(!artifactBlock.contains("DispatchQueue.main.asyncAfter"))
+        #expect(!focusedResponsePanel.contains("DispatchQueue.main.asyncAfter"))
+        #expect(!codeAskBar.contains("DispatchQueue.main.asyncAfter"))
+        #expect(!inspectMode.contains("DispatchQueue.main.asyncAfter"))
+        #expect(artifactBlock.contains("Task.sleep"))
+        #expect(focusedResponsePanel.contains("Task.sleep"))
+        #expect(codeAskBar.contains("Task.sleep"))
+        #expect(inspectMode.contains("Task.sleep"))
+    }
+
+    @Test("note insight JSON fallbacks avoid force-cast traps")
+    func noteInsightJSONFallbackAvoidsForceCasts() throws {
+        let source = try loadRepoTextFile("Epistemos/Models/SDNoteInsight.swift")
+
+        #expect(!source.contains("as!"))
+        #expect(source.contains("decodeJSONArray"))
+    }
+
+    @Test("main chat and landing chat persist a selectable operating mode")
+    func mainChatPersistsSelectableOperatingMode() throws {
+        let chatBrainPicker = try loadRepoTextFile("Epistemos/Views/Chat/ChatBrainPickerMenu.swift")
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
+        let chatInputBar = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        // Main chat no longer persists a user-facing operating-mode preference —
-        // the Agent Command Center owns thinking/pro/agent tiers.
-        #expect(!chatView.contains("epistemos.mainChatOperatingMode"))
-        #expect(!chatView.contains("sanitizeStoredOperatingMode"))
-        #expect(chatView.contains("mainChatOperatingMode: EpistemosOperatingMode = .fast"))
-        #expect(chatView.contains("Self.mainChatOperatingMode"))
+        #expect(chatBrainPicker.contains("static let defaultsKey = \"epistemos.mainChatOperatingMode\""))
+        #expect(chatView.contains("@AppStorage(MainChatOperatingModePreference.defaultsKey)"))
+        #expect(chatView.contains("sanitizeStoredOperatingMode"))
+        #expect(chatView.contains("ChatInputBar("))
+        #expect(chatView.contains("operatingMode: operatingModeBinding"))
+        #expect(chatInputBar.contains("operatingMode: Binding<EpistemosOperatingMode>?"))
+        #expect(chatInputBar.contains("availableOperatingModes: [EpistemosOperatingMode]?"))
+        #expect(chatInputBar.contains("ChatBrainPickerMenu("))
+        #expect(chatInputBar.contains("operatingMode: operatingMode"))
+        #expect(landingView.contains("@AppStorage(MainChatOperatingModePreference.defaultsKey)"))
+        #expect(landingView.contains("operatingMode: selectedOperatingMode"))
 
         // Main chat's toolbar center no longer renders the model picker either.
         #expect(!rootView.contains("LocalModelToolbarMenu(\n            variant: .toolbar,\n            overrideTitle:"))
+    }
+
+    @Test("note and graph chats expose an operating mode instead of silently defaulting to fast")
+    func noteAndGraphChatsExposeOperatingModes() throws {
+        let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+        let graphSidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let nodeInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(noteWorkspace.contains("@AppStorage(\"epistemos.noteChatOperatingMode\")"))
+        #expect(noteWorkspace.contains("operatingMode: noteChatOperatingModeBinding"))
+        #expect(noteWorkspace.contains("availableOperatingModes: supportedNoteChatOperatingModes"))
+        #expect(noteWorkspace.contains("operatingMode: selectedNoteChatOperatingMode"))
+
+        #expect(noteChatState.contains("operatingMode: EpistemosOperatingMode = .fast"))
+        #expect(noteChatState.contains("operatingMode: operatingMode"))
+
+        #expect(graphSidebar.contains("@AppStorage(\"epistemos.graphChatOperatingMode\")"))
+        #expect(graphSidebar.contains("operatingMode: graphChatOperatingModeBinding"))
+        #expect(graphSidebar.contains("availableOperatingModes: supportedGraphChatOperatingModes"))
+        #expect(graphSidebar.contains("operatingMode: selectedGraphChatOperatingMode"))
+
+        #expect(nodeInspector.contains("operatingMode: EpistemosOperatingMode = .fast"))
+        #expect(nodeInspector.contains("operatingMode: operatingMode"))
+        #expect(nodeInspector.contains("localSurface: .graph"))
     }
 
     @Test("apple fallback preserves the available response when local qwen is unavailable")
@@ -2035,31 +2246,29 @@ struct RuntimeValidationTests {
         #expect(root.contains("setPreferredChatModelSelection("))
     }
 
-    @Test("chat model selector scopes cloud models to the active provider and shows configuration guidance")
+    @Test("chat model selector scopes cloud guidance to the active provider and links settings")
     func chatModelSelectorAlwaysExposesCloudModelsAndShowsConfigurationGuidance() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(root.contains("title: \"Cloud Access\""))
-        #expect(root.contains("title: \"Provider\""))
-        #expect(root.contains("title: \"Models\""))
-        #expect(root.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(root.contains("inference.activeCloudProvider"))
-        #expect(root.contains("isEnabled: providerConfigured"))
-        #expect(root.contains("\"Local Only\""))
-        #expect(root.contains("subtitle: cloudAccessSubtitle"))
+        #expect(root.contains("pickerCloudSection"))
+        #expect(root.contains("popoverSectionTitle(\"Cloud\")"))
+        #expect(root.contains("inference.configuredCloudProviders.contains(provider)"))
+        #expect(root.contains("inference.preferredCloudModel(for: provider)"))
         #expect(root.contains("return \"Finish setup to unlock\""))
-        #expect(root.contains("CloudProviderSetupCard("))
-        #expect(root.contains("isExpanded: $showsCloudProviderOptions"))
-        #expect(root.contains("showsDismissTip: inference.shouldShowCloudSetupHint"))
+        #expect(root.contains("\"Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.\""))
+        #expect(root.contains("Button(\"Change cloud model in Settings\")"))
+        #expect(root.contains("systemImage: provider.systemImage"))
     }
 
-    @Test("provider setup automation extends beyond settings into landing and onboarding")
+    @Test("provider setup guidance extends into the picker messaging and onboarding")
     func providerSetupAutomationExtendsBeyondSettings() throws {
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
         let setupAssistant = try loadRepoTextFile("Epistemos/Views/Onboarding/SetupAssistantView.swift")
         let sharedCard = try loadRepoTextFile("Epistemos/Views/Shared/CloudProviderSetupCard.swift")
 
-        #expect(root.contains("CloudProviderSetupCard("))
+        #expect(root.contains("Button(\"Change cloud model in Settings\")"))
+        #expect(root.contains("\"Local Only is active. Connect a cloud provider in Settings → Inference to enable cloud routing.\""))
         #expect(setupAssistant.contains("CloudProviderSetupCard("))
         #expect(setupAssistant.contains("ForEach(CloudModelProvider.preferredOrder"))
         #expect(sharedCard.contains("provider.accountActionTitle"))
@@ -2199,6 +2408,16 @@ struct RuntimeValidationTests {
         #expect(!source.contains("ReadOnlyVersionView(title: title, versionBody: body, dateLabel: dateStr)\n            .environment(bootstrap.uiState)"))
     }
 
+    @Test("note window manager logs fetch failures instead of silently no-oping")
+    func noteWindowManagerLogsFetchFailures() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
+
+        #expect(!source.contains("guard let page = try? bootstrap.modelContainer.mainContext.fetch(descriptor).first else {\n            return\n        }"))
+        #expect(!source.contains("if let page = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(desc).first"))
+        #expect(source.contains("NoteWindowManager: failed to fetch page"))
+        #expect(source.contains("NoteWindowManager: failed to fetch page title"))
+    }
+
     @Test("time machine duplicate page IDs log instead of asserting")
     func timeMachineDuplicatePageIDsLogInsteadOfAsserting() throws {
         let source = try loadRepoTextFile("Epistemos/State/TimeMachineService.swift")
@@ -2233,6 +2452,14 @@ struct RuntimeValidationTests {
         #expect(source.contains("label: \"current chat count\""))
         #expect(source.contains("label: \"current graph node count\""))
         #expect(source.contains("label: \"current graph edge count\""))
+    }
+
+    @Test("time machine restored workspaces undo failed inserts before returning")
+    func timeMachineRestoredWorkspaceSaveFailuresUndoInsertedWorkspace() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Landing/TimeMachineView.swift")
+
+        #expect(source.contains("context.delete(ws)"))
+        #expect(source.contains("TimeMachineView: failed to persist restored workspace"))
     }
 
     @Test("vault index actor avoids silent import and manifest fallback paths")
@@ -2271,6 +2498,44 @@ struct RuntimeValidationTests {
         #expect(graphOverlayPanel.contains("isRestorable = false"))
         #expect(quitSavePanel.contains("scrim.isRestorable = false"))
         #expect(quitSavePanel.contains("floatingPanel.isRestorable = false"))
+    }
+
+    @Test("quit save panel treats workspace persistence failures as real failures")
+    func quitSavePanelTreatsWorkspacePersistenceFailuresAsRealFailures() throws {
+        let quitSavePanel = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        #expect(!quitSavePanel.contains("try? AppBootstrap.shared?.modelContainer.mainContext.save()"))
+        #expect(!quitSavePanel.contains("if let data = try? JSONEncoder().encode(ws.captureSnapshot())"))
+        #expect(quitSavePanel.contains("guard let saved = ws.saveWorkspace(name: name) else {"))
+        #expect(quitSavePanel.contains("QuitSavePanelController: failed to save workspace"))
+        #expect(quitSavePanel.contains("QuitSavePanelController: failed to save updated workspace"))
+        #expect(workspaceService.contains("@discardableResult"))
+        #expect(workspaceService.contains("func saveWorkspace(name: String) -> SDWorkspace?"))
+    }
+
+    @Test("quit save panel restores failed follow-up workspace mutations before returning failure")
+    func quitSavePanelRestoresFailedFollowUpWorkspaceMutationsBeforeReturningFailure() throws {
+        let quitSavePanel = try loadRepoTextFile("Epistemos/Views/Landing/QuitSavePanelController.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(quitSavePanel.range(of: startMarker))
+            let end = try #require(
+                quitSavePanel.range(of: endMarker, range: start.lowerBound..<quitSavePanel.endIndex)
+            )
+            return String(quitSavePanel[start.lowerBound..<end.lowerBound])
+        }
+
+        let performSave = try section(from: "private func performSave()", to: "// MARK: - Thin wrappers")
+
+        #expect(performSave.contains("let originalSavedUserNote = saved.userNote"))
+        #expect(performSave.contains("saved.userNote = originalSavedUserNote"))
+        #expect(performSave.contains("let originalSnapshotData = existing.snapshotData"))
+        #expect(performSave.contains("let originalUpdatedAt = existing.updatedAt"))
+        #expect(performSave.contains("let originalExistingUserNote = existing.userNote"))
+        #expect(performSave.contains("existing.snapshotData = originalSnapshotData"))
+        #expect(performSave.contains("existing.updatedAt = originalUpdatedAt"))
+        #expect(performSave.contains("existing.userNote = originalExistingUserNote"))
     }
 
     @Test("graph overlay full-screen presentation uses an immersive topmost window mode")
@@ -2420,6 +2685,30 @@ struct RuntimeValidationTests {
         #expect(appBootstrap.contains("Database reset cleanup failed"))
     }
 
+    @Test("full reset clears the whole schema and managed note bodies")
+    func fullResetClearsTheWholeSchemaAndManagedNoteBodies() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let resetRange = try #require(appBootstrap.range(of: "func resetAllData() async {"))
+        let resetBody = appBootstrap[resetRange.lowerBound...]
+
+        #expect(resetBody.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
+        #expect(resetBody.contains("if !didClear {"))
+        #expect(resetBody.contains("await vaultSync.forceClearDerivedLocalStateForFullReset()"))
+        #expect(resetBody.contains("try context.delete(model: SDMessage.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDChat.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDPageVersion.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDNoteInsight.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDPage.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDFolder.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDGraphNode.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDGraphEdge.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDBlock.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
+        #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
+        #expect(resetBody.contains("graphState.needsRefresh = true"))
+    }
+
     @Test("model profile persistence avoids silent save failures")
     func modelProfilePersistenceAvoidsSilentSaveFailures() throws {
         let manager = try loadRepoTextFile("Epistemos/State/ModelProfileManager.swift")
@@ -2458,6 +2747,489 @@ struct RuntimeValidationTests {
         #expect(workspaceService.contains("Workspace auto-restore: failed to fetch auto-save workspace"))
         #expect(workspaceService.contains("Workspace diff: failed to decode saved snapshot"))
         #expect(workspaceService.contains("Workspace list: failed to fetch saved workspaces"))
+    }
+
+    @Test("workspace service restores failed workspace mutations without rolling back unrelated shared state")
+    func workspaceServiceRestoresFailedMutationsWithoutGlobalRollback() throws {
+        let workspaceService = try loadRepoTextFile("Epistemos/State/WorkspaceService.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(workspaceService.range(of: startMarker))
+            let end = try #require(
+                workspaceService.range(of: endMarker, range: start.lowerBound..<workspaceService.endIndex)
+            )
+            return String(workspaceService[start.lowerBound..<end.lowerBound])
+        }
+
+        let autoSave = try section(from: "func autoSave()", to: "func autoRestore()")
+        let clearAutoSavedWorkspace = try section(
+            from: "func clearAutoSavedWorkspace()",
+            to: "// MARK: - Auto-Save Timer"
+        )
+        let saveWorkspace = try section(
+            from: "func saveWorkspace(name: String) -> SDWorkspace?",
+            to: "func loadWorkspace"
+        )
+        let deleteWorkspace = try section(
+            from: "func deleteWorkspace(_ workspace: SDWorkspace)",
+            to: "func renameWorkspace"
+        )
+        let renameWorkspace = try section(
+            from: "func renameWorkspace(_ workspace: SDWorkspace, to newName: String)",
+            to: "func listWorkspaces"
+        )
+
+        #expect(workspaceService.contains("private func persistWorkspaceMutation("))
+        #expect(workspaceService.contains("restoreState()"))
+        #expect(!workspaceService.contains("context.rollback()"))
+        #expect(autoSave.contains("savedWorkspace.snapshotData = originalSnapshotData"))
+        #expect(autoSave.contains("savedWorkspace.updatedAt = originalUpdatedAt"))
+        #expect(autoSave.contains("context.delete(savedWorkspace)"))
+        #expect(clearAutoSavedWorkspace.contains("context.insert(workspace)"))
+        #expect(saveWorkspace.contains("context.delete(ws)"))
+        #expect(deleteWorkspace.contains("context.insert(workspace)"))
+        #expect(renameWorkspace.contains("let originalName = workspace.name"))
+        #expect(renameWorkspace.contains("workspace.name = originalName"))
+        #expect(renameWorkspace.contains("workspace.updatedAt = originalUpdatedAt"))
+    }
+
+    @Test("notes sidebar delete flows persist model removal before destructive cleanup")
+    func notesSidebarDeleteFlowsPersistBeforeDestructiveCleanup() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+
+        #expect(source.contains("preparePageDeletion("))
+        #expect(source.contains("restorePageDeletion("))
+        #expect(source.contains("finalizePageDeletion("))
+        #expect(source.contains("preparePageDeletions(in folder: SDFolder)"))
+        #expect(source.contains("let pageDeletion = preparePageDeletion(page)"))
+        #expect(source.contains("let pageDeletions = preparePageDeletions(in: folder)"))
+        #expect(source.contains("saveSidebarChanges(rebuild: false, reason: \"page delete\")"))
+        #expect(source.contains("saveSidebarChanges(rebuild: false, reason: \"folder delete\")"))
+        #expect(source.contains("vaultSync.deletePageFromDisk(filePath: deletion.filePath)"))
+        #expect(source.contains("vaultSync.deleteDirectory(relativePath: relativePath)"))
+    }
+
+    @Test("notes sidebar restores failed non-delete mutations before external side effects")
+    func notesSidebarRestoresFailedNonDeleteMutationsBeforeExternalSideEffects() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let renamePage = try section(from: "case .renamePage", to: "case .requestDeletePage")
+        let renameFolder = try section(from: "case .renameFolder", to: "case .requestDeleteFolder")
+        let newSubfolder = try section(from: "case .newSubfolder", to: "case .toggleCollection")
+        let toggleCollection = try section(from: "case .toggleCollection", to: "case .movePageToFolder")
+        let movePageToFolder = try section(from: "case .movePageToFolder", to: "case .moveFolderInto")
+        let moveFolderInto = try section(from: "case .moveFolderInto", to: "case .movePageToRoot")
+        let movePageToRoot = try section(from: "case .movePageToRoot", to: "case .moveFolderToRoot")
+        let moveFolderToRoot = try section(from: "case .moveFolderToRoot", to: "case .createNewPage")
+        let createFolder = try section(from: "private func createFolder(title: String)", to: "private func createCollection")
+        let getOrCreateTodayJournal = try section(
+            from: "private func getOrCreateTodayJournal()",
+            to: "// MARK: - Vault Header"
+        )
+
+        #expect(source.contains("private func persistSidebarMutation("))
+        #expect(source.contains("restoreState()"))
+        #expect(source.contains("private struct NotesSidebarFolderMutationSnapshot"))
+        #expect(source.contains("private struct NotesSidebarPageLocationSnapshot"))
+        #expect(source.contains("private func captureFolderMutationSnapshot("))
+        #expect(source.contains("private func restoreFolderMutationSnapshot("))
+        #expect(renamePage.contains("guard persistSidebarMutation("))
+        #expect(renamePage.contains("page.title = originalTitle"))
+        #expect(renameFolder.contains("let snapshot = captureFolderMutationSnapshot(folder)"))
+        #expect(renameFolder.contains("restoreFolderMutationSnapshot(snapshot)"))
+        #expect(newSubfolder.contains("modelContext.delete(child)"))
+        #expect(toggleCollection.contains("CollectionRegistry.shared.setCollection(folder.name, folder.isCollection)"))
+        #expect(toggleCollection.contains("folder.isCollection = originalIsCollection"))
+        #expect(movePageToFolder.contains("let snapshot = NotesSidebarPageLocationSnapshot(page)"))
+        #expect(movePageToFolder.contains("snapshot.restore(on: page)"))
+        #expect(moveFolderInto.contains("let snapshot = captureFolderMutationSnapshot(child)"))
+        #expect(moveFolderInto.contains("restoreFolderMutationSnapshot(snapshot)"))
+        #expect(movePageToRoot.contains("let snapshot = NotesSidebarPageLocationSnapshot(page)"))
+        #expect(movePageToRoot.contains("snapshot.restore(on: page)"))
+        #expect(moveFolderToRoot.contains("let snapshot = captureFolderMutationSnapshot(folder)"))
+        #expect(moveFolderToRoot.contains("restoreFolderMutationSnapshot(snapshot)"))
+        #expect(createFolder.contains("modelContext.delete(folder)"))
+        #expect(getOrCreateTodayJournal.contains("let locationSnapshot = NotesSidebarPageLocationSnapshot(existing)"))
+        #expect(getOrCreateTodayJournal.contains("locationSnapshot.restore(on: existing)"))
+    }
+
+    @Test("collection folder renames keep the registry aligned with the new name")
+    func collectionFolderRenamesKeepRegistryAlignedWithNewName() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+        let start = try #require(source.range(of: "case .renameFolder"))
+        let end = try #require(
+            source.range(of: "case .requestDeleteFolder", range: start.lowerBound..<source.endIndex)
+        )
+        let renameFolder = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(renameFolder.contains("let wasCollection = folder.isCollection"))
+        #expect(renameFolder.contains("CollectionRegistry.shared.setCollection(oldName, false)"))
+        #expect(renameFolder.contains("CollectionRegistry.shared.setCollection(newName, true)"))
+        #expect(renameFolder.contains("if wasCollection"))
+    }
+
+    @Test("vault organizer persists approved suggestions before file-system side effects")
+    func vaultOrganizerPersistsApprovedSuggestionsBeforeFileSystemSideEffects() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/VaultOrganizerView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let applySuggestion = try section(
+            from: "private func applySuggestion(_ suggestion: OrgSuggestion)",
+            to: "private func dismissSuggestion"
+        )
+
+        #expect(source.contains("private func persistSuggestionMutation("))
+        #expect(applySuggestion.contains("let originalTags = page.tags"))
+        #expect(applySuggestion.contains("page.tags = originalTags"))
+        #expect(applySuggestion.contains("let originalFolder = page.folder"))
+        #expect(applySuggestion.contains("let originalSubfolder = page.subfolder"))
+        #expect(applySuggestion.contains("page.subfolder = folder.relativePath"))
+        #expect(applySuggestion.contains("page.subfolder = originalSubfolder"))
+        #expect(applySuggestion.contains("vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)"))
+        #expect(applySuggestion.contains("guard persistSuggestionMutation(reason: \"organizer folder create\""))
+        #expect(applySuggestion.contains("modelContext.delete(folder)"))
+        #expect(applySuggestion.contains("guard applied else { return }"))
+        #expect(applySuggestion.contains("appliedCount += 1"))
+        #expect(applySuggestion.contains("suggestions.removeAll { $0.id == suggestion.id }"))
+    }
+
+    @Test("prose editor title sync restores failed title saves before renaming the vault file")
+    func proseEditorTitleSyncRestoresFailedTitleSavesBeforeRenamingVaultFile() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")
+        let start = try #require(source.range(of: "static func syncNoteTitleIfNeeded("))
+        let end = try #require(
+            source.range(of: "private static func syncedNoteTitle(inLine rawLine: String) -> String?", range: start.lowerBound..<source.endIndex)
+        )
+        let syncTitle = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(syncTitle.contains("let originalTitle = page.title"))
+        #expect(syncTitle.contains("let originalUpdatedAt = page.updatedAt"))
+        #expect(syncTitle.contains("let originalNeedsVaultSync = page.needsVaultSync"))
+        #expect(syncTitle.contains("page.title = originalTitle"))
+        #expect(syncTitle.contains("page.updatedAt = originalUpdatedAt"))
+        #expect(syncTitle.contains("page.needsVaultSync = originalNeedsVaultSync"))
+        #expect(syncTitle.contains("return false"))
+        #expect(syncTitle.contains("renamePageFile(page.id, syncedTitle)"))
+
+        let saveCall = try #require(syncTitle.range(of: "try modelContext.save()"))
+        let renameCall = try #require(syncTitle.range(of: "renamePageFile(page.id, syncedTitle)"))
+        #expect(saveCall.lowerBound < renameCall.lowerBound)
+    }
+
+    @Test("note detail quick mutations restore failed save state for pin favorite and ideas")
+    func noteDetailQuickMutationsRestoreFailedSaveState() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("private func persistPageMutation("))
+        #expect(source.contains("let originalShortcutPinned = page.isPinned"))
+        #expect(source.contains("page.isPinned = originalShortcutPinned"))
+        #expect(source.contains("let originalMenuPinned = page.isPinned"))
+        #expect(source.contains("page.isPinned = originalMenuPinned"))
+        #expect(source.contains("let originalIsFavorite = page.isFavorite"))
+        #expect(source.contains("page.isFavorite = originalIsFavorite"))
+        #expect(source.contains("let originalIdeas = page.ideas"))
+        #expect(source.contains("let originalUpdatedAt = page.updatedAt"))
+        #expect(source.contains("page.ideas = originalIdeas"))
+        #expect(source.contains("page.updatedAt = originalUpdatedAt"))
+    }
+
+    @Test("diff sheet restores failed restore and delete mutations before surfacing UI success")
+    func diffSheetRestoreMutationsRestoreFailedState() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/DiffSheetView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let restoreVersion = try section(from: "private func restoreVersion()", to: "private func undoRestore()")
+        let undoRestore = try section(from: "private func undoRestore()", to: "// MARK: - Actions")
+        let persistRestoredBody = try section(from: "static func persistRestoredBody(", to: "private func copyVersionText()")
+        let deleteSelectedVersion = try section(from: "private func deleteSelectedVersion()", to: "// MARK: - Diff Colors")
+
+        #expect(restoreVersion.contains("modelContext.delete(snapshot)"))
+        #expect(restoreVersion.contains("return"))
+        #expect(restoreVersion.contains("preRestoreBody = currentBody"))
+
+        let restoreSaveCall = try #require(restoreVersion.range(of: "try Self.persistRestoredBody("))
+        let restoreUndoState = try #require(restoreVersion.range(of: "preRestoreBody = currentBody"))
+        let restoreLiveBody = try #require(restoreVersion.range(of: "liveBody = version.body"))
+        #expect(restoreSaveCall.lowerBound < restoreUndoState.lowerBound)
+        #expect(restoreUndoState.lowerBound < restoreLiveBody.lowerBound)
+
+        #expect(undoRestore.contains("return"))
+        let undoSaveCall = try #require(undoRestore.range(of: "try Self.persistRestoredBody("))
+        let undoLiveBody = try #require(undoRestore.range(of: "liveBody = oldBody"))
+        #expect(undoSaveCall.lowerBound < undoLiveBody.lowerBound)
+
+        #expect(persistRestoredBody.contains("let originalBody = NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)"))
+        #expect(persistRestoredBody.contains("let originalWordCount = page.wordCount"))
+        #expect(persistRestoredBody.contains("let originalUpdatedAt = page.updatedAt"))
+        #expect(persistRestoredBody.contains("let originalNeedsVaultSync = page.needsVaultSync"))
+        #expect(persistRestoredBody.contains("let originalInlineBody = page.body"))
+        #expect(persistRestoredBody.contains("let originalBlockReferences = page.blockReferences"))
+        #expect(persistRestoredBody.contains("page.body = originalInlineBody"))
+        #expect(persistRestoredBody.contains("page.blockReferences = originalBlockReferences"))
+        #expect(persistRestoredBody.contains("page.wordCount = originalWordCount"))
+        #expect(persistRestoredBody.contains("page.updatedAt = originalUpdatedAt"))
+        #expect(persistRestoredBody.contains("page.needsVaultSync = originalNeedsVaultSync"))
+        #expect(persistRestoredBody.contains("_ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: originalBody)"))
+
+        let persistSaveCall = try #require(persistRestoredBody.range(of: "try modelContext.save()"))
+        let persistFlushCall = try #require(persistRestoredBody.range(of: "await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)"))
+        let persistSyncCall = try #require(persistRestoredBody.range(of: "await BlockMirrorSyncCoordinator.shared.scheduleSync("))
+        #expect(persistSaveCall.lowerBound < persistFlushCall.lowerBound)
+        #expect(persistSaveCall.lowerBound < persistSyncCall.lowerBound)
+
+        #expect(deleteSelectedVersion.contains("modelContext.insert(version)"))
+    }
+
+    @Test("workspace summary storage restores failed save state")
+    func workspaceSummaryStorageRestoresFailedSaveState() throws {
+        let source = try loadRepoTextFile("Epistemos/State/WorkspaceSummaryService.swift")
+        let start = try #require(source.range(of: "private func storeSummary(_ text: String)"))
+        let end = try #require(
+            source.range(of: "private func fetchAutoSaveLastSummaryAt()", range: start.lowerBound..<source.endIndex)
+        )
+        let storeSummary = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(storeSummary.contains("let originalSummary = workspace.summary"))
+        #expect(storeSummary.contains("let originalLastSummaryAt = workspace.lastSummaryAt"))
+        #expect(storeSummary.contains("workspace.summary = originalSummary"))
+        #expect(storeSummary.contains("workspace.lastSummaryAt = originalLastSummaryAt"))
+    }
+
+    @Test("chat title and daily brief follow-up saves restore failed mutation state")
+    func chatTitleAndDailyBriefRestoreFailedMutationState() throws {
+        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+        let appCoordinator = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+
+        let chatStart = try #require(chatCoordinator.range(of: "func generateChatTitle("))
+        let chatEnd = try #require(
+            chatCoordinator.range(of: "// MARK: - Vault Context", range: chatStart.lowerBound..<chatCoordinator.endIndex)
+        )
+        let generateChatTitle = String(chatCoordinator[chatStart.lowerBound..<chatEnd.lowerBound])
+
+        #expect(generateChatTitle.contains("let originalChatTitle = chatState.chatTitle"))
+        #expect(generateChatTitle.contains("let originalSavedTitle = sdChat.title"))
+        #expect(generateChatTitle.contains("chatState.chatTitle = originalChatTitle"))
+        #expect(generateChatTitle.contains("sdChat.title = originalSavedTitle"))
+
+        let dailyStart = try #require(appCoordinator.range(of: "if let pageId = await self.vaultSync.createPage("))
+        let dailyEnd = try #require(
+            appCoordinator.range(of: "} else {", range: dailyStart.lowerBound..<appCoordinator.endIndex)
+        )
+        let dailyBriefPersist = String(appCoordinator[dailyStart.lowerBound..<dailyEnd.lowerBound])
+
+        #expect(dailyBriefPersist.contains("let originalFolder = page.folder"))
+        #expect(dailyBriefPersist.contains("let originalTags = page.tags"))
+        #expect(dailyBriefPersist.contains("page.folder = originalFolder"))
+        #expect(dailyBriefPersist.contains("page.tags = originalTags"))
+    }
+
+    @Test("chat completion note chat and dialogue persistence restore failed transient state")
+    func chatCompletionNoteChatAndDialoguePersistenceRestoreFailedState() throws {
+        let chatCoordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+        let noteChatState = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+        let dialogueChatState = try loadRepoTextFile("Epistemos/State/DialogueChatState.swift")
+
+        let persistChatCompletionStart = try #require(chatCoordinator.range(of: "func persistChatCompletion("))
+        let persistChatCompletionEnd = try #require(
+            chatCoordinator.range(of: "private func persistedUserMessage(", range: persistChatCompletionStart.lowerBound..<chatCoordinator.endIndex)
+        )
+        let persistChatCompletion = String(
+            chatCoordinator[persistChatCompletionStart.lowerBound..<persistChatCompletionEnd.lowerBound]
+        )
+
+        #expect(persistChatCompletion.contains("let wasExisting: Bool"))
+        #expect(persistChatCompletion.contains("let originalChatType = chat.chatType"))
+        #expect(persistChatCompletion.contains("let originalLinkedPageId = chat.linkedPageId"))
+        #expect(persistChatCompletion.contains("let originalUpdatedAt = chat.updatedAt"))
+        #expect(persistChatCompletion.contains("let originalMessages = chat.messages ?? []"))
+        #expect(persistChatCompletion.contains("let newMessages = [userMsg, assistantMsg]"))
+        #expect(persistChatCompletion.contains("chat.chatType = originalChatType"))
+        #expect(persistChatCompletion.contains("chat.linkedPageId = originalLinkedPageId"))
+        #expect(persistChatCompletion.contains("chat.updatedAt = originalUpdatedAt"))
+        #expect(persistChatCompletion.contains("chat.messages = originalMessages"))
+        #expect(persistChatCompletion.contains("context.delete(chat)"))
+
+        let notePersistStart = try #require(noteChatState.range(of: "func persistMessages(_ context: ModelContext, noteTitle: String)"))
+        let notePersistMessages = String(noteChatState[notePersistStart.lowerBound..<noteChatState.endIndex])
+
+        #expect(notePersistMessages.contains("let originalPersistedChatId = persistedChatId"))
+        #expect(notePersistMessages.contains("let wasExisting: Bool"))
+        #expect(notePersistMessages.contains("let originalTitle = sdChat.title"))
+        #expect(notePersistMessages.contains("let originalUpdatedAt = sdChat.updatedAt"))
+        #expect(notePersistMessages.contains("let originalMessages = sdChat.messages ?? []"))
+        #expect(notePersistMessages.contains("let newMessages = messages.map"))
+        #expect(notePersistMessages.contains("for msg in newMessages"))
+        #expect(notePersistMessages.contains("context.insert(msg)"))
+        #expect(notePersistMessages.contains("sdChat.title = originalTitle"))
+        #expect(notePersistMessages.contains("sdChat.updatedAt = originalUpdatedAt"))
+        #expect(notePersistMessages.contains("sdChat.messages = originalMessages"))
+        #expect(notePersistMessages.contains("context.delete(sdChat)"))
+        #expect(notePersistMessages.contains("persistedChatId = originalPersistedChatId"))
+
+        let dialoguePersistStart = try #require(dialogueChatState.range(of: "private func persistIfMeaningful()"))
+        let dialoguePersistEnd = try #require(
+            dialogueChatState.range(of: "// MARK: - Query", range: dialoguePersistStart.lowerBound..<dialogueChatState.endIndex)
+        )
+        let dialoguePersist = String(dialogueChatState[dialoguePersistStart.lowerBound..<dialoguePersistEnd.lowerBound])
+
+        #expect(dialoguePersist.contains("let persistedMessages = messages.map"))
+        #expect(dialoguePersist.contains("for message in persistedMessages"))
+        #expect(dialoguePersist.contains("context.delete(message)"))
+        #expect(dialoguePersist.contains("context.delete(chat)"))
+    }
+
+    @Test("daily brief cleanup removes failed temporary folder page and block mutations")
+    func dailyBriefCleanupRemovesFailedTemporaryState() throws {
+        let source = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+        let start = try #require(source.range(of: "private func saveDailyBrief(content: String)"))
+        let end = try #require(
+            source.range(of: "// MARK: - Vault Manifest", range: start.lowerBound..<source.endIndex)
+        )
+        let saveDailyBrief = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(saveDailyBrief.contains("let createdFolder: Bool"))
+        #expect(saveDailyBrief.contains("func discardNewDailyBriefFolderIfNeeded()"))
+        #expect(saveDailyBrief.contains("CollectionRegistry.shared.setCollection(\"Daily Briefs\", false)"))
+        #expect(saveDailyBrief.contains("func discardFailedFallbackPage(_ page: SDPage)"))
+        #expect(saveDailyBrief.contains("FetchDescriptor<SDBlock>("))
+        #expect(saveDailyBrief.contains("context.delete(page)"))
+        #expect(saveDailyBrief.contains("context.delete(folder)"))
+        #expect(saveDailyBrief.contains("let failedPageId = page.id"))
+        #expect(saveDailyBrief.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(saveDailyBrief.contains("guard !alreadySaved else {"))
+        #expect(saveDailyBrief.contains("discardNewDailyBriefFolderIfNeeded()"))
+        #expect(saveDailyBrief.contains("discardFailedFallbackPage(page)"))
+    }
+
+    @Test("code ask and AI partner persistence clean up failed transient chat state")
+    func codeAskAndAIPartnerPersistenceCleanupFailedTransientState() throws {
+        let codeAskBar = try loadRepoTextFile("Epistemos/Views/Notes/CodeAskBar.swift")
+        let aiPartnerService = try loadRepoTextFile("Epistemos/Views/Notes/AIPartnerService.swift")
+
+        let codeAskStart = try #require(codeAskBar.range(of: "private func persistCodeAskExchange("))
+        let codeAskEnd = try #require(
+            codeAskBar.range(of: "// MARK: - Focused Mode", range: codeAskStart.lowerBound..<codeAskBar.endIndex)
+        )
+        let persistCodeAskExchange = String(codeAskBar[codeAskStart.lowerBound..<codeAskEnd.lowerBound])
+
+        #expect(persistCodeAskExchange.contains("let persistedMessages = [userMsg, assistantMsg]"))
+        #expect(persistCodeAskExchange.contains("for message in persistedMessages"))
+        #expect(persistCodeAskExchange.contains("ctx.delete(message)"))
+        #expect(persistCodeAskExchange.contains("ctx.delete(chat)"))
+
+        let aiPartnerStart = try #require(aiPartnerService.range(of: "private func persistSuggestionExchange("))
+        let aiPartnerEnd = try #require(
+            aiPartnerService.range(of: "// MARK: - Logging", range: aiPartnerStart.lowerBound..<aiPartnerService.endIndex)
+        )
+        let persistSuggestionExchange = String(aiPartnerService[aiPartnerStart.lowerBound..<aiPartnerEnd.lowerBound])
+
+        #expect(persistSuggestionExchange.contains("let persistedMessages = [userMsg, assistantMsg]"))
+        #expect(persistSuggestionExchange.contains("for message in persistedMessages"))
+        #expect(persistSuggestionExchange.contains("ctx.delete(message)"))
+        #expect(persistSuggestionExchange.contains("ctx.delete(chat)"))
+    }
+
+    @Test("shared-context page journal and chat failures restore local mutations without global rollback")
+    func sharedContextPersistenceFailuresAvoidGlobalRollback() throws {
+        let chatSidebar = try loadRepoTextFile("Epistemos/Views/Chat/ChatSidebarView.swift")
+        let vaultSync = try loadRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let journal = try loadRepoTextFile("Epistemos/Intents/Schemas/JournalIntents.swift")
+
+        #expect(!chatSidebar.contains("modelContext.rollback()"))
+        #expect(chatSidebar.contains("let originalMessages = sdChat.messages ?? []"))
+        #expect(chatSidebar.contains("modelContext.insert(sdChat)"))
+        #expect(chatSidebar.contains("sdChat.messages = originalMessages"))
+
+        #expect(!vaultSync.contains("context.rollback()"))
+        #expect(vaultSync.contains("let failedPageId = page.id"))
+        #expect(vaultSync.contains("predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }"))
+        #expect(vaultSync.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+
+        #expect(!journal.contains("context.rollback()"))
+        #expect(journal.contains("let originalBody = page.loadBody()"))
+        #expect(journal.contains("let originalJournalDate = page.journalDate"))
+        #expect(journal.contains("page.journalDate = journalDate"))
+        #expect(journal.contains("page.journalDate = originalJournalDate"))
+        #expect(journal.contains("page.saveBody(originalBody)"))
+        #expect(journal.contains("BlockMirror.sync(pageId: pageId, body: originalBody, modelContext: context)"))
+    }
+
+    @Test("AI partner interaction logging avoids silent directory creation fallback")
+    func aiPartnerInteractionLoggingAvoidsSilentDirectoryFallback() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/AIPartnerService.swift")
+        let start = try #require(source.range(of: "private func saveInteractionLog()"))
+        let end = try #require(
+            source.range(of: "// MARK: - Weighted Context Helpers", range: start.lowerBound..<source.endIndex)
+        )
+        let saveInteractionLog = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(saveInteractionLog.contains("FoundationSafety.userApplicationSupportDirectory()"))
+        #expect(!saveInteractionLog.contains("try? FileManager.default.createDirectory("))
+        #expect(saveInteractionLog.contains("Failed to create AI partner log directory"))
+    }
+
+    @Test("hologram inspector schedules block mirror sync only after dirty save succeeds")
+    func hologramInspectorSchedulesBlockMirrorSyncAfterSave() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+        let start = try #require(source.range(of: "private func markPageDirty(pageId: String, body: String)"))
+        let end = try #require(
+            source.range(of: "@ViewBuilder", range: start.lowerBound..<source.endIndex)
+        )
+        let markPageDirty = String(source[start.lowerBound..<end.lowerBound])
+
+        let saveCall = try #require(markPageDirty.range(of: "try modelContext.save()"))
+        let syncCall = try #require(markPageDirty.range(of: "await BlockMirrorSyncCoordinator.shared.scheduleSync("))
+        #expect(saveCall.lowerBound < syncCall.lowerBound)
+    }
+
+    @Test("mini chat session persistence restores failed message replacement state")
+    func miniChatSessionPersistenceRestoresFailedState() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let start = try #require(source.range(of: "private func persistMiniChatSession()"))
+        let end = try #require(
+            source.range(of: "private func cancelStream()", range: start.lowerBound..<source.endIndex)
+        )
+        let persistMiniChatSession = String(source[start.lowerBound..<end.lowerBound])
+
+        #expect(persistMiniChatSession.contains("let wasExisting = existing != nil"))
+        #expect(persistMiniChatSession.contains("let originalTitle = chat.title"))
+        #expect(persistMiniChatSession.contains("let originalChatType = chat.chatType"))
+        #expect(persistMiniChatSession.contains("let originalLinkedPageId = chat.linkedPageId"))
+        #expect(persistMiniChatSession.contains("let originalUpdatedAt = chat.updatedAt"))
+        #expect(persistMiniChatSession.contains("let originalMessages = chat.messages ?? []"))
+        #expect(persistMiniChatSession.contains("for message in newMessages"))
+        #expect(persistMiniChatSession.contains("modelContext.insert(message)"))
+        #expect(persistMiniChatSession.contains("message.chat = chat"))
+        #expect(persistMiniChatSession.contains("modelContext.delete(chat)"))
+        #expect(persistMiniChatSession.contains("MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: originalTitle)"))
+
+        let saveCall = try #require(persistMiniChatSession.range(of: "try modelContext.save()"))
+        let successWindowTitle = try #require(
+            persistMiniChatSession.range(of: "MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: thread.label)")
+        )
+        #expect(saveCall.lowerBound < successWindowTitle.lowerBound)
     }
 
     @Test("home navigation paths order the main window front regardless for hidden launch sheets")
@@ -2705,15 +3477,15 @@ struct RuntimeValidationTests {
         #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
     }
 
-    @Test("landing search stays in the main window instead of spawning a detached AppKit popover")
-    func landingSearchStaysInMainWindow() throws {
+    @Test("landing search uses the anchored AppKit popover without detached hit-swallow layers")
+    func landingSearchUsesAnchoredPopover() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(!landing.contains(".appKitPopover("))
+        #expect(landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
-        #expect(!landing.contains("tapLocation"))
-        #expect(landing.contains("private var landingSearchOverlay: some View"))
-        #expect(landing.contains("if showingSearchPopover {\n                landingSearchOverlay"))
+        #expect(landing.contains("landingTapLocation"))
+        #expect(landing.contains(".onTapGesture(coordinateSpace: .local) { location in"))
+        #expect(landing.contains(".allowsHitTesting(!showingOverlay && !showingSearchPopover)"))
     }
 
     @Test("chat vault and mini chat runtime surfaces avoid silent fetch save and timer fallbacks")
@@ -2802,6 +3574,55 @@ struct RuntimeValidationTests {
         #expect(source.contains("systemPrompt: nil"))
     }
 
+    @Test("note, graph, and mini chat keep their dedicated routing surfaces")
+    func noteGraphAndMiniChatKeepDedicatedRoutingSurfaces() throws {
+        let noteChat = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")
+        let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let graphInspector = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+        let pinnedInspector = try loadRepoTextFile("Epistemos/Views/Graph/PinnedInspector.swift")
+        let graphSidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+
+        #expect(noteChat.contains("operation: .ask(query: trimmed)"))
+        #expect(noteChat.contains("stream = triageService.stream("))
+        #expect(!noteChat.contains("streamGeneral("))
+
+        #expect(miniChat.contains("localSurface: .miniChat"))
+
+        #expect(graphInspector.contains("localSurface: .graph"))
+        #expect(pinnedInspector.contains("localSurface: .graph"))
+        #expect(graphSidebar.contains("let modes = inference.availableOperatingModes.filter { $0 != .agent }"))
+    }
+
+    @Test("graph-only chrome hides when the workspace route leaves canvas")
+    func graphOnlyChromeHidesWhenWorkspaceRouteLeavesCanvas() throws {
+        let overlay = try loadRepoTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(overlay.contains("private func syncGraphWorkspaceChromeVisibility(isCanvas: Bool)"))
+        #expect(overlay.contains("routeHostView?.isHidden = isCanvas"))
+        #expect(overlay.contains("controlsHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("sidebarHostView?.isHidden = !isCanvas"))
+        #expect(overlay.contains("if isCanvas {"))
+        #expect(overlay.contains("inspectorHostView?.isHidden = true"))
+        #expect(overlay.contains("for view in pinnedInspectorViews.values {"))
+    }
+
+    @Test("bundled note-operation skills stay available to the harness")
+    func bundledNoteOperationSkillsStayAvailableToTheHarness() throws {
+        let noteRead = try loadMirroredSourceTextFile(".agents/skills/note-read/SKILL.md")
+        let noteWrite = try loadMirroredSourceTextFile(".agents/skills/note-write/SKILL.md")
+        let noteCreate = try loadMirroredSourceTextFile(".agents/skills/note-create/SKILL.md")
+        let noteDelete = try loadMirroredSourceTextFile(".agents/skills/note-delete/SKILL.md")
+
+        #expect(noteRead.contains("name: \"Note Read\""))
+        #expect(noteRead.contains("vault_read"))
+        #expect(noteWrite.contains("name: \"Note Write\""))
+        #expect(noteWrite.contains("vault_write"))
+        #expect(noteCreate.contains("name: \"Note Create\""))
+        #expect(noteCreate.contains("create a new note"))
+        #expect(noteDelete.contains("name: \"Note Delete\""))
+        #expect(noteDelete.contains("delete_file"))
+    }
+
     @Test("code editor release path removes embedded ask-bar policy")
     func codeEditorReleasePathRemovesEmbeddedAskBarPolicy() throws {
         let codeEditor = try loadRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
@@ -2839,6 +3660,17 @@ struct RuntimeValidationTests {
         #expect(harnessLab.contains("private enum HarnessLabTime"))
         #expect(harnessLab.contains("static func timestampString("))
         #expect(!harnessLab.contains("ISO8601DateFormatter().string(from: Date())"))
+    }
+
+    @Test("graph label runtime surfaces log atlas failures and keep labels available in performance mode")
+    func graphLabelRuntimeSurfacesLogFailuresAndKeepPerformanceLabels() throws {
+        let metalGraph = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+        let renderer = try loadMirroredSourceTextFile("graph-engine/src/renderer.rs")
+
+        #expect(metalGraph.contains("failed to load label atlas"))
+        #expect(metalGraph.contains("labelMaxNodes"))
+        #expect(metalGraph.contains("labelZoomBias"))
+        #expect(!renderer.contains("if !self.labels_enabled || self.quality_level >= 2 {"))
     }
 
     @Test("landing perf seams share explicit delay helpers")
@@ -3262,6 +4094,18 @@ struct InferenceCloudSelectionTests {
         #expect(authService.contains("throw CloudProviderAuthError.openAIDeviceCodeTimedOut"))
         #expect(settings.contains("Retry OpenAI Sign In"))
         #expect(sharedCard.contains("Retry OpenAI Sign In"))
+    }
+
+    @Test("local model install errors include friendly corruption guidance")
+    func localModelInstallErrorsIncludeFriendlyCorruptionGuidance() throws {
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        ).localizedLowercase
+
+        #expect(settings.contains("incomplete or corrupted"))
+        #expect(settings.contains("retry the install"))
+        #expect(settings.contains("restage the snapshot"))
     }
 
     @Test("OpenAI Codex auth and validation routes carry the required client version")
@@ -3731,6 +4575,427 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("clearNoteChatContextBindings()"))
     }
 
+    @Test("code editor semantic surfaces cancel background work when dismissed")
+    func codeEditorSemanticSurfacesCancelBackgroundWorkWhenDismissed() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/CodeEditorView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("bridge.cancelPendingWork()"))
+        #expect(source.contains("insightGenerator.cancelGeneration()"))
+        #expect(source.contains("generator.cancelGeneration()"))
+    }
+
+    @Test("code editor note creation persists to managed storage and marks vault sync")
+    func codeEditorNoteCreationPersistsToManagedStorageAndMarksVaultSync() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/CodeEditorView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("newPage.saveBody(noteContent)"))
+        #expect(source.contains("newPage.needsVaultSync = true"))
+        #expect(source.contains("BlockMirror.sync(pageId: newPage.id, body: noteContent, modelContext: context)"))
+        #expect(source.contains("let failedPageId = newPage.id"))
+        #expect(source.contains("context.delete(newPage)"))
+        #expect(source.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(source.contains("AppBootstrap.shared?.graphState.needsRefresh = true"))
+        #expect(!source.contains("try? context.save()"))
+        #expect(!source.contains("newPage.body = noteContent"))
+    }
+
+    @Test("text capture note persistence cleans up transient bodies when save fails")
+    func textCaptureNotePersistenceCleansUpTransientBodiesWhenSaveFails() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/TextCapturePipeline.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("let failedPageId = page.id"))
+        #expect(source.contains("context.delete(page)"))
+        #expect(source.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(source.contains("throw TextCaptureError.persistenceFailed"))
+    }
+
+    @Test("daily brief persistence invalidates graph structure after saving")
+    func dailyBriefPersistenceInvalidatesGraphStructure() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/AppCoordinator.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("AppBootstrap.shared?.graphState.needsRefresh = true"))
+        #expect(!source.contains("if let existing = try? context.fetch(folderDesc).first"))
+        #expect(!source.contains("let alreadySaved = (try? context.fetch(dupDesc))?.isEmpty == false"))
+        #expect(!source.contains("if let page = try? context.fetch(pageQuery).first"))
+        #expect(source.contains("AppCoordinator: failed to fetch Daily Briefs folder"))
+        #expect(source.contains("AppCoordinator: failed to check existing daily brief"))
+    }
+
+    @Test("diff restore and chat loading log fetch failures instead of silently no-oping")
+    func diffRestoreAndChatLoadingLogFetchFailures() throws {
+        let diffSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/DiffSheetView.swift",
+            testsFilePath: #filePath
+        )
+        let coordinatorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/AppCoordinator.swift",
+            testsFilePath: #filePath
+        )
+        let organizerSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/VaultOrganizerView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!diffSource.contains("guard let page = try? modelContext.fetch(desc).first else { return }"))
+        #expect(diffSource.contains("DiffSheetView: failed to fetch page for restore"))
+        #expect(diffSource.contains("DiffSheetView: failed to fetch page for undo restore"))
+        #expect(!coordinatorSource.contains("guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }"))
+        #expect(coordinatorSource.contains("AppCoordinator: failed to fetch chat"))
+        #expect(!organizerSource.contains("guard let page = try? modelContext.fetch(descriptor).first else { return }"))
+        #expect(!organizerSource.contains("guard let page = try? modelContext.fetch(pageDescriptor).first,"))
+        #expect(organizerSource.contains("VaultOrganizerView: failed to fetch page for tag suggestion"))
+        #expect(organizerSource.contains("VaultOrganizerView: failed to fetch suggestion targets"))
+    }
+
+    @Test("graph entity fetch paths log failures instead of treating them as missing data")
+    func graphEntityFetchPathsLogFailures() throws {
+        let extractorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Graph/EntityExtractor.swift",
+            testsFilePath: #filePath
+        )
+        let builderSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Graph/GraphBuilder.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!extractorSource.contains("return (try? context.fetch(descriptor))?.first"))
+        #expect(!extractorSource.contains("if let existing = try? context.fetch(descriptor), !existing.isEmpty"))
+        #expect(!extractorSource.contains("if let existing = (try? context.fetch(descriptor))?.first"))
+        #expect(extractorSource.contains("EntityExtractor: failed to fetch graph node"))
+        #expect(extractorSource.contains("EntityExtractor: failed to fetch existing graph node"))
+        #expect(extractorSource.contains("EntityExtractor: failed to fetch existing graph edge"))
+        #expect(!builderSource.contains("if let fetched = try? context.fetch(descriptor) {"))
+        #expect(builderSource.contains("recordGraphBuilderFailure(\"Fetch referenced blocks batch\", error: error)"))
+    }
+
+    @Test("graph write surfaces roll back transient graph artifacts when persistence fails")
+    func graphWriteSurfacesRollbackTransientArtifactsOnSaveFailure() throws {
+        let textCaptureSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/TextCapturePipeline.swift",
+            testsFilePath: #filePath
+        )
+        let extractorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Graph/EntityExtractor.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(textCaptureSource.contains("var insertedNodes: [SDGraphNode] = []"))
+        #expect(textCaptureSource.contains("var insertedEdges: [SDGraphEdge] = []"))
+        #expect(textCaptureSource.contains("var updatedExistingNodes: [UpdatedExistingGraphNode] = []"))
+        #expect(textCaptureSource.contains("context.delete(edge)"))
+        #expect(textCaptureSource.contains("context.delete(node)"))
+        #expect(textCaptureSource.contains("snapshot.node.label = snapshot.label"))
+        #expect(textCaptureSource.contains("snapshot.node.updatedAt = snapshot.updatedAt"))
+
+        #expect(extractorSource.contains("rollbackInsertedGraphArtifacts"))
+        #expect(extractorSource.contains("var insertedEdges: [SDGraphEdge] = []"))
+        #expect(extractorSource.contains("var insertedIdeaNodes: [SDGraphNode] = []"))
+        #expect(extractorSource.contains("context.delete(edge)"))
+        #expect(extractorSource.contains("context.delete(node)"))
+    }
+
+    @Test("graph builder persist restores mutated graph state when diff save fails")
+    func graphBuilderPersistRestoresMutatedGraphStateWhenSaveFails() throws {
+        let builderSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Graph/GraphBuilder.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(builderSource.contains("struct NodeMutationSnapshot"))
+        #expect(builderSource.contains("struct EdgeMutationSnapshot"))
+        #expect(builderSource.contains("var updatedNodeSnapshots: [NodeMutationSnapshot] = []"))
+        #expect(builderSource.contains("var deletedNodes: [SDGraphNode] = []"))
+        #expect(builderSource.contains("var insertedEdges: [SDGraphEdge] = []"))
+        #expect(builderSource.contains("snapshot.node.metadata = snapshot.metadata"))
+        #expect(builderSource.contains("context.insert(node)"))
+        #expect(builderSource.contains("context.insert(edge)"))
+        #expect(builderSource.contains("context.delete(edge)"))
+    }
+
+    @Test("main-context version capture cleans up transient versions when save fails")
+    func mainContextVersionCaptureCleansUpTransientVersionsWhenSaveFails() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Sync/VaultSyncService.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("let version = SDPageVersion("))
+        #expect(source.contains("context.insert(version)"))
+        #expect(source.contains("context.delete(version)"))
+        #expect(source.contains("Failed to save captured version for page"))
+    }
+
+    @Test("live note and block mirror fetch paths log failures instead of mutating from empty fallbacks")
+    func liveNoteAndBlockMirrorFetchPathsLogFailures() throws {
+        let executorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Vault/LiveNoteExecutor.swift",
+            testsFilePath: #filePath
+        )
+        let scannerSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Vault/LiveNoteScanner.swift",
+            testsFilePath: #filePath
+        )
+        let mirrorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Sync/BlockMirror.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!executorSource.contains("return (try? context.fetch(descriptor))?.first"))
+        #expect(executorSource.contains("LiveNoteExecutor: failed to fetch page"))
+        #expect(!scannerSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(scannerSource.contains("LiveNoteScanner: failed to fetch active pages"))
+        #expect(!mirrorSource.contains("let existing = (try? modelContext.fetch(descriptor)) ?? []"))
+        #expect(mirrorSource.contains("BlockMirror: failed to fetch existing blocks"))
+    }
+
+    @Test("graph inspector and page mode fetch paths log failures instead of degrading into empty state")
+    func graphInspectorAndPageModeFetchPathsLogFailures() throws {
+        let inspectorStateSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Graph/NodeInspectorState.swift",
+            testsFilePath: #filePath
+        )
+        let pinnedInspectorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Graph/PinnedInspector.swift",
+            testsFilePath: #filePath
+        )
+        let graphStateSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Graph/GraphState.swift",
+            testsFilePath: #filePath
+        )
+        let hologramInspectorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Graph/HologramNodeInspector.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!inspectorStateSource.contains("if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty"))
+        #expect(!inspectorStateSource.contains("guard let folder = try? modelContext.fetch(descriptor).first else {"))
+        #expect(!inspectorStateSource.contains("let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []"))
+        #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch page summary"))
+        #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch folder"))
+        #expect(inspectorStateSource.contains("NodeInspectorState: failed to fetch folder pages"))
+
+        #expect(!pinnedInspectorSource.contains("if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty"))
+        #expect(!pinnedInspectorSource.contains("guard let folder = try? modelContext.fetch(descriptor).first else { return \"\" }"))
+        #expect(!pinnedInspectorSource.contains("let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []"))
+        #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch page summary"))
+        #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch folder"))
+        #expect(pinnedInspectorSource.contains("PinnedInspector: failed to fetch folder pages"))
+
+        #expect(!graphStateSource.contains("guard let page = try? context.fetch(descriptor).first else { return }"))
+        #expect(graphStateSource.contains("GraphState: failed to fetch page for page-mode subgraph"))
+        #expect(!hologramInspectorSource.contains("guard let page = try? modelContext.fetch(desc).first,"))
+        #expect(hologramInspectorSource.contains("HologramNodeInspector: failed to fetch page metadata"))
+    }
+
+    @Test("note surfaces and query helpers log fetch failures instead of pretending data is empty")
+    func noteSurfacesAndQueryHelpersLogFetchFailures() throws {
+        let backlinksSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/NoteBacklinksPanel.swift",
+            testsFilePath: #filePath
+        )
+        let blockRefSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/BlockRefAutocomplete2.swift",
+            testsFilePath: #filePath
+        )
+        let proseEditorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ProseEditorRepresentable2.swift",
+            testsFilePath: #filePath
+        )
+        let detailWorkspaceSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/NoteDetailWorkspaceView.swift",
+            testsFilePath: #filePath
+        )
+        let diffSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/DiffSheetView.swift",
+            testsFilePath: #filePath
+        )
+        let dataviewSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/DataviewService.swift",
+            testsFilePath: #filePath
+        )
+        let knowledgeIndexSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/KnowledgeIndexBuilder.swift",
+            testsFilePath: #filePath
+        )
+        let meaningAnchorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/MeaningAnchorService.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!backlinksSource.contains("guard let allPages = try? modelContext.fetch(descriptor) else { return }"))
+        #expect(backlinksSource.contains("NoteBacklinksPopover: failed to fetch pages for backlink scan"))
+
+        #expect(!blockRefSource.contains("let blocks = (try? modelContext.fetch(blockDescriptor)) ?? []"))
+        #expect(!blockRefSource.contains("if let page = try? modelContext.fetch(desc).first {"))
+        #expect(blockRefSource.contains("BlockRefAutocomplete2: failed to fetch candidate blocks"))
+        #expect(blockRefSource.contains("BlockRefAutocomplete2: failed to fetch page title"))
+
+        #expect(!proseEditorSource.contains("let existingBlocks = (try? mc.fetch(descriptor)) ?? []"))
+        #expect(!proseEditorSource.contains("if let page = try? mc.fetch(pageDesc).first {"))
+        #expect(!proseEditorSource.contains("let pageBlocks = (try? mc.fetch(pageBlocksDesc)) ?? [block]"))
+        #expect(proseEditorSource.contains("ProseEditorRepresentable2: failed to fetch blocks for translator initialization"))
+        #expect(proseEditorSource.contains("ProseEditorRepresentable2: failed to fetch source page for transclusion edit"))
+        #expect(proseEditorSource.contains("ProseEditorRepresentable2: failed to fetch page blocks for transclusion edit"))
+
+        #expect(!detailWorkspaceSource.contains("guard let allPages = try? modelContext.fetch(descriptor) else { return nil }"))
+        #expect(!detailWorkspaceSource.contains("(try? modelContext.fetch(exactDesc))?.first"))
+        #expect(!detailWorkspaceSource.contains("guard let pages = try? modelContext.fetch(allDesc) else { return nil }"))
+        #expect(detailWorkspaceSource.contains("NoteDetailWorkspaceView: failed to fetch pages for missing-page recovery"))
+        #expect(detailWorkspaceSource.contains("NoteDetailWorkspaceView: failed to fetch exact wikilink target"))
+        #expect(detailWorkspaceSource.contains("NoteDetailWorkspaceView: failed to fetch wikilink target pages"))
+
+        #expect(!diffSource.contains("versions = (try? modelContext.fetch(desc)) ?? []"))
+        #expect(diffSource.contains("DiffSheetView: failed to fetch page versions"))
+
+        #expect(!dataviewSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(dataviewSource.contains("DataviewService: failed to fetch pages"))
+
+        #expect(!knowledgeIndexSource.contains("let nodes = (try? context.fetch(descriptor)) ?? []"))
+        #expect(knowledgeIndexSource.contains("KnowledgeIndexBuilder: failed to fetch graph nodes"))
+
+        #expect(!meaningAnchorSource.contains("guard let chat = try? context.fetch(descriptor).first else {"))
+        #expect(!meaningAnchorSource.contains("guard let allChats = try? context.fetch(FetchDescriptor<SDChat>("))
+        #expect(meaningAnchorSource.contains("MeaningAnchor: failed to fetch chat"))
+        #expect(meaningAnchorSource.contains("MeaningAnchor: failed to fetch chats for backfill"))
+    }
+
+    @Test("app intents log fetch failures instead of quietly returning empty note and folder results")
+    func appIntentsLogFetchFailures() throws {
+        let noteEntitySource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Entities/NoteEntity.swift",
+            testsFilePath: #filePath
+        )
+        let folderEntitySource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Entities/FolderEntity.swift",
+            testsFilePath: #filePath
+        )
+        let noteActionsSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Custom/NoteActionIntents.swift",
+            testsFilePath: #filePath
+        )
+        let analysisSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Custom/AnalysisIntents.swift",
+            testsFilePath: #filePath
+        )
+        let dailyBriefSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Custom/DailyBriefingIntent.swift",
+            testsFilePath: #filePath
+        )
+        let journalSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Schemas/JournalIntents.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!noteEntitySource.contains("let fallbackPages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(!noteEntitySource.contains("return (try? context.fetch(descriptor))?.first"))
+        #expect(!noteEntitySource.contains("if let page = (try? context.fetch(descriptor))?.first"))
+        #expect(!noteEntitySource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(noteEntitySource.contains("AppIntentSearchSupport: failed to fetch fallback pages"))
+        #expect(noteEntitySource.contains("AppIntentSearchSupport: failed to fetch page"))
+        #expect(noteEntitySource.contains("NoteEntityQuery: failed to fetch note"))
+        #expect(noteEntitySource.contains("NoteEntityQuery: failed to fetch suggested notes"))
+
+        #expect(!folderEntitySource.contains("if let folder = (try? context.fetch(descriptor))?.first"))
+        #expect(!folderEntitySource.contains("let folders = (try? context.fetch(descriptor)) ?? []"))
+        #expect(folderEntitySource.contains("FolderEntityQuery: failed to fetch folder"))
+        #expect(folderEntitySource.contains("FolderEntityQuery: failed to fetch folders"))
+
+        #expect(!noteActionsSource.contains("guard let page = (try? context.fetch(descriptor))?.first else {"))
+        #expect(!noteActionsSource.contains("guard let page = (try? context.fetch(pageDescriptor))?.first else {"))
+        #expect(!noteActionsSource.contains("guard let folder = (try? context.fetch(folderDescriptor))?.first else {"))
+        #expect(noteActionsSource.contains("SummarizeNoteIntent: failed to fetch active note"))
+        #expect(noteActionsSource.contains("MoveNoteToFolderIntent: failed to fetch note"))
+        #expect(noteActionsSource.contains("MoveNoteToFolderIntent: failed to fetch folder"))
+
+        #expect(!analysisSource.contains("let recent = (try? context.fetch(SDPage.recentDescriptor(limit: 5))) ?? []"))
+        #expect(analysisSource.contains("AskAboutNotesIntent: failed to fetch recent notes"))
+
+        #expect(!dailyBriefSource.contains("let recentPages = (try? context.fetch(desc)) ?? []"))
+        #expect(dailyBriefSource.contains("DailyBriefingIntent: failed to fetch recent pages"))
+
+        #expect(!journalSource.contains("if let page = (try? context.fetch(descriptor))?.first"))
+        #expect(journalSource.contains("JournalEntityQuery: failed to fetch journal entry"))
+        #expect(journalSource.contains("CreateJournalIntent: failed to fetch created journal page"))
+    }
+
+    @Test("chat, landing, and remaining schema intents log fetch failures instead of degrading into empty UI")
+    func chatLandingAndSchemaFetchPathsLogFailures() throws {
+        let aiPartnerSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/AIPartnerService.swift",
+            testsFilePath: #filePath
+        )
+        let mentionDropdownSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Chat/NotesMentionDropdown.swift",
+            testsFilePath: #filePath
+        )
+        let chatInputBarSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Chat/ChatInputBar.swift",
+            testsFilePath: #filePath
+        )
+        let chatSidebarSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Chat/ChatSidebarView.swift",
+            testsFilePath: #filePath
+        )
+        let sessionOverlaySource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Landing/SessionIntelligenceOverlay.swift",
+            testsFilePath: #filePath
+        )
+        let quitSavePanelSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Landing/QuitSavePanelController.swift",
+            testsFilePath: #filePath
+        )
+        let wordProcessorSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Schemas/WordProcessorIntents.swift",
+            testsFilePath: #filePath
+        )
+        let systemSearchSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Intents/Schemas/SystemSearchIntent.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(!aiPartnerSource.contains("chat.linkedPageId = (try? ctx.fetch(descriptor).first)?.id"))
+        #expect(aiPartnerSource.contains("AIPartnerService: failed to fetch linked page"))
+
+        #expect(!mentionDropdownSource.contains("guard let pages = try? modelContext.fetch(SDPage.activePagesDescriptor),"))
+        #expect(!mentionDropdownSource.contains("let folders = try? modelContext.fetch(folderDescriptor)"))
+        #expect(mentionDropdownSource.contains("NotesMentionDropdown: failed to fetch browse inventory"))
+
+        #expect(!chatInputBarSource.contains("return (try? modelContext.fetch(descriptor)) ?? []"))
+        #expect(chatInputBarSource.contains("ChatInputBar: failed to fetch recent chats"))
+
+        #expect(!chatSidebarSource.contains("recentChats = (try? modelContext.fetch(descriptor)) ?? []"))
+        #expect(chatSidebarSource.contains("ChatSidebarView: failed to fetch chats"))
+
+        #expect(!sessionOverlaySource.contains("let persisted = try? context.fetch(descriptor).first"))
+        #expect(!sessionOverlaySource.contains("guard let persisted = try? context.fetch(descriptor).first else {"))
+        #expect(!sessionOverlaySource.contains("guard let workspace = try? context.fetch(descriptor).first,"))
+        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch mini chat title"))
+        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch mini chat summary"))
+        #expect(sessionOverlaySource.contains("SessionIntelligenceOverlay: failed to fetch autosaved workspace summary"))
+        #expect(!quitSavePanelSource.contains("if let ws = try? AppBootstrap.shared?.modelContainer.mainContext.fetch("))
+        #expect(quitSavePanelSource.contains("QuitSavePanelController: failed to fetch autosaved workspace summary"))
+
+        #expect(!wordProcessorSource.contains("if let page = (try? context.fetch(descriptor))?.first"))
+        #expect(!wordProcessorSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(wordProcessorSource.contains("WordProcessorDocumentQuery: failed to fetch document"))
+        #expect(wordProcessorSource.contains("WordProcessorDocumentQuery: failed to fetch documents"))
+
+        #expect(!systemSearchSource.contains("let pages = (try? context.fetch(descriptor)) ?? []"))
+        #expect(systemSearchSource.contains("SystemSearchIntent: failed to fetch search results"))
+    }
+
     @Test("code editor inherits the note canvas and removes the old bottom chrome")
     func codeEditorInheritsNoteCanvasAndRemovesBottomChrome() throws {
         let source = try loadRepoTextFileWithRetry(
@@ -3768,6 +5033,42 @@ struct InferenceCloudSelectionTests {
         #expect(state.contains("var pendingContentBlocks: [MessageContentBlock] = []"))
         #expect(state.contains("contentBlocks: completedContentBlocks"))
         #expect(bubble.contains("ToolExecutionPreviewList("))
+    }
+
+    @Test("local main chat tool loop reports structured tool lifecycle and MCP execution logs")
+    func localMainChatToolLoopReportsStructuredToolLifecycleAndMcpLogs() throws {
+        let pipeline = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/PipelineService.swift",
+            testsFilePath: #filePath
+        )
+        let coordinator = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/ChatCoordinator.swift",
+            testsFilePath: #filePath
+        )
+        let engineTypes = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Models/EngineTypes.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(engineTypes.contains("enum PipelineToolEvent"))
+        #expect(pipeline.contains("observedToolExecutor("))
+        #expect(pipeline.contains("toolEventHandler?(.started("))
+        #expect(pipeline.contains(".completed("))
+        #expect(coordinator.contains("toolEventHandler: { event in"))
+        #expect(coordinator.contains("bootstrap.mcpBridge.logExecution("))
+    }
+
+    @Test("GGUF availability probe only runs for GGUF-capable model candidates")
+    func ggufAvailabilityProbeOnlyRunsForGgufCapableModelCandidates() throws {
+        let bootstrap = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/AppBootstrap.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(bootstrap.contains("let probeRuntimeKind"))
+        #expect(bootstrap.contains("config.resolvedRuntimeKind(for: probeModelID)"))
+        #expect(bootstrap.contains("LocalTextModelID(rawValue: probeModelID)?.runtimeKind"))
+        #expect(bootstrap.contains("probeRuntimeKind == .gguf"))
     }
 
     @Test("outline navigator uses flattened native rows instead of recursive hover state")

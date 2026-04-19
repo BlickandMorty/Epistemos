@@ -38,13 +38,15 @@ protocol CloudConfigurableLLMClient: LLMClientProtocol {
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) async throws -> String
     func stream(
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error>
 
     /// Generate a structured response constrained to a JSON schema.
@@ -54,6 +56,7 @@ protocol CloudConfigurableLLMClient: LLMClientProtocol {
         systemPrompt: String?,
         maxTokens: Int,
         model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T>
@@ -62,11 +65,42 @@ protocol CloudConfigurableLLMClient: LLMClientProtocol {
 // Default fallback: parse generate() result as JSON. Providers that don't
 // support native structured output (Google, ZAI, Kimi, etc.) use this.
 extension CloudConfigurableLLMClient {
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: .fast
+        )
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID
+    ) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: .fast
+        )
+    }
+
     func generateStructured<T: Decodable & Sendable>(
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
         model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
@@ -76,7 +110,8 @@ extension CloudConfigurableLLMClient {
             prompt: augmented,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            model: model
+            model: model,
+            operatingMode: operatingMode
         )
         // Strip markdown fences if the model wrapped the JSON
         let cleaned = raw
@@ -92,6 +127,25 @@ extension CloudConfigurableLLMClient {
         } catch {
             throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
         }
+    }
+
+    func generateStructured<T: Decodable & Sendable>(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        schema: CloudJSONSchema,
+        type: T.Type
+    ) async throws -> StructuredGenerationResult<T> {
+        try await generateStructured(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: .fast,
+            schema: schema,
+            type: type
+        )
     }
 }
 
@@ -226,7 +280,7 @@ final class LLMService: LLMClientProtocol {
         let snapshot = configSnapshot()
         switch snapshot.provider {
         case .appleIntelligence:
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 let task = Task {
                     do {
                         let result = try await AppleIntelligenceService.shared.generate(
@@ -244,7 +298,7 @@ final class LLMService: LLMClientProtocol {
 
         case .localGGUF, .localMLX:
             guard let localLLMClient else {
-                return AsyncThrowingStream { continuation in
+                return StreamingBufferPolicy.throwingStream { continuation in
                     continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
                 }
             }
@@ -266,7 +320,7 @@ final class LLMService: LLMClientProtocol {
             )
         case .openAI, .anthropic, .google, .zai, .kimi, .minimax, .deepseek:
             guard let cloudLLMClient else {
-                return AsyncThrowingStream { continuation in
+                return StreamingBufferPolicy.throwingStream { continuation in
                     continuation.finish(throwing: CloudLLMError.runtimeUnavailable)
                 }
             }
@@ -471,7 +525,7 @@ nonisolated enum ProcessActivity {
         manager: ProcessActivityManager = .live,
         _ operation: @escaping @Sendable (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
     ) -> AsyncThrowingStream<Element, Error> {
-        AsyncThrowingStream { continuation in
+        StreamingBufferPolicy.throwingStream { continuation in
             let token = manager.begin(reason, options)
             let task = Task.detached(priority: .userInitiated) {
                 defer { manager.end(token) }
@@ -585,7 +639,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            model: try selectedCloudModel()
+            model: try selectedCloudModel(),
+            operatingMode: .fast
         )
     }
 
@@ -593,7 +648,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) async throws -> String {
         let credential = try await resolvedCredential(for: model.provider)
         let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
@@ -608,7 +664,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 credential: credential,
                 prompt: prompt,
                 systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens
+                maxTokens: maxTokens,
+                operatingMode: operatingMode
             )
         case .anthropic:
             return try await generateAnthropic(
@@ -652,7 +709,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         do {
             selectedModel = try selectedCloudModel()
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: error)
             }
         }
@@ -661,7 +718,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             prompt: prompt,
             systemPrompt: systemPrompt,
             maxTokens: maxTokens,
-            model: selectedModel
+            model: selectedModel,
+            operatingMode: .fast
         )
     }
 
@@ -669,9 +727,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
-        model: CloudTextModelID
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
+        StreamingBufferPolicy.throwingStream { continuation in
             let task = Task { @MainActor [weak self] in
                 guard let self else {
                     continuation.finish()
@@ -693,7 +752,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                             credential: credential,
                             prompt: prompt,
                             systemPrompt: resolvedSystemPrompt,
-                            maxTokens: maxTokens
+                            maxTokens: maxTokens,
+                            operatingMode: operatingMode
                         )
                     case .anthropic:
                         upstream = self.streamAnthropic(
@@ -753,6 +813,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         systemPrompt: String?,
         maxTokens: Int,
         model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
@@ -768,7 +829,14 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             if !model.supportsStructuredOutput {
                 // Use default protocol extension (prompt-based fallback)
                 let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
-                let raw = try await generateOpenAI(model: model, credential: credential, prompt: augmented, systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens)
+                let raw = try await generateOpenAI(
+                    model: model,
+                    credential: credential,
+                    prompt: augmented,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens,
+                    operatingMode: operatingMode
+                )
                 let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
                 do {
@@ -781,6 +849,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return try await generateStructuredOpenAI(
                 model: model, credential: credential, prompt: prompt,
                 systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
+                operatingMode: operatingMode,
                 schema: schema, type: type
             )
         case .anthropic:
@@ -792,7 +861,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         default:
             // Other providers: use prompt-based fallback (default protocol extension)
             let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
-            let raw = try await generate(prompt: augmented, systemPrompt: systemPrompt, maxTokens: maxTokens, model: model)
+            let raw = try await generate(
+                prompt: augmented,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                model: model,
+                operatingMode: operatingMode
+            )
             let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
             do {
@@ -911,7 +986,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 credential: credential,
                 prompt: "Reply with OK.",
                 systemPrompt: nil,
-                maxTokens: 16
+                maxTokens: 16,
+                operatingMode: .fast
             )
         case .anthropic:
             _ = try await generateAnthropic(
@@ -1023,7 +1099,15 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         provider: CloudModelProvider
     ) -> Set<String> {
         switch provider {
-        case .openAI, .anthropic, .zai, .kimi, .deepseek:
+        case .openAI:
+            let responseModels = json["data"] as? [[String: Any]] ?? []
+            let responseIDs = responseModels.compactMap { $0["id"] as? String }
+            if !responseIDs.isEmpty {
+                return Set(responseIDs)
+            }
+            let codexModels = json["models"] as? [[String: Any]] ?? []
+            return Set(codexModels.compactMap { $0["slug"] as? String })
+        case .anthropic, .zai, .kimi, .deepseek:
             let models = json["data"] as? [[String: Any]] ?? []
             return Set(models.compactMap { $0["id"] as? String })
         case .google:
@@ -1042,26 +1126,50 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
-        maxTokens: Int
+        maxTokens: Int,
+        operatingMode: EpistemosOperatingMode
     ) async throws -> String {
+        let resolvedModel = compatibleOpenAIModel(model, credential: credential)
         let input: [[String: Any]] = [[
             "role": "user",
             "content": Self.openAIUserContent(
                 prompt: prompt,
-                imagePayloads: resolvedVisionPayloads(for: model)
+                imagePayloads: resolvedVisionPayloads(for: resolvedModel)
             )
         ]]
 
+        if case .openAICodex = credential {
+            let request = try makeOpenAIResponsesRequest(
+                model: resolvedModel,
+                credential: credential,
+                input: input,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode,
+                stream: true
+            )
+            return try await collectOpenAIResponseText(from: request)
+        }
+
         var body: [String: Any] = [
-            "model": model.vendorModelID,
+            "model": resolvedModel.vendorModelID,
             "input": input,
+            "store": false,
         ]
-        if let systemPrompt, !systemPrompt.isEmpty {
-            body["instructions"] = systemPrompt
+        if let instructions = openAIResponsesInstructions(
+            systemPrompt: systemPrompt,
+            credential: credential
+        ) {
+            body["instructions"] = instructions
         }
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
+        applyOpenAIResponsesControls(
+            to: &body,
+            model: resolvedModel,
+            operatingMode: operatingMode
+        )
         let tools = openAIToolsConfiguration()
         if !tools.isEmpty {
             body["tools"] = tools
@@ -1099,27 +1207,61 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         prompt: String,
         systemPrompt: String?,
         maxTokens: Int,
+        operatingMode: EpistemosOperatingMode,
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
+        let resolvedModel = compatibleOpenAIModel(model, credential: credential)
         let input: [[String: Any]] = [[
             "role": "user",
             "content": Self.openAIUserContent(
                 prompt: prompt,
-                imagePayloads: resolvedVisionPayloads(for: model)
+                imagePayloads: resolvedVisionPayloads(for: resolvedModel)
             )
         ]]
 
+        if case .openAICodex = credential {
+            let request = try makeOpenAIResponsesRequest(
+                model: resolvedModel,
+                credential: credential,
+                input: input,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode,
+                schema: schema,
+                stream: true
+            )
+            let rawText = try await collectOpenAIResponseText(from: request)
+            guard let data = rawText.data(using: .utf8) else {
+                throw StructuredOutputError.emptyResponse
+            }
+            do {
+                let value = try JSONDecoder().decode(T.self, from: data)
+                return StructuredGenerationResult(value: value, rawJSON: rawText)
+            } catch {
+                throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: rawText)
+            }
+        }
+
         var body: [String: Any] = [
-            "model": model.vendorModelID,
+            "model": resolvedModel.vendorModelID,
             "input": input,
+            "store": false,
         ]
-        if let systemPrompt, !systemPrompt.isEmpty {
-            body["instructions"] = systemPrompt
+        if let instructions = openAIResponsesInstructions(
+            systemPrompt: systemPrompt,
+            credential: credential
+        ) {
+            body["instructions"] = instructions
         }
         if maxTokens > 0 {
             body["max_output_tokens"] = maxTokens
         }
+        applyOpenAIResponsesControls(
+            to: &body,
+            model: resolvedModel,
+            operatingMode: operatingMode
+        )
         let tools = openAIToolsConfiguration()
         if !tools.isEmpty {
             body["tools"] = tools
@@ -1181,44 +1323,31 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         credential: CloudProviderResolvedCredential,
         prompt: String,
         systemPrompt: String?,
-        maxTokens: Int
+        maxTokens: Int,
+        operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error> {
+        let resolvedModel = compatibleOpenAIModel(model, credential: credential)
         let input: [[String: Any]] = [[
             "role": "user",
             "content": Self.openAIUserContent(
                 prompt: prompt,
-                imagePayloads: resolvedVisionPayloads(for: model)
+                imagePayloads: resolvedVisionPayloads(for: resolvedModel)
             )
         ]]
 
-        var body: [String: Any] = [
-            "model": model.vendorModelID,
-            "input": input,
-            "instructions": systemPrompt ?? "You are a helpful assistant.",
-            "stream": true,
-            "store": false,
-        ]
-        if maxTokens > 0 {
-            body["max_output_tokens"] = maxTokens
-        }
-        let tools = openAIToolsConfiguration()
-        if !tools.isEmpty {
-            body["tools"] = tools
-        }
-
-        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
-            return AsyncThrowingStream { continuation in
-                continuation.finish(throwing: CloudLLMError.invalidResponse)
-            }
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let request: URLRequest
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            request = try makeOpenAIResponsesRequest(
+                model: resolvedModel,
+                credential: credential,
+                input: input,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                operatingMode: operatingMode,
+                stream: true
+            )
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -1435,7 +1564,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
 
         guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -1446,7 +1575,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -1514,7 +1643,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             )
             request = builtRequest
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -1617,7 +1746,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         do {
             baseRequest = try googleStreamRequest(modelID: model.vendorModelID, credential: credential)
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -1626,7 +1755,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         do {
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         } catch {
-            return AsyncThrowingStream { continuation in
+            return StreamingBufferPolicy.throwingStream { continuation in
                 continuation.finish(throwing: CloudLLMError.invalidResponse)
             }
         }
@@ -2024,6 +2153,141 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         )
     }
 
+    private func collectOpenAIResponseText(from request: URLRequest) async throws -> String {
+        var collected = ""
+        for try await chunk in streamSSE(request) { json in
+            CloudStreamingParser.openAITextDelta(from: json)
+        } {
+            collected += chunk
+        }
+
+        guard !collected.isEmpty else {
+            throw CloudLLMError.invalidResponse
+        }
+        return collected
+    }
+
+    private func makeOpenAIResponsesRequest(
+        model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential,
+        input: [[String: Any]],
+        systemPrompt: String?,
+        maxTokens: Int,
+        operatingMode: EpistemosOperatingMode,
+        schema: CloudJSONSchema? = nil,
+        stream: Bool
+    ) throws -> URLRequest {
+        guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
+            throw CloudLLMError.invalidResponse
+        }
+
+        var body: [String: Any] = [
+            "model": model.vendorModelID,
+            "input": input,
+            "store": false,
+            "stream": stream,
+        ]
+        if let instructions = openAIResponsesInstructions(
+            systemPrompt: systemPrompt,
+            credential: credential
+        ) {
+            body["instructions"] = instructions
+        }
+        if maxTokens > 0, case .apiKey = credential {
+            body["max_output_tokens"] = maxTokens
+        }
+        applyOpenAIResponsesControls(
+            to: &body,
+            model: model,
+            operatingMode: operatingMode
+        )
+        let tools = openAIToolsConfiguration()
+        if !tools.isEmpty {
+            body["tools"] = tools
+        }
+        if let schema {
+            var formatSchema: [String: Any] = [
+                "type": "json_schema",
+                "name": schema.name,
+                "schema": schema.schema,
+                "strict": schema.strict,
+            ]
+            if let description = schema.description {
+                formatSchema["description"] = description
+            }
+            body["text"] = ["format": formatSchema]
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue(openAIAuthorizationHeader(for: credential), forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    private struct OpenAIResponseControls {
+        let reasoningEffort: String?
+        let verbosity: String?
+    }
+
+    private func openAIResponseControls(
+        for model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) -> OpenAIResponseControls? {
+        switch model {
+        case .openAIGPT54, .openAIGPT52:
+            switch operatingMode {
+            case .fast:
+                OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+            case .thinking:
+                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "medium")
+            case .pro:
+                OpenAIResponseControls(reasoningEffort: "high", verbosity: "medium")
+            case .agent:
+                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "low")
+            }
+        case .openAIGPT54Mini:
+            switch operatingMode {
+            case .fast:
+                OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+            case .thinking:
+                OpenAIResponseControls(reasoningEffort: "low", verbosity: "medium")
+            case .pro:
+                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "medium")
+            case .agent:
+                OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+            }
+        case .openAIGPT54Nano:
+            switch operatingMode {
+            case .fast:
+                OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
+            case .thinking, .pro, .agent:
+                OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+            }
+        default:
+            nil
+        }
+    }
+
+    private func applyOpenAIResponsesControls(
+        to body: inout [String: Any],
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) {
+        guard let controls = openAIResponseControls(for: model, operatingMode: operatingMode) else {
+            return
+        }
+        if let effort = controls.reasoningEffort {
+            body["reasoning"] = ["effort": effort]
+        }
+        if let verbosity = controls.verbosity {
+            var text = body["text"] as? [String: Any] ?? [:]
+            text["verbosity"] = verbosity
+            body["text"] = text
+        }
+    }
+
     private func openAIToolsConfiguration() -> [[String: Any]] {
         var tools: [[String: Any]] = []
         if inference.openAIWebSearchEnabled {
@@ -2034,6 +2298,45 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // changed or require specific account-level feature enablement.
         // If needed in future, re-add with the verified API format.
         return tools
+    }
+
+    private func openAIResponsesInstructions(
+        systemPrompt: String?,
+        credential: CloudProviderResolvedCredential
+    ) -> String? {
+        let trimmed = systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+
+        switch credential {
+        case .openAICodex:
+            // The ChatGPT Codex responses backend rejects requests that omit
+            // the top-level instructions field entirely.
+            return "You are a helpful assistant."
+        case .apiKey, .anthropicOAuth, .googleOAuth:
+            return nil
+        }
+    }
+
+    private func compatibleOpenAIModel(
+        _ model: CloudTextModelID,
+        credential: CloudProviderResolvedCredential
+    ) -> CloudTextModelID {
+        guard case .openAICodex = credential else {
+            return model
+        }
+
+        switch model {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
+            return model
+        case .openAIGPT54Nano, .openAIGPT41, .openAIGPT41Mini:
+            return .openAIGPT54Mini
+        case .openAIO3, .openAIO3Mini:
+            return .openAIGPT54
+        default:
+            return model
+        }
     }
 
     private func resolvedAnthropicMaxTokens(requestedMaxTokens: Int) -> Int {

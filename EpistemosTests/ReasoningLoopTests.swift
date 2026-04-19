@@ -128,7 +128,28 @@ struct ReasoningLoopConfigTests {
         #expect(service.shouldEngageReasoning(
             operation: .ask(query: query),
             contentLength: query.count,
-            query: query
+            query: query,
+            operatingMode: .thinking
+        ))
+    }
+
+    @Test("Fast mode bypasses recursive reasoning even for complex asks")
+    func fastModeBypassesReasoning() {
+        let service = makeReasoningService()
+        service.config.enabled = true
+
+        let query = "Compare Bayesian and evidential decision theory across uncertainty, Dutch book arguments, dynamic inconsistency, and practical planning tradeoffs."
+        #expect(!service.shouldEngageReasoning(
+            operation: .ask(query: query),
+            contentLength: query.count,
+            query: query,
+            operatingMode: .fast
+        ))
+        #expect(service.shouldEngageReasoning(
+            operation: .ask(query: query),
+            contentLength: query.count,
+            query: query,
+            operatingMode: .pro
         ))
     }
 
@@ -148,7 +169,8 @@ struct ReasoningLoopConfigTests {
         #expect(!service.shouldEngageReasoning(
             operation: .ask(query: query),
             contentLength: query.count,
-            query: query
+            query: query,
+            operatingMode: .thinking
         ))
     }
 
