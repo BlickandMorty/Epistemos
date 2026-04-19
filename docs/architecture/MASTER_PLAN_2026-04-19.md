@@ -765,3 +765,29 @@ If one of those boxes is unchecked, the batch is only "code landed," not
 - "tests passed" is not enough if the user cannot reproduce the fix in the launched app
 - provider/runtime bugs should be diagnosed from the exact route, payload shape, and stream events whenever possible
 - any fix that depends on a new file is unverified until Xcode project inclusion is confirmed after `xcodegen`
+
+## 22 · April 19 continuation — post-handoff fixes landed
+
+After the corrected April 20 handoff and the external-doc integration, four
+more batches landed:
+
+| SHA | What |
+|-----|------|
+| [d29984e6](commits/d29984e6) | Fast mode excludes always-thinking local families from automatic routing and fallback, and explicitly disables thinking on smaller Qwen 3.5 tiers |
+| [dfd3f212](commits/dfd3f212) | Master plan + agent progress now carry the build-and-ship verification contract from the external docs |
+| [daa05e65](commits/daa05e65) | Remaining non-stream OpenAI-compatible reasoning leak closed; Fast no longer falls back to always-thinking locals when no fast-safe tier exists; `qwen25Coder7B` joins the thinking-loop guard list |
+| [366d659a](commits/366d659a) | Rust Codex/OpenAI agent request now explicitly opts into `tool_choice: "auto"` and `parallel_tool_calls: true`, matching the upstream Codex Responses contract |
+| [151abe31](commits/151abe31) | Main chat shows an explicit pre-token `Loading <model>…` state so slow local model loads stop looking like a dead freeze |
+
+### 22A · What those batches close
+
+- Fast mode still thinking on DeepSeek / Qwopus-style local fallbacks
+- direct-cloud OpenAI-compatible non-stream reasoning surfacing as visible answer text
+- `qwen25Coder7B` freeze looking like a dead hang before first token
+- GPT-5.4/Codex agent path printing fake JSON tool calls instead of structured calls
+
+### 22B · Residual open items after these batches
+
+- The `qwen25Coder7B` user experience is improved, but still lacks a real timeout/error path if model load never resolves.
+- The Rust OpenAI structured-tool fix needs live app verification against the real Codex/GPT-5.4 path, not just `agent_core` tests.
+- The main-chat loading-state patch is verified by the new source guard and the broader `ChatPresentationTests` run showed that new test passing, but that suite still has an unrelated pre-existing failure in `tool preview cards start collapsed`.
