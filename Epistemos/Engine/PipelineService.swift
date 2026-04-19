@@ -600,7 +600,26 @@ final class PipelineService {
             "🔬 systemPrompt length=0 chars | prompt length=\(finalPrompt.count) chars | hasHistory=\(conversationHistory != nil)"
         )
 
-        let systemPrompt = executionPlan?.additionalSystemPrompt()
+        // Prepend the capability manifest so non-agent turns (Fast /
+        // Thinking mode, local and cloud) get the same identity + app-
+        // routes + how-to-act brief the Rust-agent path already has.
+        // Without this the model only sees `additionalSystemPrompt()`
+        // and has no context for "you are Epistemos, here are the
+        // surfaces, here are the rules" — same root cause as the
+        // agent-ignoring-attached-content bug, one tier shallower.
+        var systemParts: [String] = []
+        if let manifest = buildCapabilityManifest(
+            operatingMode: operatingMode,
+            executionPlan: executionPlan
+        ), !manifest.isEmpty {
+            systemParts.append(manifest)
+        }
+        if let additional = executionPlan?.additionalSystemPrompt(), !additional.isEmpty {
+            systemParts.append(additional)
+        }
+        let systemPrompt: String? = systemParts.isEmpty
+            ? nil
+            : systemParts.joined(separator: "\n\n")
 
         if executionPlan?.forcesLocalExecution == true {
             return triageService.streamGeneralLocally(
@@ -623,6 +642,56 @@ final class PipelineService {
             localSurface: .miniChat,
             steeringHintsJSON: executionPlan?.steeringHintsJSON
         )
+    }
+
+    /// Compose a CapabilityManifestBuilder context from the current
+    /// pipeline state + render it to markdown. Returns nil if we don't
+    /// have enough info to produce a meaningful manifest. Mirrors the
+    /// Rust-agent path's call in ChatCoordinator.runRustAgentPath.
+    private func buildCapabilityManifest(
+        operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?
+    ) -> String? {
+        let providerLabel: String
+        let modelLabel: String
+        switch inference.preferredChatModelSelection {
+        case .cloud(let model):
+            providerLabel = model.provider.rawValue
+            modelLabel = model.vendorModelID
+        case .localMLX(let modelID):
+            providerLabel = "local"
+            modelLabel = modelID
+        case .appleIntelligence:
+            providerLabel = "apple"
+            modelLabel = "Apple Intelligence"
+        }
+
+        let allowedNames: [String]
+        if let executionPlan {
+            allowedNames = Array(executionPlan.allowedToolNames).sorted()
+        } else {
+            allowedNames = []
+        }
+
+        let vaultName = vaultPathProvider().flatMap {
+            URL(fileURLWithPath: $0).lastPathComponent
+        }
+
+        let context = CapabilityManifestBuilder.Context(
+            providerLabel: providerLabel,
+            modelLabel: modelLabel,
+            operatingMode: operatingMode,
+            reasoningTier: inference.chatReasoningTier,
+            enabledToolNames: allowedNames,
+            disabledToolNames: [],
+            vaultName: vaultName,
+            vaultNoteCount: nil,
+            skillNames: [],
+            maxContextTokens: 128_000
+        )
+        let manifest = CapabilityManifestBuilder.render(context)
+        CapabilityManifestBuilder.persist(manifest)
+        return manifest
     }
 
     private func filteredTools(
