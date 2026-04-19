@@ -170,6 +170,22 @@ struct ChatInputBar: View {
     /// slash-command menu accordingly. Menu opens when the user types `/`
     /// at the very start of the composer (or after whitespace at the
     /// start). Closes once `/` is deleted or the user commits an input.
+    /// Append a fresh voice transcript to the composer draft, adding a
+    /// single separator space when the existing draft doesn't already
+    /// end in whitespace. Preserves whatever the user had already
+    /// typed — dictation never clobbers a draft.
+    private func insertVoiceTranscript(_ transcript: String) {
+        let trimmed = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if text.isEmpty {
+            text = trimmed
+        } else if text.last?.isWhitespace == true {
+            text.append(trimmed)
+        } else {
+            text.append(" \(trimmed)")
+        }
+    }
+
     private func refreshSlashMenu(for newValue: String) {
         let trimmedLeading = newValue.drop(while: \.isWhitespace)
         guard trimmedLeading.first == "/" else {
@@ -465,6 +481,9 @@ struct ChatInputBar: View {
                             availableOperatingModes: availableOperatingModes
                         )
                         attachButton
+                        ComposerMicButton { transcript in
+                            insertVoiceTranscript(transcript)
+                        }
                     }
 
                     Spacer(minLength: 4)
