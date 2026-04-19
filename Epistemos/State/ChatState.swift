@@ -13,6 +13,21 @@ final class ChatState {
 
     var isStreaming = false
     var streamingText = ""
+    /// Accumulated thinking-mode deltas for the currently streaming turn.
+    /// Populated live as `onThinkingDelta` events arrive so the thinking
+    /// popover can render in-flight reasoning (ChatGPT-style). Cleared
+    /// when a new turn starts or when the turn completes.
+    var streamingThinking = ""
+    /// True while the model is in its thinking phase — the popover
+    /// trigger is only visible when this is true. Flips false on the
+    /// first text delta (thinking closes, answer begins) or when the
+    /// turn finalizes without a thinking block.
+    var isThinkingActive = false
+    /// Timestamp when thinking started this turn. Used to compute a
+    /// "Thought for Ns" label on the final collapsed view.
+    var thinkingStartedAt: Date?
+    /// Timestamp when thinking ended this turn (first text delta).
+    var thinkingEndedAt: Date?
     var activeChatId: String?
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
@@ -90,6 +105,10 @@ final class ChatState {
 
     private func releaseStreamingTextStorage() {
         streamingText.removeAll(keepingCapacity: false)
+        // Mirror the thinking-popover state cleanup. Every turn boundary
+        // that resets streaming text also ends the thinking surface so a
+        // fresh turn starts with a clean popover.
+        resetThinkingState()
     }
 
     // MARK: - Error
@@ -356,7 +375,35 @@ final class ChatState {
     /// Live response text is intentionally not flushed into observable UI state unless the
     /// display policy enables it or the buffer grows abnormally large.
     func appendStreamingText(_ text: String) {
+        // First text delta closes the thinking phase — popover becomes
+        // the persisted "Thought for Ns" summary badge.
+        if isThinkingActive {
+            isThinkingActive = false
+            thinkingEndedAt = Date()
+        }
         streamBuffer.append(text, scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText)
+    }
+
+    /// Accumulate a live thinking delta for the currently streaming turn.
+    /// The first thinking delta starts the popover (isThinkingActive = true
+    /// + thinkingStartedAt). Subsequent deltas append to streamingThinking
+    /// so the popover UI can render the in-flight reasoning live.
+    func appendStreamingThinking(_ text: String) {
+        if !isThinkingActive {
+            isThinkingActive = true
+            thinkingStartedAt = Date()
+            streamingThinking.removeAll(keepingCapacity: true)
+        }
+        streamingThinking.append(text)
+    }
+
+    /// Reset all thinking-popover state between turns. Called by
+    /// finalizeStreaming / clearMessages / startNewChat.
+    func resetThinkingState() {
+        streamingThinking.removeAll(keepingCapacity: false)
+        isThinkingActive = false
+        thinkingStartedAt = nil
+        thinkingEndedAt = nil
     }
 
     private func flushStreamingTokens() {

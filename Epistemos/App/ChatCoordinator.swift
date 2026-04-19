@@ -282,7 +282,12 @@ final class ChatCoordinator {
                         notesContext: compiled.notesContext,
                         conversationHistory: conversationHistory,
                         operatingMode: effectiveOperatingMode,
-                        executionPlan: executionPlan
+                        executionPlan: executionPlan,
+                        toolApprovalHandler: { [weak self] request in
+                            guard let self else { return false }
+                            guard request.requiresHumanApproval else { return true }
+                            return await self.promptForToolApproval(request)
+                        }
                     )
 
                     for try await event in stream {
@@ -301,10 +306,13 @@ final class ChatCoordinator {
                                 outputTokens: 0
                             )
                         case .error(let msg):
-                            agentChat.addErrorMessage(msg)
+                            let message = UserFacingChatError.message(
+                                from: AgentRuntimeError(message: msg)
+                            )
+                            agentChat.addErrorMessage(message)
                             accState.diagnostics.markFailed(
                                 errorClass: .providerFailure,
-                                message: msg
+                                message: message
                             )
                         }
                     }
@@ -318,10 +326,11 @@ final class ChatCoordinator {
                 accState.diagnostics.markCancelled()
             } catch {
                 Log.pipeline.error("Command Center submission failed: \(error.localizedDescription)")
-                agentChat.addErrorMessage("Error: \(error.localizedDescription)")
+                let message = UserFacingChatError.message(from: error)
+                agentChat.addErrorMessage(message)
                 accState.diagnostics.markFailed(
                     errorClass: .unknown,
-                    message: error.localizedDescription
+                    message: message
                 )
             }
         }
@@ -494,10 +503,13 @@ final class ChatCoordinator {
             case .error(let error):
                 Log.agentStreaming.emitEvent("acc.error")
                 if receivedAgentContent {
-                    agentChat.addErrorMessage("Agent error: \(error.message)")
+                    let message = UserFacingChatError.message(
+                        from: AgentRuntimeError(message: error.message)
+                    )
+                    agentChat.addErrorMessage(message)
                     accState.diagnostics.markFailed(
                         errorClass: .providerFailure,
-                        message: error.message
+                        message: message
                     )
                 } else {
                     terminalAgentError = error
@@ -703,6 +715,15 @@ final class ChatCoordinator {
                             )
                             accState.diagnostics.recordActiveTool(name: nil)
                         }
+                        await MainActor.run {
+                            self.bootstrap.mcpBridge.logExecution(
+                                toolName: name,
+                                argumentsJson: argumentsJson,
+                                resultJson: deniedResult.resultJson,
+                                durationMs: durationMs,
+                                success: false
+                            )
+                        }
                         return deniedResult
                     }
                 } else {
@@ -741,6 +762,15 @@ final class ChatCoordinator {
                         )
                     )
                     accState.diagnostics.recordActiveTool(name: nil)
+                }
+                await MainActor.run {
+                    self.bootstrap.mcpBridge.logExecution(
+                        toolName: name,
+                        argumentsJson: argumentsJson,
+                        resultJson: result.resultJson,
+                        durationMs: durationMs,
+                        success: !result.isError
+                    )
                 }
                 return result
             },
@@ -864,7 +894,9 @@ final class ChatCoordinator {
                 }
 
                 // Sync context window size from active model
-                chatState.maxContextTokens = inferenceState.preferredChatModelSelection.activeMaxContextTokens
+                chatState.maxContextTokens = inferenceState.chatSurfaceMaxContextTokens(
+                    for: operatingMode
+                )
                 chatState.recalculateContextEstimate()
 
                 let hasExplicitContext = Self.queryContainsExplicitContext(
@@ -890,7 +922,9 @@ final class ChatCoordinator {
 
                 let userAttachments = chatState.messages.last(where: { $0.role == .user })?.attachments ?? []
                 let hasExplicitUserContext = hasExplicitContext || !userAttachments.isEmpty
-                let supportsVision = inferenceState.preferredChatModelSelection.activeSupportsVision
+                let supportsVision = inferenceState.chatSurfaceSupportsVision(
+                    for: operatingMode
+                )
                 let fileAttachmentContext = Self.buildFileAttachmentContext(
                     from: userAttachments,
                     supportsVision: supportsVision
@@ -1034,7 +1068,43 @@ final class ChatCoordinator {
                         notesContext: effectiveNotesContextWithWorkspace,
                         conversationHistory: conversationHistory,
                         operatingMode: executionPlan?.localOperatingMode ?? operatingMode,
-                        executionPlan: executionPlan
+                        executionPlan: executionPlan,
+                        toolEventHandler: { event in
+                            switch event {
+                            case .started(let id, let name, let inputJson):
+                                chatState.activeToolName = name
+                                chatState.isAgentExecuting = true
+                                chatState.recordToolUse(id: id, name: name, inputJson: inputJson)
+
+                            case .completed(
+                                let id,
+                                let name,
+                                let inputJson,
+                                let resultJson,
+                                let isError,
+                                let durationMs
+                            ):
+                                chatState.activeToolName = nil
+                                chatState.isAgentExecuting = false
+                                chatState.recordToolResult(
+                                    toolUseId: id,
+                                    result: resultJson,
+                                    isError: isError
+                                )
+                                self.bootstrap.mcpBridge.logExecution(
+                                    toolName: name,
+                                    argumentsJson: inputJson,
+                                    resultJson: resultJson,
+                                    durationMs: durationMs,
+                                    success: !isError
+                                )
+                            }
+                        },
+                        toolApprovalHandler: { [weak self] request in
+                            guard let self else { return false }
+                            guard request.requiresHumanApproval else { return true }
+                            return await self.promptForToolApproval(request)
+                        }
                     )
 
                     for try await event in stream {
@@ -1074,14 +1144,18 @@ final class ChatCoordinator {
                             }
 
                         case .error(let msg):
-                            chatState.addErrorMessage(msg)
+                            chatState.addErrorMessage(
+                                UserFacingChatError.message(
+                                    from: AgentRuntimeError(message: msg)
+                                )
+                            )
                         }
                     }
                 }
             } catch is CancellationError {
                 _ = chatState.completeCancelledProcessing(mode: inferenceState.inferenceMode)
             } catch {
-                chatState.addErrorMessage("Analysis failed: \(error.localizedDescription)")
+                chatState.addErrorMessage(UserFacingChatError.message(from: error))
             }
             inferenceState.pendingImageURLs = []
         }
@@ -1176,8 +1250,10 @@ final class ChatCoordinator {
         // Process the agent stream
         for await event in stream {
             switch event {
-            case .thinkingDelta:
-                break
+            case .thinkingDelta(let thought):
+                // Route live thinking into chat.streamingThinking so the
+                // ThinkingPopoverView can render in-flight reasoning.
+                chatState.appendStreamingThinking(thought)
 
             case .textDelta(let text):
                 receivedAgentContent = true
@@ -1264,7 +1340,9 @@ final class ChatCoordinator {
 
             case .error(let error):
                 if receivedAgentContent {
-                    chatState.addErrorMessage("Agent error: \(error.message)")
+                    chatState.addErrorMessage(
+                        UserFacingChatError.message(from: AgentRuntimeError(message: error.message))
+                    )
                 } else {
                     terminalAgentError = error
                 }
@@ -2307,7 +2385,7 @@ final class ChatCoordinator {
         return NotesContextResolution(
             context: wrapRequiredContextSection(
                 title: "Required Attached Notes",
-                instruction: "These notes were explicitly attached by the user for this request. Use their contents whenever they are relevant.",
+                instruction: "These notes were explicitly attached by the user for this request. Use their contents whenever they are relevant. Use these notes before recall/search tools. Only broaden beyond them if the user asks or the attached notes are clearly insufficient.",
                 body: sections.joined(separator: "\n\n")
             ),
             cleanedQuery: "",
@@ -2348,7 +2426,7 @@ final class ChatCoordinator {
 
         return wrapRequiredContextSection(
             title: "Required Attached Chats",
-            instruction: "These chats were explicitly attached by the user for this request. Use them whenever they are relevant.",
+            instruction: "These chats were explicitly attached by the user for this request. Use them whenever they are relevant. Use these chats before recall/search tools. Only broaden beyond them if the user asks or the attached chats are clearly insufficient.",
             body: sections.joined(separator: "\n\n")
         )
     }
@@ -2570,7 +2648,7 @@ final class ChatCoordinator {
         let sections = attachments.compactMap { fileAttachmentSection(for: $0, supportsVision: supportsVision) }
         return wrapRequiredContextSection(
             title: "Required File Attachments",
-            instruction: "These files were explicitly attached by the user to this message. Use them whenever they are relevant. Treat them as the primary subject of the request unless the user clearly says otherwise. Refer to them by name instead of treating them as optional background.",
+            instruction: "These files were explicitly attached by the user to this message. Use them whenever they are relevant. Treat them as the primary subject of the request unless the user clearly says otherwise. Refer to them by name instead of treating them as optional background. Use the attached file before recall/search tools. Only broaden beyond it if the user asks or the attached file is clearly insufficient.",
             body: sections.joined(separator: "\n\n")
         )
     }
@@ -2581,6 +2659,8 @@ final class ChatCoordinator {
             instruction: "The user intentionally attached or referenced files, notes, or chats for this request. Use that material directly, and do not ask them to provide it again unless something is missing or unreadable.",
             body: """
             Treat them as the primary subject of the request unless the user clearly says otherwise.
+            If the attached notes, files, or chats already cover the request, use them before recall/search/memory tools.
+            Only broaden beyond the attached context when the user asks for a wider search or the attached material is clearly insufficient.
             If anything is missing or unreadable, name the specific missing item instead of pretending no context was provided.
             """
         )
