@@ -567,7 +567,21 @@ private struct ToolExecutionPreviewCard: View {
     let preview: ToolExecutionPreview
     let isStreaming: Bool
 
-    @State private var isExpanded = false
+    /// Auto-expanded while a tool is actively running so the user sees
+    /// live activity (Perplexity / Claude Desktop pattern). Completed
+    /// tools in chat history remain collapsed by default to avoid
+    /// cluttering the transcript with closed-loop detail. Users can
+    /// always toggle; once they manually change state, we respect the
+    /// choice via `userManuallyToggled`.
+    @State private var isExpanded: Bool
+    @State private var userManuallyToggled = false
+
+    init(preview: ToolExecutionPreview, isStreaming: Bool) {
+        self.preview = preview
+        self.isStreaming = isStreaming
+        let isActivelyRunning = isStreaming && preview.result == nil
+        self._isExpanded = State(initialValue: isActivelyRunning)
+    }
 
     private var iconName: String {
         if preview.name.localizedCaseInsensitiveContains("bash")
@@ -642,6 +656,7 @@ private struct ToolExecutionPreviewCard: View {
             Button {
                 withAnimation(.snappy(duration: 0.18)) {
                     isExpanded.toggle()
+                    userManuallyToggled = true
                 }
             } label: {
                 HStack(spacing: 8) {
