@@ -648,16 +648,22 @@ final class ChatState {
         // Prevent duplicate attachments — match by file URI
         guard !pendingAttachments.contains(where: { $0.uri == file.uri }) else { return }
         pendingAttachments.append(file)
+        recalculateContextEstimate()
     }
-    func removeAttachment(_ id: String) { pendingAttachments.removeAll { $0.id == id } }
+    func removeAttachment(_ id: String) {
+        pendingAttachments.removeAll { $0.id == id }
+        recalculateContextEstimate()
+    }
 
     func addContextAttachment(_ attachment: ContextAttachment) {
         guard !pendingContextAttachments.contains(attachment) else { return }
         pendingContextAttachments.append(attachment)
+        recalculateContextEstimate()
     }
 
     func removeContextAttachment(_ id: String) {
         pendingContextAttachments.removeAll { $0.id == id }
+        recalculateContextEstimate()
     }
 
     func captureBrainSnapshot(_ snapshot: ChatBrainSnapshot) {
