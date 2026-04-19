@@ -202,6 +202,12 @@ final class ChatState {
     /// human-readable phrase (e.g., `web_search` + `{"query": "X"}` →
     /// "Searching the web for "X"…"). Cleared on completion / error.
     var activeToolInputJson: String?
+    /// Latest plan the agent has committed via the Rust `todo_write`
+    /// tool. Sticks around between turns so the user keeps seeing the
+    /// plan the model is working against; cleared on new-chat /
+    /// new-session, or when the agent explicitly clears via `action:
+    /// "clear"`.
+    var currentTodos: TodoSnapshot?
     var pendingContentBlocks: [MessageContentBlock] = []
 
     /// Whether the agent is currently executing (vs just streaming text).
@@ -300,6 +306,7 @@ final class ChatState {
         pendingContentBlocks = []
         activeToolName = nil
         activeToolInputJson = nil
+        currentTodos = nil
         isAgentExecuting = false
     }
 
@@ -598,7 +605,24 @@ final class ChatState {
         let input = Self.decodeToolInput(inputJson)
         pendingContentBlocks.append(.toolUse(id: id, name: name, input: input))
         activeToolInputJson = inputJson
+        // Capture the latest plan when the model writes to the `todo`
+        // tool so the sticky card can render without waiting for the
+        // result echo. Matches both the Rust tool name (`todo`) and the
+        // Claude-Code convention (`todo_write`).
+        if Self.isTodoWriteTool(name),
+           let snapshot = TodoSnapshot.fromToolInput(inputJson) {
+            currentTodos = snapshot.isEmpty ? nil : snapshot
+        }
         markTranscriptChanged()
+    }
+
+    private nonisolated static func isTodoWriteTool(_ name: String) -> Bool {
+        switch name.lowercased() {
+        case "todo", "todo_write", "todo_update", "todowrite":
+            return true
+        default:
+            return false
+        }
     }
 
     func recordToolResult(toolUseId: String, result: String, isError: Bool) {

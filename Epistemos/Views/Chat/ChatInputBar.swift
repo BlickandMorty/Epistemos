@@ -324,6 +324,17 @@ struct ChatInputBar: View {
     }
     var body: some View {
         VStack(spacing: 0) {
+            // Sticky plan card (rendered when the agent has published a
+            // todo list via the Rust `todo_write` tool). Sits above the
+            // thin context bar so the user sees the current plan
+            // glance-first; items flip live as the agent progresses.
+            if let todos = chat.currentTodos, !todos.isEmpty {
+                TodoSnapshotCard(snapshot: todos)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+
             // Context window usage indicator
             if chat.hasMessages {
                 ContextWindowIndicator(
