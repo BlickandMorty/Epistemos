@@ -341,10 +341,17 @@ struct ChatView: View {
                 showBrainPanel.toggle()
             }
         } label: {
-            Label(showBrainPanel ? "Hide Brain" : "Show Brain", systemImage: "sidebar.right")
+            Label(
+                showBrainPanel ? "Hide Context" : "Show Context",
+                systemImage: "sidebar.right"
+            )
         }
-        .accessibilityLabel(showBrainPanel ? "Hide Brain" : "Show Brain")
-        .help(showBrainPanel ? "Hide Brain" : "Show Brain")
+        .accessibilityLabel(showBrainPanel ? "Hide context panel" : "Show context panel")
+        .help(
+            showBrainPanel
+                ? "Hide the panel that shows what the model sees for each turn"
+                : "Show the panel that lists the notes, attachments, tools, and routing fed to the model"
+        )
     }
 
     private var miniChatToolbarButton: some View {
@@ -535,8 +542,8 @@ private struct ChatBrainPanelView: View {
                         }
                     }
                 } else {
-                    summaryCard(title: "Brain") {
-                        Text("Submit a chat turn to inspect the exact note context, workspace awareness, history, and execution plan that were injected.")
+                    summaryCard(title: "What the model sees") {
+                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing that were fed to the model — so you always know what it saw.")
                             .font(.system(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
