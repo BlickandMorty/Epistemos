@@ -357,6 +357,28 @@ final class ChatState {
         // from the response text. These get rendered as interactive cards.
         let artifacts = ArtifactExtractor.extract(from: answerText)
 
+        // Silent-empty-reply guard: if the stream produced no visible text,
+        // no tool-use blocks, and no artifacts, surface a concrete error
+        // instead of a ghost assistant bubble the user can't see. This is
+        // the classic "UI says done but nothing rendered" black-box symptom.
+        let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasVisibleContent = !trimmedAnswer.isEmpty
+            || !(completedContentBlocks?.isEmpty ?? true)
+            || !artifacts.isEmpty
+        guard hasVisibleContent else {
+            log.error("[complete] Empty stream on chatId \(chatId); surfacing as error")
+            streamBuffer.reset(releaseCapacity: true)
+            releaseStreamingTextStorage()
+            isStreaming = false
+            pendingContentBlocks = []
+            activeToolName = nil
+            isAgentExecuting = false
+            addErrorMessage(
+                "No response received. The model returned an empty stream — try again or switch models."
+            )
+            return
+        }
+
         let assistantMessage = ChatMessage(
             id: messageId,
             chatId: chatId,
