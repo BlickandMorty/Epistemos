@@ -1024,6 +1024,29 @@ private struct InferenceDetailView: View {
 
             Section {
                 SettingsDescriptionText(
+                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting."
+                )
+                Picker(
+                    selection: Binding(
+                        get: { inference.chatReasoningTier },
+                        set: { inference.setChatReasoningTier($0) }
+                    )
+                ) {
+                    ForEach(ChatReasoningTier.allCases, id: \.self) { tier in
+                        Text(tier.displayName).tag(tier)
+                    }
+                } label: {
+                    Text("Reasoning")
+                }
+                .pickerStyle(.segmented)
+
+                SettingsDescriptionText(text: inference.chatReasoningTier.summary)
+            } header: {
+                Text("Reasoning")
+            }
+
+            Section {
+                SettingsDescriptionText(
                     text: "Local AI manages the on-device models installed on this Mac, shows the active local tier, and lets you choose which local runtime the chat surfaces should prefer."
                 )
                 LabeledContent("Hardware") {
