@@ -14,6 +14,17 @@ Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `cod
   - GPT-5.4 and DeepSeek reasoning must stay in the thinking UI on both direct-cloud and Rust-agent paths
   - attached-note / attached-essay flow must not emit fake `read_file` JSON or ask for file paths when content is already resolved
 
+## 2026-04-19 Continuation ✅
+- [x] `d29984e6` — Fast mode now excludes always-thinking local families from automatic routing/fallback and explicitly disables thinking on smaller Qwen 3.5 variants
+- [x] `daa05e65` — non-stream OpenAI-compatible responses no longer treat `reasoning_content` as answer text; Fast no longer falls back to always-thinking-only local installs; `qwen25Coder7B` participates in the thinking-loop guard
+- [x] `366d659a` — Rust Codex/OpenAI agent requests now send `tool_choice: "auto"` and `parallel_tool_calls: true`, matching the upstream Codex Responses contract more closely
+- [x] `151abe31` — main chat now shows `Loading <model>…` before the first token so slow local loads stop looking like a dead freeze
+- [x] Verification:
+  - `TriageServiceTests` focused run passed after the Fast/runtime-guard batch
+  - `CloudStreamingParserTests` + `TriageServiceTests` focused run passed (37 tests / 2 suites)
+  - `cargo test --manifest-path agent_core/Cargo.toml --lib` passed (512/512)
+  - `ChatPresentationTests` still contains one unrelated pre-existing source-guard failure (`tool preview cards start collapsed`), but the new loading-state source guard itself passed in the broader run
+
 ## 2026-04-19 Chat Transparency + QwQ-32B ✅
 - [x] Batch A `254312cd` — chat routing UX: explicit stack popover, settings ↔ picker sync, Codex GPT-5.4 preservation on fast mode (no silent Mini downgrade)
 - [x] Batch B `18664605` — Codex ChatGPT backend stops receiving GPT-5 native reasoning/verbosity controls (root cause of typo-heavy prose on that path) + "use polished grammar" baseline nudge
