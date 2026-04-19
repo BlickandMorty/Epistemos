@@ -114,6 +114,20 @@ struct MessageBubble: View {
         message.contextAttachments ?? []
     }
 
+    /// Captured reasoning for this assistant turn. Prefers the explicit
+    /// `thinkingTrace` (populated by ChatState at turn completion from
+    /// streamingThinking — includes inline `<think>…</think>` pulled
+    /// out by the streaming router) and falls back to the structured
+    /// thinking content embedded in legacy Anthropic content blocks.
+    private var persistedThinking: String? {
+        if let trace = message.thinkingTrace?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !trace.isEmpty {
+            return trace
+        }
+        return message.contentBlocks?.thinkingContent
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             if isUser { Spacer(minLength: 200) }
@@ -264,8 +278,14 @@ struct MessageBubble: View {
                     typographyRole: .assistant
                 )
 
-                // Extended thinking trail — collapsible reasoning section
-                if let thinking = message.contentBlocks?.thinkingContent, !thinking.isEmpty {
+                // Extended thinking trail — collapsible reasoning section.
+                // Prefer the explicit `thinkingTrace` field (populated by
+                // ChatState on turn completion from streamingThinking,
+                // including inline `<think>…</think>` captured by the
+                // streaming router). Fall back to `contentBlocks.thinkingContent`
+                // for legacy persisted messages whose reasoning arrived
+                // as structured Anthropic thinking blocks pre-router.
+                if let thinking = persistedThinking, !thinking.isEmpty {
                     ThinkingTrailView(content: thinking)
                 }
 

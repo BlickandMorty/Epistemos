@@ -397,6 +397,11 @@ final class ChatState {
     ) {
         guard let chatId = activeChatId else { return }
 
+        // Drain any partial-tag buffer the think-tag router held back
+        // waiting for disambiguation (`<thi` … etc.). Must run BEFORE
+        // flushStreamingTokens so trailing reasoning lands in the
+        // popover and trailing visible text lands in streamingText.
+        flushThinkTagRouter()
         // Flush any buffered tokens before reading streamingText
         flushStreamingTokens()
 
@@ -432,6 +437,15 @@ final class ChatState {
             return
         }
 
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        let thinkingTraceForMessage = capturedThinking.isEmpty ? nil : capturedThinking
+        let thinkingDuration: Double? = {
+            guard let start = thinkingStartedAt else { return nil }
+            let end = thinkingEndedAt ?? Date()
+            let interval = end.timeIntervalSince(start)
+            return interval > 0 ? interval : nil
+        }()
+
         let assistantMessage = ChatMessage(
             id: messageId,
             chatId: chatId,
@@ -443,7 +457,9 @@ final class ChatState {
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
             contentBlocks: completedContentBlocks,
-            resolvedModelLabel: resolvedModelLabel
+            resolvedModelLabel: resolvedModelLabel,
+            thinkingTrace: thinkingTraceForMessage,
+            thinkingDurationSeconds: thinkingDuration
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
@@ -541,6 +557,13 @@ final class ChatState {
 
     /// Pending token buffer — accumulated between flushes.
     /// Not @Observable; only `streamingText` triggers SwiftUI updates.
+    /// Stream-aware router that pulls inline `<think>…</think>` segments
+    /// out of the model's visible text and redirects them to the
+    /// thinking popover. Re-created at the start of every turn so tag
+    /// state never leaks across turns.
+    @ObservationIgnored
+    private var thinkTagRouter = ThinkTagStreamRouter()
+
     @ObservationIgnored
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
         self?.streamingText += delta
@@ -554,6 +577,11 @@ final class ChatState {
         activeToolName = nil
         activeToolInputJson = nil
         isAgentExecuting = false
+        // Fresh tag-routing state per turn — partial `<think>` buffers
+        // must never carry across turns or they'd misclassify the first
+        // chunk of the next response.
+        thinkTagRouter = ThinkTagStreamRouter()
+        resetThinkingState()
     }
 
     func stopStreaming() {
@@ -562,17 +590,50 @@ final class ChatState {
         onStopRequested?()
     }
 
+    /// Flush any partial-tag buffer held by the router at stream end.
+    /// If the model closed mid-`<think>` (unlikely for well-formed
+    /// emissions), the trailing text lands in the thinking popover
+    /// rather than being dropped.
+    func flushThinkTagRouter() {
+        let emit = thinkTagRouter.flush()
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
+        }
+        if !emit.visible.isEmpty {
+            if isThinkingActive {
+                isThinkingActive = false
+                thinkingEndedAt = Date()
+            }
+            streamBuffer.append(emit.visible, scheduleFlush: true)
+        }
+    }
+
     /// Accumulates streaming tokens off-screen while the response is generating.
     /// Live response text is intentionally not flushed into observable UI state unless the
     /// display policy enables it or the buffer grows abnormally large.
     func appendStreamingText(_ text: String) {
-        // First text delta closes the thinking phase — popover becomes
-        // the persisted "Thought for Ns" summary badge.
-        if isThinkingActive {
-            isThinkingActive = false
-            thinkingEndedAt = Date()
+        // Route through the think-tag splitter FIRST. Reasoning models
+        // like DeepSeek-R1 emit their chain-of-thought inside a
+        // `<think>…</think>` block in the visible-text stream — without
+        // this routing the reasoning streams into the main bubble, then
+        // gets stripped at turn completion and visibly "disappears".
+        // Now: text outside tags → visible stream, text inside tags →
+        // thinking popover. State flips on opening / closing tags.
+        let emit = thinkTagRouter.ingest(text)
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
         }
-        streamBuffer.append(text, scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText)
+
+        // If the router is still mid-`<think>` we haven't received any
+        // actual answer text yet. Don't close the thinking phase on a
+        // zero-length visible emission.
+        if !emit.visible.isEmpty {
+            if isThinkingActive {
+                isThinkingActive = false
+                thinkingEndedAt = Date()
+            }
+            streamBuffer.append(emit.visible, scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText)
+        }
     }
 
     /// Accumulate a live thinking delta for the currently streaming turn.
