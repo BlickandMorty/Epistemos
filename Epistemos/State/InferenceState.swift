@@ -411,12 +411,36 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit:
             false
+        // Gemma 4 ships in the catalog (weights download correctly) but
+        // the mlx-swift-lm Swift loader for `model_type: gemma4` isn't
+        // ported yet (tracked in docs/MASTER_MODEL_STACK_PLAN.md §3.a).
+        // Selecting any Gemma 4 tier today produces a runtime
+        // "Unsupported model type: gemma4" error. Hide from the
+        // interactive chat picker until the loader lands.
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            false
         default:
             !isExperimentalForEpistemos
         }
     }
 
+    /// True while a model's weights are installable but its Swift MLX
+    /// decoder isn't ported yet. Callers (picker, triage, startup
+    /// migration) should treat these as "not runnable today" so the user
+    /// never hits the raw "Unsupported model type" error.
+    var isAwaitingSwiftRuntimeLoader: Bool {
+        switch self {
+        case .gemma4_2B4Bit, .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG:
+            true
+        default:
+            false
+        }
+    }
+
     var releasePickerVisibilityReason: String? {
+        if isAwaitingSwiftRuntimeLoader {
+            return "Hidden from the release picker while the Swift MLX loader for this family is still being ported (docs/MASTER_MODEL_STACK_PLAN.md §3.a). Weights install fine but loading one would fail at runtime."
+        }
         if isExperimentalForEpistemos {
             switch self {
             case .mamba2_2B4Bit:
@@ -2775,6 +2799,7 @@ final class InferenceState {
 
         let defaults = UserDefaults.standard
         Self.migrateLegacyOpenAI52To54(defaults: defaults)
+        Self.migrateStaleGemma4Selection(defaults: defaults)
         if let saved = defaults.string(forKey: "epistemos.localRoutingMode"),
            let mode = LocalRoutingMode(rawValue: saved) {
             self.routingMode = mode
@@ -2899,6 +2924,36 @@ final class InferenceState {
         }
 
         AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
+    }
+
+    /// Migrate any persisted local-model selection that currently points
+    /// at a Gemma 4 tier. Gemma 4 weights download but the Swift MLX
+    /// loader isn't ported yet (see `isAwaitingSwiftRuntimeLoader`), so a
+    /// user pinned to Gemma 4 hits a runtime "Unsupported model type:
+    /// gemma4" error every turn. Move them to the documented default
+    /// (Qwen 3 4B) so chat works again; NOT gated by a one-time flag —
+    /// if a user somehow re-pins to a Gemma 4 tier before the loader
+    /// lands, the next launch re-migrates them back to a runnable model.
+    nonisolated static func migrateStaleGemma4Selection(defaults: UserDefaults) {
+        let fallbackLocalModelID = LocalTextModelID.qwen3_4B4Bit.rawValue
+
+        let localKey = "epistemos.preferredLocalTextModelID"
+        if let saved = defaults.string(forKey: localKey),
+           let model = LocalTextModelID(rawValue: saved),
+           model.isAwaitingSwiftRuntimeLoader {
+            defaults.set(fallbackLocalModelID, forKey: localKey)
+        }
+
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        if let saved = defaults.string(forKey: selectionKey),
+           case .localMLX(let modelID) = ChatModelSelection(rawValue: saved) ?? .appleIntelligence,
+           let model = LocalTextModelID(rawValue: modelID),
+           model.isAwaitingSwiftRuntimeLoader {
+            defaults.set(
+                ChatModelSelection.localMLX(fallbackLocalModelID).rawValue,
+                forKey: selectionKey
+            )
+        }
     }
 
     /// One-time migration from the legacy OpenAI GPT-5.2 default to the

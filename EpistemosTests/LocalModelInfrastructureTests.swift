@@ -506,8 +506,18 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
-    @Test("18GB interactive picker keeps the curated local stack and hides oversized optional flagships")
+    @Test("18GB picker hides Gemma 4 while its Swift loader is missing, even if installed")
     func eighteenGBInteractivePickerPrefersCuratedStack() {
+        // Pre-2026-04-19 this test asserted Gemma 4 E4B won the 18GB
+        // picker over the oversized Qwen 35B variants. After discovering
+        // the mlx-swift-lm loader for model_type=gemma4 isn't ported yet,
+        // Gemma 4 is gated out of the interactive picker (it produces a
+        // runtime "Unsupported model type" error on load). The test now
+        // asserts the new truthful behavior: with only Gemma 4 + Qwen 35B
+        // installed on 18GB, nothing is release-selectable and the
+        // picker surfaces no runnable model. Users in this state get
+        // auto-migrated to Qwen 3 4B at next launch (see
+        // migrateStaleGemma4Selection in TriageServiceTests).
         let inference = InferenceState(
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
                 physicalMemoryBytes: 18_000_000_000,
@@ -524,15 +534,11 @@ struct LocalModelInfrastructureTests {
         ])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
 
-        #expect(
-            inference.releaseSelectableInstalledLocalTextModelIDs
-                == [
-                    LocalTextModelID.gemma4_4B4Bit.rawValue,
-                    LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
-                ]
-        )
-        #expect(inference.preferredLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
+        #expect(inference.releaseSelectableInstalledLocalTextModelIDs.isEmpty)
+        // Picker hides Gemma 4 — preferred stays on what the caller set
+        // (no promotion of a hidden model into the "effective" slot).
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == nil)
     }
 
     @MainActor
