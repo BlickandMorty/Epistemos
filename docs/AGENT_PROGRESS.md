@@ -2,6 +2,17 @@
 
 Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `codex/runtime-input-audit` — routing UX, Codex cloud-quality fix, agent thinking-delta wiring, empty-stream guard, QwQ-32B flagship reasoner, effective-model badge (data + UI).
 
+## 2026-04-20 Handoff Correction ⚠️
+- Later manual testing contradicted several earlier "fixed" claims.
+- Do not treat Fast-mode local thinking, app-crash, Qwen Coder freeze, "thinks forever, never answers," or thinking-in-main-bubble as fully closed without fresh live verification.
+- Authoritative correction notes now live in:
+  - `docs/handoffs/2026-04-20-claude-to-codex-session-handoff.md` §9
+  - `docs/architecture/MASTER_PLAN_2026-04-19.md` §20
+- Immediate verification priorities:
+  - Fast mode must not auto-route to always-thinking families like DeepSeek / GGUF Qwopus
+  - GPT-5.4 and DeepSeek reasoning must stay in the thinking UI on both direct-cloud and Rust-agent paths
+  - attached-note / attached-essay flow must not emit fake `read_file` JSON or ask for file paths when content is already resolved
+
 ## 2026-04-19 Chat Transparency + QwQ-32B ✅
 - [x] Batch A `254312cd` — chat routing UX: explicit stack popover, settings ↔ picker sync, Codex GPT-5.4 preservation on fast mode (no silent Mini downgrade)
 - [x] Batch B `18664605` — Codex ChatGPT backend stops receiving GPT-5 native reasoning/verbosity controls (root cause of typo-heavy prose on that path) + "use polished grammar" baseline nudge
