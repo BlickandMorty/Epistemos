@@ -154,11 +154,20 @@ struct LocalBackendLLMClientTests {
         )
     }
 
+    private func makeTemporaryPreparedDirectory() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
     @Test("main local generation resolves to gguf when the configured gguf runtime is available")
     func mainLocalGenerationResolvesToGGUFWhenAvailable() async throws {
         let inference = makeInferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
 
         let controlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(
@@ -184,6 +193,7 @@ struct LocalBackendLLMClientTests {
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
                     servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
                     status: "ready"
                 ),
                 speculativeDraftGenerator: nil
@@ -251,17 +261,19 @@ struct LocalBackendLLMClientTests {
 
         #expect(output == "mlx")
         #expect(mlxClient.generateCalls.count == 1)
-        #expect(mlxClient.generateCalls.first?.requestedRuntimeKind == .gguf)
+        #expect(mlxClient.generateCalls.first?.requestedRuntimeKind == .mlx)
         #expect(ggufClient.generateCalls.isEmpty)
         #expect(inference.availableLocalGenerationRuntimeKinds == [.mlx])
     }
 
     @Test("backend client snapshot reports gguf when the prepared primary runtime is gguf and available")
-    func backendClientSnapshotReportsGGUFWhenPreparedPrimaryRuntimeIsGGUFAndAvailable() {
+    func backendClientSnapshotReportsGGUFWhenPreparedPrimaryRuntimeIsGGUFAndAvailable() throws {
         let inference = makeInferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
         inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
 
         let controlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(
@@ -287,6 +299,7 @@ struct LocalBackendLLMClientTests {
                     artifactID: "qwen35-35b-a3b-apexmini",
                     modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
                     servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
                     status: "ready"
                 ),
                 speculativeDraftGenerator: nil
@@ -297,6 +310,58 @@ struct LocalBackendLLMClientTests {
 
         #expect(snapshot.provider == .localGGUF)
         #expect(snapshot.model == LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+    }
+
+    @Test("missing prepared gguf assets do not hijack installed mlx local models")
+    func missingPreparedGGUFAssetsDoNotHijackInstalledMLXLocalModels() async throws {
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx")
+        let ggufClient = StubRoutedLocalClient(response: "gguf")
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx] },
+            preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: "/tmp/does-not-exist-\(UUID().uuidString)",
+                    status: "missing"
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        let output = try await client.generate(
+            prompt: "hello",
+            systemPrompt: nil as String?,
+            maxTokens: 32,
+            reasoningMode: LocalReasoningMode.fast,
+            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue
+        )
+
+        #expect(output == "mlx")
+        #expect(mlxClient.generateCalls.count == 1)
+        #expect(mlxClient.generateCalls.first?.requestedRuntimeKind == .mlx)
+        #expect(ggufClient.generateCalls.isEmpty)
+        #expect(client.configSnapshot().provider == .localMLX)
     }
 
     @Test("gguf only selections fail instead of silently rerouting to mlx")

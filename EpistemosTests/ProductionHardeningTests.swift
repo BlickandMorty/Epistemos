@@ -699,12 +699,21 @@ struct AuditHardeningRegressionTests {
         #expect(vaultSync.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
         #expect(vaultSync.contains("if didClear {"))
         #expect(vaultSync.contains("vaultSync.dismissRecoveryIssue()"))
+        #expect(vaultSync.contains("func forceClearDerivedLocalStateForFullReset() async"))
         #expect(vaultSync.contains("let didSwitch = await vaultSync.switchToVaultAsync(vaultURL: url)"))
         #expect(vaultSync.contains("if didSwitch {"))
         #expect(vaultSync.contains("vaultSync.persistVaultSelection("))
         #expect(setupAssistant.contains("VaultConnectionActions.connectSelectedVault(url: url, vaultSync: vaultSync)"))
         #expect(settings.contains("await AppBootstrap.shared?.resetAllData()"))
-        #expect(resetBody.contains("_ = await vaultSync.stopWatchingAsync(preserveData: false)"))
+        #expect(resetBody.contains("let didClear = await vaultSync.stopWatchingAsync(preserveData: false)"))
+        #expect(resetBody.contains("if !didClear {"))
+        #expect(resetBody.contains("await vaultSync.forceClearDerivedLocalStateForFullReset()"))
+        #expect(resetBody.contains("try context.delete(model: SDGraphNode.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDGraphEdge.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDBlock.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDWorkspace.self)"))
+        #expect(resetBody.contains("try context.delete(model: SDModelProfile.self)"))
+        #expect(resetBody.contains("NoteFileStorage.removeAllManagedBodies()"))
     }
 
     @Test("Omega planner schemas stay aligned with registered MCP tools")
@@ -825,18 +834,36 @@ struct AuditHardeningRegressionTests {
         #expect(notesSidebar.contains(".accessibilityLabel(\"Clear search\")"))
 
         #expect(landing.contains(".accessibilityLabel(\"Send prompt\")"))
-        #expect(landing.contains("key: \"J\", label: \"Command Center\""))
-        #expect(landing.contains("AppBootstrap.shared?.agentCommandCenterState.present()"))
+        #expect(landing.contains("landingPromptSurface: LandingPromptSurface = .chat"))
+        #expect(!landing.contains("label: \"Command Center\""))
         #expect(!landing.contains(".accessibilityLabel(\"Local Model\")"))
         #expect(landing.contains("ProgressView()"))
     }
 
     @Test("only explicit user note creation paths can trigger vault selection")
     func onlyExplicitUserNoteCreationPathsCanTriggerVaultSelection() throws {
+        func normalizedSource(_ source: String) -> String {
+            source.replacingOccurrences(
+                of: #"\s+"#,
+                with: " ",
+                options: .regularExpression
+            )
+        }
+
         let vaultSync = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
-        let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
-        let landing = try loadProductionHardeningRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let app = normalizedSource(
+            try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
+        )
+        let landing = normalizedSource(
+            try loadProductionHardeningRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        )
         let miniChat = try loadProductionHardeningRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let wordProcessor = normalizedSource(
+            try loadProductionHardeningRepoTextFile("Epistemos/Intents/Schemas/WordProcessorIntents.swift")
+        )
+        let journal = normalizedSource(
+            try loadProductionHardeningRepoTextFile("Epistemos/Intents/Schemas/JournalIntents.swift")
+        )
 
         #expect(vaultSync.contains("allowVaultSelectionPrompt: Bool = false"))
         #expect(vaultSync.contains("guard allowVaultSelectionPrompt,"))
@@ -846,7 +873,58 @@ struct AuditHardeningRegressionTests {
 
         #expect(app.contains("createPage(title: \"Untitled\", allowVaultSelectionPrompt: true)"))
         #expect(landing.contains("createPage(title: \"New Note\", allowVaultSelectionPrompt: true)"))
+        #expect(wordProcessor.contains("createPage( title: title, allowVaultSelectionPrompt: true )"))
+        #expect(journal.contains("createPage( title: journalTitle, allowVaultSelectionPrompt: true )"))
         #expect(!miniChat.contains("allowVaultSelectionPrompt: true"))
+    }
+
+    @Test("page and journal creation fail honestly when persistence fails")
+    func pageAndJournalCreationFailHonestlyOnPersistenceErrors() throws {
+        let vaultSync = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultSyncService.swift")
+        let journal = try loadProductionHardeningRepoTextFile("Epistemos/Intents/Schemas/JournalIntents.swift")
+
+        let vaultSaveFailure = try #require(vaultSync.range(of: "Failed to save new page"))
+        let vaultReturnNil = try #require(vaultSync.range(of: "return nil", range: vaultSaveFailure.upperBound..<vaultSync.endIndex))
+
+        let journalSaveFailure = try #require(journal.range(of: "Journal save failed:"))
+        let journalThrow = try #require(journal.range(of: "throw IntentError.creationFailed", range: journalSaveFailure.upperBound..<journal.endIndex))
+
+        #expect(!vaultSync.contains("context.rollback()"))
+        #expect(vaultSync.contains("context.delete(page)"))
+        #expect(vaultSync.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(vaultReturnNil.lowerBound > vaultSaveFailure.lowerBound)
+        #expect(!journal.contains("context.rollback()"))
+        #expect(journal.contains("let originalBody = page.loadBody()"))
+        #expect(journal.contains("page.saveBody(originalBody)"))
+        #expect(journal.contains("BlockMirror.sync(pageId: pageId, body: originalBody, modelContext: context)"))
+        #expect(journal.contains("page.journalDate = journalDate"))
+        #expect(journalThrow.lowerBound > journalSaveFailure.lowerBound)
+    }
+
+    @Test("text capture and code editor note creation clean up orphaned bodies on save failure")
+    func textCaptureAndCodeEditorCreationCleanUpOrphanedBodiesOnSaveFailure() throws {
+        let textCapture = try loadProductionHardeningRepoTextFile("Epistemos/Engine/TextCapturePipeline.swift")
+        let codeEditor = try loadProductionHardeningRepoTextFile("Epistemos/Views/Notes/CodeEditorView.swift")
+
+        #expect(textCapture.contains("let failedPageId = page.id"))
+        #expect(textCapture.contains("context.delete(page)"))
+        #expect(textCapture.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+        #expect(codeEditor.contains("let failedPageId = newPage.id"))
+        #expect(codeEditor.contains("context.delete(newPage)"))
+        #expect(codeEditor.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
+    }
+
+    @Test("vault index import cleans up pending managed artifacts when save fails")
+    func vaultIndexImportCleansUpPendingArtifactsOnSaveFailure() throws {
+        let vaultIndexActor = try loadProductionHardeningRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(vaultIndexActor.contains("private func discardPendingImportedPages("))
+        #expect(vaultIndexActor.contains("pendingInsertedPages.removeAll(keepingCapacity: true)"))
+        #expect(vaultIndexActor.contains("modelContext.delete(page)"))
+        #expect(vaultIndexActor.contains("predicate: #Predicate<SDBlock> { $0.pageId == pageID }"))
+        #expect(vaultIndexActor.contains("NoteFileStorage.deleteBody(pageId: pageID)"))
+        #expect(vaultIndexActor.contains("try searchService?.delete(pageId: pageID)"))
+        #expect(vaultIndexActor.contains("discardPendingImportedPages(pendingInsertedPages, failedSaveLabel: label)"))
     }
 
     @Test("root shell keeps recovery overlays toast feedback and toolbar accessibility affordances")

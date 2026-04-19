@@ -1,5 +1,18 @@
 import Foundation
 
+nonisolated enum StreamingBufferPolicy {
+    private static let limit = 256
+
+    static func throwingStream<Element>(
+        _ build: @escaping (AsyncThrowingStream<Element, Error>.Continuation) -> Void
+    ) -> AsyncThrowingStream<Element, Error> {
+        AsyncThrowingStream(
+            bufferingPolicy: .bufferingNewest(limit),
+            build
+        )
+    }
+}
+
 nonisolated enum URLSessionTransportSupport {
     static func sendJSON(
         using urlSession: URLSession,
@@ -56,8 +69,8 @@ nonisolated enum URLSessionTransportSupport {
                     }
 
                     guard let jsonData = payload.data(using: .utf8),
-                          let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-                        return
+                          let json = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                        throw invalidResponse()
                     }
 
                     if let error = CloudStreamingParser.streamError(from: json, eventName: currentEventName) {
@@ -81,6 +94,9 @@ nonisolated enum URLSessionTransportSupport {
                     }
 
                     if line.hasPrefix("event:") {
+                        if !dataLines.isEmpty {
+                            try flushEvent()
+                        }
                         eventName = sseFieldValue(from: line)
                         continue
                     }

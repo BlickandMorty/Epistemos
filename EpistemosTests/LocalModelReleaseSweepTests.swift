@@ -26,36 +26,44 @@ struct LocalModelReleaseSweepTests {
                 let prepared = try await LocalRuntimeSmokeSupport.preparedBootstrap(for: model.rawValue)
                 bootstrap = prepared
 
+                print("LOCAL_MODEL_RELEASE_SWEEP step=picker model=\(model.rawValue)")
                 try LocalRuntimeSmokeSupport.verifyPickerVisibilityAndSelection(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=quality model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyChatQuality(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=thinking model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyThinkingMode(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=context-window model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyLongContextSanity(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=context-contract model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyContextContract(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=vision model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyVision(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
+                print("LOCAL_MODEL_RELEASE_SWEEP step=agent model=\(model.rawValue)")
                 try await LocalRuntimeSmokeSupport.verifyAgentMode(
                     modelID: model.rawValue,
                     bootstrap: prepared
                 )
 
                 if model.isSSM {
+                    print("LOCAL_MODEL_RELEASE_SWEEP step=ssm model=\(model.rawValue)")
                     try await LocalRuntimeSmokeSupport.verifyLiveSSMStateRoundTrip(
                         modelID: model.rawValue,
                         bootstrap: prepared
