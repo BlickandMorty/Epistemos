@@ -1024,7 +1024,7 @@ private struct InferenceDetailView: View {
 
             Section {
                 SettingsDescriptionText(
-                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting."
+                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting. Thinking mode uses Low/Medium/High/Heavy; Pro and Agent use Standard or Heavy."
                 )
                 Picker(
                     selection: Binding(
@@ -1032,13 +1032,16 @@ private struct InferenceDetailView: View {
                         set: { inference.setChatReasoningTier($0) }
                     )
                 ) {
+                    // Full taxonomy lives at the Settings level; per-
+                    // mode composer pickers filter down via
+                    // `EpistemosOperatingMode.availableReasoningTiers`.
                     ForEach(ChatReasoningTier.allCases, id: \.self) { tier in
                         Text(tier.displayName).tag(tier)
                     }
                 } label: {
                     Text("Reasoning")
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
 
                 SettingsDescriptionText(text: inference.chatReasoningTier.summary)
             } header: {

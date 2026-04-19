@@ -494,18 +494,18 @@ struct TriageServiceTests {
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
-        // Default is Standard — matches the documented cheat-sheet
-        // recommendation for the middle tier.
-        #expect(first.chatReasoningTier == .standard)
+        // Default is `.medium` — the post-refactor middle tier,
+        // equivalent to the old "Standard".
+        #expect(first.chatReasoningTier == .medium)
 
-        first.setChatReasoningTier(.extended)
+        first.setChatReasoningTier(.heavy)
 
         let reloaded = InferenceState(
             keychainLoad: { _ in nil },
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
-        #expect(reloaded.chatReasoningTier == .extended)
+        #expect(reloaded.chatReasoningTier == .heavy)
     }
 
     @Test("effectiveModelLabel resolves Apple Intelligence to user-visible text")

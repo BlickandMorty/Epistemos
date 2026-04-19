@@ -245,25 +245,58 @@ struct ChatMessage: Identifiable, Codable, Sendable {
 /// `thinkingBudget`). A single app-level taxonomy keeps the settings
 /// control consistent across providers; `LLMService` is responsible for
 /// silently dropping the control for models that don't support it.
-public enum ChatReasoningTier: String, Codable, Sendable, CaseIterable {
+///
+/// Each mode presents a subset with mode-specific labels:
+/// - Thinking: `.low` / `.medium` / `.high` / `.heavy`
+/// - Pro: `.medium` ("Standard") / `.heavy` ("Heavy")
+/// - Agent: `.medium` ("Standard") / `.heavy` ("Heavy")
+/// - Fast: no tier (reasoning disabled)
+public nonisolated enum ChatReasoningTier: String, Codable, Sendable, CaseIterable {
     /// Disable reasoning/thinking. Fastest + cheapest per turn.
     case off
-    /// Default — balanced reasoning. Maps to medium effort on OpenAI,
-    /// adaptive/medium on Anthropic Opus 4.7+, medium thinkingLevel on
-    /// Gemini 3.x, dynamic thinkingBudget on Gemini 2.5.
-    case standard
-    /// Maximum reasoning the model supports. High effort on OpenAI,
-    /// adaptive/high on Anthropic (or 16k manual budget with
-    /// interleaved-thinking beta on older models), high thinkingLevel
-    /// on Gemini 3.x, 16k+ thinkingBudget on Gemini 2.5.
-    case extended
+    /// Low effort. Maps to `reasoning.effort: "low"` on OpenAI,
+    /// minimal budget on Anthropic, low thinkingLevel on Gemini 3.x.
+    case low
+    /// Balanced reasoning. Maps to `reasoning.effort: "medium"` on
+    /// OpenAI, adaptive/medium on Anthropic Opus 4.7+, medium
+    /// thinkingLevel on Gemini 3.x. Displayed as "Standard" in Pro /
+    /// Agent mode, "Medium" in Thinking mode.
+    case medium
+    /// High effort. Maps to `reasoning.effort: "high"` on OpenAI,
+    /// adaptive/high on Anthropic, high thinkingLevel on Gemini.
+    case high
+    /// Maximum effort the model family supports. Maps to
+    /// `reasoning.effort: "xhigh"` on the OpenAI models that accept
+    /// it (falls back to "high" otherwise), 32k thinkingBudget on
+    /// Gemini 2.5, longest context on Anthropic. Displayed as "Heavy".
+    case heavy
 
-    /// Human-readable label for UI surfaces.
+    /// Pre-migration aliases so old UserDefaults values keep working.
+    /// `"standard"` → `.medium`, `"extended"` → `.high`. Apply via
+    /// `ChatReasoningTier(migrating:)` instead of the raw initializer.
+    public init?(migrating raw: String) {
+        switch raw.lowercased() {
+        case "standard": self = .medium
+        case "extended": self = .high
+        default:
+            if let tier = ChatReasoningTier(rawValue: raw) {
+                self = tier
+            } else {
+                return nil
+            }
+        }
+    }
+
+    /// Generic human-readable label. Mode-specific overrides (e.g.
+    /// "Standard" vs "Medium" for `.medium`) live on
+    /// `EpistemosOperatingMode.reasoningTierLabel(_:)`.
     public var displayName: String {
         switch self {
         case .off: "Off"
-        case .standard: "Standard"
-        case .extended: "Extended"
+        case .low: "Low"
+        case .medium: "Medium"
+        case .high: "High"
+        case .heavy: "Heavy"
         }
     }
 
@@ -272,10 +305,14 @@ public enum ChatReasoningTier: String, Codable, Sendable, CaseIterable {
         switch self {
         case .off:
             "Skip the reasoning pass. Fastest replies, lowest cost."
-        case .standard:
+        case .low:
+            "Light reasoning. Quick checks without deep analysis."
+        case .medium:
             "Balanced reasoning. Good default for most turns."
-        case .extended:
-            "Maximum reasoning. Slower and more expensive, but the best answers on hard questions."
+        case .high:
+            "Heavy reasoning. Slower and more expensive."
+        case .heavy:
+            "Maximum reasoning. Slowest + most expensive; best on hard questions."
         }
     }
 }
