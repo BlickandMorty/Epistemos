@@ -1818,6 +1818,21 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.pendingContextAttachments == [attachment])
     }
 
+    @Test("empty streams surface as a readable error instead of a ghost bubble")
+    func completeProcessingOnEmptyStreamEmitsError() {
+        let chatState = ChatState()
+        chatState.submitQuery("Hello?")
+        chatState.startStreaming()
+
+        chatState.completeProcessing(mode: .api)
+
+        let last = chatState.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.isError == true)
+        #expect((last?.content ?? "").contains("No response"))
+        #expect(!chatState.isStreaming)
+    }
+
     @Test("complete processing snapshots active context attachments onto the assistant message")
     func completeProcessingCarriesContextAttachments() {
         let chatState = ChatState()

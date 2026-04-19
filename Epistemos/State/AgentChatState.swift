@@ -246,6 +246,27 @@ final class AgentChatState {
 
         let artifacts = ArtifactExtractor.extract(from: answerText)
 
+        // Silent-empty-reply guard: a turn with no text, no tool-use blocks,
+        // and no artifacts has nothing for the user to see. Surface a
+        // concrete error rather than a ghost assistant bubble.
+        let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasVisibleContent = !trimmedAnswer.isEmpty
+            || !completedBlocks.isEmpty
+            || !artifacts.isEmpty
+        guard hasVisibleContent else {
+            log.error("[AgentChat] Empty stream in session \(sessionId); surfacing as error")
+            streamBuffer.reset(releaseCapacity: true)
+            streamingText.removeAll(keepingCapacity: false)
+            isStreaming = false
+            pendingContentBlocks = []
+            activeToolName = nil
+            isAgentExecuting = false
+            addErrorMessage(
+                "No response received. The agent returned an empty stream — try again or switch models."
+            )
+            return
+        }
+
         let assistantMessage = ChatMessage(
             id: UUID().uuidString,
             chatId: sessionId,

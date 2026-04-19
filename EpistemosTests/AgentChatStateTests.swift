@@ -260,6 +260,37 @@ struct AgentChatStateTests {
         #expect(state.thinkingStartedAt == nil)
     }
 
+    // MARK: - Empty-stream guard
+
+    @Test("empty streams surface as a readable error instead of a ghost bubble")
+    func completeProcessingOnEmptyStreamEmitsError() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+
+        state.completeProcessing(mode: .api)
+
+        #expect(state.messages.count == 1)
+        let message = state.messages.first
+        #expect(message?.role == .assistant)
+        #expect(message?.isError == true)
+        #expect((message?.content ?? "").contains("No response"))
+        #expect(!state.isStreaming)
+    }
+
+    @Test("empty text but pending tool-use blocks still commit the turn")
+    func completeProcessingPreservesTurnWithOnlyToolBlocks() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.recordToolUse(id: "tool-1", name: "read_note", inputJson: "{}")
+
+        state.completeProcessing(mode: .api)
+
+        #expect(state.messages.count == 1)
+        #expect(state.messages.first?.isError != true)
+    }
+
     // MARK: - Error Message
 
     @Test func addErrorMessage() {
