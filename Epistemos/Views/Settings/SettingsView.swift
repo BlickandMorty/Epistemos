@@ -2243,7 +2243,7 @@ private struct LocalModelManagerSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Install a stable baseline first")
                             .font(.headline)
-                        Text("Recommended: Gemma 4 E4B + DeepSeek R1 7B + Qwen 2.5 Coder 7B. Optional roles: Bonsai 4B/8B for tiny fast fallback, Gemma 4 26B A4B for local pro work, and Qwen 3.6 35B A3B for high-memory Macs.")
+                        Text("Recommended: Qwen 3 4B + DeepSeek R1 7B + Qwen 2.5 Coder 7B. Optional roles: Bonsai 4B/8B for tiny fast fallback, Hermes 4.3 36B for local tool use, and Qwen 3.6 35B A3B for high-memory Macs.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack(spacing: 8) {

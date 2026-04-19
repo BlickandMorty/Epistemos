@@ -117,7 +117,9 @@ struct AuditFixRegressionTests {
         let source = try loadAuditSource("Epistemos/Views/ModelProfiles/ModelProfileCreationSheet.swift")
 
         #expect(!source.contains("Hermes 3 8B"))
-        #expect(source.contains("Gemma 4 4B"))
+        #expect(!source.contains("Gemma 4 4B"))
+        #expect(source.contains("Qwen 3 4B"))
+        #expect(source.contains("Bonsai 4B"))
     }
 
     @Test("release archive no longer strips linked agent dylibs or disables agent services")

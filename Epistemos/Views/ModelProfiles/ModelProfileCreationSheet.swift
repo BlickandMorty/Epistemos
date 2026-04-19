@@ -11,7 +11,7 @@ struct ModelProfileCreationSheet: View {
     @State private var step: CreationStep = .chooseType
     @State private var profileType: ProfileType = .local
     @State private var displayName = ""
-    @State private var selectedModel = ""
+    @State private var selectedModel = "qwen3-4b"
     @State private var selectedVault = "personal"
     @State private var vaultDisplayName = "Personal"
     @State private var cloudProvider = "claude_sonnet"
@@ -109,8 +109,8 @@ struct ModelProfileCreationSheet: View {
 
             if profileType == .local {
                 Picker("Base Model", selection: $selectedModel) {
-                    Text("Qwen 3.5 4B").tag("qwen3.5-4b")
-                    Text("Gemma 4 4B").tag("gemma4-4b")
+                    Text("Qwen 3 4B").tag("qwen3-4b")
+                    Text("Bonsai 4B").tag("bonsai-4b")
                     Text("SmolLM3 3B").tag("smollm3-3b")
                     Text("Mistral 7B").tag("mistral-7b")
                 }
