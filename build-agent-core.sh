@@ -45,6 +45,19 @@ UNIFFI_BINDGEN="../epistemos-core/target/${HOST_TRIPLE}/debug/uniffi_bindgen"
 if [ ! -x "$UNIFFI_BINDGEN" ]; then
     cargo build --manifest-path ../epistemos-core/Cargo.toml --target "$HOST_TRIPLE" --bin uniffi_bindgen
 fi
+# Sign uniffi_bindgen BEFORE invoking it — AMFI kills adhoc-signed
+# binaries on hardened macOS. User's production log showed repeated
+# kernel kills here when invoke-before-sign was the order.
+for bin in "$UNIFFI_BINDGEN" \
+           target/aarch64-apple-darwin/debug/uniffi_bindgen \
+           target/x86_64-apple-darwin/debug/uniffi_bindgen \
+           target/aarch64-apple-darwin/release/uniffi_bindgen \
+           target/x86_64-apple-darwin/release/uniffi_bindgen \
+           ../epistemos-core/target/*/debug/uniffi_bindgen \
+           ../epistemos-core/target/*/release/uniffi_bindgen; do
+    [ -f "$bin" ] && codesign --force --sign - "$bin" 2>/dev/null || true
+done
+
 HOST_LIB_PATH="$ARM64_LIB_PATH"
 if [ "$HOST_TRIPLE" = "x86_64-apple-darwin" ]; then
     HOST_LIB_PATH="$X86_64_LIB_PATH"
@@ -61,13 +74,6 @@ python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/agent_core.swif
 mkdir -p ../build-rust/swift-bindings/agent_coreFFI
 cp ../build-rust/swift-bindings/agent_coreFFI.h ../build-rust/swift-bindings/agent_coreFFI/agent_coreFFI.h
 cp ../build-rust/swift-bindings/agent_coreFFI.modulemap ../build-rust/swift-bindings/agent_coreFFI/module.modulemap
-
-for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
-           target/x86_64-apple-darwin/debug/uniffi_bindgen \
-           target/aarch64-apple-darwin/release/uniffi_bindgen \
-           target/x86_64-apple-darwin/release/uniffi_bindgen; do
-    [ -f "$bin" ] && codesign --force --sign - "$bin"
-done
 
 if [ -z "${TARGET_BUILD_DIR:-}" ]; then
     codesign --force --sign - ../build-rust/libagent_core.dylib

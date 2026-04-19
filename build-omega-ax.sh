@@ -40,13 +40,27 @@ if [ -n "${TARGET_BUILD_DIR:-}" ] && [ -n "${FRAMEWORKS_FOLDER_PATH:-}" ]; then
         "$TARGET_BUILD_DIR/$FRAMEWORKS_FOLDER_PATH/libomega_ax.dylib"
 fi
 
-# Generate Swift bindings from UDL
+# Sign uniffi_bindgen BEFORE invoking it (AMFI kills adhoc-signed
+# binaries on hardened macOS).
 mkdir -p ../build-rust/swift-bindings
-cargo run --bin uniffi_bindgen -- generate \
-    uniffi/omega_ax.udl \
-    --language swift \
-    --no-format \
-    --out-dir ../build-rust/swift-bindings/ 2>/dev/null || true
+cargo build --bin uniffi_bindgen --target aarch64-apple-darwin 2>/dev/null || true
+for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
+           target/x86_64-apple-darwin/debug/uniffi_bindgen \
+           target/aarch64-apple-darwin/release/uniffi_bindgen \
+           target/x86_64-apple-darwin/release/uniffi_bindgen; do
+    [ -f "$bin" ] && codesign --force --sign - "$bin" 2>/dev/null || true
+done
+UNIFFI_BIN="target/aarch64-apple-darwin/debug/uniffi_bindgen"
+if [ ! -f "$UNIFFI_BIN" ]; then
+    UNIFFI_BIN="target/aarch64-apple-darwin/release/uniffi_bindgen"
+fi
+if [ -f "$UNIFFI_BIN" ]; then
+    "$UNIFFI_BIN" generate \
+        uniffi/omega_ax.udl \
+        --language swift \
+        --no-format \
+        --out-dir ../build-rust/swift-bindings/ 2>/dev/null || true
+fi
 
 # Patch generated Swift for SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor compatibility
 python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/omega_ax.swift
@@ -55,14 +69,6 @@ python3 ../patch-uniffi-bindings.py ../build-rust/swift-bindings/omega_ax.swift
 mkdir -p ../build-rust/swift-bindings/omega_axFFI
 cp ../build-rust/swift-bindings/omega_axFFI.h ../build-rust/swift-bindings/omega_axFFI/ 2>/dev/null || true
 cp ../build-rust/swift-bindings/omega_axFFI.modulemap ../build-rust/swift-bindings/omega_axFFI/module.modulemap 2>/dev/null || true
-
-# Ad-hoc sign uniffi_bindgen build tools (prevents AMFI kills during code generation).
-for bin in target/aarch64-apple-darwin/debug/uniffi_bindgen \
-           target/x86_64-apple-darwin/debug/uniffi_bindgen \
-           target/aarch64-apple-darwin/release/uniffi_bindgen \
-           target/x86_64-apple-darwin/release/uniffi_bindgen; do
-    [ -f "$bin" ] && codesign --force --sign - "$bin"
-done
 
 # Only ad-hoc sign the staging dylib if NOT running inside Xcode.
 if [ -z "${TARGET_BUILD_DIR:-}" ]; then
