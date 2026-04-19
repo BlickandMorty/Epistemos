@@ -19,6 +19,21 @@ struct IncrementalToolCallDetectorTests {
         #expect(detection?.toolCall.name == "click")
     }
 
+    @Test("Detects legacy Qwen XML function bodies inside tool_call tags")
+    func singleChunkLegacyQwenXmlBody() {
+        let detector = IncrementalToolCallDetector()
+        let input = """
+        <tool_call><function=read_file><parameter=path>/tmp/test.txt</parameter></function></tool_call>
+        """
+        let detection = detector.feed(input)
+        #expect(detection != nil)
+        #expect(detection?.toolCall.name == "read_file")
+        #expect(
+            detection?.toolCall.argumentsJson.replacingOccurrences(of: "\\/", with: "/")
+                .contains("\"path\":\"/tmp/test.txt\"") == true
+        )
+    }
+
     @Test("Returns nil when no tool call present")
     func noToolCall() {
         let detector = IncrementalToolCallDetector()
@@ -76,6 +91,7 @@ struct IncrementalToolCallDetectorTests {
     func scratchPadIgnored() {
         let detector = IncrementalToolCallDetector()
         #expect(detector.feed("<scratch_pad>I should click the submit button.</scratch_pad>") == nil)
+        #expect(detector.pendingText.isEmpty)
         let detection = detector.feed("<tool_call>{\"name\": \"click\", \"arguments\": {\"element\": \"Submit\"}}</tool_call>")
         #expect(detection != nil)
         #expect(detection?.toolCall.name == "click")
@@ -164,5 +180,19 @@ struct IncrementalToolCallDetectorTests {
         let detection = detector.feed("<tool_call>{\"name\": \"type\", \"arguments\": {\"text\": \"</tool is tricky\"}}</tool_call>")
         #expect(detection != nil)
         #expect(detection?.toolCall.name == "type")
+    }
+
+    @Test("Repairs malformed XML-like tool call openings without leaking markup")
+    func malformedXmlLikeToolCallOpening() {
+        let detector = IncrementalToolCallDetector()
+        let detection = detector.feed(
+            "<tool_call<name>read_file</name<arguments><path>/tmp/test.txt</path></arguments></tool_call>"
+        )
+        #expect(detection != nil)
+        #expect(detection?.toolCall.name == "read_file")
+        let argumentData = detection?.toolCall.argumentsJson.data(using: .utf8)
+        let arguments = argumentData.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: String] }
+        #expect(arguments?["path"] == "/tmp/test.txt")
+        #expect(detector.pendingText.isEmpty)
     }
 }
