@@ -1756,7 +1756,14 @@ private struct InferenceDetailView: View {
                 Label("Anthropic Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
                     .font(.body.weight(.semibold))
                 SettingsDescriptionText(
-                    text: "Extended thinking uses Anthropic's thinking configuration. Budget applies only when extended thinking is enabled."
+                    text: "Extended thinking uses Anthropic's thinking configuration. Web search routes queries through Anthropic's hosted search (beta)."
+                )
+                Toggle(
+                    "Enable Web Search",
+                    isOn: Binding(
+                        get: { inference.anthropicWebSearchEnabled },
+                        set: { inference.setAnthropicWebSearchEnabled($0) }
+                    )
                 )
                 Toggle(
                     "Enable Extended Thinking",

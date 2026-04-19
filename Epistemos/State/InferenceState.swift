@@ -2686,6 +2686,7 @@ final class InferenceState {
     private nonisolated static let openAICodeInterpreterDefaultsKey = "epistemos.openAICodeInterpreterEnabled"
     private nonisolated static let anthropicExtendedThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
     private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
+    private nonisolated static let anthropicWebSearchDefaultsKey = "epistemos.anthropicWebSearchEnabled"
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
@@ -2769,6 +2770,12 @@ final class InferenceState {
     var openAICodeInterpreterEnabled = false
     var anthropicExtendedThinkingEnabled = false
     var anthropicThinkingBudgetTokens = 8_000
+    /// Whether Anthropic's hosted web-search tool is enabled on chat
+    /// turns going through the `/v1/messages` endpoint. When true we
+    /// attach the `web_search_20250305` server-side tool + required
+    /// `anthropic-beta: web-search-2025-03-05` header. Default off so
+    /// the user pays no latency cost until they explicitly ask for it.
+    var anthropicWebSearchEnabled = false
     /// The user's current reasoning/thinking tier. Providers that
     /// support native reasoning map this to their own controls:
     /// OpenAI `reasoning.effort` + `text.verbosity`,
@@ -2859,6 +2866,7 @@ final class InferenceState {
         self.openAIWebSearchEnabled = defaults.bool(forKey: Self.openAIWebSearchDefaultsKey)
         self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
         self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
+        self.anthropicWebSearchEnabled = defaults.bool(forKey: Self.anthropicWebSearchDefaultsKey)
         if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
            let tier = ChatReasoningTier(rawValue: savedTier) {
             self.chatReasoningTier = tier
@@ -3973,6 +3981,11 @@ final class InferenceState {
     func setAnthropicExtendedThinkingEnabled(_ isEnabled: Bool) {
         anthropicExtendedThinkingEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.anthropicExtendedThinkingDefaultsKey)
+    }
+
+    func setAnthropicWebSearchEnabled(_ isEnabled: Bool) {
+        anthropicWebSearchEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicWebSearchDefaultsKey)
     }
 
     func setAnthropicThinkingBudgetTokens(_ tokens: Int) {
