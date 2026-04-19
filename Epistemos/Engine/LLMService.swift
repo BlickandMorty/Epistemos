@@ -1197,9 +1197,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ) {
             body["instructions"] = instructions
         }
-        if maxTokens > 0 {
-            body["max_output_tokens"] = maxTokens
-        }
+        // Ensure the answer has budget AFTER the reasoning phase burns
+        // its allotment. Without this, Heavy tier on GPT-5.4 can
+        // consume the entire token cap on reasoning and the model
+        // never emits an answer — user-visible as "it just thinks and
+        // never provides the final answer." Floor = user's Settings
+        // slider (or sensible defaults) auto-expanded by tier.
+        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
         applyOpenAIResponsesControls(
             to: &body,
             model: resolvedModel,
@@ -1290,9 +1294,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ) {
             body["instructions"] = instructions
         }
-        if maxTokens > 0 {
-            body["max_output_tokens"] = maxTokens
-        }
+        // Ensure the answer has budget AFTER the reasoning phase burns
+        // its allotment. Without this, Heavy tier on GPT-5.4 can
+        // consume the entire token cap on reasoning and the model
+        // never emits an answer — user-visible as "it just thinks and
+        // never provides the final answer." Floor = user's Settings
+        // slider (or sensible defaults) auto-expanded by tier.
+        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
         applyOpenAIResponsesControls(
             to: &body,
             model: resolvedModel,
@@ -2377,8 +2385,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ) {
             body["instructions"] = instructions
         }
-        if maxTokens > 0, case .apiKey = credential {
-            body["max_output_tokens"] = maxTokens
+        if case .apiKey = credential {
+            // Heavy-tier safety: reasoning needs budget AND answer
+            // needs budget AFTER it. Use the resolver that auto-
+            // expands for reasoning tiers so the answer always has
+            // room. Codex OAuth skips this because the endpoint
+            // enforces its own cap.
+            body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
         }
         applyOpenAIResponsesControls(
             to: &body,
@@ -2613,6 +2626,31 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             return .openAIGPT54
         default:
             return model
+        }
+    }
+
+    /// Resolves the `max_output_tokens` cap for an OpenAI Responses
+    /// request. The cap has to cover BOTH the reasoning phase and the
+    /// answer — if it doesn't, the model burns its entire budget on
+    /// reasoning and emits zero answer tokens, which the user sees as
+    /// "it just thinks and never provides a final answer."
+    ///
+    /// Floor is the user's Settings slider (or 4k default). Then the
+    /// floor grows based on the active reasoning tier so Heavy always
+    /// has room for a real answer after 32k+ of reasoning.
+    private func resolvedOpenAIMaxOutputTokens(userRequested: Int) -> Int {
+        let floor = userRequested > 0 ? userRequested : 4_096
+        switch inference.chatReasoningTier {
+        case .off, .low:
+            return max(floor, 4_096)
+        case .medium:
+            return max(floor, 8_192)
+        case .high:
+            // Reasoning alone can burn ~16k; give 8k answer room.
+            return max(floor, 24_576)
+        case .heavy:
+            // Reasoning alone can burn ~32k; give 12k answer room.
+            return max(floor, 45_056)
         }
     }
 
