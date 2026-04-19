@@ -129,15 +129,22 @@ struct ChatInputBar: View {
         }
     }
 
-    /// Live-detail sub-signal shown in the pill, e.g., "web_search" while the
-    /// agent is mid-tool-call. Nil when the pill should read as just the
-    /// tier without extra context (idle, plain streaming, predicted intent).
+    /// Live-detail sub-signal shown in the pill while the agent is
+    /// mid-tool-call. Turns the raw tool name + JSON input into a human
+    /// phrase ("Searching the web for "quantum decoherence"") via
+    /// ToolActivityNarrator so the composer reads as live activity
+    /// instead of showing a bare identifier like "web_search". The
+    /// narrator always returns *something* for a non-empty tool name so
+    /// the pill isn't blank during the seconds the tool is running.
     private var pillDetail: String? {
         guard chat.isAgentExecuting else { return nil }
         guard let activeTool = chat.activeToolName, !activeTool.isEmpty else {
             return nil
         }
-        return activeTool
+        return ToolActivityNarrator.phrase(
+            name: activeTool,
+            inputJson: chat.activeToolInputJson
+        )
     }
 
     /// True when the composer draft looks like agent-tier work (creating /

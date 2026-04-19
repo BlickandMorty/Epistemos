@@ -44,6 +44,11 @@ final class AgentChatState {
 
     /// Active tool executions shown inline in the agent response stream.
     var activeToolName: String?
+    /// Live tool-input JSON for the currently-running tool call — mirrors
+    /// ChatState.activeToolInputJson so the agent surface can drive the
+    /// same ToolActivityNarrator (web_search → "Searching the web for
+    /// 'X'…" etc.). Cleared on completion / error.
+    var activeToolInputJson: String?
 
     /// Pending content blocks (tool uses and results) for the current response.
     var pendingContentBlocks: [MessageContentBlock] = []
@@ -112,6 +117,7 @@ final class AgentChatState {
         activeSessionId = UUID().uuidString
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         agentTurnCount = 0
         toolHistory = []
@@ -153,6 +159,7 @@ final class AgentChatState {
         streamingText.reserveCapacity(16_384)
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         resetThinkingState()
     }
@@ -210,6 +217,7 @@ final class AgentChatState {
 
     func recordToolUse(id: String, name: String, inputJson: String) {
         activeToolName = name
+        activeToolInputJson = inputJson
         isAgentExecuting = true
         pendingContentBlocks.append(.toolUse(
             id: id,
@@ -236,6 +244,7 @@ final class AgentChatState {
         ))
 
         activeToolName = nil
+        activeToolInputJson = nil
     }
 
     // MARK: - Completion
@@ -267,6 +276,7 @@ final class AgentChatState {
             isStreaming = false
             pendingContentBlocks = []
             activeToolName = nil
+            activeToolInputJson = nil
             isAgentExecuting = false
             addErrorMessage(
                 "No response received. The agent returned an empty stream — try again or switch models."
@@ -296,6 +306,7 @@ final class AgentChatState {
         isStreaming = false
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
 
         // Update context estimate
@@ -323,6 +334,7 @@ final class AgentChatState {
         isStreaming = false
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         lastCompletedAssistantResponse = nil
     }
@@ -338,6 +350,7 @@ final class AgentChatState {
         activeSessionId = nil
         pendingContentBlocks = []
         activeToolName = nil
+        activeToolInputJson = nil
         isAgentExecuting = false
         agentTurnCount = 0
         toolHistory = []
