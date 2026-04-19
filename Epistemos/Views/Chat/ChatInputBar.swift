@@ -438,7 +438,7 @@ struct ChatInputBar: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.caption2)
                         .foregroundStyle(.orange)
-                    Text("Current model doesn't support images. Switch to Gemma 4 or a cloud vision model.")
+                    Text("Current model doesn't support images. Switch to a vision-capable local model or a cloud vision model.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
