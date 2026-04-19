@@ -2316,6 +2316,31 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     case pro
     case agent
 
+    /// Which reasoning tiers are meaningful for this mode.
+    /// - Fast: none (reasoning disabled by design)
+    /// - Thinking: low / medium / high / heavy (4 levels — matches the
+    ///   user's "4 effort modes on thinking" ask)
+    /// - Pro / Agent: medium / heavy (2 levels — "standard" vs "heavy"
+    ///   in UI labels)
+    var availableReasoningTiers: [ChatReasoningTier] {
+        switch self {
+        case .fast: []
+        case .thinking: [.low, .medium, .high, .heavy]
+        case .pro, .agent: [.medium, .heavy]
+        }
+    }
+
+    /// Mode-specific label for a reasoning tier. Pro / Agent call
+    /// `.medium` "Standard" (the label the user asked for) while
+    /// Thinking keeps the generic tier name so the 4-level ladder
+    /// reads as low/medium/high/heavy.
+    nonisolated func reasoningTierLabel(for tier: ChatReasoningTier) -> String {
+        switch (self, tier) {
+        case (.pro, .medium), (.agent, .medium): "Standard"
+        default: tier.displayName
+        }
+    }
+
     var displayName: String {
         switch self {
         case .fast: "Fast"
@@ -2803,7 +2828,7 @@ final class InferenceState {
     /// OpenAI `reasoning.effort` + `text.verbosity`,
     /// Anthropic `thinking.type`/`effort`/`budget_tokens`,
     /// Google `thinkingConfig.thinkingLevel`/`thinkingBudget`.
-    var chatReasoningTier: ChatReasoningTier = .standard
+    var chatReasoningTier: ChatReasoningTier = .medium
     var googleGroundingEnabled = false
     private(set) var hasShownCloudSetupHint = false
     /// Observed mirror of the user's preferred cloud model per provider.
@@ -2892,8 +2917,12 @@ final class InferenceState {
         self.anthropicWebFetchEnabled = defaults.bool(forKey: Self.anthropicWebFetchDefaultsKey)
         self.anthropicCodeExecutionEnabled = defaults.bool(forKey: Self.anthropicCodeExecutionDefaultsKey)
         self.structuredJSONOutputEnabled = defaults.bool(forKey: Self.structuredJSONOutputDefaultsKey)
+        // Migrating initializer honors old `"standard"` / `"extended"`
+        // UserDefaults values (the pre-refactor tier names) by aliasing
+        // them to the closest new tier — standard→medium, extended→high.
+        // Falls through to the raw-value init for the current names.
         if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
-           let tier = ChatReasoningTier(rawValue: savedTier) {
+           let tier = ChatReasoningTier(migrating: savedTier) {
             self.chatReasoningTier = tier
         }
         let savedBudget = defaults.integer(forKey: Self.anthropicThinkingBudgetDefaultsKey)

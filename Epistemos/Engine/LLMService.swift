@@ -2440,37 +2440,45 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
         guard isReasoningModel else { return nil }
 
-        // User-selected reasoning tier takes precedence over the operating-
-        // mode defaults. `.standard` keeps the existing per-mode tuning so
-        // Fast mode stays cheap and fast; `.off` forces effort=none; and
-        // `.extended` forces the highest effort the model supports plus a
-        // detailed summary. Per research 1 (docs.claude.com/openai/... — see
-        // docs/architecture/MASTER_PLAN_2026-04-19.md §13).
+        // User-selected reasoning tier takes precedence over the
+        // operating-mode defaults. Each tier maps to a specific
+        // `reasoning.effort` string on the Responses API:
+        //   off     → "none" (no reasoning pass)
+        //   low     → "low"
+        //   medium  → "medium"    (aka "Standard" in Pro/Agent labels)
+        //   high    → "high"
+        //   heavy   → "xhigh"     (falls back to "high" on GPT-5.4 Nano)
+        // `.medium` on its own still falls through to the per-mode
+        // defaults below so the legacy tuning stays intact when the
+        // user hasn't explicitly bumped the dial.
         let tier = inference.chatReasoningTier
 
         switch tier {
         case .off:
             return OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
-        case .extended:
+        case .low:
+            return OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+        case .high:
+            return OpenAIResponseControls(
+                reasoningEffort: "high",
+                verbosity: "medium",
+                reasoningSummary: "auto"
+            )
+        case .heavy:
+            // xhigh exists on GPT-5 models but Nano caps below high.
             let effort: String
             switch model {
-            case .openAIGPT54:
-                effort = "high"     // xhigh exists but gated to opt-in
-            case .openAIGPT52:
-                effort = "high"
-            case .openAIGPT54Mini:
-                effort = "high"
             case .openAIGPT54Nano:
-                effort = "low"      // Nano caps below high
-            default:
                 effort = "high"
+            default:
+                effort = "xhigh"
             }
             return OpenAIResponseControls(
                 reasoningEffort: effort,
                 verbosity: "high",
                 reasoningSummary: "detailed"
             )
-        case .standard:
+        case .medium:
             break  // fall through to per-mode defaults
         }
 
@@ -2614,13 +2622,18 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         switch tier {
         case .off:
             return baseTokens
-        case .extended:
-            // Extended tier forces a 16k budget regardless of the
-            // Settings slider so `max_tokens` has to grow to fit it.
-            return max(baseTokens, 16_000 + 512)
-        case .standard:
+        case .low:
+            guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
+            return max(baseTokens, 2_048 + 512)
+        case .medium:
             guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
             return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
+        case .high:
+            return max(baseTokens, 16_000 + 512)
+        case .heavy:
+            // Heavy tier pushes the budget to 32k so Claude's deepest
+            // thinking passes have room to breathe.
+            return max(baseTokens, 32_000 + 512)
         }
     }
 
@@ -2650,24 +2663,34 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             if isGemini3 {
                 return ["thinkingLevel": "minimal", "includeThoughts": false]
             }
-            // 2.5 Pro rejects thinkingBudget: 0, so we can't truly disable
-            // there — fall through to standard (dynamic budget) and just
-            // skip includeThoughts so the user doesn't see reasoning.
+            // 2.5 Pro rejects thinkingBudget: 0, so we can't truly
+            // disable there — fall through to a dynamic budget and
+            // just skip includeThoughts so the user doesn't see
+            // reasoning.
             if isGemini25Pro {
                 return ["thinkingBudget": -1, "includeThoughts": false]
             }
-            // 2.5 Flash / Flash-Lite: 0 is allowed.
             return ["thinkingBudget": 0, "includeThoughts": false]
-        case .standard:
+        case .low:
+            if isGemini3 {
+                return ["thinkingLevel": "low", "includeThoughts": true]
+            }
+            return ["thinkingBudget": 2_048, "includeThoughts": true]
+        case .medium:
             if isGemini3 {
                 return ["thinkingLevel": "medium", "includeThoughts": true]
             }
             return ["thinkingBudget": -1, "includeThoughts": true]
-        case .extended:
+        case .high:
             if isGemini3 {
                 return ["thinkingLevel": "high", "includeThoughts": true]
             }
             return ["thinkingBudget": 16_384, "includeThoughts": true]
+        case .heavy:
+            if isGemini3 {
+                return ["thinkingLevel": "high", "includeThoughts": true]
+            }
+            return ["thinkingBudget": 32_768, "includeThoughts": true]
         }
     }
 
@@ -2684,31 +2707,44 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     }
 
     private func anthropicThinkingConfiguration(maxTokens: Int) -> [String: Any]? {
-        // Tier-driven thinking config. Standard respects the existing
-        // Settings toggle + slider so power users keep their tuning; Off
-        // force-skips; Extended forces a 16k budget per research 1's
-        // recommendation. Adaptive (Opus 4.7+) would go here too, but
-        // our catalog tops out at Opus 4.1 / Sonnet 4 which use manual
-        // `enabled` — no 400 risk.
+        // Tier-driven thinking config. Each tier maps to an explicit
+        // `budget_tokens` for Anthropic's `thinking.type = "enabled"`:
+        //   off     → nil (no thinking block)
+        //   low     → 2_048 (quick pass, cheap)
+        //   medium  → user's Settings budget (or 1_024 default)
+        //   high    → 16_000
+        //   heavy   → 32_000 (matches the heavy tier on Gemini 2.5)
+        // Budgets clamp to `maxTokens - 128` so the reply has headroom.
         let tier = inference.chatReasoningTier
+        let cap = max(1_024, maxTokens - 128)
         switch tier {
         case .off:
             return nil
-        case .extended:
-            let budget = min(16_000, max(1_024, maxTokens - 128))
+        case .low:
+            guard inference.anthropicExtendedThinkingEnabled else { return nil }
             return [
                 "type": "enabled",
-                "budget_tokens": budget,
+                "budget_tokens": min(2_048, cap),
             ]
-        case .standard:
+        case .medium:
             guard inference.anthropicExtendedThinkingEnabled else { return nil }
             let budget = min(
                 inference.anthropicThinkingBudgetTokens,
-                max(1_024, maxTokens - 128)
+                cap
             )
             return [
                 "type": "enabled",
                 "budget_tokens": budget,
+            ]
+        case .high:
+            return [
+                "type": "enabled",
+                "budget_tokens": min(16_000, cap),
+            ]
+        case .heavy:
+            return [
+                "type": "enabled",
+                "budget_tokens": min(32_000, cap),
             ]
         }
     }
