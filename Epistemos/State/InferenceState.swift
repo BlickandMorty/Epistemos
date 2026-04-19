@@ -704,6 +704,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit:         true  // Small thinking model, loop-prone
         case .deepseekR1Distill7B:   true  // Notorious for thinking loops
+        case .qwen25Coder7B:         true  // User-reported freeze path
         case .qwopusMoE35BA3B:       true  // MoE can loop in thinking
         case .qwen35_35BA3B4Bit:     true  // MoE thinking, loop-prone
         default:                     false
