@@ -618,3 +618,48 @@ level, not code-level:
 - **DeepSeek tool-call repro.** Still awaiting a live session
   with the route log visible.
 
+## 19 · April 20 overnight — "thinks forever, never answers" root cause
+
+User: "when I ask DeepSeek or ChatGPT for something it just thinks
+and then never provides the final answer on all chats."
+
+### 19A · Root cause
+
+OpenAI Responses API `max_output_tokens` caps BOTH reasoning AND
+answer tokens from the same pool. Prior code either skipped the cap
+or set it to the user's Settings slider (often 2-4k). With Heavy tier
+on GPT-5.4 the reasoning alone can burn 32k+ tokens, leaving zero
+budget for the answer phase. The stream completes cleanly with a full
+reasoning trace and an empty answer body — matching the user's symptom
+exactly ("just thinks then never provides").
+
+### 19B · Fix shipped
+
+| SHA | What |
+|-----|------|
+| [34a345cd](commits/34a345cd) | `resolvedOpenAIMaxOutputTokens(userRequested:)` auto-expands the cap per reasoning tier: off/low→4k, medium→8k, high→24k (16k reasoning + 8k answer), heavy→45k (32k reasoning + 13k answer). User's Settings slider still floors the result. Applied to all 3 Responses API call sites. |
+
+Plus a `ThinkTagStreamRouter` safety valve (same commit): a 16k-char
+pending-buffer cap so a misbehaving model that spews tag-prefix
+lookalike text forever can't balloon memory — force-flushes via the
+current mode after the cap.
+
+### 19C · Still open from this report
+
+- **App crashes.** No crash log supplied; can't diagnose without a
+  repro or sysdiagnose. Most recent risky changes (reasoningSink /
+  usageSink closures, ThinkTagStreamRouter multi-tag refactor,
+  ChatReasoningTier nonisolated) are defensively coded, but a real
+  crash needs the stack trace to fix.
+- **Qwen Coder freeze.** Likely model-load latency (4.7GB, 30-60s on
+  first cold load) being interpreted as a freeze. User is still on
+  qwen25Coder7B (the "old one"); qwen3CoderNext4Bit and
+  qwen3Coder30BA3B4Bit are in the catalog but require migration.
+  Needs either a loading-progress UI or an explicit timeout with a
+  user-facing error.
+- **Thinking still visible as main chat text on some turns.** The
+  tag router + reasoning sinks + `reasoning.summary: "auto"` should
+  cover all providers now. If it still happens on a specific model,
+  needs a live Console log of the Cloud-route line + the actual SSE
+  events to isolate the remaining path.
+
