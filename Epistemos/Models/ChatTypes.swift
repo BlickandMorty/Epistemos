@@ -146,6 +146,14 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var artifacts: [Artifact]
     /// Multi-part content blocks (tool calls, thinking, images). When non-empty, `content` is a computed join of `.text` blocks.
     var contentBlocks: [MessageContentBlock]?
+    /// Human-readable label of the model that actually produced this
+    /// assistant reply (e.g. "Qwen 3 4B", "Claude Sonnet 4.6", "Apple
+    /// Intelligence"). Populated at turn completion from InferenceState.
+    /// Optional for backward compatibility with legacy persisted messages
+    /// and user messages. When present, the UI renders a small badge so
+    /// the user can see exactly which model answered — the Perplexity
+    /// pattern: transparent routing as first-class UX.
+    var resolvedModelLabel: String?
 
     init(
         id: String = UUID().uuidString,
@@ -164,7 +172,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         loadedNoteTitles: [String]? = nil,
         contextAttachments: [ContextAttachment]? = nil,
         artifacts: [Artifact] = [],
-        contentBlocks: [MessageContentBlock]? = nil
+        contentBlocks: [MessageContentBlock]? = nil,
+        resolvedModelLabel: String? = nil
     ) {
         self.id = id
         self.chatId = chatId
@@ -183,6 +192,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.contextAttachments = contextAttachments
         self.artifacts = artifacts
         self.contentBlocks = contentBlocks
+        self.resolvedModelLabel = resolvedModelLabel
     }
 
     /// Effective text content — from contentBlocks if present, otherwise from content.

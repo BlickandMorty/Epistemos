@@ -296,7 +296,11 @@ final class ChatCoordinator {
                         case .textDelta(let text):
                             agentChat.appendStreamingText(text)
                         case .completed:
-                            agentChat.completeProcessing(mode: mode)
+                            agentChat.completeProcessing(
+                                mode: mode,
+                                resolvedModelLabel: self.inferenceState
+                                    .effectiveModelLabel(for: effectiveOperatingMode)
+                            )
                             if let response = agentChat.lastCompletedAssistantResponse {
                                 agentChat.absorbAgentResponseIntoPlanDocument(response)
                             }
@@ -802,7 +806,10 @@ final class ChatCoordinator {
             inputTokens: LocalAgentLoop.approximateTokenCount(of: objective),
             outputTokens: LocalAgentLoop.approximateTokenCount(of: output)
         )
-        agentChat.completeProcessing(mode: inferenceState.inferenceMode)
+        agentChat.completeProcessing(
+            mode: inferenceState.inferenceMode,
+            resolvedModelLabel: inferenceState.effectiveModelLabel(for: .agent)
+        )
         if let response = agentChat.lastCompletedAssistantResponse {
             agentChat.absorbAgentResponseIntoPlanDocument(response)
         }
@@ -1270,7 +1277,9 @@ final class ChatCoordinator {
                         case .completed:
                             chatState.completeProcessing(
                                 messageId: pendingAssistantId,
-                                mode: mode
+                                mode: mode,
+                                resolvedModelLabel: self.inferenceState
+                                    .effectiveModelLabel(for: effectiveOperatingMode)
                             )
                             chatState.recalculateContextEstimate()
 
@@ -1457,7 +1466,8 @@ final class ChatCoordinator {
                 receivedAgentContent = true
                 chatState.completeProcessing(
                     messageId: pendingAssistantId,
-                    mode: .api
+                    mode: .api,
+                    resolvedModelLabel: self.inferenceState.effectiveModelLabel(for: .agent)
                 )
 
                 if let lastMsg = chatState.messages.last {

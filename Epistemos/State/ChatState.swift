@@ -341,7 +341,8 @@ final class ChatState {
 
     func completeProcessing(
         messageId: String = UUID().uuidString,
-        mode: InferenceMode
+        mode: InferenceMode,
+        resolvedModelLabel: String? = nil
     ) {
         guard let chatId = activeChatId else { return }
 
@@ -389,7 +390,8 @@ final class ChatState {
             loadedNoteTitles: metadata.noteTitles,
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
-            contentBlocks: completedContentBlocks
+            contentBlocks: completedContentBlocks,
+            resolvedModelLabel: resolvedModelLabel
         )
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
