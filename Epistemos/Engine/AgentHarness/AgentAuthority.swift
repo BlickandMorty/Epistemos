@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// User-facing category that groups agent tool calls by blast radius.
 /// The Authority & Installs settings panel shows one decision per category
@@ -188,5 +189,61 @@ final class InMemoryAgentAuthorityPersistence: AgentAuthorityPersistence, @unche
 
     func save(_ snapshot: AgentAuthorityPolicySnapshot) {
         self.snapshot = snapshot
+    }
+}
+
+/// JSON file backed at ApplicationSupport/Epistemos/agent_authority.json so
+/// the user's allow / ask / deny decisions survive app restarts. The store's
+/// default was `InMemoryAgentAuthorityPersistence` which silently dropped
+/// those decisions on quit — research 3 called it out as a live bug.
+/// Failures to decode or write fall back to the defaults so a corrupt file
+/// never breaks the permission flow; the file is just overwritten next save.
+final class FileBackedAgentAuthorityPersistence: AgentAuthorityPersistence, @unchecked Sendable {
+    private let storageURL: URL
+    private let log = os.Logger(subsystem: "com.epistemos", category: "AgentAuthority")
+
+    init(storageURL: URL? = nil) {
+        if let storageURL {
+            self.storageURL = storageURL
+            return
+        }
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
+            .appendingPathComponent("Epistemos", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: appSupport,
+            withIntermediateDirectories: true
+        )
+        self.storageURL = appSupport.appendingPathComponent("agent_authority.json")
+    }
+
+    func load() -> AgentAuthorityPolicySnapshot? {
+        guard FileManager.default.fileExists(atPath: storageURL.path) else {
+            return nil
+        }
+        do {
+            let data = try Data(contentsOf: storageURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            return try decoder.decode(AgentAuthorityPolicySnapshot.self, from: data)
+        } catch {
+            log.error(
+                "Failed to decode agent_authority.json; falling back to defaults: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    func save(_ snapshot: AgentAuthorityPolicySnapshot) {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        do {
+            let data = try encoder.encode(snapshot)
+            try data.write(to: storageURL, options: [.atomic])
+        } catch {
+            log.error(
+                "Failed to write agent_authority.json: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }

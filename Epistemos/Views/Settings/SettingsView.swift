@@ -15,8 +15,13 @@ struct SettingsView: View {
     @State private var selection: SettingsSection? = .general
     /// Single source of truth for the Authority & Installs panel in this
     /// settings window. Owned here so the store survives view redraws while
-    /// the user navigates between sidebar rows.
-    @State private var sharedAuthorityStore = AgentAuthorityStore()
+    /// the user navigates between sidebar rows. Uses the file-backed
+    /// persistence so user allow/ask/deny decisions survive a relaunch —
+    /// prior to 2026-04-19 this defaulted to in-memory and silently
+    /// dropped the user's settings on quit.
+    @State private var sharedAuthorityStore = AgentAuthorityStore(
+        persistence: FileBackedAgentAuthorityPersistence()
+    )
 
     // MARK: - Settings Categories (Phase 7 Step 7)
     //
