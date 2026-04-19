@@ -44,15 +44,26 @@ nonisolated final class ThinkTagStreamRouter {
 
     private enum Mode {
         case visible
-        case thinking
+        case thinking(closeTag: String)
     }
 
-    private static let openTag = "<think>"
-    private static let closeTag = "</think>"
-    /// Longest substring the tail of pending could share with a tag
-    /// prefix. Eight covers both `<think>` (7) and `</think>` (8) with
-    /// room for case variance.
-    private static let maxPartialTagLength = 8
+    /// Reasoning-tag pairs we split. DeepSeek-R1 uses `<think>…</think>`,
+    /// Claude and some tool-use models emit `<thinking>…</thinking>`
+    /// when not using structured thinking blocks, and various Qwen /
+    /// Bonsai fine-tunes have been observed using `<thought>…</thought>`
+    /// or `<reasoning>…</reasoning>`. All match case-insensitively
+    /// since some models emit uppercase variants.
+    private static let tagPairs: [(open: String, close: String)] = [
+        ("<think>", "</think>"),
+        ("<thinking>", "</thinking>"),
+        ("<thought>", "</thought>"),
+        ("<reasoning>", "</reasoning>"),
+    ]
+
+    /// Longest trailing substring we'll hold back waiting for a tag to
+    /// finish forming. Max open-tag length is `<reasoning>` (11) —
+    /// give a bit of headroom.
+    private static let maxPartialTagLength = 12
 
     private var mode: Mode = .visible
     private var pending: String = ""
@@ -69,19 +80,35 @@ nonisolated final class ThinkTagStreamRouter {
         while !pending.isEmpty {
             switch mode {
             case .visible:
-                if let range = pending.range(of: Self.openTag, options: .caseInsensitive) {
+                // Find the earliest open tag of any known pair. Among
+                // multiple matches the smallest lowerBound wins so we
+                // don't skip over a `<think>` looking for a later
+                // `<reasoning>`.
+                let earliest = Self.tagPairs.compactMap { pair -> (Range<String.Index>, String)? in
+                    guard let range = pending.range(of: pair.open, options: .caseInsensitive) else {
+                        return nil
+                    }
+                    return (range, pair.close)
+                }.min(by: { $0.0.lowerBound < $1.0.lowerBound })
+
+                if let (range, closeTag) = earliest {
                     let head = String(pending[..<range.lowerBound])
                     if !head.isEmpty {
                         emit = emit + Emit(visible: head, thinking: "")
                     }
                     pending.removeSubrange(pending.startIndex..<range.upperBound)
-                    mode = .thinking
+                    mode = .thinking(closeTag: closeTag)
                     continue
                 }
                 // No open tag in pending. Flush everything except a
                 // trailing window that could still be the prefix of
-                // `<think>`, keep that for the next ingest.
-                let holdCount = partialTagHoldCount(in: pending, candidate: Self.openTag)
+                // any known open tag. Use the longest candidate's
+                // prefix to be safe.
+                var holdCount = 0
+                for pair in Self.tagPairs {
+                    let h = partialTagHoldCount(in: pending, candidate: pair.open)
+                    if h > holdCount { holdCount = h }
+                }
                 let emitEnd = pending.index(pending.endIndex, offsetBy: -holdCount)
                 let ready = String(pending[..<emitEnd])
                 if !ready.isEmpty {
@@ -90,8 +117,8 @@ nonisolated final class ThinkTagStreamRouter {
                 pending.removeSubrange(pending.startIndex..<emitEnd)
                 return emit
 
-            case .thinking:
-                if let range = pending.range(of: Self.closeTag, options: .caseInsensitive) {
+            case .thinking(let closeTag):
+                if let range = pending.range(of: closeTag, options: .caseInsensitive) {
                     let inside = String(pending[..<range.lowerBound])
                     if !inside.isEmpty {
                         emit = emit + Emit(visible: "", thinking: inside)
@@ -100,7 +127,7 @@ nonisolated final class ThinkTagStreamRouter {
                     mode = .visible
                     continue
                 }
-                let holdCount = partialTagHoldCount(in: pending, candidate: Self.closeTag)
+                let holdCount = partialTagHoldCount(in: pending, candidate: closeTag)
                 let emitEnd = pending.index(pending.endIndex, offsetBy: -holdCount)
                 let ready = String(pending[..<emitEnd])
                 if !ready.isEmpty {
@@ -134,7 +161,8 @@ nonisolated final class ThinkTagStreamRouter {
     /// True iff the router is currently accumulating thinking text.
     /// Callers can use this to drive `isThinkingActive` on chat state.
     var isCurrentlyThinking: Bool {
-        mode == .thinking
+        if case .thinking = mode { return true }
+        return false
     }
 
     // MARK: - Partial-tag detection
