@@ -131,11 +131,16 @@ clear scope + verifiable completion signal.
 - **Catalog**: add as `openThinker3_7B4Bit`, role `.reasoningLocal`,
   replaces DeepSeek R1 7B as the primary reasoning tier once verified.
 
-### c. Add QwQ-32B as flagship reasoning
+### c. Add QwQ-32B as flagship reasoning ✅ SHIPPED 2026-04-19 (`98897428`)
 - **Source**: `mlx-community/QwQ-32B-4bit`
 - **Memory**: 24 GB
 - **Role**: `.reasoningLocal` (flagship tier, above DeepSeek R1 7B)
 - **Why**: comparable to DeepSeek-R1 at 32B; existing Qwen arch.
+- **Landed**: new `LocalTextModelID.qwqFlagship32B4Bit` case, full descriptor
+  in `LocalModelInfrastructure.optionalBaselineModelIDs`, leads
+  `TriageService.preferredOrder` for `.thinking` mode on both coding and
+  default intents. Revision pinned to `main` pending automated SHA
+  sweep via `scripts/pin_catalog_revisions.sh`.
 
 ### d. Qwen3-Coder (Flash variant if/when released)
 - Track upstream `Qwen/Qwen3-Coder-*-Flash` for speculative-decoding-

@@ -1,6 +1,22 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-15 | All sprints COMPLETE | Full automated sweep green: Swift 331 critical tests / 15 suites, graph-engine 2456, agent_core 501, syntax-core 21 | Swift BUILD SUCCEEDED | Current research source of truth: docs/architecture/PLAN_V2.md §23-§27
+Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `codex/runtime-input-audit` — routing UX, Codex cloud-quality fix, agent thinking-delta wiring, empty-stream guard, QwQ-32B flagship reasoner, effective-model badge (data + UI).
+
+## 2026-04-19 Chat Transparency + QwQ-32B ✅
+- [x] Batch A `254312cd` — chat routing UX: explicit stack popover, settings ↔ picker sync, Codex GPT-5.4 preservation on fast mode (no silent Mini downgrade)
+- [x] Batch B `18664605` — Codex ChatGPT backend stops receiving GPT-5 native reasoning/verbosity controls (root cause of typo-heavy prose on that path) + "use polished grammar" baseline nudge
+- [x] Batch C `06cc013e` — agent path now routes `.thinkingDelta` into `AgentChatState.appendStreamingThinking` with full lifecycle state (popover, resetOnStreamStart / newSession)
+- [x] Batch D `9cf31cf7` — `ChatState` + `AgentChatState` `completeProcessing` surface empty streams as actionable errors instead of ghost assistant bubbles
+- [x] Plan doc `eb5a0edb` — CHAT_TRANSPARENCY_PLAN_2026-04-19.md with P1/P2/P3 research-backed backlog
+- [x] Batch G `526b7279` — mirror the agent-side thinking lifecycle tests onto `ChatState` so the main chat path has explicit regression coverage
+- [x] Batch H `98897428` — QwQ 32B flagship on-device reasoner added to the catalog, leads `.thinking` preferredOrder ahead of DeepSeek R1 7B on 24GB+ Macs
+- [x] Batch I `5ddd6db9` — every assistant turn captures `resolvedModelLabel` at completion via new `InferenceState.effectiveModelLabel(for:)` helper; all four completion call sites plumbed
+- [x] Batch J `cfad9a99` — `EffectiveModelBadge` renders a small sparkle-pill under each assistant reply showing the actual model that answered (the Perplexity #1 research pattern: transparent routing)
+- [x] Verification: 7-suite sanity sweep (`AgentChatStateTests`, `ChatPresentationTests`, `CloudProviderAuthServiceTests`, `LocalModelInfrastructureTests`, `PipelineServiceTests`, `RuntimeValidationTests`, `TriageServiceTests`) all green
+
+**Open:** OpenThinker3-7B catalog entry (needs Python MLX conversion step we can't run autonomously — wait for a community `mlx-community/OpenThinker3-7B-*-mlx` upload or run the conversion manually). Gemma 4 loader port (multi-file Swift MLX work in `LocalPackages/mlx-swift-lm/` — too big for autonomous landing, tracked in MASTER_MODEL_STACK_PLAN.md §3.a).
+
+**Next-session P1 continuation:** typed error surfaces (401/429/content-policy/tool-failure), context side panel (NotebookLM + Continue.dev hybrid), and click-through routing rationale ("why this model?") on the new model badge — all specified in CHAT_TRANSPARENCY_PLAN_2026-04-19.md.
 
 ## 2026-04-15 PLAN_V2 Research Integration + Sessions 0-6 ✅
 - [x] Committed Phase 7 Step 9: Graph Chat receiver wired end-to-end through ACC and Rust compile path (GraphState → ACC → ChatCoordinator → Rust GraphContext passthrough)
