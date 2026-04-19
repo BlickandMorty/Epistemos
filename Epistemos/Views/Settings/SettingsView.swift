@@ -1756,13 +1756,27 @@ private struct InferenceDetailView: View {
                 Label("Anthropic Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
                     .font(.body.weight(.semibold))
                 SettingsDescriptionText(
-                    text: "Extended thinking uses Anthropic's thinking configuration. Web search routes queries through Anthropic's hosted search (beta)."
+                    text: "Extended thinking uses Anthropic's thinking configuration. Server-side tools (web search, web fetch, code execution) run inside Anthropic's sandbox and are billed per use."
                 )
                 Toggle(
                     "Enable Web Search",
                     isOn: Binding(
                         get: { inference.anthropicWebSearchEnabled },
                         set: { inference.setAnthropicWebSearchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Web Fetch (single URL)",
+                    isOn: Binding(
+                        get: { inference.anthropicWebFetchEnabled },
+                        set: { inference.setAnthropicWebFetchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Code Execution (Python sandbox)",
+                    isOn: Binding(
+                        get: { inference.anthropicCodeExecutionEnabled },
+                        set: { inference.setAnthropicCodeExecutionEnabled($0) }
                     )
                 )
                 Toggle(

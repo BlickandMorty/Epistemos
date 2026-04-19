@@ -2687,6 +2687,8 @@ final class InferenceState {
     private nonisolated static let anthropicExtendedThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
     private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
     private nonisolated static let anthropicWebSearchDefaultsKey = "epistemos.anthropicWebSearchEnabled"
+    private nonisolated static let anthropicWebFetchDefaultsKey = "epistemos.anthropicWebFetchEnabled"
+    private nonisolated static let anthropicCodeExecutionDefaultsKey = "epistemos.anthropicCodeExecutionEnabled"
     private nonisolated static let googleGroundingDefaultsKey = "epistemos.googleGroundingEnabled"
     private nonisolated static let chatAutoRouteToCloudDefaultsKey = "epistemos.chatAutoRouteToCloud"
     private nonisolated static let cloudAutoFallbackDefaultsKey = "epistemos.cloudAutoFallback"
@@ -2776,6 +2778,17 @@ final class InferenceState {
     /// `anthropic-beta: web-search-2025-03-05` header. Default off so
     /// the user pays no latency cost until they explicitly ask for it.
     var anthropicWebSearchEnabled = false
+    /// Anthropic's `web_fetch_20250910` beta — single-URL grounding.
+    /// Complements web search: the model can pull a specific page the
+    /// user mentioned (or that a prior turn's search surfaced) rather
+    /// than having to re-search. Requires the matching
+    /// `web-fetch-2025-09-10` beta header.
+    var anthropicWebFetchEnabled = false
+    /// Anthropic's `code_execution_20250825` beta — server-side Python
+    /// sandbox for data analysis / plotting tasks. Parity sibling of
+    /// OpenAI's `code_interpreter`. Requires the matching
+    /// `code-execution-2025-08-25` beta header.
+    var anthropicCodeExecutionEnabled = false
     /// The user's current reasoning/thinking tier. Providers that
     /// support native reasoning map this to their own controls:
     /// OpenAI `reasoning.effort` + `text.verbosity`,
@@ -2867,6 +2880,8 @@ final class InferenceState {
         self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
         self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
         self.anthropicWebSearchEnabled = defaults.bool(forKey: Self.anthropicWebSearchDefaultsKey)
+        self.anthropicWebFetchEnabled = defaults.bool(forKey: Self.anthropicWebFetchDefaultsKey)
+        self.anthropicCodeExecutionEnabled = defaults.bool(forKey: Self.anthropicCodeExecutionDefaultsKey)
         if let savedTier = defaults.string(forKey: Self.chatReasoningTierDefaultsKey),
            let tier = ChatReasoningTier(rawValue: savedTier) {
             self.chatReasoningTier = tier
@@ -3986,6 +4001,16 @@ final class InferenceState {
     func setAnthropicWebSearchEnabled(_ isEnabled: Bool) {
         anthropicWebSearchEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.anthropicWebSearchDefaultsKey)
+    }
+
+    func setAnthropicWebFetchEnabled(_ isEnabled: Bool) {
+        anthropicWebFetchEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicWebFetchDefaultsKey)
+    }
+
+    func setAnthropicCodeExecutionEnabled(_ isEnabled: Bool) {
+        anthropicCodeExecutionEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicCodeExecutionDefaultsKey)
     }
 
     func setAnthropicThinkingBudgetTokens(_ tokens: Int) {

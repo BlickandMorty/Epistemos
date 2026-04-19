@@ -1486,8 +1486,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
             body["thinking"] = thinking
         }
-        if let webSearch = anthropicWebSearchTool(provider: provider) {
-            body["tools"] = [webSearch]
+        let serverTools = anthropicServerSideTools(provider: provider)
+        if !serverTools.isEmpty {
+            body["tools"] = serverTools
         }
 
         guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
@@ -1567,8 +1568,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
             body["thinking"] = thinking
         }
-        if let webSearch = anthropicWebSearchTool(provider: provider) {
-            body["tools"] = [webSearch]
+        let serverTools = anthropicServerSideTools(provider: provider)
+        if !serverTools.isEmpty {
+            body["tools"] = serverTools
         }
 
         guard let url = URL(string: anthropicBaseURL(for: provider) + "/v1/messages") else {
@@ -1853,15 +1855,25 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             } else {
                 request.setValue(token, forHTTPHeaderField: "x-api-key")
                 // Enable prompt caching + structured outputs for direct
-                // API key auth. Web search beta appends only when the
-                // user has the toggle on (and only for .anthropic —
-                // Anthropic-compatible gateways don't all support it).
+                // API key auth. Server-side tool betas (web search, web
+                // fetch, code execution) are appended only when the
+                // matching user toggle is on AND the provider is the
+                // first-party `.anthropic` endpoint — third-party
+                // Anthropic-compatible gateways vary in beta support.
                 var betas = [
                     "prompt-caching-2024-07-31",
                     "structured-outputs-2025-11-13",
                 ]
-                if provider == .anthropic, inference.anthropicWebSearchEnabled {
-                    betas.append("web-search-2025-03-05")
+                if provider == .anthropic {
+                    if inference.anthropicWebSearchEnabled {
+                        betas.append("web-search-2025-03-05")
+                    }
+                    if inference.anthropicWebFetchEnabled {
+                        betas.append("web-fetch-2025-09-10")
+                    }
+                    if inference.anthropicCodeExecutionEnabled {
+                        betas.append("code-execution-2025-08-25")
+                    }
                 }
                 request.setValue(
                     betas.joined(separator: ","),
@@ -1879,6 +1891,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             if inference.anthropicWebSearchEnabled {
                 betas.append("web-search-2025-03-05")
             }
+            if inference.anthropicWebFetchEnabled {
+                betas.append("web-fetch-2025-09-10")
+            }
+            if inference.anthropicCodeExecutionEnabled {
+                betas.append("code-execution-2025-08-25")
+            }
             request.setValue(betas.joined(separator: ","), forHTTPHeaderField: "anthropic-beta")
             request.setValue("claude-cli/2.1.74 (external, cli)", forHTTPHeaderField: "User-Agent")
             request.setValue("cli", forHTTPHeaderField: "x-app")
@@ -1887,17 +1905,37 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         }
     }
 
-    /// Anthropic hosted web-search tool spec. Nil when the user hasn't
-    /// enabled the toggle OR the provider isn't the first-party
-    /// Anthropic endpoint (other Anthropic-compatible gateways vary in
-    /// beta support, so we only attach this for `.anthropic`).
-    private func anthropicWebSearchTool(provider: CloudModelProvider) -> [String: Any]? {
-        guard provider == .anthropic, inference.anthropicWebSearchEnabled else { return nil }
-        return [
-            "type": "web_search_20250305",
-            "name": "web_search",
-            "max_uses": 5,
-        ]
+    /// Collects every enabled Anthropic server-side tool (web search,
+    /// web fetch, code execution) into the `tools` array attached to
+    /// the `/v1/messages` body. Returns an empty array when nothing is
+    /// enabled OR when the provider isn't the first-party `.anthropic`
+    /// endpoint (gateways vary in beta support).
+    private func anthropicServerSideTools(provider: CloudModelProvider) -> [[String: Any]] {
+        guard provider == .anthropic else { return [] }
+        var tools: [[String: Any]] = []
+        if inference.anthropicWebSearchEnabled {
+            tools.append([
+                "type": "web_search_20250305",
+                "name": "web_search",
+                "max_uses": 5,
+            ])
+        }
+        if inference.anthropicWebFetchEnabled {
+            // Single-URL fetch beta. No `max_uses` field per
+            // docs.anthropic.com — the tool is self-limiting via the
+            // model's tool-call budget.
+            tools.append([
+                "type": "web_fetch_20250910",
+                "name": "web_fetch",
+            ])
+        }
+        if inference.anthropicCodeExecutionEnabled {
+            tools.append([
+                "type": "code_execution_20250825",
+                "name": "code_execution",
+            ])
+        }
+        return tools
     }
 
     private func anthropicBaseURL(for provider: CloudModelProvider) -> String {
