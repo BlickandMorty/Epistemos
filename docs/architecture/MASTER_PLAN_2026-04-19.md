@@ -421,3 +421,60 @@ Ordered by impact per the original research pack.
 6. **Typed-chunk plumbing for direct-cloud reasoning popover.** The last remaining source of empty thinking popovers (Thinking mode + cloud).
 7. **DeepSeek tool-call investigation with Console log.**
 
+---
+
+## 16 · April 20 PM delta — agent truth, context persistence, image gen
+
+User tested end-to-end and flagged a round of issues focused on the
+agent actually *using* the app correctly. All fixes shipped this arc.
+
+### 16A · User-reported bugs → fixes shipped
+
+| Bug | SHA | What changed |
+|-----|-----|--------------|
+| "DeepSeek thinks in the main chat then the text disappears" — inline `<think>` reasoning leaked into the visible stream, then `finalVisibleText` stripped it at turn completion | [bb38e6d0](commits/bb38e6d0) | New `ThinkTagStreamRouter` splits visible / thinking channels live, handles tag boundaries across chunks; `ChatMessage.thinkingTrace` + `thinkingDurationSeconds` persist per turn so reasoning is always click-accessible |
+| "ChatGPT froze while thinking, still frozen" — SSE connection could drop during reasoning with no recovery | [681d84ec](commits/681d84ec) | 120s idle watchdog on `streamSSE`; aborts with a clear 504-style error ("Model stream went idle for Ns — provider may be overloaded") |
+| "Not sure it's actually using ChatGPT" — no visibility into which provider/model | [681d84ec](commits/681d84ec) | Per-turn `.notice` log: `Cloud route: provider=X model=Y mode=Z reasoning=W` so Console.app confirms the wire-level identity |
+| "Attached my essay, model still calls read_file and asks for a path" — the RESOLVED NOTE CONTEXT envelope was in the prompt but the instruction was too weak | [4f88893c](commits/4f88893c) | Rewrote the "Required Attached Notes" instruction to be forceful: "THE FULL TEXT is inlined below, ALREADY resolved. Do NOT call read_file / vault_read / any fetch tool. Do NOT ask the user for a file path." |
+| "Thinking still in the main chat for GPT-5.4 Agent" — Rust Codex Responses path sent `reasoning.effort` without `reasoning.summary`, so GPT-5.4 reasoned privately and leaked the monologue through `output_text.delta` | [4f88893c](commits/4f88893c) | Added `summary: "auto"` alongside `effort` so reasoning streams through `response.reasoning_summary_text.delta` → `ThinkingDelta` → popover |
+| "Context panel resets every time I leave the chat — should persist per chat, accumulate per turn" | [4b1d433a](commits/4b1d433a) | Replaced single `latestBrainSnapshot` optional with `brainSnapshotsByChat: [String: [ChatBrainSnapshot]]` keyed by chatId. `loadMessages` / `startNewChat` no longer nil; `clearMessages` clears only the active chat's history. Capped at 50 snapshots per chat |
+| "It should know how to use the app — all the routes, all the possible routing, for all models" | [016b8f9d](commits/016b8f9d) + [e01cceb4](commits/e01cceb4) | `CapabilityManifestBuilder` now injected into the Rust-agent system prompt every turn. New "App surfaces" section enumerates Chat / Notes / MiniChat / Graph / Agent Command Center / Daily Brief / Workspaces / Settings with shortcuts + the rule "when asked to search notes, use tools — don't redirect" |
+| "I don't see UI when tools run, I don't know when it's using tools — black box" | [766b374d](commits/766b374d) | New `LiveActivityStrip` mounts at the TOP of every in-flight assistant bubble with plain English: "🔎 Searching the web for 'X'" / "🧠 Thinking 12s" (live timer) / "✍️ Writing reply…" — tinted + iconed by phase |
+| Parity gap #3 (Anthropic web_fetch) + #4 (code_execution) | [91c261fb](commits/91c261fb) | `anthropicWebFetchEnabled` + `anthropicCodeExecutionEnabled` state + setters; `anthropicServerSideTools()` emits the full tool set; `applyAnthropicAuthorization` appends `web-fetch-2025-09-10` + `code-execution-2025-08-25` betas conditionally; two new Settings toggles |
+| OpenAI `code_interpreter` 400 regression | [4f88893c](commits/4f88893c) | Restored with the correct `{"type": "code_interpreter", "container": {"type": "auto"}}` schema (previous form was rejected by param validator, not feature gate) |
+| Parity gap #5 — `/image` slash command wired | [4c961d95](commits/4c961d95) | `ACCSlashCommand.image` routes to Agent mode with `image_generate` in the preferredTools — MLXImageGenerationService is now reachable from the command bar |
+
+### 16B · Refreshed parity matrix (post-16A)
+
+| # | Gap | Status |
+|---|-----|--------|
+| 1 | Live tool-status narration | ✅ 1f0401d0 + 766b374d |
+| 2 | Anthropic / Google hosted web search | ✅ 147f17e1 |
+| 3 | Web fetch / single-URL grounding | ✅ 91c261fb (Anthropic). OpenAI: already works via `web_search` URL mode |
+| 4 | Code interpreter | ✅ 4f88893c (OpenAI restored) + 91c261fb (Anthropic) |
+| 5 | Image generation surface | ✅ 4c961d95 `/image` slash command |
+| 6 | Audio input (transcription) | Open — mic button → Whisper / Gemini |
+| 7 | Native PDF upload to providers | Open |
+| 8 | Structured output / JSON schema | Open |
+| 9 | Batch processing queue | Open |
+| 10 | Prompt-cache hit indicator | Deferred — needs FFI regen to thread cache fields through StreamingDelegate |
+
+### 16C · Remaining follow-ups
+
+- **Non-Rust-agent path manifest injection.** Only the Rust-agent system prompt has the manifest today. Direct-cloud Swift LLMService paths (Fast/Thinking mode) + local MLX need the same prepend.
+- **Typed-chunk plumbing for direct-cloud reasoning popover.** Still deferred. Rust-agent + Pro+cloud paths route reasoning correctly via Batch JJ; Fast/Thinking + direct-cloud silently drop reasoning.
+- **Cache-hit indicator (#10).** Needs UniFFI bindings regenerated to pass `cache_read_input_tokens` through `onComplete`. Skipped this round to avoid FFI churn.
+- **Parity gaps #6–#9.** Each needs its own design pass.
+- **DeepSeek tool-call repro.** Route log now in place — needs a live session to confirm.
+
+### 16D · Commits this arc
+
+1. [1300af1d](commits/1300af1d) — master plan §15 update
+2. [4f88893c](commits/4f88893c) — `reasoning.summary: "auto"` + stronger attached-content instruction + OpenAI `code_interpreter` restore (bundled)
+3. [4b1d433a](commits/4b1d433a) — per-chat `brainSnapshotsByChat` persistence
+4. [016b8f9d](commits/016b8f9d) — capability manifest injection into Rust-agent system prompt
+5. [e01cceb4](commits/e01cceb4) — "App surfaces" section in the manifest
+6. [91c261fb](commits/91c261fb) — Anthropic `web_fetch_20250910` + `code_execution_20250825` betas
+7. [766b374d](commits/766b374d) — `LiveActivityStrip` at top of streaming bubble
+8. [4c961d95](commits/4c961d95) — `/image` slash command
+
