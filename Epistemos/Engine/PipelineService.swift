@@ -645,25 +645,29 @@ final class PipelineService {
     }
 
     /// Compose a CapabilityManifestBuilder context from the current
-    /// pipeline state + render it to markdown. Returns nil if we don't
-    /// have enough info to produce a meaningful manifest. Mirrors the
-    /// Rust-agent path's call in ChatCoordinator.runRustAgentPath.
+    /// pipeline state + render it to markdown. Local paths get the
+    /// compact variant (small-model-friendly); cloud gets the full
+    /// manifest. Returns nil if we don't have enough info.
     private func buildCapabilityManifest(
         operatingMode: EpistemosOperatingMode,
         executionPlan: OverseerComplexityRouter.ExecutionPlan?
     ) -> String? {
         let providerLabel: String
         let modelLabel: String
+        let isLocal: Bool
         switch inference.preferredChatModelSelection {
         case .cloud(let model):
             providerLabel = model.provider.rawValue
             modelLabel = model.vendorModelID
+            isLocal = false
         case .localMLX(let modelID):
             providerLabel = "local"
             modelLabel = modelID
+            isLocal = true
         case .appleIntelligence:
             providerLabel = "apple"
             modelLabel = "Apple Intelligence"
+            isLocal = true
         }
 
         let allowedNames: [String]
@@ -689,7 +693,9 @@ final class PipelineService {
             skillNames: [],
             maxContextTokens: 128_000
         )
-        let manifest = CapabilityManifestBuilder.render(context)
+        let manifest = isLocal
+            ? CapabilityManifestBuilder.renderCompact(context)
+            : CapabilityManifestBuilder.render(context)
         CapabilityManifestBuilder.persist(manifest)
         return manifest
     }
