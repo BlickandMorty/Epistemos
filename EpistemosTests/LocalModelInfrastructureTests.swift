@@ -96,9 +96,9 @@ struct LocalModelInfrastructureTests {
         // Stack refresh 2026-04-18 (docs/MASTER_MODEL_STACK_PLAN.md):
         // baseline = Fast Local (Qwen3-4B) + Reasoning (DeepSeek R1 7B)
         // + Coding (Qwen3-Coder-Next). Everything else is optional.
-        // Gemma 4 family stays in optional under the preview gate — still
-        // installable, just not auto-selected by triage until the Swift
-        // loader lands.
+        // Gemma 4 stays in the raw catalog for future loader work, but
+        // it should not appear in the shipping baseline recommendations
+        // while the Swift runtime loader is still missing.
         let baselineIDs = Set(LocalModelCatalog.curatedBaselineDescriptors.map(\.id))
         let optionalIDs = Set(LocalModelCatalog.optionalBaselineDescriptors.map(\.id))
         let experimentalIDs = Set(LocalModelCatalog.experimentalDescriptors.map(\.id))
@@ -120,12 +120,21 @@ struct LocalModelInfrastructureTests {
             LocalTextModelID.qwqFlagship32B4Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
             LocalTextModelID.qwen25Coder7B.rawValue,
-            LocalTextModelID.gemma4_4B4Bit.rawValue,
-            LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
         ]))
         #expect(experimentalIDs.isEmpty)
         #expect(advancedIDs.isEmpty)
         #expect(!advancedIDs.contains(LocalTextModelID.gemma4_4B4Bit.rawValue))
+    }
+
+    @Test("gemma preview models stay out of baseline recommendation copy")
+    func gemmaPreviewModelsStayOutOfBaselineRecommendationCopy() throws {
+        let fastDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
+        let proDescriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
+
+        #expect(!fastDescriptor.summary.contains("Recommended fast local default"))
+        #expect(!proDescriptor.summary.contains("Optional high-end local pro tier"))
+        #expect(!LocalModelCatalog.descriptors(forRole: .fastLocal).contains(where: { $0.id == fastDescriptor.id }))
+        #expect(!LocalModelCatalog.descriptors(forRole: .highEndLocal).contains(where: { $0.id == proDescriptor.id }))
     }
 
     @Test("hardware recommendations stay on mlx-installable local models")
@@ -631,7 +640,8 @@ struct LocalModelInfrastructureTests {
         // Stack refresh 2026-04-18 — optional baseline is now ordered as
         // declared in LocalModelCatalog.optionalBaselineModelIDs
         // (Bonsai fallbacks, coder flagship, Hermes function-calling,
-        // Qwen 3.6 flagship quant variants, legacy coder, Gemma 4 preview).
+        // Qwen 3.6 flagship quant variants, QwQ flagship reasoner, and
+        // the legacy coder fallback. Gemma 4 stays out until the loader lands.
         #expect(
             manager.optionalBaselineDescriptors.map(\.id) == [
                 LocalTextModelID.bonsai4B2Bit.rawValue,
@@ -644,8 +654,6 @@ struct LocalModelInfrastructureTests {
                 LocalTextModelID.qwqFlagship32B4Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
                 LocalTextModelID.qwen25Coder7B.rawValue,
-                LocalTextModelID.gemma4_4B4Bit.rawValue,
-                LocalTextModelID.gemma4_27BA4B4Bit.rawValue,
             ]
         )
         #expect(manager.legacyInstalledDescriptors.map(\.id) == [LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
