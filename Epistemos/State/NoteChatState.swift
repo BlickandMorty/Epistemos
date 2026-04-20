@@ -250,7 +250,15 @@ final class NoteChatState {
 
     private func finalizeResponseText() -> String {
         isStreaming = false
-        let final = UserFacingModelOutput.finalVisibleText(from: responseText)
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        var final = UserFacingModelOutput.finalVisibleText(from: responseText)
+        if final.isEmpty,
+           useResponsePanel,
+           !capturedThinking.isEmpty {
+            if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
+                final = fallback
+            }
+        }
         responseText = final
         if !useResponsePanel {
             onReplaceInlineResponse?(final)
