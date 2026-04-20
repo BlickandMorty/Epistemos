@@ -103,7 +103,15 @@ struct NoteBacklinksPopover: View {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.isArchived == false }
         )
-        guard let allPages = try? modelContext.fetch(descriptor) else { return }
+        let allPages: [SDPage]
+        do {
+            allPages = try modelContext.fetch(descriptor)
+        } catch {
+            Log.notes.error(
+                "NoteBacklinksPopover: failed to fetch pages for backlink scan: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
 
         let candidates = allPages.compactMap { page -> BacklinkItem? in
             guard page.title != titleToFind else { return nil }

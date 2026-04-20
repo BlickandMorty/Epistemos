@@ -800,9 +800,7 @@ struct CollapsibleOutlineHeader: View {
     OutlineNavigatorView(
         items: sampleItems,
         currentLine: 230,
-        onSelect: { item in
-            print("Selected: \(item.title) at line \(item.lineNumber)")
-        }
+        onSelect: { _ in }
     )
     .frame(height: 600)
 }

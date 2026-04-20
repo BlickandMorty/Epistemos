@@ -346,7 +346,12 @@ final class SkillEvolutionService {
             return nil
         }
 
-        return try? String(contentsOfFile: skillPath, encoding: .utf8)
+        do {
+            return try String(contentsOfFile: skillPath, encoding: .utf8)
+        } catch {
+            Logger.evolution.warning("Failed to read skill content at \(skillPath, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private func writeSkillVersion(
@@ -360,19 +365,33 @@ final class SkillEvolutionService {
         let skillDir = (vaultPath as NSString)
             .appendingPathComponent("skills/\(proposal.skillName)")
 
-        try? FileManager.default.createDirectory(
-            atPath: skillDir,
-            withIntermediateDirectories: true
-        )
+        do {
+            try FileManager.default.createDirectory(
+                atPath: skillDir,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Logger.evolution.error(
+                "Failed to create skill directory at \(skillDir, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
 
         let skillPath = (skillDir as NSString).appendingPathComponent("SKILL.md")
         try proposal.newContent.write(toFile: skillPath, atomically: true, encoding: .utf8)
 
         let versionsDir = (skillDir as NSString).appendingPathComponent("versions")
-        try? FileManager.default.createDirectory(
-            atPath: versionsDir,
-            withIntermediateDirectories: true
-        )
+        do {
+            try FileManager.default.createDirectory(
+                atPath: versionsDir,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Logger.evolution.error(
+                "Failed to create skill versions directory at \(versionsDir, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
 
         let versionPath = (versionsDir as NSString)
             .appendingPathComponent("\(proposal.newVersion).md")

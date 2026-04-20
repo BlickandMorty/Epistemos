@@ -256,8 +256,13 @@ final class CodeAskBarService {
         let assistantMsg = SDMessage(role: "assistant", content: response)
         assistantMsg.chat = chat
         ctx.insert(assistantMsg)
+        let persistedMessages = [userMsg, assistantMsg]
 
         do { try ctx.save() } catch {
+            for message in persistedMessages {
+                ctx.delete(message)
+            }
+            ctx.delete(chat)
             logger.error("Code ask persistence failed: \(error.localizedDescription)")
         }
     }
@@ -285,7 +290,8 @@ final class CodeAskBarService {
             showFocusedPanel = false
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
             self.focusedResponse = nil
         }
     }

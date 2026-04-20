@@ -259,16 +259,16 @@ struct BreadcrumbBuilder {
     EditorBreadcrumbBar(
         items: sampleItems,
         currentLine: 200,
-        onSelect: { item in
-            print("Selected: \(item.title)")
-        }
+        onSelect: { _ in }
     )
 }
 
 #Preview("Breadcrumb Builder") {
     EditorBreadcrumbBar(
         items: BreadcrumbBuilder.buildBreadcrumbs(
-            filePath: "/Users/jojo/Downloads/Epistemos/README.md",
+            filePath: FileManager.default.temporaryDirectory
+                .appendingPathComponent("README.md")
+                .path,
             outlineItems: [
                 OutlineItem(
                     title: "Jinja",

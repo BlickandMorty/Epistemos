@@ -3,13 +3,22 @@ import SwiftData
 import os
 
 enum BlockMirror {
+    private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "BlockMirror")
 
     nonisolated static func sync(pageId: String, body: String, modelContext: ModelContext) {
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.pageId == pageId },
             sortBy: [SortDescriptor(\.order)]
         )
-        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        let existing: [SDBlock]
+        do {
+            existing = try modelContext.fetch(descriptor)
+        } catch {
+            log.error(
+                "BlockMirror: failed to fetch existing blocks for page \(pageId, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
         let parsed = BlockParser.parse(body)
 
         if parsed.isEmpty {

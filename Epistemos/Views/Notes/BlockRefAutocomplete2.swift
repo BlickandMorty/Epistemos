@@ -125,7 +125,15 @@ final class BlockRefAutocomplete2: NSObject {
             sortBy: [SortDescriptor(\SDBlock.updatedAt, order: .reverse)]
         )
         blockDescriptor.fetchLimit = 200
-        let blocks = (try? modelContext.fetch(blockDescriptor)) ?? []
+        let blocks: [SDBlock]
+        do {
+            blocks = try modelContext.fetch(blockDescriptor)
+        } catch {
+            Log.notes.error(
+                "BlockRefAutocomplete2: failed to fetch candidate blocks: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
         let candidateBlocks = Array(
             blocks
                 .filter { $0.content.count > 10 }
@@ -138,8 +146,14 @@ final class BlockRefAutocomplete2: NSObject {
             let desc = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == pageId }
             )
-            if let page = try? modelContext.fetch(desc).first {
-                pageTitleMap[pageId] = page.title
+            do {
+                if let page = try modelContext.fetch(desc).first {
+                    pageTitleMap[pageId] = page.title
+                }
+            } catch {
+                Log.notes.error(
+                    "BlockRefAutocomplete2: failed to fetch page title for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
 

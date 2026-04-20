@@ -81,6 +81,9 @@ struct LiveNoteExecutorTests {
         page.needsVaultSync = false
         context.insert(page)
         try context.save()
+        let originalUpdatedAt = Date(timeIntervalSince1970: 1)
+        page.updatedAt = originalUpdatedAt
+        try context.save()
 
         let task = try #require(LiveNoteScanner().scanForLiveNotes(context: context).first)
         let llm = MockLLMClient()
@@ -98,13 +101,17 @@ struct LiveNoteExecutorTests {
         let updatedBody = page.loadBody(mapped: true)
         let vaultBody = try String(contentsOf: noteURL, encoding: .utf8)
         let lastCommit = try gitOutput(arguments: ["-C", vaultRoot.path, "log", "-1", "--pretty=%B"])
+        let blocks = try fetchBlocks(pageId: page.id, from: context)
 
         #expect(commitReference.isEmpty == false)
         #expect(updatedBody.contains("Revenue call moved to April 12, 2026."))
         #expect(vaultBody == updatedBody)
+        #expect(blocks.contains { $0.content.contains("Revenue call moved to April 12, 2026.") })
+        #expect(page.wordCount == updatedBody.split(separator: " ").count)
         #expect(page.lastSyncedBodyHash == SDPage.bodyHash(updatedBody))
         #expect(page.lastSyncedAt != nil)
         #expect(page.needsVaultSync == false)
+        #expect(page.updatedAt > originalUpdatedAt)
         #expect(lastCommit.contains("[VAULT:UPDATE]"))
     }
 
@@ -152,6 +159,14 @@ struct LiveNoteExecutorTests {
             for: Schema(EpistemosSchema.models),
             configurations: ModelConfiguration(isStoredInMemoryOnly: true)
         )
+    }
+
+    private func fetchBlocks(pageId: String, from context: ModelContext) throws -> [SDBlock] {
+        let descriptor = FetchDescriptor<SDBlock>(
+            predicate: #Predicate<SDBlock> { $0.pageId == pageId },
+            sortBy: [SortDescriptor(\.order)]
+        )
+        return try context.fetch(descriptor)
     }
 
     private func temporaryVaultRoot() -> URL {

@@ -19,6 +19,7 @@ struct VaultOrganizerView: View {
     @State private var suggestions: [OrgSuggestion] = []
     @State private var isScanning = false
     @State private var scanTask: Task<Void, Never>?
+    @State private var scanSessionID: UUID?
     @State private var scanProgress = ""
     @State private var appliedCount = 0
 
@@ -166,11 +167,24 @@ struct VaultOrganizerView: View {
 
     private func startScan() {
         scanTask?.cancel()
+        scanTask = nil
+        scanSessionID = nil
         isScanning = true
         suggestions = []
         appliedCount = 0
 
-        scanTask = Task {
+        let sessionID = UUID()
+        scanSessionID = sessionID
+        scanTask = Task { @MainActor in
+            defer {
+                if scanSessionID == sessionID {
+                    scanTask = nil
+                    scanSessionID = nil
+                    isScanning = false
+                    scanProgress = ""
+                }
+            }
+
             // Phase 1: Find pages needing tags
             let untagged = allPages.filter { $0.tags.isEmpty }.prefix(20)
             let loose = allPages.filter { !$0.isJournal && $0.folder == nil }.prefix(20)
@@ -180,24 +194,23 @@ struct VaultOrganizerView: View {
                 await generateTagSuggestions(for: Array(untagged))
             }
 
-            guard !Task.isCancelled else { isScanning = false; return }
+            guard !Task.isCancelled else { return }
 
             if !loose.isEmpty {
                 scanProgress = "Finding folder matches for \(loose.count) loose notes..."
                 await generateFolderSuggestions(for: Array(loose))
             }
 
-            guard !Task.isCancelled else { isScanning = false; return }
-
-            isScanning = false
-            scanProgress = ""
+            guard !Task.isCancelled else { return }
         }
     }
 
     private func cancelScan() {
         scanTask?.cancel()
         scanTask = nil
+        scanSessionID = nil
         isScanning = false
+        scanProgress = ""
     }
 
     private func promptSnippet(for page: SDPage, limit: Int) -> String {
@@ -269,6 +282,7 @@ struct VaultOrganizerView: View {
 
         guard let data = cleaned.data(using: .utf8),
               let items = try? JSONDecoder().decode([TagSuggestionItem].self, from: data) else {
+            Log.vault.warning("VaultOrganizerView: failed to decode tag suggestions")
             return []
         }
 
@@ -377,7 +391,10 @@ struct VaultOrganizerView: View {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
 
             guard let data = cleaned.data(using: .utf8),
-                  let names = try? JSONDecoder().decode([String].self, from: data) else { return }
+                  let names = try? JSONDecoder().decode([String].self, from: data) else {
+                Log.vault.warning("VaultOrganizerView: failed to decode new folder suggestions")
+                return
+            }
 
             for name in names.prefix(5) {
                 suggestions.append(OrgSuggestion(
@@ -400,6 +417,7 @@ struct VaultOrganizerView: View {
 
         guard let data = cleaned.data(using: .utf8),
               let items = try? JSONDecoder().decode([FolderSuggestionItem].self, from: data) else {
+            Log.vault.warning("VaultOrganizerView: failed to decode folder suggestions")
             return []
         }
 
@@ -425,30 +443,101 @@ struct VaultOrganizerView: View {
 
     // MARK: - Apply / Dismiss
 
+    @discardableResult
+    private func persistSuggestionMutation(
+        reason: String,
+        restoreState: () -> Void
+    ) -> Bool {
+        do {
+            try modelContext.save()
+            return true
+        } catch {
+            restoreState()
+            Log.notes.error(
+                "VaultOrganizerView: failed to save \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+    }
+
     private func applySuggestion(_ suggestion: OrgSuggestion) {
+        let applied: Bool
         switch suggestion.type {
         case .addTags(let tags):
             guard let pageId = suggestion.pageId else { return }
             let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-            guard let page = try? modelContext.fetch(descriptor).first else { return }
+            let page: SDPage
+            do {
+                guard let fetched = try modelContext.fetch(descriptor).first else {
+                    Log.notes.error("VaultOrganizerView: missing page for tag suggestion \(pageId, privacy: .public)")
+                    return
+                }
+                page = fetched
+            } catch {
+                Log.notes.error("VaultOrganizerView: failed to fetch page for tag suggestion \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                return
+            }
+            let originalTags = page.tags
+            let originalUpdatedAt = page.updatedAt
             page.tags.append(contentsOf: tags.filter { !page.tags.contains($0) })
             page.updatedAt = .now
+            applied = persistSuggestionMutation(reason: "organizer tag suggestion") {
+                page.tags = originalTags
+                page.updatedAt = originalUpdatedAt
+            }
 
         case .moveToFolder(let folderId, _):
             guard let pageId = suggestion.pageId else { return }
             let pageDescriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
             let folderDescriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == folderId })
-            guard let page = try? modelContext.fetch(pageDescriptor).first,
-                  let folder = try? modelContext.fetch(folderDescriptor).first else { return }
+            let page: SDPage
+            let folder: SDFolder
+            do {
+                guard let fetchedPage = try modelContext.fetch(pageDescriptor).first else {
+                    Log.notes.error("VaultOrganizerView: missing page for folder suggestion \(pageId, privacy: .public)")
+                    return
+                }
+                guard let fetchedFolder = try modelContext.fetch(folderDescriptor).first else {
+                    Log.notes.error("VaultOrganizerView: missing folder for suggestion \(folderId, privacy: .public)")
+                    return
+                }
+                page = fetchedPage
+                folder = fetchedFolder
+            } catch {
+                Log.notes.error(
+                    "VaultOrganizerView: failed to fetch suggestion targets page=\(pageId, privacy: .public) folder=\(folderId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
+            let originalFolder = page.folder
+            let originalSubfolder = page.subfolder
+            let originalUpdatedAt = page.updatedAt
             page.folder = folder
+            page.subfolder = folder.relativePath
             page.updatedAt = .now
+            guard persistSuggestionMutation(reason: "organizer page move", restoreState: {
+                page.folder = originalFolder
+                page.subfolder = originalSubfolder
+                page.updatedAt = originalUpdatedAt
+            }) else {
+                return
+            }
+            vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)
+            applied = true
 
         case .createFolder(let name):
             let folder = SDFolder(name: name)
             modelContext.insert(folder)
+            guard persistSuggestionMutation(reason: "organizer folder create", restoreState: {
+                modelContext.delete(folder)
+            }) else {
+                return
+            }
             vaultSync.createDirectory(relativePath: folder.relativePath)
+            applied = true
         }
 
+        guard applied else { return }
         appliedCount += 1
         suggestions.removeAll { $0.id == suggestion.id }
     }
