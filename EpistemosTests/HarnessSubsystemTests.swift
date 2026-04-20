@@ -301,6 +301,64 @@ struct ProgressStoreTests {
         #expect(sessions.contains(secondSessionId))
         #expect(!sessions.contains("README.txt"))
     }
+
+    @Test("Handles corrupted progress JSON gracefully")
+    func corruptedProgressFile() throws {
+        let sessionId = "corrupt-\(UUID().uuidString)"
+        let sessionDir = ProgressStore.sessionDirectory(for: sessionId)
+        let fm = FileManager.default
+        try fm.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: sessionDir) }
+
+        let progressFile = sessionDir.appendingPathComponent("progress.json")
+        try "{{{{not valid json!!!!".write(to: progressFile, atomically: true, encoding: .utf8)
+
+        let progress = ProgressStore.loadProgress(sessionId: sessionId)
+        #expect(progress == nil)
+    }
+
+    @Test("Handles missing session directory")
+    func missingSessionDir() {
+        let progress = ProgressStore.loadProgress(sessionId: "nonexistent-\(UUID().uuidString)")
+        #expect(progress == nil)
+    }
+
+    @Test("loadLatestProgress skips a corrupt newest session")
+    func loadLatestProgressSkipsCorruptNewestSession() throws {
+        let validSessionId = "valid-\(UUID().uuidString)"
+        let corruptSessionId = "corrupt-newest-\(UUID().uuidString)"
+        let validProgress = SessionProgress(
+            sessionId: validSessionId,
+            timestamp: ISO8601DateFormatter().string(from: Date()),
+            harnessVersion: "v1.0.0",
+            accomplishedSummary: "Completed the valid session",
+            completedTasks: ["task-1"],
+            failedTasks: [],
+            nextPriority: "task-2",
+            contextNotes: ["keep going"],
+            gitState: nil,
+            changedFiles: [],
+            totalInputTokens: 10,
+            totalOutputTokens: 5,
+            totalTurns: 1
+        )
+
+        ProgressStore.saveProgress(validProgress)
+
+        let corruptSessionDir = ProgressStore.sessionDirectory(for: corruptSessionId)
+        let fm = FileManager.default
+        try fm.createDirectory(at: corruptSessionDir, withIntermediateDirectories: true)
+        let corruptProgressFile = corruptSessionDir.appendingPathComponent("progress.json")
+        try "{{{{not valid json!!!!".write(to: corruptProgressFile, atomically: true, encoding: .utf8)
+
+        defer {
+            try? fm.removeItem(at: ProgressStore.sessionDirectory(for: validSessionId))
+            try? fm.removeItem(at: corruptSessionDir)
+        }
+
+        let loaded = ProgressStore.loadLatestProgress()
+        #expect(loaded?.sessionId == validSessionId)
+    }
 }
 
 // MARK: - Completion Checker Tests
@@ -1496,29 +1554,6 @@ struct FaultInjectionTests {
 
         // The collector should still be usable (not crashed)
         await collector.closeAll()
-    }
-
-    @Test("ProgressStore handles corrupted JSON gracefully")
-    func corruptedProgressFile() throws {
-        let sessionId = "corrupt-\(UUID().uuidString)"
-        let sessionDir = ProgressStore.sessionDirectory(for: sessionId)
-        let fm = FileManager.default
-        try fm.createDirectory(at: sessionDir, withIntermediateDirectories: true)
-        defer { try? fm.removeItem(at: sessionDir) }
-
-        // Write garbage to the progress file
-        let progressFile = sessionDir.appendingPathComponent("epistemos-progress.json")
-        try "{{{{not valid json!!!!".write(to: progressFile, atomically: true, encoding: .utf8)
-
-        // loadProgress should return nil, not crash
-        let progress = ProgressStore.loadProgress(sessionId: sessionId)
-        #expect(progress == nil)
-    }
-
-    @Test("ProgressStore handles missing session directory")
-    func missingSessionDir() {
-        let progress = ProgressStore.loadProgress(sessionId: "nonexistent-\(UUID().uuidString)")
-        #expect(progress == nil)
     }
 
     @Test("TraceCollector recovers after close and re-record")
