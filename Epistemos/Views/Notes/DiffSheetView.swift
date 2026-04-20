@@ -329,7 +329,14 @@ struct DiffSheetView: View {
             predicate: #Predicate<SDPageVersion> { $0.pageId == pid },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        versions = (try? modelContext.fetch(desc)) ?? []
+        do {
+            versions = try modelContext.fetch(desc)
+        } catch {
+            Log.notes.error(
+                "DiffSheetView: failed to fetch page versions for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            versions = []
+        }
         selectedVersionId = versions.first?.id
         computeDiff()
     }
@@ -368,7 +375,17 @@ struct DiffSheetView: View {
         guard let version = selectedVersion else { return }
 
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? modelContext.fetch(desc).first else { return }
+        let page: SDPage
+        do {
+            guard let fetched = try modelContext.fetch(desc).first else {
+                Log.db.error("DiffSheetView: missing page for restore \(pageId, privacy: .public)")
+                return
+            }
+            page = fetched
+        } catch {
+            Log.db.error("DiffSheetView: failed to fetch page for restore \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
+        }
 
         // Save current body as a new version before overwriting
         let currentBody = page.loadBody()
@@ -378,15 +395,22 @@ struct DiffSheetView: View {
         )
         modelContext.insert(snapshot)
 
-        // Store for Cmd+Z undo
-        preRestoreBody = currentBody
-
         // Overwrite page body with the selected version
         do {
-            try Self.persistRestoredBody(version.body, to: page, modelContext: modelContext)
+            try Self.persistRestoredBody(
+                version.body,
+                to: page,
+                modelContext: modelContext,
+                graphState: AppBootstrap.shared?.graphState
+            )
         } catch {
+            modelContext.delete(snapshot)
             Log.db.error("Failed to save after version restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
         }
+
+        // Store for Cmd+Z undo
+        preRestoreBody = currentBody
 
         // Update live state
         liveBody = version.body
@@ -407,12 +431,28 @@ struct DiffSheetView: View {
         guard let oldBody = preRestoreBody else { return }
 
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        guard let page = try? modelContext.fetch(desc).first else { return }
+        let page: SDPage
+        do {
+            guard let fetched = try modelContext.fetch(desc).first else {
+                Log.db.error("DiffSheetView: missing page for undo restore \(pageId, privacy: .public)")
+                return
+            }
+            page = fetched
+        } catch {
+            Log.db.error("DiffSheetView: failed to fetch page for undo restore \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
+        }
 
         do {
-            try Self.persistRestoredBody(oldBody, to: page, modelContext: modelContext)
+            try Self.persistRestoredBody(
+                oldBody,
+                to: page,
+                modelContext: modelContext,
+                graphState: AppBootstrap.shared?.graphState
+            )
         } catch {
             Log.db.error("Failed to save after undo restore for page \(pageId.prefix(8), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
         }
 
         liveBody = oldBody
@@ -435,10 +475,42 @@ struct DiffSheetView: View {
     }
 
     @MainActor
-    static func persistRestoredBody(_ body: String, to page: SDPage, modelContext: ModelContext) throws {
+    static func persistRestoredBody(
+        _ body: String,
+        to page: SDPage,
+        modelContext: ModelContext,
+        graphState: GraphState? = nil
+    ) throws {
+        struct RestorePersistenceFailure: Error {}
+
         let pageId = page.id
-        _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body)
+        let originalBody = NoteFileStorage.readBody(pageId: pageId, mapped: false, fast: true)
+        let originalInlineBody = page.body
+        let originalBlockReferences = page.blockReferences
+        let originalWordCount = page.wordCount
+        let originalUpdatedAt = page.updatedAt
+        let originalNeedsVaultSync = page.needsVaultSync
+
+        guard NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: body) != nil else {
+            throw RestorePersistenceFailure()
+        }
         page.applyInteractiveDerivedState(from: body)
+        page.wordCount = body.split(separator: " ").count
+        page.updatedAt = .now
+        page.needsVaultSync = true
+
+        do {
+            try modelContext.save()
+        } catch {
+            page.body = originalInlineBody
+            page.blockReferences = originalBlockReferences
+            page.wordCount = originalWordCount
+            page.updatedAt = originalUpdatedAt
+            page.needsVaultSync = originalNeedsVaultSync
+            _ = NoteFileStorage.stageBodyForImmediateRead(pageId: pageId, content: originalBody)
+            throw error
+        }
+
         Task {
             await NoteFileStorage.flushPendingBodyToDisk(pageId: pageId)
         }
@@ -451,9 +523,7 @@ struct DiffSheetView: View {
                 )
             }
         }
-        page.wordCount = body.split(separator: " ").count
-        page.needsVaultSync = true
-        try modelContext.save()
+        graphState?.needsRefresh = true
     }
 
     private func copyVersionText() {
@@ -486,7 +556,9 @@ struct DiffSheetView: View {
         do {
             try modelContext.save()
         } catch {
+            modelContext.insert(version)
             Log.db.error("Failed to save after deleting version: \(error.localizedDescription, privacy: .public)")
+            return
         }
         loadVersions()
     }
