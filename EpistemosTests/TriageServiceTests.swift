@@ -277,6 +277,27 @@ struct TriageServiceTests {
         )
     }
 
+    @Test("explicit local chat selection disables cloud auto-route presentation for chat surfaces")
+    @MainActor func explicitLocalChatSelectionDisablesCloudAutoRoutePresentation() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.chatAutoRouteToCloud = true
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        let effectiveSelection = inference.effectiveChatSurfaceSelection(for: .thinking)
+        #expect(effectiveSelection == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen3_4B4Bit.displayName)
+        #expect(
+            inference.chatSurfaceRouteDescription(for: .thinking).headline
+                == LocalTextModelID.qwen3_4B4Bit.compactDisplayName
+        )
+    }
+
     @Test("pinned always-thinking local model hides fast mode")
     @MainActor func pinnedAlwaysThinkingLocalModelHidesFastMode() {
         let inference = makeIsolatedInferenceState()
@@ -872,6 +893,41 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(!decision.reuseWarmModel)
+    }
+
+    @Test("explicit local selection survives cloud auto-route for local turns")
+    func explicitLocalSelectionSurvivesCloudAutoRouteForLocalTurns() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 120,
+                promptLength: 96,
+                contextBlockCount: 0,
+                estimatedTokenLoad: 48,
+                baseComplexity: 0.20,
+                queryComplexity: 0.02,
+                operatingMode: .thinking,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                cloudAutoRouteEnabled: true,
+                hasConfiguredCloudModels: true,
+                preferredChatModelSelection: .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue),
+                preferredLocalTextModelID: .qwen3_4B4Bit,
+                installed: [.deepseekR1Distill7B, .qwen3_4B4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .thinking)
+        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
     @Test("local only bypasses Apple Intelligence even for trivial work")
