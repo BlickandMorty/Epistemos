@@ -1249,17 +1249,48 @@ struct RuntimeValidationTests {
 
         #expect(bootstrap.contains("private func applyPreparedRetrievalRuntimeConfiguration(_ configuration: PreparedRetrievalRuntimeConfiguration?)"))
         #expect(bootstrap.contains("private func refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
-        #expect(bootstrap.contains("preparedModelRegistry.load()"))
+        #expect(bootstrap.contains("private var localRuntimeActivationTask: Task<Void, Never>?"))
+        #expect(bootstrap.contains("preparedRetrievalRefreshTask?.cancel()"))
+        #expect(bootstrap.contains("Task.detached(priority: .utility)"))
+        #expect(bootstrap.contains("try await PreparedModelRegistry().load()"))
+        #expect(bootstrap.contains("self?.localRuntimeActivationTask = Task(priority: .utility)"))
+        #expect(bootstrap.contains("try? await Task.sleep(for: .milliseconds(150))"))
         #expect(bootstrap.contains("queryEngine.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
         #expect(bootstrap.contains("graphState.applyPreparedRetrievalRuntimeConfiguration(configuration)"))
         #expect(bootstrap.contains("inferenceState.setPreparedLocalTextModelIDs("))
         #expect(bootstrap.contains("self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()"))
     }
 
+    @Test("local mlx runtime keeps a grace period before unloading on app blur")
+    func localMLXRuntimeKeepsGracePeriodBeforeUnloadingOnBlur() throws {
+        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
+        let triage = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+
+        #expect(runtime.contains("idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)"))
+        #expect(runtime.contains("idleUnloadDelay = min(idleUnloadDelay, .seconds(5))"))
+        #expect(runtime.contains("if conditions.thermalState == .critical {"))
+        #expect(runtime.contains("} else if conditions.appActive {"))
+        #expect(runtime.contains("scheduleIdleUnload()"))
+        #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
+    }
+
+    @Test("local mlx streaming yields postprocessed fallback text before finishing")
+    func localMLXStreamingYieldsPostprocessedFallbackTextBeforeFinishing() throws {
+        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
+
+        #expect(runtime.contains("var emittedText = \"\""))
+        #expect(runtime.contains("emittedText += chunk"))
+        #expect(runtime.contains("Self.trailingPostprocessedDelta("))
+        #expect(runtime.contains("continuation.yield(trailingDelta)"))
+    }
+
     @MainActor
     @Test("bootstrap loads the prepared model registry")
     func bootstrapLoadsPreparedModelRegistry() async {
         let bootstrap = AppBootstrap()
+        // Bootstrap init now defers the manifest load off the foreground
+        // tap path; tests drive the async refresh explicitly.
+        await bootstrap.loadPreparedModelRegistryForTesting()
 
         #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
         #expect(
@@ -1278,6 +1309,7 @@ struct RuntimeValidationTests {
     @Test("bootstrap propagates prepared retrieval assets into the live graph and query runtime")
     func bootstrapPropagatesPreparedRetrievalAssets() async throws {
         let bootstrap = AppBootstrap()
+        await bootstrap.loadPreparedModelRegistryForTesting()
 
         #expect(bootstrap.preparedModelRegistryState.primaryRetriever?.servedModelID == "BAAI/bge-m3")
 
@@ -1295,6 +1327,7 @@ struct RuntimeValidationTests {
     @Test("bootstrap surfaces the prepared retrieval runtime state from the live asset layout")
     func bootstrapSurfacesThePreparedRetrievalRuntimeStateFromTheLiveAssetLayout() async throws {
         let bootstrap = AppBootstrap()
+        await bootstrap.loadPreparedModelRegistryForTesting()
         let configuration = try #require(bootstrap.preparedModelRegistryState.retrievalRuntimeConfiguration)
         let layout = try #require(configuration.assetLayout)
 
@@ -3598,10 +3631,23 @@ struct RuntimeValidationTests {
 
         #expect(coordinator.contains("let hasExplicitContext = Self.queryContainsExplicitContext("))
         #expect(coordinator.contains("let hasExplicitUserContext = hasExplicitContext || !userAttachments.isEmpty"))
-        #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || !hasExplicitUserContext"))
+        #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
+        #expect(coordinator.contains("let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }"))
         #expect(coordinator.contains("buildRequiredAttachmentContractSection()"))
         #expect(coordinator.contains("if deepContext {"))
         #expect(coordinator.contains("[Today's Conversations]"))
+    }
+
+    @Test("rust agent paths finalize completed turns and salvage silent stream endings")
+    func rustAgentPathsFinalizeCompletedTurnsAndSalvageSilentStreamEndings() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("var finalizedAssistantMessage = false"))
+        #expect(coordinator.contains("finalizedAssistantMessage = true\n                agentChat.completeProcessing("))
+        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {\n            finalizedAssistantMessage = agentChat.completeInterruptedProcessing("))
+        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {\n            finalizedAssistantMessage = chatState.completeCancelledProcessing("))
+        #expect(coordinator.contains("receivedAgentContent = true\n                chatState.appendStreamingThinking(thought)"))
+        #expect(coordinator.contains("receivedAgentContent = true\n                agentChat.appendStreamingThinking(text)"))
     }
 
     @Test("note chat always treats the current note body as primary context")

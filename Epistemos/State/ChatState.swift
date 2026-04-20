@@ -519,20 +519,44 @@ final class ChatState {
         activeToolName = nil
         activeToolInputJson = nil
         isAgentExecuting = false
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
         eventBus?.emit(.queryCompleted(chatId: ChatId(chatId), messageId: MessageId(assistantMessage.id)))
     }
 
     @discardableResult
     func completeCancelledProcessing(
         messageId: String = UUID().uuidString,
-        mode: InferenceMode
+        mode: InferenceMode,
+        resolvedModelLabel: String? = nil
     ) -> Bool {
+        flushThinkTagRouter()
         flushStreamingTokens()
 
-        let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        if answerText.isEmpty, !capturedThinking.isEmpty {
+            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                answerText = salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+            } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
+                answerText = fallback
+            }
+        }
         let metadata = consumeStreamingMessageMetadata()
         let completedContentBlocks = completedContentBlocks(for: answerText)
+        let artifacts = ArtifactExtractor.extract(from: answerText)
+        let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasVisibleContent = !trimmedAnswer.isEmpty
+            || !(completedContentBlocks?.isEmpty ?? true)
+            || !artifacts.isEmpty
+        let thinkingDuration: Double? = {
+            guard let start = thinkingStartedAt else { return nil }
+            let end = thinkingEndedAt ?? Date()
+            let interval = end.timeIntervalSince(start)
+            return interval > 0 ? interval : nil
+        }()
 
         defer {
             streamBuffer.reset(releaseCapacity: true)
@@ -540,11 +564,14 @@ final class ChatState {
             isStreaming = false
             pendingContentBlocks = []
             activeToolName = nil
-        activeToolInputJson = nil
+            activeToolInputJson = nil
             isAgentExecuting = false
+            lastTurnCacheHitPercent = nil
+            resetThinkingState()
+            thinkTagRouter = ThinkTagStreamRouter()
         }
 
-        guard let chatId = activeChatId, !answerText.isEmpty else { return false }
+        guard let chatId = activeChatId, hasVisibleContent else { return false }
 
         let assistantMessage = ChatMessage(
             id: messageId,
@@ -555,7 +582,12 @@ final class ChatState {
             isVaultBriefing: metadata.briefing,
             loadedNoteTitles: metadata.noteTitles,
             contextAttachments: metadata.contextAttachments,
-            contentBlocks: completedContentBlocks
+            artifacts: artifacts,
+            contentBlocks: completedContentBlocks,
+            resolvedModelLabel: resolvedModelLabel,
+            thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
+            thinkingDurationSeconds: thinkingDuration,
+            cacheHitPercent: lastTurnCacheHitPercent
         )
         messages.append(assistantMessage)
         markTranscriptChanged()

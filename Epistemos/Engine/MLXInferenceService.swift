@@ -1,3 +1,5 @@
+import Darwin
+import Darwin.Mach
 import Foundation
 import os
 
@@ -326,24 +328,26 @@ nonisolated enum LocalMLXRuntimeTuning {
         var idleUnloadDelay: Duration
         switch snapshot.roundedMemoryGB {
         case ..<16:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(1) : .seconds(2)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(3) : .seconds(6)
         case ..<24:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(1) : .seconds(3)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(5) : .seconds(10)
         case ..<36:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(2) : .seconds(4)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(8) : .seconds(20)
         default:
-            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(2) : .seconds(5)
+            idleUnloadDelay = conditions.lowPowerModeEnabled ? .seconds(10) : .seconds(30)
         }
 
         if !conditions.appActive {
-            idleUnloadDelay = .seconds(1)
+            idleUnloadDelay = min(idleUnloadDelay, .seconds(5))
         } else {
             switch conditions.thermalState {
             case .nominal:
                 break
             case .fair:
-                idleUnloadDelay = min(idleUnloadDelay, .seconds(2))
-            case .serious, .critical:
+                idleUnloadDelay = min(idleUnloadDelay, .seconds(8))
+            case .serious:
+                idleUnloadDelay = min(idleUnloadDelay, .seconds(3))
+            case .critical:
                 idleUnloadDelay = .seconds(1)
             }
         }
@@ -967,7 +971,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 return .modelNotLoaded
             case .runtimeUnavailable, .fastModeUnsupported:
                 return .runtimeUnavailable
-            case .modelLoaderUnavailable, .modelLoadStalled:
+            case .modelLoaderUnavailable, .modelLoadStalled, .insufficientMemory:
                 return .modelNotLoaded
             }
         }
@@ -1035,6 +1039,11 @@ actor MLXInferenceService: LocalMLXRuntime {
     private let requestGate = LocalMLXRequestGate()
     private var preparedCustomSSMRuntimeKey: String?
     private var lastSerialSnapshot: LocalInferenceSerialSnapshot?
+    /// Dispatch source that fires when macOS reports unified-memory pressure.
+    /// We install it lazily on first use so the service can be constructed
+    /// cheaply during bootstrap without touching dispatch state.
+    private nonisolated(unsafe) var memoryPressureSource: DispatchSourceMemoryPressure?
+    private var memoryPressureListenerInstalled = false
 
     /// SSM state persistence service — set by AppBootstrap after initialization.
     private var ssmStateService: SSMStateService?
@@ -1096,6 +1105,54 @@ actor MLXInferenceService: LocalMLXRuntime {
         )
         Memory.memoryLimit = policy.idleMemoryPolicy.memoryLimitBytes
         Memory.cacheLimit = policy.idleMemoryPolicy.cacheLimitBytes
+    }
+
+    /// Install a `DispatchSourceMemoryPressure` listener the first time we're
+    /// asked. On `.warning` we evict cached artifacts (MLX.GPU cache, peak
+    /// counters); on `.critical` we also drop the loaded model container. That
+    /// turns the Mac's "memory is about to be reclaimed aggressively" signal
+    /// into a graceful unload instead of a surprise jetsam kill.
+    private func installMemoryPressureListenerIfNeeded() {
+        guard !memoryPressureListenerInstalled else { return }
+        memoryPressureListenerInstalled = true
+
+        let queue = DispatchQueue.global(qos: .utility)
+        let source = DispatchSource.makeMemoryPressureSource(
+            eventMask: [.warning, .critical],
+            queue: queue
+        )
+        source.setEventHandler { [weak self] in
+            guard let self else { return }
+            // Flatten to Sendable primitives on the dispatch queue before
+            // hopping into the actor — passing the OptionSet across the
+            // boundary trips Swift 6 sending-risk diagnostics.
+            let event = source.data
+            let isCritical = event.contains(.critical)
+            let isWarning = event.contains(.warning)
+            Task { [weak self] in
+                guard let self else { return }
+                await self.handleMemoryPressureEvent(isWarning: isWarning, isCritical: isCritical)
+            }
+        }
+        source.resume()
+        self.memoryPressureSource = source
+        log.info("MLXInferenceService: memory-pressure listener installed")
+    }
+
+    private func handleMemoryPressureEvent(isWarning: Bool, isCritical: Bool) {
+        if isCritical {
+            log.warning("MLXInferenceService: memory pressure CRITICAL — unloading active model")
+            Memory.peakMemory = 0
+            Task { [weak self] in
+                await self?.unload()
+            }
+        } else if isWarning {
+            log.warning("MLXInferenceService: memory pressure WARNING — clearing caches")
+            Memory.peakMemory = 0
+            // Don't nuke the resident model on warning — that would churn
+            // loads for a transient spike. Shrinking caches is usually enough.
+            applyActiveMemoryPolicy(currentRuntimePolicy())
+        }
     }
 
     func generate(request: LocalMLXRequest) async throws -> String {
@@ -1219,6 +1276,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 let policy = await self.beginRequestAndResolvePolicy()
+                var emittedText = ""
                 do {
                     try self.beginSerialTurn()
                     defer { self.endSerialTurnIfNeeded() }
@@ -1266,8 +1324,10 @@ actor MLXInferenceService: LocalMLXRuntime {
                         session: session,
                         requestStart: start,
                         emit: { chunk in
-                        continuation.yield(chunk)
-                    })
+                            emittedText += chunk
+                            continuation.yield(chunk)
+                        }
+                    )
                     let serialSnapshot = self.currentSerialSnapshot()
                     let profiledStopReason = Self.normalizedStopReason(
                         response.stopReason,
@@ -1331,6 +1391,12 @@ actor MLXInferenceService: LocalMLXRuntime {
                         continuation.finish(throwing: CancellationError())
                         return
                     }
+                    if let trailingDelta = Self.trailingPostprocessedDelta(
+                        finalText: response.text,
+                        alreadyEmitted: emittedText
+                    ) {
+                        continuation.yield(trailingDelta)
+                    }
                     continuation.finish()
                 } catch is CancellationError {
                     await self.endRequest(policy: policy)
@@ -1360,10 +1426,13 @@ actor MLXInferenceService: LocalMLXRuntime {
         } else {
             applyIdleMemoryPolicy(policy)
         }
-        if activeRequestCount == 0,
-           container != nil,
-           (!conditions.appActive || conditions.thermalState == .critical) {
+        guard activeRequestCount == 0, container != nil else { return }
+        if conditions.thermalState == .critical {
             performUnload()
+        } else if conditions.appActive {
+            cancelScheduledUnload()
+        } else {
+            scheduleIdleUnload()
         }
     }
 
@@ -1430,6 +1499,13 @@ actor MLXInferenceService: LocalMLXRuntime {
         defer { finishSsdReadIfNeeded() }
 
         await unload()
+        // Memory pre-flight: fail fast rather than swap-thrash. After `unload()`
+        // we've already released any prior model, so the available-memory probe
+        // reflects the real headroom the new weights will compete with. We only
+        // refuse when the OS tells us it has materially less memory than the
+        // model's documented minimum — a 2 GB fudge factor covers KV cache +
+        // tokenizer overhead and avoids false positives on a just-woken Mac.
+        try Self.preflightAvailableMemory(for: request.modelID)
         let start = ContinuousClock.now
         applyActiveMemoryPolicy(policy)
         Memory.peakMemory = 0
@@ -1476,6 +1552,67 @@ actor MLXInferenceService: LocalMLXRuntime {
         default:
             return 120.0
         }
+    }
+
+    /// Memory pre-flight for local model loads. Returns silently when there's
+    /// enough headroom (or when we can't resolve a required budget). Throws
+    /// `LocalInferenceRoutingError.insufficientMemory` when the OS reports
+    /// materially less available memory than the model documents as its
+    /// minimum. Refusing up-front beats the historical alternative of
+    /// "attempt the load, drag the Mac into SSD swap, get SIGKILL'd on
+    /// jetsam" — which is exactly what the user reported on the Qwen
+    /// Coder 30B path.
+    ///
+    /// `os_proc_available_memory()` is iOS-only; on macOS we query the Mach
+    /// host for VM statistics and sum free + inactive + purgeable pages,
+    /// which is the conventional "memory available to new allocations"
+    /// reading on Apple Silicon unified memory.
+    private nonisolated static func preflightAvailableMemory(for modelID: String) throws {
+        guard let model = LocalTextModelID(rawValue: modelID) else { return }
+        let requiredGB = model.minimumRecommendedMemoryGB
+        guard requiredGB > 0 else { return }
+
+        guard let availableBytes = approximateAvailableUnifiedMemoryBytes() else { return }
+        let bytesPerGB: UInt64 = 1_073_741_824 // 1024 * 1024 * 1024
+        let availableGB = Int(availableBytes / bytesPerGB)
+        // KV cache + tokenizer + working buffers routinely add ~1-2 GB on top
+        // of the quoted minimum. Add a small safety margin so we don't refuse
+        // loads that would realistically succeed with headroom to spare.
+        let headroomGB = 2
+        guard availableGB + headroomGB < requiredGB else { return }
+
+        throw LocalInferenceRoutingError.insufficientMemory(
+            modelID: modelID,
+            requiredGB: requiredGB,
+            availableGB: availableGB
+        )
+    }
+
+    /// Query the Mach host for VM statistics and return free + inactive +
+    /// purgeable bytes — the conventional "memory available to new
+    /// allocations" reading. Returns `nil` on unexpected kernel errors so
+    /// callers can fall through gracefully instead of refusing loads.
+    private nonisolated static func approximateAvailableUnifiedMemoryBytes() -> UInt64? {
+        let count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64_data_t>.stride / MemoryLayout<integer_t>.stride
+        )
+        var stats = vm_statistics64_data_t()
+        var mutableCount = count
+        let kerr = withUnsafeMutablePointer(to: &stats) { statsPtr -> kern_return_t in
+            statsPtr.withMemoryRebound(to: integer_t.self, capacity: Int(count)) { rebound in
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, rebound, &mutableCount)
+            }
+        }
+        guard kerr == KERN_SUCCESS else { return nil }
+        // `vm_kernel_page_size` is a `var` exported from Darwin; under Swift 6
+        // strict concurrency it's flagged as shared mutable state. Using
+        // `getpagesize()` gives us the same value from a concurrency-safe C
+        // call without forcing an `@preconcurrency` import.
+        let pageSize = UInt64(getpagesize())
+        let free = UInt64(stats.free_count) * pageSize
+        let inactive = UInt64(stats.inactive_count) * pageSize
+        let purgeable = UInt64(stats.purgeable_count) * pageSize
+        return free + inactive + purgeable
     }
 
     private enum CustomSSMRuntimeWarmupError: LocalizedError {
@@ -1564,6 +1701,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         await requestGate.acquire()
         cancelScheduledUnload()
         activeRequestCount += 1
+        installMemoryPressureListenerIfNeeded()
     }
 
     private func beginRequestAndResolvePolicy() async -> LocalMLXRuntimePolicy {
@@ -1820,6 +1958,18 @@ actor MLXInferenceService: LocalMLXRuntime {
             return .stop
         }
         return stopReason
+    }
+
+    nonisolated static func trailingPostprocessedDelta(
+        finalText: String,
+        alreadyEmitted: String
+    ) -> String? {
+        guard !finalText.isEmpty else { return nil }
+        guard !alreadyEmitted.isEmpty else { return finalText }
+        guard finalText.hasPrefix(alreadyEmitted) else { return nil }
+        let deltaStart = finalText.index(finalText.startIndex, offsetBy: alreadyEmitted.count)
+        let delta = String(finalText[deltaStart...])
+        return delta.isEmpty ? nil : delta
     }
 
     private nonisolated static func stopReasonLabel(_ stopReason: GenerateStopReason) -> String {

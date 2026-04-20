@@ -818,6 +818,8 @@ final class AppBootstrap {
     }
 
     private var localRuntimeObserverTokens: [LocalRuntimeObserverToken] = []
+    private var localRuntimeActivationTask: Task<Void, Never>?
+    private var preparedRetrievalRefreshTask: Task<Void, Never>?
     private let localModelRefreshThrottle: LocalModelRefreshThrottle
     private var startupIntegrityReport: StartupIntegrityReport?
     private var didStartPrimaryLaunchInitialization = false
@@ -1044,14 +1046,15 @@ final class AppBootstrap {
 
         let preparedModelRegistry = PreparedModelRegistry()
         self.preparedModelRegistry = preparedModelRegistry
-        do {
-            let snapshot = try preparedModelRegistry.load()
-            preparedModelRegistryState.apply(snapshot)
-            graphState.applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
-        } catch {
-            preparedModelRegistryState.apply(error: error)
-            graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
-        }
+        // Defer the prepared-model manifest load off the synchronous init path.
+        // Reading the manifest + parsing it previously blocked the first
+        // foreground tap on launch (the "app feels frozen when I click on it"
+        // symptom). The state starts empty; downstream clients are wired with
+        // `nil` generation-runtime configuration and will fall back to
+        // baseline defaults. `refreshPreparedRetrievalRuntimeConfigurationIfNeeded`
+        // is scheduled from `didStartPrimaryLaunchInitialization` / activation
+        // notifications and will apply the real snapshot once loaded.
+        graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
 
         let localMLXClient = LocalMLXClient(
             runtime: localInferenceService,
@@ -1818,6 +1821,14 @@ final class AppBootstrap {
             }
             guard let self else { return }
 
+            // Load the prepared-model manifest off the main launch path. The
+            // synchronous `preparedModelRegistry.load()` that used to run in
+            // `init` blocked the first foreground tap while parsing JSON — the
+            // "tap on the app and it freezes" symptom. Doing it here lets the
+            // UI come up first and then populates the registry configuration
+            // once the deferred runtime services bring themselves online.
+            self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+
             await self.nightBrain.start()
             KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()
 
@@ -1873,43 +1884,84 @@ final class AppBootstrap {
     }
 
     private func refreshPreparedRetrievalRuntimeConfigurationIfNeeded() {
-        do {
-            let snapshot = try preparedModelRegistry.load()
-            guard snapshot.manifestURL != preparedModelRegistryState.manifestURL
-                || snapshot.entriesByKey != preparedModelRegistryState.entriesByKey else {
-                return
+        preparedRetrievalRefreshTask?.cancel()
+        preparedRetrievalRefreshTask = Task(priority: .utility) { [weak self] in
+            let result: Result<PreparedModelRegistrySnapshot, Error>
+            do {
+                let snapshot = try await Task.detached(priority: .utility) {
+                    try await PreparedModelRegistry().load()
+                }.value
+                result = .success(snapshot)
+            } catch {
+                result = .failure(error)
             }
-            preparedModelRegistryState.apply(snapshot)
-            localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
-            if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
-                localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
-                Task { @MainActor in
-                    _ = await localLLMClient.refreshRuntimeAvailability()
-                }
-            } else {
-                inferenceState.setPreparedLocalTextModelIDs(
-                    snapshot.generationRuntimeConfiguration?.interactiveLocalTextModelIDs(
-                        availableRuntimeKinds: inferenceState.availableLocalGenerationRuntimeKinds
-                    ) ?? []
-                )
-            }
-            applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
-        } catch {
-            guard preparedModelRegistryState.lastErrorMessage != error.localizedDescription
-                || !preparedModelRegistryState.entriesByKey.isEmpty else {
-                return
-            }
-            preparedModelRegistryState.apply(error: error)
-            inferenceState.setPreparedLocalTextModelIDs([])
-            localMLXClient.configurePreparedGenerationRuntime(nil)
-            if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
-                localLLMClient.configurePreparedGenerationRuntime(nil)
-                Task { @MainActor in
-                    _ = await localLLMClient.refreshRuntimeAvailability()
+
+            guard !Task.isCancelled else { return }
+            await MainActor.run { [weak self] in
+                guard let self else { return }
+                self.preparedRetrievalRefreshTask = nil
+                switch result {
+                case .success(let snapshot):
+                    self.applyPreparedRetrievalRuntimeConfiguration(snapshot)
+                case .failure(let error):
+                    self.applyPreparedRetrievalRuntimeConfiguration(error)
                 }
             }
-            applyPreparedRetrievalRuntimeConfiguration(nil)
         }
+    }
+
+    /// Test-only seam to force the deferred prepared-model-registry load to
+    /// complete. Production code relies on
+    /// `refreshPreparedRetrievalRuntimeConfigurationIfNeeded` fired from the
+    /// deferred-services task, which returns before the manifest JSON is
+    /// parsed; tests that assert state-is-populated need a deterministic
+    /// await point.
+    func loadPreparedModelRegistryForTesting() async {
+        refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+        await preparedRetrievalRefreshTask?.value
+    }
+
+    private func applyPreparedRetrievalRuntimeConfiguration(
+        _ snapshot: PreparedModelRegistrySnapshot
+    ) {
+        guard snapshot.manifestURL != preparedModelRegistryState.manifestURL
+            || snapshot.entriesByKey != preparedModelRegistryState.entriesByKey else {
+            return
+        }
+
+        preparedModelRegistryState.apply(snapshot)
+        localMLXClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
+        if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
+            localLLMClient.configurePreparedGenerationRuntime(snapshot.generationRuntimeConfiguration)
+            Task { @MainActor in
+                _ = await localLLMClient.refreshRuntimeAvailability()
+            }
+        } else {
+            inferenceState.setPreparedLocalTextModelIDs(
+                snapshot.generationRuntimeConfiguration?.interactiveLocalTextModelIDs(
+                    availableRuntimeKinds: inferenceState.availableLocalGenerationRuntimeKinds
+                ) ?? []
+            )
+        }
+        applyPreparedRetrievalRuntimeConfiguration(snapshot.retrievalRuntimeConfiguration)
+    }
+
+    private func applyPreparedRetrievalRuntimeConfiguration(_ error: Error) {
+        guard preparedModelRegistryState.lastErrorMessage != error.localizedDescription
+            || !preparedModelRegistryState.entriesByKey.isEmpty else {
+            return
+        }
+
+        preparedModelRegistryState.apply(error: error)
+        inferenceState.setPreparedLocalTextModelIDs([])
+        localMLXClient.configurePreparedGenerationRuntime(nil)
+        if let localLLMClient = localLLMClient as? LocalBackendLLMClient {
+            localLLMClient.configurePreparedGenerationRuntime(nil)
+            Task { @MainActor in
+                _ = await localLLMClient.refreshRuntimeAvailability()
+            }
+        }
+        applyPreparedRetrievalRuntimeConfiguration(nil)
     }
 
     // MARK: - Database Recovery
@@ -2198,8 +2250,14 @@ final class AppBootstrap {
                 queue: .main
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
-                    self?.syncLocalRuntimeConditions(appActive: true)
+                    self?.localRuntimeActivationTask?.cancel()
+                    self?.localRuntimeActivationTask = Task(priority: .utility) { [weak self] in
+                        try? await Task.sleep(for: .milliseconds(150))
+                        guard !Task.isCancelled else { return }
+                        self?.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
+                        self?.syncLocalRuntimeConditions(appActive: true)
+                        self?.localRuntimeActivationTask = nil
+                    }
                 }
             }
             ),
@@ -2211,6 +2269,8 @@ final class AppBootstrap {
                 queue: .main
             ) { [weak self] _ in
                 MainActor.assumeIsolated {
+                    self?.localRuntimeActivationTask?.cancel()
+                    self?.localRuntimeActivationTask = nil
                     self?.syncLocalRuntimeConditions(appActive: false)
                 }
             }
@@ -2268,6 +2328,7 @@ final class AppBootstrap {
             observer.center.removeObserver(observer.token)
         }
         localRuntimeObserverTokens.removeAll()
+        localRuntimeActivationTask?.cancel()
     }
 }
 
