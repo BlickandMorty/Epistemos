@@ -115,12 +115,19 @@ final class AppCoordinator {
     private func wireDailyBrief() {
         dailyBriefState.onDailyBriefGenerate = { [weak self] prompt in
             guard let self else { return nil }
-            return try? await self.triageService.generateGeneral(
-                prompt: prompt,
-                systemPrompt: nil,
-                operation: .brainstorm,
-                contentLength: prompt.count
-            )
+            do {
+                return try await self.triageService.generateGeneral(
+                    prompt: prompt,
+                    systemPrompt: nil,
+                    operation: .brainstorm,
+                    contentLength: prompt.count
+                )
+            } catch {
+                Log.pipeline.error(
+                    "Daily brief generation failed: \(error.localizedDescription, privacy: .public)"
+                )
+                return nil
+            }
         }
 
         dailyBriefState.onDailyBriefSave = { [weak self] content in
@@ -135,23 +142,68 @@ final class AppCoordinator {
         let folderPred = #Predicate<SDFolder> { $0.name == "Daily Briefs" }
         let folderDesc = FetchDescriptor<SDFolder>(predicate: folderPred)
         let folder: SDFolder
-        if let existing = try? context.fetch(folderDesc).first {
-            folder = existing
-        } else {
-            folder = SDFolder(name: "Daily Briefs", emoji: "🌅")
-            folder.isCollection = true
-            context.insert(folder)
-            CollectionRegistry.shared.setCollection("Daily Briefs", true)
+        let createdFolder: Bool
+        do {
+            if let existing = try context.fetch(folderDesc).first {
+                folder = existing
+                createdFolder = false
+            } else {
+                folder = SDFolder(name: "Daily Briefs", emoji: "🌅")
+                folder.isCollection = true
+                context.insert(folder)
+                CollectionRegistry.shared.setCollection("Daily Briefs", true)
+                createdFolder = true
+            }
+        } catch {
+            Log.pipeline.error("AppCoordinator: failed to fetch Daily Briefs folder: \(error.localizedDescription, privacy: .public)")
+            return
         }
 
         let dateStr = Date.now.formatted(date: .abbreviated, time: .omitted)
         let title = "Daily Brief — \(dateStr)"
         let emoji = "🌅"
 
+        func discardNewDailyBriefFolderIfNeeded() {
+            guard createdFolder else { return }
+            context.delete(folder)
+            CollectionRegistry.shared.setCollection("Daily Briefs", false)
+        }
+
+        func discardFailedFallbackPage(_ page: SDPage) {
+            let failedPageId = page.id
+            context.delete(page)
+
+            let blockDescriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
+            )
+            do {
+                for block in try context.fetch(blockDescriptor) {
+                    context.delete(block)
+                }
+            } catch {
+                Log.pipeline.error(
+                    "AppCoordinator: failed to cleanup daily brief blocks for \(failedPageId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+
+            NoteFileStorage.deleteBody(pageId: failedPageId)
+        }
+
         let dupPred = #Predicate<SDPage> { $0.title == title }
         let dupDesc = FetchDescriptor<SDPage>(predicate: dupPred)
-        let alreadySaved = (try? context.fetch(dupDesc))?.isEmpty == false
-        guard !alreadySaved else { return }
+        let alreadySaved: Bool
+        do {
+            alreadySaved = try context.fetch(dupDesc).isEmpty == false
+        } catch {
+            discardNewDailyBriefFolderIfNeeded()
+            Log.pipeline.error("AppCoordinator: failed to check existing daily brief '\(title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        guard !alreadySaved else {
+            discardNewDailyBriefFolderIfNeeded()
+            return
+        }
 
         Task {
             if let pageId = await self.vaultSync.createPage(
@@ -163,14 +215,28 @@ final class AppCoordinator {
             ) {
                 let pagePred = #Predicate<SDPage> { $0.id == pageId }
                 let pageQuery = FetchDescriptor<SDPage>(predicate: pagePred)
-                if let page = try? context.fetch(pageQuery).first {
-                    page.folder = folder
-                    page.tags = ["daily-brief"]
-                    do {
-                        try context.save()
-                    } catch {
-                        Log.pipeline.error("Failed to save daily brief page: \(error.localizedDescription, privacy: .public)")
+                do {
+                    if let page = try context.fetch(pageQuery).first {
+                        let originalFolder = page.folder
+                        let originalTags = page.tags
+                        page.folder = folder
+                        page.tags = ["daily-brief"]
+                        do {
+                            try context.save()
+                            AppBootstrap.shared?.graphState.needsRefresh = true
+                        } catch {
+                            page.folder = originalFolder
+                            page.tags = originalTags
+                            discardNewDailyBriefFolderIfNeeded()
+                            Log.pipeline.error("Failed to save daily brief page: \(error.localizedDescription, privacy: .public)")
+                        }
+                    } else {
+                        discardNewDailyBriefFolderIfNeeded()
+                        Log.pipeline.error("AppCoordinator: created daily brief missing from SwiftData: \(pageId, privacy: .public)")
                     }
+                } catch {
+                    discardNewDailyBriefFolderIfNeeded()
+                    Log.pipeline.error("AppCoordinator: failed to fetch created daily brief \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
                 }
             } else {
                 let page = SDPage(title: title, emoji: emoji)
@@ -185,7 +251,10 @@ final class AppCoordinator {
                 BlockMirror.sync(pageId: page.id, body: content, modelContext: context)
                 do {
                     try context.save()
+                    AppBootstrap.shared?.graphState.needsRefresh = true
                 } catch {
+                    discardFailedFallbackPage(page)
+                    discardNewDailyBriefFolderIfNeeded()
                     Log.pipeline.error("Failed to save daily brief fallback: \(error.localizedDescription, privacy: .public)")
                 }
             }
@@ -236,7 +305,17 @@ final class AppCoordinator {
         let descriptor = FetchDescriptor<SDChat>(
             predicate: #Predicate<SDChat> { $0.id == chatId }
         )
-        guard let sdChat = try? modelContainer.mainContext.fetch(descriptor).first else { return }
+        let sdChat: SDChat
+        do {
+            guard let fetched = try modelContainer.mainContext.fetch(descriptor).first else {
+                Log.app.error("AppCoordinator: missing chat \(chatId, privacy: .public)")
+                return
+            }
+            sdChat = fetched
+        } catch {
+            Log.app.error("AppCoordinator: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return
+        }
         chatState.setCurrentChat(sdChat.id)
         chatState.chatTitle = sdChat.title
         chatState.loadMessages(sdChat.loadedMessages)
