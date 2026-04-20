@@ -883,6 +883,15 @@ final class MetalGraphNSView: NSView {
         }
         if shouldSnapInitialGlobalCamera {
             graph_engine_snap_camera_to_fit(engine)
+            // Pad the initial frame so the graph doesn't fill the viewport
+            // edge-to-edge on first open. `magnify` with a factor < 1.0
+            // zooms OUT (shows ~1/0.72 ≈ 1.4× more area), which gives the
+            // user room to see the full topology breathing and invites
+            // drag/pan gestures before the physics cycle kicks in.
+            let scale = metalLayer?.contentsScale ?? 2.0
+            let cx = Float(bounds.width * 0.5 * scale)
+            let cy = Float(bounds.height * 0.5 * scale)
+            graph_engine_magnify(engine, cx, cy, 0.72)
         }
 
         // Update static layout flag — physics controls grey out when true.
