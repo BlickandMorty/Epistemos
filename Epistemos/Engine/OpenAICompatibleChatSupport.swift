@@ -1,6 +1,8 @@
 import Foundation
 
 nonisolated enum OpenAICompatibleChatSupport {
+    private static let defaultMaxTokens = 4_096
+
     static func completionBody(
         modelID: String,
         prompt: String,
@@ -18,9 +20,7 @@ nonisolated enum OpenAICompatibleChatSupport {
             ),
             "stream": stream,
         ]
-        if maxTokens > 0 {
-            body["max_tokens"] = maxTokens
-        }
+        body["max_tokens"] = maxTokens > 0 ? maxTokens : defaultMaxTokens
         return body
     }
 

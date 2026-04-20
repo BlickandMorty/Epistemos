@@ -113,6 +113,34 @@ struct CloudStreamingParserTests {
         #expect(OpenAICompatibleChatSupport.messageText(from: contentOnly) == "final answer")
     }
 
+    @Test("OpenAI-compatible completion body resolves a fallback max_tokens budget")
+    func openAICompatibleCompletionBodyResolvesFallbackBudget() throws {
+        let body = OpenAICompatibleChatSupport.completionBody(
+            modelID: "deepseek-chat",
+            prompt: "Explain the tradeoffs.",
+            systemPrompt: "Be concise.",
+            maxTokens: 0,
+            stream: false
+        )
+
+        let maxTokens = try #require(body["max_tokens"] as? Int)
+        #expect(maxTokens == 4_096)
+    }
+
+    @Test("OpenAI-compatible completion body preserves explicit max_tokens")
+    func openAICompatibleCompletionBodyPreservesExplicitBudget() throws {
+        let body = OpenAICompatibleChatSupport.completionBody(
+            modelID: "deepseek-chat",
+            prompt: "Explain the tradeoffs.",
+            systemPrompt: nil,
+            maxTokens: 512,
+            stream: true
+        )
+
+        let maxTokens = try #require(body["max_tokens"] as? Int)
+        #expect(maxTokens == 512)
+    }
+
     @Test("stream parser surfaces top level and nested provider errors")
     func streamErrorParsing() {
         let nested: [String: Any] = [
