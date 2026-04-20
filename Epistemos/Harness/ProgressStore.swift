@@ -4,7 +4,7 @@ import os
 // MARK: - Progress Store
 //
 // Structured session handoff for multi-session continuity.
-// Writes epistemos-progress.json at session end, reads at session start.
+// Writes progress.json at session end, reads at session start.
 // Enables context preservation across FoundationModels session recycles,
 // app restarts, and long-running multi-step tasks.
 
