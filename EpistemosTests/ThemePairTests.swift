@@ -513,15 +513,15 @@ struct ThemePairTests {
         #expect(liquidGreeting.contains("radius: compact ? 0 : 8"))
     }
 
-    @Test("Landing backdrop keeps the OLED bloom exclusive to dark mode")
-    func landingBackdropKeepsOLEDBloomDarkModeOnly() throws {
+    @Test("Landing backdrop uses the native surface without a startup intro fade")
+    func landingBackdropUsesNativeSurfaceWithoutStartupIntroFade() throws {
         let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landingView.contains("private var landingBackdrop: some View"))
-        #expect(landingView.contains("Color.black"))
-        #expect(landingView.contains("theme.isDark ?"))
-        #expect(landingView.contains("darkModeLandingBackdrop"))
-        #expect(landingView.contains(".blur(radius: 90)"))
+        #expect(landingView.contains("Color.clear"))
+        #expect(!landingView.contains("showIntroBackdrop"))
+        #expect(!landingView.contains("playLandingIntroIfNeeded()"))
+        #expect(!landingView.contains("darkModeLandingBackdrop"))
     }
 
     @Test("Regular display mode keeps ripple-capable surfaces but drops retro display typography")
