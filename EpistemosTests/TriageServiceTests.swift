@@ -165,6 +165,16 @@ struct TriageServiceTests {
         #expect(LocalInferenceRoutingError.modelRequired.errorDescription?.contains("installed local model") == false)
     }
 
+    @Test("model load stalled error gives smaller-model guidance")
+    func modelLoadStalledErrorUsesActionableCopy() {
+        let description = LocalInferenceRoutingError
+            .modelLoadStalled(modelID: LocalTextModelID.qwen25Coder7B.rawValue)
+            .errorDescription
+        #expect(description?.contains("Qwen 2.5 Coder 7B") == true)
+        #expect(description?.contains("Qwen 3 4B") == true)
+        #expect(description?.contains("timed out") == false)
+    }
+
     @Test("chat model selection preserves cloud model raw values")
     func chatModelSelectionPreservesCloudModelRawValues() {
         let selection = ChatModelSelection(rawValue: "cloud:openai:gpt-5.4")
