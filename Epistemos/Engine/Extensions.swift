@@ -169,6 +169,8 @@ nonisolated enum ThinkingTagSyntax {
     private static let tagPairs: [(open: String, close: String)] = [
         ("<thinking>", "</thinking>"),
         ("<think>", "</think>"),
+        ("<thought>", "</thought>"),
+        ("<reasoning>", "</reasoning>"),
     ]
 
     static func openingMatch(in text: String) -> (range: Range<String.Index>, closingTag: String)? {
@@ -712,6 +714,17 @@ nonisolated enum UserFacingModelOutput {
         case final
     }
 
+    // Reasoning-paragraph prefixes. Answer-marker entries ("final answer:",
+    // "final response:", "answer:", "response:") stay in the list so that a
+    // dangling marker with no content after it — a paragraph whose entire
+    // content is literally "Final Answer:" — is recognized as reasoning
+    // residue and not surfaced raw. `directAnswerText` / `answerMatch` runs
+    // first and extracts the real answer when content DOES follow a marker,
+    // so this list only kicks in for the empty-dangling-marker case. We did
+    // drop structured-output field labels ("topic:", "query:", "comparison:",
+    // "user query:", "instructions:") because models legitimately use those
+    // as output structure for code-review, translation, and categorization
+    // tasks — flagging them as reasoning was eating real answers.
     private static let reasoningParagraphPrefixes = [
         "here's a thinking process",
         "here is a thinking process",
@@ -745,10 +758,6 @@ nonisolated enum UserFacingModelOutput {
         "ensure i don't validate",
         "maintain neutrality.",
         "acknowledge the complexity.",
-        "topic:",
-        "query:",
-        "comparison:",
-        "user query:",
         "detailed analysis",
         "detailed analysis with",
         "pattern identification:",
@@ -757,7 +766,6 @@ nonisolated enum UserFacingModelOutput {
         "let me start by",
         "i'll start by",
         "here is the function call:",
-        "instructions:",
         "reduce strategy:",
         "input text:",
     ]
@@ -800,7 +808,41 @@ nonisolated enum UserFacingModelOutput {
             return cleaned
         }
 
-        return bestAnswerCandidate(in: cleaned) ?? ""
+        if let candidate = bestAnswerCandidate(in: cleaned) {
+            return candidate
+        }
+
+        // Fail-open when the split heuristic can't find a clean
+        // reasoning/answer boundary but the text DOESN'T look like a pure
+        // reasoning dump (no explicit prelude, no prose opener, no structured
+        // reasoning plan). Historically we returned "" here, which ate
+        // legitimate natural-language answers when a single paragraph happened
+        // to match a reasoning prefix. Surfacing `cleaned` beats silent empty:
+        // worst case the user sees slightly verbose output, best case they
+        // finally see their answer.
+        let looksLikePureReasoningDump = rawLooksLikePureReasoning(raw: raw)
+            || ThinkingPreludeSyntax.openingMatch(in: cleaned) != nil
+            || ThinkingPreludeSyntax.proseOpeningDetected(in: cleaned)
+            || containsStructuredReasoningPlan(in: cleaned)
+            || allParagraphsAreReasoning(in: cleaned)
+        return looksLikePureReasoningDump ? "" : cleaned
+    }
+
+    private static func rawLooksLikePureReasoning(raw: String) -> Bool {
+        // Treat input that was delivered via explicit `<thinking>` tags or
+        // assistant-control envelopes as a pure reasoning payload. We already
+        // stripped those from `cleaned`, so if the raw stream contained them
+        // AND we couldn't split an answer out, there's no user-facing text
+        // to reveal — the model really only produced reasoning.
+        ThinkingTagSyntax.openingMatch(in: raw) != nil
+            || AssistantControlTagSyntax.openingMatch(in: raw) != nil
+            || AssistantControlTagSyntax.closingMatch(in: raw) != nil
+    }
+
+    private static func allParagraphsAreReasoning(in text: String) -> Bool {
+        let paragraphList = paragraphs(in: text)
+        guard !paragraphList.isEmpty else { return false }
+        return paragraphList.allSatisfy(isReasoningParagraph)
     }
 
     static func incompleteReasoningFallback(from rawThinking: String) -> String? {
@@ -978,7 +1020,15 @@ nonisolated enum UserFacingModelOutput {
     }
 
     private static func bestAnswerCandidate(in text: String) -> String? {
-        if containsStructuredReasoningPlan(in: text) {
+        // Gate structured-reasoning-plan detection FIRST. The generic salvage
+        // path (below) will otherwise return a plan's trailing
+        // "this approach will efficiently …" conclusion as the answer, even
+        // though that line is itself a plan descriptor. Only trust a
+        // structured-plan candidate when an explicit answer marker appears
+        // elsewhere in the text.
+        let textLooksLikeStructuredPlan = containsStructuredReasoningPlan(in: text)
+        if textLooksLikeStructuredPlan,
+           ThinkingPreludeSyntax.answerMatch(in: text) == nil {
             return nil
         }
 
@@ -996,6 +1046,11 @@ nonisolated enum UserFacingModelOutput {
             return salvaged
         }
 
+        if textLooksLikeStructuredPlan,
+           let structuredLineCandidate = bestStructuredPlanLineCandidate(in: text) {
+            return structuredLineCandidate
+        }
+
         let filteredParagraphs = paragraphs(in: text).filter { !isReasoningParagraph($0) }
         if let lastParagraph = filteredParagraphs.last, !lastParagraph.isEmpty {
             return lastParagraph
@@ -1009,6 +1064,17 @@ nonisolated enum UserFacingModelOutput {
             .components(separatedBy: "\n\n")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+    }
+
+    private static func bestStructuredPlanLineCandidate(in text: String) -> String? {
+        let filteredLines = text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .filter { !isStructuredReasoningLine($0) }
+
+        guard let lastLine = filteredLines.last, !lastLine.isEmpty else { return nil }
+        return lastLine
     }
 
     private static func isReasoningParagraph(_ paragraph: String) -> Bool {
@@ -1040,6 +1106,21 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return false
+    }
+
+    private static func isStructuredReasoningLine(_ line: String) -> Bool {
+        let normalized = normalizedReasoningText(line)
+        guard !normalized.isEmpty else { return true }
+
+        if normalized.hasPrefix("1. ") || normalized.hasPrefix("2. ") || normalized.hasPrefix("3. ") {
+            return true
+        }
+
+        if normalized.hasPrefix("- ") || normalized.hasPrefix("• ") {
+            return true
+        }
+
+        return reasoningParagraphPrefixes.contains(where: { normalized.hasPrefix($0) })
     }
 
     private static func containsStructuredReasoningPlan(in text: String) -> Bool {

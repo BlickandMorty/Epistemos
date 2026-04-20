@@ -316,7 +316,13 @@ final class ChatCoordinator {
                             let message = UserFacingChatError.message(
                                 from: AgentRuntimeError(message: msg)
                             )
-                            agentChat.addErrorMessage(message)
+                            if !agentChat.completeInterruptedProcessing(
+                                mode: mode,
+                                resolvedModelLabel: self.inferenceState
+                                    .effectiveModelLabel(for: effectiveOperatingMode)
+                            ) {
+                                agentChat.addErrorMessage(message)
+                            }
                             accState.diagnostics.markFailed(
                                 errorClass: .providerFailure,
                                 message: message
@@ -329,12 +335,24 @@ final class ChatCoordinator {
                 agentChat.agentTurnCount = accState.diagnostics.currentTurn
 
             } catch is CancellationError {
-                agentChat.stopStreaming()
+                if !agentChat.completeInterruptedProcessing(
+                    mode: .api,
+                    resolvedModelLabel: self.inferenceState
+                        .effectiveModelLabel(for: .agent)
+                ) {
+                    agentChat.stopStreaming()
+                }
                 accState.diagnostics.markCancelled()
             } catch {
                 Log.pipeline.error("Command Center submission failed: \(error.localizedDescription)")
                 let message = UserFacingChatError.message(from: error)
-                agentChat.addErrorMessage(message)
+                if !agentChat.completeInterruptedProcessing(
+                    mode: .api,
+                    resolvedModelLabel: self.inferenceState
+                        .effectiveModelLabel(for: .agent)
+                ) {
+                    agentChat.addErrorMessage(message)
+                }
                 accState.diagnostics.markFailed(
                     errorClass: .unknown,
                     message: message
@@ -362,6 +380,7 @@ final class ChatCoordinator {
         let sessionId = UUID().uuidString
         var receivedAgentContent = false
         var terminalAgentError: AgentRuntimeError?
+        var finalizedAssistantMessage = false
         var activeToolStarts: [String: (name: String, startedAt: Date)] = [:]
 
         // Build system prompt from compiled context + plan.
@@ -439,10 +458,12 @@ final class ChatCoordinator {
         }
 
         let accSessionInterval = Log.agentStreaming.beginInterval("accAgentSession")
+        let resolvedAgentModelLabel = self.inferenceState.effectiveModelLabel(for: .agent)
         for await event in stream {
             switch event {
             case .thinkingDelta(let text):
                 Log.agentStreaming.emitEvent("acc.thinkingDelta", "\(text.count) chars")
+                receivedAgentContent = true
                 agentChat.appendStreamingThinking(text)
 
             case .textDelta(let text):
@@ -502,6 +523,14 @@ final class ChatCoordinator {
             case .complete(let stopReason, let inputTokens, let outputTokens, _):
                 Log.agentStreaming.emitEvent("acc.complete", "\(stopReason)")
                 receivedAgentContent = true
+                finalizedAssistantMessage = true
+                agentChat.completeProcessing(
+                    mode: .api,
+                    resolvedModelLabel: resolvedAgentModelLabel
+                )
+                if let response = agentChat.lastCompletedAssistantResponse {
+                    agentChat.absorbAgentResponseIntoPlanDocument(response)
+                }
                 accState.diagnostics.markCompleted(
                     stopReason: stopReason,
                     inputTokens: inputTokens,
@@ -514,7 +543,13 @@ final class ChatCoordinator {
                     let message = UserFacingChatError.message(
                         from: AgentRuntimeError(message: error.message)
                     )
-                    agentChat.addErrorMessage(message)
+                    finalizedAssistantMessage = agentChat.completeInterruptedProcessing(
+                        mode: .api,
+                        resolvedModelLabel: resolvedAgentModelLabel
+                    )
+                    if !finalizedAssistantMessage {
+                        agentChat.addErrorMessage(message)
+                    }
                     accState.diagnostics.markFailed(
                         errorClass: .providerFailure,
                         message: message
@@ -543,6 +578,21 @@ final class ChatCoordinator {
             }
         }
         Log.agentStreaming.endInterval("accAgentSession", accSessionInterval)
+
+        if !finalizedAssistantMessage && receivedAgentContent {
+            finalizedAssistantMessage = agentChat.completeInterruptedProcessing(
+                mode: .api,
+                resolvedModelLabel: resolvedAgentModelLabel
+            )
+            if !finalizedAssistantMessage {
+                let message = "No response received. The agent stream ended before a final answer was produced."
+                agentChat.addErrorMessage(message)
+                accState.diagnostics.markFailed(
+                    errorClass: .providerFailure,
+                    message: message
+                )
+            }
+        }
 
         if let err = terminalAgentError {
             throw err
@@ -1002,10 +1052,6 @@ final class ChatCoordinator {
     ) {
         bootstrap.queryTask?.cancel()
 
-        let aiFresh = AppleIntelligenceService.shared.checkAvailability()
-        inferenceState.appleIntelligenceAvailable = aiFresh.available
-        inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
-
         let isVaultBriefing = query == "[VAULT_BRIEFING]"
         chatState.isCurrentVaultBriefing = isVaultBriefing
         chatState.startStreaming()
@@ -1048,6 +1094,12 @@ final class ChatCoordinator {
                 }
             }
             do {
+                let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }
+                await MainActor.run {
+                    self.inferenceState.appleIntelligenceAvailable = aiFresh.available
+                    self.inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
+                }
+
                 let mode = inferenceState.inferenceMode
                 let hasVault = bootstrap.ambientManifest != nil
                 Log.pipeline.info("handleQuery — hasVault=\(hasVault)")
@@ -1132,10 +1184,11 @@ final class ChatCoordinator {
                     effectiveQuery = resolvedQuery
                 }
 
-                // Always inject lightweight workspace context (open notes + recent edits).
-                // For explicit session queries, inject deep context (full previews + chat history).
+                // Workspace-awareness synthesis is useful for explicit
+                // session asks and agent work, but rebuilding it on every
+                // normal send adds avoidable front-of-turn latency.
                 let isSessionQuery = Self.queryRequestsSessionContext(effectiveQuery)
-                let shouldInjectWorkspaceContext = isSessionQuery || !hasExplicitUserContext
+                let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent
                 let workspaceContextSection: String?
                 if shouldInjectWorkspaceContext {
                     let workspaceContext = Self.buildWorkspaceAwarenessContext(
@@ -1378,18 +1431,35 @@ final class ChatCoordinator {
                             }
 
                         case .error(let msg):
-                            chatState.addErrorMessage(
-                                UserFacingChatError.message(
-                                    from: AgentRuntimeError(message: msg)
+                            if !chatState.completeCancelledProcessing(
+                                messageId: pendingAssistantId,
+                                mode: mode,
+                                resolvedModelLabel: self.inferenceState
+                                    .effectiveModelLabel(for: effectiveOperatingMode)
+                            ) {
+                                chatState.addErrorMessage(
+                                    UserFacingChatError.message(
+                                        from: AgentRuntimeError(message: msg)
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
             } catch is CancellationError {
-                _ = chatState.completeCancelledProcessing(mode: inferenceState.inferenceMode)
+                _ = chatState.completeCancelledProcessing(
+                    mode: inferenceState.inferenceMode,
+                    resolvedModelLabel: self.inferenceState
+                        .effectiveModelLabel(for: operatingMode)
+                )
             } catch {
-                chatState.addErrorMessage(UserFacingChatError.message(from: error))
+                if !chatState.completeCancelledProcessing(
+                    mode: inferenceState.inferenceMode,
+                    resolvedModelLabel: self.inferenceState
+                        .effectiveModelLabel(for: operatingMode)
+                ) {
+                    chatState.addErrorMessage(UserFacingChatError.message(from: error))
+                }
             }
             inferenceState.pendingImageURLs = []
         }
@@ -1423,6 +1493,7 @@ final class ChatCoordinator {
         let parentSessionID = AgentSessionLineageStore.shared.parentSessionID(forChatThread: chatId)
         var receivedAgentContent = false
         var terminalAgentError: AgentRuntimeError?
+        var finalizedAssistantMessage = false
 
         let objective = PipelineService.buildPromptEnvelope(
             query: query,
@@ -1522,12 +1593,58 @@ final class ChatCoordinator {
             }
         }
 
+        let resolvedModelLabel = self.inferenceState.effectiveModelLabel(for: .agent)
+        func persistCompletedAgentTurn() {
+            if let lastMsg = chatState.messages.last {
+                let processed = self.executeVaultActions(in: lastMsg.content)
+                if processed != lastMsg.content {
+                    chatState.updateLastMessageContent(processed)
+                }
+            }
+
+            eventBus.emit(.pipelineComplete)
+
+            if let folderPath = sessionFolderPath(sessionId: sessionId) {
+                do {
+                    try AgentSessionLineageStore.shared.recordCompletedSession(
+                        sessionID: sessionId,
+                        chatThreadID: chatId,
+                        sessionFolderPath: folderPath
+                    )
+                } catch {
+                    Log.pipeline.error(
+                        "Failed to persist agent session lineage: \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+                Task.detached(priority: .utility) {
+                    let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
+                    await lifecycle.generateGraphForSession(sessionFolderPath: folderPath)
+                }
+            }
+
+            if !chatState.isIncognito {
+                self.persistChatCompletion(
+                    chatId: chatId,
+                    query: originalQuery,
+                    answer: chatState.messages.last?.content ?? "",
+                    mode: .api,
+                    assistantMessage: chatState.messages.last,
+                    isNotes: hasVault
+                )
+            }
+
+            if chatState.chatTitle == nil {
+                self.generateChatTitle(query: originalQuery, chatId: chatId, chatState: chatState)
+            }
+        }
+
         // Process the agent stream
         for await event in stream {
             switch event {
             case .thinkingDelta(let thought):
                 // Route live thinking into chat.streamingThinking so the
                 // ThinkingPopoverView can render in-flight reasoning.
+                receivedAgentContent = true
                 chatState.appendStreamingThinking(thought)
 
             case .textDelta(let text):
@@ -1564,61 +1681,29 @@ final class ChatCoordinator {
 
             case .complete(_, let inputTokens, let outputTokens, _):
                 receivedAgentContent = true
+                finalizedAssistantMessage = true
                 chatState.completeProcessing(
                     messageId: pendingAssistantId,
                     mode: .api,
-                    resolvedModelLabel: self.inferenceState.effectiveModelLabel(for: .agent)
+                    resolvedModelLabel: resolvedModelLabel
                 )
-
-                if let lastMsg = chatState.messages.last {
-                    let processed = self.executeVaultActions(in: lastMsg.content)
-                    if processed != lastMsg.content {
-                        chatState.updateLastMessageContent(processed)
-                    }
-                }
-
-                eventBus.emit(.pipelineComplete)
+                persistCompletedAgentTurn()
                 Log.pipeline.info("Agent session complete: \(inputTokens)in/\(outputTokens)out")
-
-                // Phase 4: Generate session knowledge graph in background
-                if let folderPath = sessionFolderPath(sessionId: sessionId) {
-                    do {
-                        try AgentSessionLineageStore.shared.recordCompletedSession(
-                            sessionID: sessionId,
-                            chatThreadID: chatId,
-                            sessionFolderPath: folderPath
-                        )
-                    } catch {
-                        Log.pipeline.error(
-                            "Failed to persist agent session lineage: \(error.localizedDescription, privacy: .public)"
-                        )
-                    }
-                    Task.detached(priority: .utility) {
-                        let lifecycle = VaultLifecycleService(vaultPath: vaultPath)
-                        await lifecycle.generateGraphForSession(sessionFolderPath: folderPath)
-                    }
-                }
-
-                if !chatState.isIncognito {
-                    self.persistChatCompletion(
-                        chatId: chatId,
-                        query: originalQuery,
-                        answer: chatState.messages.last?.content ?? "",
-                        mode: .api,
-                        assistantMessage: chatState.messages.last,
-                        isNotes: hasVault
-                    )
-                }
-
-                if chatState.chatTitle == nil {
-                    self.generateChatTitle(query: originalQuery, chatId: chatId, chatState: chatState)
-                }
 
             case .error(let error):
                 if receivedAgentContent {
-                    chatState.addErrorMessage(
-                        UserFacingChatError.message(from: AgentRuntimeError(message: error.message))
+                    finalizedAssistantMessage = chatState.completeCancelledProcessing(
+                        messageId: pendingAssistantId,
+                        mode: .api,
+                        resolvedModelLabel: resolvedModelLabel
                     )
+                    if finalizedAssistantMessage {
+                        persistCompletedAgentTurn()
+                    } else {
+                        chatState.addErrorMessage(
+                            UserFacingChatError.message(from: AgentRuntimeError(message: error.message))
+                        )
+                    }
                 } else {
                     terminalAgentError = error
                 }
@@ -1641,6 +1726,21 @@ final class ChatCoordinator {
 
             case .toolInputStreaming, .subagentSpawned, .contextCompacted:
                 break
+            }
+        }
+
+        if !finalizedAssistantMessage && receivedAgentContent {
+            finalizedAssistantMessage = chatState.completeCancelledProcessing(
+                messageId: pendingAssistantId,
+                mode: .api,
+                resolvedModelLabel: resolvedModelLabel
+            )
+            if finalizedAssistantMessage {
+                persistCompletedAgentTurn()
+            } else {
+                chatState.addErrorMessage(
+                    "No response received. The agent stream ended before a final answer was produced."
+                )
             }
         }
 

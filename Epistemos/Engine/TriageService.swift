@@ -522,7 +522,7 @@ nonisolated struct InferencePolicyEngine {
         let installedModels = context.installedLocalTextModelIDs
             .compactMap(LocalTextModelID.init(rawValue:))
             .filter {
-                context.hardwareCapabilitySnapshot.supports(textModelID: $0.rawValue)
+                context.hardwareCapabilitySnapshot.supportsInteractiveChatModel(textModelID: $0.rawValue)
                     && !$0.isExperimentalForEpistemos
             }
             .sorted { lhs, rhs in
@@ -876,6 +876,10 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     /// distinct from a generic request timeout so the chat can tell the user
     /// the model load stalled and suggest a smaller model.
     case modelLoadStalled(modelID: String)
+    /// Thrown BEFORE we ask MLX to load a model when the OS says we don't have
+    /// enough available unified memory to hold it. Refusing up-front beats the
+    /// alternative (SSD swap thrash, hard freeze, or a jetsam kill) by a mile.
+    case insufficientMemory(modelID: String, requiredGB: Int, availableGB: Int)
 
     var errorDescription: String? {
         switch self {
@@ -891,6 +895,9 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
         case .modelLoadStalled(let modelID):
             let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
             return "The \(displayName) model couldn't finish loading. Try restarting the app or switch to a smaller local model like Qwen 3 4B."
+        case .insufficientMemory(let modelID, let requiredGB, let availableGB):
+            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            return "\(displayName) needs about \(requiredGB) GB of free memory but only \(availableGB) GB is available right now. Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
         }
     }
 }

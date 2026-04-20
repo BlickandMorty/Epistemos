@@ -412,6 +412,69 @@ struct PipelineServiceTests {
         #expect(texts.joined() == "Use the prepared router as the main local model.")
     }
 
+    @Test("Pipeline keeps the final paragraph when structured reasoning precedes it")
+    @MainActor func pipelineKeepsFinalAnswerAfterStructuredReasoningPlan() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            """
+            1. Query:
+            - Summarize the key findings.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The attached references.
+            Reduce Strategy: Keep the highest-signal passages.
+
+            3. Pattern Identification:
+            - Look for recurring themes in attention and readiness potentials.
+
+            """,
+            """
+            This approach will efficiently summarize the references and identify the shared research threads.
+            """,
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var thinking = ""
+        var texts: [String] = []
+        let stream = pipeline.run(
+            query: "Summarize the research references.",
+            mode: .api
+        )
+
+        for try await event in stream {
+            switch event {
+            case .thinkingDelta(let delta):
+                thinking += delta
+            case .textDelta(let delta):
+                texts.append(delta)
+            default:
+                break
+            }
+        }
+
+        #expect(thinking.contains("Detailed Analysis with chunk_reduce"))
+        #expect(
+            texts.joined()
+                == "This approach will efficiently summarize the references and identify the shared research threads."
+        )
+    }
+
     @Test("Plain chat completion carries no analytical metadata")
     @MainActor func plainChatCompletionCarriesNoAnalyticalMetadata() async throws {
         let mock = MockLLMClient()
@@ -2094,7 +2157,7 @@ struct ChatStateContextAttachmentTests {
         let last = chatState.messages.last
         #expect(last?.role == .assistant)
         #expect(last?.isError == true)
-        #expect((last?.content ?? "").contains("No response"))
+        #expect(last?.content.contains("No response") == true)
         #expect(!chatState.isStreaming)
     }
 
@@ -2145,6 +2208,22 @@ struct ChatStateContextAttachmentTests {
         #expect(last?.isError != true)
         #expect(last?.content.contains("never produced a final answer") == true)
         #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("main chat completeProcessing clears active thinking state after finalizing")
+    func completeProcessingClearsThinkingState() {
+        let chatState = ChatState()
+        chatState.submitQuery("Hello?")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking("reasoning")
+        chatState.appendStreamingText("final answer")
+
+        chatState.completeProcessing(mode: .api)
+
+        #expect(!chatState.isThinkingActive)
+        #expect(chatState.streamingThinking.isEmpty)
+        #expect(chatState.thinkingStartedAt == nil)
+        #expect(chatState.thinkingEndedAt == nil)
     }
 
     @Test("complete processing snapshots active context attachments onto the assistant message")
@@ -2327,6 +2406,56 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.count == 2)
         #expect(chatState.messages.last?.role == .assistant)
         #expect(chatState.messages.last?.content == "Partial answer")
+    }
+
+    @Test("cancelled streaming preserves thinking-only turns with a readable fallback")
+    func cancelledStreamingPreservesThinkingOnlyTurns() {
+        let chatState = ChatState()
+
+        chatState.submitQuery("Explain this")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking(
+            """
+            1. Query:
+            - Compare the tradeoffs.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The current branch.
+            Reduce Strategy: Keep the highest-signal evidence.
+            """
+        )
+
+        let completed = chatState.completeCancelledProcessing(mode: .api)
+
+        #expect(completed)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.last?.isError != true)
+        #expect(chatState.messages.last?.content.contains("never produced a final answer") == true)
+        #expect(chatState.messages.last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("cancelled streaming recovers a final answer from hidden thinking")
+    func cancelledStreamingSalvagesAnswerFromThinkingTrace() {
+        let chatState = ChatState()
+
+        chatState.submitQuery("Explain this")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking(
+            """
+            Thinking Process:
+            Keep it short.
+
+            Final Answer:
+            Partial but usable answer.
+            """
+        )
+
+        let completed = chatState.completeCancelledProcessing(mode: .api)
+
+        #expect(completed)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.last?.content == "Partial but usable answer.")
+        #expect(chatState.messages.last?.thinkingTrace?.contains("Thinking Process") == true)
     }
 
     @Test("starting a new chat clears pending attachments and transient context")

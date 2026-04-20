@@ -347,7 +347,7 @@ struct AgentChatStateTests {
         let message = state.messages.first
         #expect(message?.role == .assistant)
         #expect(message?.isError == true)
-        #expect((message?.content ?? "").contains("No response"))
+        #expect(message?.content.contains("No response") == true)
         #expect(!state.isStreaming)
     }
 
@@ -398,6 +398,57 @@ struct AgentChatStateTests {
         #expect(message?.isError != true)
         #expect(message?.content.contains("never produced a final answer") == true)
         #expect(message?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("agent chat interrupted turns preserve thinking-only fallbacks")
+    func interruptedProcessingPreservesThinkingOnlyTurns() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking(
+            """
+            1. Query:
+            - Research the note network.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The linked notes.
+            Reduce Strategy: Keep the highest-signal passages.
+            """
+        )
+
+        let completed = state.completeInterruptedProcessing(mode: .api)
+
+        #expect(completed)
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.isError != true)
+        #expect(message?.content.contains("never produced a final answer") == true)
+        #expect(message?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("agent chat interrupted turns recover final answers from hidden thinking")
+    func interruptedProcessingSalvagesAnswerFromThinkingTrace() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking(
+            """
+            Thinking Process:
+            Keep the response brief.
+
+            Final Answer:
+            The summary is ready.
+            """
+        )
+
+        let completed = state.completeInterruptedProcessing(mode: .api)
+
+        #expect(completed)
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.isError != true)
+        #expect(message?.content == "The summary is ready.")
+        #expect(message?.thinkingTrace?.contains("Thinking Process") == true)
     }
 
     @Test("empty text but pending tool-use blocks still commit the turn")

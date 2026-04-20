@@ -1208,6 +1208,35 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_4B4Bit.rawValue)
     }
 
+    @Test("auto local routing skips heavy interactive-qwen tiers on 18GB machines")
+    func autoLocalRoutingSkipsHeavyInteractiveQwenOn18GBMachines() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .synthesis,
+                contentLength: 2_400,
+                promptLength: 1_400,
+                contextBlockCount: 2,
+                estimatedTokenLoad: 600,
+                baseComplexity: 0.32,
+                queryComplexity: 0.18,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.qwen35_35BA3B4Bit]
+            )
+        )
+
+        #expect(decision.localSelection == nil)
+        #expect(decision.selectedRoute != .localMLX)
+    }
+
     @Test("fast local routing avoids always-thinking DeepSeek when a non-thinking fast tier is available")
     func fastLocalRoutingAvoidsAlwaysThinkingDeepSeek() {
         let engine = InferencePolicyEngine()
@@ -1852,8 +1881,8 @@ struct TriageServiceIntegrationTests {
         )
         _ = await LocalRuntimeSmokeSupport.collect(stream)
 
-        let request = try? #require(llm.streamRequests.first)
-        let systemPrompt = try? #require(request?.systemPrompt)
+        let request = llm.streamRequests.first
+        let systemPrompt = request?.systemPrompt
         #expect(systemPrompt?.contains("/no_think") == true)
     }
 
@@ -2236,6 +2265,7 @@ struct TriageServiceIntegrationTests {
         #expect(lowPower.idleUnloadDelay < normal.idleUnloadDelay)
         #expect(lowPower.memoryPolicy.cacheLimitBytes < normal.memoryPolicy.cacheLimitBytes)
         #expect(lowPower.memoryPolicy.memoryLimitBytes <= normal.memoryPolicy.memoryLimitBytes)
+        #expect(normal.idleUnloadDelay >= .seconds(10))
     }
 
     @MainActor
@@ -3027,6 +3057,32 @@ struct TriageServiceIntegrationTests {
                 chunkCount: 0
             ) == .cancelled
         )
+    }
+
+    @Test("local mlx streaming emits any postprocessed fallback suffix")
+    func trailingPostprocessedDeltaEmitsFallbackSuffix() {
+        let raw = "<think>looping forever"
+        let final = LocalMLXLoopMitigation.appendFallbackIfNeeded(
+            to: raw,
+            for: LocalMLXRequest(
+                modelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+                modelDirectory: URL(fileURLWithPath: "/tmp/qwen"),
+                prompt: "Think carefully.",
+                systemPrompt: nil,
+                maxTokens: 256,
+                reasoningMode: .thinking,
+                steeringHintsJSON: nil,
+                imageURLs: []
+            )
+        )
+
+        let delta = MLXInferenceService.trailingPostprocessedDelta(
+            finalText: final,
+            alreadyEmitted: raw
+        )
+
+        #expect(delta?.contains("Final answer:") == true)
+        #expect(delta?.contains("thinking mode was stopped") == true)
     }
 
     @MainActor

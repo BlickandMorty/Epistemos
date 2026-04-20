@@ -222,6 +222,20 @@ final class AgentChatState {
         streamBuffer.flushNow()
     }
 
+    private func flushThinkTagRouter() {
+        let emit = thinkTagRouter.flush()
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
+        }
+        if !emit.visible.isEmpty {
+            if isThinkingActive {
+                isThinkingActive = false
+                thinkingEndedAt = Date()
+            }
+            streamBuffer.append(emit.visible, scheduleFlush: false)
+        }
+    }
+
     // MARK: - Tool Tracking
 
     func recordToolUse(id: String, name: String, inputJson: String) {
@@ -260,6 +274,7 @@ final class AgentChatState {
 
     func completeProcessing(mode: InferenceMode, resolvedModelLabel: String? = nil) {
         guard let sessionId = activeSessionId else { return }
+        flushThinkTagRouter()
         flushStreamingTokens()
 
         let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -342,6 +357,79 @@ final class AgentChatState {
         estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
 
         log.info("[AgentChat] Completed turn \(self.agentTurnCount) in session \(sessionId)")
+    }
+
+    @discardableResult
+    func completeInterruptedProcessing(
+        mode: InferenceMode,
+        resolvedModelLabel: String? = nil
+    ) -> Bool {
+        guard let sessionId = activeSessionId else { return false }
+        flushThinkTagRouter()
+        flushStreamingTokens()
+
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+        if answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !capturedThinking.isEmpty {
+            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                answerText = salvagedFromThinking
+            } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
+                answerText = fallback
+            }
+        }
+        let thinkingDurationSeconds: Double? = {
+            guard let start = thinkingStartedAt else { return nil }
+            let end = thinkingEndedAt ?? Date()
+            let duration = end.timeIntervalSince(start)
+            return duration >= 0 ? duration : nil
+        }()
+
+        var completedBlocks = pendingContentBlocks
+        if !answerText.isEmpty {
+            completedBlocks.append(.text(answerText))
+        }
+
+        let artifacts = ArtifactExtractor.extract(from: answerText)
+        let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hasVisibleContent = !trimmedAnswer.isEmpty
+            || !completedBlocks.isEmpty
+            || !artifacts.isEmpty
+
+        defer {
+            streamBuffer.reset(releaseCapacity: true)
+            streamingText.removeAll(keepingCapacity: false)
+            isStreaming = false
+            pendingContentBlocks = []
+            activeToolName = nil
+            activeToolInputJson = nil
+            isAgentExecuting = false
+            resetThinkingState()
+            thinkTagRouter = ThinkTagStreamRouter()
+        }
+
+        guard hasVisibleContent else { return false }
+
+        let assistantMessage = ChatMessage(
+            id: UUID().uuidString,
+            chatId: sessionId,
+            role: .assistant,
+            content: answerText,
+            mode: mode,
+            artifacts: artifacts,
+            contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
+            resolvedModelLabel: resolvedModelLabel,
+            thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
+            thinkingDurationSeconds: thinkingDurationSeconds
+        )
+
+        messages.append(assistantMessage)
+        hasMessages = true
+        agentTurnCount += 1
+        lastCompletedAssistantResponse = answerText
+        estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
+        return true
     }
 
     // MARK: - Error
