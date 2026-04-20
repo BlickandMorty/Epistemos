@@ -753,6 +753,8 @@ final class NoteChatState {
                 id: $0.id,
                 role: $0.role == "user" ? .user : .assistant,
                 content: $0.content,
+                thinkingTrace: $0.thinkingTrace,
+                thinkingDurationSeconds: $0.thinkingDurationSeconds,
                 createdAt: $0.createdAt
             )
         }
@@ -800,6 +802,8 @@ final class NoteChatState {
             let sdMsg = SDMessage(role: msg.role == .user ? "user" : "assistant", content: msg.content)
             sdMsg.id = msg.id
             sdMsg.createdAt = msg.createdAt
+            sdMsg.thinkingTrace = msg.thinkingTrace
+            sdMsg.thinkingDurationSeconds = msg.thinkingDurationSeconds
             sdMsg.chat = sdChat
             context.insert(sdMsg)
         }

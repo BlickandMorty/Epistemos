@@ -564,6 +564,8 @@ struct NoteChatStateTests {
                 id: "msg-assistant",
                 role: .assistant,
                 content: "The note now captures the new runtime behavior.",
+                thinkingTrace: "First I checked the persisted transcript.",
+                thinkingDurationSeconds: 2.5,
                 createdAt: createdAt.addingTimeInterval(1)
             ),
         ]
@@ -579,6 +581,9 @@ struct NoteChatStateTests {
             "What changed here?",
             "The note now captures the new runtime behavior.",
         ])
+        #expect(restored.messages[0].thinkingTrace == nil)
+        #expect(restored.messages[1].thinkingTrace == "First I checked the persisted transcript.")
+        #expect(restored.messages[1].thinkingDurationSeconds == 2.5)
 
         let chats = try context.fetch(FetchDescriptor<SDChat>())
         #expect(chats.count == 1)
