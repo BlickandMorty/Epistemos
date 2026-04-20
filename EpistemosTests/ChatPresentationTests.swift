@@ -139,11 +139,14 @@ struct ChatPresentationTests {
         #expect(!chatViewSource.contains("try md.write(to: url"))
     }
 
-    @Test("tool preview cards start collapsed so read-only tool chatter stays out of the way")
-    func toolPreviewCardsStartCollapsed() throws {
+    @Test("tool preview cards auto-expand while running and preserve manual toggles")
+    func toolPreviewCardsAutoExpandWhileRunningAndPreserveManualToggles() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
 
-        #expect(source.contains("@State private var isExpanded = false"))
+        #expect(source.contains("@State private var isExpanded: Bool"))
+        #expect(source.contains("@State private var userManuallyToggled = false"))
+        #expect(source.contains("self._isExpanded = State(initialValue: isActivelyRunning)"))
+        #expect(source.contains("userManuallyToggled = true"))
     }
 
     @Test("chat brain picker keeps the shared main-chat operating mode preference key")

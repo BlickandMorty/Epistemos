@@ -1204,11 +1204,14 @@ struct RuntimeValidationTests {
 
         #expect(runtime.contains("actor LocalMLXRequestGate"))
         #expect(runtime.contains("private let requestGate = LocalMLXRequestGate()"))
-        #expect(runtime.contains("await requestGate.acquire()"))
-        #expect(runtime.contains("await requestGate.release()"))
+        #expect(runtime.contains("requestGate.acquire()"))
+        #expect(runtime.contains("requestGate.release()"))
+        #expect(runtime.contains("let coldLoadTimeout = Self.coldLoadTimeoutSeconds(for: request.modelID)"))
+        #expect(runtime.contains("private nonisolated static func coldLoadTimeoutSeconds(for modelID: String) -> Double"))
+        #expect(runtime.contains("withTimeout(seconds: coldLoadTimeout)"))
         #expect(runtime.contains("let idleMemoryPolicy: LocalMLXMemoryPolicy"))
-        #expect(runtime.contains("private func applyActiveMemoryPolicy"))
-        #expect(runtime.contains("private func applyIdleMemoryPolicy"))
+        #expect(runtime.contains("private func applyActiveMemoryPolicy(_ policy: LocalMLXRuntimePolicy)"))
+        #expect(runtime.contains("private func applyIdleMemoryPolicy(_ policy: LocalMLXRuntimePolicy)"))
         #expect(runtime.contains("applyActiveMemoryPolicy(policy)"))
         #expect(runtime.contains("applyIdleMemoryPolicy(policy)"))
     }
