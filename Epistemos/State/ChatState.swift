@@ -97,6 +97,80 @@ struct ChatBrainSnapshot: Sendable, Equatable {
     }
 }
 
+enum StreamingReasoningTraceBuffer {
+    static let postAnswerDisplaySeparator = "After-answer thought:\n"
+
+    static func append(
+        _ text: String,
+        streamingThinking: inout String,
+        postAnswerThinking: inout String,
+        hasStartedVisibleAnswer: Bool,
+        isThinkingActive: inout Bool,
+        thinkingStartedAt: inout Date?,
+        thinkingEndedAt: inout Date?
+    ) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isThinkingActive || thinkingStartedAt != nil || !trimmed.isEmpty else { return }
+
+        if thinkingStartedAt == nil {
+            thinkingStartedAt = .now
+            streamingThinking.removeAll(keepingCapacity: true)
+            postAnswerThinking.removeAll(keepingCapacity: true)
+        }
+
+        if hasStartedVisibleAnswer {
+            if isThinkingActive {
+                isThinkingActive = false
+            }
+            if postAnswerThinking.isEmpty {
+                if !streamingThinking.isEmpty {
+                    streamingThinking.append("\n\n")
+                }
+                streamingThinking.append(postAnswerDisplaySeparator)
+            }
+            postAnswerThinking.append(text)
+            thinkingEndedAt = .now
+        } else {
+            thinkingEndedAt = nil
+        }
+
+        streamingThinking.append(text)
+    }
+
+    static func append(
+        _ text: String,
+        streamingThinking: inout String,
+        postAnswerThinking: inout String,
+        hasStartedVisibleAnswer: Bool,
+        thinkingStartedAt: inout Date?,
+        thinkingEndedAt: inout Date?
+    ) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
+
+        if thinkingStartedAt == nil {
+            thinkingStartedAt = .now
+            streamingThinking.removeAll(keepingCapacity: true)
+            postAnswerThinking.removeAll(keepingCapacity: true)
+        }
+
+        if hasStartedVisibleAnswer {
+            if postAnswerThinking.isEmpty {
+                if !streamingThinking.isEmpty {
+                    streamingThinking.append("\n\n")
+                }
+                streamingThinking.append(postAnswerDisplaySeparator)
+            }
+            postAnswerThinking.append(text)
+            thinkingEndedAt = .now
+        } else {
+            thinkingEndedAt = nil
+        }
+
+        streamingThinking.append(text)
+    }
+}
+
 // MARK: - Chat State
 // In-memory streaming and message state for the active chat session.
 // AppBootstrap persists completed messages to SDChat/SDMessage via SwiftData.
@@ -113,6 +187,7 @@ final class ChatState {
     /// popover can render in-flight reasoning (ChatGPT-style). Cleared
     /// when a new turn starts or when the turn completes.
     var streamingThinking = ""
+    private var postAnswerThinking = ""
     /// True while the model is in its thinking phase — the popover
     /// trigger is only visible when this is true. Flips false on the
     /// first text delta (thinking closes, answer begins) or when the
@@ -742,21 +817,25 @@ final class ChatState {
     /// + thinkingStartedAt). Subsequent deltas append to streamingThinking
     /// so the popover UI can render the in-flight reasoning live.
     func appendStreamingThinking(_ text: String) {
-        guard !hasStartedVisibleAnswer else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isThinkingActive || !trimmed.isEmpty else { return }
-        if !isThinkingActive {
+        if !hasStartedVisibleAnswer, !isThinkingActive {
             isThinkingActive = true
-            thinkingStartedAt = Date()
-            streamingThinking.removeAll(keepingCapacity: true)
         }
-        streamingThinking.append(text)
+        StreamingReasoningTraceBuffer.append(
+            text,
+            streamingThinking: &streamingThinking,
+            postAnswerThinking: &postAnswerThinking,
+            hasStartedVisibleAnswer: hasStartedVisibleAnswer,
+            isThinkingActive: &isThinkingActive,
+            thinkingStartedAt: &thinkingStartedAt,
+            thinkingEndedAt: &thinkingEndedAt
+        )
     }
 
     /// Reset all thinking-popover state between turns. Called by
     /// finalizeStreaming / clearMessages / startNewChat.
     func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
+        postAnswerThinking.removeAll(keepingCapacity: false)
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil

@@ -2414,6 +2414,15 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         return tier
     }
 
+    nonisolated var capturesReasoningTrace: Bool {
+        switch self {
+        case .fast:
+            false
+        case .thinking, .pro, .agent:
+            true
+        }
+    }
+
     var displayName: String {
         switch self {
         case .fast: "Fast"

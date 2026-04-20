@@ -1063,11 +1063,15 @@ final class ChatCoordinator {
         // weak reference so cancelled turns don't write into a stale
         // state. Cleared at the end of the Task so sinks don't leak
         // across turns on different chats.
-        llmService.reasoningSink = { [weak chatState] delta in
-            guard let chatState else { return }
-            Task { @MainActor in
-                chatState.appendStreamingThinking(delta)
+        if operatingMode.capturesReasoningTrace {
+            llmService.reasoningSink = { [weak chatState] delta in
+                guard let chatState else { return }
+                Task { @MainActor in
+                    chatState.appendStreamingThinking(delta)
+                }
             }
+        } else {
+            llmService.reasoningSink = nil
         }
         // Usage sink: per-turn cache + token totals get stashed on
         // ChatState so `completeProcessing` can stamp the assistant
