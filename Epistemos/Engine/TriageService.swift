@@ -2282,14 +2282,27 @@ final class TriageService {
                 var emittedVisibleText = ""
                 var emittedInferredReasoningText = ""
                 var reasoningRouter = ThinkTagStreamRouter()
+                var sawExplicitThinkingTags = false
 
                 do {
                     for try await chunk in upstream {
+                        let priorRawText = rawText
                         let reasoningEmit = reasoningRouter.ingest(chunk)
+                        if !reasoningEmit.thinking.isEmpty
+                            || reasoningRouter.isCurrentlyThinking
+                            || ThinkingTagSyntax.openingMatch(in: chunk) != nil
+                            || ThinkingTagSyntax.closingMatch(in: chunk) != nil {
+                            sawExplicitThinkingTags = true
+                        }
                         if !reasoningEmit.thinking.isEmpty {
                             reasoningSink?(reasoningEmit.thinking)
                         }
                         rawText += chunk
+                        if sawExplicitThinkingTags, !reasoningEmit.visible.isEmpty {
+                            emittedVisibleText += reasoningEmit.visible
+                            continuation.yield(reasoningEmit.visible)
+                            continue
+                        }
                         let inferredReasoningText = UserFacingModelOutput.streamingReasoningText(from: rawText)
                         if !inferredReasoningText.isEmpty,
                            inferredReasoningText.hasPrefix(emittedInferredReasoningText) {
@@ -2314,7 +2327,18 @@ final class TriageService {
                         if !delta.isEmpty {
                             emittedVisibleText = visibleText
                             continuation.yield(delta)
+                            continue
                         }
+
+                        guard emittedVisibleText.isEmpty,
+                              let standaloneAnswer = UserFacingModelOutput
+                                  .streamingStandaloneAnswerChunk(chunk, afterReasoningRaw: priorRawText),
+                              !standaloneAnswer.isEmpty else {
+                            continue
+                        }
+
+                        emittedVisibleText = standaloneAnswer
+                        continuation.yield(standaloneAnswer)
                     }
 
                     let trailingReasoning = reasoningRouter.flush()

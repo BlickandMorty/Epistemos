@@ -400,6 +400,23 @@ struct AgentChatStateTests {
         #expect(message?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
+    @Test("agent chat does not promote native reasoning summaries into the final answer")
+    func completeProcessingDoesNotPromoteNativeReasoningSummaryIntoAnswer() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking("What's weaker")
+
+        state.completeProcessing(mode: .api)
+
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.isError != true)
+        #expect(message?.content.contains("never produced a final answer") == true)
+        #expect(message?.content != "What's weaker")
+        #expect(message?.thinkingTrace == "What's weaker")
+    }
+
     @Test("agent chat interrupted turns preserve thinking-only fallbacks")
     func interruptedProcessingPreservesThinkingOnlyTurns() {
         let state = AgentChatState()
@@ -424,6 +441,22 @@ struct AgentChatStateTests {
         #expect(message?.isError != true)
         #expect(message?.content.contains("never produced a final answer") == true)
         #expect(message?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("agent chat interrupted turns do not promote native reasoning summaries into the final answer")
+    func interruptedProcessingDoesNotPromoteNativeReasoningSummaryIntoAnswer() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking("What's weaker")
+
+        let completed = state.completeInterruptedProcessing(mode: .api)
+
+        #expect(completed)
+        let message = state.messages.last
+        #expect(message?.content.contains("never produced a final answer") == true)
+        #expect(message?.content != "What's weaker")
+        #expect(message?.thinkingTrace == "What's weaker")
     }
 
     @Test("agent chat interrupted turns recover final answers from hidden thinking")

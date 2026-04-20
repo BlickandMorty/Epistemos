@@ -189,6 +189,8 @@ final class AgentChatState {
     /// thinkingStartedAt); subsequent deltas append to streamingThinking so
     /// the UI can render the reasoning live instead of a blank spinner.
     func appendStreamingThinking(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isThinkingActive || !trimmed.isEmpty else { return }
         if !isThinkingActive {
             isThinkingActive = true
             thinkingStartedAt = Date()
@@ -281,7 +283,8 @@ final class AgentChatState {
         var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
         if answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !capturedThinking.isEmpty {
-            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            let salvagedFromThinking = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: capturedThinking) ?? ""
             if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 answerText = salvagedFromThinking
             } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
@@ -372,7 +375,8 @@ final class AgentChatState {
         var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
         if answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !capturedThinking.isEmpty {
-            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            let salvagedFromThinking = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: capturedThinking) ?? ""
             if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 answerText = salvagedFromThinking
             } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {

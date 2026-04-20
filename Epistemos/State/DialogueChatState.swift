@@ -873,7 +873,8 @@ final class DialogueChatState {
     }
 
     private func appendStreamingThinking(_ text: String) {
-        guard !text.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
         if thinkingStartedAt == nil {
             thinkingStartedAt = .now
             streamingThinking.removeAll(keepingCapacity: true)
@@ -895,7 +896,8 @@ final class DialogueChatState {
         if !visibleText.isEmpty {
             messages[lastIndex].text = visibleText
         } else if !trimmedThinking.isEmpty {
-            let recoveredAnswer = UserFacingModelOutput.finalVisibleText(from: trimmedThinking)
+            let recoveredAnswer = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: trimmedThinking) ?? ""
             messages[lastIndex].text =
                 recoveredAnswer.isEmpty
                 ? (UserFacingModelOutput.incompleteReasoningFallback(from: trimmedThinking)

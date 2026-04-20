@@ -856,6 +856,69 @@ nonisolated enum UserFacingModelOutput {
         return "The model finished its thinking trace but never produced a final answer. Try Fast mode, a lower thinking level, or another model."
     }
 
+    static func salvagedAnswerFromThinkingTrace(from rawThinking: String) -> String? {
+        let trimmed = rawThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+
+        if let directAnswer = directAnswerText(in: trimmed) {
+            return directAnswer
+        }
+
+        if let boundary = ThinkingPreludeSyntax.answerBoundary(in: trimmed) {
+            let answer = String(trimmed[boundary.answerStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return answer.isEmpty ? nil : answer
+        }
+
+        // Native reasoning summaries from cloud providers are often a
+        // single short fragment ("Checking the note…" / "What's weaker")
+        // rather than a hidden answer. Only salvage free-form thinking
+        // when it has multiple paragraphs and the last paragraph looks
+        // like a real user-facing sentence.
+        guard paragraphs(in: trimmed).count >= 2,
+              let candidate = bestAnswerCandidate(in: trimmed)?
+                  .trimmingCharacters(in: .whitespacesAndNewlines),
+              isPlausibleThinkingSalvageCandidate(candidate) else {
+            return nil
+        }
+
+        return candidate
+    }
+
+    static func streamingStandaloneAnswerChunk(
+        _ chunk: String,
+        afterReasoningRaw priorRaw: String
+    ) -> String? {
+        let trimmedChunk = chunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedChunk.isEmpty else { return nil }
+        guard !isOnlyDanglingAnswerMarker(trimmedChunk) else { return nil }
+        guard !isReasoningParagraph(trimmedChunk) else { return nil }
+        guard !isStructuredToolPayload(trimmedChunk) else { return nil }
+
+        if let directAnswer = directAnswerText(in: trimmedChunk) {
+            return directAnswer
+        }
+
+        if ThinkingPreludeSyntax.answerMatch(in: priorRaw) != nil {
+            let combinedFinal = finalVisibleText(from: priorRaw + chunk)
+            if !combinedFinal.isEmpty {
+                return combinedFinal
+            }
+        }
+
+        let priorClosedHiddenReasoning =
+            ThinkingTagSyntax.closingMatch(in: priorRaw) != nil
+            || AssistantControlTagSyntax.closingMatch(in: priorRaw) != nil
+        if priorClosedHiddenReasoning {
+            return trimmedChunk
+        }
+
+        if containsStructuredReasoningPlan(in: priorRaw) {
+            return trimmedChunk
+        }
+
+        return nil
+    }
+
     private static func cleanedVisibleText(
         from raw: String,
         suppressIncompleteThinkingTail: Bool
@@ -1216,6 +1279,19 @@ nonisolated enum UserFacingModelOutput {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalized.first == "{", normalized.last == "}" else { return false }
         return normalized.contains("\"name\"") && normalized.contains("\"arguments\"")
+    }
+
+    private static func isPlausibleThinkingSalvageCandidate(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+        guard !isReasoningParagraph(trimmed) else { return false }
+
+        let wordCount = trimmed.split(whereSeparator: \.isWhitespace).count
+        guard wordCount >= 6, trimmed.count >= 24 else { return false }
+
+        let hasSentencePunctuation = trimmed.contains { ".!?".contains($0) }
+        let hasLineBreak = trimmed.contains("\n")
+        return hasSentencePunctuation || hasLineBreak
     }
 }
 

@@ -445,7 +445,8 @@ final class ChatState {
         var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
         if answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            !capturedThinking.isEmpty {
-            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            let salvagedFromThinking = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: capturedThinking) ?? ""
             if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 answerText = salvagedFromThinking
             } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
@@ -537,7 +538,8 @@ final class ChatState {
         var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if answerText.isEmpty, !capturedThinking.isEmpty {
-            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            let salvagedFromThinking = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: capturedThinking) ?? ""
             if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 answerText = salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines)
             } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
@@ -735,6 +737,8 @@ final class ChatState {
     /// + thinkingStartedAt). Subsequent deltas append to streamingThinking
     /// so the popover UI can render the in-flight reasoning live.
     func appendStreamingThinking(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard isThinkingActive || !trimmed.isEmpty else { return }
         if !isThinkingActive {
             isThinkingActive = true
             thinkingStartedAt = Date()

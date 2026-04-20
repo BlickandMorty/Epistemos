@@ -359,7 +359,7 @@ private struct CacheHitBadge: View {
         HStack(spacing: 3) {
             Image(systemName: "bolt.horizontal.fill")
                 .font(.system(size: 8, weight: .semibold))
-            Text("cache \(Int((fraction * 100).rounded()))%")
+            Text("prompt cache \(Int((fraction * 100).rounded()))%")
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
         }
         .foregroundStyle(.green)
@@ -367,7 +367,7 @@ private struct CacheHitBadge: View {
         .padding(.vertical, 1)
         .background(Color.green.opacity(0.10), in: Capsule())
         .help(
-            "\(Int((fraction * 100).rounded()))% of input tokens were served from the prompt cache on this turn — faster + cheaper"
+            "\(Int((fraction * 100).rounded()))% of input tokens were served from the provider prompt cache on this turn. Both cloud and local providers can report this when supported — faster + cheaper."
         )
     }
 }

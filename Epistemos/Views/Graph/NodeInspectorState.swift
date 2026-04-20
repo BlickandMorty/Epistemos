@@ -728,7 +728,8 @@ final class NodeInspectorState {
 
         let trimmedThinking = chatStreamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedThinking.isEmpty {
-            let recoveredAnswer = UserFacingModelOutput.finalVisibleText(from: trimmedThinking)
+            let recoveredAnswer = UserFacingModelOutput
+                .salvagedAnswerFromThinkingTrace(from: trimmedThinking) ?? ""
             chatMessages[lastIndex].text =
                 recoveredAnswer.isEmpty
                 ? (UserFacingModelOutput.incompleteReasoningFallback(from: trimmedThinking)
@@ -738,7 +739,8 @@ final class NodeInspectorState {
     }
 
     private func appendStreamingThinking(_ text: String) {
-        guard !text.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard chatThinkingStartedAt != nil || !trimmed.isEmpty else { return }
         if chatThinkingStartedAt == nil {
             chatThinkingStartedAt = .now
             chatStreamingThinking.removeAll(keepingCapacity: true)

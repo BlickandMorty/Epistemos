@@ -158,7 +158,8 @@ final class NoteChatState {
     }
 
     private func appendStreamingThinking(_ text: String) {
-        guard !text.isEmpty else { return }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
         if thinkingStartedAt == nil {
             thinkingStartedAt = .now
             streamingThinking.removeAll(keepingCapacity: true)
