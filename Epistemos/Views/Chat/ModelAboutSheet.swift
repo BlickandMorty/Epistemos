@@ -119,6 +119,7 @@ struct ModelAboutSheet: View {
                 }
             } else if case .cloud(let model) = selection {
                 specRow("Provider", value: model.providerDisplayName)
+                specRow("Best For", value: model.aboutSheetPurposeSummary)
                 specRow("Modes", value: model.aboutSheetModeSummary)
                 specRow("Output", value: model.aboutSheetStructuredOutputSummary)
                 specRow("API ID", value: model.vendorModelID)
@@ -190,8 +191,13 @@ struct ModelAboutSheet: View {
     }
 
     private func formatTokens(_ tokens: Int) -> String {
-        if tokens >= 1_000_000 { return "\(tokens / 1_000_000)M tokens" }
-        return "\(tokens / 1_000)K tokens"
+        if tokens >= 1_000_000 {
+            return "\(tokens / 1_000_000)M tokens"
+        }
+        if tokens >= 1_000 {
+            return String(format: "%.1fK tokens", Double(tokens) / 1_000)
+        }
+        return "\(tokens) tokens"
     }
 
     private var headerIcon: String {
