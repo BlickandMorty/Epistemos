@@ -45,6 +45,7 @@ nonisolated enum LocalGGUFRuntimeError: LocalizedError, Equatable {
     case runtimeUnavailable
     case modelNotPrepared
     case backendUnavailable
+    case fastModeUnsupported(modelID: String)
 
     var errorDescription: String? {
         switch self {
@@ -54,6 +55,8 @@ nonisolated enum LocalGGUFRuntimeError: LocalizedError, Equatable {
             return "The selected GGUF model is not prepared on disk yet."
         case .backendUnavailable:
             return "The in-process GGUF backend is unavailable in this build."
+        case .fastModeUnsupported(let modelID):
+            return "Fast mode is unavailable for \(modelID) because this local model always emits thinking traces. Switch to Thinking or pick a different local model."
         }
     }
 }
@@ -896,6 +899,11 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         guard let resolvedModelID = modelID ?? inference.effectiveLocalTextModelID else {
             throw LocalInferenceRoutingError.modelRequired
         }
+        if reasoningMode == .fast,
+           let resolvedModel = LocalTextModelID(rawValue: resolvedModelID),
+           resolvedModel.cannotDisableThinkingInFast {
+            throw LocalGGUFRuntimeError.fastModeUnsupported(modelID: resolvedModelID)
+        }
 
         let trimmed = LocalMLXClient.trimForLocalRuntime(
             prompt: prompt,
@@ -1041,6 +1049,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                 return .modelNotFound
             case .backendUnavailable:
                 return .backendFailure
+            case .fastModeUnsupported:
+                return .runtimeUnavailable
             }
         }
         return .backendFailure
