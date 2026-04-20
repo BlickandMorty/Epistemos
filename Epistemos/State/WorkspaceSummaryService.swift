@@ -292,11 +292,15 @@ final class WorkspaceSummaryService {
             return
         }
         guard let workspace = workspaces.first(where: { $0.isAutoSave }) else { return }
+        let originalSummary = workspace.summary
+        let originalLastSummaryAt = workspace.lastSummaryAt
         workspace.summary = text
         workspace.lastSummaryAt = Date()
         do {
             try context.save()
         } catch {
+            workspace.summary = originalSummary
+            workspace.lastSummaryAt = originalLastSummaryAt
             Self.log.error("Summary storage save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
