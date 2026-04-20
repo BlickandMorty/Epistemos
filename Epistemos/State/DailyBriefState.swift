@@ -25,8 +25,11 @@ final class DailyBriefState {
     var onDailyBriefSave: (@MainActor @Sendable (String) async -> Void)?
 
     private var dailyBriefTask: Task<Void, Never>?
+    private var dismissCleanupTask: Task<Void, Never>?
 
     func requestDailyBrief(prompt: String) {
+        dismissCleanupTask?.cancel()
+        dismissCleanupTask = nil
         showDailyBrief = true
         isDailyBriefLoading = true
         dailyBriefContent = ""
@@ -51,14 +54,23 @@ final class DailyBriefState {
     func dismissDailyBrief() {
         dailyBriefTask?.cancel()
         dailyBriefTask = nil
+        dismissCleanupTask?.cancel()
         withAnimation(Motion.smooth) {
             showDailyBrief = false
         }
         // Cleanup after animation completes
-        Task {
-            try? await Task.sleep(for: .milliseconds(500))
+        dismissCleanupTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(500))
+            } catch is CancellationError {
+                return
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
             dailyBriefContent = ""
             isDailyBriefLoading = false
+            dismissCleanupTask = nil
         }
     }
 
