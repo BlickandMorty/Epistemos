@@ -211,6 +211,19 @@ struct RuntimeValidationTests {
         #expect(settings.contains("inference.setChatAutoRouteToCloud($0)"))
     }
 
+    @Test("inference settings expose model-aware provider-native runtime controls")
+    func inferenceSettingsExposeModelAwareProviderNativeRuntimeControls() throws {
+        let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(settings.contains("Reasoning Effort"))
+        #expect(settings.contains("providerNativeReasoningModes(for:"))
+        #expect(settings.contains("providerNativeControls(for: provider)"))
+        #expect(settings.contains("if hasConfiguredAccess {"))
+        #expect(settings.contains("Enable Extended Thinking"))
+        #expect(settings.contains("Enable Grounding with Google Search"))
+        #expect(settings.contains("Enable Web Search"))
+    }
+
     @Test("pipeline only enters the local tool loop when the effective chat surface stays local")
     func pipelineOnlyUsesToolLoopForEffectiveLocalSelections() throws {
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
