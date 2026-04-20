@@ -123,7 +123,7 @@ struct TrainingHistoryView: View {
         panel.nameFieldStringValue = "\(adapter.name).\(AdapterExporter.bundleExtension)"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task {
-            _ = await vm.exportAdapter(adapter, outputDirectory: url.deletingLastPathComponent())
+            _ = await vm.exportAdapter(adapter, outputURL: url)
         }
     }
 }

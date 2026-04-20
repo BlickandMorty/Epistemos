@@ -25,7 +25,6 @@ struct KFProgress: Sendable {
 /// Follows Epistemos pattern: @MainActor @Observable (never the legacy observable-object protocol).
 @MainActor @Observable
 final class KnowledgeFusionViewModel {
-
     /// Shared instance so training persists across view navigation.
     static let shared = KnowledgeFusionViewModel()
 
@@ -458,13 +457,27 @@ final class KnowledgeFusionViewModel {
 
     @discardableResult
     func exportAdapter(_ record: AdapterRecord, outputDirectory: URL) async -> URL? {
+        let exporter = AdapterExporter()
+        return await performAdapterExport {
+            try exporter.export(record: record, outputDirectory: outputDirectory)
+        }
+    }
+
+    @discardableResult
+    func exportAdapter(_ record: AdapterRecord, outputURL: URL) async -> URL? {
+        let exporter = AdapterExporter()
+        return await performAdapterExport {
+            try exporter.export(record: record, outputURL: outputURL)
+        }
+    }
+
+    private func performAdapterExport(
+        _ work: @escaping @Sendable () throws -> URL
+    ) async -> URL? {
         lastTrainingError = nil
 
         do {
-            let exporter = AdapterExporter()
-            return try await Task.detached(priority: .utility) {
-                try exporter.export(record: record, outputDirectory: outputDirectory)
-            }.value
+            return try await Task.detached(priority: .utility, operation: work).value
         } catch {
             lastTrainingError = error.localizedDescription
             return nil

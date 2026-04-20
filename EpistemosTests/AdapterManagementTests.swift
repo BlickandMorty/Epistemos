@@ -172,6 +172,26 @@ struct AdapterRegistryTests {
         try await registry.updateQualityScore(record.id, score: 0.85)
         #expect(await registry.getAdapter(id: record.id)?.qualityScore == 0.85)
     }
+
+    @Test("Persisted updates survive replacing an existing registry file")
+    func persistedUpdatesSurviveReplaceItemSavePath() async throws {
+        let storagePath = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kf-registry-replace-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: storagePath) }
+
+        let registry = AdapterRegistry(storagePath: storagePath)
+        let (record, cleanup) = makeTestAdapter()
+        defer { cleanup() }
+
+        try await registry.register(record)
+        try await registry.setActive(record.id, active: true)
+
+        let reloadedRegistry = AdapterRegistry(storagePath: storagePath)
+        try await reloadedRegistry.load()
+
+        let reloaded = try #require(await reloadedRegistry.getAdapter(id: record.id))
+        #expect(reloaded.isActive == true)
+    }
 }
 
 // MARK: - AdapterLoader Tests

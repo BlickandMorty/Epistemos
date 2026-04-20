@@ -84,9 +84,10 @@ actor AdapterRegistry {
         try data.write(to: tempPath, options: .atomic)
 
         if fm.fileExists(atPath: storagePath.path) {
-            try fm.removeItem(at: storagePath)
+            _ = try fm.replaceItemAt(storagePath, withItemAt: tempPath)
+        } else {
+            try fm.moveItem(at: tempPath, to: storagePath)
         }
-        try fm.moveItem(at: tempPath, to: storagePath)
     }
 
     // MARK: - CRUD
