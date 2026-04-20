@@ -936,6 +936,12 @@ struct LandingView: View {
                 return "@[\(attachment.title)]"
             case .allNotes:
                 return "@AllNotes"
+            case .folder:
+                // Folders expand into individual note attachments at
+                // turn time via `expandFolderAttachments`; the visible
+                // mention stays on the folder name so the user sees
+                // what they attached.
+                return "@[\(attachment.title)] (folder)"
             case .chat:
                 let title = attachment.title.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !title.isEmpty else { return nil }

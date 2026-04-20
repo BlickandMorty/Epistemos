@@ -99,12 +99,19 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     case note
     case chat
     case allNotes
+    /// Attaches every note inside a named vault folder. At turn time the
+    /// attachment gets expanded into per-note `.note` attachments via the
+    /// manifest (entries whose `folderName` matches `title`), so the
+    /// model receives the full set of note bodies instead of just one
+    /// token representing the folder.
+    case folder
 
     var systemImageName: String {
         switch self {
         case .note: "doc.text"
         case .chat: "bubble.left.and.bubble.right"
         case .allNotes: "books.vertical"
+        case .folder: "folder"
         }
     }
 }

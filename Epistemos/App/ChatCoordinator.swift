@@ -2492,14 +2492,22 @@ final class ChatCoordinator {
         searchNoteIDs: @escaping @Sendable (String) async -> [String],
         fetchChatMessages: @escaping @Sendable (String) async -> [AssistantMessage]
     ) async -> AttachedContextResolution {
-        let hasAttachedNotes = attachments.contains { $0.kind == .note }
+        // Expand `.folder` attachments into per-note `.note` attachments
+        // up front, using the in-memory manifest. A `.folder` attachment's
+        // `title` is the folder name; we pull every manifest entry whose
+        // `folderName` matches and synthesize `ContextAttachment.note`
+        // siblings so the downstream `.note` filter below picks them up.
+        // Without this, picking "@MyFolder" as context only surfaced the
+        // single folder-token to the model instead of the notes inside.
+        let expandedAttachments = expandFolderAttachments(attachments, manifest: manifest)
+        let hasAttachedNotes = expandedAttachments.contains { $0.kind == .note }
         let requestedNoteContext = queryContainsExplicitNoteContext(query)
-            || attachments.contains(where: { $0.kind == .allNotes })
+            || expandedAttachments.contains(where: { $0.kind == .allNotes })
         let noteResolution = await resolveNotesContext(
             query: query,
             manifest: manifest,
             includeAllNotesContext: includeAllNotesContext
-                || attachments.contains(where: { $0.kind == .allNotes }),
+                || expandedAttachments.contains(where: { $0.kind == .allNotes }),
             allowImplicitReferencedNoteLookup: !hasAttachedNotes,
             findNotesByTitle: findNotesByTitle,
             fetchNoteBodies: fetchNoteBodies,
@@ -2507,13 +2515,13 @@ final class ChatCoordinator {
         )
 
         let attachedNoteContext = await buildAttachedNoteContext(
-            for: attachments.filter { $0.kind == .note },
+            for: expandedAttachments.filter { $0.kind == .note },
             excluding: noteResolution.loadedNoteIds,
             findNotesByTitle: findNotesByTitle,
             fetchNoteBodies: fetchNoteBodies
         )
         let chatContext = await buildChatContextPack(
-            for: attachments.filter { $0.kind == .chat },
+            for: expandedAttachments.filter { $0.kind == .chat },
             fetchChatMessages: fetchChatMessages
         )
         var parts: [String] = []
@@ -2743,6 +2751,53 @@ final class ChatCoordinator {
             }
             .prefix(limit)
             .map(\.pageId)
+    }
+
+    /// Replace every `.folder` attachment with `.note` attachments for
+    /// each manifest entry whose `folderName` matches the folder's title.
+    /// Non-folder attachments pass through unchanged. Folder tokens that
+    /// don't resolve to any manifest entries (e.g. empty folder, folder
+    /// deleted since attach) are dropped so we don't surface a dead
+    /// `.folder` token to downstream code that only handles the known
+    /// kinds.
+    private static func expandFolderAttachments(
+        _ attachments: [ContextAttachment],
+        manifest: VaultManifest?
+    ) -> [ContextAttachment] {
+        guard attachments.contains(where: { $0.kind == .folder }) else {
+            return attachments
+        }
+        var result: [ContextAttachment] = []
+        result.reserveCapacity(attachments.count)
+        var seenNoteIDs: Set<String> = []
+        for attachment in attachments {
+            switch attachment.kind {
+            case .folder:
+                guard let manifest else { continue }
+                let folderName = attachment.title
+                for entry in manifest.entries
+                    where (entry.folderName ?? "") == folderName
+                    && !seenNoteIDs.contains(entry.pageId) {
+                    seenNoteIDs.insert(entry.pageId)
+                    result.append(
+                        ContextAttachment(
+                            kind: .note,
+                            targetId: entry.pageId,
+                            title: entry.title,
+                            subtitle: entry.folderName
+                        )
+                    )
+                }
+            case .note:
+                if !seenNoteIDs.contains(attachment.targetId) {
+                    seenNoteIDs.insert(attachment.targetId)
+                    result.append(attachment)
+                }
+            case .chat, .allNotes:
+                result.append(attachment)
+            }
+        }
+        return result
     }
 
     private static func buildAttachedNoteContext(
