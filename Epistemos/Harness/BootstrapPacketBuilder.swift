@@ -306,7 +306,11 @@ enum BootstrapPacketBuilder {
             runtimes.append(RuntimeInfo(name: "swift", version: nil))
         }
         // Cargo/Rust
-        if fm.fileExists(atPath: "/Users/\(NSUserName())/.cargo/bin/cargo")
+        if fm.fileExists(
+            atPath: FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent(".cargo/bin/cargo")
+                .path
+        )
             || fm.fileExists(atPath: "/opt/homebrew/bin/cargo") {
             runtimes.append(RuntimeInfo(name: "cargo", version: nil))
         }

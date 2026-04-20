@@ -167,7 +167,7 @@ enum ProgressStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(progress)
             let path = dir.appendingPathComponent("progress.json")
-            try data.write(to: path)
+            try data.write(to: path, options: .atomic)
             log.info("Saved session progress: \(progress.sessionId)")
         } catch {
             log.error("Failed to save progress: \(error.localizedDescription)")
@@ -202,7 +202,7 @@ enum ProgressStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(decomp)
             let path = dir.appendingPathComponent("tasks.json")
-            try data.write(to: path)
+            try data.write(to: path, options: .atomic)
             log.info("Saved task decomposition: \(decomp.sessionId) (\(decomp.tasks.count) tasks)")
         } catch {
             log.error("Failed to save task decomposition: \(error.localizedDescription)")
@@ -226,7 +226,7 @@ enum ProgressStore {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(packet)
             let path = dir.appendingPathComponent("bootstrap_packet.json")
-            try data.write(to: path)
+            try data.write(to: path, options: .atomic)
         } catch {
             log.error("Failed to save bootstrap packet: \(error.localizedDescription)")
         }
