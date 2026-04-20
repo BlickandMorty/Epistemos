@@ -12,7 +12,7 @@
 
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use async_trait::async_trait;
 use grep_matcher::Matcher;
@@ -60,6 +60,13 @@ const BLOCKED_FILENAMES: &[&str] = &[
     "credentials.json",
 ];
 
+fn is_blocked_home_subpath(trimmed: &str) -> bool {
+    BLOCKED_HOME_SUFFIXES.iter().any(|suffix| {
+        let exact = suffix.trim_end_matches('/');
+        trimmed == exact || trimmed.starts_with(suffix)
+    })
+}
+
 fn resolve_path(path: &str) -> Result<PathBuf, ToolError> {
     if path.is_empty() {
         return Err(ToolError::InvalidArguments("path cannot be empty".into()));
@@ -75,7 +82,36 @@ fn resolve_path(path: &str) -> Result<PathBuf, ToolError> {
         PathBuf::from(path)
     };
 
-    Ok(expanded)
+    Ok(normalize_path_lexically(&expanded))
+}
+
+fn normalize_path_lexically(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    let absolute = path.has_root();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(prefix) => normalized.push(prefix.as_os_str()),
+            Component::RootDir => normalized.push(component.as_os_str()),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.pop() && !absolute {
+                    normalized.push("..");
+                }
+            }
+            Component::Normal(part) => normalized.push(part),
+        }
+    }
+
+    if normalized.as_os_str().is_empty() {
+        if absolute {
+            PathBuf::from(std::path::MAIN_SEPARATOR.to_string())
+        } else {
+            PathBuf::from(".")
+        }
+    } else {
+        normalized
+    }
 }
 
 fn is_blocked_filename(path: &Path) -> bool {
@@ -96,12 +132,10 @@ fn is_blocked_for_write(path: &Path) -> Option<String> {
         let home_str = home.to_string_lossy();
         if let Some(rest) = abs.strip_prefix(home_str.as_ref()) {
             let trimmed = rest.trim_start_matches('/');
-            for suffix in BLOCKED_HOME_SUFFIXES {
-                if trimmed.starts_with(suffix) {
-                    return Some(format!(
-                        "path '{abs}' is in a protected credential directory"
-                    ));
-                }
+            if is_blocked_home_subpath(trimmed) {
+                return Some(format!(
+                    "path '{abs}' is in a protected credential directory"
+                ));
             }
         }
     }
@@ -126,16 +160,18 @@ fn is_blocked_for_read(path: &Path) -> Option<String> {
         let home_str = home.to_string_lossy();
         if let Some(rest) = abs.strip_prefix(home_str.as_ref()) {
             let trimmed = rest.trim_start_matches('/');
-            for suffix in BLOCKED_HOME_SUFFIXES {
-                if trimmed.starts_with(suffix) {
-                    return Some(format!(
-                        "path '{abs}' is in a protected credential directory"
-                    ));
-                }
+            if is_blocked_home_subpath(trimmed) {
+                return Some(format!(
+                    "path '{abs}' is in a protected credential directory"
+                ));
             }
         }
     }
     None
+}
+
+fn should_visit_search_entry(path: &Path) -> bool {
+    is_blocked_for_read(path).is_none() && !is_noise_path(path)
 }
 
 // MARK: - read_file
@@ -163,6 +199,18 @@ impl ToolHandler for ReadFileHandler {
         let resolved = resolve_path(path_arg)?;
         if let Some(reason) = is_blocked_for_read(&resolved) {
             return Err(ToolError::ExecutionFailed(reason));
+        }
+        if !resolved.exists() {
+            let resolved_display = resolved.display().to_string();
+            let expansion_hint = if path_arg != resolved_display {
+                format!(" (expanded from '{path_arg}')")
+            } else {
+                String::new()
+            };
+            return Err(ToolError::ExecutionFailed(format!(
+                "file '{}' does not exist{}",
+                resolved_display, expansion_hint
+            )));
         }
 
         // Binary detection: read up to 8KB and scan for null bytes.
@@ -783,6 +831,9 @@ impl ToolHandler for SearchFilesHandler {
             .unwrap_or(false);
 
         let root = resolve_path(root_arg)?;
+        if let Some(reason) = is_blocked_for_read(&root) {
+            return Err(ToolError::ExecutionFailed(reason));
+        }
         if !root.exists() {
             return Err(ToolError::ExecutionFailed(format!(
                 "search root '{}' does not exist",
@@ -860,6 +911,7 @@ fn search_contents(
     'outer: for entry in WalkDir::new(root)
         .follow_links(false)
         .into_iter()
+        .filter_entry(|entry| should_visit_search_entry(entry.path()))
         .filter_map(|r| r.ok())
     {
         if !entry.file_type().is_file() {
@@ -874,11 +926,7 @@ fn search_contents(
                 continue;
             }
         }
-        if is_blocked_filename(entry.path()) {
-            continue;
-        }
-        // Skip well-known noise dirs to keep search cheap.
-        if is_noise_path(entry.path()) {
+        if !should_visit_search_entry(entry.path()) {
             continue;
         }
 
@@ -942,12 +990,13 @@ fn search_filenames(
     for entry in WalkDir::new(root)
         .follow_links(false)
         .into_iter()
+        .filter_entry(|entry| should_visit_search_entry(entry.path()))
         .filter_map(|r| r.ok())
     {
         if !entry.file_type().is_file() {
             continue;
         }
-        if is_blocked_filename(entry.path()) || is_noise_path(entry.path()) {
+        if !should_visit_search_entry(entry.path()) {
             continue;
         }
         if let Some(gs) = glob_matcher {
@@ -1044,6 +1093,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_file_reports_missing_files_with_the_requested_path() {
+        let dir = tempdir().unwrap();
+        let missing = dir.path().join("missing.txt");
+
+        let handler = ReadFileHandler;
+        let err = handler
+            .execute(&json!({ "path": missing.to_string_lossy() }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("does not exist"));
+        assert!(message.contains(&missing.to_string_lossy().to_string()));
+    }
+
+    #[tokio::test]
     async fn write_file_creates_parents_and_content() {
         let dir = tempdir().unwrap();
         let path = dir.path().join("nested/dir/file.txt");
@@ -1071,6 +1135,26 @@ mod tests {
             .await
             .unwrap_err();
         assert!(format!("{err}").contains("protected"));
+    }
+
+    #[test]
+    fn resolve_path_normalizes_parent_segments_before_policy_checks() {
+        let resolved = resolve_path("~/workspace/../.ssh/id_rsa").unwrap();
+        assert!(resolved.to_string_lossy().contains("/.ssh/id_rsa"));
+        assert!(is_blocked_for_read(&resolved).is_some());
+    }
+
+    #[tokio::test]
+    async fn write_file_blocks_normalized_home_credential_paths() {
+        let handler = WriteFileHandler;
+        let err = handler
+            .execute(&json!({
+                "path": "~/workspace/../.ssh/config",
+                "content": "Host *",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("protected credential directory"));
     }
 
     #[tokio::test]
@@ -1168,6 +1252,19 @@ mod tests {
             .unwrap();
         assert!(result.contains("alpha.rs"));
         assert!(!result.contains("beta.md"));
+    }
+
+    #[tokio::test]
+    async fn search_files_blocks_normalized_home_credential_roots() {
+        let handler = SearchFilesHandler;
+        let err = handler
+            .execute(&json!({
+                "pattern": "secret",
+                "path": "~/workspace/../.ssh",
+            }))
+            .await
+            .unwrap_err();
+        assert!(format!("{err}").contains("protected credential directory"));
     }
 
     #[test]
