@@ -479,7 +479,8 @@ struct ChatInputBar: View {
                         ChatBrainPickerMenu(
                             operatingMode: operatingMode,
                             availableOperatingModes: availableOperatingModes,
-                            isTemporaryChatEnabled: incognitoBinding
+                            isTemporaryChatEnabled: incognitoBinding,
+                            preferSplitToolbarControls: true
                         )
                         attachButton
                         ComposerMicButton { transcript in

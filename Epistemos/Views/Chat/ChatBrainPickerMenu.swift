@@ -35,13 +35,19 @@ struct ChatBrainPickerMenu: View {
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
     var availableOperatingModes: [EpistemosOperatingMode]? = nil
     var isTemporaryChatEnabled: Binding<Bool>? = nil
+    /// Main chat's composer wants the full split toolbar (mode / model /
+    /// routing / effort / native controls). Landing's hero chat wants the
+    /// single compact "Fast · Qwen" popover, same as mini/note/graph.
+    /// Default off so only the opted-in caller (main chat) splits.
+    var preferSplitToolbarControls: Bool = false
 
     var body: some View {
         LocalModelToolbarMenu(
             variant: .toolbar,
             operatingMode: operatingMode,
             availableOperatingModes: availableOperatingModes,
-            isTemporaryChatEnabled: isTemporaryChatEnabled
+            isTemporaryChatEnabled: isTemporaryChatEnabled,
+            preferSplitToolbarControls: preferSplitToolbarControls
         )
     }
 }
