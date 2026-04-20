@@ -10,6 +10,7 @@ final class ThreadState {
 
     private var miniChatStreamingStateByID: [String: Bool] = [:]
     private var miniChatStreamingTextByID: [String: String] = [:]
+    private var miniChatStreamingThinkingByID: [String: String] = [:]
 
     @discardableResult
     func createThread(type: String = "chat", label: String = "Thread", pageId: String? = nil) -> String {
@@ -126,6 +127,7 @@ final class ThreadState {
         chatThreads.removeAll { $0.id == id && $0.type == Self.miniChatThreadType }
         miniChatStreamingStateByID.removeValue(forKey: id)
         miniChatStreamingTextByID.removeValue(forKey: id)
+        miniChatStreamingThinkingByID.removeValue(forKey: id)
         normalizeActiveThreadSelection()
     }
 
@@ -168,6 +170,19 @@ final class ThreadState {
 
     func setMiniChatStreamingText(_ text: String, chatID: String) {
         miniChatStreamingTextByID[chatID] = text
+    }
+
+    func miniChatStreamingThinking(chatID: String) -> String {
+        miniChatStreamingThinkingByID[chatID] ?? ""
+    }
+
+    func appendMiniChatStreamingThinking(_ delta: String, chatID: String) {
+        guard !delta.isEmpty else { return }
+        miniChatStreamingThinkingByID[chatID, default: ""].append(delta)
+    }
+
+    func clearMiniChatStreamingThinking(chatID: String) {
+        miniChatStreamingThinkingByID.removeValue(forKey: chatID)
     }
 
     private func normalizeActiveThreadSelection() {

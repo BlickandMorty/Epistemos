@@ -40,6 +40,8 @@ final class SDMessage {
     var loadedNoteTitlesData: Data?     // Encoded [String]
     var contextAttachmentsData: Data?   // Encoded [ContextAttachment]
     var artifactsData: Data?            // Encoded [Artifact] — structured output blocks
+    var thinkingTrace: String?
+    var thinkingDurationSeconds: Double?
     var isError: Bool = false
     var isVaultBriefing: Bool = false
 
@@ -243,7 +245,9 @@ final class SDMessage {
             loadedNoteTitles: decodedLoadedNoteTitles(),
             contextAttachments: decodedContextAttachments(),
             artifacts: decodedArtifacts(),
-            contentBlocks: decodedContentBlocks()
+            contentBlocks: decodedContentBlocks(),
+            thinkingTrace: thinkingTrace,
+            thinkingDurationSeconds: thinkingDurationSeconds
         )
     }
 }
