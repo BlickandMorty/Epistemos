@@ -163,10 +163,6 @@ final class ChatCoordinator {
     ) {
         bootstrap.queryTask?.cancel()
 
-        let aiFresh = AppleIntelligenceService.shared.checkAvailability()
-        inferenceState.appleIntelligenceAvailable = aiFresh.available
-        inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
-
         agentChat.startStreaming()
         accState.diagnostics.resetForNewSubmission()
         accState.diagnostics.markCompiling()
@@ -226,6 +222,15 @@ final class ChatCoordinator {
 
         bootstrap.queryTask = Task {
             do {
+                // Refresh Apple Intelligence availability inside the async
+                // Task so the Send-tap returns immediately. Matches the
+                // pattern already in place for `handleQuery` — Command
+                // Center submissions now share the same responsiveness
+                // profile.
+                let aiFresh = AppleIntelligenceService.shared.checkAvailability()
+                self.inferenceState.appleIntelligenceAvailable = aiFresh.available
+                self.inferenceState.appleIntelligenceUnavailableReason = aiFresh.reason
+
                 let compiled = await compiler.compile(
                     request: request,
                     conversationHistory: conversationHistory
