@@ -1359,6 +1359,17 @@ struct RuntimeValidationTests {
         #expect(workspace.contains(".onAppear {\n                Task { @MainActor in"))
     }
 
+    @Test("note chat sidebar can render assistant thinking trails")
+    func noteChatSidebarCanRenderThinkingTrails() throws {
+        let noteSidebar = try loadRepoTextFile("Epistemos/Views/Notes/NoteChatSidebar.swift")
+        let chatTypes = try loadRepoTextFile("Epistemos/Models/ChatTypes.swift")
+
+        #expect(noteSidebar.contains("ThinkingTrailView("))
+        #expect(noteSidebar.contains("msg.thinkingTrace"))
+        #expect(chatTypes.contains("var thinkingTrace: String?"))
+        #expect(chatTypes.contains("var thinkingDurationSeconds: Double?"))
+    }
+
     @Test("settings window keeps a native source-list layout with a persistent sidebar toggle")
     func settingsWindowUsesNativeSourceListChrome() throws {
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")

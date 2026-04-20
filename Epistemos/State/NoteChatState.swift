@@ -126,6 +126,9 @@ final class NoteChatState {
     @ObservationIgnored private var streamingTaskToken = UUID()
     @ObservationIgnored private var streamingPresentation: StreamingPresentation = .responsePanel
     @ObservationIgnored private var streamedInlineVisibleText = ""
+    @ObservationIgnored private var streamingThinking = ""
+    @ObservationIgnored private var thinkingStartedAt: Date?
+    @ObservationIgnored private var thinkingEndedAt: Date?
     @ObservationIgnored private var thinkTagRouter = ThinkTagStreamRouter()
 
     init(pageId: String) {
@@ -134,6 +137,9 @@ final class NoteChatState {
 
     func appendStreamingText(_ text: String) {
         let emit = thinkTagRouter.ingest(text)
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
+        }
         guard !emit.visible.isEmpty else { return }
         streamBuffer.append(emit.visible)
     }
@@ -144,8 +150,42 @@ final class NoteChatState {
 
     private func flushThinkTagRouter() {
         let emit = thinkTagRouter.flush()
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
+        }
         guard !emit.visible.isEmpty else { return }
         streamBuffer.append(emit.visible, scheduleFlush: false)
+    }
+
+    private func appendStreamingThinking(_ text: String) {
+        guard !text.isEmpty else { return }
+        if thinkingStartedAt == nil {
+            thinkingStartedAt = .now
+            streamingThinking.removeAll(keepingCapacity: true)
+        }
+        streamingThinking.append(text)
+        thinkingEndedAt = .now
+    }
+
+    private func resetThinkingState() {
+        streamingThinking.removeAll(keepingCapacity: false)
+        thinkingStartedAt = nil
+        thinkingEndedAt = nil
+    }
+
+    private func makeAssistantMessage(content: String) -> AssistantMessage {
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        let thinkingDurationSeconds: Double? = {
+            guard let startedAt = thinkingStartedAt else { return nil }
+            let endedAt = thinkingEndedAt ?? .now
+            return max(0, endedAt.timeIntervalSince(startedAt))
+        }()
+        return AssistantMessage(
+            role: .assistant,
+            content: content,
+            thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
+            thinkingDurationSeconds: thinkingDurationSeconds
+        )
     }
 
     private func resetStreamBuffer(releaseCapacity: Bool = false) {
@@ -191,6 +231,7 @@ final class NoteChatState {
         responseText.reserveCapacity(16_384)
         streamingPresentation = presentation
         streamedInlineVisibleText = ""
+        resetThinkingState()
         thinkTagRouter = ThinkTagStreamRouter()
 
         if startInlineStream {
@@ -225,8 +266,9 @@ final class NoteChatState {
 
         let final = finalizeResponseText()
         if !final.isEmpty {
+            let assistantMessage = makeAssistantMessage(content: final)
             acceptResponse()
-            messages.append(AssistantMessage(role: .assistant, content: final))
+            messages.append(assistantMessage)
         } else {
             discardResponse()
         }
@@ -258,7 +300,7 @@ final class NoteChatState {
                 } else {
                     let final = self.finalizeResponseText()
                     if !final.isEmpty {
-                        self.messages.append(AssistantMessage(role: .assistant, content: final))
+                        self.messages.append(self.makeAssistantMessage(content: final))
                     }
                 }
             } catch is CancellationError {
@@ -285,7 +327,11 @@ final class NoteChatState {
 
     // MARK: - Submit
 
-    func submitQuery(_ query: String, triageService: TriageService) {
+    func submitQuery(
+        _ query: String,
+        triageService: TriageService,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         replacePendingResponseIfNeeded()
@@ -314,14 +360,21 @@ final class NoteChatState {
             stream = reasoning.streamWithReasoning(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode
             )
             log.info("Note chat: reasoning loop enabled")
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode,
+                reasoningSink: { [weak self] delta in
+                    self?.appendStreamingThinking(delta)
+                }
             )
             log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
         }
@@ -332,7 +385,11 @@ final class NoteChatState {
         startStreamingTask(stream: stream, taskToken: taskToken, usesInlineResponse: usesInlineResponse)
     }
 
-    func submitToolbarQuery(_ query: String, triageService: TriageService) {
+    func submitToolbarQuery(
+        _ query: String,
+        triageService: TriageService,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         replacePendingResponseIfNeeded()
@@ -360,14 +417,21 @@ final class NoteChatState {
             stream = reasoning.streamWithReasoning(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode
             )
             log.info("Note chat toolbar: reasoning loop enabled")
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: .ask(query: trimmed),
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode,
+                reasoningSink: { [weak self] delta in
+                    self?.appendStreamingThinking(delta)
+                }
             )
             log.info("Note chat toolbar: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
         }
@@ -383,7 +447,8 @@ final class NoteChatState {
     func submitQuery(
         _ query: String,
         operation: NotesOperation,
-        triageService: TriageService
+        triageService: TriageService,
+        operatingMode: EpistemosOperatingMode = .fast
     ) {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -405,13 +470,20 @@ final class NoteChatState {
             stream = reasoning.streamWithReasoning(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: operation,
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode
             )
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
                 operation: operation,
-                contentLength: noteBody.count, query: trimmed
+                contentLength: noteBody.count,
+                query: trimmed,
+                operatingMode: operatingMode,
+                reasoningSink: { [weak self] delta in
+                    self?.appendStreamingThinking(delta)
+                }
             )
         }
 
@@ -617,6 +689,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         clearResponseTextBuffer()
+        resetThinkingState()
         thinkTagRouter = ThinkTagStreamRouter()
         resetStreamingPresentationState()
     }
@@ -629,6 +702,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         clearResponseTextBuffer()
+        resetThinkingState()
         thinkTagRouter = ThinkTagStreamRouter()
         resetStreamingPresentationState()
     }
@@ -641,6 +715,7 @@ final class NoteChatState {
             resetStreamBuffer(releaseCapacity: true)
             clearResponseTextBuffer()
             useResponsePanel = false
+            resetThinkingState()
             thinkTagRouter = ThinkTagStreamRouter()
             resetStreamingPresentationState()
         }

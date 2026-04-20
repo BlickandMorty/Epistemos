@@ -355,6 +355,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
     var id: String
     var role: MessageRole
     var content: String
+    var thinkingTrace: String?
+    var thinkingDurationSeconds: Double?
     var loadedNoteTitles: [String]?
     var contextAttachments: [ContextAttachment]?
     var createdAt: Date
@@ -363,6 +365,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         id: String = UUID().uuidString,
         role: MessageRole,
         content: String,
+        thinkingTrace: String? = nil,
+        thinkingDurationSeconds: Double? = nil,
         loadedNoteTitles: [String]? = nil,
         contextAttachments: [ContextAttachment]? = nil,
         createdAt: Date = .now
@@ -370,6 +374,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         self.id = id
         self.role = role
         self.content = content
+        self.thinkingTrace = thinkingTrace
+        self.thinkingDurationSeconds = thinkingDurationSeconds
         self.loadedNoteTitles = loadedNoteTitles
         self.contextAttachments = contextAttachments
         self.createdAt = createdAt

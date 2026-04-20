@@ -87,6 +87,16 @@ struct NoteChatSidebar: View {
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
                 .lineSpacing(2)
+
+            if msg.role == .assistant,
+               let thinkingTrace = msg.thinkingTrace?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !thinkingTrace.isEmpty {
+                ThinkingTrailView(
+                    content: thinkingTrace,
+                    durationSeconds: msg.thinkingDurationSeconds
+                )
+                .padding(.top, 6)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
