@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - PythonEnvironmentManager
 
@@ -9,6 +10,7 @@ import Foundation
 final class PythonEnvironmentManager {
 
     static let shared = PythonEnvironmentManager()
+    private static let log = Logger(subsystem: "com.epistemos", category: "PythonEnvironment")
 
     // MARK: - State
 
@@ -104,7 +106,15 @@ final class PythonEnvironmentManager {
         guard let source = foundSource else { return }
 
         // Copy each .py script
-        let scripts = (try? fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil)) ?? []
+        let scripts: [URL]
+        do {
+            scripts = try fm.contentsOfDirectory(at: source, includingPropertiesForKeys: nil)
+        } catch {
+            Self.log.error(
+                "Failed to read training scripts at \(source.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw error
+        }
         for script in scripts where script.pathExtension == "py" {
             let dest = destDir.appendingPathComponent(script.lastPathComponent)
             if fm.fileExists(atPath: dest.path) {
@@ -208,7 +218,7 @@ final class PythonEnvironmentManager {
             }
 
             // Write marker
-            try Data("ok".utf8).write(to: markerFile)
+            try Data("ok".utf8).write(to: markerFile, options: .atomic)
             state = .ready
 
         } catch {

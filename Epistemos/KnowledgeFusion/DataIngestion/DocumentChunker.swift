@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 // MARK: - Types
 
@@ -37,6 +38,7 @@ private struct RustChunk: Decodable {
 /// the dual-bound token estimator.
 /// PDF/text documents use paragraph-based chunking (300-700 words).
 struct DocumentChunker: Sendable {
+    private static let log = Logger(subsystem: "com.epistemos.app", category: "KnowledgeFusion")
 
     /// Target word range for non-markdown (paragraph-based) chunking.
     private let paragraphTargetMin: Int
@@ -80,9 +82,28 @@ struct DocumentChunker: Sendable {
         guard result.chunkCount > 0 else { return [] }
 
         // Decode JSON chunks from Rust
-        guard let data = result.chunksJson.data(using: .utf8),
-              let rustChunks = try? JSONDecoder().decode([RustChunk].self, from: data)
-        else {
+        guard let data = result.chunksJson.data(using: .utf8) else {
+            Self.log.error("DocumentChunker: Rust chunker returned non-UTF8 chunk JSON")
+            return [TextChunk(
+                id: UUID(),
+                documentId: document.id,
+                sourcePageId: document.sourcePageId,
+                chunkIndex: 0,
+                text: document.cleanedText,
+                heading: nil,
+                hierarchy: "",
+                estimatedTokenCount: Int(result.totalTokens),
+                chunkType: .markdown
+            )]
+        }
+
+        let rustChunks: [RustChunk]
+        do {
+            rustChunks = try JSONDecoder().decode([RustChunk].self, from: data)
+        } catch {
+            Self.log.error(
+                "DocumentChunker: failed to decode Rust chunk JSON for document \(document.id.uuidString, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             // Fallback: return entire document as single chunk
             return [TextChunk(
                 id: UUID(),

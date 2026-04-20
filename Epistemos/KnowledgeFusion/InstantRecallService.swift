@@ -191,8 +191,24 @@ final class InstantRecallService {
 
         lastSearchLatencyMs = elapsed
 
-        guard let data = json.data(using: .utf8),
-              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        guard let data = json.data(using: .utf8) else {
+            log.error("InstantRecall: search returned non-UTF8 JSON payload")
+            lastResults = []
+            return []
+        }
+
+        let array: [[String: Any]]
+        do {
+            guard let parsed = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                log.error("InstantRecall: search returned unexpected JSON shape")
+                lastResults = []
+                return []
+            }
+            array = parsed
+        } catch {
+            log.error(
+                "InstantRecall: failed to decode search payload: \(error.localizedDescription, privacy: .public)"
+            )
             lastResults = []
             return []
         }

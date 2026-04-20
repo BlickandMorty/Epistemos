@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - Skill Types
 
@@ -47,6 +48,8 @@ enum SkillType: String, Codable, Sendable, CaseIterable {
 /// Persistent registry of all generated skill files.
 /// Stored as JSON in the skills directory.
 nonisolated struct SkillManifest: Codable, Sendable {
+    private static let log = Logger(subsystem: "com.epistemos", category: "SkillManifest")
+
     var version: Int = 1
     var skills: [SkillEntry] = []
     var lastGeneratedAt: Date?
@@ -63,9 +66,14 @@ nonisolated struct SkillManifest: Codable, Sendable {
     }
 
     static func load() -> SkillManifest {
-        guard let data = try? Data(contentsOf: manifestURL),
-              let manifest = try? JSONDecoder().decode(SkillManifest.self, from: data)
-        else { return SkillManifest() }
+        guard let data = try? Data(contentsOf: manifestURL) else {
+            Self.log.warning("Failed to read skill manifest at \(manifestURL.path, privacy: .public)")
+            return SkillManifest()
+        }
+        guard let manifest = try? JSONDecoder().decode(SkillManifest.self, from: data) else {
+            Self.log.error("Failed to decode skill manifest at \(manifestURL.path, privacy: .public)")
+            return SkillManifest()
+        }
         return manifest
     }
 

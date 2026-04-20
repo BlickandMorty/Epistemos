@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import os
 
 // MARK: - Embodied Capture Service
 
@@ -17,6 +18,7 @@ import AppKit
 ///   let trajectory = capture.buildTrajectoryStep(instruction: "...", reasoning: "...", action: action, pre: pre, post: post)
 @MainActor
 final class EmbodiedCaptureService {
+    private static let log = Logger(subsystem: "com.epistemos.app", category: "EmbodiedCapture")
 
     // MARK: - Output paths
 
@@ -27,8 +29,21 @@ final class EmbodiedCaptureService {
         let support = FoundationSafety.userApplicationSupportDirectory()
         outputDirectory = support.appendingPathComponent("Epistemos/embodied-data")
         screenshotsDirectory = outputDirectory.appendingPathComponent("screenshots")
-        try? FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: screenshotsDirectory, withIntermediateDirectories: true)
+        let outputDirectoryPath = outputDirectory.path
+        do {
+            try FileManager.default.createDirectory(
+                at: outputDirectory,
+                withIntermediateDirectories: true
+            )
+            try FileManager.default.createDirectory(
+                at: screenshotsDirectory,
+                withIntermediateDirectories: true
+            )
+        } catch {
+            Self.log.error(
+                "EmbodiedCaptureService: failed to create output directories under \(outputDirectoryPath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     // MARK: - AX Tree Capture
@@ -42,12 +57,23 @@ final class EmbodiedCaptureService {
         // Parse to extract interactive element count for quality scoring
         var interactiveCount = 0
         var isSparse = true
-        if let data = json.data(using: .utf8),
-           let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            isSparse = (parsed["is_sparse"] as? Bool) ?? true
-            if let elements = parsed["elements"] as? [[String: Any]] {
-                interactiveCount = elements.filter { ($0["is_interactive"] as? Bool) == true }.count
+        if let data = json.data(using: .utf8) {
+            do {
+                if let parsed = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    isSparse = (parsed["is_sparse"] as? Bool) ?? true
+                    if let elements = parsed["elements"] as? [[String: Any]] {
+                        interactiveCount = elements.filter { ($0["is_interactive"] as? Bool) == true }.count
+                    }
+                } else {
+                    Self.log.error("EmbodiedCaptureService: AX tree payload had unexpected JSON shape")
+                }
+            } catch {
+                Self.log.error(
+                    "EmbodiedCaptureService: failed to decode AX tree payload: \(error.localizedDescription, privacy: .public)"
+                )
             }
+        } else {
+            Self.log.error("EmbodiedCaptureService: AX tree payload was not valid UTF-8")
         }
 
         return AXTreeSnapshotData(
@@ -168,11 +194,31 @@ final class EmbodiedCaptureService {
     /// Returns a JSON string describing added/removed/changed elements.
     private func computeAXDiff(pre: String, post: String) -> String {
         guard let preData = pre.data(using: .utf8),
-              let postData = post.data(using: .utf8),
-              let preTree = try? JSONSerialization.jsonObject(with: preData) as? [String: Any],
-              let postTree = try? JSONSerialization.jsonObject(with: postData) as? [String: Any],
-              let preElements = preTree["elements"] as? [[String: Any]],
+              let postData = post.data(using: .utf8) else {
+            Self.log.error("EmbodiedCaptureService: AX diff received non-UTF8 snapshot data")
+            return "{}"
+        }
+
+        let preTree: [String: Any]
+        let postTree: [String: Any]
+        do {
+            guard let decodedPre = try JSONSerialization.jsonObject(with: preData) as? [String: Any],
+                  let decodedPost = try JSONSerialization.jsonObject(with: postData) as? [String: Any] else {
+                Self.log.error("EmbodiedCaptureService: AX diff payload had unexpected JSON shape")
+                return "{}"
+            }
+            preTree = decodedPre
+            postTree = decodedPost
+        } catch {
+            Self.log.error(
+                "EmbodiedCaptureService: failed to decode AX diff payload: \(error.localizedDescription, privacy: .public)"
+            )
+            return "{}"
+        }
+
+        guard let preElements = preTree["elements"] as? [[String: Any]],
               let postElements = postTree["elements"] as? [[String: Any]] else {
+            Self.log.error("EmbodiedCaptureService: AX diff payload missing elements arrays")
             return "{}"
         }
 
@@ -192,8 +238,18 @@ final class EmbodiedCaptureService {
             "post_total": postElements.count,
         ]
 
-        guard let diffData = try? JSONSerialization.data(withJSONObject: diff),
-              let diffString = String(data: diffData, encoding: .utf8) else {
+        let diffData: Data
+        do {
+            diffData = try JSONSerialization.data(withJSONObject: diff)
+        } catch {
+            Self.log.error(
+                "EmbodiedCaptureService: failed to encode AX diff payload: \(error.localizedDescription, privacy: .public)"
+            )
+            return "{}"
+        }
+
+        guard let diffString = String(data: diffData, encoding: .utf8) else {
+            Self.log.error("EmbodiedCaptureService: encoded AX diff was not valid UTF-8")
             return "{}"
         }
         return diffString

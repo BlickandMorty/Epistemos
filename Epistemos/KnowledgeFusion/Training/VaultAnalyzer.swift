@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - Vault Analysis Result
 
@@ -32,6 +33,7 @@ struct VaultAnalysis: Sendable {
 /// optimal training settings WITHOUT using an LLM. Uses heuristics only.
 /// Runs in <1 second for vaults up to 10,000 files.
 nonisolated struct VaultAnalyzer: Sendable {
+    private static let log = Logger(subsystem: "com.epistemos.app", category: "VaultAnalyzer")
 
     private static let codeExtensions: Set<String> = [
         "swift", "py", "rs", "js", "ts", "jsx", "tsx", "go", "c", "cpp",
@@ -190,7 +192,10 @@ nonisolated struct VaultAnalyzer: Sendable {
 
     private func sampleWords(from url: URL, totalWords: inout Int, wordSet: inout Set<String>, sampledCount: inout Int) {
         // Only sample first 2000 chars to keep analysis fast
-        guard let handle = try? FileHandle(forReadingFrom: url) else { return }
+        guard let handle = try? FileHandle(forReadingFrom: url) else {
+            Self.log.warning("Failed to open \(url.path, privacy: .public) for vault analysis")
+            return
+        }
         defer { handle.closeFile() }
         let data = handle.readData(ofLength: 2000)
         guard let text = String(data: data, encoding: .utf8) else { return }
