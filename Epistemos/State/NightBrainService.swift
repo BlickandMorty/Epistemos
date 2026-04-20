@@ -320,21 +320,27 @@ actor NightBrainService {
                         ssmService.stateRoot.appendingPathComponent("ssm_cache", isDirectory: true)
                     )
                 }
-                if FileManager.default.fileExists(atPath: stateDir.path),
-                   let modelDirs = try? FileManager.default.contentsOfDirectory(
-                       at: stateDir,
-                       includingPropertiesForKeys: nil,
-                       options: .skipsHiddenFiles
-                   ) {
-                    var totalPruned = 0
-                    for modelDir in modelDirs where modelDir.hasDirectoryPath {
-                        let modelId = modelDir.lastPathComponent
-                        totalPruned += await MainActor.run {
-                            ssmService.pruneStates(modelId: modelId, keepCount: maxSnapshots)
+                if FileManager.default.fileExists(atPath: stateDir.path) {
+                    do {
+                        let modelDirs = try FileManager.default.contentsOfDirectory(
+                            at: stateDir,
+                            includingPropertiesForKeys: nil,
+                            options: .skipsHiddenFiles
+                        )
+                        var totalPruned = 0
+                        for modelDir in modelDirs where modelDir.hasDirectoryPath {
+                            let modelId = modelDir.lastPathComponent
+                            totalPruned += await MainActor.run {
+                                ssmService.pruneStates(modelId: modelId, keepCount: maxSnapshots)
+                            }
                         }
-                    }
-                    if totalPruned > 0 {
-                        Self.log.info("SSM state pruning: removed \(totalPruned) old snapshots")
+                        if totalPruned > 0 {
+                            Self.log.info("SSM state pruning: removed \(totalPruned) old snapshots")
+                        }
+                    } catch {
+                        Self.log.error(
+                            "NightBrain: failed to list SSM cache directories at \(stateDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
                     }
                 }
             }
