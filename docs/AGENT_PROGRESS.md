@@ -2,6 +2,9 @@
 
 Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `codex/runtime-input-audit` — routing UX, Codex cloud-quality fix, agent thinking-delta wiring, empty-stream guard, QwQ-32B flagship reasoner, effective-model badge (data + UI).
 
+Canonical release-hardening plan:
+- `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md` is the authoritative release-focused plan that reconciles later research, blocker handoffs, and verification requirements.
+
 ## 2026-04-19 Reasoning Trace Continuation ✅
 - [x] `3c17ac95` — note chat now persists `thinkingTrace` / `thinkingDurationSeconds` through its SwiftData round-trip; reloading a note no longer drops the assistant's collapsible thought trail
 - [x] Verification: focused `xcodebuild ... -only-testing:EpistemosTests/NoteChatStateTests` passed on the warmed `/tmp/epistemos-mlx-load-stall` path

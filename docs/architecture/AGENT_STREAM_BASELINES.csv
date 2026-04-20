@@ -1,0 +1,9 @@
+Surface,Metric,Value,Unit,Date,Notes
+Agent Streaming: TTFT,Time to first token (text or thinking delta),TBD,ms,2026-04-15,Rust tracing: time_to_first_token — requires live session
+Agent Streaming: Turn Duration,Total streaming time per turn,TBD,ms,2026-04-15,Rust tracing: turn_stream_complete — requires live session
+Agent Streaming: Event Rate,Stream events per second during generation,TBD,events/sec,2026-04-15,Computed from event_count / turn_stream_duration_ms
+Agent Streaming: Session Duration,End-to-end agent session wall time,TBD,ms,2026-04-15,Rust tracing: agent_session_complete — requires live session
+Agent Streaming: Main Thread CPU%,Swift main-thread utilization during streaming,TBD,%,2026-04-15,Swift os_signpost: Log.agentStreaming — requires Instruments run
+Agent Streaming: Frame Impact,Frame drops during sustained streaming,TBD,count,2026-04-15,Instruments Time Profiler — requires live session
+Agent Streaming: Delegate Call Overhead,Per-event FFI callback cost,TBD,µs,2026-04-15,Instruments os_signpost — requires live session
+Agent Streaming: Memory Growth (60s),Memory delta during 60s sustained streaming,TBD,MB,2026-04-15,Instruments Allocations — requires live session
