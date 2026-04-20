@@ -4,6 +4,30 @@ import Testing
 
 @Suite("Chat Presentation")
 struct ChatPresentationTests {
+    @Test("streaming chat preserves late reasoning outside the visible answer")
+    @MainActor func streamingChatPreservesLateReasoningOutsideVisibleAnswer() {
+        let chatState = ChatState()
+        chatState.submitQuery("Analyze this.")
+        chatState.startStreaming()
+
+        chatState.appendStreamingThinking("Compare the core claims.")
+        chatState.appendStreamingText("## Analysis\n\nThe note distinguishes prediction from inevitability.")
+        chatState.appendStreamingThinking("Keep the caveat with the final framing.")
+        chatState.stopStreaming()
+
+        #expect(
+            chatState.streamingThinking ==
+                "Compare the core claims.\n\nAfter-answer thought:\nKeep the caveat with the final framing."
+        )
+        #expect(
+            chatState.streamingText ==
+                "## Analysis\n\nThe note distinguishes prediction from inevitability."
+        )
+        #expect(!chatState.isThinkingActive)
+        #expect(chatState.thinkingStartedAt != nil)
+        #expect(chatState.thinkingEndedAt != nil)
+    }
+
     @Test("transcript rows precompute assistant presentation metadata")
     func transcriptRowsPrecomputeAssistantPresentationMetadata() {
         let messages = [

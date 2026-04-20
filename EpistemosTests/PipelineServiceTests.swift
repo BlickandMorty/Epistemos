@@ -2117,22 +2117,22 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.thinkingEndedAt != nil)
     }
 
-    @Test("main chat ignores late reasoning deltas after the answer has started")
-    func chatStateIgnoresLateReasoningAfterAnswerStarts() {
+    @Test("main chat keeps late reasoning deltas in the thinking trace after the answer has started")
+    func chatStatePreservesLateReasoningAfterAnswerStarts() {
         let chatState = ChatState()
         chatState.submitQuery("ask")
         chatState.startStreaming()
         chatState.appendStreamingThinking("thought")
         chatState.appendStreamingText("answer")
 
-        let capturedThinking = chatState.streamingThinking
-        let endedAt = chatState.thinkingEndedAt
-
         chatState.appendStreamingThinking(" trailing scratchpad")
 
         #expect(!chatState.isThinkingActive)
-        #expect(chatState.streamingThinking == capturedThinking)
-        #expect(chatState.thinkingEndedAt == endedAt)
+        #expect(
+            chatState.streamingThinking
+                == "thought\n\nAfter-answer thought:\n trailing scratchpad"
+        )
+        #expect(chatState.thinkingEndedAt != nil)
     }
 
     @Test("main chat resetThinkingState clears lingering popover state")

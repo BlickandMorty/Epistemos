@@ -22,6 +22,7 @@ final class AgentChatState {
     /// rather than appearing frozen during the reasoning phase. Cleared when
     /// a new agent turn starts or when a turn completes.
     var streamingThinking = ""
+    private var postAnswerThinking = ""
     /// True while the agent is in its thinking phase. Flips to false on the
     /// first text delta (thinking closes, answer begins) or when the turn
     /// finalizes without a thinking block.
@@ -193,15 +194,18 @@ final class AgentChatState {
     /// thinkingStartedAt); subsequent deltas append to streamingThinking so
     /// the UI can render the reasoning live instead of a blank spinner.
     func appendStreamingThinking(_ text: String) {
-        guard !hasStartedVisibleAnswer else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isThinkingActive || !trimmed.isEmpty else { return }
-        if !isThinkingActive {
+        if !hasStartedVisibleAnswer, !isThinkingActive {
             isThinkingActive = true
-            thinkingStartedAt = Date()
-            streamingThinking.removeAll(keepingCapacity: true)
         }
-        streamingThinking.append(text)
+        StreamingReasoningTraceBuffer.append(
+            text,
+            streamingThinking: &streamingThinking,
+            postAnswerThinking: &postAnswerThinking,
+            hasStartedVisibleAnswer: hasStartedVisibleAnswer,
+            isThinkingActive: &isThinkingActive,
+            thinkingStartedAt: &thinkingStartedAt,
+            thinkingEndedAt: &thinkingEndedAt
+        )
     }
 
     /// Convenience: classify an Error through UserFacingChatError and
@@ -214,6 +218,7 @@ final class AgentChatState {
     /// Reset all thinking-popover state between turns.
     func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
+        postAnswerThinking.removeAll(keepingCapacity: false)
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil

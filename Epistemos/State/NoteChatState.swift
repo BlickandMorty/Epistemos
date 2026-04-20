@@ -130,6 +130,7 @@ final class NoteChatState {
     @ObservationIgnored private var streamingPresentation: StreamingPresentation = .responsePanel
     @ObservationIgnored private var streamedInlineVisibleText = ""
     @ObservationIgnored private var streamingThinking = ""
+    @ObservationIgnored private var postAnswerThinking = ""
     @ObservationIgnored private var thinkingStartedAt: Date?
     @ObservationIgnored private var thinkingEndedAt: Date?
     @ObservationIgnored private var thinkTagRouter = ThinkTagStreamRouter()
@@ -164,19 +165,19 @@ final class NoteChatState {
     }
 
     private func appendStreamingThinking(_ text: String) {
-        guard !hasStartedVisibleAnswer else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
-        if thinkingStartedAt == nil {
-            thinkingStartedAt = .now
-            streamingThinking.removeAll(keepingCapacity: true)
-        }
-        streamingThinking.append(text)
-        thinkingEndedAt = .now
+        StreamingReasoningTraceBuffer.append(
+            text,
+            streamingThinking: &streamingThinking,
+            postAnswerThinking: &postAnswerThinking,
+            hasStartedVisibleAnswer: hasStartedVisibleAnswer,
+            thinkingStartedAt: &thinkingStartedAt,
+            thinkingEndedAt: &thinkingEndedAt
+        )
     }
 
     private func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
+        postAnswerThinking.removeAll(keepingCapacity: false)
         thinkingStartedAt = nil
         thinkingEndedAt = nil
         hasStartedVisibleAnswer = false

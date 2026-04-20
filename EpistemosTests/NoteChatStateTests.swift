@@ -521,8 +521,8 @@ struct NoteChatStateTests {
         #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
-    @Test("note chat ignores late think tags after visible answer text has started")
-    @MainActor func noteChatIgnoresLateThinkingAfterAnswerStarts() async throws {
+    @Test("note chat preserves late think tags after visible answer text has started")
+    @MainActor func noteChatPreservesLateThinkingAfterAnswerStarts() async throws {
         let inference = InferenceState()
         inference.appleIntelligenceAvailable = false
         inference.setRoutingMode(.localOnly)
@@ -547,7 +547,7 @@ struct NoteChatStateTests {
         let last = state.messages.last
         #expect(last?.role == .assistant)
         #expect(last?.content == "Visible answer.")
-        #expect(last?.thinkingTrace == nil)
+        #expect(last?.thinkingTrace == "After-answer thought:\nlate scratchpad")
     }
 
     @Test("note chat instant recall context filters duplicates and low-signal matches")
@@ -691,12 +691,16 @@ struct DialogueChatStateTests {
         #expect(source.contains("messages[lastIndex].thinkingTrace = trimmedThinking"))
     }
 
-    @Test("dialogue chat ignores late reasoning after visible text begins")
-    func dialogueChatIgnoresLateReasoningAfterVisibleTextBegins() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/State/DialogueChatState.swift")
+    @Test("dialogue chat preserves late reasoning through the shared trace buffer")
+    func dialogueChatPreservesLateReasoningThroughSharedTraceBuffer() throws {
+        let dialogueSource = try loadMirroredSourceTextFile("Epistemos/State/DialogueChatState.swift")
+        let noteSource = try loadMirroredSourceTextFile("Epistemos/State/NoteChatState.swift")
 
-        #expect(source.contains("guard !hasStartedVisibleAnswer else { return }"))
-        #expect(source.contains("hasStartedVisibleAnswer = true"))
+        #expect(dialogueSource.contains("StreamingReasoningTraceBuffer.append("))
+        #expect(dialogueSource.contains("postAnswerThinking"))
+        #expect(dialogueSource.contains("hasStartedVisibleAnswer = true"))
+        #expect(noteSource.contains("StreamingReasoningTraceBuffer.append("))
+        #expect(noteSource.contains("postAnswerThinking"))
     }
 }
 

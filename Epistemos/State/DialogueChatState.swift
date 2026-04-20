@@ -646,6 +646,7 @@ final class DialogueChatState {
     @ObservationIgnored private var typewriterTask: Task<Void, Never>?
     @ObservationIgnored private var nodeProfiles: [String: DialogueNodeProfile] = [:]
     @ObservationIgnored private var streamingThinking = ""
+    @ObservationIgnored private var postAnswerThinking = ""
     @ObservationIgnored private var thinkingStartedAt: Date?
     @ObservationIgnored private var thinkingEndedAt: Date?
     @ObservationIgnored private var hasStartedVisibleAnswer = false
@@ -875,15 +876,14 @@ final class DialogueChatState {
     }
 
     private func appendStreamingThinking(_ text: String) {
-        guard !hasStartedVisibleAnswer else { return }
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
-        if thinkingStartedAt == nil {
-            thinkingStartedAt = .now
-            streamingThinking.removeAll(keepingCapacity: true)
-        }
-        streamingThinking.append(text)
-        thinkingEndedAt = .now
+        StreamingReasoningTraceBuffer.append(
+            text,
+            streamingThinking: &streamingThinking,
+            postAnswerThinking: &postAnswerThinking,
+            hasStartedVisibleAnswer: hasStartedVisibleAnswer,
+            thinkingStartedAt: &thinkingStartedAt,
+            thinkingEndedAt: &thinkingEndedAt
+        )
     }
 
     private func flushTokens() {
@@ -920,6 +920,7 @@ final class DialogueChatState {
 
     private func resetThinkingState() {
         streamingThinking.removeAll(keepingCapacity: false)
+        postAnswerThinking.removeAll(keepingCapacity: false)
         thinkingStartedAt = nil
         thinkingEndedAt = nil
         hasStartedVisibleAnswer = false

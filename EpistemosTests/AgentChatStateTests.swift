@@ -236,21 +236,21 @@ struct AgentChatStateTests {
         #expect(state.streamingThinking == "thought")
     }
 
-    @Test("late reasoning deltas are ignored after the answer has started")
-    func lateReasoningDoesNotReopenThinkingAfterAnswerStarts() {
+    @Test("late reasoning deltas stay in the thinking trace after the answer has started")
+    func lateReasoningStaysInThinkingTraceAfterAnswerStarts() {
         let state = AgentChatState()
         state.startStreaming()
         state.appendStreamingThinking("thought")
         state.appendStreamingText("answer")
 
-        let capturedThinking = state.streamingThinking
-        let endedAt = state.thinkingEndedAt
-
         state.appendStreamingThinking(" trailing scratchpad")
 
         #expect(!state.isThinkingActive)
-        #expect(state.streamingThinking == capturedThinking)
-        #expect(state.thinkingEndedAt == endedAt)
+        #expect(
+            state.streamingThinking
+                == "thought\n\nAfter-answer thought:\n trailing scratchpad"
+        )
+        #expect(state.thinkingEndedAt != nil)
     }
 
     @Test("inline think tags route into the thinking stream instead of the visible answer")
