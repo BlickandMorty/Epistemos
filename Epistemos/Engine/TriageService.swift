@@ -483,52 +483,10 @@ nonisolated struct InferencePolicyEngine {
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> Bool {
-        guard context.cloudAutoRouteEnabled,
-              context.hasConfiguredCloudModels else {
-            return false
-        }
-
-        // Large attached folders / multi-note context swamp 4B/7B local
-        // KV caches and make even Fast turns degrade (hallucinations,
-        // truncated answers, swap pressure). When context is .large or
-        // .oversized, escalate to cloud even if a local model is
-        // otherwise available — cloud providers handle 100K+ tokens
-        // comfortably while a 4B local model chokes well before that.
-        if contextTier == .large || contextTier == .oversized {
-            reasonCodes.insert(.cloudAutoRoute)
-            return true
-        }
-
-        switch profile.operatingMode {
-        case .pro, .agent:
-            reasonCodes.insert(.cloudAutoRoute)
-            return true
-        case .thinking:
-            // Always prefer cloud for Thinking when auto-route is on and a
-            // cloud model is configured. 16 GB Macs can't comfortably run
-            // the 24-32 GB thinking models (QwQ 32B, Qwen 3.6 35B MoE, etc.)
-            // without swap-thrashing, and the 4B/7B thinking-capable local
-            // models are genuinely weaker than cloud reasoning. Escalating
-            // to a bigger-local model on the way to cloud is what the
-            // user described as "keeps loading DeepSeek instead of using
-            // my cloud key" — this preference flips that so Thinking in
-            // auto-route behaves like Pro/Agent. Users who want local
-            // thinking can still pin a local thinking model explicitly;
-            // that pin wins over auto-route via the earlier
-            // userHasExplicitPin check in `effectiveChatSurfaceSelection`.
-            reasonCodes.insert(.cloudAutoRoute)
-            return true
-        case .fast:
-            // Fast mode keeps its existing preference: stay local (or
-            // Apple Intelligence) unless neither is available. Fast
-            // turns on a small 4B local model are faster than a cloud
-            // round-trip and don't benefit from cloud reasoning.
-            if localSelection == nil && !context.appleIntelligenceAvailable {
-                reasonCodes.insert(.cloudAutoRoute)
-                return true
-            }
-            return false
-        }
+        // Auto-routing disabled: user has full control over model selection.
+        // The routing decision respects the user's explicit model pick
+        // without silently promoting to cloud.
+        return false
     }
 
     private func prefersDedicatedLocalChatRouting(
@@ -1198,7 +1156,8 @@ final class TriageService {
                     model: model,
                     operatingMode: operatingMode
                 ),
-                reasoningSink: reasoningSink
+                reasoningSink: reasoningSink,
+                skipInferredReasoning: true
             )
         }
     }
@@ -1400,7 +1359,8 @@ final class TriageService {
                     model: model,
                     operatingMode: operatingMode
                 ),
-                reasoningSink: reasoningSink
+                reasoningSink: reasoningSink,
+                skipInferredReasoning: true
             )
         }
     }
@@ -2321,18 +2281,41 @@ final class TriageService {
 
     private func userFacingStream(
         _ upstream: AsyncThrowingStream<String, Error>,
-        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil,
+        skipInferredReasoning: Bool = false
     ) -> AsyncThrowingStream<String, Error> {
         StreamingBufferPolicy.throwingStream(limit: StreamingBufferPolicy.textLimit) { continuation in
             let task = Task {
                 var rawText = ""
                 var emittedVisibleText = ""
                 var emittedInferredReasoningText = ""
-                var reasoningRouter = ThinkTagStreamRouter()
+                let reasoningRouter = ThinkTagStreamRouter()
                 var sawExplicitThinkingTags = false
 
                 do {
                     for try await chunk in upstream {
+                        // Fast path for cloud models with native reasoning
+                        // channels: the text stream IS the visible answer
+                        // (reasoning is already extracted at the transport
+                        // layer). Skip all heuristic reasoning/visible
+                        // splitting to prevent answer text from being
+                        // misclassified as reasoning and duplicated into the
+                        // thinking lane.
+                        if skipInferredReasoning {
+                            // Still parse <think> tags in case a cloud model
+                            // includes them (e.g. DeepSeek-R1), but skip
+                            // heuristic inference entirely.
+                            let reasoningEmit = reasoningRouter.ingest(chunk)
+                            if !reasoningEmit.thinking.isEmpty {
+                                reasoningSink?(reasoningEmit.thinking)
+                            }
+                            if !reasoningEmit.visible.isEmpty {
+                                emittedVisibleText += reasoningEmit.visible
+                                continuation.yield(reasoningEmit.visible)
+                            }
+                            continue
+                        }
+
                         let priorRawText = rawText
                         let reasoningEmit = reasoningRouter.ingest(chunk)
                         if !reasoningEmit.thinking.isEmpty
@@ -2393,18 +2376,20 @@ final class TriageService {
                         reasoningSink?(trailingReasoning.thinking)
                     }
 
-                    let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
-                    if finalVisibleText.hasPrefix(emittedVisibleText) {
-                        let deltaStart = finalVisibleText.index(
-                            finalVisibleText.startIndex,
-                            offsetBy: emittedVisibleText.count
-                        )
-                        let delta = String(finalVisibleText[deltaStart...])
-                        if !delta.isEmpty {
-                            continuation.yield(delta)
+                    if !skipInferredReasoning {
+                        let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
+                        if finalVisibleText.hasPrefix(emittedVisibleText) {
+                            let deltaStart = finalVisibleText.index(
+                                finalVisibleText.startIndex,
+                                offsetBy: emittedVisibleText.count
+                            )
+                            let delta = String(finalVisibleText[deltaStart...])
+                            if !delta.isEmpty {
+                                continuation.yield(delta)
+                            }
+                        } else if emittedVisibleText.isEmpty, !finalVisibleText.isEmpty {
+                            continuation.yield(finalVisibleText)
                         }
-                    } else if emittedVisibleText.isEmpty, !finalVisibleText.isEmpty {
-                        continuation.yield(finalVisibleText)
                     }
 
                     continuation.finish()

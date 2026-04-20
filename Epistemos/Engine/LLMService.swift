@@ -2348,9 +2348,9 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
 
     private func collectOpenAIResponseText(from request: URLRequest) async throws -> String {
         var collected = ""
-        for try await chunk in streamSSE(request) { json in
+        for try await chunk in streamSSE(request, chunkExtractor: { json in
             CloudStreamingParser.openAITextDelta(from: json)
-        } {
+        }) {
             collected += chunk
         }
 
