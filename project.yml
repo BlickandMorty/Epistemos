@@ -188,6 +188,7 @@ targets:
               --include='*.md' \
               --include='*.json' \
               --include='*.jsonl' \
+              --include='*.png' \
               --include='*.metal' \
               --include='*.xcprivacy' \
               --include='*.entitlements' \
@@ -218,8 +219,11 @@ targets:
           copy_tree "graph-engine"
           copy_tree "graph-engine-bridge"
           copy_tree "epistemos-core"
+          copy_tree "syntax-core"
+          copy_tree "syntax-core-bridge"
           copy_tree "scripts"
           copy_tree "docs"
+          copy_tree ".agents"
           copy_tree ".github"
           copy_tree "config"
           copy_tree "LocalPackages"

@@ -185,4 +185,8 @@ if [[ "${main_invocation_is_package_resolution}" != "1" ]]; then
   resolve_package_dependencies "$@"
 fi
 
-xcodebuild "$@" "${extra_xcodebuild_args[@]}"
+if [[ "${#extra_xcodebuild_args[@]}" -gt 0 ]]; then
+  xcodebuild "$@" "${extra_xcodebuild_args[@]}"
+else
+  xcodebuild "$@"
+fi

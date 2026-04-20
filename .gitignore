@@ -1,6 +1,8 @@
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
+.swiftpm/xcode/xcuserdata/
+*.xcuserstate
 DerivedData/
 build/
 *.ipa
@@ -22,6 +24,7 @@ Packages/
 *.log
 *.xcresult
 test_results/
+build_log.txt
 
 # Credentials
 .env
@@ -31,6 +34,7 @@ test_results/
 graph-engine/target/
 agent_core/target/
 syntax-core/target/
+syntax-core-bridge/*.a
 build-rust/
 
 # Reference repos

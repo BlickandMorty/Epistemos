@@ -158,25 +158,21 @@ impl SyntaxDocument {
 
         let start_char = self.rope.byte_to_char(byte_start);
         let old_end_char = self.rope.byte_to_char(byte_start + old_len);
+        let start_line = self.rope.char_to_line(start_char);
+        let start_col = byte_start - self.rope.line_to_byte(start_line);
+        let old_end_line = self.rope.char_to_line(old_end_char);
+        let old_end_col = (byte_start + old_len) - self.rope.line_to_byte(old_end_line);
 
         self.rope.remove(start_char..old_end_char);
         self.rope.insert(start_char, new_text);
 
         if let Some(ref mut tree) = self.tree {
-            let start_line = self.rope.char_to_line(start_char);
-            let start_col = byte_start - self.rope.line_to_byte(start_line);
-
             let new_end_byte = byte_start + new_text.len();
             let new_end_char = self.rope.byte_to_char(new_end_byte);
             let new_end_line = self.rope.char_to_line(new_end_char);
             let new_end_col = new_end_byte - self.rope.line_to_byte(new_end_line);
 
             let old_end_byte = byte_start + old_len;
-            // Reconstruct old end position from the original byte range.
-            // After rope mutation the old positions are gone, so we compute
-            // a best-effort approximation.  For single-line edits this is exact.
-            let old_end_line = start_line;
-            let old_end_col = start_col + old_len;
 
             tree.edit(&tree_sitter::InputEdit {
                 start_byte: byte_start,
@@ -271,6 +267,25 @@ mod tests {
         let text: String = doc.rope().to_string();
         assert!(text.contains("99"));
         assert!(!text.contains("42"));
+    }
+
+    #[test]
+    fn multiline_edit_keeps_tree_positions_consistent() {
+        let src = "fn main() {\n    let x = 1;\n}\n";
+        let mut doc = SyntaxDocument::new(1, &rust_language(), src);
+        let old_line = "    let x = 1;\n";
+        let replacement = "    let x = 1;\n    let y = 2;\n";
+        let byte_start = src.find(old_line).unwrap();
+
+        let delta = doc.edit(byte_start, old_line.len(), replacement);
+
+        assert_eq!(delta.byte_offset as usize, byte_start);
+        assert!(doc.tree().is_some());
+        assert_eq!(doc.stats().error_count, 0);
+
+        let text = doc.rope().to_string();
+        assert!(text.contains("let x = 1;"));
+        assert!(text.contains("let y = 2;"));
     }
 
     #[test]
