@@ -17,7 +17,7 @@ use reqwest::Client;
 use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
-use super::web_fetch::{html_to_text, validate_url};
+use super::web_fetch::{html_to_text, secure_redirect_policy, validate_url};
 
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_EXTRACT_URLS: usize = 10;
@@ -31,7 +31,7 @@ fn build_client() -> Result<Client, ToolError> {
     Client::builder()
         .timeout(DEFAULT_TIMEOUT)
         .user_agent("Epistemos/1.0 (Knowledge Assistant)")
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(secure_redirect_policy())
         .build()
         .map_err(|e| ToolError::ExecutionFailed(format!("http client init: {e}")))
 }
@@ -107,6 +107,7 @@ pub struct WebSearchHandler {
 
 impl WebSearchHandler {
     pub fn new() -> Result<Self, ToolError> {
+        let _ = detect_backend(None)?;
         Ok(Self {
             client: build_client()?,
         })
@@ -846,11 +847,12 @@ mod tests {
         std::env::remove_var("BRAVE_API_KEY");
         std::env::remove_var("PERPLEXITY_API_KEY");
 
-        let handler = WebSearchHandler::new().unwrap();
-        let err = handler
-            .execute(&json!({ "query": "hello" }))
-            .await
-            .unwrap_err();
+        let err = match WebSearchHandler::new() {
+            Ok(_) => {
+                panic!("expected WebSearchHandler::new() to fail without a configured backend")
+            }
+            Err(error) => error,
+        };
         assert!(format!("{err}").contains("no search backend"));
 
         if let Some(v) = saved_tavily {
