@@ -259,7 +259,7 @@ actor TaskSuite {
 
         let data = try JSONSerialization.data(withJSONObject: dict, options: [.prettyPrinted, .sortedKeys])
         let filePath = dir.appendingPathComponent("\(task.id).json")
-        try data.write(to: filePath)
+        try data.write(to: filePath, options: .atomic)
     }
 }
 
@@ -417,8 +417,10 @@ actor EvaluationRunner {
                     )
                 }
 
-                // Return whichever finishes first
-                let result = try await group.next()!
+                // Return whichever finishes first; if both tasks cancel out, treat it as cancellation.
+                guard let result = try await group.next() else {
+                    throw CancellationError()
+                }
                 group.cancelAll()
                 return result
             }
@@ -1489,7 +1491,10 @@ actor TraceMaterializer {
             "sessions": sessionSummaries
         ]
         let summaryData = try JSONSerialization.data(withJSONObject: versionSummary, options: [.prettyPrinted, .sortedKeys])
-        try summaryData.write(to: versionDir.appendingPathComponent("summary.json"))
+        try summaryData.write(
+            to: versionDir.appendingPathComponent("summary.json"),
+            options: .atomic
+        )
 
         Self.log.info("Materialized \(rows.count) events across \(bySession.count) sessions → \(versionDir.path)")
         return versionDir

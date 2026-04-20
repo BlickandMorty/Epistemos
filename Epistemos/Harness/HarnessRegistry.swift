@@ -150,9 +150,9 @@ actor HarnessRegistry {
         let fm = FileManager.default
         try fm.createDirectory(at: candidatesDir, withIntermediateDirectories: true)
 
-        // Find next candidate number
-        let existing = (try? fm.contentsOfDirectory(atPath: candidatesDir.path)) ?? []
-        let nextNum = existing.count + 1
+        // Find the next unused numeric suffix instead of relying on count.
+        // A deleted candidate would otherwise cause a duplicate candidate ID.
+        let nextNum = nextCandidateNumber(fileManager: fm)
         let candidateId = String(format: "candidate_%03d", nextNum)
         let candidateDir = candidatesDir.appendingPathComponent(candidateId)
 
@@ -171,7 +171,10 @@ actor HarnessRegistry {
             description: description
         )
         let ancestryData = try Self.encode(ancestry)
-        try ancestryData.write(to: candidateDir.appendingPathComponent("ancestry.json"))
+        try ancestryData.write(
+            to: candidateDir.appendingPathComponent("ancestry.json"),
+            options: .atomic
+        )
 
         Self.log.info("Created candidate harness: \(candidateId)")
         return (candidateId, candidateDir)
@@ -182,6 +185,16 @@ actor HarnessRegistry {
         let fm = FileManager.default
         guard let contents = try? fm.contentsOfDirectory(atPath: candidatesDir.path) else { return [] }
         return contents.sorted()
+    }
+
+    private func nextCandidateNumber(fileManager: FileManager) -> Int {
+        let prefix = "candidate_"
+        let existing = (try? fileManager.contentsOfDirectory(atPath: candidatesDir.path)) ?? []
+        let maxExisting = existing.compactMap { name -> Int? in
+            guard name.hasPrefix(prefix) else { return nil }
+            return Int(name.dropFirst(prefix.count))
+        }.max() ?? 0
+        return maxExisting + 1
     }
 
     // MARK: - Promotion Pipeline
@@ -213,11 +226,22 @@ actor HarnessRegistry {
             scores: nil
         )
         let metadataData = try Self.encode(metadata)
-        try metadataData.write(to: newVersionDir.appendingPathComponent("metadata.json"))
+        try metadataData.write(
+            to: newVersionDir.appendingPathComponent("metadata.json"),
+            options: .atomic
+        )
 
         // Update symlink
         let linkPath = currentLink.path
-        try? fm.removeItem(atPath: linkPath)
+        if fm.fileExists(atPath: linkPath) {
+            do {
+                try fm.removeItem(atPath: linkPath)
+            } catch {
+                throw HarnessError.promotionFailed(
+                    "Failed to replace current harness link at \(linkPath): \(error.localizedDescription)"
+                )
+            }
+        }
         try fm.createSymbolicLink(atPath: linkPath, withDestinationPath: newVersion)
 
         // Invalidate cache
@@ -269,7 +293,7 @@ actor HarnessRegistry {
 
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys])
         let scoresPath = candidateDir.appendingPathComponent("scores_\(setName).json")
-        try data.write(to: scoresPath)
+        try data.write(to: scoresPath, options: .atomic)
     }
 
     /// Load evaluation scores for a candidate.
@@ -423,7 +447,10 @@ actor HarnessRegistry {
                 scores: nil
             )
             let data = try Self.encode(metadata)
-            try data.write(to: defaultDir.appendingPathComponent("metadata.json"))
+            try data.write(
+                to: defaultDir.appendingPathComponent("metadata.json"),
+                options: .atomic
+            )
 
             // Create symlink
             let linkPath = currentLink.path
