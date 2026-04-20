@@ -127,6 +127,22 @@ struct MiniChatViewAuditTests {
         #expect(triageSource.contains("let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)"))
     }
 
+    @Test("mini chat preserves reasoning traces for assistant turns")
+    func miniChatPreservesReasoningTracesForAssistantTurns() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let threadStateSource = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
+        let messageSource = try loadRepoTextFile("Epistemos/Models/SDMessage.swift")
+
+        #expect(miniChatSource.contains("reasoningSink: { delta in"))
+        #expect(miniChatSource.contains("threadState.appendMiniChatStreamingThinking(delta, chatID: chatID)"))
+        #expect(miniChatSource.contains("ThinkingTrailView("))
+        #expect(miniChatSource.contains("message.thinkingTrace"))
+        #expect(threadStateSource.contains("private var miniChatStreamingThinkingByID: [String: String] = [:]"))
+        #expect(threadStateSource.contains("func appendMiniChatStreamingThinking(_ delta: String, chatID: String)"))
+        #expect(messageSource.contains("var thinkingTrace: String?"))
+        #expect(messageSource.contains("var thinkingDurationSeconds: Double?"))
+    }
+
     @Test("mini chat hides the retired agent handoff instead of routing into Omega")
     func miniChatHidesRetiredAgentHandoff() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")

@@ -139,6 +139,8 @@ struct MiniChatView: View {
                         id: message.id,
                         role: MessageRole(rawValue: message.role) ?? .assistant,
                         content: message.content,
+                        thinkingTrace: message.thinkingTrace,
+                        thinkingDurationSeconds: message.thinkingDurationSeconds,
                         loadedNoteTitles: message.chatMessage(chatId: chat.id).loadedNoteTitles,
                         contextAttachments: message.chatMessage(chatId: chat.id).contextAttachments,
                         createdAt: message.createdAt
@@ -204,8 +206,10 @@ private struct MiniChatThread: View {
                                     let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(
                                         from: threadState.miniChatStreamingText(chatID: chatID)
                                     )
+                                    let streamingThinking = threadState.miniChatStreamingThinking(chatID: chatID)
+                                        .trimmingCharacters(in: .whitespacesAndNewlines)
                                     MiniChatAssistantBubbleChrome {
-                                        VStack(alignment: .leading, spacing: 0) {
+                                        VStack(alignment: .leading, spacing: Spacing.md) {
                                             if visibleStreamingText.isEmpty {
                                                 AssistantTypingIndicatorDots(
                                                     theme: theme,
@@ -217,6 +221,10 @@ private struct MiniChatThread: View {
                                                     theme: theme
                                                 )
                                                 .textSelection(.enabled)
+                                            }
+
+                                            if !streamingThinking.isEmpty {
+                                                ThinkingTrailView(content: streamingThinking)
                                             }
                                         }
                                     }
@@ -385,6 +393,15 @@ private struct MiniChatBubble: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     TaggedMarkdownTextView(content: displayContent, theme: theme)
                         .textSelection(.enabled)
+
+                    if let thinkingTrace = message.thinkingTrace?
+                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                       !thinkingTrace.isEmpty {
+                        ThinkingTrailView(
+                            content: thinkingTrace,
+                            durationSeconds: message.thinkingDurationSeconds
+                        )
+                    }
 
                     AssistantSourcesFooter(
                         sources: AssistantSourceReference.extract(
@@ -1051,6 +1068,7 @@ private struct MiniChatInputBar: View {
         isProcessing = true
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
+        threadState.clearMiniChatStreamingThinking(chatID: chatID)
 
         streamTask = Task {
             defer {
@@ -1066,7 +1084,10 @@ private struct MiniChatInputBar: View {
                     operation: .brainstorm,
                     contentLength: contentLength,
                     operatingMode: selectedOperatingMode,
-                    localSurface: .miniChat
+                    localSurface: .miniChat,
+                    reasoningSink: { delta in
+                        threadState.appendMiniChatStreamingThinking(delta, chatID: chatID)
+                    }
                 ) {
                     guard !Task.isCancelled else { break }
                     accumulated += chunk
@@ -1074,7 +1095,10 @@ private struct MiniChatInputBar: View {
                 }
 
                 let final = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
 
                 // Auto-apply certain actions
                 if action == .autoTag {
@@ -1087,7 +1111,8 @@ private struct MiniChatInputBar: View {
                 threadState.addMiniChatMessage(
                     AssistantMessage(
                         role: .assistant,
-                        content: final.isEmpty ? "No response generated." : final
+                        content: final.isEmpty ? "No response generated." : final,
+                        thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
                     ),
                     chatID: chatID
                 )
@@ -1097,16 +1122,24 @@ private struct MiniChatInputBar: View {
                 let partial = UserFacingModelOutput.finalVisibleText(
                     from: threadState.miniChatStreamingText(chatID: chatID)
                 )
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
                 if !partial.isEmpty {
                     threadState.addMiniChatMessage(
-                        AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
+                        AssistantMessage(
+                            role: .assistant,
+                            content: partial + "\n\n*[Cancelled]*",
+                            thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
+                        ),
                         chatID: chatID
                     )
                     persistMiniChatSession()
                 }
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
                 threadState.addMiniChatMessage(
                     AssistantMessage(
                         role: .assistant,
@@ -1157,6 +1190,7 @@ private struct MiniChatInputBar: View {
         isProcessing = true
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
+        threadState.clearMiniChatStreamingThinking(chatID: chatID)
 
         streamTask = Task {
             defer {
@@ -1246,7 +1280,10 @@ private struct MiniChatInputBar: View {
                     operation: .chatResponse(query: trimmed),
                     contentLength: contentLength,
                     operatingMode: selectedOperatingMode,
-                    localSurface: .miniChat
+                    localSurface: .miniChat,
+                    reasoningSink: { delta in
+                        threadState.appendMiniChatStreamingThinking(delta, chatID: chatID)
+                    }
                 ) {
                     guard !Task.isCancelled else { break }
                     accumulated += chunk
@@ -1254,7 +1291,10 @@ private struct MiniChatInputBar: View {
                 }
 
                 var final = UserFacingModelOutput.finalVisibleText(from: accumulated)
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
 
                 // Parse and execute any action markers
                 if let page {
@@ -1265,6 +1305,7 @@ private struct MiniChatInputBar: View {
                     AssistantMessage(
                         role: .assistant,
                         content: final.isEmpty ? "No response generated." : final,
+                        thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace,
                         loadedNoteTitles: notesContext.loadedNoteTitles,
                         contextAttachments: attachments
                     ),
@@ -1276,16 +1317,24 @@ private struct MiniChatInputBar: View {
                 let partial = UserFacingModelOutput.finalVisibleText(
                     from: threadState.miniChatStreamingText(chatID: chatID)
                 )
+                let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
                 if !partial.isEmpty {
                     threadState.addMiniChatMessage(
-                        AssistantMessage(role: .assistant, content: partial + "\n\n*[Cancelled]*"),
+                        AssistantMessage(
+                            role: .assistant,
+                            content: partial + "\n\n*[Cancelled]*",
+                            thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
+                        ),
                         chatID: chatID
                     )
                     persistMiniChatSession()
                 }
             } catch {
                 threadState.setMiniChatStreamingText("", chatID: chatID)
+                threadState.clearMiniChatStreamingThinking(chatID: chatID)
                 threadState.addMiniChatMessage(
                     AssistantMessage(
                         role: .assistant,
@@ -1450,6 +1499,8 @@ private struct MiniChatInputBar: View {
             let stored = SDMessage(role: message.role.rawValue, content: message.content)
             stored.id = message.id
             stored.createdAt = message.createdAt
+            stored.thinkingTrace = message.thinkingTrace
+            stored.thinkingDurationSeconds = message.thinkingDurationSeconds
             stored.updatePresentationSnapshot(
                 attachments: [],
                 loadedNoteTitles: message.loadedNoteTitles,
@@ -1491,14 +1542,21 @@ private struct MiniChatInputBar: View {
         let partial = UserFacingModelOutput.finalVisibleText(
             from: threadState.miniChatStreamingText(chatID: chatID)
         ).trimmingCharacters(in: .whitespacesAndNewlines)
+        let thinkingTrace = threadState.miniChatStreamingThinking(chatID: chatID)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         isProcessing = false
         threadState.setMiniChatStreaming(false, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
+        threadState.clearMiniChatStreamingThinking(chatID: chatID)
         streamTask?.cancel()
         streamTask = nil
         if !partial.isEmpty {
             threadState.addMiniChatMessage(
-                AssistantMessage(role: .assistant, content: partial),
+                AssistantMessage(
+                    role: .assistant,
+                    content: partial,
+                    thinkingTrace: thinkingTrace.isEmpty ? nil : thinkingTrace
+                ),
                 chatID: chatID
             )
             persistMiniChatSession()
