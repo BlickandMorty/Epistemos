@@ -2963,13 +2963,18 @@ final class InferenceState {
         }
         if let saved = defaults.string(forKey: "epistemos.preferredChatModelSelection"),
            let selection = ChatModelSelection(rawValue: saved) {
-            // If the saved selection is a cloud model but there's no cloud access for it,
-            // fall back to local Qwen to avoid unusable cloud routing.
-            if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
-                self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
-            } else {
-                self.preferredChatModelSelection = normalizedChatModelSelection(selection)
-            }
+            // Honor the saved cloud selection even when the keychain /
+            // OAuth check returns false at init time. The check races with
+            // keychain cold-load and sandbox auth under real-world
+            // conditions: users who sign in, quit, and relaunch have seen
+            // their cloud selection silently revert to
+            // `.localMLX(qwen3_4B)` and then watch GPT-5.4 turns route to
+            // DeepSeek with a memory error that had nothing to do with
+            // their actual problem. If credentials really are missing,
+            // the next cloud turn will fail with a specific
+            // "API key not configured" error — which is actionable and
+            // doesn't lie about which model is active.
+            self.preferredChatModelSelection = normalizedChatModelSelection(selection)
         } else if let migratedSelection = Self.migrateLegacyCloudSelection(defaults: defaults) {
             self.preferredChatModelSelection = normalizedChatModelSelection(migratedSelection)
             defaults.set(
@@ -4302,10 +4307,20 @@ final class InferenceState {
     }
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
-        if case .cloud(let model) = selection, !hasConfiguredCloudAccess(for: model.provider) {
-            persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
-            return
-        }
+        // Previously, picking a cloud model without a configured API key
+        // silently rewrote the selection to `.localMLX(preferredLocalTextModelID)`.
+        // The picker UI still reflected the cloud choice (via the separate
+        // `preferredCloudModel` state) so users saw "GPT-5.4" in the
+        // toolbar but got routed to their last local pick — hitting
+        // "DeepSeek R1 7B needs 12 GB of free memory" the moment they
+        // hit Send. That silent swap is the exact class of deception
+        // we keep debugging in chat-routing bugs.
+        //
+        // Honor the user's explicit pick. If the cloud provider lacks an
+        // API key, the cloud call itself will fail on the next turn with
+        // a specific, actionable "API key not configured" error — which
+        // tells the user exactly what to do, rather than lying about
+        // which model is active.
         persistPreferredChatModelSelection(selection)
     }
 
