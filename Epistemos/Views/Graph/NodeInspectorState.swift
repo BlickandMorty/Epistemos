@@ -691,6 +691,7 @@ final class NodeInspectorState {
                     guard !Task.isCancelled else { return }
                     appendToLastAssistant(chunk)
                 }
+                finalizeLastAssistantText()
             } catch {
                 guard !Task.isCancelled else { return }
                 if chatMessages.last?.text.isEmpty == true {
@@ -712,6 +713,28 @@ final class NodeInspectorState {
         guard let lastIndex = chatMessages.indices.last,
               chatMessages[lastIndex].role == .assistant else { return }
         chatMessages[lastIndex].text += text
+    }
+
+    private func finalizeLastAssistantText() {
+        guard let lastIndex = chatMessages.indices.last,
+              chatMessages[lastIndex].role == .assistant else { return }
+
+        let rawText = chatMessages[lastIndex].text
+        let visibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
+        if !visibleText.isEmpty {
+            chatMessages[lastIndex].text = visibleText
+            return
+        }
+
+        let trimmedThinking = chatStreamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedThinking.isEmpty {
+            let recoveredAnswer = UserFacingModelOutput.finalVisibleText(from: trimmedThinking)
+            chatMessages[lastIndex].text =
+                recoveredAnswer.isEmpty
+                ? (UserFacingModelOutput.incompleteReasoningFallback(from: trimmedThinking)
+                    ?? "The model finished its reasoning trace without a usable answer.")
+                : recoveredAnswer
+        }
     }
 
     private func appendStreamingThinking(_ text: String) {
