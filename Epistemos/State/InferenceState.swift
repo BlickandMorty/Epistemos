@@ -4270,10 +4270,14 @@ final class InferenceState {
     }
 
     private func normalizedChatModelSelection(_ selection: ChatModelSelection) -> ChatModelSelection {
-        guard case .cloud(let model) = selection else {
+        switch selection {
+        case .localMLX(let modelID):
+            return .localMLX(sanitizedStoredLocalChatModelID(for: modelID))
+        case .appleIntelligence:
             return selection
+        case .cloud(let model):
+            return .cloud(normalizedPreferredCloudModel(model))
         }
-        return .cloud(normalizedPreferredCloudModel(model))
     }
 
     private func normalizedPreferredCloudModel(_ model: CloudTextModelID) -> CloudTextModelID {
@@ -4386,7 +4390,14 @@ final class InferenceState {
     }
 
     private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {
-        sanitizedInteractiveLocalTextModelID(for: modelID) ?? modelID
+        if let sanitizedModelID = sanitizedInteractiveLocalTextModelID(for: modelID) {
+            return sanitizedModelID
+        }
+        if let model = LocalTextModelID(rawValue: modelID),
+           model.isAwaitingSwiftRuntimeLoader {
+            return hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue
+        }
+        return modelID
     }
 
     private func sanitizeStoredLocalChatSelectionIfNeeded() {

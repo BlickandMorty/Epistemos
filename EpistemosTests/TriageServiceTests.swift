@@ -469,6 +469,57 @@ struct TriageServiceTests {
         #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason?.contains("Swift MLX loader") == true)
     }
 
+    @Test("Gemma 4 chat selection sanitizes to the runnable local default")
+    @MainActor func gemma4ChatSelectionSanitizesToFallback() {
+        let inference = makeIsolatedInferenceState()
+        inference.setInstalledLocalTextModelIDs([])
+        inference.setPreparedLocalTextModelIDs([])
+
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue))
+
+        #expect(
+            inference.preferredChatModelSelection
+                == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        )
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+    }
+
+    @Test("persisted Gemma 4 chat selection normalizes on inference load")
+    @MainActor func persistedGemma4ChatSelectionNormalizesOnLoad() {
+        let defaults = UserDefaults.standard
+        let localKey = "epistemos.preferredLocalTextModelID"
+        let selectionKey = "epistemos.preferredChatModelSelection"
+        let savedLocal = defaults.object(forKey: localKey)
+        let savedSelection = defaults.object(forKey: selectionKey)
+        defer {
+            if let savedLocal {
+                defaults.set(savedLocal, forKey: localKey)
+            } else {
+                defaults.removeObject(forKey: localKey)
+            }
+            if let savedSelection {
+                defaults.set(savedSelection, forKey: selectionKey)
+            } else {
+                defaults.removeObject(forKey: selectionKey)
+            }
+        }
+
+        defaults.set(LocalTextModelID.qwen3_4B4Bit.rawValue, forKey: localKey)
+        defaults.set(
+            ChatModelSelection.localMLX(LocalTextModelID.gemma4_4B4Bit.rawValue).rawValue,
+            forKey: selectionKey
+        )
+
+        let inference = makeIsolatedInferenceState()
+        inference.setInstalledLocalTextModelIDs([])
+        inference.setPreparedLocalTextModelIDs([])
+
+        #expect(
+            inference.preferredChatModelSelection
+                == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        )
+    }
+
     @Test("legacy OpenAI GPT-5.2 preference migrates forward to GPT-5.4")
     @MainActor func migrateLegacyOpenAI52To54() {
         let defaults = UserDefaults.standard
