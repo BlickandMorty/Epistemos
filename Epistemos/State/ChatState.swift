@@ -559,7 +559,28 @@ final class ChatState {
             return
         }
 
-        let thinkingTraceForMessage = capturedThinking.isEmpty ? nil : capturedThinking
+        // Suppress the thinking trace when it's near-identical to the
+        // answer. OpenAI's reasoning summaries for simple queries can
+        // naturally mirror the output text, causing the thinking bubble
+        // to show the same content as the answer — which looks broken.
+        // Dedup threshold: if 80%+ of the thinking appears verbatim in
+        // the answer (or vice versa), suppress the thinking display.
+        let thinkingTraceForMessage: String? = {
+            guard !capturedThinking.isEmpty else { return nil }
+            let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedAnswer.isEmpty else { return capturedThinking }
+            let shorter = min(capturedThinking.count, trimmedAnswer.count)
+            let longer = max(capturedThinking.count, trimmedAnswer.count)
+            guard shorter > 0, longer > 0 else { return capturedThinking }
+            // Quick check: if lengths are very similar and prefix matches
+            let prefixLen = min(200, shorter)
+            let thinkingPrefix = String(capturedThinking.prefix(prefixLen)).lowercased()
+            let answerPrefix = String(trimmedAnswer.prefix(prefixLen)).lowercased()
+            if thinkingPrefix == answerPrefix && Double(shorter) / Double(longer) > 0.8 {
+                return nil  // Content is duplicated — suppress thinking bubble
+            }
+            return capturedThinking
+        }()
         let thinkingDuration: Double? = {
             guard let start = thinkingStartedAt else { return nil }
             let end = thinkingEndedAt ?? Date()
