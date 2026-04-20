@@ -14,7 +14,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Create Note",
             systemImageName: "note.text.badge.plus"
         )
-
         AppShortcut(
             intent: SystemSearchIntent(),
             phrases: [
@@ -24,7 +23,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Search",
             systemImageName: "magnifyingglass"
         )
-
         AppShortcut(
             intent: AskAboutNotesIntent(),
             phrases: [
@@ -34,7 +32,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Ask Notes",
             systemImageName: "text.bubble"
         )
-
         AppShortcut(
             intent: SummarizeNoteIntent(),
             phrases: [
@@ -44,7 +41,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Summarize",
             systemImageName: "doc.text.magnifyingglass"
         )
-
         AppShortcut(
             intent: QuickCaptureIntent(),
             phrases: [
@@ -54,7 +50,6 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Quick Capture",
             systemImageName: "square.and.pencil"
         )
-
         AppShortcut(
             intent: DailyBriefingIntent(),
             phrases: [

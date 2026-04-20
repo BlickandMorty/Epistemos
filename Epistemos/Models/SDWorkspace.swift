@@ -57,6 +57,8 @@ struct WorkspaceSnapshot: Codable {
 
     /// Total notes in the vault at snapshot time (for accurate Time Machine diffs).
     var totalNoteCount: Int?
+    /// Total persisted graph nodes at snapshot time (for accurate workspace drift diffs).
+    var graphNodeCount: Int?
     /// IDs of all pages in the vault at snapshot time (for accurate added/removed detection).
     var allPageIds: [String]?
 }

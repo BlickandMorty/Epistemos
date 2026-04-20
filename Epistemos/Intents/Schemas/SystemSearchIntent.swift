@@ -25,7 +25,15 @@ struct SystemSearchIntent: AppIntent {
         // avoids reading every disk-backed note body just to answer a shortcut search.
         var descriptor = SDPage.searchDescriptor(query: criteria.term)
         descriptor.fetchLimit = 20
-        let pages = (try? context.fetch(descriptor)) ?? []
+        let pages: [SDPage]
+        do {
+            pages = try context.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "SystemSearchIntent: failed to fetch search results: \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(value: [])
+        }
         let matched = pages.map { $0.toNoteEntity() }
 
         return .result(value: matched)

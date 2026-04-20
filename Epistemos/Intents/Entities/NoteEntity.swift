@@ -12,6 +12,12 @@ enum AppIntentSearchSupport {
         NavTab.allCases.filter(\.isReleaseVisible)
     }
 
+    private static func logFetchFailure(_ action: String, error: Error) {
+        Log.app.error(
+            "\(action, privacy: .public): \(error.localizedDescription, privacy: .public)"
+        )
+    }
+
     static func sanitizeSnippet(_ snippet: String) -> String? {
         let cleaned = snippet
             .replacingOccurrences(of: "<b>", with: "")
@@ -88,7 +94,13 @@ enum AppIntentSearchSupport {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = max(limit * 10, 300)
-        let fallbackPages = (try? context.fetch(descriptor)) ?? []
+        let fallbackPages: [SDPage]
+        do {
+            fallbackPages = try context.fetch(descriptor)
+        } catch {
+            logFetchFailure("AppIntentSearchSupport: failed to fetch fallback pages", error: error)
+            return []
+        }
         return Array(
             fallbackPages
                 .filter { include($0) }
@@ -104,7 +116,12 @@ enum AppIntentSearchSupport {
     @MainActor
     private static func fetchPage(id: String, in context: ModelContext) -> SDPage? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            logFetchFailure("AppIntentSearchSupport: failed to fetch page \(String(id.prefix(8)))", error: error)
+            return nil
+        }
     }
 }
 
@@ -149,8 +166,14 @@ struct NoteEntityQuery: EntityStringQuery {
         var results: [NoteEntity] = []
         for id in identifiers {
             let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == id })
-            if let page = (try? context.fetch(descriptor))?.first {
-                results.append(page.toNoteEntity())
+            do {
+                if let page = try context.fetch(descriptor).first {
+                    results.append(page.toNoteEntity())
+                }
+            } catch {
+                Log.app.error(
+                    "NoteEntityQuery: failed to fetch note \(String(id.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
         return results
@@ -179,7 +202,17 @@ struct NoteEntityQuery: EntityStringQuery {
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 10
-        let pages = (try? context.fetch(descriptor)) ?? []
+
+        let pages: [SDPage]
+        do {
+            pages = try context.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "NoteEntityQuery: failed to fetch suggested notes: \(error.localizedDescription, privacy: .public)"
+            )
+            return IntentItemCollection(items: [])
+        }
+
         return IntentItemCollection(items: pages.map { $0.toNoteEntity() })
     }
 }
