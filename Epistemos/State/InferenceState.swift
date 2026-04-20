@@ -1525,6 +1525,44 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    var supportsNativeReasoningEffortControl: Bool {
+        switch self {
+        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52:
+            true
+        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+             .anthropicClaudeSonnet37:
+            true
+        case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
+             .googleGemini3ProPreview, .googleGemini31ProPreview:
+            true
+        default:
+            false
+        }
+    }
+
+    var supportsProviderNativeFeatureControls: Bool {
+        switch provider {
+        case .openAI, .anthropic, .google:
+            true
+        case .zai, .kimi, .minimax, .deepseek:
+            false
+        }
+    }
+
+    var preferredRuntimeControlTitle: String {
+        switch provider {
+        case .anthropic:
+            "Claude"
+        default:
+            provider.displayName
+        }
+    }
+
+    var nativeReasoningModes: [EpistemosOperatingMode] {
+        guard supportsNativeReasoningEffortControl else { return [] }
+        return supportedOperatingModes.filter { !$0.availableReasoningTiers.isEmpty }
+    }
+
     var maxContextTokens: Int {
         switch self {
         case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52, .openAIGPT41:
@@ -2350,14 +2388,30 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     }
 
     /// Mode-specific label for a reasoning tier. Pro / Agent call
-    /// `.medium` "Standard" (the label the user asked for) while
-    /// Thinking keeps the generic tier name so the 4-level ladder
-    /// reads as low/medium/high/heavy.
+    /// `.medium` "Standard" and `.heavy` "Extended" while Thinking
+    /// keeps the generic tier name so the 4-level ladder reads as
+    /// low/medium/high/heavy.
     nonisolated func reasoningTierLabel(for tier: ChatReasoningTier) -> String {
         switch (self, tier) {
         case (.pro, .medium), (.agent, .medium): "Standard"
+        case (.pro, .heavy), (.agent, .heavy): "Extended"
         default: tier.displayName
         }
+    }
+
+    nonisolated var defaultReasoningTier: ChatReasoningTier {
+        switch self {
+        case .fast:
+            .off
+        case .thinking, .pro, .agent:
+            .medium
+        }
+    }
+
+    nonisolated func sanitizedReasoningTier(_ tier: ChatReasoningTier) -> ChatReasoningTier {
+        guard !availableReasoningTiers.isEmpty else { return .off }
+        guard availableReasoningTiers.contains(tier) else { return defaultReasoningTier }
+        return tier
     }
 
     var displayName: String {
@@ -4135,6 +4189,10 @@ final class InferenceState {
     func setChatReasoningTier(_ tier: ChatReasoningTier) {
         chatReasoningTier = tier
         UserDefaults.standard.set(tier.rawValue, forKey: Self.chatReasoningTierDefaultsKey)
+    }
+
+    func setChatReasoningTier(_ tier: ChatReasoningTier, for operatingMode: EpistemosOperatingMode) {
+        setChatReasoningTier(operatingMode.sanitizedReasoningTier(tier))
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {

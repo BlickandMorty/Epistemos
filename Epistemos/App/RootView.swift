@@ -367,6 +367,8 @@ struct LocalModelToolbarMenu: View {
         case mode
         case model
         case routing
+        case effort
+        case nativeControls
     }
 
     var variant: NativeControlVariant = .toolbar
@@ -464,6 +466,34 @@ struct LocalModelToolbarMenu: View {
         return inference.chatSurfaceRouteDescription(for: currentOperatingMode)
     }
 
+    private var currentEffectiveSelection: ChatModelSelection? {
+        guard let currentOperatingMode else { return nil }
+        return inference.effectiveChatSurfaceSelection(for: currentOperatingMode)
+    }
+
+    private var currentEffectiveCloudModel: CloudTextModelID? {
+        guard case .cloud(let model) = currentEffectiveSelection else { return nil }
+        return model
+    }
+
+    private var currentDisplayedReasoningTier: ChatReasoningTier {
+        guard let currentOperatingMode else { return inference.chatReasoningTier }
+        return currentOperatingMode.sanitizedReasoningTier(inference.chatReasoningTier)
+    }
+
+    private var supportsRuntimeEffortButton: Bool {
+        guard let currentOperatingMode,
+              !currentOperatingMode.availableReasoningTiers.isEmpty,
+              let model = currentEffectiveCloudModel else {
+            return false
+        }
+        return model.supportsNativeReasoningEffortControl
+    }
+
+    private var supportsProviderNativeControlsButton: Bool {
+        currentEffectiveCloudModel?.supportsProviderNativeFeatureControls ?? false
+    }
+
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
         let selectedModelLabel: String
@@ -535,6 +565,22 @@ struct LocalModelToolbarMenu: View {
         )
     }
 
+    private var effortDisclosureWidth: CGFloat {
+        NativeControlSystem.reservedWidth(
+            for: ["Standard", "Extended", "Medium", "Heavy"],
+            variant: variant,
+            includesDisclosureGlyph: true
+        )
+    }
+
+    private var nativeControlsDisclosureWidth: CGFloat {
+        NativeControlSystem.reservedWidth(
+            for: ["OpenAI", "Claude", "Google"],
+            variant: variant,
+            includesDisclosureGlyph: true
+        )
+    }
+
     private var buttonSystemImage: String {
         if isTemporaryChatEnabled?.wrappedValue == true {
             return "eye.slash.fill"
@@ -576,6 +622,19 @@ struct LocalModelToolbarMenu: View {
         }
     }
 
+    private var effortButtonTitle: String {
+        guard let currentOperatingMode else { return "Effort" }
+        return currentOperatingMode.reasoningTierLabel(for: currentDisplayedReasoningTier)
+    }
+
+    private var nativeControlsButtonTitle: String {
+        currentEffectiveCloudModel?.preferredRuntimeControlTitle ?? "Native"
+    }
+
+    private var nativeControlsButtonSystemImage: String {
+        currentEffectiveCloudModel?.provider.systemImage ?? "slider.horizontal.3"
+    }
+
     private var selectedModeSummary: String {
         if let operatingMode {
             return inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue).summary
@@ -604,6 +663,14 @@ struct LocalModelToolbarMenu: View {
             return
         }
         inference.setPreferredChatModelSelection(.localMLX(fallback))
+    }
+
+    @MainActor
+    private func syncReasoningTierToDisplayedModeIfNeeded() {
+        guard let currentOperatingMode else { return }
+        let sanitized = currentOperatingMode.sanitizedReasoningTier(inference.chatReasoningTier)
+        guard sanitized != inference.chatReasoningTier else { return }
+        inference.setChatReasoningTier(sanitized, for: currentOperatingMode)
     }
 
     private var displayedOperatingModes: [EpistemosOperatingMode] {
@@ -658,6 +725,9 @@ struct LocalModelToolbarMenu: View {
         }
         .task(id: inference.preferredChatModelSelection.rawValue) {
             sanitizeReleaseLocalSelectionIfNeeded()
+        }
+        .task(id: currentOperatingMode?.rawValue ?? "none") {
+            syncReasoningTierToDisplayedModeIfNeeded()
         }
     }
 
@@ -716,6 +786,44 @@ struct LocalModelToolbarMenu: View {
             }
             .fixedSize()
 
+            if supportsRuntimeEffortButton {
+                AnchoredPopoverButton(
+                    title: effortButtonTitle,
+                    systemImage: "slider.horizontal.3",
+                    isPresented: popoverBinding(.effort),
+                    isActive: false,
+                    variant: variant,
+                    showsLabelWhenCollapsed: true,
+                    helpText: "Adjust model-native reasoning effort for this mode.",
+                    accessibilityLabel: "\(effortButtonTitle) effort",
+                    idealPopoverWidth: variant == .toolbar ? 280 : 300,
+                    contentPadding: 12,
+                    stableWidth: effortDisclosureWidth
+                ) {
+                    effortPopover
+                }
+                .fixedSize()
+            }
+
+            if supportsProviderNativeControlsButton {
+                AnchoredPopoverButton(
+                    title: nativeControlsButtonTitle,
+                    systemImage: nativeControlsButtonSystemImage,
+                    isPresented: popoverBinding(.nativeControls),
+                    isActive: false,
+                    variant: variant,
+                    showsLabelWhenCollapsed: true,
+                    helpText: "Provider-native controls for the current cloud model.",
+                    accessibilityLabel: "\(nativeControlsButtonTitle) controls",
+                    idealPopoverWidth: variant == .toolbar ? 320 : 340,
+                    contentPadding: 12,
+                    stableWidth: nativeControlsDisclosureWidth
+                ) {
+                    nativeControlsPopover
+                }
+                .fixedSize()
+            }
+
             if isTemporaryChatEnabled != nil {
                 temporaryChatButton
             }
@@ -747,7 +855,12 @@ struct LocalModelToolbarMenu: View {
                         isEnabled: true
                     ) {
                         if let operatingMode {
-                            operatingMode.wrappedValue = sanitizedDisplayedOperatingMode(option)
+                            let sanitizedMode = sanitizedDisplayedOperatingMode(option)
+                            operatingMode.wrappedValue = sanitizedMode
+                            inference.setChatReasoningTier(
+                                inference.chatReasoningTier,
+                                for: sanitizedMode
+                            )
                         }
                         activeSplitPopover = nil
                     }
@@ -885,6 +998,60 @@ struct LocalModelToolbarMenu: View {
     }
 
     @ViewBuilder
+    private var effortPopover: some View {
+        if let currentOperatingMode,
+           let model = currentEffectiveCloudModel {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Reasoning Effort")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("\(model.provider.displayName) controls for \(currentOperatingMode.displayName) mode.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(currentOperatingMode.availableReasoningTiers, id: \.self) { tier in
+                        selectionRow(
+                            title: currentOperatingMode.reasoningTierLabel(for: tier),
+                            subtitle: tier.summary,
+                            systemImage: currentOperatingMode.systemImage,
+                            isSelected: currentDisplayedReasoningTier == tier,
+                            isEnabled: true
+                        ) {
+                            inference.setChatReasoningTier(tier, for: currentOperatingMode)
+                            activeSplitPopover = nil
+                        }
+                    }
+                }
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
+    private var nativeControlsPopover: some View {
+        if let model = currentEffectiveCloudModel {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(nativeControlsButtonTitle) Controls")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("Provider-native options for \(model.displayName).")
+                            .font(.system(size: 11))
+                            .foregroundStyle(theme.textTertiary)
+                    }
+
+                    providerNativeControls(for: model)
+                }
+            }
+        } else {
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder
     private var temporaryChatButton: some View {
         ToolbarCapsuleButton(
             title: nil,
@@ -898,6 +1065,96 @@ struct LocalModelToolbarMenu: View {
             accessibilityLabel: "Temporary chat"
         ) {
             isTemporaryChatEnabled?.wrappedValue.toggle()
+        }
+    }
+
+    @ViewBuilder
+    private func providerNativeControls(for model: CloudTextModelID) -> some View {
+        switch model.provider {
+        case .openAI:
+            VStack(alignment: .leading, spacing: 10) {
+                if model.supportsNativeReasoningEffortControl,
+                   let currentOperatingMode,
+                   !currentOperatingMode.availableReasoningTiers.isEmpty {
+                    SettingsDescriptionText(
+                        text: "Use the Effort button for \(currentOperatingMode.displayName.lowercased()) reasoning. OpenAI tool toggles live here."
+                    )
+                }
+                Toggle(
+                    "Enable Web Search",
+                    isOn: Binding(
+                        get: { inference.openAIWebSearchEnabled },
+                        set: { inference.setOpenAIWebSearchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Code Interpreter",
+                    isOn: Binding(
+                        get: { inference.openAICodeInterpreterEnabled },
+                        set: { inference.setOpenAICodeInterpreterEnabled($0) }
+                    )
+                )
+            }
+
+        case .anthropic:
+            VStack(alignment: .leading, spacing: 10) {
+                if model.supportsNativeReasoningEffortControl {
+                    SettingsDescriptionText(
+                        text: "Use the Effort button for Standard or Extended reasoning. Extended Thinking must still be enabled here."
+                    )
+                }
+                if !model.nativeReasoningModes.isEmpty {
+                    Toggle(
+                        "Enable Extended Thinking",
+                        isOn: Binding(
+                            get: { inference.anthropicExtendedThinkingEnabled },
+                            set: { inference.setAnthropicExtendedThinkingEnabled($0) }
+                        )
+                    )
+                }
+                Toggle(
+                    "Enable Web Search",
+                    isOn: Binding(
+                        get: { inference.anthropicWebSearchEnabled },
+                        set: { inference.setAnthropicWebSearchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Web Fetch (single URL)",
+                    isOn: Binding(
+                        get: { inference.anthropicWebFetchEnabled },
+                        set: { inference.setAnthropicWebFetchEnabled($0) }
+                    )
+                )
+                Toggle(
+                    "Enable Code Execution (Python sandbox)",
+                    isOn: Binding(
+                        get: { inference.anthropicCodeExecutionEnabled },
+                        set: { inference.setAnthropicCodeExecutionEnabled($0) }
+                    )
+                )
+            }
+
+        case .google:
+            VStack(alignment: .leading, spacing: 10) {
+                if model.supportsNativeReasoningEffortControl,
+                   let currentOperatingMode,
+                   !currentOperatingMode.availableReasoningTiers.isEmpty {
+                    SettingsDescriptionText(
+                        text: "Use the Effort button for \(currentOperatingMode.displayName.lowercased()) thinking depth. Grounding lives here."
+                    )
+                }
+                Toggle(
+                    "Enable Grounding with Google Search",
+                    isOn: Binding(
+                        get: { inference.googleGroundingEnabled },
+                        set: { inference.setGoogleGroundingEnabled($0) }
+                    )
+                )
+            }
+
+        case .zai, .kimi, .minimax, .deepseek:
+            EmptyView()
         }
     }
 
@@ -940,7 +1197,12 @@ struct LocalModelToolbarMenu: View {
                                 isSelected: operatingMode.wrappedValue == option,
                                 isEnabled: true
                             ) {
-                                operatingMode.wrappedValue = sanitizedDisplayedOperatingMode(option)
+                                let sanitizedMode = sanitizedDisplayedOperatingMode(option)
+                                operatingMode.wrappedValue = sanitizedMode
+                                inference.setChatReasoningTier(
+                                    inference.chatReasoningTier,
+                                    for: sanitizedMode
+                                )
                                 isPresented = false
                             }
                         }

@@ -854,6 +854,7 @@ private struct InferenceDetailView: View {
     @State private var googleOAuthClientStatusIsSuccess = false
     @State private var accountActionInFlightProvider: CloudModelProvider?
     @State private var openAIDeviceAuthorization: OpenAIDeviceAuthorization?
+    @State private var providerNativeReasoningPreviewModes: [CloudModelProvider: EpistemosOperatingMode] = [:]
     @State private var showSettingsModeHint = false
     @State private var showRoutingHint = false
     @State private var showLocalAIHint = false
@@ -1380,6 +1381,10 @@ private struct InferenceDetailView: View {
             Text("Available models: \(provider.modelSummary)")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+
+            if hasConfiguredAccess {
+                providerNativeControls(for: provider)
+            }
         }
         .padding(.vertical, 4)
     }
@@ -1723,15 +1728,119 @@ private struct InferenceDetailView: View {
         }
     }
 
+    private func providerNativeReasoningModes(for model: CloudTextModelID) -> [EpistemosOperatingMode] {
+        model.nativeReasoningModes
+    }
+
+    private func defaultProviderNativeReasoningMode(for model: CloudTextModelID) -> EpistemosOperatingMode {
+        let modes = providerNativeReasoningModes(for: model)
+        if modes.contains(.thinking) {
+            return .thinking
+        }
+        if modes.contains(.pro) {
+            return .pro
+        }
+        return modes.first ?? .fast
+    }
+
+    private func providerNativeReasoningMode(for model: CloudTextModelID) -> EpistemosOperatingMode {
+        let modes = providerNativeReasoningModes(for: model)
+        guard !modes.isEmpty else { return .fast }
+        let stored = providerNativeReasoningPreviewModes[model.provider]
+            ?? defaultProviderNativeReasoningMode(for: model)
+        return modes.contains(stored) ? stored : defaultProviderNativeReasoningMode(for: model)
+    }
+
+    private func providerNativeReasoningModeBinding(
+        for model: CloudTextModelID
+    ) -> Binding<EpistemosOperatingMode> {
+        Binding(
+            get: { providerNativeReasoningMode(for: model) },
+            set: { mode in
+                providerNativeReasoningPreviewModes[model.provider] = mode
+                inference.setChatReasoningTier(inference.chatReasoningTier, for: mode)
+            }
+        )
+    }
+
+    private func providerNativeReasoningTierBinding(
+        for model: CloudTextModelID
+    ) -> Binding<ChatReasoningTier> {
+        Binding(
+            get: {
+                let mode = providerNativeReasoningMode(for: model)
+                return mode.sanitizedReasoningTier(inference.chatReasoningTier)
+            },
+            set: { tier in
+                let mode = providerNativeReasoningMode(for: model)
+                inference.setChatReasoningTier(tier, for: mode)
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func providerReasoningEffortControls(
+        for model: CloudTextModelID,
+        description: String
+    ) -> some View {
+        if model.supportsNativeReasoningEffortControl {
+            let modes = providerNativeReasoningModes(for: model)
+            let selectedMode = providerNativeReasoningMode(for: model)
+
+            SettingsDescriptionText(text: description)
+
+            if modes.count > 1 {
+                Picker(
+                    "Reasoning Mode",
+                    selection: providerNativeReasoningModeBinding(for: model)
+                ) {
+                    ForEach(modes, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Picker(
+                "Reasoning Effort",
+                selection: providerNativeReasoningTierBinding(for: model)
+            ) {
+                ForEach(selectedMode.availableReasoningTiers, id: \.self) { tier in
+                    Text(selectedMode.reasoningTierLabel(for: tier)).tag(tier)
+                }
+            }
+            .pickerStyle(.menu)
+
+            SettingsDescriptionText(
+                text: "\(selectedMode.displayName) uses \(selectedMode.reasoningTierLabel(for: selectedMode.sanitizedReasoningTier(inference.chatReasoningTier))) right now."
+            )
+        }
+    }
+
     @ViewBuilder
     private var providerNativeControls: some View {
-        switch inference.activeAIProvider {
+        if let provider = inference.activeAIProvider.cloudProvider {
+            providerNativeControls(for: provider)
+        }
+    }
+
+    @ViewBuilder
+    private func providerNativeControls(
+        for provider: CloudModelProvider
+    ) -> some View {
+        let model = inference.preferredCloudModel(for: provider)
+
+        switch provider {
         case .openAI:
             VStack(alignment: .leading, spacing: 10) {
                 Label("OpenAI Runtime Controls", systemImage: CloudModelProvider.openAI.systemImage)
                     .font(.body.weight(.semibold))
+                providerReasoningEffortControls(
+                    for: model,
+                    description: "OpenAI exposes native reasoning effort on GPT-5.x models. Thinking mode gets the four-step ladder, while Pro and Agent collapse to Standard or Extended."
+                )
                 SettingsDescriptionText(
-                    text: "Enable built-in OpenAI tools for the active provider. These apply to cloud requests sent through the Responses API."
+                    text: "Enable built-in OpenAI tools for the selected OpenAI model. These apply to cloud requests sent through the Responses API."
                 )
                 Toggle(
                     "Enable Web Search",
@@ -1765,6 +1874,10 @@ private struct InferenceDetailView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Anthropic Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
                     .font(.body.weight(.semibold))
+                providerReasoningEffortControls(
+                    for: model,
+                    description: "Anthropic maps the shared effort dial to Standard or Extended reasoning for higher-capability modes, and to the full ladder in Thinking mode."
+                )
                 SettingsDescriptionText(
                     text: "Extended thinking uses Anthropic's thinking configuration. Server-side tools (web search, web fetch, code execution) run inside Anthropic's sandbox and are billed per use."
                 )
@@ -1822,6 +1935,10 @@ private struct InferenceDetailView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Label("Google Runtime Controls", systemImage: CloudModelProvider.google.systemImage)
                     .font(.body.weight(.semibold))
+                providerReasoningEffortControls(
+                    for: model,
+                    description: "Gemini models that expose native thinking let you pick the effort level here. Flash-class models still show grounding even when they stay on faster defaults."
+                )
                 SettingsDescriptionText(
                     text: "Grounding enables Gemini's Google Search tool so the model can search live web results when it decides that search will improve the answer."
                 )
@@ -1836,8 +1953,6 @@ private struct InferenceDetailView: View {
             .padding(.vertical, 4)
 
         case .zai, .kimi, .minimax, .deepseek:
-            EmptyView()
-        case .localOnly:
             EmptyView()
         }
     }

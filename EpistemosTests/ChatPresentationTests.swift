@@ -178,6 +178,18 @@ struct ChatPresentationTests {
         #expect(source.contains("temporaryChatButton"))
     }
 
+    @Test("shared local model toolbar exposes effort and native capability controls when supported")
+    func localModelToolbarExposesEffortAndNativeCapabilityControls() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(source.contains("supportsRuntimeEffortButton"))
+        #expect(source.contains("supportsProviderNativeControlsButton"))
+        #expect(source.contains("effortPopover"))
+        #expect(source.contains("nativeControlsPopover"))
+        #expect(source.contains("effortButtonTitle"))
+        #expect(source.contains("nativeControlsButtonTitle"))
+    }
+
     @Test("chat capability surfaces avoid repeatForever pulse loops")
     func chatCapabilitySurfacesAvoidRepeatForeverPulseLoops() throws {
         let pillSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatCapabilityPill.swift")

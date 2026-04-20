@@ -215,6 +215,20 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.deepseekReasoner.supportedOperatingModes == [.thinking, .pro, .agent])
     }
 
+    @Test("cloud runtime capability matrix stays model aware")
+    func cloudRuntimeCapabilityMatrixStaysModelAware() {
+        #expect(CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
+        #expect(!CloudTextModelID.openAIO3.supportsNativeReasoningEffortControl)
+        #expect(CloudTextModelID.anthropicClaudeSonnet4.supportsNativeReasoningEffortControl)
+        #expect(CloudTextModelID.googleGemini25Pro.supportsNativeReasoningEffortControl)
+        #expect(!CloudTextModelID.deepseekReasoner.supportsNativeReasoningEffortControl)
+
+        #expect(CloudTextModelID.openAIGPT54.supportsProviderNativeFeatureControls)
+        #expect(CloudTextModelID.anthropicClaudeSonnet4.supportsProviderNativeFeatureControls)
+        #expect(CloudTextModelID.googleGemini25Pro.supportsProviderNativeFeatureControls)
+        #expect(!CloudTextModelID.deepseekReasoner.supportsProviderNativeFeatureControls)
+    }
+
     @Test("cloud models expose about-sheet metadata")
     func cloudModelsExposeAboutSheetMetadata() {
         #expect(CloudTextModelID.openAIGPT54.aboutSheetBadge == "OpenAI")
@@ -287,11 +301,14 @@ struct TriageServiceTests {
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
+        let localModelID = LocalTextModelID.qwen3_4B4Bit.rawValue
+        inference.setInstalledLocalTextModelIDs([localModelID])
+        inference.setPreferredLocalTextModelID(localModelID)
         inference.chatAutoRouteToCloud = true
-        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        inference.setPreferredChatModelSelection(.localMLX(localModelID))
 
         let effectiveSelection = inference.effectiveChatSurfaceSelection(for: .thinking)
-        #expect(effectiveSelection == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        #expect(effectiveSelection == .localMLX(localModelID))
         #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen3_4B4Bit.displayName)
         #expect(
             inference.chatSurfaceRouteDescription(for: .thinking).headline
@@ -351,8 +368,8 @@ struct TriageServiceTests {
         }
     }
 
-    @Test("auto route keeps fast local but escalates pro chat to the configured cloud provider")
-    @MainActor func inferenceStateEffectiveChatSurfaceSelectionTracksAutoRoutePolicy() throws {
+    @Test("pinned local chat selection keeps pro and agent local even with cloud auto-route enabled")
+    @MainActor func inferenceStateEffectiveChatSurfaceSelectionKeepsPinnedLocalSelection() {
         let inference = makeIsolatedInferenceState(
             keychainLoad: { key in
                 key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
@@ -365,11 +382,11 @@ struct TriageServiceTests {
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
         inference.setChatAutoRouteToCloud(true)
 
-        let expectedProModel = try #require(inference.preferredAutoRouteCloudModel(for: .pro))
-        let expectedAgentModel = try #require(inference.preferredAutoRouteCloudModel(for: .agent))
-        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
-        #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .cloud(expectedProModel))
-        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == .cloud(expectedAgentModel))
+        let expectedSelection = ChatModelSelection.localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue)
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == expectedSelection)
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == expectedSelection)
+        #expect(inference.effectiveChatSurfaceSelection(for: .pro) == expectedSelection)
+        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == expectedSelection)
     }
 
     @Test("OpenAI auto route keeps GPT-5.4 as the thinking and pro workhorse")
