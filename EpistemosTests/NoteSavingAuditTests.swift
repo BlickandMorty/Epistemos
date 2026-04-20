@@ -20,14 +20,24 @@ struct NoteSavingAuditTests {
         let context = container.mainContext
 
         let page = SDPage(title: "Restore Test")
+        let originalUpdatedAt = Date(timeIntervalSince1970: 1)
+        page.updatedAt = originalUpdatedAt
         context.insert(page)
         try context.save()
+        let graphState = GraphState()
 
-        try DiffSheetView.persistRestoredBody("# Restored\n\nBody", to: page, modelContext: context)
+        try DiffSheetView.persistRestoredBody(
+            "# Restored\n\nBody",
+            to: page,
+            modelContext: context,
+            graphState: graphState
+        )
 
         #expect(page.loadBody() == "# Restored\n\nBody")
         #expect(page.wordCount == 2)
         #expect(page.needsVaultSync)
+        #expect(page.updatedAt > originalUpdatedAt)
+        #expect(graphState.needsRefresh)
     }
 
     @Test("blank restore stays dirty and resets word count")
@@ -149,6 +159,33 @@ struct NoteSavingEdgeCaseTests {
             #expect(!NoteFileStorage.bodyExists(pageId: page.id))
             #expect(page.loadBody() == "Recovered from the vault body")
             #expect(page.loadBody(mapped: true) == "Recovered from the vault body")
+        }
+    }
+
+    @Test("loadBody preserves raw non-markdown files that begin with front-matter separators")
+    @MainActor func loadBodyPreservesRawNonMarkdownFilesThatBeginWithFrontMatterSeparators() throws {
+        let storageURL = try makeTempDirectory()
+        let vaultURL = try makeTempDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: storageURL)
+            try? FileManager.default.removeItem(at: vaultURL)
+        }
+
+        try NoteFileStorage.withStorageDirectoryOverrideForTesting(storageURL) {
+            let page = SDPage(title: "Config")
+            let fileURL = vaultURL.appendingPathComponent("Config.yaml")
+            let source = """
+            ---
+            name: demo
+            ---
+            enabled: true
+            """
+            try source.write(to: fileURL, atomically: true, encoding: .utf8)
+            page.filePath = fileURL.path
+
+            #expect(!NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(page.loadBody() == source)
+            #expect(page.loadBody(mapped: true) == source)
         }
     }
 
