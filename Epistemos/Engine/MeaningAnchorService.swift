@@ -71,8 +71,17 @@ final class MeaningAnchorService {
         let descriptor = FetchDescriptor<SDChat>(
             predicate: #Predicate { $0.id == targetId }
         )
-        guard let chat = try? context.fetch(descriptor).first else {
-            Self.log.warning("Anchor generation: chat \(chatId) not found")
+        let chat: SDChat
+        do {
+            guard let fetchedChat = try context.fetch(descriptor).first else {
+                Self.log.warning("Anchor generation: chat \(chatId) not found")
+                return
+            }
+            chat = fetchedChat
+        } catch {
+            Self.log.error(
+                "MeaningAnchor: failed to fetch chat \(chatId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             return
         }
 
@@ -233,9 +242,17 @@ final class MeaningAnchorService {
     func backfillExistingChats() async {
         let context = modelContainer.mainContext
 
-        guard let allChats = try? context.fetch(FetchDescriptor<SDChat>(
-            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
-        )) else { return }
+        let allChats: [SDChat]
+        do {
+            allChats = try context.fetch(FetchDescriptor<SDChat>(
+                sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+            ))
+        } catch {
+            Self.log.error(
+                "MeaningAnchor: failed to fetch chats for backfill: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
 
         // Find chats that already have anchors (check graph for nodes with originChatId)
         let existingAnchorChatIds = Set(

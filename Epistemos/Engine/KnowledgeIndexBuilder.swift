@@ -24,6 +24,24 @@ final class KnowledgeIndexBuilder {
     private var cacheTimestamp: Date?
     private let cacheTTL: TimeInterval = 30 // seconds
 
+    private func fetchGraphNodes(context: ModelContext) -> [SDGraphNode]? {
+        let noteRaw = GraphNodeType.note.rawValue
+        let folderRaw = GraphNodeType.folder.rawValue
+        let descriptor = FetchDescriptor<SDGraphNode>(
+            predicate: #Predicate<SDGraphNode> { $0.type == noteRaw || $0.type == folderRaw },
+            sortBy: [SortDescriptor(\SDGraphNode.updatedAt, order: .reverse)]
+        )
+
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            Log.engine.error(
+                "KnowledgeIndexBuilder: failed to fetch graph nodes: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
     // MARK: - Build Index
 
     /// Build a compact markdown table of all note/folder nodes in the graph.
@@ -37,13 +55,9 @@ final class KnowledgeIndexBuilder {
         }
 
         // Fetch note and folder nodes, sorted by updatedAt descending
-        let noteRaw = GraphNodeType.note.rawValue
-        let folderRaw = GraphNodeType.folder.rawValue
-        let descriptor = FetchDescriptor<SDGraphNode>(
-            predicate: #Predicate<SDGraphNode> { $0.type == noteRaw || $0.type == folderRaw },
-            sortBy: [SortDescriptor(\SDGraphNode.updatedAt, order: .reverse)]
-        )
-        let nodes = (try? context.fetch(descriptor)) ?? []
+        guard let nodes = fetchGraphNodes(context: context) else {
+            return ""
+        }
         let capped = nodes.prefix(150)
 
         guard !capped.isEmpty else {
@@ -87,9 +101,22 @@ final class KnowledgeIndexBuilder {
         guard !index.isEmpty else { return }
 
         let epistemosDir = vaultRoot.appendingPathComponent(".epistemos")
-        try? FileManager.default.createDirectory(at: epistemosDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: epistemosDir, withIntermediateDirectories: true)
+        } catch {
+            Log.engine.error(
+                "KnowledgeIndexBuilder: failed to create index directory: \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
 
         let indexFile = epistemosDir.appendingPathComponent("knowledge_index.md")
-        try? index.write(to: indexFile, atomically: true, encoding: .utf8)
+        do {
+            try index.write(to: indexFile, atomically: true, encoding: .utf8)
+        } catch {
+            Log.engine.error(
+                "KnowledgeIndexBuilder: failed to write knowledge index: \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 }
