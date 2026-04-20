@@ -234,6 +234,15 @@ struct ChatPresentationTests {
         #expect(infrastructureSource.contains("\"Needs \\(model.minimumRecommendedInteractiveMemoryGB) GB for chat\""))
     }
 
+    @Test("cloud model about sheet shows purpose guidance and readable token scales")
+    func cloudModelAboutSheetShowsPurposeGuidanceAndReadableTokenScales() throws {
+        let aboutSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ModelAboutSheet.swift")
+
+        #expect(aboutSource.contains("specRow(\"Best For\", value: model.aboutSheetPurposeSummary)"))
+        #expect(aboutSource.contains("String(format: \"%.1fK tokens\", Double(tokens) / 1_000)"))
+        #expect(aboutSource.contains("return \"\\(tokens) tokens\""))
+    }
+
     @Test("agent command bar shows an explicit loading-model state before first token")
     func agentCommandBarShowsLoadingModelState() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")
