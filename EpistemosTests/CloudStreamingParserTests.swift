@@ -14,6 +14,24 @@ struct CloudStreamingParserTests {
         #expect(CloudStreamingParser.openAITextDelta(from: json) == "hello")
     }
 
+    @Test("OpenAI responses reasoning parser only surfaces summary deltas")
+    func openAIResponsesReasoningParserOnlySurfacesSummaries() {
+        let summary: [String: Any] = [
+            "type": "response.reasoning_summary_text.delta",
+            "delta": "Checking the note structure"
+        ]
+        let rawReasoning: [String: Any] = [
+            "type": "response.reasoning_text.delta",
+            "delta": "Private chain of thought"
+        ]
+
+        #expect(
+            CloudStreamingParser.openAIResponsesReasoningDelta(from: summary)
+                == "Checking the note structure"
+        )
+        #expect(CloudStreamingParser.openAIResponsesReasoningDelta(from: rawReasoning) == nil)
+    }
+
     @Test("Anthropic streaming extracts text delta payloads")
     func anthropicStreamingDelta() {
         let json: [String: Any] = [

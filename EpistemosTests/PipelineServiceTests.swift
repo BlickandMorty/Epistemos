@@ -2210,6 +2210,23 @@ struct ChatStateContextAttachmentTests {
         #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
+    @Test("main chat does not promote native reasoning summaries into the final answer")
+    func completeProcessingDoesNotPromoteNativeReasoningSummaryIntoAnswer() {
+        let chatState = ChatState()
+        chatState.submitQuery("Read this note")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking("What's weaker")
+
+        chatState.completeProcessing(mode: .api)
+
+        let last = chatState.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.isError != true)
+        #expect(last?.content.contains("never produced a final answer") == true)
+        #expect(last?.content != "What's weaker")
+        #expect(last?.thinkingTrace == "What's weaker")
+    }
+
     @Test("main chat completeProcessing clears active thinking state after finalizing")
     func completeProcessingClearsThinkingState() {
         let chatState = ChatState()
@@ -2432,6 +2449,23 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.last?.isError != true)
         #expect(chatState.messages.last?.content.contains("never produced a final answer") == true)
         #expect(chatState.messages.last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
+    @Test("cancelled streaming does not promote native reasoning summaries into the final answer")
+    func cancelledStreamingDoesNotPromoteNativeReasoningSummaryIntoAnswer() {
+        let chatState = ChatState()
+
+        chatState.submitQuery("Read this note")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking("What's weaker")
+
+        let completed = chatState.completeCancelledProcessing(mode: .api)
+
+        #expect(completed)
+        #expect(chatState.messages.count == 2)
+        #expect(chatState.messages.last?.content.contains("never produced a final answer") == true)
+        #expect(chatState.messages.last?.content != "What's weaker")
+        #expect(chatState.messages.last?.thinkingTrace == "What's weaker")
     }
 
     @Test("cancelled streaming recovers a final answer from hidden thinking")

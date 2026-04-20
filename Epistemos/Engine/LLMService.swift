@@ -2838,14 +2838,13 @@ nonisolated enum CloudStreamingParser {
         return delta["thinking"] as? String
     }
 
-    /// Returns the reasoning summary text from an OpenAI Responses SSE
-    /// chunk. Matches both `response.reasoning_summary_text.delta` and
-    /// the rarer `response.reasoning_text.delta`. Complements
-    /// `openAITextDelta` which only catches `response.output_text.delta`.
+    /// Returns the reasoning SUMMARY text from an OpenAI Responses SSE
+    /// chunk. Intentionally excludes raw `response.reasoning_text.delta`
+    /// so private chain-of-thought never leaks into the app's visible
+    /// thinking UI. Complements `openAITextDelta`, which only catches
+    /// `response.output_text.delta`.
     static func openAIResponsesReasoningDelta(from json: [String: Any]) -> String? {
-        guard let type = json["type"] as? String else { return nil }
-        guard type == "response.reasoning_summary_text.delta"
-            || type == "response.reasoning_text.delta" else {
+        guard json["type"] as? String == "response.reasoning_summary_text.delta" else {
             return nil
         }
         return json["delta"] as? String

@@ -211,6 +211,14 @@ struct ChatPresentationTests {
         #expect(source.contains(".foregroundStyle(theme.textSecondary)"))
     }
 
+    @Test("cache badge copy calls out provider prompt caching rather than implying local runtime cache")
+    func cacheBadgeCopyCallsOutProviderPromptCaching() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+
+        #expect(source.contains("provider prompt cache"))
+        #expect(source.contains("cloud and local providers"))
+    }
+
     @Test("chat runtime popover keeps a single settings entry point")
     func chatRuntimePopoverKeepsASingleSettingsEntryPoint() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
