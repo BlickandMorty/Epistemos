@@ -15,16 +15,29 @@ use crate::types::{
 };
 
 const GEMINI_API_BASE: &str = "https://generativelanguage.googleapis.com/v1beta/models";
+const GOOGLE_OAUTH_AUTH_MODE_ENV: &str = "GOOGLE_AUTH_MODE";
+const GOOGLE_OAUTH_ACCESS_TOKEN_ENV: &str = "GOOGLE_ACCESS_TOKEN";
+const GOOGLE_OAUTH_PROJECT_ID_ENV: &str = "GOOGLE_PROJECT_ID";
+const GOOGLE_OAUTH_AUTH_MODE: &str = "oauth";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum GeminiAuth {
+    ApiKey(String),
+    OAuth {
+        access_token: String,
+        project_id: String,
+    },
+}
 
 pub struct GeminiProvider {
     client: Client,
-    api_key: String,
+    auth: GeminiAuth,
     model: &'static str,
     retry_config: RetryConfig,
 }
 
 impl GeminiProvider {
-    pub fn new(api_key: impl Into<String>, model: &'static str) -> Self {
+    fn new(auth: GeminiAuth, model: &'static str) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(300))
             .build()
@@ -32,38 +45,34 @@ impl GeminiProvider {
 
         Self {
             client,
-            api_key: api_key.into(),
+            auth,
             model,
             retry_config: RetryConfig::default(),
         }
     }
 
-    pub fn flash() -> Self {
+    fn from_env(model: &'static str) -> Self {
         Self::new(
-            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
-            "gemini-2.5-flash",
+            resolve_gemini_auth(
+                std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
+                std::env::var(GOOGLE_OAUTH_ACCESS_TOKEN_ENV).unwrap_or_default(),
+                std::env::var(GOOGLE_OAUTH_AUTH_MODE_ENV).unwrap_or_default(),
+                std::env::var(GOOGLE_OAUTH_PROJECT_ID_ENV).unwrap_or_default(),
+            ),
+            model,
         )
+    }
+
+    pub fn flash() -> Self {
+        Self::from_env("gemini-2.5-flash")
     }
 
     pub fn pro() -> Self {
-        Self::new(
-            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
-            "gemini-2.5-pro",
-        )
+        Self::from_env("gemini-2.5-pro")
     }
 
     pub fn computer_use() -> Self {
-        Self::new(
-            std::env::var("GOOGLE_API_KEY").unwrap_or_default(),
-            "gemini-2.5-flash-preview-native-audio-dialog",
-        )
-    }
-
-    fn streaming_url(&self) -> String {
-        format!(
-            "{}/{}:streamGenerateContent?alt=sse&key={}",
-            GEMINI_API_BASE, self.model, self.api_key
-        )
+        Self::from_env("gemini-2.5-flash-preview-native-audio-dialog")
     }
 }
 
@@ -128,10 +137,21 @@ impl AgentProvider for GeminiProvider {
         tools: &[ToolSchema],
         config: &AgentConfig,
     ) -> Result<MessageStream, AgentError> {
-        if self.api_key.trim().is_empty() {
-            return Err(AgentError::Provider(
-                "GOOGLE_API_KEY is not configured".to_string(),
-            ));
+        match &self.auth {
+            GeminiAuth::ApiKey(api_key) if api_key.trim().is_empty() => {
+                return Err(AgentError::Provider(
+                    "GOOGLE_API_KEY is not configured".to_string(),
+                ));
+            }
+            GeminiAuth::OAuth {
+                access_token,
+                project_id,
+            } if access_token.trim().is_empty() || project_id.trim().is_empty() => {
+                return Err(AgentError::Provider(
+                    "GOOGLE_ACCESS_TOKEN or GOOGLE_PROJECT_ID is not configured".to_string(),
+                ));
+            }
+            _ => {}
         }
 
         // Build Gemini contents array from message history
@@ -196,18 +216,18 @@ impl AgentProvider for GeminiProvider {
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
-        let url = self.streaming_url();
+        let auth = self.auth.clone();
+        let model = self.model;
 
         let response = with_retry(
             &retry_config,
             &tokio_util::sync::CancellationToken::new(),
             || {
                 let client = client.clone();
-                let url = url.clone();
+                let auth = auth.clone();
                 let body = body.clone();
                 async move {
-                    let response = client
-                        .post(&url)
+                    let response = streaming_request(&client, &auth, model)
                         .header("content-type", "application/json")
                         .json(&body)
                         .send()
@@ -374,6 +394,50 @@ impl AgentProvider for GeminiProvider {
     }
 }
 
+fn resolve_gemini_auth(
+    api_key: String,
+    access_token: String,
+    auth_mode: String,
+    project_id: String,
+) -> GeminiAuth {
+    if auth_mode
+        .trim()
+        .eq_ignore_ascii_case(GOOGLE_OAUTH_AUTH_MODE)
+        && !access_token.trim().is_empty()
+        && !project_id.trim().is_empty()
+    {
+        GeminiAuth::OAuth {
+            access_token,
+            project_id,
+        }
+    } else {
+        GeminiAuth::ApiKey(api_key)
+    }
+}
+
+fn streaming_request(
+    client: &Client,
+    auth: &GeminiAuth,
+    model: &'static str,
+) -> reqwest::RequestBuilder {
+    match auth {
+        GeminiAuth::ApiKey(api_key) => client.post(format!(
+            "{}/{}:streamGenerateContent?alt=sse&key={}",
+            GEMINI_API_BASE, model, api_key
+        )),
+        GeminiAuth::OAuth {
+            access_token,
+            project_id,
+        } => client
+            .post(format!(
+                "{}/{}:streamGenerateContent?alt=sse",
+                GEMINI_API_BASE, model
+            ))
+            .header("authorization", format!("Bearer {access_token}"))
+            .header("x-goog-user-project", project_id),
+    }
+}
+
 // MARK: - Message Conversion
 
 fn message_to_gemini(message: &Message) -> Value {
@@ -424,5 +488,87 @@ fn message_to_gemini(message: &Message) -> Value {
 
             json!({ "role": "model", "parts": parts })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{resolve_gemini_auth, streaming_request, GeminiAuth};
+    use reqwest::Client;
+
+    #[test]
+    fn resolves_oauth_auth_when_access_token_and_project_are_present() {
+        let auth = resolve_gemini_auth(
+            "AIza-legacy-key".to_string(),
+            "google-oauth-token".to_string(),
+            "oauth".to_string(),
+            "epistemos-auth-project".to_string(),
+        );
+
+        assert_eq!(
+            auth,
+            GeminiAuth::OAuth {
+                access_token: "google-oauth-token".to_string(),
+                project_id: "epistemos-auth-project".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn resolves_oauth_auth_case_insensitively() {
+        let auth = resolve_gemini_auth(
+            "AIza-legacy-key".to_string(),
+            "google-oauth-token".to_string(),
+            "OAuth".to_string(),
+            "epistemos-auth-project".to_string(),
+        );
+
+        assert_eq!(
+            auth,
+            GeminiAuth::OAuth {
+                access_token: "google-oauth-token".to_string(),
+                project_id: "epistemos-auth-project".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn oauth_requests_use_bearer_headers_instead_of_api_key_query() {
+        let client = Client::builder().build().unwrap();
+        let request = streaming_request(
+            &client,
+            &GeminiAuth::OAuth {
+                access_token: "google-oauth-token".to_string(),
+                project_id: "epistemos-auth-project".to_string(),
+            },
+            "gemini-2.5-pro",
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(request.url().query(), Some("alt=sse"));
+        assert_eq!(
+            request.headers().get("authorization").unwrap(),
+            "Bearer google-oauth-token"
+        );
+        assert_eq!(
+            request.headers().get("x-goog-user-project").unwrap(),
+            "epistemos-auth-project"
+        );
+    }
+
+    #[test]
+    fn api_key_requests_keep_query_auth() {
+        let client = Client::builder().build().unwrap();
+        let request = streaming_request(
+            &client,
+            &GeminiAuth::ApiKey("AIza-legacy-key".to_string()),
+            "gemini-2.5-pro",
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(request.url().query(), Some("alt=sse&key=AIza-legacy-key"));
+        assert!(request.headers().get("authorization").is_none());
     }
 }
