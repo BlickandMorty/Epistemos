@@ -77,7 +77,7 @@ const LOUVAIN_MAX_NODES: usize = 10_000;
 const INTERACTION_MOTION_HOLD: Duration = Duration::from_secs(30);
 const INTERACTION_MOTION_ALPHA_TARGET: f32 = 0.015;
 
-fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
+pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Duration) {
     if !entrance {
         return (24, Duration::from_millis(2));
     }

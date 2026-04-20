@@ -70,8 +70,11 @@ final class GraphBuilder: Sendable {
             let descriptor = FetchDescriptor<SDBlock>(
                 predicate: #Predicate<SDBlock> { batch.contains($0.id) }
             )
-            if let fetched = try? context.fetch(descriptor) {
+            do {
+                let fetched = try context.fetch(descriptor)
                 blocks.append(contentsOf: fetched)
+            } catch {
+                recordGraphBuilderFailure("Fetch referenced blocks batch", error: error)
             }
             Self.recordBlockRefFetchBatchForTesting()
         }
@@ -299,9 +302,31 @@ final class GraphBuilder: Sendable {
     /// and apply only inserts, updates, and deletes. Manual nodes/edges are never touched.
     // SAFETY: Same as build() — caller must own the ModelContext.
     nonisolated func persist(nodes expectedNodes: [SDGraphNode], edges expectedEdges: [SDGraphEdge], context: ModelContext) {
+        struct NodeMutationSnapshot {
+            let node: SDGraphNode
+            let label: String
+            let type: String
+            let weight: Double
+            let metadata: Data?
+            let updatedAt: Date
+        }
+
+        struct EdgeMutationSnapshot {
+            let edge: SDGraphEdge
+            let sourceNodeId: String
+            let targetNodeId: String
+            let weight: Double
+        }
+
         var inserted = 0
         var updated = 0
         var deleted = 0
+        var insertedNodes: [SDGraphNode] = []
+        var updatedNodeSnapshots: [NodeMutationSnapshot] = []
+        var deletedNodes: [SDGraphNode] = []
+        var insertedEdges: [SDGraphEdge] = []
+        var updatedEdgeSnapshots: [EdgeMutationSnapshot] = []
+        var deletedEdges: [SDGraphEdge] = []
 
         // ── 1. Fetch current non-manual entities ──
 
@@ -358,6 +383,14 @@ final class GraphBuilder: Sendable {
             if let existing = currentNodeMap[key] {
                 // Node exists — update if changed.
                 buildIdToPersistedId[expected.id] = existing.id
+                let snapshot = NodeMutationSnapshot(
+                    node: existing,
+                    label: existing.label,
+                    type: existing.type,
+                    weight: existing.weight,
+                    metadata: existing.metadata,
+                    updatedAt: existing.updatedAt
+                )
                 var changed = false
                 if existing.label != expected.label {
                     existing.label = expected.label
@@ -376,12 +409,14 @@ final class GraphBuilder: Sendable {
                     changed = true
                 }
                 if changed {
+                    updatedNodeSnapshots.append(snapshot)
                     existing.updatedAt = Date()
                     updated += 1
                 }
             } else {
                 // New node — insert.
                 context.insert(expected)
+                insertedNodes.append(expected)
                 buildIdToPersistedId[expected.id] = expected.id
                 inserted += 1
             }
@@ -398,6 +433,7 @@ final class GraphBuilder: Sendable {
         for (key, existing) in currentNodeMap where expectedNodeMap[key] == nil {
             guard builderOwnedTypes.contains(existing.type) else { continue }
             context.delete(existing)
+            deletedNodes.append(existing)
             deleted += 1
         }
 
@@ -467,6 +503,12 @@ final class GraphBuilder: Sendable {
         for (key, info) in expectedEdgeMap {
             if let existing = currentEdgeMap[key] {
                 // Edge exists — update weight if changed, remap node IDs if needed.
+                let snapshot = EdgeMutationSnapshot(
+                    edge: existing,
+                    sourceNodeId: existing.sourceNodeId,
+                    targetNodeId: existing.targetNodeId,
+                    weight: existing.weight
+                )
                 var changed = false
                 if existing.sourceNodeId != info.persistedSourceId {
                     existing.sourceNodeId = info.persistedSourceId
@@ -480,7 +522,10 @@ final class GraphBuilder: Sendable {
                     existing.weight = info.edge.weight
                     changed = true
                 }
-                if changed { edgeUpdated += 1 }
+                if changed {
+                    updatedEdgeSnapshots.append(snapshot)
+                    edgeUpdated += 1
+                }
             } else {
                 // New edge — remap to persisted node IDs and insert.
                 let newEdge = SDGraphEdge(
@@ -490,6 +535,7 @@ final class GraphBuilder: Sendable {
                     weight: info.edge.weight
                 )
                 context.insert(newEdge)
+                insertedEdges.append(newEdge)
                 edgeInserted += 1
             }
         }
@@ -514,6 +560,7 @@ final class GraphBuilder: Sendable {
                     || touchesSourceOrQuoteNode
             else { continue }
             context.delete(existing)
+            deletedEdges.append(existing)
             edgeDeleted += 1
         }
 
@@ -527,6 +574,30 @@ final class GraphBuilder: Sendable {
                 edges: +\(edgeInserted) ~\(edgeUpdated) -\(edgeDeleted)
                 """)
         } catch {
+            for snapshot in updatedNodeSnapshots {
+                snapshot.node.label = snapshot.label
+                snapshot.node.type = snapshot.type
+                snapshot.node.weight = snapshot.weight
+                snapshot.node.metadata = snapshot.metadata
+                snapshot.node.updatedAt = snapshot.updatedAt
+            }
+            for snapshot in updatedEdgeSnapshots {
+                snapshot.edge.sourceNodeId = snapshot.sourceNodeId
+                snapshot.edge.targetNodeId = snapshot.targetNodeId
+                snapshot.edge.weight = snapshot.weight
+            }
+            for node in deletedNodes {
+                context.insert(node)
+            }
+            for edge in deletedEdges {
+                context.insert(edge)
+            }
+            for edge in insertedEdges {
+                context.delete(edge)
+            }
+            for node in insertedNodes {
+                context.delete(node)
+            }
             recordGraphBuilderFailure("Save graph diff", error: error)
         }
     }

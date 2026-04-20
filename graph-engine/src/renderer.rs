@@ -1856,11 +1856,15 @@ impl Renderer {
         }
     }
 
+    fn labels_pass_primary_draw_gate(&self) -> bool {
+        self.labels_enabled
+    }
+
     /// Encode label draw commands into the current render encoder.
     /// Called from draw() after nodes and before dialogue overlay.
     fn draw_label_commands(&self, encoder: &RenderCommandEncoderRef) {
         // Guard: labels disabled, no atlas, no pipeline, or nothing to draw.
-        if !self.labels_enabled || self.quality_level >= 2 {
+        if !self.labels_pass_primary_draw_gate() {
             return;
         }
         let pipeline = match &self.label_pipeline {
@@ -4039,6 +4043,24 @@ mod tests {
         let mut indices = vec![4, 1, 4, 2, 1, 3];
         sort_and_dedup_indices(&mut indices);
         assert_eq!(indices, vec![1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn label_draw_gate_stays_open_in_performance_mode() {
+        let mut renderer = make_test_renderer();
+        renderer.labels_enabled = true;
+        renderer.quality_level = 2;
+
+        assert!(renderer.labels_pass_primary_draw_gate());
+    }
+
+    #[test]
+    fn label_draw_gate_still_respects_global_disable_toggle() {
+        let mut renderer = make_test_renderer();
+        renderer.labels_enabled = false;
+        renderer.quality_level = 0;
+
+        assert!(!renderer.labels_pass_primary_draw_gate());
     }
 
     #[test]
