@@ -1833,6 +1833,30 @@ struct TriageServiceIntegrationTests {
         #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
     }
 
+    @Test("fast local stream injects a no-think directive into the baseline system prompt")
+    @MainActor func fastLocalStreamInjectsNoThinkDirective() async {
+        let llm = RecordingConfigurableLocalLLMClient()
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
+            routingMode: .localOnly,
+            localLLMService: llm
+        )
+
+        let stream = triage.streamGeneral(
+            prompt: "Answer directly.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Answer directly."),
+            contentLength: 16,
+            operatingMode: .fast
+        )
+        _ = await LocalRuntimeSmokeSupport.collect(stream)
+
+        let request = try? #require(llm.streamRequests.first)
+        let systemPrompt = try? #require(request?.systemPrompt)
+        #expect(systemPrompt?.contains("/no_think") == true)
+    }
+
     @Test("local path injects a baseline local system prompt when none is provided")
     @MainActor func localPathInjectsBaselineLocalSystemPrompt() async throws {
         let llm = TriageIntegrationMockLLMClient()

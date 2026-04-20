@@ -293,6 +293,9 @@ final class ChatCoordinator {
                     for try await event in stream {
                         guard !Task.isCancelled else { break }
                         switch event {
+                        case .thinkingDelta(let thought):
+                            agentChat.appendStreamingThinking(thought)
+
                         case .textDelta(let text):
                             agentChat.appendStreamingText(text)
                         case .completed:
@@ -1335,6 +1338,9 @@ final class ChatCoordinator {
 
                     for try await event in stream {
                         switch event {
+                        case .thinkingDelta(let thought):
+                            chatState.appendStreamingThinking(thought)
+
                         case .textDelta(let token):
                             chatState.appendStreamingText(token)
 

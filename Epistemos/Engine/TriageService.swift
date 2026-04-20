@@ -914,6 +914,7 @@ final class TriageService {
     private static let localMLXBaselineSystemPrompt = """
     You are Epistemos' local on-device assistant.
     Answer directly and concisely.
+    Do not narrate tool plans, function calls, or internal reasoning in the visible answer.
     Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
     Do not claim to be a different model.
     If asked about your identity, say you are the local Epistemos assistant running on-device.
@@ -1256,7 +1257,11 @@ final class TriageService {
         guard let localLLMService else {
             throw LocalInferenceRoutingError.runtimeUnavailable
         }
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
+            systemPrompt,
+            modelID: modelID,
+            reasoningMode: .fast
+        )
         if let configurable = localLLMService as? any LocalConfigurableLLMClient {
             return try await configurable.generate(
                 prompt: prompt,
@@ -1365,7 +1370,8 @@ final class TriageService {
         contentLength: Int,
         operatingMode: EpistemosOperatingMode = .fast,
         localSurface: LocalModelSelectionSurface = .mainChat,
-        steeringHintsJSON: String? = nil
+        steeringHintsJSON: String? = nil,
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForGeneral(
@@ -1382,7 +1388,8 @@ final class TriageService {
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection,
                 steeringHintsJSON: steeringHintsJSON
-            )
+            ),
+            reasoningSink: reasoningSink
         )
     }
 
@@ -2118,7 +2125,11 @@ final class TriageService {
             throw LocalInferenceRoutingError.runtimeUnavailable
         }
 
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
+            systemPrompt,
+            modelID: selection.modelID,
+            reasoningMode: selection.reasoningMode
+        )
 
         do {
             if let configurable = localLLMService as? any LocalConfigurableLLMClient {
@@ -2164,7 +2175,11 @@ final class TriageService {
             }
         }
         let resolvedLocalLLMService = localLLMService
-        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
+        let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(
+            systemPrompt,
+            modelID: selection.modelID,
+            reasoningMode: selection.reasoningMode
+        )
         return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 do {
@@ -2225,7 +2240,11 @@ final class TriageService {
         }
     }
 
-    private static func effectiveLocalSystemPrompt(_ systemPrompt: String?, modelID: String? = nil) -> String {
+    private static func effectiveLocalSystemPrompt(
+        _ systemPrompt: String?,
+        modelID: String? = nil,
+        reasoningMode: LocalReasoningMode = .fast
+    ) -> String {
         // Use shorter prompt for abliterated models (no refusal-coaching needed)
         let baseline: String
         if let modelID,
@@ -2234,11 +2253,16 @@ final class TriageService {
         } else {
             baseline = localMLXBaselineSystemPrompt
         }
+        var parts = [baseline]
+        if reasoningMode == .fast {
+            parts.append("If your template supports it, treat this turn as /no_think and return only the final answer.")
+        }
         guard let systemPrompt,
               !systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return baseline
+            return parts.joined(separator: "\n\n")
         }
-        return "\(baseline)\n\n\(systemPrompt)"
+        parts.append(systemPrompt)
+        return parts.joined(separator: "\n\n")
     }
 
     private func userFacingStream(

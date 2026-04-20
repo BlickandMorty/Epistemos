@@ -254,6 +254,11 @@ nonisolated enum ThinkingPreludeSyntax {
         "i'll work through",
         "i'm going to think through",
         "thinking this through",
+        "i'll begin by",
+        "ill begin by",
+        "let me start by",
+        "i'll start by",
+        "ill start by",
     ]
 
     private static let proseOpeningPrefixes = [
@@ -733,6 +738,11 @@ nonisolated enum UserFacingModelOutput {
         "detailed analysis",
         "detailed analysis with",
         "pattern identification:",
+        "i'll begin by",
+        "ill begin by",
+        "let me start by",
+        "i'll start by",
+        "here is the function call:",
         "instructions:",
         "reduce strategy:",
         "input text:",

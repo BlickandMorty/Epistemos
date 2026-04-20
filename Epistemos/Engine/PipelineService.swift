@@ -234,7 +234,10 @@ final class PipelineService {
                             notesContext: notesContext,
                             conversationHistory: conversationHistory,
                             operatingMode: operatingMode,
-                            executionPlan: executionPlan
+                            executionPlan: executionPlan,
+                            reasoningEventHandler: { delta in
+                                continuation.yield(.thinkingDelta(delta))
+                            }
                         )
                         for try await token in directStream {
                             emittedVisibleText += token
@@ -303,12 +306,9 @@ final class PipelineService {
             return false
         }
 
-        switch operatingMode {
-        case .fast, .thinking, .pro:
-            return true
-        case .agent:
-            return false
-        }
+        // Keep standard local chat simple and fast. Only the explicit
+        // overseer/agent route should opt into the local tool loop.
+        return false
     }
 
     /// Tool-enabled local-model path. Builds a tier-filtered tool registry
@@ -586,7 +586,8 @@ final class PipelineService {
         notesContext: String? = nil,
         conversationHistory: String? = nil,
         operatingMode: EpistemosOperatingMode = .fast,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
+        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil,
+        reasoningEventHandler: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
 
@@ -629,7 +630,8 @@ final class PipelineService {
                 contentLength: finalPrompt.count,
                 operatingMode: operatingMode,
                 localSurface: .miniChat,
-                steeringHintsJSON: executionPlan?.steeringHintsJSON
+                steeringHintsJSON: executionPlan?.steeringHintsJSON,
+                reasoningSink: reasoningEventHandler
             )
         }
 
@@ -640,7 +642,8 @@ final class PipelineService {
             contentLength: finalPrompt.count,
             operatingMode: operatingMode,
             localSurface: .miniChat,
-            steeringHintsJSON: executionPlan?.steeringHintsJSON
+            steeringHintsJSON: executionPlan?.steeringHintsJSON,
+            reasoningSink: reasoningEventHandler
         )
     }
 
