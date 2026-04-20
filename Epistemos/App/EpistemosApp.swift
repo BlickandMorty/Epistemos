@@ -13,104 +13,24 @@ import os
 enum WindowPresentationPolicy {
     static let mainWindowMinimumSize = CGSize(width: 720, height: 520)
 
-    static func needsModularZoomBehavior(
-        _ window: NSWindow,
-        minimumContentSize: CGSize = mainWindowMinimumSize
-    ) -> Bool {
-        if window.contentMinSize != minimumContentSize {
-            return true
-        }
-        if window.collectionBehavior.contains(.fullScreenPrimary)
-            || window.collectionBehavior.contains(.fullScreenAuxiliary)
-            || window.collectionBehavior.contains(.fullScreenAllowsTiling)
-        {
-            return true
-        }
-        if window.isMovableByWindowBackground {
-            return true
-        }
-        guard let zoomButton = window.standardWindowButton(.zoomButton) else {
-            return false
-        }
-        return zoomButton.target !== window || zoomButton.action != #selector(NSWindow.performZoom(_:))
-    }
-
     static func applyModularZoomBehavior(
         to window: NSWindow,
         minimumContentSize: CGSize = mainWindowMinimumSize
     ) {
-        if window.isMovableByWindowBackground {
-            window.isMovableByWindowBackground = false
-        }
-
         if window.contentMinSize != minimumContentSize {
             window.contentMinSize = minimumContentSize
         }
 
         var collectionBehavior = window.collectionBehavior
-        collectionBehavior.remove(.fullScreenPrimary)
-        collectionBehavior.remove(.fullScreenAuxiliary)
-        collectionBehavior.remove(.fullScreenAllowsTiling)
+        collectionBehavior.remove([.fullScreenPrimary, .fullScreenAuxiliary, .fullScreenAllowsTiling])
         if collectionBehavior != window.collectionBehavior {
             window.collectionBehavior = collectionBehavior
         }
 
         if let zoomButton = window.standardWindowButton(.zoomButton) {
-            if zoomButton.target !== window {
-                zoomButton.target = window
-            }
-            if zoomButton.action != #selector(NSWindow.performZoom(_:)) {
-                zoomButton.action = #selector(NSWindow.performZoom(_:))
-            }
+            zoomButton.target = window
+            zoomButton.action = #selector(NSWindow.performZoom(_:))
         }
-    }
-}
-
-@MainActor
-final class ModularZoomWindowObserverView: NSView {
-    private var applyTask: Task<Void, Never>?
-    private static let applyDelay: Duration = .milliseconds(1)
-
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        if let window {
-            // Main window always uses opaque adaptive background (never transparent)
-            window.appearance = nil
-            window.isOpaque = true
-            window.backgroundColor = .windowBackgroundColor
-            window.isMovableByWindowBackground = false
-
-            if WindowPresentationPolicy.needsModularZoomBehavior(window) {
-                WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-                return
-            }
-        }
-        schedulePolicyApply()
-    }
-
-    deinit {
-        applyTask?.cancel()
-    }
-
-    func schedulePolicyApply() {
-        applyTask?.cancel()
-        applyTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: Self.applyDelay)
-            guard let self, let window = self.window,
-                WindowPresentationPolicy.needsModularZoomBehavior(window)
-            else { return }
-            WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-        }
-    }
-}
-
-struct ModularZoomWindowObserver: NSViewRepresentable {
-    func makeNSView(context: Context) -> ModularZoomWindowObserverView {
-        ModularZoomWindowObserverView(frame: .zero)
-    }
-
-    func updateNSView(_ nsView: ModularZoomWindowObserverView, context: Context) {
-        nsView.schedulePolicyApply()
     }
 }
 
@@ -127,6 +47,25 @@ private struct LaunchIntegrityGateView<Content: View>: View {
                 didStartGate = true
                 await bootstrap.runAutomaticVaultRestoreAfterLaunchIfNeeded()
             }
+    }
+}
+
+private enum RuntimeAuditFlags {
+    static let minimalHomeSceneKey = "EPI_HOME_WINDOW_MINIMAL_CONTENT"
+
+    static var minimalHomeSceneEnabled: Bool {
+        ProcessInfo.processInfo.environment[minimalHomeSceneKey] == "1"
+    }
+}
+
+private struct AuditMinimalHomeSceneView: View {
+    var body: some View {
+        VStack {
+            Button("test") {
+                RuntimeDiagnostics.recordLifecycleEvent("minimal_home_button_pressed")
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -543,7 +482,6 @@ struct EpistemosApp: App {
     @State private var showQuickCapture = false
 
     init() {
-        SavedApplicationStatePurger.purgeIfNeeded()
         if !Self.isRunningTests {
             CrashReportCollector.shared.startCollecting()
             RuntimeDiagnostics.logStorageLocations()
@@ -553,11 +491,33 @@ struct EpistemosApp: App {
                 "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "unknown",
             ])
             RuntimeIssueMonitor.shared.start()
+            HomeWindowInputDiagnostics.shared.startIfNeeded()
         }
     }
 
     var body: some Scene {
         Window("Epistemos", id: "main") {
+            homeSceneContent
+        }
+        .restorationBehavior(.disabled)
+        .defaultSize(width: 1100, height: 720)
+        .windowResizability(.contentMinSize)
+        .modelContainer(bootstrap.modelContainer)
+        .commands {
+            EpistemosCommands(
+                ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
+                vaultSync: bootstrap.vaultSync)
+        }
+
+        // Knowledge Graph uses a full-screen hologram overlay (HologramController),
+        // not a SwiftUI Window scene. Toggle with Cmd+Shift+G.
+    }
+
+    @ViewBuilder
+    private var homeSceneContent: some View {
+        if RuntimeAuditFlags.minimalHomeSceneEnabled {
+            AuditMinimalHomeSceneView()
+        } else {
             LaunchIntegrityGateView(bootstrap: bootstrap) {
                 RootView(
                     databaseError: bootstrap.databaseError,
@@ -615,7 +575,6 @@ struct EpistemosApp: App {
                     ) { _ in
                         showQuickCapture = true
                     }
-                    .background(ModularZoomWindowObserver().allowsHitTesting(false))
                     .onAppear {
                         guard !Self.isRunningTests else { return }
                         StatusBar.shared.setup()
@@ -646,18 +605,6 @@ struct EpistemosApp: App {
                     }
             }
         }
-        .restorationBehavior(.disabled)
-        .defaultSize(width: 1100, height: 720)
-        .windowResizability(.contentSize)
-        .modelContainer(bootstrap.modelContainer)
-        .commands {
-            EpistemosCommands(
-                ui: bootstrap.uiState, chat: bootstrap.chatState, notesUI: bootstrap.notesUI,
-                vaultSync: bootstrap.vaultSync)
-        }
-
-        // Knowledge Graph uses a full-screen hologram overlay (HologramController),
-        // not a SwiftUI Window scene. Toggle with Cmd+Shift+G.
     }
 }
 
@@ -666,9 +613,7 @@ struct EpistemosApp: App {
 final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    private var mainWindowObservers: [NSObjectProtocol] = []
     private var didTeardown = false
-    private var quitObserver: NSObjectProtocol?
     private static let showQuitDialogKey = "epistemos.showSaveOnQuitDialog"
 
     private static var canConfigureUserNotificationCenter: Bool {
@@ -685,33 +630,9 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let center = NotificationCenter.default
-        let names: [Notification.Name] = [
-            NSWindow.didBecomeMainNotification,
-            NSWindow.didBecomeKeyNotification,
-            NSWindow.didDeminiaturizeNotification,
-        ]
-
-        mainWindowObservers = names.map { name in
-            center.addObserver(forName: name, object: nil, queue: .main) { note in
-                guard let window = note.object as? NSWindow else { return }
-                Task { @MainActor in
-                    Self.applyMainWindowPolicyIfNeeded(to: window)
-                }
-            }
-        }
-
         if Self.canConfigureUserNotificationCenter {
             UNUserNotificationCenter.current().delegate = self
         }
-
-        Task { @MainActor in
-            NSApp.windows.forEach(Self.applyMainWindowPolicyIfNeeded(to:))
-        }
-    }
-
-    func applicationWillFinishLaunching(_ notification: Notification) {
-        SavedApplicationStatePurger.purgeIfNeeded()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -752,9 +673,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     func applicationWillTerminate(_ notification: Notification) {
         // Idempotent fallback — performTeardown guards against double calls
         performTeardown()
-        let center = NotificationCenter.default
-        mainWindowObservers.forEach(center.removeObserver)
-        mainWindowObservers.removeAll()
     }
 
     func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool {
@@ -771,10 +689,13 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         guard !Self.isRunningTests else {
             StatusBar.shared.remove()
             HologramController.shared.teardown()
+            HomeWindowInputDiagnostics.shared.stop()
             return
         }
         RuntimeIssueMonitor.shared.stop(reason: "application_teardown")
+        HomeWindowInputDiagnostics.shared.stop()
         guard let bootstrap = AppBootstrap.shared else { return }
+        bootstrap.teardownRuntimeObservers()
         bootstrap.activityTracker.stopTracking()
         bootstrap.activityTracker.flushToDisk()
         bootstrap.workspaceSummaryService.stopAutoSummaryLoop()
@@ -789,15 +710,6 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
 
     // Save-on-quit dialog is now handled via WorkspaceSavePanel (SwiftUI overlay).
     // The panel posts .proceedWithQuit when the user confirms, which triggers performTeardown + reply.
-
-    @MainActor
-    private static func applyMainWindowPolicyIfNeeded(to window: NSWindow) {
-        guard HomeWindowIdentity.matches(window) else { return }
-        if window.isRestorable {
-            window.isRestorable = false
-        }
-        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
-    }
 
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
@@ -857,7 +769,7 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
     @objc private func dockNewNote() {
         Task { @MainActor in
             guard let vaultSync = AppBootstrap.shared?.vaultSync else { return }
-            if let pageId = await vaultSync.createPage(title: "Untitled") {
+            if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                 NoteWindowManager.shared.open(pageId: pageId)
             }
             NSApp.activate()
@@ -950,7 +862,7 @@ struct EpistemosCommands: Commands {
         CommandGroup(replacing: .newItem) {
             Button("New Note") {
                 Task { @MainActor in
-                    if let pageId = await vaultSync.createPage(title: "Untitled") {
+                    if let pageId = await vaultSync.createPage(title: "Untitled", allowVaultSelectionPrompt: true) {
                         NoteWindowManager.shared.open(pageId: pageId)
                     }
                 }

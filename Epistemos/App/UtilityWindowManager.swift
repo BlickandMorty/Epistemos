@@ -37,9 +37,6 @@ enum WindowThemeStyler {
     }
 
     static func apply(to window: NSWindow, uiState: UIState) {
-        // Let macOS handle appearance automatically (Liquid Glass, dark/light mode)
-        window.appearance = nil
-        window.backgroundColor = .windowBackgroundColor
         applyBackdrop(in: window.contentView, uiState: uiState)
         refreshChrome(of: window)
     }
