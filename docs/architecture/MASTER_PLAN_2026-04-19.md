@@ -2,6 +2,9 @@
 
 Single source of truth for everything the user flagged during the long session on `codex/runtime-input-audit`. Updates as batches land. Ordered by priority, not chronology.
 
+Release-hardening note:
+- For the tighter canonical plan that reconciles the later Claude/Codex research, verification handoffs, and remaining release blockers, see `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md`.
+
 ---
 
 ## 1 · What's already committed (this sprint)
