@@ -221,6 +221,34 @@ From user's own words — surfaces I'm deliberately not touching:
 
 ---
 
+## 10 · 2026-04-19 reasoning-trace continuation
+
+### Landed
+
+| SHA | What |
+|-----|------|
+| [3c17ac95](commits/3c17ac95) | Note chat now round-trips `thinkingTrace` / `thinkingDurationSeconds` through SwiftData persistence, so reopening a note preserves the assistant's collapsible thought trail. |
+| [79e70e52](commits/79e70e52) | Graph chat (`NodeInspectorState` + `HologramSearchSidebar`) now captures `reasoningSink` deltas, exposes a live/persisted `ThinkingTrailView`, and attaches the final thinking trace to `InspectorChatMessage` instead of keeping reasoning invisible. |
+
+### Validation
+
+- Focused `xcodebuild ... -only-testing:EpistemosTests/NoteChatStateTests` passed on `/tmp/epistemos-mlx-load-stall`.
+- The new `RuntimeValidationTests.graphChatPreservesReasoningTracesSeparately()` source guard passed.
+- The broader `RuntimeValidationTests` suite still has one unrelated pre-existing failure: `bootstrapThrottlesRefreshAndRuntimeSerializesTurns()`.
+
+### Next smallest transcript surfaces
+
+1. `Epistemos/Views/Graph/PinnedInspector.swift`
+Still streams assistant text only; node chat there does not yet consume `reasoningSink` or render `ThinkingTrailView`.
+
+2. `Epistemos/Views/Notes/CodeEditorView.swift`
+Code-explain / vault-context flows still call `triageService.streamGeneral(...)` without a reasoning side-channel, so they remain black-box candidates if a thinking model is selected.
+
+3. `Epistemos/State/DialogueChatState.swift`
+Lower-priority persistence cleanup: if that transcript continues to matter, it still saves only `role/content` and drops reasoning metadata entirely.
+
+---
+
 ## 10 · Commit cadence rules (reminder for future batches)
 
 Learned from tonight's misses:
