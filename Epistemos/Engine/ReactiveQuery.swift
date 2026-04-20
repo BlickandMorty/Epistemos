@@ -12,6 +12,7 @@ final class ReactiveQuery {
     private let runtime: QueryRuntime
     private let plan: QueryPlan
     private let dependencies: Set<QueryDependencyKey>
+    private var streamToken = UUID()
     private var debounceTask: Task<Void, Never>?
     private var lastResult: QueryResult?
     private var cancellables = Set<AnyCancellable>()
@@ -30,10 +31,14 @@ final class ReactiveQuery {
     /// Create a reactive stream that re-evaluates on data changes.
     func stream() -> AsyncStream<QueryResult> {
         // Clean up any existing stream
+        let token = UUID()
+        streamToken = token
+        debounceTask?.cancel()
+        debounceTask = nil
         continuation?.finish()
         cancellables.removeAll()
 
-        return AsyncStream { [weak self] continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(1)) { [weak self] continuation in
             guard let self else { continuation.finish(); return }
             self.continuation = continuation
 
@@ -60,8 +65,11 @@ final class ReactiveQuery {
 
             continuation.onTermination = { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    self?.cancellables.removeAll()
-                    self?.continuation = nil
+                    guard let self, self.streamToken == token else { return }
+                    self.debounceTask?.cancel()
+                    self.debounceTask = nil
+                    self.cancellables.removeAll()
+                    self.continuation = nil
                 }
             }
         }
@@ -70,11 +78,13 @@ final class ReactiveQuery {
     /// Execute the plan and yield result (with deduplication + debounce).
     private func reevaluate() {
         debounceTask?.cancel()
+        let token = streamToken
         debounceTask = Task { @MainActor [weak self] in
             guard let self else { return }
             try? await Task.sleep(for: self.debounceInterval)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, self.streamToken == token else { return }
             let result = self.runtime.execute(self.plan)
+            guard !Task.isCancelled, self.streamToken == token else { return }
             if !result.isEquivalent(to: self.lastResult) {
                 self.lastResult = result
                 self.continuation?.yield(result)

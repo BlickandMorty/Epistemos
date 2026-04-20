@@ -579,6 +579,102 @@ struct QueryRuntimeTests {
         #expect(reactive.shouldInvalidate(for: Notification(name: .searchIndexDidUpdate)))
     }
 
+    @Test("reactive query keeps the newest stream alive when replacing subscribers")
+    func reactiveQueryStreamReplacementPreservesNewestSubscriber() async throws {
+        let store = GraphStore()
+        let runtime = try QueryRuntime(
+            graphStore: store,
+            graphState: GraphState(),
+            searchIndex: makeSearchIndex()
+        )
+
+        let reactive = ReactiveQuery(
+            runtime: runtime,
+            plan: QueryPlan(
+                steps: [.graphStoreFilter(NodeFilter(limit: 10))],
+                combiner: .single
+            )
+        )
+
+        var firstIterator: AsyncStream<QueryResult>.Iterator? = reactive.stream().makeAsyncIterator()
+        let firstInitial = await firstIterator?.next()
+        #expect(firstInitial?.nodes.isEmpty == true)
+
+        var secondIterator = reactive.stream().makeAsyncIterator()
+        let secondInitial = await secondIterator.next()
+        #expect(secondInitial?.nodes.isEmpty == true)
+
+        // Allow the first stream's termination cleanup to run before the next invalidation.
+        try? await Task.sleep(for: .milliseconds(20))
+        firstIterator = nil
+
+        store.addNode(
+            GraphNodeRecord(
+                id: "delta",
+                type: .note,
+                label: "Delta",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now
+            )
+        )
+
+        let updated = await secondIterator.next()
+        #expect(updated?.nodes.map(\.id) == ["delta"])
+    }
+
+    @Test("reactive query buffers only the newest pending result")
+    func reactiveQueryBuffersNewestPendingResult() async throws {
+        let store = GraphStore()
+        let runtime = try QueryRuntime(
+            graphStore: store,
+            graphState: GraphState(),
+            searchIndex: makeSearchIndex()
+        )
+
+        let reactive = ReactiveQuery(
+            runtime: runtime,
+            plan: QueryPlan(
+                steps: [.graphStoreFilter(NodeFilter(limit: 10))],
+                combiner: .single
+            )
+        )
+
+        var iterator = reactive.stream().makeAsyncIterator()
+        let initial = await iterator.next()
+        #expect(initial?.nodes.isEmpty == true)
+
+        store.addNode(
+            GraphNodeRecord(
+                id: "alpha",
+                type: .note,
+                label: "Alpha",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(80))
+
+        store.addNode(
+            GraphNodeRecord(
+                id: "beta",
+                type: .note,
+                label: "Beta",
+                sourceId: nil,
+                metadata: GraphNodeMetadata(),
+                weight: 1.0,
+                createdAt: .now
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(80))
+
+        let latest = await iterator.next()
+        #expect(Set(latest?.nodes.map(\.id) ?? []) == ["alpha", "beta"])
+    }
+
     @Test("retrieval runtime de-duplicates page and block hits for the same note")
     func retrievalRuntimeDeduplicatesPageAndBlockHitsForSameNote() throws {
         let store = GraphStore()

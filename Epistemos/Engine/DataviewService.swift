@@ -52,6 +52,20 @@ final class DataviewService {
         let totalCount: Int
     }
 
+    private func fetchPages(
+        with descriptor: FetchDescriptor<SDPage>,
+        context: ModelContext
+    ) -> [SDPage] {
+        do {
+            return try context.fetch(descriptor)
+        } catch {
+            Log.engine.error(
+                "DataviewService: failed to fetch pages: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+    }
+
     // MARK: - Parse
 
     /// Parse a DQL string into a DataviewQuery.
@@ -166,7 +180,7 @@ final class DataviewService {
             )
         }
 
-        let pages = (try? context.fetch(descriptor)) ?? []
+        let pages = fetchPages(with: descriptor, context: context)
         let fromFilteredPages: [SDPage]
         if let folderPrefix {
             fromFilteredPages = pages.filter { page in
