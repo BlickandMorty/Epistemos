@@ -149,6 +149,70 @@ struct LocalGGUFClientTests {
     }
 
     @MainActor
+    @Test("gguf client rejects fast mode for always-thinking families")
+    func ggufClientRejectsFastModeForAlwaysThinkingFamilies() async throws {
+        let fixture = try makeGGUFFixture(named: [
+            "qwopus-27b-v3.gguf",
+        ])
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let runtime = makeRuntime(output: "unused")
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            ),
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwopus27Bv3.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwopus27Bv3.rawValue)
+
+        let client = LocalGGUFClient(
+            runtime: runtime,
+            inference: inference,
+            runtimeControlPlane: controlPlane
+        )
+        client.configurePreparedGenerationRuntime(
+            PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwopus 27B v3",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwopus-27b-v3",
+                    modelID: LocalTextModelID.qwopus27Bv3.rawValue,
+                    servedModelID: LocalTextModelID.qwopus27Bv3.rawValue,
+                    mlxOutputPath: fixture.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        await #expect(throws: LocalGGUFRuntimeError.fastModeUnsupported(modelID: LocalTextModelID.qwopus27Bv3.rawValue)) {
+            try await client.generate(
+                prompt: "Say hello",
+                systemPrompt: "Be concise.",
+                maxTokens: 24,
+                reasoningMode: .fast,
+                modelID: LocalTextModelID.qwopus27Bv3.rawValue,
+                requestedRuntimeKind: .gguf,
+                steeringHintsJSON: nil
+            )
+        }
+    }
+
+    @MainActor
     @Test("gguf client snapshot reports the gguf local provider identity")
     func ggufClientSnapshotReportsGGUFProviderIdentity() {
         let inference = InferenceState(

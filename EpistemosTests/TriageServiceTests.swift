@@ -279,6 +279,11 @@ struct TriageServiceTests {
         #expect(inference.sanitizedOperatingMode(.fast) == .thinking)
     }
 
+    @Test("qwen coder is flagged as fast-incompatible")
+    func qwenCoderIsFlaggedAsFastIncompatible() {
+        #expect(LocalTextModelID.qwen25Coder7B.cannotDisableThinkingInFast)
+    }
+
     @Test("auto route keeps fast local but escalates pro chat to the configured cloud provider")
     @MainActor func inferenceStateEffectiveChatSurfaceSelectionTracksAutoRoutePolicy() throws {
         let inference = makeIsolatedInferenceState(

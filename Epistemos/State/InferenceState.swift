@@ -325,7 +325,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var cannotDisableThinkingInFast: Bool {
         switch self {
         case .deepseekR1Distill7B,
-             .qwopus27Bv3, .qwopusMoE35BA3B:
+             .qwopus27Bv3, .qwopusMoE35BA3B,
+             .qwen25Coder7B:
             true
         default:
             false
