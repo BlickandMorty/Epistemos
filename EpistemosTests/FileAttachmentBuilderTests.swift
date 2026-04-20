@@ -85,7 +85,8 @@ struct FileAttachmentBuilderTests {
         #expect(context?.contains("Attached file: vault note cafe.md") == true)
         #expect(context?.contains("Status: Required context explicitly attached or requested by the user.") == true)
         #expect(context?.contains("Treat them as the primary subject of the request unless the user clearly says otherwise.") == true)
-        #expect(context?.contains("Use the attached file before recall/search tools.") == true)
+        #expect(context?.contains("any extracted `Content:` below is already available for you to use directly") == true)
+        #expect(context?.contains("Do not ask the user to locate, reattach, or restate it.") == true)
         #expect(context?.contains("# Vault Note") == true)
         #expect(context?.contains("spaces in its URL") == true)
     }

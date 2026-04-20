@@ -2687,15 +2687,12 @@ final class ChatCoordinator {
             context: wrapRequiredContextSection(
                 title: "Required Attached Notes",
                 instruction: """
-                THE FULL TEXT of each attached note is inlined in the `Content:` \
-                block below — it has ALREADY been resolved for you. You DO NOT \
-                need to call read_file, file_read, vault_read, or any other \
-                fetch tool to obtain this content, and you MUST NOT ask the \
-                user for a file path. Treat the inlined text as the authoritative \
-                source and answer directly from it. Only use recall/search tools \
-                (vault_search, web_search, etc.) when the user explicitly asks \
-                you to look beyond the attached notes or when the attached \
-                content is clearly insufficient to answer the question.
+                The attached notes are already resolved below in full. Treat the \
+                inlined `Content:` blocks as the authoritative source and answer \
+                directly from them. Do not ask the user to locate, reattach, or \
+                restate these notes. Only broaden beyond them when the user \
+                explicitly asks for a wider search or when the attached notes are \
+                clearly insufficient to answer the question.
                 """,
                 body: sections.joined(separator: "\n\n")
             ),
@@ -2959,7 +2956,7 @@ final class ChatCoordinator {
         let sections = attachments.compactMap { fileAttachmentSection(for: $0, supportsVision: supportsVision) }
         return wrapRequiredContextSection(
             title: "Required File Attachments",
-            instruction: "These files were explicitly attached by the user to this message. Use them whenever they are relevant. Treat them as the primary subject of the request unless the user clearly says otherwise. Refer to them by name instead of treating them as optional background. Use the attached file before recall/search tools. Only broaden beyond it if the user asks or the attached file is clearly insufficient.",
+            instruction: "These files were explicitly attached by the user to this message, and any extracted `Content:` below is already available for you to use directly. Treat the attached file as the primary subject of the request unless the user clearly says otherwise. Refer to it by name instead of treating it as optional background. Do not ask the user to locate, reattach, or restate it. Only broaden beyond it if the user asks or the attached file is clearly insufficient.",
             body: sections.joined(separator: "\n\n")
         )
     }
@@ -2971,6 +2968,7 @@ final class ChatCoordinator {
             body: """
             Treat them as the primary subject of the request unless the user clearly says otherwise.
             If the attached notes, files, or chats already cover the request, use them before recall/search/memory tools.
+            Never ask the user for a path, title, or upload that is already present in the attached context.
             Only broaden beyond the attached context when the user asks for a wider search or the attached material is clearly insufficient.
             If anything is missing or unreadable, name the specific missing item instead of pretending no context was provided.
             """
