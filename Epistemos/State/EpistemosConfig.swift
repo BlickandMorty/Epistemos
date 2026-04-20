@@ -50,12 +50,18 @@ final class EpistemosConfig {
 
     var allowlist: [String] {
         get { decodeBundleList(allowlistJSON, label: "allowlist") ?? [] }
-        set { allowlistJSON = encodeBundleList(newValue) }
+        set {
+            guard let encoded = encodeBundleList(newValue) else { return }
+            allowlistJSON = encoded
+        }
     }
 
     var blocklist: [String] {
         get { decodeBundleList(blocklistJSON, label: "blocklist") ?? [] }
-        set { blocklistJSON = encodeBundleList(newValue) }
+        set {
+            guard let encoded = encodeBundleList(newValue) else { return }
+            blocklistJSON = encoded
+        }
     }
 
     func isBlocked(_ bundleId: String) -> Bool {
@@ -119,8 +125,7 @@ final class EpistemosConfig {
     }
 
     private func persistDecodedBundleList(_ values: [String], label: String, rawValue: String) {
-        let encoded = encodeBundleList(values)
-        guard encoded != rawValue else { return }
+        guard let encoded = encodeBundleList(values), encoded != rawValue else { return }
 
         switch label {
         case "allowlist":
@@ -132,17 +137,17 @@ final class EpistemosConfig {
         }
     }
 
-    private func encodeBundleList(_ values: [String]) -> String {
+    private func encodeBundleList(_ values: [String]) -> String? {
         do {
             let encoded = try JSONEncoder().encode(values)
             guard let json = String(data: encoded, encoding: .utf8) else {
                 Self.log.error("EpistemosConfig: failed to encode capture filter JSON as UTF-8 text")
-                return "[]"
+                return nil
             }
             return json
         } catch {
             Self.log.error("EpistemosConfig: failed to encode capture filter JSON: \(error.localizedDescription, privacy: .public)")
-            return "[]"
+            return nil
         }
     }
 }

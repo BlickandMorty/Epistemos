@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import CryptoKit
+import OSLog
 
 @Model
 final class SDNoteInsight {
@@ -56,29 +57,57 @@ final class SDNoteInsight {
 
     // MARK: - Type-Safe Accessors
 
+    private static let log = Logger(subsystem: "com.epistemos", category: "SDNoteInsight")
+
     var entityKeywords: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(entityKeywordsJSON.utf8))) ?? [] }
-        set { entityKeywordsJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { Self.decodeJSONArray(entityKeywordsJSON, as: [String].self) }
+        set { entityKeywordsJSON = Self.encodeJSON(newValue, fallback: entityKeywordsJSON) }
     }
 
     var topicNouns: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(topicNounsJSON.utf8))) ?? [] }
-        set { topicNounsJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { Self.decodeJSONArray(topicNounsJSON, as: [String].self) }
+        set { topicNounsJSON = Self.encodeJSON(newValue, fallback: topicNounsJSON) }
     }
 
     var relatedNoteIds: [String] {
-        get { (try? JSONDecoder().decode([String].self, from: Data(relatedNoteIdsJSON.utf8))) ?? [] }
-        set { relatedNoteIdsJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { Self.decodeJSONArray(relatedNoteIdsJSON, as: [String].self) }
+        set { relatedNoteIdsJSON = Self.encodeJSON(newValue, fallback: relatedNoteIdsJSON) }
     }
 
     var relatednessScores: [Double] {
-        get { (try? JSONDecoder().decode([Double].self, from: Data(relatednessScoresJSON.utf8))) ?? [] }
-        set { relatednessScoresJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { Self.decodeJSONArray(relatednessScoresJSON, as: [Double].self) }
+        set { relatednessScoresJSON = Self.encodeJSON(newValue, fallback: relatednessScoresJSON) }
     }
 
     var relatednessReasons: [[String]] {
-        get { (try? JSONDecoder().decode([[String]].self, from: Data(relatednessReasonsJSON.utf8))) ?? [] }
-        set { relatednessReasonsJSON = (try? String(data: JSONEncoder().encode(newValue), encoding: .utf8)) ?? "[]" }
+        get { Self.decodeJSONArray(relatednessReasonsJSON, as: [[String]].self) }
+        set { relatednessReasonsJSON = Self.encodeJSON(newValue, fallback: relatednessReasonsJSON) }
+    }
+
+    private static func decodeJSONArray<Element: Decodable>(
+        _ json: String,
+        as type: [Element].Type
+    ) -> [Element] {
+        do {
+            return try JSONDecoder().decode(type, from: Data(json.utf8))
+        } catch {
+            log.error("SDNoteInsight: JSON decode failed for \(String(describing: type), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
+        }
+    }
+
+    private static func encodeJSON<T: Encodable>(_ value: T, fallback: String) -> String {
+        do {
+            let data = try JSONEncoder().encode(value)
+            guard let str = String(data: data, encoding: .utf8) else {
+                log.error("SDNoteInsight: UTF-8 conversion failed after encoding \(String(describing: T.self), privacy: .public)")
+                return fallback
+            }
+            return str
+        } catch {
+            log.error("SDNoteInsight: JSON encode failed for \(String(describing: T.self), privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return fallback
+        }
     }
 
     // MARK: - Content Hash

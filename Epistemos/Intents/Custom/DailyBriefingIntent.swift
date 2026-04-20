@@ -19,7 +19,15 @@ struct DailyBriefingIntent: AppIntent {
         let context = ModelContext(bootstrap.modelContainer)
         var desc = FetchDescriptor<SDPage>(sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)])
         desc.fetchLimit = 20
-        let recentPages = (try? context.fetch(desc)) ?? []
+        let recentPages: [SDPage]
+        do {
+            recentPages = try context.fetch(desc)
+        } catch {
+            Log.app.error(
+                "DailyBriefingIntent: failed to fetch recent pages: \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: "Couldn't load your recent notes. Please try again.")
+        }
 
         let summary = recentPages.map { "- \($0.title) (updated \($0.updatedAt.formatted(.relative(presentation: .named))))" }.joined(separator: "\n")
         let manifestHint = bootstrap.ambientManifest.map { "\n\n" + $0.asManifestOnly() } ?? ""

@@ -38,8 +38,14 @@ struct FolderEntityQuery: EntityStringQuery {
         var results: [FolderEntity] = []
         for id in identifiers {
             let descriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == id })
-            if let folder = (try? context.fetch(descriptor))?.first {
-                results.append(folder.toFolderEntity())
+            do {
+                if let folder = try context.fetch(descriptor).first {
+                    results.append(folder.toFolderEntity())
+                }
+            } catch {
+                Log.app.error(
+                    "FolderEntityQuery: failed to fetch folder \(String(id.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
         return results
@@ -53,7 +59,15 @@ struct FolderEntityQuery: EntityStringQuery {
         let descriptor = FetchDescriptor<SDFolder>(
             sortBy: [SortDescriptor(\SDFolder.name)]
         )
-        let folders = (try? context.fetch(descriptor)) ?? []
+        let folders: [SDFolder]
+        do {
+            folders = try context.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "FolderEntityQuery: failed to fetch folders: \(error.localizedDescription, privacy: .public)"
+            )
+            return IntentItemCollection(items: [])
+        }
         let matched = folders.filter { $0.name.lowercased().contains(query) }
         return IntentItemCollection(items: matched.map { $0.toFolderEntity() })
     }
@@ -65,7 +79,15 @@ struct FolderEntityQuery: EntityStringQuery {
         let descriptor = FetchDescriptor<SDFolder>(
             sortBy: [SortDescriptor(\SDFolder.name)]
         )
-        let folders = (try? context.fetch(descriptor)) ?? []
+        let folders: [SDFolder]
+        do {
+            folders = try context.fetch(descriptor)
+        } catch {
+            Log.app.error(
+                "FolderEntityQuery: failed to fetch folders: \(error.localizedDescription, privacy: .public)"
+            )
+            return IntentItemCollection(items: [])
+        }
         return IntentItemCollection(items: folders.map { $0.toFolderEntity() })
     }
 }

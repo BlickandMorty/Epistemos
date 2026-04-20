@@ -22,8 +22,14 @@ struct JournalEntity: AppEntity {
                 let idString = uuid.uuidString
                 let descriptor = FetchDescriptor<SDPage>(
                     predicate: #Predicate { $0.id == idString && $0.isJournal == true })
-                if let page = (try? context.fetch(descriptor))?.first {
-                    results.append(page.toJournalEntity())
+                do {
+                    if let page = try context.fetch(descriptor).first {
+                        results.append(page.toJournalEntity())
+                    }
+                } catch {
+                    Log.app.error(
+                        "JournalEntityQuery: failed to fetch journal entry \(String(idString.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
                 }
             }
             return results
@@ -101,26 +107,58 @@ struct CreateJournalIntent: AppIntent {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         let journalTitle = title ?? "Journal — \(formatter.string(from: entryDate ?? .now))"
+        let journalDateFormatter = DateFormatter()
+        journalDateFormatter.dateFormat = "yyyy-MM-dd"
+        let journalDate = journalDateFormatter.string(from: entryDate ?? .now)
         let bodyText = String(message.characters)
 
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
-        guard let pageId = await bootstrap.vaultSync.createPage(title: journalTitle) else {
+        guard let pageId = await bootstrap.vaultSync.createPage(
+            title: journalTitle,
+            allowVaultSelectionPrompt: true
+        ) else {
             throw IntentError.creationFailed
         }
 
         // Mark as journal and set body content
-        let context = ModelContext(bootstrap.modelContainer)
+        let context = bootstrap.modelContainer.mainContext
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
-        if let page = (try? context.fetch(descriptor))?.first {
-            page.isJournal = true
-            page.saveBody(bodyText)
-            BlockMirror.sync(pageId: pageId, body: bodyText, modelContext: context)
-            page.needsVaultSync = true
-            do {
-                try context.save()
-            } catch {
-                Log.app.error("Journal save failed: \(error.localizedDescription, privacy: .public)")
-            }
+
+        let fetchedPage: SDPage?
+        do {
+            fetchedPage = try context.fetch(descriptor).first
+        } catch {
+            Log.app.error(
+                "CreateJournalIntent: failed to fetch created journal page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            throw IntentError.creationFailed
+        }
+        guard let page = fetchedPage else {
+            Log.app.error(
+                "CreateJournalIntent: failed to fetch created journal page \(String(pageId.prefix(8)), privacy: .public): missing page after create"
+            )
+            throw IntentError.creationFailed
+        }
+
+        let originalBody = page.loadBody()
+        let originalIsJournal = page.isJournal
+        let originalJournalDate = page.journalDate
+        let originalNeedsVaultSync = page.needsVaultSync
+        page.isJournal = true
+        page.journalDate = journalDate
+        page.saveBody(bodyText)
+        BlockMirror.sync(pageId: pageId, body: bodyText, modelContext: context)
+        page.needsVaultSync = true
+        do {
+            try context.save()
+        } catch {
+            page.isJournal = originalIsJournal
+            page.journalDate = originalJournalDate
+            page.saveBody(originalBody)
+            BlockMirror.sync(pageId: pageId, body: originalBody, modelContext: context)
+            page.needsVaultSync = originalNeedsVaultSync
+            Log.app.error("Journal save failed: \(error.localizedDescription, privacy: .public)")
+            throw IntentError.creationFailed
         }
 
         NoteWindowManager.shared.open(pageId: pageId)
@@ -166,7 +204,15 @@ extension SDPage {
             entity.message = AttributedString(markdownPreview)
         } else {
             let body = NoteWindowManager.shared.currentBody(for: id)
-            entity.message = try? AttributedString(markdown: String(body.prefix(500)))
+            let preview = String(body.prefix(500))
+            do {
+                entity.message = try AttributedString(markdown: preview)
+            } catch {
+                Log.app.error(
+                    "JournalEntity: failed to parse markdown preview for \(String(self.id.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                entity.message = AttributedString(preview)
+            }
         }
         return entity
     }

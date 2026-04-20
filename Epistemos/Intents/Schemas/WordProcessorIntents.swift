@@ -24,8 +24,14 @@ struct WordProcessorDocumentEntity: AppEntity {
                 let idString = uuid.uuidString
                 let descriptor = FetchDescriptor<SDPage>(
                     predicate: #Predicate { $0.id == idString })
-                if let page = (try? context.fetch(descriptor))?.first {
-                    results.append(page.toWordProcessorEntity())
+                do {
+                    if let page = try context.fetch(descriptor).first {
+                        results.append(page.toWordProcessorEntity())
+                    }
+                } catch {
+                    Log.app.error(
+                        "WordProcessorDocumentQuery: failed to fetch document \(String(idString.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
                 }
             }
             return results
@@ -40,7 +46,15 @@ struct WordProcessorDocumentEntity: AppEntity {
                 sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
             )
             descriptor.fetchLimit = 100
-            let pages = (try? context.fetch(descriptor)) ?? []
+            let pages: [SDPage]
+            do {
+                pages = try context.fetch(descriptor)
+            } catch {
+                Log.app.error(
+                    "WordProcessorDocumentQuery: failed to fetch documents: \(error.localizedDescription, privacy: .public)"
+                )
+                return []
+            }
             return pages.filter { $0.title.lowercased().contains(query) }.prefix(10).map {
                 $0.toWordProcessorEntity()
             }
@@ -112,7 +126,10 @@ struct CreateNoteIntent: AppIntent {
     func perform() async throws -> some ReturnsValue<WordProcessorDocumentEntity> {
         guard let bootstrap = AppBootstrap.shared else { throw IntentError.appNotReady }
         let title = template?.name ?? "Untitled"
-        guard let pageId = await bootstrap.vaultSync.createPage(title: title) else {
+        guard let pageId = await bootstrap.vaultSync.createPage(
+            title: title,
+            allowVaultSelectionPrompt: true
+        ) else {
             throw IntentError.creationFailed
         }
         NoteWindowManager.shared.open(pageId: pageId)

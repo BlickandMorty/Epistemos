@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import SwiftData
 
 // MARK: - SDGraphNode
@@ -65,17 +66,29 @@ final class SDGraphNode {
     /// Same pattern as SDPage.frontMatter.
     @Transient private var _metaCache: GraphNodeMetadata?
 
+    private static let log = Logger(subsystem: "com.epistemos", category: "SDGraphNode")
+
     var meta: GraphNodeMetadata {
         get {
             if let cached = _metaCache { return cached }
             guard let data = metadata else { return GraphNodeMetadata() }
-            let decoded = (try? JSONDecoder().decode(GraphNodeMetadata.self, from: data)) ?? GraphNodeMetadata()
-            _metaCache = decoded
-            return decoded
+            do {
+                let decoded = try JSONDecoder().decode(GraphNodeMetadata.self, from: data)
+                _metaCache = decoded
+                return decoded
+            } catch {
+                Self.log.error("SDGraphNode: metadata decode failed: \(error.localizedDescription, privacy: .public)")
+                return GraphNodeMetadata()
+            }
         }
         set {
-            _metaCache = newValue
-            metadata = try? JSONEncoder().encode(newValue)
+            do {
+                let encoded = try JSONEncoder().encode(newValue)
+                metadata = encoded
+                _metaCache = newValue
+            } catch {
+                Self.log.error("SDGraphNode: metadata encode failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 }

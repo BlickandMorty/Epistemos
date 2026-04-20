@@ -32,7 +32,15 @@ struct AskAboutNotesIntent: AppIntent {
         let deepContext: String
         if relevantBodies.isEmpty {
             let context = ModelContext(bootstrap.modelContainer)
-            let recent = (try? context.fetch(SDPage.recentDescriptor(limit: 5))) ?? []
+            let recent: [SDPage]
+            do {
+                recent = try context.fetch(SDPage.recentDescriptor(limit: 5))
+            } catch {
+                Log.app.error(
+                    "AskAboutNotesIntent: failed to fetch recent notes: \(error.localizedDescription, privacy: .public)"
+                )
+                recent = []
+            }
             deepContext = recent.map { page in
                 let body = NoteWindowManager.shared.currentBody(for: page.id, mapped: true)
                 return "## \(page.title)\n\(String(body.prefix(500)))"

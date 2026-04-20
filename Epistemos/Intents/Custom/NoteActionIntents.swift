@@ -73,8 +73,17 @@ struct SummarizeNoteIntent: AppIntent {
         let context = ModelContext(bootstrap.modelContainer)
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == activePageId })
 
-        guard let page = (try? context.fetch(descriptor))?.first else {
-            return .result(dialog: "Could not find the active note.")
+        let page: SDPage
+        do {
+            guard let fetchedPage = try context.fetch(descriptor).first else {
+                return .result(dialog: "Could not find the active note.")
+            }
+            page = fetchedPage
+        } catch {
+            Log.app.error(
+                "SummarizeNoteIntent: failed to fetch active note \(String(activePageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: "Could not load the active note.")
         }
 
         let content = NoteWindowManager.shared.currentBody(for: page.id)
@@ -143,11 +152,30 @@ struct MoveNoteToFolderIntent: AppIntent {
         let pageDescriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
         let folderDescriptor = FetchDescriptor<SDFolder>(predicate: #Predicate { $0.id == destId })
 
-        guard let page = (try? context.fetch(pageDescriptor))?.first else {
-            return .result(dialog: "Could not find the note.")
+        let page: SDPage
+        do {
+            guard let fetchedPage = try context.fetch(pageDescriptor).first else {
+                return .result(dialog: "Could not find the note.")
+            }
+            page = fetchedPage
+        } catch {
+            Log.app.error(
+                "MoveNoteToFolderIntent: failed to fetch note \(String(targetId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: "Could not load the note.")
         }
-        guard let folder = (try? context.fetch(folderDescriptor))?.first else {
-            return .result(dialog: "Could not find the folder \"\(destination.name)\".")
+
+        let folder: SDFolder
+        do {
+            guard let fetchedFolder = try context.fetch(folderDescriptor).first else {
+                return .result(dialog: "Could not find the folder \"\(destination.name)\".")
+            }
+            folder = fetchedFolder
+        } catch {
+            Log.app.error(
+                "MoveNoteToFolderIntent: failed to fetch folder \(String(destId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return .result(dialog: "Could not load the folder \"\(destination.name)\".")
         }
 
         page.folder = folder

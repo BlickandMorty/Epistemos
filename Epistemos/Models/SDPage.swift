@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import OSLog
 import SwiftData
 
 // MARK: - SDPage
@@ -131,22 +132,33 @@ final class SDPage {
     @Transient private var _frontMatterCache: [String: String]?
     @Transient private var _frontMatterCacheData: Data?
 
+    private static let log = Logger(subsystem: "com.epistemos", category: "SDPage")
+
     var frontMatter: [String: String] {
         get {
             if let cached = _frontMatterCache, _frontMatterCacheData == frontMatterData {
                 return cached
             }
             guard let data = frontMatterData else { return [:] }
-            let decoded = (try? JSONDecoder().decode([String: String].self, from: data)) ?? [:]
-            _frontMatterCache = decoded
-            _frontMatterCacheData = data
-            return decoded
+            do {
+                let decoded = try JSONDecoder().decode([String: String].self, from: data)
+                _frontMatterCache = decoded
+                _frontMatterCacheData = data
+                return decoded
+            } catch {
+                Self.log.error("SDPage: frontMatter decode failed: \(error.localizedDescription, privacy: .public)")
+                return [:]
+            }
         }
         set {
-            let encoded = try? JSONEncoder().encode(newValue)
-            frontMatterData = encoded
-            _frontMatterCache = newValue
-            _frontMatterCacheData = encoded
+            do {
+                let encoded = try JSONEncoder().encode(newValue)
+                frontMatterData = encoded
+                _frontMatterCache = newValue
+                _frontMatterCacheData = encoded
+            } catch {
+                Self.log.error("SDPage: frontMatter encode failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -165,16 +177,25 @@ final class SDPage {
                 return cached
             }
             guard let data = ideasData else { return [] }
-            let decoded = (try? JSONDecoder().decode([NoteIdea].self, from: data)) ?? []
-            _ideasCache = decoded
-            _ideasCacheData = data
-            return decoded
+            do {
+                let decoded = try JSONDecoder().decode([NoteIdea].self, from: data)
+                _ideasCache = decoded
+                _ideasCacheData = data
+                return decoded
+            } catch {
+                Self.log.error("SDPage: ideas decode failed: \(error.localizedDescription, privacy: .public)")
+                return []
+            }
         }
         set {
-            let encoded = try? JSONEncoder().encode(newValue)
-            ideasData = encoded
-            _ideasCache = newValue
-            _ideasCacheData = encoded
+            do {
+                let encoded = try JSONEncoder().encode(newValue)
+                ideasData = encoded
+                _ideasCache = newValue
+                _ideasCacheData = encoded
+            } catch {
+                Self.log.error("SDPage: ideas encode failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 

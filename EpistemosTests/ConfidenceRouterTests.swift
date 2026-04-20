@@ -121,8 +121,8 @@ struct ConfidenceRouterTests {
     }
 
     @MainActor
-    @Test("inference state sanitizes hidden local agent tiers before exposing agent loop gating")
-    func inferenceStateSanitizesHiddenLocalAgentTiersBeforeExposingAgentLoopGating() async {
+    @Test("inference state keeps hidden local agent tiers off the chat picker but available to the agent loop")
+    func inferenceStateKeepsHiddenLocalAgentTiersAvailableToTheAgentLoop() async {
         await withResetInferenceDefaults {
             let inference = InferenceState()
             inference.setInstalledLocalTextModelIDs([
@@ -133,14 +133,18 @@ struct ConfidenceRouterTests {
             let profile = Self.agentProfile(contentLength: 480)
 
             inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_2B4Bit.rawValue)
-            #expect(!inference.supportsLocalAgentLoop)
-            #expect(!inference.canRouteToLocalAgentLoop(for: profile))
+            #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+            #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
+            #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+            #expect(inference.supportsLocalAgentLoop)
+            #expect(inference.canRouteToLocalAgentLoop(for: profile))
 
             inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
             #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
             #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
-            #expect(!inference.supportsLocalAgentLoop)
-            #expect(!inference.canRouteToLocalAgentLoop(for: profile))
+            #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
+            #expect(inference.supportsLocalAgentLoop)
+            #expect(inference.canRouteToLocalAgentLoop(for: profile))
         }
     }
 
@@ -155,8 +159,9 @@ struct ConfidenceRouterTests {
             let profile = Self.agentProfile(contentLength: 480)
 
             #expect(inference.effectiveLocalTextModelID == nil)
+            #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
             #expect(inference.localModelSelection(for: profile) == nil)
-            #expect(!inference.canRouteToLocalAgentLoop(for: profile))
+            #expect(inference.canRouteToLocalAgentLoop(for: profile))
         }
     }
 
@@ -196,6 +201,7 @@ struct ConfidenceRouterTests {
             estimatedTokenLoad: max(1, contentLength / 4),
             baseComplexity: 0.28,
             queryComplexity: 0.18,
+            operatingMode: .agent,
             requestedReasoningMode: .fast,
             explicitThinkingRequested: false,
             explicitFastRequested: false,
