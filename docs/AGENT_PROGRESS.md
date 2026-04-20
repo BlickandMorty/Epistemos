@@ -4,6 +4,7 @@ Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `cod
 
 Canonical release-hardening plan:
 - `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md` is the authoritative release-focused plan that reconciles later research, blocker handoffs, and verification requirements.
+- `docs/handoffs/2026-04-20-codex-to-claude-full-thread-handoff.md` is the full-thread Claude audit handoff covering the user pain points, landed commit chain, research conclusions, verification trail, and remaining dirty state on `codex/runtime-input-audit`.
 
 ## 2026-04-19 Reasoning Trace Continuation ✅
 - [x] `3c17ac95` — note chat now persists `thinkingTrace` / `thinkingDurationSeconds` through its SwiftData round-trip; reloading a note no longer drops the assistant's collapsible thought trail
