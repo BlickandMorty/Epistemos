@@ -857,6 +857,8 @@ enum LocalRuntimeSmokeSupport {
             operatingMode: operatingMode
         ) {
             switch event {
+            case .thinkingDelta:
+                break
             case .textDelta(let delta):
                 visibleText += delta
             case .completed(let dualMessage, _):

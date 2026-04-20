@@ -263,6 +263,7 @@ struct SignalHistoryEntry: Codable, Sendable {
 // MARK: - Pipeline Events
 
 enum PipelineEvent: Sendable {
+    case thinkingDelta(String)
     case textDelta(String)
     case completed(DualMessage, TruthAssessment?)
     case error(String)

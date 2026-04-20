@@ -116,6 +116,23 @@ struct UserFacingModelOutputTests {
         )
     }
 
+    @Test("tool-planning prose stays inside reasoning instead of the visible answer stream")
+    func toolPlanningProseStaysInReasoning() {
+        let raw = """
+        I'll begin by testing the functions available to ensure they are working as expected. Let me start by calling the find_symbol function with some sample parameters.
+
+        Here is the function call:
+        {"name":"find_symbol","arguments":{"symbol":"Foo","max_results":10}}
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("Here is the function call")
+        )
+    }
+
     @Test("streaming text stays silent during prose reasoning until an explicit answer appears")
     func streamingTextSuppressesProseReasoningPrelude() {
         let partial = """

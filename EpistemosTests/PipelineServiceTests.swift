@@ -279,6 +279,55 @@ struct PipelineServiceTests {
         #expect(texts.joined() == "Final answer")
     }
 
+    @Test("Pipeline forwards hidden reasoning into thinking deltas before the visible answer")
+    @MainActor func pipelineForwardsReasoningIntoThinkingDeltas() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "Thinking Process:\n",
+            "I should compare the historical and modern senses first.\n\n",
+            "Final Answer:\n",
+            "It usually refers to the modern US-led imperial order."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var thinking = ""
+        var text = ""
+        let stream = pipeline.run(
+            query: "Explain the phrase.",
+            mode: .api
+        )
+
+        for try await event in stream {
+            switch event {
+            case .thinkingDelta(let delta):
+                thinking += delta
+            case .textDelta(let delta):
+                text += delta
+            default:
+                break
+            }
+        }
+
+        #expect(thinking.contains("historical and modern senses"))
+        #expect(text == "It usually refers to the modern US-led imperial order.")
+    }
+
     @Test("Pipeline suppresses prose reasoning preludes and emits only the answer")
     @MainActor func pipelineSuppressesReasoningPrelude() async throws {
         let mock = MockLLMClient()
@@ -545,6 +594,51 @@ struct PipelineServiceTests {
         let normalizedActual = try normalizedJSONString(actualHints)
         let normalizedExpected = try normalizedJSONString(expectedHints)
         #expect(normalizedActual == normalizedExpected)
+    }
+
+    @Test("standard local chat modes use the direct stream instead of the local tool loop")
+    @MainActor func standardLocalChatModesUseDirectStream() async throws {
+        for operatingMode: EpistemosOperatingMode in [.fast, .thinking, .pro] {
+            let directClient = RecordingConfigurableLocalLLMClient()
+            let localToolLoopClient = RecordingConfigurableLocalLLMClient()
+            let pipelineState = PipelineState()
+            let inference = InferenceState()
+            inference.appleIntelligenceAvailable = false
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+
+            let triage = TriageService(inference: inference, localLLMService: directClient)
+            let eventBus = EventBus()
+            let pipeline = PipelineService(
+                pipelineState: pipelineState,
+                llmService: directClient,
+                triageService: triage,
+                inference: inference,
+                eventBus: eventBus,
+                localModelClient: localToolLoopClient,
+                vaultPathProvider: { "/tmp/epistemos-test-vault" }
+            )
+
+            let stream = pipeline.run(
+                query: "Summarize the note directly.",
+                mode: .api,
+                notesContext: "Attached note body",
+                conversationHistory: nil,
+                operatingMode: operatingMode
+            )
+
+            for try await _ in stream {}
+
+            #expect(
+                triage.lastDecision == .localMLX,
+                "Expected local direct routing for \(operatingMode.rawValue)"
+            )
+            #expect(
+                localToolLoopClient.streamRequests.isEmpty,
+                "Did not expect local tool-loop requests for \(operatingMode.rawValue)"
+            )
+        }
     }
 
     @Test("observed local tool executor emits lifecycle events around tool execution")
@@ -2002,6 +2096,30 @@ struct ChatStateContextAttachmentTests {
         #expect(last?.isError == true)
         #expect((last?.content ?? "").contains("No response"))
         #expect(!chatState.isStreaming)
+    }
+
+    @Test("main chat recovers a final answer from hidden thinking before surfacing empty-stream error")
+    func completeProcessingSalvagesAnswerFromThinkingTrace() {
+        let chatState = ChatState()
+        chatState.submitQuery("Hello?")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking(
+            """
+            Thinking Process:
+            I should keep the answer short.
+
+            Final Answer:
+            Hello there.
+            """
+        )
+
+        chatState.completeProcessing(mode: .api)
+
+        let last = chatState.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.isError != true)
+        #expect(last?.content == "Hello there.")
+        #expect(last?.thinkingTrace?.contains("Thinking Process") == true)
     }
 
     @Test("complete processing snapshots active context attachments onto the assistant message")

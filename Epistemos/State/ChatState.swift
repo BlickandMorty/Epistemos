@@ -441,7 +441,15 @@ final class ChatState {
         // Flush any buffered tokens before reading streamingText
         flushStreamingTokens()
 
-        let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        var answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+        if answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           !capturedThinking.isEmpty {
+            let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
+            if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                answerText = salvagedFromThinking
+            }
+        }
 
         let metadata = consumeStreamingMessageMetadata()
         let completedContentBlocks = completedContentBlocks(for: answerText)
@@ -473,7 +481,6 @@ final class ChatState {
             return
         }
 
-        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
         let thinkingTraceForMessage = capturedThinking.isEmpty ? nil : capturedThinking
         let thinkingDuration: Double? = {
             guard let start = thinkingStartedAt else { return nil }
