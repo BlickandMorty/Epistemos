@@ -5,7 +5,7 @@ use agent_core::tools::communication::SendMessageHandler;
 use agent_core::tools::registry::ToolHandler;
 use reqwest::{Client, RequestBuilder};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 const DEFAULT_RELAY_URL: &str = "http://127.0.0.1:8787";
 const DEFAULT_INTERVAL_SECONDS: u64 = 5;
@@ -80,12 +80,8 @@ impl WorkerCliArgs {
             }
         }
 
-        let channel_id = channel_id.ok_or_else(|| {
-            format!(
-                "missing required --channel\n\n{}",
-                Self::usage()
-            )
-        })?;
+        let channel_id =
+            channel_id.ok_or_else(|| format!("missing required --channel\n\n{}", Self::usage()))?;
         let channel_id = channel_id.trim().to_ascii_lowercase();
         if !is_supported_worker_channel(&channel_id) {
             return Err(format!(
@@ -251,8 +247,12 @@ fn required_metadata(
 }
 
 fn required_recipient(message: &RelayOutboxMessage, channel_id: &str) -> Result<String, String> {
-    trimmed(message.recipient_id.as_deref())
-        .ok_or_else(|| format!("missing recipient_id for relay outbox {} ({channel_id})", message.id))
+    trimmed(message.recipient_id.as_deref()).ok_or_else(|| {
+        format!(
+            "missing recipient_id for relay outbox {} ({channel_id})",
+            message.id
+        )
+    })
 }
 
 fn looks_like_webhook_target(value: &str) -> bool {
@@ -320,7 +320,11 @@ fn authorized(builder: RequestBuilder, token: Option<&str>) -> RequestBuilder {
 }
 
 fn relay_url(base: &str, suffix: &str) -> String {
-    format!("{}/{}", base.trim_end_matches('/'), suffix.trim_start_matches('/'))
+    format!(
+        "{}/{}",
+        base.trim_end_matches('/'),
+        suffix.trim_start_matches('/')
+    )
 }
 
 async fn check_relay_health(client: &Client, cli: &WorkerCliArgs) -> Result<(), String> {
@@ -340,7 +344,10 @@ async fn check_relay_health(client: &Client, cli: &WorkerCliArgs) -> Result<(), 
     Ok(())
 }
 
-async fn fetch_outbox(client: &Client, cli: &WorkerCliArgs) -> Result<Vec<RelayOutboxMessage>, String> {
+async fn fetch_outbox(
+    client: &Client,
+    cli: &WorkerCliArgs,
+) -> Result<Vec<RelayOutboxMessage>, String> {
     let url = relay_url(
         &cli.relay_url,
         &format!(
@@ -356,7 +363,9 @@ async fn fetch_outbox(client: &Client, cli: &WorkerCliArgs) -> Result<Vec<RelayO
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
-        return Err(format!("relay outbox fetch failed with HTTP {status}: {body}"));
+        return Err(format!(
+            "relay outbox fetch failed with HTTP {status}: {body}"
+        ));
     }
 
     let envelope = response
@@ -412,8 +421,11 @@ async fn process_outbox_batch(
         match handler.execute(&payload).await {
             Ok(response_text) => {
                 let response_json = serde_json::from_str::<Value>(&response_text).ok();
-                let ack =
-                    success_ack_request_with_response(&cli.channel_id, &message, response_json.as_ref());
+                let ack = success_ack_request_with_response(
+                    &cli.channel_id,
+                    &message,
+                    response_json.as_ref(),
+                );
                 post_ack(client, cli, &message.id, &ack).await?;
             }
             Err(error) => {
@@ -451,7 +463,10 @@ async fn run_worker(cli: WorkerCliArgs) -> Result<(), String> {
         match process_outbox_batch(&client, &handler, &cli).await {
             Ok(handled) => {
                 if handled > 0 {
-                    eprintln!("processed {handled} relay message(s) for {}", cli.channel_id);
+                    eprintln!(
+                        "processed {handled} relay message(s) for {}",
+                        cli.channel_id
+                    );
                 }
             }
             Err(error) => {

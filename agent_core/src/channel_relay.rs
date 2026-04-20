@@ -1111,7 +1111,10 @@ mod tests {
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0]["recipient_id"], json!("ops@example.com"));
         assert_eq!(messages[0]["metadata"]["subject"], json!("Operator Digest"));
-        assert_eq!(messages[0]["metadata"]["display_target"], json!("Ops Mailbox"));
+        assert_eq!(
+            messages[0]["metadata"]["display_target"],
+            json!("Ops Mailbox")
+        );
     }
 
     #[tokio::test]

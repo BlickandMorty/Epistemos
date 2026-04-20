@@ -258,15 +258,15 @@ impl TirithClient {
         let output = match tokio::time::timeout(
             TIRITH_TIMEOUT,
             tokio::process::Command::new(binary)
-            .arg("scan")
-            .arg("--input")
-            .arg(input_file)
-            .arg("--format")
-            .arg("json")
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .output(),
+                .arg("scan")
+                .arg("--input")
+                .arg(input_file)
+                .arg("--format")
+                .arg("json")
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .kill_on_drop(true)
+                .output(),
         )
         .await
         {

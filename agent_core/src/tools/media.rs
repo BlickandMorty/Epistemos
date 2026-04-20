@@ -383,15 +383,18 @@ impl ToolHandler for ImageGenerateHandler {
 
         // Provider is required. No default: the caller MUST name the lane
         // explicitly so there is no silent routing (PLAN_V2 §3.4).
-        let provider = input.get("provider").and_then(Value::as_str).ok_or_else(|| {
-            ToolError::InvalidArguments(
-                "missing 'provider' — image_generate requires an explicit \
+        let provider = input
+            .get("provider")
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                ToolError::InvalidArguments(
+                    "missing 'provider' — image_generate requires an explicit \
                  lane. Pass `provider: \"mlx\"` for the Apple-native sidecar \
                  (PLAN_V2 §5.1 / §16) or `provider: \"fal\"` for the explicit \
                  cloud opt-in."
-                    .into(),
-            )
-        })?;
+                        .into(),
+                )
+            })?;
 
         match provider.to_ascii_lowercase().as_str() {
             "mlx" => self.execute_mlx(prompt, aspect_ratio).await,
