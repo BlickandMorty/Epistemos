@@ -36,6 +36,23 @@ final class EntityExtractor {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
+    private func recordFetchFailure(_ action: String, error: Error) {
+        Log.app.error("\(action, privacy: .public) — \(error.localizedDescription, privacy: .public)")
+    }
+
+    private func rollbackInsertedGraphArtifacts(
+        nodes: [SDGraphNode] = [],
+        edges: [SDGraphEdge] = [],
+        context: ModelContext
+    ) {
+        for edge in edges {
+            context.delete(edge)
+        }
+        for node in nodes {
+            context.delete(node)
+        }
+    }
+
     // MARK: - Scan Vault
 
     func scanVault(context: ModelContext, llmService: any LLMClientProtocol) async {
@@ -50,7 +67,13 @@ final class EntityExtractor {
         graphState.loadGraph(context: context)
 
         // 2. Fetch all active pages, filter to only changed notes, process in batches of 10
-        let allPages = (try? context.fetch(SDPage.activePagesDescriptor)) ?? []
+        let allPages: [SDPage]
+        do {
+            allPages = try context.fetch(SDPage.activePagesDescriptor)
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch active pages for scan", error: error)
+            allPages = []
+        }
         var currentHashes = processedHashes
 
         // Incremental change detection: skip notes whose content hash matches last extraction
@@ -134,7 +157,13 @@ final class EntityExtractor {
 
         // 3. Fetch all SDChat with >2 messages for idea extraction
         graphState.scanStatus = "Extracting ideas from chats..."
-        let allChats = (try? context.fetch(FetchDescriptor<SDChat>())) ?? []
+        let allChats: [SDChat]
+        do {
+            allChats = try context.fetch(FetchDescriptor<SDChat>())
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch chats for scan", error: error)
+            allChats = []
+        }
         let substantiveChats = allChats.filter { ($0.messages ?? []).count > 2 }
 
         for chat in substantiveChats {
@@ -195,6 +224,8 @@ final class EntityExtractor {
         sourcePages: [SDPage],
         context: ModelContext
     ) {
+        var insertedEdges: [SDGraphEdge] = []
+
         // Cross-note semantic links — connect notes within the batch that
         // support, contradict, expand, or question each other.
         if let links = extraction.crossNoteLinks {
@@ -205,13 +236,16 @@ final class EntityExtractor {
                       let fromNode = findSDGraphNode(type: .note, sourceId: fromPageId, context: context),
                       let toNode = findSDGraphNode(type: .note, sourceId: toPageId, context: context) else { continue }
                 let edgeType = Self.edgeType(from: link.relationship, default: .related)
-                createEdgeIfNeeded(source: fromNode.id, target: toNode.id, type: edgeType, context: context)
+                if let edge = createEdgeIfNeeded(source: fromNode.id, target: toNode.id, type: edgeType, context: context) {
+                    insertedEdges.append(edge)
+                }
             }
         }
 
         do {
             try context.save()
         } catch {
+            rollbackInsertedGraphArtifacts(edges: insertedEdges, context: context)
             Log.app.error("EntityExtractor: failed to save extraction results — \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -225,6 +259,8 @@ final class EntityExtractor {
     ) {
         let chatNode = findSDGraphNode(type: .chat, sourceId: sourceChat.id, context: context)
         let chatNodeId = chatNode?.id
+        var insertedIdeaNodes: [SDGraphNode] = []
+        var insertedEdges: [SDGraphEdge] = []
 
         // Ideas (absorbs insights)
         for idea in ideaResult.ideas {
@@ -234,17 +270,27 @@ final class EntityExtractor {
             meta.originChatId = sourceChat.id
             ideaNode.meta = meta
             context.insert(ideaNode)
+            insertedIdeaNodes.append(ideaNode)
 
             // Link idea back to source chat
             if let chatId = chatNodeId {
-                createEdgeIfNeeded(source: ideaNode.id, target: chatId, type: .reference, context: context)
+                if let edge = createEdgeIfNeeded(source: ideaNode.id, target: chatId, type: .reference, context: context) {
+                    insertedEdges.append(edge)
+                }
             }
 
             // Link to related entities mentioned in the idea
             if let related = idea.relatedEntities {
                 for entityName in related {
                     if let existingNode = findExistingNodeByLabel(entityName, context: context) {
-                        createEdgeIfNeeded(source: ideaNode.id, target: existingNode.id, type: .related, context: context)
+                        if let edge = createEdgeIfNeeded(
+                            source: ideaNode.id,
+                            target: existingNode.id,
+                            type: .related,
+                            context: context
+                        ) {
+                            insertedEdges.append(edge)
+                        }
                     }
                 }
             }
@@ -253,6 +299,7 @@ final class EntityExtractor {
         do {
             try context.save()
         } catch {
+            rollbackInsertedGraphArtifacts(nodes: insertedIdeaNodes, edges: insertedEdges, context: context)
             Log.app.error("EntityExtractor: failed to save idea results — \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -268,7 +315,13 @@ final class EntityExtractor {
                 predicate: #Predicate<SDBlock> { $0.pageId == pageId },
                 sortBy: [SortDescriptor(\SDBlock.order)]
             )
-            let blocks = (try? context.fetch(descriptor)) ?? []
+            let blocks: [SDBlock]
+            do {
+                blocks = try context.fetch(descriptor)
+            } catch {
+                recordFetchFailure("EntityExtractor: failed to fetch page blocks for annotation", error: error)
+                continue
+            }
             if !blocks.isEmpty {
                 grouped[pageId] = blocks
             }
@@ -315,10 +368,14 @@ final class EntityExtractor {
         let descriptor = FetchDescriptor<SDGraphNode>(
             predicate: #Predicate { $0.type == typeRaw && $0.label == normalizedLabel }
         )
-        if let existing = (try? context.fetch(descriptor))?.first {
-            existing.weight += 1
-            existing.updatedAt = .now
-            return existing
+        do {
+            if let existing = try context.fetch(descriptor).first {
+                existing.weight += 1
+                existing.updatedAt = .now
+                return existing
+            }
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch existing graph node", error: error)
         }
 
         let node = SDGraphNode(type: type, label: normalizedLabel)
@@ -331,7 +388,12 @@ final class EntityExtractor {
         let descriptor = FetchDescriptor<SDGraphNode>(
             predicate: #Predicate { $0.type == typeRaw && $0.sourceId == sourceId }
         )
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch graph node", error: error)
+            return nil
+        }
     }
 
     private func findExistingNodeByLabel(_ label: String, context: ModelContext) -> SDGraphNode? {
@@ -339,24 +401,41 @@ final class EntityExtractor {
         let descriptor = FetchDescriptor<SDGraphNode>(
             predicate: #Predicate { $0.label == normalized }
         )
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch graph node by label", error: error)
+            return nil
+        }
     }
 
     // MARK: - Create Edge If Needed
 
-    private func createEdgeIfNeeded(source: String, target: String, type: GraphEdgeType, context: ModelContext) {
+    private func createEdgeIfNeeded(
+        source: String,
+        target: String,
+        type: GraphEdgeType,
+        context: ModelContext
+    ) -> SDGraphEdge? {
         let typeRaw = type.rawValue
         let descriptor = FetchDescriptor<SDGraphEdge>(
             predicate: #Predicate {
                 $0.sourceNodeId == source && $0.targetNodeId == target && $0.type == typeRaw
             }
         )
-        if let existing = try? context.fetch(descriptor), !existing.isEmpty {
-            return
+        do {
+            let existing = try context.fetch(descriptor)
+            if !existing.isEmpty {
+                return nil
+            }
+        } catch {
+            recordFetchFailure("EntityExtractor: failed to fetch existing graph edge", error: error)
+            return nil
         }
 
         let edge = SDGraphEdge(source: source, target: target, type: type)
         context.insert(edge)
+        return edge
     }
 
     // MARK: - Relationship Mapping

@@ -319,3 +319,20 @@ enum SDFLabelAtlasLoader {
         )
     }
 }
+
+extension SDFLabelAtlasLoader.LoadError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .pngNotFound:
+            "The bundled SDF atlas image could not be found."
+        case .jsonNotFound:
+            "The bundled SDF atlas metadata JSON could not be found."
+        case .pngDecodeFailed:
+            "The bundled SDF atlas image could not be decoded as 32-bit RGBA."
+        case .jsonParseFailed(let reason):
+            "The bundled SDF atlas metadata could not be parsed: \(reason)"
+        case .rustPushFailed:
+            "The graph engine rejected the SDF atlas pixel buffer."
+        }
+    }
+}

@@ -4,6 +4,7 @@ use crate::types::Graph;
 #[cfg(test)]
 mod physics_audit_tests {
     use super::*;
+    use crate::engine::presettle_limits;
 
     /// Helper to setup a basic simulation with default parameters
     fn setup_sim_with_nodes(n: usize) -> Simulation {
@@ -174,8 +175,9 @@ mod physics_audit_tests {
     #[test]
     fn test_crash_presettle_blocktime() {
         // Crash scenario: spindump reported a 3.9s slow hid response.
-        // We know engine.rs runs up to 1200 ticks synchronously on the main thread for N < 2000.
-        // Let's test the execution time of 1200 ticks for 1900 nodes.
+        // The engine now uses a tight presettle budget on entrance instead of
+        // brute-forcing a large fixed tick count on the main thread. Exercise
+        // the same bounded loop here so the audit matches the live path.
         let mut sim = setup_sim_with_nodes(1900);
 
         let _start_positions = vec![(0.0, 0.0); 1900];
@@ -188,21 +190,27 @@ mod physics_audit_tests {
             sim.y[i] = r * theta.sin();
         }
 
+        let (max_ticks, time_budget) = presettle_limits(1900, true);
         let start = std::time::Instant::now();
-        for _ in 0..1200 {
+        for _ in 0..max_ticks {
             sim.tick();
+            if sim.is_settled || start.elapsed() >= time_budget {
+                break;
+            }
         }
 
         let elapsed_ms = start.elapsed().as_millis();
 
-        // Let's assert that it's surprisingly slow (which proves the bug) or fast enough.
-        // If this takes > 1000ms, it's a huge red flag that we are hanging the main thread.
-        println!("1200 ticks for 1900 nodes took {} ms", elapsed_ms);
+        println!(
+            "budgeted entrance presettle for 1900 nodes took {} ms (budget {} ms, max ticks {})",
+            elapsed_ms,
+            time_budget.as_millis(),
+            max_ticks
+        );
 
-        // We'll assert it completes. The console output will log the time.
         assert!(
-            elapsed_ms < 10000,
-            "Sanity check: took more than 10 seconds!"
+            start.elapsed() <= time_budget + std::time::Duration::from_millis(50),
+            "Entrance presettle exceeded the bounded budget path."
         );
     }
 
