@@ -199,6 +199,22 @@ struct ChatPresentationTests {
         #expect(source.contains(".foregroundStyle(theme.textSecondary)"))
     }
 
+    @Test("chat runtime popover keeps a single settings entry point")
+    func chatRuntimePopoverKeepsASingleSettingsEntryPoint() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        let openSettingsCount = source.components(separatedBy: "Button(\"Open Settings\")").count - 1
+
+        #expect(openSettingsCount == 1)
+    }
+
+    @Test("inference settings local AI section avoids redundant tier rows and noisy per-model warnings")
+    func inferenceSettingsAvoidRedundantTierRowsAndPerModelWarnings() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        #expect(!source.contains("LabeledContent(\"Active Tier\")"))
+        #expect(!source.contains("model.releasePickerVisibilityReason"))
+    }
+
     @Test("agent command bar shows an explicit loading-model state before first token")
     func agentCommandBarShowsLoadingModelState() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")
