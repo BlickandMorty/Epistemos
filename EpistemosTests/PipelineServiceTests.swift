@@ -1470,7 +1470,8 @@ struct ChatCoordinatorPersistenceTests {
 
         #expect(resolution.cleanedQuery == "Compare this with the selected note")
         #expect(resolution.context?.contains("## Required Attached Notes") == true)
-        #expect(resolution.context?.contains("Use these notes before recall/search tools.") == true)
+        #expect(resolution.context?.contains("Treat the inlined `Content:` blocks as the authoritative source") == true)
+        #expect(resolution.context?.contains("Do not ask the user to locate, reattach, or restate these notes.") == true)
         #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
         #expect(resolution.context?.contains("Priority: Required context.") == true)
         #expect(resolution.context?.contains("Beta full body") == true)
