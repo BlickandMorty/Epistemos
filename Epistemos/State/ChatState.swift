@@ -646,6 +646,9 @@ final class ChatState {
     private var thinkTagRouter = ThinkTagStreamRouter()
 
     @ObservationIgnored
+    private var hasStartedVisibleAnswer = false
+
+    @ObservationIgnored
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
         self?.streamingText += delta
     }
@@ -696,6 +699,7 @@ final class ChatState {
             appendStreamingThinking(emit.thinking)
         }
         if !emit.visible.isEmpty {
+            hasStartedVisibleAnswer = true
             if isThinkingActive {
                 isThinkingActive = false
                 thinkingEndedAt = Date()
@@ -724,6 +728,7 @@ final class ChatState {
         // actual answer text yet. Don't close the thinking phase on a
         // zero-length visible emission.
         if !emit.visible.isEmpty {
+            hasStartedVisibleAnswer = true
             if isThinkingActive {
                 isThinkingActive = false
                 thinkingEndedAt = Date()
@@ -737,6 +742,7 @@ final class ChatState {
     /// + thinkingStartedAt). Subsequent deltas append to streamingThinking
     /// so the popover UI can render the in-flight reasoning live.
     func appendStreamingThinking(_ text: String) {
+        guard !hasStartedVisibleAnswer else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isThinkingActive || !trimmed.isEmpty else { return }
         if !isThinkingActive {
@@ -754,6 +760,7 @@ final class ChatState {
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        hasStartedVisibleAnswer = false
     }
 
     private func flushStreamingTokens() {

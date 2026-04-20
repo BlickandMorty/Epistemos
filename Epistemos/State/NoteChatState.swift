@@ -111,7 +111,10 @@ final class NoteChatState {
                 self.onTokenFlush?(delta)
             }
         case .inlinePending:
-            self.onTokenFlush?(delta)
+            let visibleDelta = self.visibleToolbarInlineDelta(for: self.responseText)
+            if !visibleDelta.isEmpty {
+                self.onTokenFlush?(visibleDelta)
+            }
         case .inlineAutoCommit:
             let visibleDelta = self.visibleToolbarInlineDelta(for: self.responseText)
             if !visibleDelta.isEmpty {
@@ -130,6 +133,7 @@ final class NoteChatState {
     @ObservationIgnored private var thinkingStartedAt: Date?
     @ObservationIgnored private var thinkingEndedAt: Date?
     @ObservationIgnored private var thinkTagRouter = ThinkTagStreamRouter()
+    @ObservationIgnored private var hasStartedVisibleAnswer = false
 
     init(pageId: String) {
         self.pageId = pageId
@@ -141,6 +145,7 @@ final class NoteChatState {
             appendStreamingThinking(emit.thinking)
         }
         guard !emit.visible.isEmpty else { return }
+        hasStartedVisibleAnswer = true
         streamBuffer.append(emit.visible)
     }
 
@@ -154,10 +159,12 @@ final class NoteChatState {
             appendStreamingThinking(emit.thinking)
         }
         guard !emit.visible.isEmpty else { return }
+        hasStartedVisibleAnswer = true
         streamBuffer.append(emit.visible, scheduleFlush: false)
     }
 
     private func appendStreamingThinking(_ text: String) {
+        guard !hasStartedVisibleAnswer else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
         if thinkingStartedAt == nil {
@@ -172,6 +179,7 @@ final class NoteChatState {
         streamingThinking.removeAll(keepingCapacity: false)
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        hasStartedVisibleAnswer = false
     }
 
     private func makeAssistantMessage(content: String) -> AssistantMessage {

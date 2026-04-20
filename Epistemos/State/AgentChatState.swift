@@ -104,6 +104,9 @@ final class AgentChatState {
     @ObservationIgnored
     private var thinkTagRouter = ThinkTagStreamRouter()
 
+    @ObservationIgnored
+    private var hasStartedVisibleAnswer = false
+
     // MARK: - Init
 
     init() {}
@@ -176,6 +179,7 @@ final class AgentChatState {
         }
 
         if !emit.visible.isEmpty {
+            hasStartedVisibleAnswer = true
             if isThinkingActive {
                 isThinkingActive = false
                 thinkingEndedAt = Date()
@@ -189,6 +193,7 @@ final class AgentChatState {
     /// thinkingStartedAt); subsequent deltas append to streamingThinking so
     /// the UI can render the reasoning live instead of a blank spinner.
     func appendStreamingThinking(_ text: String) {
+        guard !hasStartedVisibleAnswer else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isThinkingActive || !trimmed.isEmpty else { return }
         if !isThinkingActive {
@@ -212,6 +217,7 @@ final class AgentChatState {
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        hasStartedVisibleAnswer = false
     }
 
     func stopStreaming() {
@@ -230,6 +236,7 @@ final class AgentChatState {
             appendStreamingThinking(emit.thinking)
         }
         if !emit.visible.isEmpty {
+            hasStartedVisibleAnswer = true
             if isThinkingActive {
                 isThinkingActive = false
                 thinkingEndedAt = Date()
