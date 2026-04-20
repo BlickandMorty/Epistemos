@@ -717,10 +717,16 @@ struct HologramSearchSidebar: View {
             AssistantTranscriptChrome {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     if displayText.isEmpty {
-                        AssistantTypingIndicatorDots(
-                            theme: theme,
-                            accent: graphChatAccentColor
-                        )
+                        if inspectorState.isChatStreaming {
+                            AssistantTypingIndicatorDots(
+                                theme: theme,
+                                accent: graphChatAccentColor
+                            )
+                        } else {
+                            Text("No response received.")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(theme.textSecondary)
+                        }
                     } else {
                         TaggedMarkdownTextView(content: displayText, theme: theme)
                             .textSelection(.enabled)

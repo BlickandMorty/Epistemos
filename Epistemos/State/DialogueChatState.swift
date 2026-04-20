@@ -612,6 +612,8 @@ final class DialogueChatState {
         let id = UUID()
         let role: Role
         var text: String
+        var thinkingTrace: String?
+        var thinkingDurationSeconds: Double?
 
         enum Role { case user, assistant }
     }
@@ -643,6 +645,9 @@ final class DialogueChatState {
     }
     @ObservationIgnored private var typewriterTask: Task<Void, Never>?
     @ObservationIgnored private var nodeProfiles: [String: DialogueNodeProfile] = [:]
+    @ObservationIgnored private var streamingThinking = ""
+    @ObservationIgnored private var thinkingStartedAt: Date?
+    @ObservationIgnored private var thinkingEndedAt: Date?
 
     // MARK: - Lifecycle
 
@@ -661,6 +666,7 @@ final class DialogueChatState {
             streamingTask = nil
             streamBuffer.reset()
             typewriterTask?.cancel()
+            resetThinkingState()
             isStreaming = false
             onStreamingChanged?(false)
         }
@@ -749,13 +755,16 @@ final class DialogueChatState {
         chat.linkedPageId = nodeId
         context.insert(chat)
 
-        for msg in messages {
+        let persistedMessages = messages.map { msg in
             let sdMsg = SDMessage(
                 role: msg.role == .user ? "user" : "assistant",
                 content: msg.text
             )
             sdMsg.chat = chat
-            context.insert(sdMsg)
+            return sdMsg
+        }
+        for message in persistedMessages {
+            context.insert(message)
         }
 
         do {
@@ -765,7 +774,11 @@ final class DialogueChatState {
                 Task { await anchorService.generateAnchor(for: chat.id) }
             }
         } catch {
-            NSLog("[DialogueChat] Persistence failed: %@", error.localizedDescription)
+            for message in persistedMessages {
+                context.delete(message)
+            }
+            context.delete(chat)
+            Log.app.error("DialogueChat: persistence failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -832,12 +845,16 @@ final class DialogueChatState {
                     systemPrompt: nil,
                     operation: .ask(query: query),
                     contentLength: noteBody.count,
-                    query: query
+                    query: query,
+                    reasoningSink: { [weak self] delta in
+                        self?.appendStreamingThinking(delta)
+                    }
                 )
                 for try await chunk in stream {
                     self.appendStreamingText(chunk)
                 }
                 self.flushTokens()
+                self.finalizeLastAssistantMessage()
             } catch {
                 self.flushTokens()
                 if !Task.isCancelled, !self.messages.isEmpty {
@@ -855,8 +872,51 @@ final class DialogueChatState {
         streamBuffer.append(text)
     }
 
+    private func appendStreamingThinking(_ text: String) {
+        guard !text.isEmpty else { return }
+        if thinkingStartedAt == nil {
+            thinkingStartedAt = .now
+            streamingThinking.removeAll(keepingCapacity: true)
+        }
+        streamingThinking.append(text)
+        thinkingEndedAt = .now
+    }
+
     private func flushTokens() {
         streamBuffer.flushNow()
+    }
+
+    private func finalizeLastAssistantMessage() {
+        guard let lastIndex = messages.indices.last,
+              messages[lastIndex].role == .assistant else { return }
+
+        let visibleText = UserFacingModelOutput.finalVisibleText(from: messages[lastIndex].text)
+        let trimmedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !visibleText.isEmpty {
+            messages[lastIndex].text = visibleText
+        } else if !trimmedThinking.isEmpty {
+            let recoveredAnswer = UserFacingModelOutput.finalVisibleText(from: trimmedThinking)
+            messages[lastIndex].text =
+                recoveredAnswer.isEmpty
+                ? (UserFacingModelOutput.incompleteReasoningFallback(from: trimmedThinking)
+                    ?? "The model finished its reasoning trace without a usable answer.")
+                : recoveredAnswer
+        }
+
+        if !trimmedThinking.isEmpty {
+            messages[lastIndex].thinkingTrace = trimmedThinking
+            if let thinkingStartedAt {
+                let endedAt = thinkingEndedAt ?? .now
+                messages[lastIndex].thinkingDurationSeconds = max(0, endedAt.timeIntervalSince(thinkingStartedAt))
+            }
+        }
+        resetThinkingState()
+    }
+
+    private func resetThinkingState() {
+        streamingThinking.removeAll(keepingCapacity: false)
+        thinkingStartedAt = nil
+        thinkingEndedAt = nil
     }
 
     // MARK: - Typewriter (~30 chars/sec)

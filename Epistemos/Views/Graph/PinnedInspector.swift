@@ -312,6 +312,7 @@ final class PinnedInspector: Identifiable {
                     guard !Task.isCancelled else { return }
                     appendToLastAssistant(chunk)
                 }
+                finalizeLastAssistantText()
             } catch {
                 guard !Task.isCancelled else { return }
                 if chatMessages.last?.text.isEmpty == true {
@@ -331,6 +332,17 @@ final class PinnedInspector: Identifiable {
         guard let lastIndex = chatMessages.indices.last,
               chatMessages[lastIndex].role == .assistant else { return }
         chatMessages[lastIndex].text += text
+    }
+
+    private func finalizeLastAssistantText() {
+        guard let lastIndex = chatMessages.indices.last,
+              chatMessages[lastIndex].role == .assistant else { return }
+
+        let visibleText = UserFacingModelOutput.finalVisibleText(from: chatMessages[lastIndex].text)
+        chatMessages[lastIndex].text =
+            visibleText.isEmpty
+            ? "The model finished without a usable answer. Try Fast mode or another model."
+            : visibleText
     }
 }
 

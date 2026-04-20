@@ -652,6 +652,15 @@ struct DialogueChatStateTests {
 
         #expect(!source.contains("try? await Task.sleep(for: .milliseconds(33))"))
     }
+
+    @Test("dialogue chat routes reasoning away from visible text and preserves a fallback")
+    func dialogueChatRoutesReasoningAwayFromVisibleText() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/State/DialogueChatState.swift")
+
+        #expect(source.contains("reasoningSink: { [weak self] delta in"))
+        #expect(source.contains("UserFacingModelOutput.incompleteReasoningFallback"))
+        #expect(source.contains("messages[lastIndex].thinkingTrace = trimmedThinking"))
+    }
 }
 
 @Suite("DisplayPacedTextBuffer")
