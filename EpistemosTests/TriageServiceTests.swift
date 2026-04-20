@@ -2619,6 +2619,43 @@ struct TriageServiceIntegrationTests {
     }
 
     @MainActor
+    @Test("thinking local stream uses a bounded default output budget when the chat cap is unset")
+    func thinkingLocalStreamUsesBoundedDefaultOutputBudgetWhenChatCapIsUnset() async throws {
+        let paths = temporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.deepseekR1Distill7B.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setPreferredLocalTextModelID(descriptor.id)
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setChatOutputTokens(0)
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+        let triage = TriageService(inference: inference, localLLMService: client)
+
+        let stream = triage.streamGeneral(
+            prompt: "Compare these references and give me the real takeaway.",
+            systemPrompt: "Think carefully, then answer directly.",
+            operation: .chatResponse(query: "Compare these references and give me the real takeaway."),
+            contentLength: 55,
+            operatingMode: .thinking
+        )
+        _ = await LocalRuntimeSmokeSupport.collect(stream)
+
+        let request = try #require(await runtime.lastStreamRequest)
+        #expect(request.reasoningMode == .thinking)
+        #expect(request.maxTokens == 8192)
+    }
+
+    @MainActor
     @Test("local client prepares residency before generating with MLX")
     func localClientPreparesResidencyBeforeGenerating() async throws {
         let paths = temporaryLocalModelPaths()
@@ -2870,6 +2907,43 @@ struct TriageServiceIntegrationTests {
         let visible = UserFacingModelOutput.finalVisibleText(from: mitigated)
 
         #expect(visible.contains("Qwen 3.5 4B thinking mode was stopped"))
+        #expect(visible.contains("Fast mode"))
+    }
+
+    @Test("deepseek thinking mitigation appends a fallback when output is only a structured reasoning plan")
+    func deepSeekThinkingMitigationAppendsFallbackForStructuredReasoningPlan() {
+        let request = LocalMLXRequest(
+            modelID: LocalTextModelID.deepseekR1Distill7B.rawValue,
+            modelDirectory: URL(fileURLWithPath: "/tmp/deepseek"),
+            prompt: "Summarize the essay.",
+            systemPrompt: nil,
+            maxTokens: 8192,
+            reasoningMode: .thinking,
+            steeringHintsJSON: nil,
+            imageURLs: []
+        )
+        let rawReasoningPlan = """
+        1. Query:
+        - Summarize the key findings of these academic references on neuroscience and free will.
+
+        2. Detailed Analysis with chunk_reduce:
+        Input Text: The list of references formatted into a text file.
+        Instructions: Extract key points from methodology, findings, and implications.
+        Reduce Strategy: Select only the most relevant passages.
+
+        3. Pattern Identification:
+        - After processing, identify recurring themes such as readiness potentials and unconscious processing.
+
+        This approach will efficiently summarize the references and surface common research threads.
+        """
+
+        let mitigated = LocalMLXLoopMitigation.appendFallbackIfNeeded(
+            to: rawReasoningPlan,
+            for: request
+        )
+        let visible = UserFacingModelOutput.finalVisibleText(from: mitigated)
+
+        #expect(visible.contains("DeepSeek R1 7B thinking mode was stopped"))
         #expect(visible.contains("Fast mode"))
     }
 
