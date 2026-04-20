@@ -10,6 +10,15 @@ import SwiftUI
 
 // MARK: - AI Partner Configuration
 
+private enum DiscreteSliderIndex {
+    static func resolve(_ rawValue: Double, count: Int) -> Int? {
+        guard count > 0 else { return nil }
+        guard rawValue.isFinite else { return nil }
+        let upperBound = Double(count - 1)
+        return Int(min(max(rawValue.rounded(), 0), upperBound))
+    }
+}
+
 /// Configuration model for AI partner behavior
 struct AIPartnerConfiguration: Codable, Equatable {
     var mode: InteractionMode
@@ -195,6 +204,16 @@ struct AIPartnerConfiguration: Codable, Equatable {
     static let `default` = balanced
 }
 
+extension CaseIterable where AllCases: Collection, AllCases.Element == Self {
+    static func caseForSliderValue(_ rawValue: Double, current: Self) -> Self {
+        let cases = Array(allCases)
+        guard let index = DiscreteSliderIndex.resolve(rawValue, count: cases.count) else {
+            return current
+        }
+        return cases[index]
+    }
+}
+
 // MARK: - Control Panel View
 
 struct AIPartnerControlPanel: View {
@@ -367,7 +386,10 @@ struct AIPartnerControlPanel: View {
                 value: Binding(
                     get: { Double(AIPartnerConfiguration.Frequency.allCases.firstIndex(of: configuration.suggestionFrequency) ?? 1) },
                     set: { index in
-                        configuration.suggestionFrequency = AIPartnerConfiguration.Frequency.allCases[Int(index)]
+                        configuration.suggestionFrequency = AIPartnerConfiguration.Frequency.caseForSliderValue(
+                            index,
+                            current: configuration.suggestionFrequency
+                        )
                     }
                 ),
                 range: 0...3,
@@ -383,7 +405,10 @@ struct AIPartnerControlPanel: View {
                 value: Binding(
                     get: { Double(AIPartnerConfiguration.InsightDepth.allCases.firstIndex(of: configuration.insightDepth) ?? 1) },
                     set: { index in
-                        configuration.insightDepth = AIPartnerConfiguration.InsightDepth.allCases[Int(index)]
+                        configuration.insightDepth = AIPartnerConfiguration.InsightDepth.caseForSliderValue(
+                            index,
+                            current: configuration.insightDepth
+                        )
                     }
                 ),
                 range: 0...3,
@@ -399,7 +424,10 @@ struct AIPartnerControlPanel: View {
                 value: Binding(
                     get: { Double(AIPartnerConfiguration.ContextWindow.allCases.firstIndex(of: configuration.contextWindowSize) ?? 1) },
                     set: { index in
-                        configuration.contextWindowSize = AIPartnerConfiguration.ContextWindow.allCases[Int(index)]
+                        configuration.contextWindowSize = AIPartnerConfiguration.ContextWindow.caseForSliderValue(
+                            index,
+                            current: configuration.contextWindowSize
+                        )
                     }
                 ),
                 range: 0...3,
@@ -544,6 +572,13 @@ struct ControlSlider: View {
     let labels: [String]
     let icon: String
     let color: Color
+
+    static func resolvedLabel(for value: Double, labels: [String]) -> String {
+        guard let index = DiscreteSliderIndex.resolve(value, count: labels.count) else {
+            return labels.first ?? ""
+        }
+        return labels[index]
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -553,7 +588,7 @@ struct ControlSlider: View {
                 
                 Spacer()
                 
-                Text(labels[Int(value)])
+                Text(Self.resolvedLabel(for: value, labels: labels))
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(color)
                     .padding(.horizontal, 6)
