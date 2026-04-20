@@ -114,15 +114,22 @@ struct ProseEditorView: View {
     ) -> Bool {
         guard let syncedTitle = syncedNoteTitle(from: body),
               syncedTitle != page.title else { return false }
+        let originalTitle = page.title
+        let originalUpdatedAt = page.updatedAt
+        let originalNeedsVaultSync = page.needsVaultSync
         page.title = syncedTitle
         page.updatedAt = .now
         page.needsVaultSync = true
         do {
             try modelContext.save()
         } catch {
+            page.title = originalTitle
+            page.updatedAt = originalUpdatedAt
+            page.needsVaultSync = originalNeedsVaultSync
             log.error(
                 "ProseEditorView: failed to save synced note title for \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
+            return false
         }
         renamePageFile(page.id, syncedTitle)
         return true
@@ -156,7 +163,9 @@ struct ProseEditorView: View {
     var body: some View {
         let flush: (String, String) -> Void = { oldPageId, currentText in
             guard !oldPageId.isEmpty else { return }
-            _ = NoteFileStorage.scheduleWriteBody(pageId: oldPageId, content: currentText)
+            guard Self.stageBodyWrite(pageId: oldPageId, currentBody: currentText, reason: "flush callback") else {
+                return
+            }
             scheduleBlockMirrorSync(pageId: oldPageId, body: currentText)
             let desc = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.id == oldPageId }
@@ -254,8 +263,10 @@ struct ProseEditorView: View {
         if lastPersistedBody != bodyText {
             let pageId = page.id
             let currentBody = bodyText
+            guard Self.stageBodyWrite(pageId: pageId, currentBody: currentBody, reason: "flushIfNeeded") else {
+                return
+            }
             page.applyInteractiveDerivedState(from: currentBody)
-            _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody)
             scheduleBlockMirrorSync(pageId: pageId, body: currentBody)
             Self.syncNoteTitleIfNeeded(
                 from: currentBody,
@@ -275,7 +286,7 @@ struct ProseEditorView: View {
         guard lastPersistedBody != bodyText else { return }
         let pageId = page.id
         let currentBody = bodyText
-        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody) != nil else {
+        guard Self.stageBodyWrite(pageId: pageId, currentBody: currentBody, reason: "stagePendingBodyForReadIfNeeded") else {
             return
         }
         lastPersistedBody = currentBody
@@ -288,8 +299,10 @@ struct ProseEditorView: View {
         guard sanitizedBody != persistedBody else { return }
 
         let pageId = page.id
+        guard Self.stageBodyWrite(pageId: pageId, currentBody: sanitizedBody, reason: "inline AI repair") else {
+            return
+        }
         page.applyInteractiveDerivedState(from: sanitizedBody)
-        _ = NoteFileStorage.scheduleWriteBody(pageId: pageId, content: sanitizedBody)
         scheduleBlockMirrorSync(pageId: pageId, body: sanitizedBody)
         bodyText = sanitizedBody
         lastPersistedBody = sanitizedBody
@@ -355,6 +368,17 @@ struct ProseEditorView: View {
                 modelContainer: modelContainer
             )
         }
+    }
+
+    @discardableResult
+    private static func stageBodyWrite(pageId: String, currentBody: String, reason: String) -> Bool {
+        guard NoteFileStorage.scheduleWriteBody(pageId: pageId, content: currentBody) != nil else {
+            log.error(
+                "ProseEditorView: failed to stage body write for \(reason, privacy: .public) on page \(pageId, privacy: .public)"
+            )
+            return false
+        }
+        return true
     }
 
     // MARK: - Wikilink Navigation
