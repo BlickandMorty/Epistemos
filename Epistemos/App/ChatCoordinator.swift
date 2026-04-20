@@ -1524,7 +1524,7 @@ final class ChatCoordinator {
         // inspection (no-op if dir write fails).
         let manifestContext = CapabilityManifestBuilder.Context(
             providerLabel: resolveRustProviderName(),
-            modelLabel: inferenceState.effectiveModelLabel(for: .agent) ?? "",
+            modelLabel: inferenceState.effectiveModelLabel(for: .agent),
             operatingMode: (toolTier == "agent") ? .agent : .pro,
             reasoningTier: inferenceState.chatReasoningTier,
             enabledToolNames: Array(executionPlan.allowedToolNames).sorted(),

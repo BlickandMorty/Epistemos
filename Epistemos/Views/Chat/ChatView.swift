@@ -143,11 +143,11 @@ struct ChatView: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    /// OLED-black in dark mode, theme background in light mode.
-    /// Applied as the root background so main chat reads like the terminal
-    /// aesthetic when dark, but stays on-theme when light.
+    /// Near-OLED dark grey in dark mode, theme background in light mode.
+    /// Applied as the root background so main chat reads like a deep dark
+    /// surface when dark, but stays on-theme when light.
     private var oledAwareBackground: Color {
-        theme.isDark ? Color.black : theme.resolved.background.color
+        theme.isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : theme.resolved.background.color
     }
 
     private var supportedOperatingModes: [EpistemosOperatingMode] {

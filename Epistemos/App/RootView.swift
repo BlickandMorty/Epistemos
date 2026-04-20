@@ -791,7 +791,7 @@ struct LocalModelToolbarMenu: View {
                 title: routeButtonTitle,
                 systemImage: "arrow.triangle.branch",
                 isPresented: popoverBinding(.routing),
-                isActive: inference.chatAutoRouteToCloud,
+                isActive: false,
                 variant: variant,
                 showsLabelWhenCollapsed: false,
                 helpText: selectedModeSummary,
@@ -1413,36 +1413,7 @@ struct LocalModelToolbarMenu: View {
         VStack(alignment: .leading, spacing: 10) {
             popoverSectionTitle("Routing")
 
-            Toggle(isOn: Binding(
-                get: { inference.chatAutoRouteToCloud },
-                set: { inference.setChatAutoRouteToCloud($0) }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-route local -> cloud")
-                    Text("Keep chat local-first, but let higher-capability modes escalate to the selected cloud workspace when they need it.")
-                        .font(.caption)
-                        .foregroundStyle(theme.textTertiary)
-                }
-            }
-            .toggleStyle(.switch)
-
-            if inference.chatAutoRouteToCloud {
-                if inference.preferredAutoRouteCloudProvider != nil {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Current stack")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(theme.textTertiary)
-                        ForEach(displayedOperatingModes, id: \.self) { option in
-                            routeSummaryCard(for: inference.chatSurfaceRouteDescription(for: option))
-                        }
-                    }
-                } else {
-                    Text("Auto-route is on, but no configured cloud workspace is ready yet. Connect one below to give Pro and Agent a cloud path.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textTertiary)
-                        .padding(.leading, 4)
-                }
-            } else if let operatingMode {
+            if let operatingMode {
                 routeSummaryCard(for: inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue))
             }
 
@@ -1451,8 +1422,8 @@ struct LocalModelToolbarMenu: View {
                 set: { inference.setCloudAutoFallback($0) }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Auto-route on failure")
-                    Text("If the chosen cloud model errors, keep trying the fallback chain instead of surfacing the first failure immediately.")
+                    Text("Fallback on failure")
+                    Text("If the chosen cloud model errors, try the fallback chain instead of surfacing the first failure immediately.")
                         .font(.caption)
                         .foregroundStyle(theme.textTertiary)
                 }

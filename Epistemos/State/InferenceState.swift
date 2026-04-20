@@ -3021,7 +3021,7 @@ final class InferenceState {
             savedBudget > 0 ? savedBudget : 8_000
         )
         self.googleGroundingEnabled = defaults.bool(forKey: Self.googleGroundingDefaultsKey)
-        self.chatAutoRouteToCloud = defaults.bool(forKey: Self.chatAutoRouteToCloudDefaultsKey)
+        self.chatAutoRouteToCloud = false  // Auto-route removed: user has full control
         self.cloudAutoFallback = defaults.bool(forKey: Self.cloudAutoFallbackDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
