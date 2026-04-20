@@ -363,6 +363,16 @@ private struct AgentStreamingIndicator: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            if agentChat.isThinkingActive || !agentChat.streamingThinking.isEmpty {
+                ThinkingPopoverView(
+                    thinkingContent: agentChat.streamingThinking,
+                    isThinkingActive: agentChat.isThinkingActive,
+                    thinkingStartedAt: agentChat.thinkingStartedAt,
+                    thinkingEndedAt: agentChat.thinkingEndedAt
+                )
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
             ToolExecutionPreviewList(
                 blocks: agentChat.pendingContentBlocks,
                 isStreaming: agentChat.isStreaming

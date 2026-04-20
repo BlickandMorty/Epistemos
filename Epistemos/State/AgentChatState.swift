@@ -101,6 +101,9 @@ final class AgentChatState {
     @ObservationIgnored
     private var lastPlanDocumentSeed: AgentPlanDocumentSeed?
 
+    @ObservationIgnored
+    private var thinkTagRouter = ThinkTagStreamRouter()
+
     // MARK: - Init
 
     init() {}
@@ -125,6 +128,7 @@ final class AgentChatState {
         resetPlanDocument()
         estimatedContextTokens = 0
         resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
         log.info("[AgentChat] New session: \(self.activeSessionId ?? "nil")")
     }
 
@@ -162,17 +166,22 @@ final class AgentChatState {
         activeToolInputJson = nil
         isAgentExecuting = false
         resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
     }
 
     func appendStreamingText(_ text: String) {
-        // First text delta closes the thinking phase — the popover flips
-        // from the live "Thinking…" pulse to the persisted "Thought for Ns"
-        // summary badge on the agent surface.
-        if isThinkingActive {
-            isThinkingActive = false
-            thinkingEndedAt = Date()
+        let emit = thinkTagRouter.ingest(text)
+        if !emit.thinking.isEmpty {
+            appendStreamingThinking(emit.thinking)
         }
-        streamBuffer.append(text, scheduleFlush: true)
+
+        if !emit.visible.isEmpty {
+            if isThinkingActive {
+                isThinkingActive = false
+                thinkingEndedAt = Date()
+            }
+            streamBuffer.append(emit.visible, scheduleFlush: true)
+        }
     }
 
     /// Accumulate a live thinking delta for the streaming agent turn.
@@ -254,6 +263,13 @@ final class AgentChatState {
         flushStreamingTokens()
 
         let answerText = UserFacingModelOutput.finalVisibleText(from: streamingText)
+        let capturedThinking = streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        let thinkingDurationSeconds: Double? = {
+            guard let start = thinkingStartedAt else { return nil }
+            let end = thinkingEndedAt ?? Date()
+            let duration = end.timeIntervalSince(start)
+            return duration >= 0 ? duration : nil
+        }()
 
         var completedBlocks = pendingContentBlocks
         if !answerText.isEmpty {
@@ -292,7 +308,9 @@ final class AgentChatState {
             mode: mode,
             artifacts: artifacts,
             contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
-            resolvedModelLabel: resolvedModelLabel
+            resolvedModelLabel: resolvedModelLabel,
+            thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
+            thinkingDurationSeconds: thinkingDurationSeconds
         )
 
         messages.append(assistantMessage)
@@ -308,6 +326,8 @@ final class AgentChatState {
         activeToolName = nil
         activeToolInputJson = nil
         isAgentExecuting = false
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
 
         // Update context estimate
         estimatedContextTokens = messages.reduce(0) { $0 + $1.content.count } / 4
@@ -337,6 +357,8 @@ final class AgentChatState {
         activeToolInputJson = nil
         isAgentExecuting = false
         lastCompletedAssistantResponse = nil
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
     }
 
     // MARK: - Clear
@@ -357,6 +379,8 @@ final class AgentChatState {
         executionPlanSummary = nil
         resetPlanDocument()
         estimatedContextTokens = 0
+        resetThinkingState()
+        thinkTagRouter = ThinkTagStreamRouter()
     }
 
     // MARK: - Plan Document

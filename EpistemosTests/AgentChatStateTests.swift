@@ -234,6 +234,19 @@ struct AgentChatStateTests {
         #expect(state.streamingThinking == "thought")
     }
 
+    @Test("inline think tags route into the thinking stream instead of the visible answer")
+    func inlineThinkTagsRouteIntoThinkingStream() {
+        let state = AgentChatState()
+        state.startStreaming()
+
+        state.appendStreamingText("<think>working through the plan</think>Final answer.")
+
+        #expect(state.streamingThinking == "working through the plan")
+        #expect(state.streamingText == "Final answer.")
+        #expect(!state.isThinkingActive)
+        #expect(state.thinkingEndedAt != nil)
+    }
+
     @Test("starting a new streaming turn resets stale thinking state")
     func startStreamingResetsThinkingState() {
         let state = AgentChatState()
@@ -300,6 +313,21 @@ struct AgentChatStateTests {
         let message = state.messages.last
         #expect(message?.role == .assistant)
         #expect(message?.resolvedModelLabel == "Claude Sonnet 4.6")
+    }
+
+    @Test("completeProcessing persists captured thinking for the finalized turn")
+    func completeProcessingPersistsCapturedThinking() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingText("<think>inspect the note graph</think>Answer")
+
+        state.completeProcessing(mode: .api, resolvedModelLabel: "Qwen 3 4B")
+
+        let message = state.messages.last
+        #expect(message?.thinkingTrace == "inspect the note graph")
+        #expect(message?.thinkingDurationSeconds != nil)
+        #expect(state.streamingThinking.isEmpty)
     }
 
     // MARK: - Empty-stream guard
