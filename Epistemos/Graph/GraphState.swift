@@ -1368,15 +1368,28 @@ final class GraphState {
 
     /// Scheduler mode. `.simple` is the classic opening→resting 2-stage cycle.
     /// `.timeline` plays an arbitrary sequence of preset changes.
-    var schedulerMode: PhysicsSchedulerMode = .simple
+    /// Default is `.timeline` with a 3-stage opening that lands the user
+    /// at a compact, bouncy chaos preset after briefly showing structure.
+    var schedulerMode: PhysicsSchedulerMode = .timeline
     /// Opening preset key (built-in name like "deepSea" or "custom:<UUID>").
-    var simpleOpeningPresetKey: String = "deepSea"
+    var simpleOpeningPresetKey: String = "crystal"
     /// Delay in seconds before switching from opening → resting in simple mode.
-    var simpleOpeningDelaySeconds: Double = 4.0
+    var simpleOpeningDelaySeconds: Double = 3.0
     /// Resting preset key.
     var simpleRestingPresetKey: String = "chaos"
     /// Timeline mode: ordered steps to play when the overlay opens.
-    var timelineSteps: [PhysicsScheduleStep] = []
+    /// Default is a 3-stage crystal → constellation → chaos cycle so the
+    /// graph reads as:
+    /// 1. crystal (structured, tight, snappy) for ~3s — shows topology
+    /// 2. constellation (wide spacing, minimal gravity) for ~4s — lets
+    ///    clusters breathe and become legible before they compact
+    /// 3. chaos (tight repulsion, zero gravity, low friction) — resting
+    ///    state with everything visible and interactive
+    var timelineSteps: [PhysicsScheduleStep] = [
+        PhysicsScheduleStep(delaySeconds: 0.0, presetKey: "crystal"),
+        PhysicsScheduleStep(delaySeconds: 3.0, presetKey: "constellation"),
+        PhysicsScheduleStep(delaySeconds: 4.0, presetKey: "chaos"),
+    ]
     /// How long user-interaction-triggered motion is sustained (seconds).
     var interactionMotionHoldSeconds: Double = 30.0
     /// Alpha target during interaction-sustained motion (0.001-0.1).
