@@ -1575,10 +1575,18 @@ actor MLXInferenceService: LocalMLXRuntime {
         guard let availableBytes = approximateAvailableUnifiedMemoryBytes() else { return }
         let bytesPerGB: UInt64 = 1_073_741_824 // 1024 * 1024 * 1024
         let availableGB = Int(availableBytes / bytesPerGB)
-        // KV cache + tokenizer + working buffers routinely add ~1-2 GB on top
-        // of the quoted minimum. Add a small safety margin so we don't refuse
-        // loads that would realistically succeed with headroom to spare.
-        let headroomGB = 2
+        // `availableBytes` already sums free + inactive + purgeable pages —
+        // macOS will reclaim inactive/purgeable under pressure, so the OS
+        // effectively has another few GB on top of that when it needs it.
+        // The per-model `minimumRecommendedInteractiveMemoryGB` values also
+        // quote a conservative ceiling rather than the realistic working set
+        // (a 4-bit 4B model's true footprint is ~4-5 GB, not the 8 GB it
+        // lists). Giving the user a 6 GB benefit-of-the-doubt lets small
+        // models (Qwen 3 4B, Bonsai 4B/8B) load on a typical 16 GB Mac
+        // that's doing real work, and still refuses oversized models
+        // (DeepSeek R1 7B needs 16 GB → still refuses below ~10 GB free;
+        // anything 24 GB+ refuses well before swap death).
+        let headroomGB = 6
         guard availableGB + headroomGB < requiredGB else { return }
 
         throw LocalInferenceRoutingError.insufficientMemory(

@@ -252,7 +252,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_2B4Bit, .lfm2_2B4Bit, .mamba2_2B4Bit: 8
         case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit,
              .bonsai4B2Bit, .bonsai8B2Bit: 8
-        case .deepseekR1Distill7B, .qwen25Coder7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 16
+        // Realistic working set for a 4-bit 7B is ~6 GB (3.5 GB weights + 1 GB
+        // KV at 8K ctx + ~1 GB buffers). 12 GB gives 2× headroom and lets
+        // a 16 GB Mac load DeepSeek R1 with ~6 GB free instead of requiring
+        // 10 GB free. Coding 7B keeps its higher ceiling (longer contexts).
+        case .deepseekR1Distill7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 12
+        case .qwen25Coder7B: 16
         case .qwqFlagship32B4Bit: 24
         case .qwen35_9B4Bit, .jamba3B: 18
         case .lfm2_24BA2B4Bit: 24
