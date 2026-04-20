@@ -491,12 +491,25 @@ nonisolated struct InferencePolicyEngine {
             reasonCodes.insert(.cloudAutoRoute)
             return true
         case .thinking:
-            if localSelection == nil || complexityTier == .extreme {
-                reasonCodes.insert(.cloudAutoRoute)
-                return true
-            }
-            return false
+            // Always prefer cloud for Thinking when auto-route is on and a
+            // cloud model is configured. 16 GB Macs can't comfortably run
+            // the 24-32 GB thinking models (QwQ 32B, Qwen 3.6 35B MoE, etc.)
+            // without swap-thrashing, and the 4B/7B thinking-capable local
+            // models are genuinely weaker than cloud reasoning. Escalating
+            // to a bigger-local model on the way to cloud is what the
+            // user described as "keeps loading DeepSeek instead of using
+            // my cloud key" — this preference flips that so Thinking in
+            // auto-route behaves like Pro/Agent. Users who want local
+            // thinking can still pin a local thinking model explicitly;
+            // that pin wins over auto-route via the earlier
+            // userHasExplicitPin check in `effectiveChatSurfaceSelection`.
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
         case .fast:
+            // Fast mode keeps its existing preference: stay local (or
+            // Apple Intelligence) unless neither is available. Fast
+            // turns on a small 4B local model are faster than a cloud
+            // round-trip and don't benefit from cloud reasoning.
             if localSelection == nil && !context.appleIntelligenceAvailable {
                 reasonCodes.insert(.cloudAutoRoute)
                 return true
