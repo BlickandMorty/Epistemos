@@ -113,6 +113,20 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains("analyzingText: \"Loading \\(inference.activeChatModelDisplayName)…\""))
     }
 
+    @Test("mini chat keeps streaming output on the filtered user-facing text path")
+    func miniChatStreamingPathKeepsReasoningOutOfVisibleOutput() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let triageSource = try loadRepoTextFile("Epistemos/Engine/TriageService.swift")
+
+        #expect(miniChatSource.contains("UserFacingModelOutput.streamingVisibleText("))
+        #expect(miniChatSource.contains("let final = UserFacingModelOutput.finalVisibleText(from: accumulated)"))
+        #expect(miniChatSource.contains("let partial = UserFacingModelOutput.finalVisibleText("))
+        #expect(miniChatSource.contains("for try await chunk in triage.streamGeneral("))
+        #expect(triageSource.contains("private func userFacingStream("))
+        #expect(triageSource.contains("UserFacingModelOutput.streamingVisibleText(from: rawText)"))
+        #expect(triageSource.contains("let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)"))
+    }
+
     @Test("mini chat hides the retired agent handoff instead of routing into Omega")
     func miniChatHidesRetiredAgentHandoff() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")

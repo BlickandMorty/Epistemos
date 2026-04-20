@@ -126,17 +126,26 @@ final class NoteChatState {
     @ObservationIgnored private var streamingTaskToken = UUID()
     @ObservationIgnored private var streamingPresentation: StreamingPresentation = .responsePanel
     @ObservationIgnored private var streamedInlineVisibleText = ""
+    @ObservationIgnored private var thinkTagRouter = ThinkTagStreamRouter()
 
     init(pageId: String) {
         self.pageId = pageId
     }
 
     func appendStreamingText(_ text: String) {
-        streamBuffer.append(text)
+        let emit = thinkTagRouter.ingest(text)
+        guard !emit.visible.isEmpty else { return }
+        streamBuffer.append(emit.visible)
     }
 
     private func flushTokens() {
         streamBuffer.flushNow()
+    }
+
+    private func flushThinkTagRouter() {
+        let emit = thinkTagRouter.flush()
+        guard !emit.visible.isEmpty else { return }
+        streamBuffer.append(emit.visible, scheduleFlush: false)
     }
 
     private func resetStreamBuffer(releaseCapacity: Bool = false) {
@@ -182,6 +191,7 @@ final class NoteChatState {
         responseText.reserveCapacity(16_384)
         streamingPresentation = presentation
         streamedInlineVisibleText = ""
+        thinkTagRouter = ThinkTagStreamRouter()
 
         if startInlineStream {
             onStreamStart?(trimmed)
@@ -235,6 +245,7 @@ final class NoteChatState {
                 for try await chunk in stream {
                     self.appendStreamingText(chunk)
                 }
+                self.flushThinkTagRouter()
                 self.flushTokens()
                 guard !Task.isCancelled else {
                     self.isStreaming = false
@@ -251,10 +262,12 @@ final class NoteChatState {
                     }
                 }
             } catch is CancellationError {
+                self.flushThinkTagRouter()
                 self.flushTokens()
                 self.isStreaming = false
                 self.resolveInlineAutoCommitResponse()
             } catch {
+                self.flushThinkTagRouter()
                 self.flushTokens()
                 self.isStreaming = false
                 self.error = error.localizedDescription
@@ -580,6 +593,7 @@ final class NoteChatState {
         streamingTaskToken = UUID()
         streamingTask?.cancel()
         streamingTask = nil
+        flushThinkTagRouter()
         flushTokens()
         isStreaming = false
         resolveInlineAutoCommitResponse()
@@ -603,6 +617,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         clearResponseTextBuffer()
+        thinkTagRouter = ThinkTagStreamRouter()
         resetStreamingPresentationState()
     }
 
@@ -614,6 +629,7 @@ final class NoteChatState {
         hasResponse = false
         useResponsePanel = false
         clearResponseTextBuffer()
+        thinkTagRouter = ThinkTagStreamRouter()
         resetStreamingPresentationState()
     }
 
@@ -625,6 +641,7 @@ final class NoteChatState {
             resetStreamBuffer(releaseCapacity: true)
             clearResponseTextBuffer()
             useResponsePanel = false
+            thinkTagRouter = ThinkTagStreamRouter()
             resetStreamingPresentationState()
         }
         inputText = ""
