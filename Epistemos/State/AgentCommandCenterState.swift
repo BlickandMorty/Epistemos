@@ -522,11 +522,11 @@ final class AgentCommandCenterState {
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .code:
-            return localBrain(preferredModels: [.qwen25Coder7B, .qwen36_35BA3B4Bit, .deepseekR1Distill7B])
+            return localBrain(preferredModels: [.qwen36_35BA3B4Bit, .deepseekR1Distill7B])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .debug:
-            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen25Coder7B, .qwen36_35BA3B4Bit])
+            return localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
         case .plan, .review:
@@ -535,7 +535,7 @@ final class AgentCommandCenterState {
                 ?? availableBrains.first
         case .research, .securityReview:
             return cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
-                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit, .qwen25Coder7B])
+                ?? localBrain(preferredModels: [.deepseekR1Distill7B, .qwen36_35BA3B4Bit])
                 ?? availableBrains.first
         case .ask, .summarize, .explain, .readBranch:
             return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B])
@@ -1040,7 +1040,23 @@ enum ACCBrainSelection: Hashable, Identifiable {
 
     var supportedOperatingModes: [EpistemosOperatingMode] {
         switch self {
-        case .local(_, _, let supportsThinking, _, let supportsTools):
+        case .local(let modelId, _, let supportsThinking, _, let supportsTools):
+            if let model = LocalTextModelID(rawValue: modelId) {
+                var modes: [EpistemosOperatingMode] = []
+                if !model.cannotDisableThinkingInFast {
+                    modes.append(.fast)
+                }
+                if model.supportsThinkingMode {
+                    modes.append(.thinking)
+                } else if supportsThinking {
+                    modes.append(.thinking)
+                }
+                if supportsTools {
+                    modes.append(.agent)
+                }
+                return modes.isEmpty ? [.fast] : modes
+            }
+
             var modes: [EpistemosOperatingMode] = [.fast]
             if supportsThinking {
                 modes.append(.thinking)
