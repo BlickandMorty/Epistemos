@@ -478,7 +478,8 @@ struct ChatInputBar: View {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
                         ChatBrainPickerMenu(
                             operatingMode: operatingMode,
-                            availableOperatingModes: availableOperatingModes
+                            availableOperatingModes: availableOperatingModes,
+                            isTemporaryChatEnabled: incognitoBinding
                         )
                         attachButton
                         ComposerMicButton { transcript in

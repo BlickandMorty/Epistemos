@@ -34,12 +34,14 @@ enum MainChatOperatingModePreference {
 struct ChatBrainPickerMenu: View {
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
     var availableOperatingModes: [EpistemosOperatingMode]? = nil
+    var isTemporaryChatEnabled: Binding<Bool>? = nil
 
     var body: some View {
         LocalModelToolbarMenu(
             variant: .toolbar,
             operatingMode: operatingMode,
-            availableOperatingModes: availableOperatingModes
+            availableOperatingModes: availableOperatingModes,
+            isTemporaryChatEnabled: isTemporaryChatEnabled
         )
     }
 }

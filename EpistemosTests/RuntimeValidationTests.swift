@@ -187,19 +187,20 @@ struct RuntimeValidationTests {
         #expect(source.contains("\"epistemos.preferredCloudModel.\\(provider.rawValue)\""))
     }
 
-    @Test("chat model selector uses a popover with simplified local and cloud sections")
-    func chatModelSelectorUsesPopoverWithFoldableSections() throws {
+    @Test("chat model selector splits mode, model, and routing controls across toolbar buttons")
+    func chatModelSelectorUsesSplitToolbarControls() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
 
-        #expect(rootView.contains("AnchoredPopoverButton("))
-        #expect(rootView.contains("DisclosureGroup("))
-        #expect(rootView.contains("title: \"Local Models\""))
+        #expect(rootView.contains("splitToolbarControls"))
+        #expect(rootView.contains("modePopover"))
+        #expect(rootView.contains("modelPopover"))
+        #expect(rootView.contains("routingPopover"))
+        #expect(rootView.contains("routeButtonTitle"))
+        #expect(rootView.contains("temporaryChatButton"))
         #expect(rootView.contains("pickerCloudSection"))
-        #expect(rootView.contains("popoverSectionTitle(\"Cloud\")"))
-        #expect(rootView.contains("title: \"Temporary Chat\""))
-        #expect(rootView.contains("if let provider = displayedCloudProvider"))
+        #expect(rootView.contains("routingSection"))
+        #expect(rootView.contains("DisclosureGroup("))
         #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
-        #expect(rootView.contains("Button(\"Open Settings\")"))
     }
 
     @Test("inference settings expose the shared local to cloud auto-route toggle")

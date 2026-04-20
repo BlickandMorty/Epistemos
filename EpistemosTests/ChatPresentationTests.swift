@@ -167,6 +167,17 @@ struct ChatPresentationTests {
         #expect(!source.contains("Menu {"))
     }
 
+    @Test("shared local model toolbar exposes split toolbar controls for mode model and routing")
+    func localModelToolbarUsesSplitToolbarControls() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        #expect(source.contains("splitToolbarControls"))
+        #expect(source.contains("modePopover"))
+        #expect(source.contains("modelPopover"))
+        #expect(source.contains("routingPopover"))
+        #expect(source.contains("temporaryChatButton"))
+    }
+
     @Test("chat capability surfaces avoid repeatForever pulse loops")
     func chatCapabilitySurfacesAvoidRepeatForeverPulseLoops() throws {
         let pillSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/ChatCapabilityPill.swift")
