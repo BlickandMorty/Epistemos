@@ -3395,14 +3395,17 @@ final class InferenceState {
                   let model = LocalTextModelID(rawValue: activeModelID) else {
                 return OperatingModeCapabilities(availableModes: [.fast])
             }
-            var modes: [EpistemosOperatingMode] = [.fast]
+            var modes: [EpistemosOperatingMode] = []
+            if !model.cannotDisableThinkingInFast {
+                modes.append(.fast)
+            }
             if model.supportsThinkingMode {
                 modes.append(.thinking)
             }
             if model.supportsAgentMode {
                 modes.append(.agent)
             }
-            return OperatingModeCapabilities(availableModes: modes)
+            return OperatingModeCapabilities(availableModes: modes.isEmpty ? [.fast] : modes)
         }
     }
 

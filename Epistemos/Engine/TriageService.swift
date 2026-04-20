@@ -304,6 +304,9 @@ nonisolated struct InferencePolicyEngine {
         }
 
         let selectedReasoningMode = reasoningMode ?? .fast
+        if selectedReasoningMode == .fast, preferredModel.cannotDisableThinkingInFast {
+            return nil
+        }
         return LocalModelSelection(
             modelID: preferredModel.rawValue,
             reasoningMode: selectedReasoningMode,
@@ -621,9 +624,9 @@ nonisolated struct InferencePolicyEngine {
         // Gemma 4 family remains excluded from every automatic order
         // until the MLX-Swift Gemma 4 loader is ported from
         // SharpAI/SwiftLM (tracked in MASTER_MODEL_STACK_PLAN §3a).
-        // Legacy mlx-community Qwen 3.6 4-bit and Qwen 2.5 Coder 7B
-        // stay as last-resort installed fallbacks so existing installs
-        // don't break.
+        // Legacy mlx-community Qwen 3.6 4-bit stays as the last-resort
+        // installed fallback so existing installs don't break. Qwen 2.5
+        // Coder 7B is held out while the freeze mitigation is active.
         let preferredOrder: [LocalTextModelID]
         switch profile.operatingMode {
         case .agent:
@@ -632,7 +635,7 @@ nonisolated struct InferencePolicyEngine {
                 preferredOrder = [
                     .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
                     .hermes43_36B4Bit, .hermes43_36B3Bit,
-                    .qwen25Coder7B, .deepseekR1Distill7B,
+                    .deepseekR1Distill7B,
                 ]
             default:
                 preferredOrder = [
@@ -647,13 +650,13 @@ nonisolated struct InferencePolicyEngine {
                 preferredOrder = [
                     .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .deepseekR1Distill7B, .qwen25Coder7B,
+                    .deepseekR1Distill7B,
                 ]
             default:
                 preferredOrder = [
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .deepseekR1Distill7B, .hermes43_36B4Bit,
-                    .qwen3_4B4Bit, .qwen25Coder7B,
+                    .qwen3_4B4Bit,
                 ]
             }
         case .thinking:
@@ -663,7 +666,6 @@ nonisolated struct InferencePolicyEngine {
                     .qwqFlagship32B4Bit, .deepseekR1Distill7B,
                     .qwen3Coder30BA3B4Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen25Coder7B,
                 ]
             default:
                 preferredOrder = [
@@ -671,7 +673,7 @@ nonisolated struct InferencePolicyEngine {
                     // quality to DeepSeek R1 at 32B on harder prompts.
                     .qwqFlagship32B4Bit, .deepseekR1Distill7B,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_4B4Bit, .qwen25Coder7B,
+                    .qwen3_4B4Bit,
                 ]
             }
         case .fast:
@@ -679,7 +681,7 @@ nonisolated struct InferencePolicyEngine {
             case .coding, .debugging:
                 preferredOrder = [
                     .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
-                    .qwen25Coder7B, .deepseekR1Distill7B,
+                    .deepseekR1Distill7B,
                     .qwen3_4B4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
                 ]
             case .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
@@ -694,14 +696,13 @@ nonisolated struct InferencePolicyEngine {
                     preferredOrder = [
                         .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                         .deepseekR1Distill7B, .qwen3_4B4Bit,
-                        .bonsai8B2Bit, .bonsai4B2Bit, .qwen25Coder7B,
+                        .bonsai8B2Bit, .bonsai4B2Bit,
                     ]
                 } else {
                     preferredOrder = [
                         .qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit,
                         .deepseekR1Distill7B,
                         .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                        .qwen25Coder7B,
                     ]
                 }
             }
