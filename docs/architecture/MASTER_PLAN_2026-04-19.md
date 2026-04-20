@@ -833,3 +833,35 @@ Three more small, user-reported regression batches landed after §22:
 - App crash status is still open unless a fresh crash log proves otherwise.
 - Reasoning/thinking separation still requires live verification on every runtime path; source-guard coverage is not enough for a ship call.
 - Native PDF upload and batch queue remain deferred parity gaps.
+
+## 24 · April 19 late-night continuation — picker simplification + ACC mode truthfulness
+
+Two more cleanup batches landed after §23:
+
+| SHA | What |
+|-----|------|
+| [0befc7c5](commits/0befc7c5) | Chat runtime popover and Inference settings now remove duplicate/noisy affordances: only one `Open Settings` entry point remains in the runtime picker, the redundant `Active Tier` row is gone from Local AI settings, and per-row release-loader warnings no longer repeat on every installable model row. |
+| [695ce712](commits/695ce712) | Agent Command Center local-brain modes now reflect the real runtime contract. Always-thinking / fast-incompatible locals no longer advertise Fast, and the code/debug/research specialist defaults stop preferring `qwen25Coder7B` ahead of safer local brains. |
+
+### 24A · What these batches close
+
+- duplicate settings affordances and redundant status rows in the main chat runtime picker / Inference settings
+- noisy, per-row technical loader warnings that made the local model list feel more broken than helpful
+- ACC showing Fast for `qwen25Coder7B` even though the local runtime rejects that mode
+- ACC specialist presets steering users back toward the same problematic coder tier after the runtime had already been hardened away from it
+
+### 24B · Verification
+
+- focused `xcodebuild` run on warmed DerivedData:
+  - `ChatPresentationTests/chatRuntimePopoverKeepsASingleSettingsEntryPoint`
+  - `ChatPresentationTests/inferenceSettingsAvoidRedundantTierRowsAndPerModelWarnings`
+  - `AgentCommandCenterStateTests/changingBrainSanitizesUnsupportedOperatingModes`
+  - `AgentCommandCenterStateTests/alwaysThinkingBrainsHideFastInCommandCenter`
+- command exited `0` on `/tmp/epistemos-mlx-load-stall`
+- notable caveat: the log still includes the long-running package-lint script noise before test execution, so exit code was the reliable pass signal for this slice
+
+### 24C · Residual open items after these batches
+
+- `qwen25Coder7B` still needs launched-app verification in ACC and the main surfaces; the picker contract is now correct, but live cold-load UX still needs confirmation.
+- The agent OpenAI/Codex tool-call path still deserves an end-to-end runtime check to ensure structured tool calls never fall back to raw JSON text in the transcript.
+- The remaining big functional gaps are still the same: native PDF upload, batch queue, and any unreproduced crash path.
