@@ -363,6 +363,12 @@ struct LocalModelToolbarMenu: View {
         }
     }
 
+    private enum SplitToolbarPopover: Hashable {
+        case mode
+        case model
+        case routing
+    }
+
     var variant: NativeControlVariant = .toolbar
     var overrideTitle: String? = nil
     var overrideFont: Font? = nil
@@ -374,6 +380,7 @@ struct LocalModelToolbarMenu: View {
     @Environment(InferenceState.self) private var inference
     @Environment(LocalModelManager.self) private var localModelManager
     @State private var isPresented = false
+    @State private var activeSplitPopover: SplitToolbarPopover?
     @State private var showsLocalModels = true
     @State private var showsCloudModels = true
     @State private var showsCloudProviderOptions = false
@@ -444,6 +451,19 @@ struct LocalModelToolbarMenu: View {
         inference.activeCloudProvider ?? inference.preferredAutoRouteCloudProvider
     }
 
+    private var usesSplitToolbarControls: Bool {
+        operatingMode != nil && overrideTitle == nil
+    }
+
+    private var currentOperatingMode: EpistemosOperatingMode? {
+        operatingMode.map { sanitizedDisplayedOperatingMode($0.wrappedValue) }
+    }
+
+    private var currentRouteDescription: ChatSurfaceRouteDescription? {
+        guard let currentOperatingMode else { return nil }
+        return inference.chatSurfaceRouteDescription(for: currentOperatingMode)
+    }
+
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
         let selectedModelLabel: String
@@ -493,6 +513,28 @@ struct LocalModelToolbarMenu: View {
         )
     }
 
+    private var modeDisclosureWidth: CGFloat {
+        NativeControlSystem.reservedWidth(
+            for: displayedOperatingModes.map(\.displayName),
+            variant: variant,
+            includesDisclosureGlyph: true
+        )
+    }
+
+    private var modelDisclosureWidth: CGFloat {
+        NativeControlSystem.reservedWidth(
+            for: [
+                "Apple Intelligence",
+                "GPT-5.4",
+                "Qwen 34B",
+                "DeepSeek R1 7B",
+                "Auto Route",
+            ],
+            variant: variant,
+            includesDisclosureGlyph: true
+        )
+    }
+
     private var buttonSystemImage: String {
         if isTemporaryChatEnabled?.wrappedValue == true {
             return "eye.slash.fill"
@@ -510,6 +552,27 @@ struct LocalModelToolbarMenu: View {
             return "cloud.fill"
         case .inProcess, .none:
             return "memorychip"
+        }
+    }
+
+    private var modelButtonTitle: String {
+        currentRouteDescription?.headline ?? labelText
+    }
+
+    private var modelButtonSystemImage: String {
+        currentRouteDescription?.systemImage ?? buttonSystemImage
+    }
+
+    private var routeButtonTitle: String {
+        guard let route = currentRouteDescription else { return "Routing" }
+        if route.usesAutomaticRouting {
+            return "Auto Route"
+        }
+        switch route.selection {
+        case .cloud:
+            return "Cloud Route"
+        case .appleIntelligence, .localMLX:
+            return "Local Route"
         }
     }
 
@@ -555,6 +618,15 @@ struct LocalModelToolbarMenu: View {
         return mode
     }
 
+    private func popoverBinding(_ popover: SplitToolbarPopover) -> Binding<Bool> {
+        Binding(
+            get: { activeSplitPopover == popover },
+            set: { isPresented in
+                activeSplitPopover = isPresented ? popover : nil
+            }
+        )
+    }
+
     var body: some View {
         Group {
             if overrideTitle != nil {
@@ -563,6 +635,8 @@ struct LocalModelToolbarMenu: View {
                     .fixedSize(horizontal: true, vertical: false)
                     .help(labelText)
                     .accessibilityLabel(labelText)
+            } else if usesSplitToolbarControls {
+                splitToolbarControls
             } else {
                 AnchoredPopoverButton(
                     title: labelText,
@@ -584,6 +658,262 @@ struct LocalModelToolbarMenu: View {
         }
         .task(id: inference.preferredChatModelSelection.rawValue) {
             sanitizeReleaseLocalSelectionIfNeeded()
+        }
+    }
+
+    @ViewBuilder
+    private var splitToolbarControls: some View {
+        HStack(spacing: 6) {
+            if let operatingMode = currentOperatingMode {
+                AnchoredPopoverButton(
+                    title: operatingMode.displayName,
+                    systemImage: operatingMode.systemImage,
+                    isPresented: popoverBinding(.mode),
+                    isActive: false,
+                    variant: variant,
+                    showsLabelWhenCollapsed: true,
+                    helpText: operatingMode.helpText,
+                    accessibilityLabel: "\(operatingMode.displayName) mode",
+                    idealPopoverWidth: variant == .toolbar ? 300 : 320,
+                    contentPadding: 12,
+                    stableWidth: modeDisclosureWidth
+                ) {
+                    modePopover
+                }
+                .fixedSize()
+            }
+
+            AnchoredPopoverButton(
+                title: modelButtonTitle,
+                systemImage: modelButtonSystemImage,
+                isPresented: popoverBinding(.model),
+                isActive: false,
+                variant: variant,
+                showsLabelWhenCollapsed: true,
+                helpText: selectedModeSummary,
+                accessibilityLabel: "\(modelButtonTitle) model",
+                idealPopoverWidth: variant == .toolbar ? 340 : 360,
+                contentPadding: 12,
+                stableWidth: modelDisclosureWidth
+            ) {
+                modelPopover
+            }
+            .fixedSize()
+
+            AnchoredPopoverButton(
+                title: routeButtonTitle,
+                systemImage: "arrow.triangle.branch",
+                isPresented: popoverBinding(.routing),
+                isActive: inference.chatAutoRouteToCloud,
+                variant: variant,
+                showsLabelWhenCollapsed: false,
+                helpText: selectedModeSummary,
+                accessibilityLabel: routeButtonTitle,
+                idealPopoverWidth: variant == .toolbar ? 340 : 360,
+                contentPadding: 12
+            ) {
+                routingPopover
+            }
+            .fixedSize()
+
+            if isTemporaryChatEnabled != nil {
+                temporaryChatButton
+            }
+
+            settingsButton
+        }
+    }
+
+    @ViewBuilder
+    private var modePopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let operatingMode = currentOperatingMode {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Mode")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(operatingMode.helpText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(displayedOperatingModes, id: \.rawValue) { option in
+                    selectionRow(
+                        title: option.displayName,
+                        subtitle: modeSubtitle(for: option, isEnabled: true),
+                        systemImage: option.systemImage,
+                        isSelected: currentOperatingMode == option,
+                        isEnabled: true
+                    ) {
+                        if let operatingMode {
+                            operatingMode.wrappedValue = sanitizedDisplayedOperatingMode(option)
+                        }
+                        activeSplitPopover = nil
+                    }
+                }
+            }
+        }
+        .animation(
+            .easeInOut(duration: 0.15),
+            value: displayedOperatingModes.map(\.rawValue).joined(separator: "|")
+        )
+    }
+
+    @ViewBuilder
+    private var modelPopover: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Model")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(selectedModeSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    popoverSectionTitle("Models")
+
+                    DisclosureGroup(
+                        isExpanded: $showsLocalModels,
+                        content: {
+                            VStack(alignment: .leading, spacing: 6) {
+                                if inference.appleIntelligenceAvailable {
+                                    selectionRow(
+                                        title: "Apple Intelligence",
+                                        subtitle: "Optional Apple on-device runtime for simple fallback work.",
+                                        systemImage: "apple.intelligence",
+                                        isSelected: selectedMenuItem == .appleIntelligence
+                                    ) {
+                                        inference.setPreferredChatModelSelection(.appleIntelligence)
+                                        activeSplitPopover = nil
+                                    }
+                                }
+
+                                if installedSelectableModels.isEmpty {
+                                    Text(noLocalModelsText)
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(theme.textTertiary)
+                                        .padding(.leading, 4)
+                                        .padding(.top, 2)
+                                } else {
+                                    ForEach(installedSelectableModels, id: \.id) { model in
+                                        HStack(spacing: 0) {
+                                            selectionRow(
+                                                title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                                subtitle: localModelSubtitle(for: model),
+                                                systemImage: "memorychip",
+                                                isSelected: selectedMenuItem == .inProcess(model)
+                                            ) {
+                                                inference.setPreferredChatModelSelection(.localMLX(model.id))
+                                                activeSplitPopover = nil
+                                            }
+
+                                            Button {
+                                                aboutSelection = .localMLX(model.id)
+                                            } label: {
+                                                Image(systemName: "info.circle")
+                                                    .font(.system(size: 11))
+                                                    .foregroundStyle(.secondary)
+                                                    .frame(width: 24, height: 24)
+                                            }
+                                            .buttonStyle(.plain)
+                                            .help("Model details")
+                                        }
+                                    }
+                                }
+
+                                if !installableSelectableModels.isEmpty {
+                                    Divider()
+                                        .padding(.vertical, 4)
+
+                                    ForEach(installableSelectableModels, id: \.id) { model in
+                                        selectionRow(
+                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                            subtitle: "Available to install • \(localModelSubtitle(for: model))",
+                                            systemImage: "arrow.down.circle",
+                                            isSelected: false
+                                        ) {
+                                            openSettings()
+                                            activeSplitPopover = nil
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        label: {
+                            disclosureTitle(
+                                title: "Local Models",
+                                subtitle: {
+                                    if installableSelectableModels.isEmpty {
+                                        return installedSelectableModels.isEmpty
+                                            ? "On-device"
+                                            : "\(installedSelectableModels.count) installed"
+                                    }
+                                    return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
+                                }()
+                            )
+                        }
+                    )
+
+                    pickerCloudSection
+                }
+
+            }
+        }
+        .popover(item: $aboutSelection) { selection in
+            ModelAboutSheet(selection: selection)
+        }
+    }
+
+    @ViewBuilder
+    private var routingPopover: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Routing")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text(selectedModeSummary)
+                        .font(.system(size: 11))
+                        .foregroundStyle(theme.textTertiary)
+                }
+
+                routingSection
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var temporaryChatButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: isTemporaryChatEnabled?.wrappedValue == true ? "eye.slash.fill" : "eye.slash",
+            variant: variant,
+            role: .toolbarUtility,
+            isActive: isTemporaryChatEnabled?.wrappedValue == true,
+            helpText: isTemporaryChatEnabled?.wrappedValue == true
+                ? "Temporary chat is on"
+                : "Temporary chat is off",
+            accessibilityLabel: "Temporary chat"
+        ) {
+            isTemporaryChatEnabled?.wrappedValue.toggle()
+        }
+    }
+
+    @ViewBuilder
+    private var settingsButton: some View {
+        ToolbarCapsuleButton(
+            title: nil,
+            systemImage: "gearshape",
+            variant: variant,
+            role: .toolbarUtility,
+            isActive: false,
+            helpText: "Open AI settings",
+            accessibilityLabel: "AI settings"
+        ) {
+            openSettings()
+            activeSplitPopover = nil
         }
     }
 

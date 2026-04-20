@@ -159,6 +159,13 @@ struct LandingView: View {
     private var supportedOperatingModes: [EpistemosOperatingMode] {
         MainChatOperatingModePreference.supportedModes(for: inference)
     }
+
+    private var incognitoBinding: Binding<Bool> {
+        Binding(
+            get: { chat.isIncognito },
+            set: { chat.isIncognito = $0 }
+        )
+    }
     private var selectedOperatingMode: EpistemosOperatingMode {
         get {
             MainChatOperatingModePreference.sanitize(
@@ -745,7 +752,8 @@ struct LandingView: View {
             HStack(spacing: 8) {
                 ChatBrainPickerMenu(
                     operatingMode: operatingModeBinding,
-                    availableOperatingModes: supportedOperatingModes
+                    availableOperatingModes: supportedOperatingModes,
+                    isTemporaryChatEnabled: incognitoBinding
                 )
                 Spacer(minLength: 0)
             }
