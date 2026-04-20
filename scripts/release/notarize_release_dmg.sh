@@ -23,12 +23,12 @@ mkdir -p "$LOG_DIR"
 
 notary_args() {
     if [ -n "$NOTARY_PROFILE" ]; then
-        printf -- "--keychain-profile\n%s\n" "$NOTARY_PROFILE"
+        AUTH_ARGS=(--keychain-profile "$NOTARY_PROFILE")
         return
     fi
 
     if [ -n "$APPLE_ID" ] && [ -n "$TEAM_ID" ] && [ -n "$PASSWORD" ]; then
-        printf -- "--apple-id\n%s\n--team-id\n%s\n--password\n%s\n" "$APPLE_ID" "$TEAM_ID" "$PASSWORD"
+        AUTH_ARGS=(--apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$PASSWORD")
         return
     fi
 
@@ -36,7 +36,8 @@ notary_args() {
     exit 1
 }
 
-mapfile -t AUTH_ARGS < <(notary_args)
+AUTH_ARGS=()
+notary_args
 
 echo "Submitting DMG for notarization: $DMG_PATH"
 SUBMISSION_OUTPUT="$(

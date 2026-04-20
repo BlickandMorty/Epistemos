@@ -43,6 +43,7 @@ struct ReleaseScriptAuditTests {
         #expect(notarize.contains("xcrun stapler staple"))
         #expect(notarize.contains("xcrun stapler validate"))
         #expect(notarize.contains("xcrun notarytool log"))
+        #expect(!notarize.contains("mapfile -t AUTH_ARGS"))
     }
 
     @Test("xcodebuild helper mirrors explicit local sweep overrides into hosted test fallback")
@@ -73,6 +74,114 @@ struct ReleaseScriptAuditTests {
         #expect(script.contains("resolve_package_dependencies"))
         #expect(script.contains("resolve_args"))
         #expect(script.contains("-resolvePackageDependencies"))
+    }
+
+    @Test("xcodebuild helper package resolution mode does not crash when extra args stay empty")
+    func xcodebuildHelperPackageResolutionModeDoesNotCrashWhenExtraArgsStayEmpty() throws {
+        let result = try runMirroredScript(
+            "scripts/xcodebuild_epistemos.sh",
+            arguments: [
+                "-project", "Epistemos.xcodeproj",
+                "-scheme", "Epistemos",
+                "-derivedDataPath", "DerivedData",
+                "-resolvePackageDependencies",
+            ],
+            stubCommands: [
+                "xcodebuild": """
+                #!/bin/bash
+                printf 'xcodebuild:%s\\n' "$*" >> "$TMP_CAPTURE"
+                exit 0
+                """
+            ]
+        )
+
+        #expect(result.terminationStatus == 0, "stderr: \(result.stderr)")
+        #expect(!result.stderr.contains("unbound variable"), "stderr: \(result.stderr)")
+        #expect(result.invocationLog.contains("xcodebuild:-project Epistemos.xcodeproj -scheme Epistemos -derivedDataPath"))
+        #expect(result.invocationLog.contains("-resolvePackageDependencies"))
+    }
+
+    @Test("run_swift_tests entrypoint does not crash when package args stay empty")
+    func runSwiftTestsEntrypointDoesNotCrashWhenPackageArgsStayEmpty() throws {
+        let result = try runMirroredScript(
+            "scripts/run_swift_tests.sh",
+            stubCommands: [
+                "xcodebuild": """
+                #!/bin/bash
+                printf 'xcodebuild:%s\\n' "$*" >> "$TMP_CAPTURE"
+                exit 0
+                """
+            ]
+        )
+
+        #expect(result.terminationStatus == 0, "stderr: \(result.stderr)\nstdout: \(result.stdout)")
+        #expect(!result.stderr.contains("unbound variable"), "stderr: \(result.stderr)")
+        #expect(result.invocationLog.contains("xcodebuild:build-for-testing"))
+        #expect(result.invocationLog.contains("xcodebuild:test-without-building"))
+    }
+
+    @Test("ci_test entrypoint does not crash when package args stay empty")
+    func ciTestEntrypointDoesNotCrashWhenPackageArgsStayEmpty() throws {
+        let result = try runMirroredScript(
+            "scripts/ci_test.sh",
+            stubCommands: [
+                "cargo": """
+                #!/bin/bash
+                printf 'cargo:%s\\n' "$*" >> "$TMP_CAPTURE"
+                if [ "${1:-}" = "test" ]; then
+                    echo 'test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out'
+                fi
+                exit 0
+                """,
+                "xcodebuild": """
+                #!/bin/bash
+                printf 'xcodebuild:%s\\n' "$*" >> "$TMP_CAPTURE"
+                exit 0
+                """
+            ]
+        )
+
+        #expect(result.terminationStatus == 0, "stderr: \(result.stderr)\nstdout: \(result.stdout)")
+        #expect(!result.stderr.contains("unbound variable"), "stderr: \(result.stderr)")
+        #expect(result.invocationLog.contains("cargo:build --quiet"))
+        #expect(result.invocationLog.contains("cargo:test"))
+        #expect(result.invocationLog.contains("xcodebuild:build-for-testing"))
+        #expect(result.invocationLog.contains("xcodebuild:test-without-building"))
+    }
+
+    @Test("notarize release dmg entrypoint stays portable on macOS bash 3.2")
+    func notarizeReleaseDMGEntrypointStaysPortableOnMacOSBash32() throws {
+        let result = try runMirroredScript(
+            "scripts/release/notarize_release_dmg.sh",
+            stubCommands: [
+                "xcrun": """
+                #!/bin/bash
+                printf 'xcrun:%s\\n' "$*" >> "$TMP_CAPTURE"
+                if [ "${1:-}" = "notarytool" ] && [ "${2:-}" = "submit" ]; then
+                    printf '{"id":"submission-123"}'
+                fi
+                exit 0
+                """,
+                "spctl": """
+                #!/bin/bash
+                printf 'spctl:%s\\n' "$*" >> "$TMP_CAPTURE"
+                exit 0
+                """
+            ],
+            environment: ["EPISTEMOS_NOTARY_PROFILE": "AuditProfile"],
+            argumentsBuilder: { tempDirectory in
+                let dmgURL = tempDirectory.appendingPathComponent("Epistemos.dmg")
+                FileManager.default.createFile(atPath: dmgURL.path, contents: Data())
+                return [dmgURL.path, tempDirectory.appendingPathComponent("logs").path]
+            }
+        )
+
+        #expect(result.terminationStatus == 0, "stderr: \(result.stderr)\nstdout: \(result.stdout)")
+        #expect(!result.stderr.contains("mapfile: command not found"), "stderr: \(result.stderr)")
+        #expect(result.invocationLog.contains("xcrun:notarytool submit"))
+        #expect(result.invocationLog.contains("xcrun:notarytool log"))
+        #expect(result.invocationLog.contains("xcrun:stapler staple"))
+        #expect(result.invocationLog.contains("spctl:-a -vv -t open"))
     }
 
     @Test("xcodebuild helper hardens package plugin and result bundle defaults for release verification")
@@ -243,4 +352,69 @@ struct ReleaseScriptAuditTests {
 
 private func loadReleaseScript(_ relativePath: String) throws -> String {
     try loadMirroredSourceTextFile(relativePath)
+}
+
+private struct MirroredScriptRunResult {
+    let terminationStatus: Int32
+    let stdout: String
+    let stderr: String
+    let invocationLog: String
+}
+
+private func runMirroredScript(
+    _ relativePath: String,
+    arguments: [String] = [],
+    stubCommands: [String: String],
+    environment overrides: [String: String] = [:],
+    argumentsBuilder: ((URL) throws -> [String])? = nil
+) throws -> MirroredScriptRunResult {
+    let fileManager = FileManager.default
+    let tempDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent("release-script-audit-\(UUID().uuidString)", isDirectory: true)
+    try fileManager.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: tempDirectory) }
+
+    let invocationLogURL = tempDirectory.appendingPathComponent("command-invocations.log")
+    for (name, contents) in stubCommands {
+        let url = tempDirectory.appendingPathComponent(name)
+        try contents.write(to: url, atomically: true, encoding: .utf8)
+        try fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: url.path)
+    }
+
+    let stdoutPipe = Pipe()
+    let stderrPipe = Pipe()
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/bin/bash")
+    let resolvedArguments = try argumentsBuilder?(tempDirectory) ?? arguments
+    process.arguments = [try sourceMirrorURL(for: relativePath).path] + resolvedArguments
+
+    var environment = ProcessInfo.processInfo.environment
+    environment["PATH"] = "\(tempDirectory.path):/usr/bin:/bin:/usr/sbin:/sbin"
+    environment["TMP_CAPTURE"] = invocationLogURL.path
+    for (key, value) in overrides {
+        environment[key] = value
+    }
+    process.environment = environment
+    process.standardOutput = stdoutPipe
+    process.standardError = stderrPipe
+
+    try process.run()
+    process.waitUntilExit()
+
+    let stdout = String(
+        data: stdoutPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    let stderr = String(
+        data: stderrPipe.fileHandleForReading.readDataToEndOfFile(),
+        encoding: .utf8
+    ) ?? ""
+    let invocationLog = (try? String(contentsOf: invocationLogURL, encoding: .utf8)) ?? ""
+
+    return MirroredScriptRunResult(
+        terminationStatus: process.terminationStatus,
+        stdout: stdout,
+        stderr: stderr,
+        invocationLog: invocationLog
+    )
 }
