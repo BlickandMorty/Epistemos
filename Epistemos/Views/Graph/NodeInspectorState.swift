@@ -389,7 +389,7 @@ final class NodeInspectorState {
                         startSummaryReveal()
                     } catch let error as LocalInferenceRoutingError {
                         guard !Task.isCancelled, selectedNodeId == node.id else { return }
-                        summaryText = error.localizedDescription
+                        summaryText = UserFacingChatError.message(from: error)
                         startSummaryReveal()
                     } catch {
                         guard !Task.isCancelled, selectedNodeId == node.id else { return }
@@ -479,8 +479,14 @@ final class NodeInspectorState {
         let predicate = #Predicate<SDPage> { $0.id == sourceId }
         var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
         descriptor.fetchLimit = 1
-        if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty {
-            return page.summary
+        do {
+            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
+                return page.summary
+            }
+        } catch {
+            Log.graph.error(
+                "NodeInspectorState: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
         return label
     }
@@ -494,7 +500,16 @@ final class NodeInspectorState {
         var descriptor = FetchDescriptor<SDFolder>(predicate: predicate)
         descriptor.fetchLimit = 1
 
-        guard let folder = try? modelContext.fetch(descriptor).first else {
+        let folder: SDFolder
+        do {
+            guard let fetchedFolder = try modelContext.fetch(descriptor).first else {
+                return await fetchConnectedContext(for: node, store: store)
+            }
+            folder = fetchedFolder
+        } catch {
+            Log.graph.error(
+                "NodeInspectorState: failed to fetch folder \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             return await fetchConnectedContext(for: node, store: store)
         }
 
@@ -507,7 +522,15 @@ final class NodeInspectorState {
         let pageDescriptor = FetchDescriptor<SDPage>(
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
-        let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []
+        let allPages: [SDPage]
+        do {
+            allPages = try modelContext.fetch(pageDescriptor)
+        } catch {
+            Log.graph.error(
+                "NodeInspectorState: failed to fetch folder pages for \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return await fetchConnectedContext(for: node, store: store)
+        }
         let descendantPages = Array(
             allPages.filter { page in
                 if page.folder?.id == folderID {

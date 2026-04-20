@@ -192,8 +192,14 @@ final class PinnedInspector: Identifiable {
         let predicate = #Predicate<SDPage> { $0.id == sourceId }
         var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
         descriptor.fetchLimit = 1
-        if let page = try? modelContext.fetch(descriptor).first, !page.summary.isEmpty {
-            return page.summary
+        do {
+            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
+                return page.summary
+            }
+        } catch {
+            Log.graph.error(
+                "PinnedInspector: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
         return node.label
     }
@@ -204,8 +210,17 @@ final class PinnedInspector: Identifiable {
         let predicate = #Predicate<SDFolder> { $0.id == folderID }
         var descriptor = FetchDescriptor<SDFolder>(predicate: predicate)
         descriptor.fetchLimit = 1
-        
-        guard let folder = try? modelContext.fetch(descriptor).first else { return "" }
+
+        let folder: SDFolder
+        do {
+            guard let fetchedFolder = try modelContext.fetch(descriptor).first else { return "" }
+            folder = fetchedFolder
+        } catch {
+            Log.graph.error(
+                "PinnedInspector: failed to fetch folder \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return ""
+        }
         
         let relativePath = folder.relativePath
         let nestedPrefix = relativePath.isEmpty ? "" : relativePath + "/"
@@ -213,7 +228,15 @@ final class PinnedInspector: Identifiable {
         let pageDescriptor = FetchDescriptor<SDPage>(
             sortBy: [SortDescriptor(\SDPage.updatedAt, order: .reverse)]
         )
-        let allPages = (try? modelContext.fetch(pageDescriptor)) ?? []
+        let allPages: [SDPage]
+        do {
+            allPages = try modelContext.fetch(pageDescriptor)
+        } catch {
+            Log.graph.error(
+                "PinnedInspector: failed to fetch folder pages for \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return "Folder: \(node.label)\nItems: 0"
+        }
         let descendantPages = Array(
             allPages.filter { page in
                 if page.folder?.id == folderID { return true }
@@ -247,7 +270,11 @@ final class PinnedInspector: Identifiable {
     
     // MARK: - Chat
     
-    func sendMessage(store: GraphStore, modelContext: ModelContext) {
+    func sendMessage(
+        store: GraphStore,
+        modelContext: ModelContext,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
         let query = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty, !isChatStreaming else { return }
         guard let node = nodeReference else { return }
@@ -275,7 +302,9 @@ final class PinnedInspector: Identifiable {
                 prompt: context,
                 systemPrompt: nil,
                 operation: .chatResponse(query: query),
-                contentLength: context.count
+                contentLength: context.count,
+                operatingMode: operatingMode,
+                localSurface: .graph
             )
             
             do {
@@ -286,7 +315,7 @@ final class PinnedInspector: Identifiable {
             } catch {
                 guard !Task.isCancelled else { return }
                 if chatMessages.last?.text.isEmpty == true {
-                    appendToLastAssistant("Failed to get response.")
+                    appendToLastAssistant(UserFacingChatError.message(from: error))
                 }
             }
         }
