@@ -697,9 +697,8 @@ pub fn active_session_count() -> u32 {
 #[uniffi::export]
 pub fn compile_command_center_request(input_json: String) -> Result<String, AgentErrorFFI> {
     ffi_guard_sync!({
-        crate::command_center::compile_from_json(&input_json).map_err(|message| {
-            AgentErrorFFI::AgentError { message }
-        })
+        crate::command_center::compile_from_json(&input_json)
+            .map_err(|message| AgentErrorFFI::AgentError { message })
     })
 }
 
@@ -1724,11 +1723,7 @@ pub fn list_tools_for_tier_filtered(
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let registry = build_registry_for_tool_tier(
-            &vault_path,
-            &tier,
-            allowed_tool_names,
-        )?;
+        let registry = build_registry_for_tool_tier(&vault_path, &tier, allowed_tool_names)?;
         let out: Vec<ToolSchemaFFI> = registry
             .get_definitions()
             .into_iter()
@@ -1811,11 +1806,7 @@ pub async fn execute_tool_call_filtered(
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<ToolExecutionResultFFI, AgentErrorFFI> {
     let handle = tokio::task::spawn(async move {
-        let registry = build_registry_for_tool_tier(
-            &vault_path,
-            &tier,
-            allowed_tool_names,
-        )?;
+        let registry = build_registry_for_tool_tier(&vault_path, &tier, allowed_tool_names)?;
         let input: serde_json::Value =
             serde_json::from_str(&input_json).map_err(|e| AgentErrorFFI::AgentError {
                 message: format!("invalid input_json: {e}"),
@@ -1872,8 +1863,8 @@ fn build_registry_for_tool_tier(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_provider_selection_preview;
     use super::list_tools_for_tier;
+    use super::resolve_provider_selection_preview;
 
     #[test]
     fn explicit_provider_override_stays_forced() {
