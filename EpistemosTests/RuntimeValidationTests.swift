@@ -2674,6 +2674,15 @@ struct RuntimeValidationTests {
         #expect(appBootstrap.contains("workspaceService.welcomeBack?.intentSummary = WelcomeBackInfo.cleanedSummaryText(from: ws.summary)"))
     }
 
+    @Test("primary launch restore does not eagerly regenerate welcome back summaries")
+    func primaryLaunchRestoreDoesNotEagerlyRegenerateWelcomeBackSummaries() throws {
+        let appBootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(!appBootstrap.contains("await self?.refreshWelcomeBackSummary()"))
+        #expect(!appBootstrap.contains("if workspaceService.welcomeBack != nil {"))
+        #expect(appBootstrap.contains("func refreshWelcomeBackSummary() async"))
+    }
+
     @Test("welcome back info strips reasoning artifacts from restored summaries")
     func welcomeBackInfoStripsReasoningArtifactsFromRestoredSummaries() {
         let info = WelcomeBackInfo(

@@ -1737,12 +1737,6 @@ final class AppBootstrap {
         refreshLiveNoteScheduler()
         didCompletePrimaryLaunchInitialization = true
 
-        if workspaceService.welcomeBack != nil {
-            Task { @MainActor [weak self] in
-                await self?.refreshWelcomeBackSummary()
-            }
-        }
-
         // One-time meaning anchor backfill for existing chats
         if !UserDefaults.standard.bool(forKey: "epistemos.anchorBackfillComplete") {
             Task { @MainActor [weak self] in
