@@ -95,6 +95,44 @@ fn truncate_to_budget(content: &str, max_tokens: usize) -> String {
     }
 }
 
+fn load_running_working_memory(vault_root: &Path, max_tokens: usize) -> Option<ContextLayer> {
+    let wm_dir = vault_root.join(".epistemos/sessions");
+    if !wm_dir.exists() {
+        return None;
+    }
+
+    let mut candidates = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&wm_dir) {
+        for entry in entries.flatten() {
+            let wm_path = entry.path().join("working-memory.md");
+            if !wm_path.exists() {
+                continue;
+            }
+            let Ok(content) = std::fs::read_to_string(&wm_path) else {
+                continue;
+            };
+            if !content.contains("status: running") {
+                continue;
+            }
+            let modified = wm_path
+                .metadata()
+                .and_then(|metadata| metadata.modified())
+                .unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+            candidates.push((modified, content));
+        }
+    }
+
+    candidates.sort_by(|left, right| right.0.cmp(&left.0));
+    let (_, content) = candidates.into_iter().next()?;
+    let truncated = truncate_to_budget(&content, max_tokens);
+    let token_estimate = estimate_tokens(&truncated);
+    Some(ContextLayer {
+        label: "L3_25_working_memory".to_string(),
+        content: format!("### Active Working Memory (resuming prior session)\n{truncated}"),
+        token_estimate,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // Context Loading
 // ---------------------------------------------------------------------------
@@ -164,29 +202,9 @@ pub async fn load_session_context(
         });
     }
 
-    // L3.25: Working Memory (resume from prior session if available)
-    // Check for .epistemos/sessions/*/working-memory.md with status: running
-    let wm_dir = vault_root.join(".epistemos/sessions");
-    if wm_dir.exists() {
-        if let Ok(entries) = std::fs::read_dir(&wm_dir) {
-            for entry in entries.flatten() {
-                let wm_path = entry.path().join("working-memory.md");
-                if wm_path.exists() {
-                    if let Ok(content) = std::fs::read_to_string(&wm_path) {
-                        if content.contains("status: running") {
-                            let truncated = truncate_to_budget(&content, budgets.l3_facts / 3);
-                            let token_estimate = estimate_tokens(&truncated);
-                            layers.push(ContextLayer {
-                                label: "L3_25_working_memory".to_string(),
-                                content: format!("### Active Working Memory (resuming prior session)\n{truncated}"),
-                                token_estimate,
-                            });
-                            break; // only inject the most recent running session
-                        }
-                    }
-                }
-            }
-        }
+    // L3.25: Working Memory (resume the newest still-running session if available)
+    if let Some(working_memory) = load_running_working_memory(vault_root, budgets.l3_facts / 3) {
+        layers.push(working_memory);
     }
 
     // L3: Facts (memory/decisions.md + knowledge.md)
@@ -435,6 +453,8 @@ async fn load_episodes(
 mod tests {
     use super::*;
     use async_trait::async_trait;
+    use std::thread::sleep;
+    use std::time::Duration;
     use tempfile::TempDir;
 
     use crate::storage::vault::SearchResult;
@@ -605,5 +625,34 @@ mod tests {
 
         assert!(xml.contains("Relevant Vault Regions"));
         assert!(xml.contains("ProjectAlpha"));
+    }
+
+    #[tokio::test]
+    async fn session_context_prefers_newest_running_working_memory() {
+        let tmp = TempDir::new().unwrap();
+        let old_dir = tmp.path().join(".epistemos/sessions/old");
+        std::fs::create_dir_all(&old_dir).unwrap();
+        std::fs::write(
+            old_dir.join("working-memory.md"),
+            "---\nsession_id: old\nstatus: running\n---\n\nold context that should lose\n",
+        )
+        .unwrap();
+
+        sleep(Duration::from_millis(25));
+
+        let new_dir = tmp.path().join(".epistemos/sessions/new");
+        std::fs::create_dir_all(&new_dir).unwrap();
+        std::fs::write(
+            new_dir.join("working-memory.md"),
+            "---\nsession_id: new\nstatus: running\n---\n\nnew context that should win\n",
+        )
+        .unwrap();
+
+        let vault = EmptyVault;
+        let context = load_session_context(&vault, tmp.path(), "alpha.md", 8_000).await;
+        let xml = context.to_xml();
+
+        assert!(xml.contains("new context that should win"));
+        assert!(!xml.contains("old context that should lose"));
     }
 }
