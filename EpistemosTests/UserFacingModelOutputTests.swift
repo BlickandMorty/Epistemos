@@ -52,6 +52,18 @@ struct UserFacingModelOutputTests {
         )
     }
 
+    @Test("final text keeps natural answers that start with conversational openers")
+    func finalTextKeepsNaturalAnswerThatStartsWithConversationalOpener() {
+        let raw = """
+        Let me start by giving the direct answer: the phrase refers to a modern power arrangement rather than a fixed technical doctrine.
+        """
+
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "Let me start by giving the direct answer: the phrase refers to a modern power arrangement rather than a fixed technical doctrine."
+        )
+    }
+
     @Test("final text drops leading reasoning-only sections when an answer follows")
     func finalTextDropsLeadingReasoningOnlySections() {
         let raw = """
@@ -143,6 +155,17 @@ struct UserFacingModelOutputTests {
 
         #expect(UserFacingModelOutput.streamingReasoningText(from: raw).isEmpty)
         #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+    }
+
+    @Test("final text drops a dangling answer marker without surfacing it raw")
+    func finalTextDropsDanglingAnswerMarker() {
+        let raw = """
+        <think>Inspecting the selected passage.</think>
+
+        Final Answer:
+        """
+
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
     }
 
     @Test("streaming text stays silent during prose reasoning until an explicit answer appears")

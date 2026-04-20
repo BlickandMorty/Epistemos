@@ -456,11 +456,12 @@ private struct StreamingIndicator: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
 
-            // ChatGPT-style thinking popover — shown above the streaming
-            // response whenever we have either an active thinking phase
-            // OR captured thinking text from this turn. Collapses into a
-            // "Thought for Ns" badge as soon as the first answer token
-            // arrives, persists until the turn finalizes into a ChatMessage.
+            // ChatGPT-style inline thinking panel — shown above the
+            // streaming response whenever we have either an active
+            // thinking phase OR captured thinking text from this turn.
+            // Collapses into a "Thought for Ns" chip as soon as the
+            // first answer token arrives, persists until the turn
+            // finalizes into a ChatMessage.
             if chat.isThinkingActive || !chat.streamingThinking.isEmpty {
                 ThinkingPopoverView(
                     thinkingContent: chat.streamingThinking,
