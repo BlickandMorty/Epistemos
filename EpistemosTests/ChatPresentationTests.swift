@@ -178,6 +178,15 @@ struct ChatPresentationTests {
         #expect(thinkingSource.contains(".breathe("))
     }
 
+    @Test("live thinking surface is inline rather than a detached popover")
+    func liveThinkingSurfaceIsInlineRatherThanDetachedPopover() throws {
+        let thinkingSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ThinkingPopoverView.swift")
+
+        #expect(!thinkingSource.contains(".popover("))
+        #expect(thinkingSource.contains("if isExpanded {"))
+        #expect(thinkingSource.contains(".frame(maxHeight: 300)"))
+    }
+
     @Test("main chat exposes a toggleable context side panel for transparency")
     func mainChatExposesAToggleableBrainSidePanelForContextTransparency() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")

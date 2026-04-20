@@ -1,121 +1,114 @@
 // ThinkingPopoverView.swift
 //
-// ChatGPT-style "Thinking..." popover that attaches above the streaming
-// assistant message bubble. Renders LIVE thinking text while the model
-// is still reasoning, collapses into a persistent "Thought for Ns"
-// badge once the first answer token arrives.
+// Legacy file name kept for compatibility, but this is now an INLINE
+// live-thinking panel that renders inside the streaming assistant turn
+// instead of opening a detached popover. While the model is reasoning,
+// the panel defaults expanded; once answer text begins, it collapses to
+// a "Thought for Ns" chip that can be reopened on demand.
 //
-// Pairs with ThinkingTrailView.swift (which is the post-complete
-// disclosure group that lives below a finalized message). This one
-// is the mid-stream surface; ThinkingTrailView is the record.
+// Pairs with ThinkingTrailView.swift, which remains the post-complete
+// persisted reasoning record on finalized messages.
 //
-// 2026-04-18.
+// 2026-04-20.
 
 import SwiftUI
 
-/// Small pill that surfaces the current thinking state for a streaming
-/// assistant turn. When `isThinkingActive` is true, the pill pulses and
-/// says "Thinking" — tap opens a popover with the live thinking stream.
-/// When the answer begins streaming, it flips to "Thought for Ns" with
-/// the live stream frozen as a readable record the user can click back
-/// into at any time during the same turn.
+/// Small inline panel that surfaces the current thinking state for a
+/// streaming assistant turn. The legacy type name stays because call
+/// sites already reference it, but it no longer uses a detached popover.
 struct ThinkingPopoverView: View {
     let thinkingContent: String
     let isThinkingActive: Bool
     let thinkingStartedAt: Date?
     let thinkingEndedAt: Date?
 
-    @State private var isShowingPopover = false
+    @State private var isExpanded = true
 
     var body: some View {
-        if isThinkingActive {
-            popoverButton
-                .breathe(amplitude: 0.012, period: 1.4)
-        } else {
-            popoverButton
-        }
-    }
-
-    private var popoverButton: some View {
-        Button {
-            isShowingPopover = true
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: isThinkingActive ? "brain" : "brain.fill")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.purple.opacity(isThinkingActive ? 0.95 : 0.7))
-                Text(label)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-                if isThinkingActive {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .tint(.purple.opacity(0.7))
+        panel
+            .onChange(of: isThinkingActive) { _, active in
+                if active {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isExpanded = true
+                    }
+                } else {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isExpanded = false
+                    }
                 }
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(background)
-            .overlay(border)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .help(helpText)
-        .accessibilityLabel(accessibilityLabel)
-        .popover(isPresented: $isShowingPopover, arrowEdge: .top) {
-            thinkingPopoverContent
-                .frame(minWidth: 360, idealWidth: 480, maxWidth: 640, minHeight: 220, idealHeight: 360, maxHeight: 560)
-        }
     }
 
-    // MARK: - Popover body
-
-    private var thinkingPopoverContent: some View {
+    private var panel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.purple)
-                Text(isThinkingActive ? "Thinking…" : "Thought")
-                    .font(.system(size: 13, weight: .semibold))
-                Spacer()
-                Text(durationLabel)
-                    .font(.system(size: 11, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
+            Button {
+                withAnimation(.easeInOut(duration: 0.18)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: isThinkingActive ? "brain" : "brain.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.purple.opacity(isThinkingActive ? 0.95 : 0.72))
+                    Text(label)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    if isThinkingActive {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.purple.opacity(0.7))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .buttonStyle(.plain)
+            .help(helpText)
+            .accessibilityLabel(accessibilityLabel)
 
-            Divider().opacity(0.2)
+            if isExpanded {
+                Divider().opacity(0.15)
 
-            ScrollView {
-                ScrollViewReader { proxy in
-                    Text(displayedThinkingContent)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundStyle(.primary.opacity(0.82))
-                        .lineSpacing(4)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .id("thinkingBottom")
-                        .onChange(of: thinkingContent) { _, _ in
-                            if isThinkingActive {
+                ScrollView {
+                    ScrollViewReader { proxy in
+                        Text(displayedThinkingContent)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                            .lineSpacing(4)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 8)
+                            .id("thinkingBottom")
+                            .onChange(of: thinkingContent) { _, _ in
+                                guard isThinkingActive else { return }
                                 withAnimation(.easeOut(duration: 0.15)) {
                                     proxy.scrollTo("thinkingBottom", anchor: .bottom)
                                 }
                             }
-                        }
+                    }
                 }
+                .frame(maxHeight: 300)
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .background(Color.purple.opacity(0.03))
         }
+        .background(background)
+        .overlay(border)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .modifier(ThinkingPulse(active: isThinkingActive))
     }
 
     // MARK: - Labels
 
     private var label: String {
         if isThinkingActive {
-            return "Thinking"
+            return durationSeconds.map { "Thinking \(formatSeconds($0))" } ?? "Thinking"
         }
         return "Thought" + (durationSeconds.map { " for \(formatSeconds($0))" } ?? "")
     }
@@ -174,13 +167,25 @@ struct ThinkingPopoverView: View {
     // MARK: - Styling
 
     private var background: some View {
-        Capsule()
-            .fill(Color.purple.opacity(0.10))
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(.ultraThinMaterial)
     }
 
     private var border: some View {
-        Capsule()
-            .strokeBorder(Color.purple.opacity(0.30), lineWidth: 0.75)
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .strokeBorder(Color.purple.opacity(0.22), lineWidth: 0.9)
+    }
+}
+
+private struct ThinkingPulse: ViewModifier {
+    let active: Bool
+
+    func body(content: Content) -> some View {
+        if active {
+            content.breathe(amplitude: 0.012, period: 1.4)
+        } else {
+            content
+        }
     }
 }
 

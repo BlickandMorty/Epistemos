@@ -256,11 +256,6 @@ nonisolated enum ThinkingPreludeSyntax {
         "i'll work through",
         "i'm going to think through",
         "thinking this through",
-        "i'll begin by",
-        "ill begin by",
-        "let me start by",
-        "i'll start by",
-        "ill start by",
     ]
 
     private static let proseOpeningPrefixes = [
@@ -338,6 +333,24 @@ nonisolated enum ThinkingPreludeSyntax {
         }
 
         return nil
+    }
+
+    static func containsOnlyAnswerMarker(_ text: String) -> Bool {
+        let normalized = normalizedMarkerText(text)
+        guard !normalized.isEmpty else { return false }
+        return answerMarkers
+            .map { normalizedMarkerText($0) }
+            .contains(normalized)
+    }
+
+    private static func normalizedMarkerText(_ text: String) -> String {
+        text
+            .lowercased()
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .replacingOccurrences(of: "\n", with: " ")
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     static func proseOpeningDetected(in text: String) -> Bool {
@@ -714,17 +727,11 @@ nonisolated enum UserFacingModelOutput {
         case final
     }
 
-    // Reasoning-paragraph prefixes. Answer-marker entries ("final answer:",
-    // "final response:", "answer:", "response:") stay in the list so that a
-    // dangling marker with no content after it — a paragraph whose entire
-    // content is literally "Final Answer:" — is recognized as reasoning
-    // residue and not surfaced raw. `directAnswerText` / `answerMatch` runs
-    // first and extracts the real answer when content DOES follow a marker,
-    // so this list only kicks in for the empty-dangling-marker case. We did
-    // drop structured-output field labels ("topic:", "query:", "comparison:",
-    // "user query:", "instructions:") because models legitimately use those
-    // as output structure for code-review, translation, and categorization
-    // tasks — flagging them as reasoning was eating real answers.
+    // Reasoning-paragraph prefixes. These must stay tightly scoped to
+    // reasoning-specific markers. Generic answer openers and answer markers
+    // are handled separately so a natural answer that begins with
+    // "Let me start by…" or "Answer:" does not get suppressed as if it were
+    // scratchpad leakage.
     private static let reasoningParagraphPrefixes = [
         "here's a thinking process",
         "here is a thinking process",
@@ -744,10 +751,6 @@ nonisolated enum UserFacingModelOutput {
         "self-correction during drafting:",
         "final review against safety guidelines:",
         "refining the tone:",
-        "final answer:",
-        "final response:",
-        "answer:",
-        "response:",
         "let's check if",
         "lets check if",
         "wait, one more possibility",
@@ -761,18 +764,14 @@ nonisolated enum UserFacingModelOutput {
         "detailed analysis",
         "detailed analysis with",
         "pattern identification:",
-        "i'll begin by",
-        "ill begin by",
-        "let me start by",
-        "i'll start by",
         "here is the function call:",
         "reduce strategy:",
-        "input text:",
     ]
 
     static func streamingVisibleText(from raw: String) -> String {
         let cleaned = cleanedStreamingText(from: raw)
         guard !cleaned.isEmpty else { return "" }
+        guard !isOnlyDanglingAnswerMarker(cleaned) else { return "" }
 
         if let directAnswer = directAnswerText(in: cleaned) {
             return directAnswer
@@ -789,6 +788,7 @@ nonisolated enum UserFacingModelOutput {
     static func streamingReasoningText(from raw: String) -> String {
         let cleaned = cleanedStreamingReasoningText(from: raw)
         guard !cleaned.isEmpty else { return "" }
+        guard !isOnlyDanglingAnswerMarker(cleaned) else { return "" }
         guard streamingVisibleText(from: raw).isEmpty else { return "" }
         let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
         guard hasReasoningArtifacts else { return "" }
@@ -798,6 +798,7 @@ nonisolated enum UserFacingModelOutput {
     static func finalVisibleText(from raw: String) -> String {
         let cleaned = cleanedVisibleText(from: raw, suppressIncompleteThinkingTail: true)
         guard !cleaned.isEmpty else { return "" }
+        guard !isOnlyDanglingAnswerMarker(cleaned) else { return "" }
 
         if let directAnswer = directAnswerText(in: cleaned) {
             return directAnswer
@@ -843,6 +844,10 @@ nonisolated enum UserFacingModelOutput {
         let paragraphList = paragraphs(in: text)
         guard !paragraphList.isEmpty else { return false }
         return paragraphList.allSatisfy(isReasoningParagraph)
+    }
+
+    private static func isOnlyDanglingAnswerMarker(_ text: String) -> Bool {
+        ThinkingPreludeSyntax.containsOnlyAnswerMarker(text)
     }
 
     static func incompleteReasoningFallback(from rawThinking: String) -> String? {
@@ -1082,6 +1087,10 @@ nonisolated enum UserFacingModelOutput {
 
         guard !normalized.isEmpty else { return true }
 
+        if isToolPlanningNarrative(normalized) {
+            return true
+        }
+
         if containsStructuredReasoningPlan(in: normalized) {
             return true
         }
@@ -1106,6 +1115,51 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return false
+    }
+
+    private static func isToolPlanningNarrative(_ normalized: String) -> Bool {
+        let leadIns = [
+            "i'll begin by",
+            "ill begin by",
+            "i will begin by",
+            "let me start by",
+            "i'll start by",
+            "ill start by",
+            "i will start by",
+        ]
+        guard leadIns.contains(where: { normalized.hasPrefix($0) }) else {
+            return false
+        }
+
+        let actionMarkers = [
+            " call ",
+            " calling ",
+            " test ",
+            " testing ",
+            " invoke ",
+            " invoking ",
+            " inspect ",
+            " inspecting ",
+            " try ",
+            " trying ",
+        ]
+        let targetMarkers = [
+            " function",
+            " functions",
+            " tool",
+            " tools",
+            " arguments",
+            " parameters",
+            " find_symbol",
+            " read_file",
+            " web_search",
+        ]
+
+        let containsAction = actionMarkers.contains(where: normalized.contains)
+            || normalized.contains("functions available")
+        let containsTarget = targetMarkers.contains(where: normalized.contains)
+
+        return containsAction && containsTarget
     }
 
     private static func isStructuredReasoningLine(_ line: String) -> Bool {
