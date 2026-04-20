@@ -290,6 +290,49 @@ struct NoteChatStateTests {
         #expect(state.messages.last?.content == "Visible answer.")
     }
 
+    @Test("operation submit keeps inline reasoning out of the editor stream")
+    @MainActor func operationSubmitRoutesThinkTagsAwayFromInlineEditor() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = [
+            "<think>Inspecting the selected passage.</think>",
+            "\n\nFinal Answer:\n",
+            "Rewritten inline answer."
+        ]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-inline-think")
+        state.noteBodyProvider = { "Original note body." }
+
+        var flushedVisibleDeltas: [String] = []
+        var finalizedInlineText: [String] = []
+        state.onTokenFlush = { delta in
+            flushedVisibleDeltas.append(delta)
+        }
+        state.onReplaceInlineResponse = { text in
+            finalizedInlineText.append(text)
+        }
+
+        state.submitQuery(
+            "Rewrite this paragraph",
+            operation: .rewrite,
+            triageService: triage
+        )
+
+        for _ in 0..<50 where state.isStreaming || state.hasResponse {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(flushedVisibleDeltas.joined() == "Rewritten inline answer.")
+        #expect(finalizedInlineText == ["Rewritten inline answer."])
+        #expect(state.messages.last?.content == "Rewritten inline answer.")
+    }
+
     @Test("operation submit discards an existing inline response before starting a new stream")
     @MainActor func operationSubmitDiscardsExistingInlineResponse() throws {
         let inference = InferenceState()
