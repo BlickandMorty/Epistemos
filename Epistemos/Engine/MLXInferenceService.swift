@@ -815,6 +815,9 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         guard resolvedModel.runtimeKind == .mlx else {
             throw LocalInferenceRoutingError.runtimeUnavailable
         }
+        if reasoningMode == .fast, resolvedModel.cannotDisableThinkingInFast {
+            throw LocalInferenceRoutingError.fastModeUnsupported(modelID: modelID)
+        }
         guard let descriptor = LocalModelCatalog.descriptor(for: modelID) else {
             throw LocalInferenceRoutingError.modelRequired
         }
@@ -962,7 +965,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             switch routingError {
             case .modelRequired:
                 return .modelNotLoaded
-            case .runtimeUnavailable:
+            case .runtimeUnavailable, .fastModeUnsupported:
                 return .runtimeUnavailable
             case .modelLoaderUnavailable, .modelLoadStalled:
                 return .modelNotLoaded

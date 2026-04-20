@@ -775,6 +775,20 @@ struct UserFacingChatErrorKindTests {
         #expect(message.contains("Qwen 2.5 Coder 7B"))
         #expect(message.contains("Qwen 3 4B"))
     }
+
+    @Test("fast-incompatible local model preserves the actionable mode copy")
+    func preservesFastModeUnsupportedCopy() {
+        let error = LocalInferenceRoutingError.fastModeUnsupported(
+            modelID: LocalTextModelID.deepseekR1Distill7B.rawValue
+        )
+        let kind = UserFacingChatError.classify(error)
+        let message = UserFacingChatError.message(from: error)
+
+        #expect(kind == .generic)
+        #expect(message.contains("DeepSeek R1 7B"))
+        #expect(message.contains("Fast mode is unavailable"))
+        #expect(message.contains("Thinking"))
+    }
 }
 
 @Suite("Pipeline Contracts")
