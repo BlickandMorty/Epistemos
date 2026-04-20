@@ -175,7 +175,9 @@ final class PipelineService {
 
         let finisher = FinishOnce()
 
-        return AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { (continuation: AsyncThrowingStream<PipelineEvent, Error>.Continuation) in
+        return AsyncThrowingStream(
+            bufferingPolicy: .bufferingNewest(StreamingBufferPolicy.textLimit)
+        ) { (continuation: AsyncThrowingStream<PipelineEvent, Error>.Continuation) in
             let mainTask = Task { @MainActor [weak self] in
                 guard let self else {
                     if finisher.tryFinish() { continuation.finish() }

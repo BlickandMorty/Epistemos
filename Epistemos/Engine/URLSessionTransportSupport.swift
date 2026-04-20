@@ -19,9 +19,14 @@ actor LastActivityTracker {
 }
 
 nonisolated enum StreamingBufferPolicy {
-    private static let limit = 256
+    static let controlLimit = 256
+    // Cloud providers can burst hundreds of tiny text fragments before
+    // the main-actor UI loop drains them. Keep text-bearing streams
+    // large enough to preserve ordering without going unbounded.
+    static let textLimit = 16_384
 
     static func throwingStream<Element>(
+        limit: Int = controlLimit,
         _ build: @escaping (AsyncThrowingStream<Element, Error>.Continuation) -> Void
     ) -> AsyncThrowingStream<Element, Error> {
         AsyncThrowingStream(
@@ -86,7 +91,10 @@ nonisolated enum URLSessionTransportSupport {
         usageExtractor: (@Sendable ([String: Any]) -> UsageSnapshot?)? = nil,
         onUsage: (@Sendable (UsageSnapshot) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
-        ProcessActivity.makeStream(reason: "Streaming OpenAI-compatible response") { continuation in
+        ProcessActivity.makeStream(
+            reason: "Streaming OpenAI-compatible response",
+            bufferLimit: StreamingBufferPolicy.textLimit
+        ) { continuation in
             // Shared watchdog state: last time we saw any bytes from
             // the stream. The monitor task polls this and aborts the
             // run if we've been silent past `streamIdleWatchdogSeconds`.
