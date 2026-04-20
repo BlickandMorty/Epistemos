@@ -791,3 +791,45 @@ more batches landed:
 - The `qwen25Coder7B` user experience is improved, but still lacks a real timeout/error path if model load never resolves.
 - The Rust OpenAI structured-tool fix needs live app verification against the real Codex/GPT-5.4 path, not just `agent_core` tests.
 - The main-chat loading-state patch is verified by the new source guard and the broader `ChatPresentationTests` run showed that new test passing, but that suite still has an unrelated pre-existing failure in `tool preview cards start collapsed`.
+
+## 23 · April 19 late continuation — attached-context hardening + cross-surface load affordances
+
+Three more small, user-reported regression batches landed after §22:
+
+| SHA | What |
+|-----|------|
+| [783a9651](commits/783a9651) | Attached notes/files are now treated as already resolved context. Prompt contract explicitly tells the model to answer from the inlined `Content:` blocks and never ask for a path, title, or re-upload when the attachment is already present. |
+| [ac37571e](commits/ac37571e) | Persisted/local Gemma 4 preview selections normalize back to the runnable default (`qwen3_4B4Bit`) on both explicit selection and state load, so Gemma cannot leak back into chat state through stale defaults. |
+| [43092ae5](commits/43092ae5) | Note toolbar, mini chat, and agent command bar now surface explicit `Loading <model>…` affordances before first visible token, reducing the remaining “frozen” feel on cold local loads outside main chat. |
+
+### 23A · What these batches close
+
+- attached essays / notes causing `read_file` or “give me the path” hallucinations even when the content is already in context
+- stale Gemma 4 preview selections surviving in `preferredChatModelSelection`
+- non-main chat surfaces looking dead while a local model is still cold-loading
+
+### 23B · Verification
+
+- `783a9651`:
+  - focused `xcodebuild` run on warmed DerivedData:
+    - `PipelineServiceTests/attachedNotesResolveByExactPageID`
+    - `FileAttachmentBuilderTests/attachedTextContextReopensPercentEncodedFileURL`
+  - session exit code `0` on the warmed `/tmp/epistemos-mlx-load-stall` path
+- `ac37571e`:
+  - focused `xcodebuild` run for:
+    - `TriageServiceTests/gemma4ChatSelectionSanitizesToFallback`
+    - `TriageServiceTests/persistedGemma4ChatSelectionNormalizesOnLoad`
+  - session exit code `0`
+- `43092ae5`:
+  - focused `xcodebuild` run for:
+    - `NoteToolbarGlowTests/toolbarAskBarSupportsCustomLoadingLabel`
+    - `MiniChatViewAuditTests/miniChatShowsExplicitLoadingModelLabel`
+    - `ChatPresentationTests/agentCommandBarShowsLoadingModelState`
+  - session exit code `0`
+
+### 23C · Residual open items after these batches
+
+- `qwen25Coder7B` still needs a true end-to-end runtime confirmation that the new loading copy plus the MLX timeout path is enough to prevent perceived hangs.
+- App crash status is still open unless a fresh crash log proves otherwise.
+- Reasoning/thinking separation still requires live verification on every runtime path; source-guard coverage is not enough for a ship call.
+- Native PDF upload and batch queue remain deferred parity gaps.
