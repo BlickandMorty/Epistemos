@@ -352,6 +352,8 @@ final class AIPartnerService {
         guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
               let string = String(data: data, encoding: .utf8)
         else {
+            let logger = Logger(subsystem: "app.epistemos", category: "AIPartner")
+            logger.error("AIPartnerService: failed to encode partner JSON payload")
             return "{\"error\":\"json_encode_failed\",\"success\":false}"
         }
         return string
@@ -671,7 +673,15 @@ final class AIPartnerService {
     }
     
     private func showRetroResponse(for suggestion: InlineSuggestion) {
-        let actions = [
+        retroResponse = RetroResponse(
+            title: "AI PARTNER — \(suggestion.type.description.uppercased())",
+            content: suggestion.text,
+            actions: suggestionActions()
+        )
+    }
+
+    private func suggestionActions() -> [RetroAIResponseBox.AIResponseAction] {
+        [
             RetroAIResponseBox.AIResponseAction(
                 id: "accept",
                 title: "Accept",
@@ -691,12 +701,62 @@ final class AIPartnerService {
                 handler: { [weak self] in self?.explainCurrentSuggestion() }
             )
         ]
-        
-        retroResponse = RetroResponse(
-            title: "AI PARTNER — \(suggestion.type.description.uppercased())",
-            content: suggestion.text,
-            actions: actions
-        )
+    }
+
+    private func explanationActions() -> [RetroAIResponseBox.AIResponseAction] {
+        [
+            RetroAIResponseBox.AIResponseAction(
+                id: "back",
+                title: "Back",
+                icon: "arrow.uturn.backward",
+                handler: { [weak self] in
+                    guard let self, let suggestion = self.currentSuggestion else { return }
+                    self.showRetroResponse(for: suggestion)
+                }
+            ),
+            RetroAIResponseBox.AIResponseAction(
+                id: "accept",
+                title: "Accept",
+                icon: "checkmark",
+                handler: { [weak self] in self?.acceptCurrentSuggestion() }
+            ),
+            RetroAIResponseBox.AIResponseAction(
+                id: "dismiss",
+                title: "Dismiss",
+                icon: "xmark",
+                handler: { [weak self] in self?.dismissCurrentSuggestion() }
+            )
+        ]
+    }
+
+    private func explanationContent(for suggestion: InlineSuggestion) -> String {
+        let semanticPercent = safePercentage(Double(suggestion.context.semanticScore))
+        let noteSummary =
+            suggestion.context.relatedNoteIds.count == 1
+            ? "1 related note"
+            : "\(suggestion.context.relatedNoteIds.count) related notes"
+        let contextPreview = suggestion.context.contextLines
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .prefix(3)
+            .joined(separator: "\n")
+
+        var lines = [
+            "This \(suggestion.type.description.lowercased()) suggestion came from \(suggestion.context.source).",
+            "Confidence: \(safePercentage(suggestion.confidence))%.",
+            "Context: \(noteSummary) matched at \(semanticPercent)% semantic strength."
+        ]
+
+        if !contextPreview.isEmpty {
+            lines.append("Nearby code that influenced the suggestion:\n\(contextPreview)")
+        }
+
+        return lines.joined(separator: "\n\n")
+    }
+
+    private func safePercentage(_ value: Double) -> Int {
+        guard value.isFinite else { return 0 }
+        return Int((value * 100).rounded())
     }
     
     func acceptCurrentSuggestion() {
@@ -745,7 +805,23 @@ final class AIPartnerService {
     }
     
     func explainCurrentSuggestion() {
-        // TODO: Implement detailed explanation generation
+        guard let suggestion = currentSuggestion else { return }
+
+        logInteraction(
+            type: .insightProvided,
+            codeSnippet: "",
+            suggestion: suggestion.text,
+            semanticMatches: suggestion.context.relatedNoteIds.count,
+            graphNodes: 0,
+            analysisDuration: 0,
+            semanticDuration: 0
+        )
+
+        retroResponse = RetroResponse(
+            title: "AI PARTNER — WHY THIS SUGGESTION",
+            content: explanationContent(for: suggestion),
+            actions: explanationActions()
+        )
     }
     
     // MARK: - Utility
@@ -794,7 +870,13 @@ final class AIPartnerService {
             let descriptor = FetchDescriptor<SDPage>(
                 predicate: #Predicate { $0.filePath == targetPath }
             )
-            chat.linkedPageId = (try? ctx.fetch(descriptor).first)?.id
+            do {
+                chat.linkedPageId = try ctx.fetch(descriptor).first?.id
+            } catch {
+                logger.error(
+                    "AIPartnerService: failed to fetch linked page for \(targetPath, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
         ctx.insert(chat)
 
@@ -808,8 +890,13 @@ final class AIPartnerService {
         let assistantMsg = SDMessage(role: "assistant", content: suggestion.text)
         assistantMsg.chat = chat
         ctx.insert(assistantMsg)
+        let persistedMessages = [userMsg, assistantMsg]
 
         do { try ctx.save() } catch {
+            for message in persistedMessages {
+                ctx.delete(message)
+            }
+            ctx.delete(chat)
             logger.error("AI partner persistence failed: \(error.localizedDescription)")
         }
     }
@@ -820,9 +907,14 @@ final class AIPartnerService {
         // Persist to disk for analysis
         do {
             let data = try JSONEncoder().encode(interactionLog)
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            let appSupport = FoundationSafety.userApplicationSupportDirectory()
                 .appendingPathComponent("Epistemos")
-            try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            do {
+                try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            } catch {
+                logger.error("Failed to create AI partner log directory: \(error.localizedDescription)")
+                return
+            }
             let url = appSupport.appendingPathComponent("ai_partner_log.json")
             try data.write(to: url)
         } catch {
