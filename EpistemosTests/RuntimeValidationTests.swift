@@ -674,7 +674,15 @@ struct RuntimeValidationTests {
             #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
-            #expect(inference.availableOperatingModes == [.fast])
+            // GPT-5.4-Mini legitimately supports Fast and Agent per its
+            // cloud capability manifest. The previous assertion expected
+            // `[.fast]` because `setPreferredChatModelSelection(.cloud(...))`
+            // used to silently revert to local when the provider had no
+            // API key in this test fixture — masking the real cloud
+            // capabilities. With that silent swap removed, the cloud
+            // selection is honored and the available-modes list reflects
+            // what the model actually offers.
+            #expect(inference.availableOperatingModes == [.fast, .agent])
         }
     }
 
