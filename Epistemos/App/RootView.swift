@@ -377,6 +377,14 @@ struct LocalModelToolbarMenu: View {
     var operatingMode: Binding<EpistemosOperatingMode>? = nil
     var availableOperatingModes: [EpistemosOperatingMode]? = nil
     var isTemporaryChatEnabled: Binding<Bool>? = nil
+    /// Main chat passes `true` so the composer gets the full split
+    /// toolbar (Mode · Model · Routing · Effort · Native Controls).
+    /// Landing, mini chat, note chat, and graph chat leave this `false`
+    /// so the surface shows one compact popover trigger ("Fast · Qwen")
+    /// instead of five separate buttons. Routing/effort/native controls
+    /// only make sense on main chat; the other surfaces delegate to
+    /// Settings for those.
+    var preferSplitToolbarControls: Bool = false
 
     @Environment(UIState.self) private var ui
     @Environment(InferenceState.self) private var inference
@@ -454,7 +462,7 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var usesSplitToolbarControls: Bool {
-        operatingMode != nil && overrideTitle == nil
+        preferSplitToolbarControls && operatingMode != nil && overrideTitle == nil
     }
 
     private var currentOperatingMode: EpistemosOperatingMode? {
