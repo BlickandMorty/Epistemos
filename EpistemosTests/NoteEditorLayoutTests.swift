@@ -486,6 +486,43 @@ struct NoteEditorLayoutTests {
         #expect(resolved == "# Inline\n\nRecovered body")
     }
 
+    @MainActor
+    @Test("direct code file saves stay synced instead of remaining falsely dirty")
+    func directCodeFileSavesStaySynced() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let page = SDPage(title: "Code")
+        let priorUpdatedAt = Date(timeIntervalSince1970: 500)
+        let priorSyncedAt = Date(timeIntervalSince1970: 1_000)
+        page.filePath = "/tmp/Example.swift"
+        page.updatedAt = priorUpdatedAt
+        page.lastSyncedBodyHash = "stale-hash"
+        page.lastSyncedAt = priorSyncedAt
+        page.needsVaultSync = true
+        context.insert(page)
+        try context.save()
+
+        let source = "print(\"hello\")\n((block-ref))\n"
+        let graphState = GraphState()
+
+        try NoteDetailWorkspaceView.applyDirectCodeFileSave(
+            source,
+            to: page,
+            modelContext: context,
+            graphState: graphState
+        )
+
+        #expect(page.body == source)
+        #expect(page.wordCount == source.split(separator: " ").count)
+        #expect(page.blockReferences == ["block-ref"])
+        #expect(page.updatedAt != priorUpdatedAt)
+        #expect(page.lastSyncedBodyHash == SDPage.bodyHash(source))
+        #expect(page.lastSyncedAt != nil)
+        #expect(page.lastSyncedAt != priorSyncedAt)
+        #expect(page.needsVaultSync == false)
+        #expect(graphState.needsRefresh)
+    }
+
     @Test("note workspace no longer calls loadBody from its render-time persisted-body fallback")
     func noteWorkspaceRenderPathAvoidsLoadBodyFallback() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
