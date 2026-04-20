@@ -310,10 +310,12 @@ final class ActivityTracker {
     /// Load previously flushed events on startup (crash recovery).
     func loadFlushedEvents() {
         let url = cacheFileURLProvider()
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
         let data: Data
         do {
             data = try Data(contentsOf: url)
         } catch {
+            Self.log.error("ActivityTracker: failed to load flushed event cache: \(error.localizedDescription)")
             return
         }
         let loaded: [ActivityEvent]
