@@ -256,6 +256,28 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("DeepSeek R1 local picker stays thinking-only because fast mode cannot disable reasoning")
+    func deepSeekR1PickerStaysThinkingOnly() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue))
+
+        #expect(inference.availableOperatingModes == [.thinking])
+        #expect(inference.supportsThinkingOperatingMode)
+    }
+
+    @MainActor
+    @Test("Qwen 3 4B release picker remains the fast-only local default")
+    func qwen34BPickerStaysFastOnly() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        #expect(inference.availableOperatingModes == [.fast])
+        #expect(!inference.supportsThinkingOperatingMode)
+    }
+
+    @MainActor
     @Test("hidden local agent tiers still back the local agent loop when soft guidance is available")
     func hiddenLocalAgentTiersStillBackTheLocalAgentLoop() {
         #expect(LocalToolGrammar.supportsLocalAgentLoop)

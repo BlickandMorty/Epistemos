@@ -211,6 +211,7 @@ struct TriageServiceTests {
         #expect(CloudTextModelID.zaiGLM5.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
         #expect(CloudTextModelID.kimiK2Thinking.supportedOperatingModes == [.thinking, .pro, .agent])
         #expect(CloudTextModelID.minimaxM25HighSpeed.supportedOperatingModes == [.fast, .agent])
+        #expect(CloudTextModelID.deepseekChat.supportedOperatingModes == [.fast, .agent])
         #expect(CloudTextModelID.deepseekReasoner.supportedOperatingModes == [.thinking, .pro, .agent])
     }
 
