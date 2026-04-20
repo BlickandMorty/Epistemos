@@ -165,7 +165,9 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         requestedRuntimeKind: BackendRuntimeKind?,
         steeringHintsJSON: String?
     ) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
+        AsyncThrowingStream(
+            bufferingPolicy: .bufferingNewest(StreamingBufferPolicy.textLimit)
+        ) { continuation in
             let task = Task { @MainActor in
                 do {
                     let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)

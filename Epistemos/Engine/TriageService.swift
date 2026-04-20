@@ -2273,7 +2273,7 @@ final class TriageService {
         _ upstream: AsyncThrowingStream<String, Error>,
         reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
-        StreamingBufferPolicy.throwingStream { continuation in
+        StreamingBufferPolicy.throwingStream(limit: StreamingBufferPolicy.textLimit) { continuation in
             let task = Task {
                 var rawText = ""
                 var emittedVisibleText = ""

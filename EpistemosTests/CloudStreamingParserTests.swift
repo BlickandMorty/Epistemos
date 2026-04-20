@@ -208,6 +208,36 @@ struct CloudStreamingParserTests {
         #expect(collected == "Hello there")
     }
 
+    @Test("SSE transport preserves long bursty OpenAI output without dropping early chunks")
+    func sseTransportPreservesLongBurstyOpenAIOutput() async throws {
+        let expected = String(
+            repeating: "**retributive** claims need careful framing before we call them predictive.\n",
+            count: 32
+        )
+        let chunks = irregularChunks(from: expected)
+        let payload = try makeOpenAIResponsesPayload(from: chunks)
+
+        let session = makeStreamingSession(payload: payload)
+        var request = URLRequest(url: URL(string: "https://example.com/responses")!)
+        request.httpMethod = "POST"
+
+        let stream = URLSessionTransportSupport.streamSSE(
+            using: session,
+            request: request,
+            invalidResponse: { CloudLLMError.invalidResponse },
+            chunkExtractor: { CloudStreamingParser.openAITextDelta(from: $0) }
+        )
+
+        try await Task.sleep(for: .milliseconds(50))
+
+        var collected = ""
+        for try await chunk in stream {
+            collected += chunk
+        }
+
+        #expect(collected == expected)
+    }
+
     private func makeStreamingSession(payload: String) -> URLSession {
         StreamingTestURLProtocol.handler = { request in
             let response = try #require(
@@ -224,6 +254,44 @@ struct CloudStreamingParserTests {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [StreamingTestURLProtocol.self]
         return URLSession(configuration: configuration)
+    }
+
+    private func irregularChunks(from text: String) -> [String] {
+        let sizes = [1, 2, 3, 2, 4, 1, 3, 2]
+        var chunks: [String] = []
+        chunks.reserveCapacity(text.count / 2)
+
+        var index = text.startIndex
+        var sizeIndex = 0
+        while index < text.endIndex {
+            let width = sizes[sizeIndex % sizes.count]
+            let end = text.index(index, offsetBy: width, limitedBy: text.endIndex) ?? text.endIndex
+            chunks.append(String(text[index..<end]))
+            index = end
+            sizeIndex += 1
+        }
+        return chunks
+    }
+
+    private func makeOpenAIResponsesPayload(from chunks: [String]) throws -> String {
+        var payload = ""
+        payload.reserveCapacity(chunks.count * 96)
+
+        for chunk in chunks {
+            let event = try JSONSerialization.data(
+                withJSONObject: [
+                    "type": "response.output_text.delta",
+                    "delta": chunk,
+                ]
+            )
+            let line = try #require(String(data: event, encoding: .utf8))
+            payload += "event: response.output_text.delta\n"
+            payload += "data: \(line)\n\n"
+        }
+
+        payload += "event: response.completed\n"
+        payload += "data: {\"type\":\"response.completed\"}\n\n"
+        return payload
     }
 }
 

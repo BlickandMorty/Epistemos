@@ -541,9 +541,10 @@ nonisolated enum ProcessActivity {
         reason: String,
         options: ProcessInfo.ActivityOptions = .userInitiatedAllowingIdleSystemSleep,
         manager: ProcessActivityManager = .live,
+        bufferLimit: Int = StreamingBufferPolicy.controlLimit,
         _ operation: @escaping @Sendable (AsyncThrowingStream<Element, Error>.Continuation) async -> Void
     ) -> AsyncThrowingStream<Element, Error> {
-        StreamingBufferPolicy.throwingStream { continuation in
+        StreamingBufferPolicy.throwingStream(limit: bufferLimit) { continuation in
             let token = manager.begin(reason, options)
             let task = Task.detached(priority: .userInitiated) {
                 defer { manager.end(token) }
