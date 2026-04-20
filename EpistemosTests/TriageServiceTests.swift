@@ -294,6 +294,41 @@ struct TriageServiceTests {
         #expect(LocalTextModelID.qwen25Coder7B.cannotDisableThinkingInFast)
     }
 
+    @MainActor
+    @Test("mlx client rejects fast mode for always-thinking families")
+    func mlxClientRejectsFastModeForAlwaysThinkingFamilies() async throws {
+        let paths = LocalModelPaths(
+            rootDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.deepseekR1Distill7B.rawValue)
+        )
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeIsolatedInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = RecordingLocalMLXRuntime()
+        let client = LocalMLXClient(runtime: runtime, inference: inference, paths: paths)
+
+        await #expect(
+            throws: LocalInferenceRoutingError.fastModeUnsupported(modelID: descriptor.id)
+        ) {
+            _ = try await client.generate(
+                prompt: "Hello",
+                systemPrompt: "Be brief.",
+                maxTokens: 32
+            )
+        }
+    }
+
     @Test("auto route keeps fast local but escalates pro chat to the configured cloud provider")
     @MainActor func inferenceStateEffectiveChatSurfaceSelectionTracksAutoRoutePolicy() throws {
         let inference = makeIsolatedInferenceState(

@@ -1035,7 +1035,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             switch routingError {
             case .modelRequired:
                 return .modelNotLoaded
-            case .runtimeUnavailable:
+            case .runtimeUnavailable, .fastModeUnsupported:
                 return .runtimeUnavailable
             case .modelLoaderUnavailable, .modelLoadStalled:
                 return .modelNotLoaded

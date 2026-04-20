@@ -864,6 +864,7 @@ nonisolated enum TriageDecision: Sendable, Equatable {
 nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     case modelRequired
     case runtimeUnavailable
+    case fastModeUnsupported(modelID: String)
     /// Thrown when code tries to load a model whose Swift MLX decoder
     /// isn't ported yet (see `LocalTextModelID.isAwaitingSwiftRuntimeLoader`
     /// — currently the Gemma 4 family). Distinct from
@@ -882,6 +883,9 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
             return "No usable local model is available. Open Settings and install or select a supported local model."
         case .runtimeUnavailable:
             return "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
+        case .fastModeUnsupported(let modelID):
+            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            return "Fast mode is unavailable for \(displayName) because this local model always emits thinking traces. Switch to Thinking or pick a different local model."
         case .modelLoaderUnavailable(let modelID):
             return "The \(modelID) loader hasn't shipped yet. Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
         case .modelLoadStalled(let modelID):
