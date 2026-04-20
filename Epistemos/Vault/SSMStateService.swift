@@ -204,6 +204,7 @@ final class SSMStateService: @unchecked Sendable {
                 }
                 .sorted { $0.2 > $1.2 }
         } catch {
+            Self.log.error("Failed to list SSM states in \(stateDir.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
             return []
         }
     }

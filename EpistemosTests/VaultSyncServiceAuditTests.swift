@@ -601,6 +601,50 @@ struct VaultSyncServiceAuditTests {
         #expect(savedPage?.lastSyncedBodyHash == SDPage.bodyHash("body after export started"))
     }
 
+    @Test("saveAllDirtyPages preserves tracked code files as raw source")
+    func saveAllDirtyPagesPreservesTrackedCodeFilesAsRawSource() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setVaultURLForTesting(vaultURL)
+
+        let fileURL = vaultURL.appendingPathComponent("Tool.swift")
+        let source = """
+        struct Tool {
+            func run() {
+                print("ready")
+            }
+        }
+        """
+
+        let page = SDPage(title: "Tool")
+        page.body = source
+        page.filePath = fileURL.path
+        page.needsVaultSync = true
+        page.lastSyncedBodyHash = "old-code-hash"
+        page.lastSyncedAt = Date(timeIntervalSince1970: 1_000)
+        context.insert(page)
+        try context.save()
+
+        let task = service.saveAllDirtyPages()
+        await task?.value
+
+        let savedSource = try String(contentsOf: fileURL, encoding: .utf8)
+        #expect(savedSource == source)
+        #expect(!savedSource.contains("\n---\n"))
+        #expect(!savedSource.contains("title: Tool"))
+
+        let refreshed = try #require(
+            context.fetch(FetchDescriptor<SDPage>())
+                .first(where: { $0.id == page.id })
+        )
+        #expect(refreshed.needsVaultSync == false)
+        #expect(refreshed.lastSyncedBodyHash == SDPage.bodyHash(source))
+    }
+
     @Test("saveAllDirtyPages removes stale instant recall entries for empty exported bodies")
     func saveAllDirtyPagesRemovesStaleInstantRecallEntriesForEmptyBodies() async throws {
         let container = try makeContainer()
@@ -1418,6 +1462,81 @@ struct VaultSyncServiceAuditTests {
             #expect(NoteFileStorage.bodyExists(pageId: page.id))
             #expect(service.recoveryIssue != nil)
             #expect(service.recoveryIssue?.reason.contains("clear was aborted") == true)
+        })
+    }
+
+    @MainActor
+    @Test("full reset fallback force clears derived local state after snapshot abort")
+    func fullResetFallbackForceClearsDerivedLocalStateAfterSnapshotAbort() async throws {
+        let container = try makeRecoveryContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let root = try makeTempDirectory()
+        let appSupportURL = root.appendingPathComponent("Epistemos", isDirectory: true)
+        let noteBodiesURL = appSupportURL.appendingPathComponent("note-bodies", isDirectory: true)
+        let styleCacheURL = appSupportURL.appendingPathComponent("style-cache", isDirectory: true)
+        let searchDatabaseURL = appSupportURL.appendingPathComponent("search.sqlite")
+        let preferencesURL = root.appendingPathComponent("com.epistemos.app.plist")
+        defer {
+            try? FileManager.default.removeItem(at: root)
+        }
+
+        try FileManager.default.createDirectory(at: appSupportURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: noteBodiesURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: styleCacheURL, withIntermediateDirectories: true)
+        try "prefs".write(to: preferencesURL, atomically: true, encoding: .utf8)
+        try "stale-search".write(to: searchDatabaseURL, atomically: true, encoding: .utf8)
+        try "stale-style".write(
+            to: styleCacheURL.appendingPathComponent("theme-cache.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let page = SDPage(title: "Reset Me")
+        page.saveBody("local body")
+        context.insert(page)
+        try context.save()
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(noteBodiesURL, operation: { @MainActor in
+            NoteFileStorage.writeBody(pageId: page.id, content: "local body")
+
+            service.setVaultURLForTesting(root.appendingPathComponent("Vault", isDirectory: true))
+            service.setAppSupportDirectoryURLForTesting(appSupportURL)
+            service.setPreferencesFileURLForTesting(preferencesURL)
+            service.setSearchDatabaseURLForTesting(searchDatabaseURL)
+            service.recoveryIssue = VaultRecoveryIssue(
+                snapshot: VaultHealthSnapshot(
+                    vaultURL: nil,
+                    isVaultReadable: false,
+                    vaultMarkdownCount: 0,
+                    indexedPageCount: 1,
+                    indexedPagesWithFilePath: 0,
+                    totalIndexedPageCount: 1,
+                    nonVaultPageCount: 1,
+                    duplicateTrackedPathCount: 0,
+                    localBodyFileCount: 1,
+                    bookmarkExists: false,
+                    restoreFailed: true,
+                    initialImportCompleted: true,
+                    hadPriorLocalState: true
+                ),
+                reason: "snapshot failed"
+            )
+
+            await service.forceClearDerivedLocalStateForFullReset()
+
+            let pages = try context.fetch(FetchDescriptor<SDPage>())
+            #expect(pages.isEmpty)
+            #expect(!NoteFileStorage.bodyExists(pageId: page.id))
+            #expect(!FileManager.default.fileExists(atPath: searchDatabaseURL.path))
+            #expect(FileManager.default.fileExists(atPath: styleCacheURL.path))
+            let styleCacheContents = try FileManager.default.contentsOfDirectory(
+                at: styleCacheURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+            #expect(styleCacheContents.isEmpty)
+            #expect(service.recoveryIssue == nil)
         })
     }
 

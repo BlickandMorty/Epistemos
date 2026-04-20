@@ -179,6 +179,46 @@ struct NotesSidebarDeletePlan: Equatable {
     let folderIds: Set<String>
 }
 
+private struct NotesSidebarPageDeletion {
+    let page: SDPage
+    let pageId: String
+    let filePath: String?
+    let deletedInsight: SDNoteInsight?
+}
+
+private struct NotesSidebarPageLocationSnapshot {
+    let folder: SDFolder?
+    let subfolder: String?
+    let filePath: String?
+    let updatedAt: Date
+
+    init(_ page: SDPage) {
+        folder = page.folder
+        subfolder = page.subfolder
+        filePath = page.filePath
+        updatedAt = page.updatedAt
+    }
+
+    func restore(on page: SDPage) {
+        page.folder = folder
+        page.subfolder = subfolder
+        page.filePath = filePath
+        page.updatedAt = updatedAt
+    }
+}
+
+private struct NotesSidebarTrackedPageMutation {
+    let page: SDPage
+    let snapshot: NotesSidebarPageLocationSnapshot
+}
+
+private struct NotesSidebarFolderMutationSnapshot {
+    let folder: SDFolder
+    let name: String
+    let parent: SDFolder?
+    let trackedPages: [NotesSidebarTrackedPageMutation]
+}
+
 enum NotesSidebarDeletePlanner {
     static func pageDeletion(pageId: String) -> NotesSidebarDeletePlan {
         NotesSidebarDeletePlan(pageIds: [pageId], folderIds: [])
@@ -1157,9 +1197,19 @@ struct NotesSidebar: View {
 
     @discardableResult
     private func saveSidebarChanges(rebuild: Bool = true, reason: String = "sidebar changes") -> Bool {
+        persistSidebarMutation(rebuild: rebuild, reason: reason) {}
+    }
+
+    @discardableResult
+    private func persistSidebarMutation(
+        rebuild: Bool = true,
+        reason: String = "sidebar changes",
+        restoreState: () -> Void
+    ) -> Bool {
         do {
             try modelContext.save()
         } catch {
+            restoreState()
             Log.notes.error(
                 "NotesSidebar: failed to save \(reason, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
@@ -1202,12 +1252,17 @@ struct NotesSidebar: View {
         allFolders.first { $0.parent == nil && $0.relativePath == name }
     }
 
-    private func ensureRootFolder(named name: String, isCollection: Bool = false) -> SDFolder {
+    private func ensureRootFolder(named name: String, isCollection: Bool = false) -> SDFolder? {
         if let existing = rootFolder(named: name) {
             if isCollection && !existing.isCollection {
+                let originalIsCollection = existing.isCollection
                 existing.isCollection = true
+                guard persistSidebarMutation(reason: "collection root enable", restoreState: {
+                    existing.isCollection = originalIsCollection
+                }) else {
+                    return existing
+                }
                 CollectionRegistry.shared.setCollection(existing.name, true)
-                saveSidebarChanges()
             }
             return existing
         }
@@ -1215,7 +1270,11 @@ struct NotesSidebar: View {
         let folder = SDFolder(name: name)
         folder.isCollection = isCollection
         modelContext.insert(folder)
-        saveSidebarChanges()
+        guard persistSidebarMutation(reason: "root folder create", restoreState: {
+            modelContext.delete(folder)
+        }) else {
+            return nil
+        }
         vaultSync.createDirectory(relativePath: folder.relativePath)
         if isCollection {
             CollectionRegistry.shared.setCollection(folder.name, true)
@@ -1241,6 +1300,29 @@ struct NotesSidebar: View {
         for child in (folder.children ?? []) {
             let childOldPath = oldPath.isEmpty ? child.name : "\(oldPath)/\(child.name)"
             syncPagePaths(in: child, oldPath: childOldPath)
+        }
+    }
+
+    private func captureFolderMutationSnapshot(_ folder: SDFolder) -> NotesSidebarFolderMutationSnapshot {
+        let trackedPages = pagesInFolderTree(folder).map { page in
+            NotesSidebarTrackedPageMutation(
+                page: page,
+                snapshot: NotesSidebarPageLocationSnapshot(page)
+            )
+        }
+        return NotesSidebarFolderMutationSnapshot(
+            folder: folder,
+            name: folder.name,
+            parent: folder.parent,
+            trackedPages: trackedPages
+        )
+    }
+
+    private func restoreFolderMutationSnapshot(_ snapshot: NotesSidebarFolderMutationSnapshot) {
+        snapshot.folder.name = snapshot.name
+        snapshot.folder.parent = snapshot.parent
+        for trackedPage in snapshot.trackedPages {
+            trackedPage.snapshot.restore(on: trackedPage.page)
         }
     }
 
@@ -1275,10 +1357,19 @@ struct NotesSidebar: View {
         case .renamePage(let id, let newTitle):
             if let page = fetchPage(id) {
                 let sanitized = VaultIndexActor.sanitizeTitle(newTitle)
+                let originalTitle = page.title
+                let originalUpdatedAt = page.updatedAt
+                let originalNeedsVaultSync = page.needsVaultSync
                 page.title = sanitized
                 page.updatedAt = .now
                 page.needsVaultSync = true
-                _ = saveSidebarChanges(rebuild: false, reason: "page rename")
+                guard persistSidebarMutation(rebuild: false, reason: "page rename", restoreState: {
+                    page.title = originalTitle
+                    page.updatedAt = originalUpdatedAt
+                    page.needsVaultSync = originalNeedsVaultSync
+                }) else {
+                    return
+                }
                 // Rename the vault .md file to match the new title
                 vaultSync.renamePageFile(pageId: id, newTitle: sanitized)
                 setNeedsRebuild()
@@ -1289,23 +1380,40 @@ struct NotesSidebar: View {
 
         case .toggleFavorite(let id):
             if let page = fetchPage(id) {
+                let originalIsFavorite = page.isFavorite
                 page.isFavorite.toggle()
-                saveSidebarChanges()
+                _ = persistSidebarMutation(reason: "favorite toggle") {
+                    page.isFavorite = originalIsFavorite
+                }
             }
 
         case .togglePin(let id):
             if let page = fetchPage(id) {
+                let originalIsPinned = page.isPinned
                 page.isPinned.toggle()
-                saveSidebarChanges()
+                _ = persistSidebarMutation(reason: "pin toggle") {
+                    page.isPinned = originalIsPinned
+                }
             }
 
         case .renameFolder(let id, let newName):
             if let folder = fetchFolder(id) {
+                let oldName = folder.name
+                let wasCollection = folder.isCollection
                 let oldPath = folder.relativePath
+                let snapshot = captureFolderMutationSnapshot(folder)
                 folder.name = newName
                 syncPagePaths(in: folder, oldPath: oldPath)
                 let newPath = folder.relativePath
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "folder rename", restoreState: {
+                    restoreFolderMutationSnapshot(snapshot)
+                }) else {
+                    return
+                }
+                if wasCollection {
+                    CollectionRegistry.shared.setCollection(oldName, false)
+                    CollectionRegistry.shared.setCollection(newName, true)
+                }
                 vaultSync.renameDirectory(from: oldPath, to: newPath)
             }
 
@@ -1325,9 +1433,12 @@ struct NotesSidebar: View {
                     if let page = fetchPage(pageId),
                         let folder = fetchFolder(folderId)
                     {
+                        let snapshot = NotesSidebarPageLocationSnapshot(page)
                         page.folder = folder
                         page.subfolder = subfolder
-                        saveSidebarChanges()
+                        _ = persistSidebarMutation(reason: "folder page create attach") {
+                            snapshot.restore(on: page)
+                        }
                     }
                     openInEditor(pageId)
                 }
@@ -1338,24 +1449,38 @@ struct NotesSidebar: View {
                 let child = SDFolder(name: "Untitled Folder")
                 child.parent = parent
                 modelContext.insert(child)
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "subfolder create", restoreState: {
+                    modelContext.delete(child)
+                }) else {
+                    return
+                }
                 vaultSync.createDirectory(relativePath: child.relativePath)
             }
 
         case .toggleCollection(let folderId):
             if let folder = fetchFolder(folderId) {
+                let originalIsCollection = folder.isCollection
                 folder.isCollection.toggle()
+                guard persistSidebarMutation(reason: "collection toggle", restoreState: {
+                    folder.isCollection = originalIsCollection
+                }) else {
+                    return
+                }
                 CollectionRegistry.shared.setCollection(folder.name, folder.isCollection)
-                saveSidebarChanges()
             }
 
         case .movePageToFolder(let pageId, let folderId):
             if let page = fetchPage(pageId),
                 let folder = fetchFolder(folderId)
             {
+                let snapshot = NotesSidebarPageLocationSnapshot(page)
                 page.folder = folder
                 page.subfolder = folder.relativePath
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "page move to folder", restoreState: {
+                    snapshot.restore(on: page)
+                }) else {
+                    return
+                }
                 vaultSync.movePage(pageId: pageId, toSubfolder: folder.relativePath)
             }
 
@@ -1364,26 +1489,41 @@ struct NotesSidebar: View {
                 let parent = fetchFolder(parentId)
             {
                 let oldPath = child.relativePath
+                let snapshot = captureFolderMutationSnapshot(child)
                 child.parent = parent
                 syncPagePaths(in: child, oldPath: oldPath)
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "folder move into folder", restoreState: {
+                    restoreFolderMutationSnapshot(snapshot)
+                }) else {
+                    return
+                }
                 vaultSync.renameDirectory(from: oldPath, to: child.relativePath)
             }
 
         case .movePageToRoot(let pageId):
             if let page = fetchPage(pageId) {
+                let snapshot = NotesSidebarPageLocationSnapshot(page)
                 page.folder = nil
                 page.subfolder = nil
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "page move to root", restoreState: {
+                    snapshot.restore(on: page)
+                }) else {
+                    return
+                }
                 vaultSync.movePage(pageId: pageId, toSubfolder: nil)
             }
 
         case .moveFolderToRoot(let folderId):
             if let folder = fetchFolder(folderId) {
                 let oldPath = folder.relativePath
+                let snapshot = captureFolderMutationSnapshot(folder)
                 folder.parent = nil
                 syncPagePaths(in: folder, oldPath: oldPath)
-                saveSidebarChanges()
+                guard persistSidebarMutation(reason: "folder move to root", restoreState: {
+                    restoreFolderMutationSnapshot(snapshot)
+                }) else {
+                    return
+                }
                 vaultSync.renameDirectory(from: oldPath, to: folder.relativePath)
             }
 
@@ -1461,21 +1601,15 @@ struct NotesSidebar: View {
             "This folder contains \(parts.joined(separator: " and ")). All contents will be permanently deleted."
     }
 
-    private func deletePageRecord(_ page: SDPage, removeVaultFile: Bool) {
-        clearSelectionIfNeeded(pageId: page.id)
-        notesUI.closeTab(page.id)
-        NoteWindowManager.shared.closeWindowDisplaying(pageId: page.id)
-        AppBootstrap.shared?.instantRecallService.removeNote(noteId: page.id)
-        if removeVaultFile {
-            vaultSync.deletePageFromDisk(filePath: page.filePath)
-        }
-        NoteFileStorage.deleteBody(pageId: page.id)
-        SpotlightIndexer.deindex(page.id)
+    private func preparePageDeletion(_ page: SDPage) -> NotesSidebarPageDeletion {
         let pageId = page.id
+        let filePath = page.filePath
         let insightDesc = FetchDescriptor<SDNoteInsight>(
             predicate: #Predicate { $0.pageId == pageId })
+        var deletedInsight: SDNoteInsight?
         do {
             if let insight = try modelContext.fetch(insightDesc).first {
+                deletedInsight = insight
                 modelContext.delete(insight)
             }
         } catch {
@@ -1484,6 +1618,31 @@ struct NotesSidebar: View {
             )
         }
         modelContext.delete(page)
+        return NotesSidebarPageDeletion(
+            page: page,
+            pageId: pageId,
+            filePath: filePath,
+            deletedInsight: deletedInsight
+        )
+    }
+
+    private func restorePageDeletion(_ deletion: NotesSidebarPageDeletion) {
+        if let deletedInsight = deletion.deletedInsight {
+            modelContext.insert(deletedInsight)
+        }
+        modelContext.insert(deletion.page)
+    }
+
+    private func finalizePageDeletion(_ deletion: NotesSidebarPageDeletion, removeVaultFile: Bool) {
+        clearSelectionIfNeeded(pageId: deletion.pageId)
+        notesUI.closeTab(deletion.pageId)
+        NoteWindowManager.shared.closeWindowDisplaying(pageId: deletion.pageId)
+        AppBootstrap.shared?.instantRecallService.removeNote(noteId: deletion.pageId)
+        if removeVaultFile {
+            vaultSync.deletePageFromDisk(filePath: deletion.filePath)
+        }
+        NoteFileStorage.deleteBody(pageId: deletion.pageId)
+        SpotlightIndexer.deindex(deletion.pageId)
     }
 
     private func folderSubtreeIds(_ folder: SDFolder) -> Set<String> {
@@ -1508,21 +1667,24 @@ struct NotesSidebar: View {
     }
 
     private func performPageDelete() {
+        defer { pendingDeletePage = nil }
         guard let item = pendingDeletePage else { return }
         let deletePlan = NotesSidebarDeletePlanner.pageDeletion(pageId: item.id)
-        if let page = fetchPage(item.id) {
-            deletePageRecord(page, removeVaultFile: true)
+        guard let page = fetchPage(item.id) else { return }
+        let pageDeletion = preparePageDeletion(page)
+        guard saveSidebarChanges(rebuild: false, reason: "page delete") else {
+            restorePageDeletion(pageDeletion)
+            return
         }
         applyDeletePlan(deletePlan)
-        pendingDeletePage = nil
-        saveSidebarChanges(rebuild: false)
+        finalizePageDeletion(pageDeletion, removeVaultFile: true)
     }
 
     private func performFolderDelete() {
+        defer { pendingDeleteFolder = nil }
         guard let item = pendingDeleteFolder,
             let folder = fetchFolder(item.id)
         else {
-            pendingDeleteFolder = nil
             return
         }
         let deletePlan = NotesSidebarDeletePlanner.folderTreeDeletion(
@@ -1530,21 +1692,21 @@ struct NotesSidebar: View {
             childFolderIdsById: cachedChildFolderIdsById,
             pageIdsByFolderId: cachedPageIdsByFolderId
         )
-        closeFolderTabs(folder)
-        vaultSync.deleteDirectory(relativePath: folder.relativePath)
-        deletePagesInFolder(folder)
+        let relativePath = folder.relativePath
+        let pageDeletions = preparePageDeletions(in: folder)
         modelContext.delete(folder)
-        applyDeletePlan(deletePlan)
-        pendingDeleteFolder = nil
-        saveSidebarChanges(rebuild: false)
-    }
-
-    private func closeFolderTabs(_ folder: SDFolder) {
-        for page in pagesInFolderTree(folder) {
-            clearSelectionIfNeeded(pageId: page.id)
-            notesUI.closeTab(page.id)
-            NoteWindowManager.shared.closeWindowDisplaying(pageId: page.id)
+        guard saveSidebarChanges(rebuild: false, reason: "folder delete") else {
+            modelContext.insert(folder)
+            for pageDeletion in pageDeletions {
+                restorePageDeletion(pageDeletion)
+            }
+            return
         }
+        applyDeletePlan(deletePlan)
+        for pageDeletion in pageDeletions {
+            finalizePageDeletion(pageDeletion, removeVaultFile: false)
+        }
+        vaultSync.deleteDirectory(relativePath: relativePath)
     }
 
     private func clearSelectionIfNeeded(pageId: String) {
@@ -1556,10 +1718,9 @@ struct NotesSidebar: View {
         }
     }
 
-    private func deletePagesInFolder(_ folder: SDFolder) {
-        for page in pagesInFolderTree(folder) {
-            deletePageRecord(page, removeVaultFile: false)
-        }
+    private func preparePageDeletions(in folder: SDFolder) -> [NotesSidebarPageDeletion] {
+        let pages = pagesInFolderTree(folder)
+        return pages.map { preparePageDeletion($0) }
     }
 
     private static func countContents(of folder: SDFolder) -> (pages: Int, folders: Int) {
@@ -1580,7 +1741,11 @@ struct NotesSidebar: View {
     private func createFolder(title: String) {
         let folder = SDFolder(name: title)
         modelContext.insert(folder)
-        saveSidebarChanges()
+        guard persistSidebarMutation(reason: "folder create", restoreState: {
+            modelContext.delete(folder)
+        }) else {
+            return
+        }
         vaultSync.createDirectory(relativePath: folder.relativePath)
     }
 
@@ -1593,14 +1758,20 @@ struct NotesSidebar: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let dateString = formatter.string(from: today)
-        let dailyFolder = ensureRootFolder(named: SidebarSpecialFolders.dailyNotes)
+        guard let dailyFolder = ensureRootFolder(named: SidebarSpecialFolders.dailyNotes) else {
+            return
+        }
 
         if let existing = allPages.first(where: { $0.isJournal && $0.journalDate == dateString }) {
             if existing.subfolder != dailyFolder.relativePath {
+                let locationSnapshot = NotesSidebarPageLocationSnapshot(existing)
                 existing.folder = dailyFolder
                 existing.subfolder = dailyFolder.relativePath
-                saveSidebarChanges()
-                vaultSync.movePage(pageId: existing.id, toSubfolder: dailyFolder.relativePath)
+                if persistSidebarMutation(reason: "journal move to daily folder", restoreState: {
+                    locationSnapshot.restore(on: existing)
+                }) {
+                    vaultSync.movePage(pageId: existing.id, toSubfolder: dailyFolder.relativePath)
+                }
             }
             openInEditor(existing.id)
             return
@@ -1614,11 +1785,18 @@ struct NotesSidebar: View {
             allowVaultSelectionPrompt: true
         ) {
             if let page = fetchPage(pageId) {
+                let originalIsJournal = page.isJournal
+                let originalJournalDate = page.journalDate
+                let locationSnapshot = NotesSidebarPageLocationSnapshot(page)
                 page.isJournal = true
                 page.journalDate = dateString
                 page.folder = dailyFolder
                 page.subfolder = dailyFolder.relativePath
-                saveSidebarChanges()
+                _ = persistSidebarMutation(reason: "journal create metadata") {
+                    page.isJournal = originalIsJournal
+                    page.journalDate = originalJournalDate
+                    locationSnapshot.restore(on: page)
+                }
             }
             openInEditor(pageId)
         }

@@ -56,7 +56,13 @@ enum NoteImageProcessor {
                 request.usesLanguageCorrection = true
 
                 let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-                try? handler.perform([request])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    Log.notes.error(
+                        "NoteImageProcessor: OCR failed for \(url.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
 
                 let extractedText = request.results?
                     .compactMap { $0.topCandidates(1).first?.string }

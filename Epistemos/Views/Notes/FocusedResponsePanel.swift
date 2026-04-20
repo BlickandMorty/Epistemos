@@ -248,7 +248,8 @@ struct FocusedResponsePanel: View {
         NSPasteboard.general.setString(content, forType: .string)
         
         isCopied = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
             isCopied = false
         }
     }
@@ -378,7 +379,8 @@ struct CodeBlockView: View {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(code, forType: .string)
                     isCopied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2))
                         isCopied = false
                     }
                 } label: {

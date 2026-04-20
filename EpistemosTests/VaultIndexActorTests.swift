@@ -7,16 +7,16 @@ import Testing
 @MainActor
 struct VaultIndexActorTests {
     private func makeContainer() throws -> ModelContainer {
-        let schema = Schema([SDPage.self, SDFolder.self])
+        let schema = Schema([SDPage.self, SDFolder.self, SDBlock.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    private func makeSearchIndex() throws -> SearchIndexService {
+    private func makeSearchIndex() throws -> (service: SearchIndexService, databaseURL: URL) {
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("vault-index-search-\(UUID().uuidString)", isDirectory: true)
             .appendingPathComponent("search.sqlite")
-        return try SearchIndexService(databaseURL: dbURL)
+        return (try SearchIndexService(databaseURL: dbURL), dbURL)
     }
 
     private func makeTempDirectory() throws -> URL {
@@ -557,6 +557,36 @@ struct VaultIndexActorTests {
         #expect(page.needsVaultSync == false)
     }
 
+    @Test("importVault preserves front-matter-like separators in tracked code files")
+    func importVaultPreservesFrontMatterLikeSeparatorsInTrackedCodeFiles() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Config.yaml")
+        let source = """
+        ---
+        name: demo
+        ---
+        enabled: true
+        """
+        try source.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        try await actor.importVault(from: vaultURL)
+
+        let verifyContext = ModelContext(container)
+        guard let page = try verifyContext.fetch(FetchDescriptor<SDPage>()).first else {
+            Issue.record("Expected imported code file page")
+            return
+        }
+
+        #expect(page.title == "Config")
+        #expect(page.loadBody() == source)
+        #expect(page.needsVaultSync == false)
+        #expect(page.lastSyncedBodyHash == SDPage.bodyHash(source))
+    }
+
     @Test("importVault rebuilds missing local body files even when vault notes are unchanged")
     func importVaultRebuildsMissingLocalBodiesForUnchangedVaultNotes() async throws {
         let container = try makeContainer()
@@ -605,6 +635,148 @@ struct VaultIndexActorTests {
             #expect(NoteFileStorage.bodyExists(pageId: pageId))
             #expect(rebuiltPage.loadBody() == "Imported body")
             #expect(rebuiltPage.needsVaultSync == false)
+        }
+    }
+
+    @Test("importVault cleans up pending bodies blocks and search rows when final save fails")
+    func importVaultCleansUpPendingArtifactsOnFinalSaveFailure() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        let searchIndex = try makeSearchIndex()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+            try? FileManager.default.removeItem(at: searchIndex.databaseURL.deletingLastPathComponent())
+        }
+
+        let fileURL = vaultURL.appendingPathComponent("Imported.md")
+        let token = "orphan-cleanup-\(UUID().uuidString)"
+        try """
+        ---
+        title: Imported Title
+        ---
+
+        Imported body \(token)
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        await actor.setSearchService(searchIndex.service)
+        await actor.setSaveContextOverrideForTesting { label in
+            if label == "vault import final changes" {
+                throw CocoaError(.validationMultipleErrors)
+            }
+        }
+        defer {
+            Task {
+                await actor.setSaveContextOverrideForTesting(nil)
+            }
+        }
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            await #expect(throws: Error.self) {
+                try await actor.importVault(from: vaultURL)
+            }
+
+            let verifyContext = ModelContext(container)
+            let pages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+            let blocks = try verifyContext.fetch(FetchDescriptor<SDBlock>())
+            let managedBodies = try FileManager.default.contentsOfDirectory(
+                at: bodyStorageURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
+            )
+
+            #expect(pages.isEmpty)
+            #expect(blocks.isEmpty)
+            #expect(!managedBodies.contains(where: { $0.pathExtension == "md" }))
+            #expect(try searchIndex.service.search(query: token).isEmpty)
+        }
+    }
+
+    @Test("importVault restores existing page state when final save fails after update staging")
+    func importVaultRestoresUpdatedPageStateOnFinalSaveFailure() async throws {
+        let container = try makeContainer()
+        let vaultURL = try makeTempDirectory()
+        let bodyStorageURL = try makeTempDirectory()
+        let searchIndex = try makeSearchIndex()
+        defer {
+            try? FileManager.default.removeItem(at: vaultURL)
+            try? FileManager.default.removeItem(at: bodyStorageURL)
+            try? FileManager.default.removeItem(at: searchIndex.databaseURL.deletingLastPathComponent())
+        }
+
+        let fileURL = vaultURL.appendingPathComponent("Existing.md")
+        let originalToken = "vault-original-\(UUID().uuidString)"
+        let updatedToken = "vault-updated-\(UUID().uuidString)"
+        let originalBody = "Original body \(originalToken)"
+        try """
+        ---
+        title: Updated Title
+        tags: updated,imported
+        icon: sparkles
+        ---
+
+        Updated body \(updatedToken)
+        """.write(to: fileURL, atomically: true, encoding: .utf8)
+
+        try await NoteFileStorage.withStorageDirectoryOverrideForTesting(bodyStorageURL) {
+            let setupContext = ModelContext(container)
+            let page = SDPage(title: "Original Title")
+            page.filePath = fileURL.path
+            page.tags = ["original"]
+            page.updatedAt = Date(timeIntervalSince1970: 1)
+            page.lastSyncedAt = Date(timeIntervalSince1970: 2)
+            page.lastSyncedBodyHash = SDPage.bodyHash(originalBody)
+            page.needsVaultSync = false
+            page.saveBody(originalBody)
+            BlockMirror.sync(pageId: page.id, body: originalBody, modelContext: setupContext)
+            setupContext.insert(page)
+            try setupContext.save()
+            try searchIndex.service.upsert(
+                id: page.id,
+                title: page.title,
+                body: originalBody,
+                tags: page.tags.joined(separator: " "),
+                updatedAt: page.updatedAt
+            )
+
+            let actor = VaultIndexActor(modelContainer: container)
+            await actor.setSearchService(searchIndex.service)
+            await actor.setSaveContextOverrideForTesting { label in
+                if label == "vault import final changes" {
+                    throw CocoaError(.validationMultipleErrors)
+                }
+            }
+            defer {
+                Task {
+                    await actor.setSaveContextOverrideForTesting(nil)
+                }
+            }
+
+            await #expect(throws: Error.self) {
+                try await actor.importVault(from: vaultURL)
+            }
+
+            let actorManifest = await actor.buildVaultManifest(vaultTitle: "test")
+            let actorEntry = actorManifest?.entries.first(where: { $0.pageId == page.id })
+            let actorBody = actorManifest?.recentBodies.first(where: { $0.pageId == page.id })
+            let verifyContext = ModelContext(container)
+            let targetPageId = page.id
+            let persistedPage = try verifyContext.fetch(
+                FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetPageId })
+            ).first
+            let managedBody = NoteFileStorage.readBody(pageId: page.id)
+
+            #expect(actorEntry?.title == "Original Title")
+            #expect(actorEntry?.tags == ["original"])
+            #expect(actorBody?.body == originalBody)
+            #expect(persistedPage?.title == "Original Title")
+            #expect(persistedPage?.tags == ["original"])
+            #expect(persistedPage?.loadBody() == originalBody)
+            #expect(managedBody == originalBody)
+            #expect(try searchIndex.service.search(query: updatedToken).isEmpty)
+            #expect(!(try searchIndex.service.search(query: originalToken)).isEmpty)
         }
     }
 
@@ -696,13 +868,13 @@ struct VaultIndexActorTests {
         defer { try? FileManager.default.removeItem(at: vaultURL) }
 
         let searchIndex = try makeSearchIndex()
-        await actor.setSearchService(searchIndex)
+        await actor.setSearchService(searchIndex.service)
 
         let token = "bodytoken\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
         let page = insertPage(in: context, title: "Indexed Note", body: "Body with \(token)")
         try context.save()
 
-        #expect(try searchIndex.search(query: token).isEmpty)
+        #expect(try searchIndex.service.search(query: token).isEmpty)
 
         let store = GraphStore()
         let graphNode = GraphNodeRecord(
@@ -720,17 +892,47 @@ struct VaultIndexActorTests {
         let exportedPath = try await actor.exportPage(pageId: page.id, to: vaultURL)
         #expect(exportedPath != nil)
 
-        let noteHits = try searchIndex.search(query: token)
+        let noteHits = try searchIndex.service.search(query: token)
         #expect(noteHits.contains { $0.pageId == page.id })
 
         let runtime = QueryRuntime(
             graphStore: store,
             graphState: GraphState(),
-            searchIndex: searchIndex
+            searchIndex: searchIndex.service
         )
         let queryResult = runtime.query(token)
 
         #expect(queryResult.nodes.map(\.id) == [graphNode.id])
         #expect(queryResult.nodes.first?.snippet?.isEmpty == false)
+    }
+
+    @Test("exportPage preserves raw source for tracked code files")
+    func exportPagePreservesRawSourceForTrackedCodeFiles() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let fileURL = vaultURL.appendingPathComponent("Greeter.swift")
+        let source = """
+        import Foundation
+
+        func greet(name: String) {
+            print("Hello, \\(name)")
+        }
+        """
+
+        let page = insertPage(in: context, title: "Greeter", body: source)
+        page.filePath = fileURL.path
+        try context.save()
+
+        let exported = try await actor.exportPage(pageId: page.id, to: vaultURL)
+        #expect(exported?.path == fileURL.path)
+
+        let savedSource = try String(contentsOf: fileURL, encoding: .utf8)
+        #expect(savedSource == source)
+        #expect(!savedSource.contains("\n---\n"))
+        #expect(!savedSource.contains("title: Greeter"))
     }
 }
