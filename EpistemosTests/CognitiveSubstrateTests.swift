@@ -1195,6 +1195,64 @@ struct ActivityTrackerTests {
     }
 }
 
+@Suite("Daily Brief State", .serialized)
+struct DailyBriefStateTests {
+    @MainActor
+    @Test("dismiss cleanup is cancelled when a new daily brief starts") 
+    func dismissCleanupIsCancelledWhenNewBriefStarts() async throws {
+        let state = DailyBriefState()
+        state.onDailyBriefGenerate = { _ in
+            "Fresh brief"
+        }
+
+        state.showDailyBrief = true
+        state.dailyBriefContent = "Stale brief"
+        state.isDailyBriefLoading = false
+
+        state.dismissDailyBrief()
+        try await Task.sleep(for: .milliseconds(100))
+        state.requestDailyBrief(prompt: "Generate again")
+        try await Task.sleep(for: .milliseconds(650))
+
+        #expect(state.showDailyBrief)
+        #expect(!state.isDailyBriefLoading)
+        #expect(state.dailyBriefContent == "Fresh brief")
+    }
+}
+
+@Suite("Event Bus", .serialized)
+struct EventBusTests {
+    @MainActor
+    @Test("async event streams keep only the newest buffered events") 
+    func asyncEventStreamsKeepOnlyNewestBufferedEvents() async {
+        let bus = EventBus()
+        var iterator = bus.events().makeAsyncIterator()
+
+        for value in 0..<300 {
+            bus.emit(.custom(name: "buffer", payload: .int(value)))
+        }
+
+        var received = [Int]()
+        received.reserveCapacity(256)
+        for _ in 0..<256 {
+            guard let event = await iterator.next() else {
+                Issue.record("Expected buffered event")
+                return
+            }
+            guard case let .custom(_, payload) = event,
+                  case let .int(value)? = payload else {
+                Issue.record("Expected integer custom payload")
+                return
+            }
+            received.append(value)
+        }
+
+        #expect(received.count == 256)
+        #expect(received.first == 44)
+        #expect(received.last == 299)
+    }
+}
+
 // MARK: - Phase 5: Config Tests
 
 @Suite("EpistemosConfig")
