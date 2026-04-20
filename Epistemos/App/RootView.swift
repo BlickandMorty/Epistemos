@@ -958,7 +958,7 @@ struct LocalModelToolbarMenu: View {
             features.append("Agent")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")
-        return "\(featureSummary) • \(modelID.minimumRecommendedMemoryGB) GB+"
+        return "\(featureSummary) • Chat \(modelID.minimumRecommendedInteractiveMemoryGB) GB+"
     }
 
     private func providerSelectionSubtitle(for provider: CloudModelProvider) -> String {

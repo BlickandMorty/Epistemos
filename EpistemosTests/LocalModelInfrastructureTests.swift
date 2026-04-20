@@ -203,6 +203,20 @@ struct LocalModelInfrastructureTests {
         #expect(model.supportsThinkingMode)
     }
 
+    @Test("qwen coder uses a stricter interactive memory floor than its raw file size")
+    func qwenCoderUsesStricterInteractiveMemoryFloor() {
+        let model = LocalTextModelID.qwen25Coder7B
+        let twentyGB = LocalHardwareCapabilitySnapshot(
+            physicalMemoryBytes: 20_000_000_000,
+            roundedMemoryGB: 20,
+            maxRecommendedLocalContentLength: 12_000
+        )
+
+        #expect(model.minimumRecommendedMemoryGB == 16)
+        #expect(model.minimumRecommendedInteractiveMemoryGB == 24)
+        #expect(!twentyGB.supportsInteractiveChatModel(textModelID: model.rawValue))
+    }
+
     @Test("local text models expose their execution runtime kind")
     func localTextModelsExposeExecutionRuntimeKind() {
         #expect(LocalTextModelID.qwen35_35BA3B4Bit.runtimeKind == .mlx)
