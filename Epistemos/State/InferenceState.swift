@@ -3511,16 +3511,37 @@ final class InferenceState {
     func effectiveChatSurfaceSelection(for operatingMode: EpistemosOperatingMode) -> ChatModelSelection {
         if usesAutomaticCloudRouteForChatSurfaces,
            let autoModel = preferredAutoRouteCloudModel(for: operatingMode) {
-            switch operatingMode {
-            case .pro, .agent:
-                return .cloud(autoModel)
-            case .thinking:
-                if effectiveLocalTextModelID == nil {
-                    return .cloud(autoModel)
+            // Auto-route to the cloud workhorse ONLY when the user has not
+            // explicitly pinned a runnable model. A concrete `preferredChatModelSelection`
+            // (`.localMLX` with an active local model, `.cloud(specific)`,
+            // or `.appleIntelligence`) must always win over the auto-route
+            // default — otherwise picking "Bonsai" or an explicit cloud
+            // model silently routes the turn to a different runtime, which
+            // is exactly the Bonsai→Gemma / Agent+Cloud→local bug we hit
+            // in the 2026-04-20 release audit.
+            let userHasExplicitPin: Bool = {
+                switch preferredChatModelSelection {
+                case .localMLX:
+                    return effectiveLocalTextModelID != nil
+                case .appleIntelligence:
+                    return appleIntelligenceAvailable
+                case .cloud:
+                    return true
                 }
-            case .fast:
-                if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
+            }()
+
+            if !userHasExplicitPin {
+                switch operatingMode {
+                case .pro, .agent:
                     return .cloud(autoModel)
+                case .thinking:
+                    if effectiveLocalTextModelID == nil {
+                        return .cloud(autoModel)
+                    }
+                case .fast:
+                    if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
+                        return .cloud(autoModel)
+                    }
                 }
             }
         }
