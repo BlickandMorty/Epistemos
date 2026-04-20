@@ -1036,13 +1036,6 @@ struct LocalModelToolbarMenu: View {
                     .padding(.leading, 4)
             }
 
-            Button("Open Settings") {
-                openSettings()
-            }
-            .buttonStyle(.borderless)
-            .font(.system(size: 11, weight: .semibold))
-            .foregroundStyle(theme.resolved.accent.color)
-            .padding(.leading, 4)
         }
     }
 

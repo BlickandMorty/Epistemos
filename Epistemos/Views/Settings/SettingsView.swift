@@ -1060,10 +1060,6 @@ private struct InferenceDetailView: View {
                     Text(inference.localModelInstallStateSummary.displayName)
                         .font(.system(size: 12, weight: .medium))
                 }
-                LabeledContent("Active Tier") {
-                    Text(activeLocalModelDisplayName)
-                        .font(.system(size: 12, weight: .medium))
-                }
                 LabeledContent("Runtime Status") {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(inference.localRuntimeStatusSummary)
@@ -2358,12 +2354,6 @@ private struct LocalModelRow: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if let model = LocalTextModelID(rawValue: descriptor.id),
-                   let reason = model.releasePickerVisibilityReason {
-                    Text(reason)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
             }
 
             Spacer()
