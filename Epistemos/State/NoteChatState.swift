@@ -312,8 +312,9 @@ final class NoteChatState {
                 self.flushThinkTagRouter()
                 self.flushTokens()
                 self.isStreaming = false
-                self.error = error.localizedDescription
-                self.log.error("Note chat error: \(error.localizedDescription)")
+                let message = UserFacingChatError.message(from: error)
+                self.error = message
+                self.log.error("Note chat error: \(message)")
                 self.resolveInlineAutoCommitResponse()
             }
         }
@@ -763,19 +764,17 @@ final class NoteChatState {
     /// Persist current messages to SwiftData after streaming completes.
     func persistMessages(_ context: ModelContext, noteTitle: String) {
         guard !messages.isEmpty else { return }
+        let originalPersistedChatId = persistedChatId
 
         let sdChat: SDChat
+        let wasExisting: Bool
         if let existingId = persistedChatId {
             do {
                 if let existing = try context.fetch(
                     FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == existingId })
                 ).first {
                     sdChat = existing
-                    sdChat.title = noteTitle.isEmpty ? "Untitled" : noteTitle
-                    sdChat.updatedAt = .now
-                    for msg in sdChat.messages ?? [] {
-                        context.delete(msg)
-                    }
+                    wasExisting = true
                 } else {
                     sdChat = SDChat(
                         title: noteTitle.isEmpty ? "Untitled" : noteTitle,
@@ -784,6 +783,7 @@ final class NoteChatState {
                     sdChat.linkedPageId = pageId
                     context.insert(sdChat)
                     persistedChatId = sdChat.id
+                    wasExisting = false
                 }
             } catch {
                 log.error(
@@ -796,19 +796,54 @@ final class NoteChatState {
             sdChat.linkedPageId = pageId
             context.insert(sdChat)
             persistedChatId = sdChat.id
+            wasExisting = false
         }
 
-        for msg in messages {
+        let originalTitle = sdChat.title
+        let originalUpdatedAt = sdChat.updatedAt
+        let originalMessages = sdChat.messages ?? []
+
+        sdChat.title = noteTitle.isEmpty ? "Untitled" : noteTitle
+        sdChat.updatedAt = .now
+
+        for msg in originalMessages {
+            context.delete(msg)
+        }
+
+        let newMessages = messages.map { msg in
             let sdMsg = SDMessage(role: msg.role == .user ? "user" : "assistant", content: msg.content)
             sdMsg.id = msg.id
             sdMsg.createdAt = msg.createdAt
             sdMsg.thinkingTrace = msg.thinkingTrace
             sdMsg.thinkingDurationSeconds = msg.thinkingDurationSeconds
             sdMsg.chat = sdChat
-            context.insert(sdMsg)
+            return sdMsg
         }
+        for msg in newMessages {
+            context.insert(msg)
+        }
+        sdChat.messages = newMessages
 
         do { try context.save() }
-        catch { log.error("Failed to persist note chat: \(error.localizedDescription)") }
+        catch {
+            sdChat.title = originalTitle
+            sdChat.updatedAt = originalUpdatedAt
+
+            for msg in newMessages {
+                context.delete(msg)
+            }
+
+            if wasExisting {
+                for msg in originalMessages {
+                    context.insert(msg)
+                    msg.chat = sdChat
+                }
+                sdChat.messages = originalMessages
+            } else {
+                context.delete(sdChat)
+            }
+            persistedChatId = originalPersistedChatId
+            log.error("Failed to persist note chat: \(error.localizedDescription)")
+        }
     }
 }

@@ -136,6 +136,13 @@ final class WorkspaceService {
             Self.log.error("Workspace capture: failed to fetch pages: \(error.localizedDescription, privacy: .public)")
             allPages = []
         }
+        let graphNodeCount: Int
+        do {
+            graphNodeCount = try context.fetchCount(FetchDescriptor<SDGraphNode>())
+        } catch {
+            Self.log.error("Workspace capture: failed to fetch graph node count: \(error.localizedDescription, privacy: .public)")
+            graphNodeCount = 0
+        }
         let wordCountsByPageId = Dictionary(uniqueKeysWithValues: allPages.map { ($0.id, $0.wordCount) })
 
         // Note tabs in tab-bar order
@@ -202,6 +209,7 @@ final class WorkspaceService {
                 since: bootstrap.activityTracker.trackingStartedAt ?? Date()
             ),
             totalNoteCount: allPages.count,
+            graphNodeCount: graphNodeCount,
             allPageIds: allPageIds
         )
     }
@@ -333,6 +341,22 @@ final class WorkspaceService {
         HomeWindowIdentity.surfaceHomeWindow()
     }
 
+    @discardableResult
+    private func persistWorkspaceMutation(
+        in context: ModelContext,
+        failureMessage: String,
+        restoreState: () -> Void
+    ) -> Bool {
+        do {
+            try context.save()
+            return true
+        } catch {
+            restoreState()
+            Self.log.error("\(failureMessage, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+    }
+
     // MARK: - Auto-Save / Auto-Restore
 
     func autoSave() {
@@ -348,26 +372,37 @@ final class WorkspaceService {
         let context = modelContainer.mainContext
         let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
         let savedWorkspace: SDWorkspace
+        let restoreState: () -> Void
         do {
             if let existing = try context.fetch(FetchDescriptor(predicate: predicate)).first {
+                let originalSnapshotData = existing.snapshotData
+                let originalUpdatedAt = existing.updatedAt
                 existing.snapshotData = data
                 existing.updatedAt = Date()
                 savedWorkspace = existing
+                restoreState = {
+                    savedWorkspace.snapshotData = originalSnapshotData
+                    savedWorkspace.updatedAt = originalUpdatedAt
+                }
             } else {
                 let workspace = SDWorkspace(name: "Last Session", isAutoSave: true)
                 workspace.snapshotData = data
                 context.insert(workspace)
                 savedWorkspace = workspace
+                restoreState = {
+                    context.delete(savedWorkspace)
+                }
             }
         } catch {
             Self.log.error("Workspace auto-save: failed to fetch auto-save workspace: \(error.localizedDescription, privacy: .public)")
             return
         }
 
-        do {
-            try context.save()
-        } catch {
-            Self.log.error("Workspace auto-save: context save failed: \(error)")
+        guard persistWorkspaceMutation(
+            in: context,
+            failureMessage: "Workspace auto-save: context save failed",
+            restoreState: restoreState
+        ) else {
             return
         }
 
@@ -472,7 +507,17 @@ final class WorkspaceService {
             for workspace in workspaces {
                 context.delete(workspace)
             }
-            try context.save()
+            guard persistWorkspaceMutation(
+                in: context,
+                failureMessage: "Workspace skip-restore cleanup failed",
+                restoreState: {
+                    for workspace in workspaces {
+                        context.insert(workspace)
+                    }
+                }
+            ) else {
+                return
+            }
             Self.log.info("Cleared auto-saved workspace snapshot for skip-restore relaunch")
         } catch {
             Self.log.error("Workspace skip-restore cleanup failed: \(error.localizedDescription, privacy: .public)")
@@ -572,8 +617,8 @@ final class WorkspaceService {
             Self.log.error("Workspace diff: failed to fetch graph node count: \(error.localizedDescription, privacy: .public)")
             return diff
         }
-        if let savedAllPageCount = snapshot.totalNoteCount {
-            diff.graphNodesAdded = max(0, currentNodeCount - savedAllPageCount)
+        if let savedGraphNodeCount = snapshot.graphNodeCount {
+            diff.graphNodesAdded = max(0, currentNodeCount - savedGraphNodeCount)
         }
 
         return diff
@@ -581,22 +626,32 @@ final class WorkspaceService {
 
     // MARK: - Named Workspaces
 
-    func saveWorkspace(name: String) {
+    @discardableResult
+    func saveWorkspace(name: String) -> SDWorkspace? {
         let snapshot = captureSnapshot()
         let data: Data
         do {
             data = try JSONEncoder().encode(snapshot)
         } catch {
             Self.log.error("Workspace save: failed to encode snapshot for '\(name, privacy: .public)'")
-            return
+            return nil
         }
 
         let context = modelContainer.mainContext
         let ws = SDWorkspace(name: name, isAutoSave: false)
         ws.snapshotData = data
         context.insert(ws)
-        do { try context.save() } catch { Self.log.error("Workspace save: context save failed: \(error)") }
+        guard persistWorkspaceMutation(
+            in: context,
+            failureMessage: "Workspace save: context save failed",
+            restoreState: {
+                context.delete(ws)
+            }
+        ) else {
+            return nil
+        }
         Self.log.info("Workspace saved: \(name, privacy: .public)")
+        return ws
     }
 
     func loadWorkspace(_ workspace: SDWorkspace) {
@@ -616,13 +671,29 @@ final class WorkspaceService {
     func deleteWorkspace(_ workspace: SDWorkspace) {
         let context = modelContainer.mainContext
         context.delete(workspace)
-        do { try context.save() } catch { Self.log.error("Workspace delete: context save failed: \(error)") }
+        _ = persistWorkspaceMutation(
+            in: context,
+            failureMessage: "Workspace delete: context save failed",
+            restoreState: {
+                context.insert(workspace)
+            }
+        )
     }
 
     func renameWorkspace(_ workspace: SDWorkspace, to newName: String) {
+        let context = modelContainer.mainContext
+        let originalName = workspace.name
+        let originalUpdatedAt = workspace.updatedAt
         workspace.name = newName
         workspace.updatedAt = Date()
-        do { try modelContainer.mainContext.save() } catch { Self.log.error("Workspace rename: context save failed: \(error)") }
+        _ = persistWorkspaceMutation(
+            in: context,
+            failureMessage: "Workspace rename: context save failed",
+            restoreState: {
+                workspace.name = originalName
+                workspace.updatedAt = originalUpdatedAt
+            }
+        )
     }
 
     func listWorkspaces() -> [SDWorkspace] {
