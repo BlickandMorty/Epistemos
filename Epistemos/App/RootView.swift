@@ -713,6 +713,15 @@ struct LocalModelToolbarMenu: View {
             } else if usesSplitToolbarControls {
                 splitToolbarControls
             } else {
+                // When the surface opted out of split toolbar controls
+                // (mini/note/graph chat), size the single popover button to
+                // fit the actual label rather than reserving worst-case
+                // "Apple Intelligence Agent" width. The stable-width
+                // reservation still applies when a split-toolbar caller
+                // falls through this branch (e.g. via `overrideTitle`).
+                let usesCompactNaturalWidth = operatingMode != nil
+                    && overrideTitle == nil
+                    && !preferSplitToolbarControls
                 AnchoredPopoverButton(
                     title: labelText,
                     systemImage: buttonSystemImage,
@@ -724,7 +733,7 @@ struct LocalModelToolbarMenu: View {
                     accessibilityLabel: labelText,
                     idealPopoverWidth: variant == .toolbar ? 340 : 360,
                     contentPadding: 12,
-                    stableWidth: disclosureWidth
+                    stableWidth: usesCompactNaturalWidth ? nil : disclosureWidth
                 ) {
                     runtimePopover
                 }
@@ -1611,12 +1620,23 @@ struct LocalModelToolbarMenu: View {
                                     systemImage: provider.systemImage,
                                     isSelected: isCloudModelSelected(model)
                                 ) {
+                                    // Always commit the user's explicit pick to
+                                    // `preferredChatModelSelection` so the next
+                                    // turn actually routes to this cloud model.
+                                    // Previously the auto-route branch only
+                                    // updated `preferredCloudModel` (the
+                                    // auto-route default), leaving the chat
+                                    // primary on whatever local model the user
+                                    // had previously selected — that's the
+                                    // "I picked GPT-5.4 but got DeepSeek R1 7B
+                                    // memory error" regression users hit on
+                                    // 2026-04-20. Also refresh the
+                                    // auto-route cloud preference so the
+                                    // chosen model is the fallback when the
+                                    // user later switches back to local.
                                     inference.setCloudModelsEnabled(true)
-                                    if inference.chatAutoRouteToCloud {
-                                        inference.setPreferredCloudModel(model)
-                                    } else {
-                                        inference.setPreferredChatModelSelection(.cloud(model))
-                                    }
+                                    inference.setPreferredCloudModel(model)
+                                    inference.setPreferredChatModelSelection(.cloud(model))
                                     isPresented = false
                                 }
                             }
