@@ -24,15 +24,9 @@ struct GlassToolbarConfiguration {
 extension NSWindow {
     
     func applyThemedGlassToolbar(configuration: GlassToolbarConfiguration, height: CGFloat = 52) {
-        // Configure window
         self.titleVisibility = .hidden
         self.titlebarAppearsTransparent = true
-        self.isMovableByWindowBackground = true
-        
-        if !self.styleMask.contains(.fullSizeContentView) {
-            self.styleMask.insert(.fullSizeContentView)
-        }
-        
+
         // Setup toolbar
         if self.toolbar == nil {
             self.toolbar = NSToolbar(identifier: "NoteEditor")

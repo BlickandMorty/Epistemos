@@ -164,6 +164,10 @@ struct LiquidGreeting: View {
         }
         // Skip characters already on screen.
         let start = max(startAt, 0)
+        guard start < phrase.count else {
+            displayText = phrase
+            return
+        }
         if start == 0 { displayText = "" }
         for index in (start + 1)...phrase.count {
             guard !Task.isCancelled else { return }

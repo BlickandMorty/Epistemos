@@ -136,6 +136,7 @@ struct SessionIntelligenceOverlay: View {
     @State private var isGenerating = true
     @State private var appeared = false
     @State private var actionStatusMessage = ""
+    @State private var generationTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -250,7 +251,14 @@ struct SessionIntelligenceOverlay: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.2)) { appeared = true }
             buildWindowCards()
-            Task { await generateIntelligence() }
+            generationTask?.cancel()
+            generationTask = Task { @MainActor in
+                await generateIntelligence()
+            }
+        }
+        .onDisappear {
+            generationTask?.cancel()
+            generationTask = nil
         }
     }
 
@@ -475,7 +483,15 @@ struct SessionIntelligenceOverlay: View {
         }
 
         let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })
-        let persisted = try? context.fetch(descriptor).first
+        let persisted: SDChat?
+        do {
+            persisted = try context.fetch(descriptor).first
+        } catch {
+            Log.app.error(
+                "SessionIntelligenceOverlay: failed to fetch mini chat title for \(String(chatId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return "Mini Chat"
+        }
         let title = persisted?.title.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return title.isEmpty ? "Mini Chat" : title
     }
@@ -497,7 +513,16 @@ struct SessionIntelligenceOverlay: View {
         }
 
         let descriptor = FetchDescriptor<SDChat>(predicate: #Predicate { $0.id == chatId })
-        guard let persisted = try? context.fetch(descriptor).first else {
+        let persisted: SDChat?
+        do {
+            persisted = try context.fetch(descriptor).first
+        } catch {
+            Log.app.error(
+                "SessionIntelligenceOverlay: failed to fetch mini chat summary for \(String(chatId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return ChatPreviewText.emptyPreview
+        }
+        guard let persisted else {
             return ChatPreviewText.emptyPreview
         }
 
@@ -611,6 +636,9 @@ struct SessionIntelligenceOverlay: View {
         do {
             try bootstrap.modelContainer.mainContext.save()
         } catch {
+            Log.app.error(
+                "SessionIntelligenceOverlay: failed to save created session note \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
             return nil
         }
         guard await pause(SessionIntelligenceOverlayTiming.notePresentationDelay()) else { return nil }
@@ -626,8 +654,16 @@ struct SessionIntelligenceOverlay: View {
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
         )
         descriptor.fetchLimit = 1
-        guard let workspace = try? context.fetch(descriptor).first,
-              !workspace.summary.isEmpty else {
+        let workspace: SDWorkspace?
+        do {
+            workspace = try context.fetch(descriptor).first
+        } catch {
+            Log.app.error(
+                "SessionIntelligenceOverlay: failed to fetch autosaved workspace summary: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+        guard let workspace, !workspace.summary.isEmpty else {
             return nil
         }
         return workspace.summary
@@ -640,27 +676,17 @@ struct SessionIntelligenceOverlay: View {
         } catch is CancellationError {
             return false
         } catch {
+            Log.app.error(
+                "SessionIntelligenceOverlay: timing pause failed: \(error.localizedDescription, privacy: .public)"
+            )
             return false
-        }
-    }
-
-    private func commandHintRow(_ command: String, _ desc: String) -> some View {
-        HStack(spacing: 10) {
-            Text(command)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(theme.resolved.accent.color)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(theme.resolved.accent.color.opacity(0.08), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
-                .frame(width: 200, alignment: .leading)
-            Text(desc)
-                .font(.system(size: 11, design: .rounded))
-                .foregroundStyle(theme.textTertiary)
         }
     }
 
     private func dismiss() {
         withAnimation(.easeIn(duration: 0.15)) { appeared = false }
+        generationTask?.cancel()
+        generationTask = nil
         Task { @MainActor in
             guard await pause(SessionIntelligenceOverlayTiming.dismissDelay()) else { return }
             isPresented = false

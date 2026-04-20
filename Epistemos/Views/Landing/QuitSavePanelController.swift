@@ -91,7 +91,7 @@ final class GlobalOverlayController {
         floatingPanel.level = .modalPanel
         floatingPanel.isReleasedWhenClosed = false
         floatingPanel.isRestorable = false
-        floatingPanel.isMovableByWindowBackground = true
+        floatingPanel.isMovableByWindowBackground = false
         floatingPanel.becomesKeyOnlyIfNeeded = false
         floatingPanel.hidesOnDeactivate = false
         floatingPanel.collectionBehavior = [.moveToActiveSpace, .fullScreenAuxiliary, .ignoresCycle]
@@ -381,10 +381,19 @@ private struct QuitSaveContent: View {
             Task { @MainActor in
                 isLoadingAISuggestion = true
                 let predicate = #Predicate<SDWorkspace> { $0.isAutoSave == true }
-                if let ws = try? AppBootstrap.shared?.modelContainer.mainContext.fetch(
-                    FetchDescriptor(predicate: predicate)
-                ).first, !ws.summary.isEmpty {
-                    aiSuggestion = ws.summary
+                let summary: String?
+                do {
+                    summary = try AppBootstrap.shared?.modelContainer.mainContext.fetch(
+                        FetchDescriptor(predicate: predicate)
+                    ).first?.summary
+                } catch {
+                    Log.app.error(
+                        "QuitSavePanelController: failed to fetch autosaved workspace summary: \(error.localizedDescription, privacy: .public)"
+                    )
+                    summary = nil
+                }
+                if let summary, !summary.isEmpty {
+                    aiSuggestion = summary
                 }
                 isLoadingAISuggestion = false
             }
@@ -403,25 +412,70 @@ private struct QuitSaveContent: View {
     }
 
     private func performSave() {
-        guard let ws = AppBootstrap.shared?.workspaceService else { return }
+        guard let bootstrap = AppBootstrap.shared else {
+            Log.app.error("QuitSavePanelController: missing app bootstrap during workspace save")
+            onComplete(false)
+            return
+        }
+        let ws = bootstrap.workspaceService
+        let modelContext = bootstrap.modelContainer.mainContext
         let note = sessionNote.trimmingCharacters(in: .whitespacesAndNewlines)
         switch saveMode {
         case .saveNew:
             let name = workspaceName.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !name.isEmpty else { return }
-            ws.saveWorkspace(name: name)
-            if !note.isEmpty, let saved = ws.listWorkspaces().first(where: { $0.name == name }) {
+            guard let saved = ws.saveWorkspace(name: name) else {
+                Log.app.error("QuitSavePanelController: failed to save workspace '\(name, privacy: .public)'")
+                onComplete(false)
+                return
+            }
+            if !note.isEmpty {
+                let originalSavedUserNote = saved.userNote
                 saved.userNote = note
-                try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                do {
+                    try modelContext.save()
+                } catch {
+                    saved.userNote = originalSavedUserNote
+                    Log.app.error(
+                        "QuitSavePanelController: failed to persist session note for workspace '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                    )
+                    onComplete(false)
+                    return
+                }
             }
         case .updateCurrent:
             if let id = selectedExistingId, let existing = existingWorkspaces.first(where: { $0.id == id }) {
-                if let data = try? JSONEncoder().encode(ws.captureSnapshot()) {
-                    existing.snapshotData = data; existing.updatedAt = Date()
-                    if !note.isEmpty { existing.userNote = note }
-                    try? AppBootstrap.shared?.modelContainer.mainContext.save()
+                let data: Data
+                do {
+                    data = try JSONEncoder().encode(ws.captureSnapshot())
+                } catch {
+                    Log.app.error("QuitSavePanelController: failed to encode workspace update: \(error.localizedDescription, privacy: .public)")
+                    onComplete(false)
+                    return
                 }
-            } else { ws.autoSave() }
+                let originalSnapshotData = existing.snapshotData
+                let originalUpdatedAt = existing.updatedAt
+                let originalExistingUserNote = existing.userNote
+                existing.snapshotData = data
+                existing.updatedAt = Date()
+                if !note.isEmpty {
+                    existing.userNote = note
+                }
+                do {
+                    try modelContext.save()
+                } catch {
+                    existing.snapshotData = originalSnapshotData
+                    existing.updatedAt = originalUpdatedAt
+                    existing.userNote = originalExistingUserNote
+                    Log.app.error(
+                        "QuitSavePanelController: failed to save updated workspace '\(existing.name, privacy: .public)': \(error.localizedDescription, privacy: .public)"
+                    )
+                    onComplete(false)
+                    return
+                }
+            } else {
+                ws.autoSave()
+            }
         }
         onComplete(true)
     }

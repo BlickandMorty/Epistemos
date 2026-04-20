@@ -83,7 +83,7 @@ final class MiniChatWindowController {
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
-        window.isMovableByWindowBackground = true
+        window.isMovableByWindowBackground = false
         window.collectionBehavior = [.moveToActiveSpace]
         window.isReleasedWhenClosed = false
         window.isRestorable = false
