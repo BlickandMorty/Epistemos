@@ -1754,6 +1754,8 @@ actor MLXInferenceService: LocalMLXRuntime {
             }
         }
 
+        output = LocalMLXLoopMitigation.appendFallbackIfNeeded(to: output, for: request)
+
         return GenerationPassResult(
             text: output,
             firstTokenLatencyMS: firstTokenLatencyMS,

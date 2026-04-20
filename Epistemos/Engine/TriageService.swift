@@ -2125,7 +2125,7 @@ final class TriageService {
                 return try await configurable.generate(
                     prompt: prompt,
                     systemPrompt: effectiveSystemPrompt,
-                    maxTokens: 0,
+                    maxTokens: resolvedLocalOutputTokens(for: selection.reasoningMode),
                     reasoningMode: selection.reasoningMode,
                     modelID: selection.modelID,
                     steeringHintsJSON: steeringHintsJSON
@@ -2163,22 +2163,23 @@ final class TriageService {
                 continuation.finish(throwing: LocalInferenceRoutingError.runtimeUnavailable)
             }
         }
+        let resolvedLocalLLMService = localLLMService
         let effectiveSystemPrompt = Self.effectiveLocalSystemPrompt(systemPrompt)
         return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 do {
                     let stream: AsyncThrowingStream<String, Error>
-                    if let configurable = localLLMService as? any LocalConfigurableLLMClient {
+                    if let configurable = resolvedLocalLLMService as? any LocalConfigurableLLMClient {
                         stream = configurable.stream(
                             prompt: prompt,
                             systemPrompt: effectiveSystemPrompt,
-                            maxTokens: 0,
+                            maxTokens: self.resolvedLocalOutputTokens(for: selection.reasoningMode),
                             reasoningMode: selection.reasoningMode,
                             modelID: selection.modelID,
                             steeringHintsJSON: steeringHintsJSON
                         )
                     } else {
-                        stream = localLLMService.stream(prompt: prompt, systemPrompt: effectiveSystemPrompt)
+                        stream = resolvedLocalLLMService.stream(prompt: prompt, systemPrompt: effectiveSystemPrompt)
                     }
                     for try await chunk in stream {
                         continuation.yield(chunk)
@@ -2248,6 +2249,7 @@ final class TriageService {
             let task = Task {
                 var rawText = ""
                 var emittedVisibleText = ""
+                var emittedInferredReasoningText = ""
                 var reasoningRouter = ThinkTagStreamRouter()
 
                 do {
@@ -2257,6 +2259,19 @@ final class TriageService {
                             reasoningSink?(reasoningEmit.thinking)
                         }
                         rawText += chunk
+                        let inferredReasoningText = UserFacingModelOutput.streamingReasoningText(from: rawText)
+                        if !inferredReasoningText.isEmpty,
+                           inferredReasoningText.hasPrefix(emittedInferredReasoningText) {
+                            let deltaStart = inferredReasoningText.index(
+                                inferredReasoningText.startIndex,
+                                offsetBy: emittedInferredReasoningText.count
+                            )
+                            let delta = String(inferredReasoningText[deltaStart...])
+                            if !delta.isEmpty {
+                                emittedInferredReasoningText = inferredReasoningText
+                                reasoningSink?(delta)
+                            }
+                        }
                         let visibleText = UserFacingModelOutput.streamingVisibleText(from: rawText)
                         guard visibleText.hasPrefix(emittedVisibleText) else { continue }
 
@@ -2296,6 +2311,18 @@ final class TriageService {
                 }
             }
             continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private func resolvedLocalOutputTokens(for reasoningMode: LocalReasoningMode) -> Int {
+        if inference.chatOutputTokens > 0 {
+            return inference.chatOutputTokens
+        }
+        switch reasoningMode {
+        case .fast:
+            return 4_096
+        case .thinking:
+            return 8_192
         }
     }
 }

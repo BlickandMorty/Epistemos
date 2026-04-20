@@ -727,8 +727,15 @@ nonisolated enum UserFacingModelOutput {
         "maintain neutrality.",
         "acknowledge the complexity.",
         "topic:",
+        "query:",
         "comparison:",
         "user query:",
+        "detailed analysis",
+        "detailed analysis with",
+        "pattern identification:",
+        "instructions:",
+        "reduce strategy:",
+        "input text:",
     ]
 
     static func streamingVisibleText(from raw: String) -> String {
@@ -745,6 +752,15 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return containsResidualReasoningArtifacts(in: cleaned) ? "" : cleaned
+    }
+
+    static func streamingReasoningText(from raw: String) -> String {
+        let cleaned = cleanedStreamingText(from: raw)
+        guard !cleaned.isEmpty else { return "" }
+        guard streamingVisibleText(from: raw).isEmpty else { return "" }
+        let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
+        guard hasReasoningArtifacts else { return "" }
+        return cleaned
     }
 
     static func finalVisibleText(from raw: String) -> String {
@@ -891,6 +907,9 @@ nonisolated enum UserFacingModelOutput {
     }
 
     private static func containsResidualReasoningArtifacts(in cleaned: String) -> Bool {
+        if containsStructuredReasoningPlan(in: cleaned) {
+            return true
+        }
         if ThinkingPreludeSyntax.openingMatch(in: cleaned) != nil {
             return true
         }
@@ -916,6 +935,10 @@ nonisolated enum UserFacingModelOutput {
     }
 
     private static func bestAnswerCandidate(in text: String) -> String? {
+        if containsStructuredReasoningPlan(in: text) {
+            return nil
+        }
+
         if let split = ThinkingPreludeSyntax.splitReasoningAndAnswer(in: text) {
             let answer = split.answer.trimmingCharacters(in: .whitespacesAndNewlines)
             if !answer.isEmpty {
@@ -950,6 +973,10 @@ nonisolated enum UserFacingModelOutput {
 
         guard !normalized.isEmpty else { return true }
 
+        if containsStructuredReasoningPlan(in: normalized) {
+            return true
+        }
+
         if reasoningParagraphPrefixes.contains(where: { normalized.hasPrefix($0) }) {
             return true
         }
@@ -970,6 +997,23 @@ nonisolated enum UserFacingModelOutput {
         }
 
         return false
+    }
+
+    private static func containsStructuredReasoningPlan(in text: String) -> Bool {
+        let normalized = normalizedReasoningText(text)
+        let markers = [
+            "1. query:",
+            "2. detailed analysis",
+            "3. pattern identification:",
+            "input text:",
+            "reduce strategy:",
+        ]
+        let matchedMarkers = markers.reduce(into: 0) { count, marker in
+            if normalized.contains(marker) {
+                count += 1
+            }
+        }
+        return matchedMarkers >= 2
     }
 
     private static func hasIncompleteReasoningLeadIn(_ text: String) -> Bool {

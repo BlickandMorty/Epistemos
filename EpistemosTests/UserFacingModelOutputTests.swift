@@ -91,6 +91,31 @@ struct UserFacingModelOutputTests {
         #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
     }
 
+    @Test("structured local analysis plans stay out of the visible answer stream")
+    func structuredLocalAnalysisPlansStayOutOfVisibleAnswerStream() {
+        let raw = """
+        1. Query:
+        - Summarize the key findings of these academic references on neuroscience and free will.
+
+        2. Detailed Analysis with chunk_reduce:
+        Input Text: The list of references formatted into a text file.
+        Instructions: Extract key points from methodology, findings, and implications.
+        Reduce Strategy: Select only the most relevant passages.
+
+        3. Pattern Identification:
+        - After processing, identify recurring themes such as readiness potentials and unconscious processing.
+
+        This approach will efficiently summarize the references and surface common research threads.
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("Detailed Analysis with chunk_reduce")
+        )
+    }
+
     @Test("streaming text stays silent during prose reasoning until an explicit answer appears")
     func streamingTextSuppressesProseReasoningPrelude() {
         let partial = """
