@@ -171,12 +171,40 @@ struct KnowledgeFusionViewModelTests {
         #expect(vm.lastTrainingError == nil)
     }
 
+    @Test("Export adapter respects the caller-selected output URL")
+    @MainActor
+    func exportAdapterRespectsSelectedOutputURL() async throws {
+        let vm = KnowledgeFusionViewModel()
+        let (record, cleanup) = try makeKnowledgeFusionTestAdapter(name: "Exported")
+        let outputDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("kf-vm-export-selected-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let selectedURL = outputDirectory.appendingPathComponent("Custom Adapter Bundle")
+        let expectedURL = selectedURL.appendingPathExtension(AdapterExporter.bundleExtension)
+
+        defer {
+            cleanup()
+            try? FileManager.default.removeItem(at: outputDirectory)
+        }
+
+        let bundleURL = await vm.exportAdapter(record, outputURL: selectedURL)
+
+        #expect(bundleURL == expectedURL)
+        if let bundleURL {
+            #expect(FileManager.default.fileExists(atPath: bundleURL.path))
+            #expect(bundleURL.lastPathComponent == expectedURL.lastPathComponent)
+        }
+        #expect(vm.lastTrainingError == nil)
+    }
+
     @Test("Training history export routes through async view-model export")
     func trainingHistoryExportUsesAsyncViewModelPath() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift")
 
-        #expect(source.contains("await vm.exportAdapter("))
+        #expect(source.contains("await vm.exportAdapter(adapter, outputURL: url)"))
         #expect(source.contains("Task {"))
         #expect(!source.contains("try exporter.export("))
+        #expect(!source.contains("url.deletingLastPathComponent()"))
     }
 }

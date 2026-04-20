@@ -19,11 +19,17 @@ nonisolated struct AdapterExporter: Sendable {
     // MARK: - Export
 
     func export(record: AdapterRecord, outputDirectory: URL) throws -> URL {
-        let fm = FileManager.default
-        try fm.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+        let bundlePath = outputDirectory
+            .appendingPathComponent(defaultBundleName(for: record))
+            .appendingPathExtension(Self.bundleExtension)
+        return try export(record: record, outputURL: bundlePath)
+    }
 
-        let bundleName = "\(record.name.replacingOccurrences(of: " ", with: "_"))_\(record.type.rawValue)"
-        let bundlePath = outputDirectory.appendingPathComponent("\(bundleName).\(Self.bundleExtension)")
+    func export(record: AdapterRecord, outputURL: URL) throws -> URL {
+        let fm = FileManager.default
+        let bundlePath = normalizedExportURL(from: outputURL)
+        let outputDirectory = bundlePath.deletingLastPathComponent()
+        try fm.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
         // Create staging directory
         let stagingDir = fm.temporaryDirectory.appendingPathComponent("kf-export-\(UUID().uuidString)")
@@ -54,6 +60,15 @@ nonisolated struct AdapterExporter: Sendable {
         try createZip(from: stagingDir, to: bundlePath)
 
         return bundlePath
+    }
+
+    private func defaultBundleName(for record: AdapterRecord) -> String {
+        "\(record.name.replacingOccurrences(of: " ", with: "_"))_\(record.type.rawValue)"
+    }
+
+    private func normalizedExportURL(from outputURL: URL) -> URL {
+        guard outputURL.pathExtension != Self.bundleExtension else { return outputURL }
+        return outputURL.deletingPathExtension().appendingPathExtension(Self.bundleExtension)
     }
 
     // MARK: - Import
@@ -92,7 +107,10 @@ nonisolated struct AdapterExporter: Sendable {
             try fm.copyItem(at: configSource, to: adapterDir.appendingPathComponent("adapter_config.json"))
         }
 
-        try metadataData.write(to: adapterDir.appendingPathComponent("training_metadata.json"))
+        try metadataData.write(
+            to: adapterDir.appendingPathComponent("training_metadata.json"),
+            options: .atomic
+        )
 
         return ImportedAdapter(
             id: adapterId,
