@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - ODIA Trace Generator
 
@@ -12,6 +13,7 @@ import Foundation
 /// - Assess: the result and whether it succeeded
 @MainActor
 final class StructuredODIATraceGenerator {
+    private static let log = Logger(subsystem: "com.epistemos.app", category: "ODIATraceGenerator")
 
     /// Generate structured ODIA training pairs from execution results.
     /// NOTE: These are raw structured traces. For the canonical chat-format
@@ -58,11 +60,22 @@ final class StructuredODIATraceGenerator {
 
     /// Convert structured traces to JSONL format.
     func toJSONL(_ traces: [StructuredODIATrace]) -> String {
-        traces.compactMap { trace in
+        var droppedCount = 0
+        var lines: [String] = []
+        lines.reserveCapacity(traces.count)
+
+        for trace in traces {
             guard let data = try? JSONEncoder().encode(trace),
-                  let line = String(data: data, encoding: .utf8) else { return nil }
-            return line
-        }.joined(separator: "\n")
+                  let line = String(data: data, encoding: .utf8) else {
+                droppedCount += 1
+                continue
+            }
+            lines.append(line)
+        }
+        if droppedCount > 0 {
+            Self.log.error("Dropped \(droppedCount) ODIA traces that failed JSON encoding")
+        }
+        return lines.joined(separator: "\n")
     }
 }
 

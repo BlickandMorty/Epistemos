@@ -364,12 +364,16 @@ struct DocumentChunkerTests {
 
 @Suite("AudioTranscriber")
 struct AudioTranscriberTests {
-
     @Test("Backend detection runs without crash")
     func backendDetection() async {
         let transcriber = AudioTranscriber()
         let backend = await transcriber.detectBackend()
-        #expect(backend == .mlxWhisper || backend == .whisperCpp || backend == .unavailable)
+        #expect(
+            backend == .appleSpeech
+                || backend == .mlxWhisper
+                || backend == .whisperCpp
+                || backend == .unavailable
+        )
     }
 
     @Test("Hesitation frequency calculation is correct")
