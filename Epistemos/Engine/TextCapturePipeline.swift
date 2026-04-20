@@ -65,6 +65,12 @@ struct GraphWriteSummary: Codable, Sendable {
     let skippedReason: String?
 }
 
+private struct UpdatedExistingGraphNode {
+    let node: SDGraphNode
+    let label: String
+    let updatedAt: Date
+}
+
 // MARK: - Capture Result
 
 /// The complete result of a text capture pipeline run.
@@ -551,6 +557,7 @@ final class TextCapturePipeline {
         let page = SDPage(title: title)
         page.summary = summary
         page.wordCount = NLAnalysisService.wordCount(cleanedText)
+        let failedPageId = page.id
 
         // Build note body with metadata
         var body = cleanedText
@@ -569,15 +576,33 @@ final class TextCapturePipeline {
         body += "\n\n<!-- capture-provenance: \(provenanceJSON) -->"
 
         page.saveBody(body)
+        page.needsVaultSync = true
+        page.updatedAt = .now
 
         // Extract tags from entities for SDPage.tags
         let entityTags = entities.map { $0.text.lowercased() }
         page.tags = Array(Set(entityTags))
 
         context.insert(page)
+        BlockMirror.sync(pageId: page.id, body: body, modelContext: context)
         do {
             try context.save()
         } catch {
+            context.delete(page)
+            let blockDescriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == failedPageId }
+            )
+            do {
+                let transientBlocks = try context.fetch(blockDescriptor)
+                for block in transientBlocks {
+                    context.delete(block)
+                }
+            } catch {
+                log.error(
+                    "TextCapturePipeline: failed to clean transient blocks for \(failedPageId, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                )
+            }
+            NoteFileStorage.deleteBody(pageId: failedPageId)
             throw TextCaptureError.persistenceFailed(error.localizedDescription)
         }
 
@@ -596,6 +621,9 @@ final class TextCapturePipeline {
     ) -> GraphWriteSummary {
         var entityNodesCreated = 0
         var edgesCreated = 0
+        var insertedNodes: [SDGraphNode] = []
+        var insertedEdges: [SDGraphEdge] = []
+        var updatedExistingNodes: [UpdatedExistingGraphNode] = []
 
         // Create note node
         let noteNode = SDGraphNode(
@@ -605,6 +633,7 @@ final class TextCapturePipeline {
             weight: 1.0
         )
         context.insert(noteNode)
+        insertedNodes.append(noteNode)
 
         // Create entity nodes and edges.
         // Deduplicates: reuses existing node if one with the same sourceId exists.
@@ -623,6 +652,13 @@ final class TextCapturePipeline {
                 entityNode = existing
                 // Update label in case casing changed
                 if existing.label != entity.text {
+                    updatedExistingNodes.append(
+                        UpdatedExistingGraphNode(
+                            node: existing,
+                            label: existing.label,
+                            updatedAt: existing.updatedAt
+                        )
+                    )
                     existing.label = entity.text
                     existing.updatedAt = .now
                 }
@@ -633,6 +669,7 @@ final class TextCapturePipeline {
                     sourceId: entitySourceId
                 )
                 context.insert(entityNode)
+                insertedNodes.append(entityNode)
                 entityNodesCreated += 1
             }
 
@@ -644,6 +681,7 @@ final class TextCapturePipeline {
                 weight: 1.0
             )
             context.insert(edge)
+            insertedEdges.append(edge)
             edgesCreated += 1
         }
 
@@ -656,6 +694,16 @@ final class TextCapturePipeline {
                 skippedReason: nil
             )
         } catch {
+            for edge in insertedEdges {
+                context.delete(edge)
+            }
+            for node in insertedNodes {
+                context.delete(node)
+            }
+            for snapshot in updatedExistingNodes {
+                snapshot.node.label = snapshot.label
+                snapshot.node.updatedAt = snapshot.updatedAt
+            }
             log.error("TextCapturePipeline: graph write failed — \(error.localizedDescription)")
             return GraphWriteSummary(
                 noteNodeCreated: false,
@@ -672,7 +720,12 @@ final class TextCapturePipeline {
         let descriptor = FetchDescriptor<SDGraphNode>(
             predicate: #Predicate<SDGraphNode> { $0.sourceId == sourceId }
         )
-        return (try? context.fetch(descriptor))?.first
+        do {
+            return try context.fetch(descriptor).first
+        } catch {
+            log.error("TextCapturePipeline: failed to fetch existing graph node for \(sourceId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     // MARK: - Audio Capture Entry Point
