@@ -22,7 +22,7 @@ struct TextCapturePipelineTests {
 
     /// Creates a minimal in-memory SwiftData container for testing.
     private func makeTestContainer() throws -> ModelContainer {
-        let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self])
+        let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [config])
     }
@@ -150,6 +150,12 @@ struct TextCapturePipelineTests {
         let pages = try context.fetch(descriptor)
         #expect(pages.count == 1)
         #expect(pages.first?.title == "Meeting notes from today")
+        #expect(pages.first?.needsVaultSync == true)
+        #expect(pages.first?.loadBody().contains("Meeting notes from today") == true)
+
+        let blocks = try context.fetch(FetchDescriptor<SDBlock>())
+        #expect(!blocks.isEmpty)
+        #expect(blocks.allSatisfy { $0.pageId == pages.first?.id })
     }
 
     // MARK: - Unicode Preservation
@@ -626,6 +632,27 @@ struct TextCapturePipelineTests {
 
         #expect(source.contains("graphState.needsRefresh = true"))
         #expect(source.contains("if graphSummary.noteNodeCreated"))
+    }
+
+    @Test("Graph node lookup logs fetch failures instead of swallowing them")
+    func graphNodeLookupLogsFetchFailures() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Engine/TextCapturePipeline.swift"
+        )
+
+        #expect(!source.contains("return (try? context.fetch(descriptor))?.first"))
+        #expect(source.contains("TextCapturePipeline: failed to fetch existing graph node"))
+    }
+
+    @Test("note persistence cleanup removes failed transient managed bodies")
+    func notePersistenceCleanupRemovesFailedTransientManagedBodies() throws {
+        let source = try loadMirroredSourceTextFile(
+            "Epistemos/Engine/TextCapturePipeline.swift"
+        )
+
+        #expect(source.contains("let failedPageId = page.id"))
+        #expect(source.contains("context.delete(page)"))
+        #expect(source.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
     }
 
     @Test("Quick Capture command opens idempotently instead of toggling closed")
