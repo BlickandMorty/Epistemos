@@ -15,6 +15,7 @@ use super::registry::ToolHandler;
 
 const MAX_RESPONSE_BYTES: usize = 512 * 1024; // 512KB
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_REDIRECT_HOPS: usize = 5;
 
 // MARK: - SSRF Protection
 
@@ -65,6 +66,22 @@ pub(crate) fn validate_url(url: &str) -> Result<(), String> {
         return Err("Access to private/internal URLs is blocked (SSRF protection).".to_string());
     }
     Ok(())
+}
+
+pub(crate) fn validate_redirect_target(url: &str) -> Result<(), String> {
+    validate_url(url)
+}
+
+pub(crate) fn secure_redirect_policy() -> reqwest::redirect::Policy {
+    reqwest::redirect::Policy::custom(|attempt| {
+        if attempt.previous().len() > MAX_REDIRECT_HOPS {
+            attempt.error(format!("too many redirects (>{MAX_REDIRECT_HOPS})"))
+        } else if let Err(reason) = validate_redirect_target(attempt.url().as_str()) {
+            attempt.error(reason)
+        } else {
+            attempt.follow()
+        }
+    })
 }
 
 // MARK: - HTML to Text
@@ -209,7 +226,7 @@ impl WebFetchTool {
         let client = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .user_agent("Epistemos/1.0 (Knowledge Assistant)")
-            .redirect(reqwest::redirect::Policy::limited(5))
+            .redirect(secure_redirect_policy())
             .build()
             .expect("failed to build HTTP client");
 
@@ -312,5 +329,17 @@ pub fn web_fetch_tool_schema() -> crate::types::ToolSchema {
             },
             "required": ["url"],
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_redirect_target_reuses_ssrf_guard() {
+        assert!(validate_redirect_target("https://example.com/docs").is_ok());
+        assert!(validate_redirect_target("http://127.0.0.1/admin").is_err());
+        assert!(validate_redirect_target("http://metadata.google/internal").is_err());
     }
 }
