@@ -562,7 +562,7 @@ enum LocalModelCatalog {
             kind: .text,
             displayName: LocalTextModelID.qwen25Coder7B.displayName,
             familyName: LocalTextModelID.qwen25Coder7B.familyName,
-            summary: "Best sub-10B coding model. Optimized for code generation, debugging, and tool calling.",
+            summary: "Legacy coder fallback for advanced testing. Requires 24 GB chat memory in practice; prefer Qwen 3 Coder Next for the validated shipping coding stack.",
             approximateDownloadBytes: 4_730_000_000,
             minimumRecommendedMemoryGB: LocalTextModelID.qwen25Coder7B.minimumRecommendedMemoryGB,
             revision: "019cc73c45c770444708a6dd8690c66243cc5c80",
@@ -880,8 +880,6 @@ enum LocalModelCatalog {
         LocalTextModelID.qwqFlagship32B4Bit.rawValue,
         // Legacy Qwen 3.6 plain 4-bit (kept for existing installs).
         LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
-        // Legacy Qwen 2.5 Coder 7B (16GB fallback).
-        LocalTextModelID.qwen25Coder7B.rawValue,
     ]
 
     nonisolated static let shippedModelIDs: [String] =
