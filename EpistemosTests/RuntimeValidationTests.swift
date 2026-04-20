@@ -1275,6 +1275,14 @@ struct RuntimeValidationTests {
         #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
     }
 
+    @Test("local mlx memory preflight uses the interactive chat memory budget")
+    func localMLXMemoryPreflightUsesInteractiveChatBudget() throws {
+        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
+
+        #expect(runtime.contains("let requiredGB = model.minimumRecommendedInteractiveMemoryGB"))
+        #expect(!runtime.contains("let requiredGB = model.minimumRecommendedMemoryGB"))
+    }
+
     @Test("local mlx streaming yields postprocessed fallback text before finishing")
     func localMLXStreamingYieldsPostprocessedFallbackTextBeforeFinishing() throws {
         let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
