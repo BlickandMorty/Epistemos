@@ -469,6 +469,16 @@ struct TriageServiceTests {
         #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason?.contains("Swift MLX loader") == true)
     }
 
+    @Test("model vault settings exclude non-release local preview tiers")
+    func modelVaultSettingsExcludeNonReleaseLocalPreviewTiers() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ModelVaultsSettingsView.swift")
+
+        #expect(source.contains("LocalModelCatalog.allDescriptors"))
+        #expect(source.contains("installedLocalTextModelIDs.contains(descriptor.id)"))
+        #expect(source.contains("LocalTextModelID(rawValue: descriptor.id)"))
+        #expect(source.contains("model.isReleaseValidatedForInteractiveChat"))
+    }
+
     @Test("Gemma 4 chat selection sanitizes to the runnable local default")
     @MainActor func gemma4ChatSelectionSanitizesToFallback() {
         let inference = makeIsolatedInferenceState()
