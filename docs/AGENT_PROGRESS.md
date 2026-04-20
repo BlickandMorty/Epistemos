@@ -335,3 +335,9 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] Task 5: openai.rs — OpenAI Chat Completions SSE provider (16 tests) (2026-03-31)
 - [x] Task 6: PTY test stabilization — environment-robust working_dir assertion (2026-03-31)
 - [x] Full verification: 449 Rust tests, 0 failures; Swift BUILD SUCCEEDED (2026-03-31)
+
+## Runtime Input Audit Continuation (2026-04-19)
+- [x] `ChatCoordinator` attachment contract now treats attached notes/files as already resolved context and explicitly forbids asking the user for a path or re-upload when `Content:` is already present (`783a9651`)
+- [x] `InferenceState` now normalizes stale/persisted Gemma 4 preview chat selections back to `qwen3_4B4Bit` on both selection and state load, closing the remaining Gemma leak into live chat state (`ac37571e`)
+- [x] `AssistantToolbarAskBar`, `NoteDetailWorkspaceView`, `MiniChatView`, and `CommandBarView` now surface explicit `Loading <model>…` affordances before first visible token so cold local loads no longer read as silent freezes outside main chat (`43092ae5`)
+- [ ] Still needs live launched-app verification: `qwen25Coder7B` cold-load UX, direct-cloud and Rust-agent thinking separation, and any remaining crash repros
