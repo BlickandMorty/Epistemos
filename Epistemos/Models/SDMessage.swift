@@ -133,12 +133,14 @@ final class SDMessage {
             return
         }
         do {
-            self.contentBlocksData = try JSONEncoder().encode(blocks)
+            let encoded = try JSONEncoder().encode(blocks)
+            self.contentBlocksData = encoded
             // Keep content in sync as joined text for backward compatibility
             self.content = blocks.joinedText
         } catch {
             Log.db.error("Failed to encode [MessageContentBlock] for message \(self.id): \(error.localizedDescription)")
             self.contentBlocksData = nil
+            self.content = blocks.joinedText
         }
     }
 
@@ -160,7 +162,8 @@ final class SDMessage {
             return
         }
         do {
-            self.artifactsData = try JSONEncoder().encode(artifacts)
+            let encoded = try JSONEncoder().encode(artifacts)
+            self.artifactsData = encoded
         } catch {
             Log.db.error("Failed to encode [Artifact] for message \(self.id): \(error.localizedDescription)")
             self.artifactsData = nil
@@ -181,8 +184,10 @@ final class SDMessage {
 
         if let dualMessage {
             do {
-                self.dualMessageData = try JSONEncoder().encode(dualMessage)
+                let encoded = try JSONEncoder().encode(dualMessage)
+                self.dualMessageData = encoded
             } catch {
+                Log.db.error("Failed to encode DualMessage for message \(self.id): \(error.localizedDescription)")
                 self.dualMessageData = nil
             }
         } else {
@@ -191,8 +196,10 @@ final class SDMessage {
 
         if let truthAssessment {
             do {
-                self.truthAssessmentData = try JSONEncoder().encode(truthAssessment)
+                let encoded = try JSONEncoder().encode(truthAssessment)
+                self.truthAssessmentData = encoded
             } catch {
+                Log.db.error("Failed to encode TruthAssessment for message \(self.id): \(error.localizedDescription)")
                 self.truthAssessmentData = nil
             }
         } else {
@@ -207,19 +214,22 @@ final class SDMessage {
         contextAttachments: [ContextAttachment]?
     ) {
         do {
-            attachmentsData = try JSONEncoder().encode(attachments)
+            let encoded = try JSONEncoder().encode(attachments)
+            attachmentsData = encoded
         } catch {
             Log.db.error("Failed to encode [FileAttachment] for message \(self.id): \(error.localizedDescription)")
             attachmentsData = nil
         }
         do {
-            loadedNoteTitlesData = try JSONEncoder().encode(loadedNoteTitles ?? [])
+            let encoded = try JSONEncoder().encode(loadedNoteTitles ?? [])
+            loadedNoteTitlesData = encoded
         } catch {
             Log.db.error("Failed to encode loadedNoteTitles for message \(self.id): \(error.localizedDescription)")
             loadedNoteTitlesData = nil
         }
         do {
-            contextAttachmentsData = try JSONEncoder().encode(contextAttachments ?? [])
+            let encoded = try JSONEncoder().encode(contextAttachments ?? [])
+            contextAttachmentsData = encoded
         } catch {
             Log.db.error("Failed to encode [ContextAttachment] for message \(self.id): \(error.localizedDescription)")
             contextAttachmentsData = nil
