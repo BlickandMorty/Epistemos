@@ -105,6 +105,14 @@ struct MiniChatViewAuditTests {
         #expect(coordinatorSource.contains("pipelineService.cancelActiveRun()"))
     }
 
+    @Test("mini chat shows an explicit loading-model label before first visible token")
+    func miniChatShowsExplicitLoadingModelLabel() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains("@Environment(InferenceState.self) private var inference"))
+        #expect(miniChatSource.contains("analyzingText: \"Loading \\(inference.activeChatModelDisplayName)…\""))
+    }
+
     @Test("mini chat hides the retired agent handoff instead of routing into Omega")
     func miniChatHidesRetiredAgentHandoff() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")

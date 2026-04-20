@@ -23,6 +23,20 @@ struct CommandBarView: View {
     private var composerIsActive: Bool {
         isInputFocused || !accState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || agentChat.isStreaming
     }
+    private var isLoadingModel: Bool {
+        guard agentChat.isStreaming, !agentChat.isAgentExecuting, agentChat.activeToolName == nil else {
+            return false
+        }
+        let visibleText = UserFacingModelOutput
+            .streamingVisibleText(from: agentChat.streamingText)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return visibleText.isEmpty
+            && agentChat.streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+    private var activeBrainLoadingLabel: String {
+        let displayName = accState.selectedBrain?.displayName ?? "model"
+        return "Loading \(displayName)…"
+    }
     private var haloStyle: AssistantComposerHaloStyle? {
         AssistantComposerHaloStyle.resolve(
             for: agentChat.isAgentExecuting ? .analyzing : (agentChat.isStreaming ? .typing : .idle)
@@ -43,7 +57,7 @@ struct CommandBarView: View {
                 Spacer(minLength: 0)
 
                 if agentChat.isStreaming {
-                    Text("Running")
+                    Text(isLoadingModel ? activeBrainLoadingLabel : "Running")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(theme.resolved.accent.color)
                         .padding(.horizontal, 8)
