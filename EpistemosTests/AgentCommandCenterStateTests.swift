@@ -193,8 +193,16 @@ struct AgentCommandCenterStateTests {
             supportsTools: true
         )
 
-        #expect(state.availableOperatingModes == [.fast, .agent])
-        #expect(state.selectedOperatingMode == .fast)
+        #expect(state.availableOperatingModes == [.agent])
+        #expect(state.selectedOperatingMode == .agent)
+    }
+
+    @Test func alwaysThinkingBrainsHideFastInCommandCenter() {
+        let deepseek = Self.makeLocalBrain(.deepseekR1Distill7B)
+        let qwenCoder = Self.makeLocalBrain(.qwen25Coder7B)
+
+        #expect(deepseek.supportedOperatingModes == [.thinking, .agent])
+        #expect(qwenCoder.supportedOperatingModes == [.agent])
     }
 
     @Test func refreshToolCatalogUsesCurrentOperatingMode() {
@@ -259,7 +267,7 @@ struct AgentCommandCenterStateTests {
         #expect(state.toolToggles["web_search"] == nil)
     }
 
-    @Test func applyingCodeSpecialistPrefersCoderBrainAndFocusedToolBundle() {
+    @Test func applyingCodeSpecialistPrefersNextBestLocalBrainAndFocusedToolBundle() {
         let defaults = Self.makeDefaults()
         let fastTools = [
             Self.makeTool(name: "vault_search"),
@@ -289,6 +297,7 @@ struct AgentCommandCenterStateTests {
         state.availableBrains = [
             Self.makeLocalBrain(.gemma4_4B4Bit),
             Self.makeLocalBrain(.qwen25Coder7B),
+            Self.makeLocalBrain(.qwen36_35BA3B4Bit),
             .cloud(provider: .openAI),
         ]
 
@@ -297,7 +306,7 @@ struct AgentCommandCenterStateTests {
 
         #expect(state.activeSpecialistPreset == .code)
         #expect(state.selectedOperatingMode == .agent)
-        #expect(state.selectedBrain?.id == "local:\(LocalTextModelID.qwen25Coder7B.rawValue)")
+        #expect(state.selectedBrain?.id == "local:\(LocalTextModelID.qwen36_35BA3B4Bit.rawValue)")
         #expect(
             state.enabledToolNames == Set([
                 "vault_search",
