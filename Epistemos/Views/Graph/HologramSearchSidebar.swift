@@ -694,6 +694,7 @@ struct HologramSearchSidebar: View {
         let displayText = message.role == .assistant
             ? UserFacingModelOutput.finalVisibleText(from: message.text)
             : message.text
+        let thinkingTrace = graphChatThinkingTrace(for: message)
 
         if message.role == .user {
             return AnyView(
@@ -724,10 +725,34 @@ struct HologramSearchSidebar: View {
                         TaggedMarkdownTextView(content: displayText, theme: theme)
                             .textSelection(.enabled)
                     }
+
+                    if let thinkingTrace {
+                        ThinkingTrailView(
+                            content: thinkingTrace.content,
+                            durationSeconds: thinkingTrace.duration
+                        )
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         )
+    }
+
+    private func graphChatThinkingTrace(for message: InspectorChatMessage) -> (content: String, duration: Double?)? {
+        let persistedTrace = message.thinkingTrace?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !persistedTrace.isEmpty {
+            return (persistedTrace, message.thinkingDurationSeconds)
+        }
+
+        let isActiveStreamingAssistant = inspectorState.isChatStreaming
+            && message.role == .assistant
+            && message.id == inspectorState.chatMessages.last?.id
+        guard isActiveStreamingAssistant else { return nil }
+
+        let streamingTrace = inspectorState.currentChatStreamingThinking
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !streamingTrace.isEmpty else { return nil }
+        return (streamingTrace, nil)
     }
 
     private func sendGraphChatMessage() {

@@ -41,6 +41,7 @@ final class NodeInspectorState {
     var chatInput: String = ""
     var isChatStreaming: Bool = false
     var chatScope: ChatScope = .node
+    var currentChatStreamingThinking: String { chatStreamingThinking }
 
     enum ChatScope: String, CaseIterable {
         case node = "Node"
@@ -54,6 +55,9 @@ final class NodeInspectorState {
     private var summaryCache: [String: String] = [:]
     private var profileCache: [ProfileCacheKey: DialogueNodeProfile] = [:]
     private var revealTask: Task<Void, Never>?
+    private var chatStreamingThinking = ""
+    private var chatThinkingStartedAt: Date?
+    private var chatThinkingEndedAt: Date?
 
     // MARK: - Node Selection
 
@@ -68,6 +72,7 @@ final class NodeInspectorState {
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
+        resetChatThinkingState()
         inspectorMode = .profile
         summaryTask?.cancel()
         summaryTask = nil
@@ -294,6 +299,7 @@ final class NodeInspectorState {
         chatMessages = []
         chatInput = ""
         isChatStreaming = false
+        resetChatThinkingState()
         inspectorMode = .profile
     }
 
@@ -620,7 +626,11 @@ final class NodeInspectorState {
 
     // MARK: - Chat
 
-    func sendMessage(store: GraphStore, modelContext: ModelContext) {
+    func sendMessage(
+        store: GraphStore,
+        modelContext: ModelContext,
+        operatingMode: EpistemosOperatingMode = .fast
+    ) {
         let query = chatInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty, !isChatStreaming else { return }
 
@@ -628,6 +638,7 @@ final class NodeInspectorState {
         chatMessages.append(InspectorChatMessage(role: .user, text: query))
         chatMessages.append(InspectorChatMessage(role: .assistant, text: ""))
         isChatStreaming = true
+        resetChatThinkingState()
 
         chatTask?.cancel()
         chatTask = Task {
@@ -644,7 +655,12 @@ final class NodeInspectorState {
                 prompt: context,
                 systemPrompt: nil,
                 operation: .chatResponse(query: query),
-                contentLength: context.count
+                contentLength: context.count,
+                operatingMode: operatingMode,
+                localSurface: .graph,
+                reasoningSink: { [weak self] delta in
+                    self?.appendStreamingThinking(delta)
+                }
             )
 
             do {
@@ -655,15 +671,17 @@ final class NodeInspectorState {
             } catch {
                 guard !Task.isCancelled else { return }
                 if chatMessages.last?.text.isEmpty == true {
-                    appendToLastAssistant("Failed to get response: \(error.localizedDescription)")
+                    appendToLastAssistant(UserFacingChatError.message(from: error))
                 }
             }
+            finalizeLastAssistantThinkingTrace()
         }
     }
 
     func stopChat() {
         chatTask?.cancel()
         chatTask = nil
+        finalizeLastAssistantThinkingTrace()
         isChatStreaming = false
     }
 
@@ -671,6 +689,35 @@ final class NodeInspectorState {
         guard let lastIndex = chatMessages.indices.last,
               chatMessages[lastIndex].role == .assistant else { return }
         chatMessages[lastIndex].text += text
+    }
+
+    private func appendStreamingThinking(_ text: String) {
+        guard !text.isEmpty else { return }
+        if chatThinkingStartedAt == nil {
+            chatThinkingStartedAt = .now
+            chatStreamingThinking.removeAll(keepingCapacity: true)
+        }
+        chatStreamingThinking.append(text)
+        chatThinkingEndedAt = .now
+    }
+
+    private func resetChatThinkingState() {
+        chatStreamingThinking.removeAll(keepingCapacity: false)
+        chatThinkingStartedAt = nil
+        chatThinkingEndedAt = nil
+    }
+
+    private func finalizeLastAssistantThinkingTrace() {
+        let trimmedThinking = chatStreamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        defer { resetChatThinkingState() }
+        guard !trimmedThinking.isEmpty else { return }
+        guard let lastIndex = chatMessages.indices.last,
+              chatMessages[lastIndex].role == .assistant else { return }
+        chatMessages[lastIndex].thinkingTrace = trimmedThinking
+        if let startedAt = chatThinkingStartedAt {
+            let endedAt = chatThinkingEndedAt ?? .now
+            chatMessages[lastIndex].thinkingDurationSeconds = max(0, endedAt.timeIntervalSince(startedAt))
+        }
     }
 
     private func buildChatContext(query: String, store: GraphStore, modelContext: ModelContext) async -> String {
@@ -691,6 +738,8 @@ struct InspectorChatMessage: Identifiable {
     let id = UUID()
     let role: Role
     var text: String
+    var thinkingTrace: String?
+    var thinkingDurationSeconds: Double?
 
     enum Role { case user, assistant }
 }

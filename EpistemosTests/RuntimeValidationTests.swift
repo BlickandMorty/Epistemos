@@ -1914,6 +1914,18 @@ struct RuntimeValidationTests {
         #expect(messageBubble.contains("struct AssistantTranscriptChrome"))
     }
 
+    @Test("graph chat preserves reasoning traces separately from assistant text")
+    func graphChatPreservesReasoningTracesSeparately() throws {
+        let sidebar = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
+
+        #expect(inspectorState.contains("var thinkingTrace: String?"))
+        #expect(inspectorState.contains("var thinkingDurationSeconds: Double?"))
+        #expect(inspectorState.contains("reasoningSink: { [weak self] delta in"))
+        #expect(sidebar.contains("ThinkingTrailView("))
+        #expect(sidebar.contains("message.thinkingTrace"))
+    }
+
     @Test("graph node inspector keeps summary generation off the immediate selection turn")
     func graphNodeInspectorKeepsSummaryGenerationOffImmediateSelectionTurn() throws {
         let inspectorState = try loadRepoTextFile("Epistemos/Views/Graph/NodeInspectorState.swift")
