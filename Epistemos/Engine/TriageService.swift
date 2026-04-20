@@ -216,6 +216,7 @@ nonisolated struct InferencePolicyEngine {
             context: context,
             localSelection: localSelection.selection,
             complexityTier: complexityTier,
+            contextTier: contextTier,
             reasonCodes: &reasonCodes
         ) {
             return InferenceRouteDecision(
@@ -479,11 +480,23 @@ nonisolated struct InferencePolicyEngine {
         context: InferencePolicyContext,
         localSelection: LocalModelSelection?,
         complexityTier: InferenceComplexityTier,
+        contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> Bool {
         guard context.cloudAutoRouteEnabled,
               context.hasConfiguredCloudModels else {
             return false
+        }
+
+        // Large attached folders / multi-note context swamp 4B/7B local
+        // KV caches and make even Fast turns degrade (hallucinations,
+        // truncated answers, swap pressure). When context is .large or
+        // .oversized, escalate to cloud even if a local model is
+        // otherwise available — cloud providers handle 100K+ tokens
+        // comfortably while a 4B local model chokes well before that.
+        if contextTier == .large || contextTier == .oversized {
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
         }
 
         switch profile.operatingMode {

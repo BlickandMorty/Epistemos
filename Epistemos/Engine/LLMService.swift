@@ -2471,7 +2471,11 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         case .off:
             return OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
         case .low:
-            return OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+            return OpenAIResponseControls(
+                reasoningEffort: "low",
+                verbosity: "low",
+                reasoningSummary: "auto"
+            )
         case .high:
             return OpenAIResponseControls(
                 reasoningEffort: "high",
@@ -2496,35 +2500,72 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             break  // fall through to per-mode defaults
         }
 
+        // `reasoningSummary: "auto"` / "detailed" must be set whenever
+        // the model will actually spend tokens reasoning — otherwise the
+        // Responses API keeps the reasoning private and the only events
+        // coming back are `response.output_text.delta`. The UI then has
+        // an empty thinking lane which gets backfilled from the output
+        // stream, giving users the "Thought for 2s" with the reasoning
+        // panel showing a copy of the final answer. `.fast` stays off
+        // because `reasoningEffort: "none"` doesn't produce summaries
+        // anyway.
         return switch model {
         case .openAIGPT54, .openAIGPT52:
             switch operatingMode {
             case .fast:
                 OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
             case .thinking:
-                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "medium")
+                OpenAIResponseControls(
+                    reasoningEffort: "medium",
+                    verbosity: "medium",
+                    reasoningSummary: "auto"
+                )
             case .pro:
-                OpenAIResponseControls(reasoningEffort: "high", verbosity: "medium")
+                OpenAIResponseControls(
+                    reasoningEffort: "high",
+                    verbosity: "medium",
+                    reasoningSummary: "auto"
+                )
             case .agent:
-                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "low")
+                OpenAIResponseControls(
+                    reasoningEffort: "medium",
+                    verbosity: "low",
+                    reasoningSummary: "auto"
+                )
             }
         case .openAIGPT54Mini:
             switch operatingMode {
             case .fast:
                 OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
             case .thinking:
-                OpenAIResponseControls(reasoningEffort: "low", verbosity: "medium")
+                OpenAIResponseControls(
+                    reasoningEffort: "low",
+                    verbosity: "medium",
+                    reasoningSummary: "auto"
+                )
             case .pro:
-                OpenAIResponseControls(reasoningEffort: "medium", verbosity: "medium")
+                OpenAIResponseControls(
+                    reasoningEffort: "medium",
+                    verbosity: "medium",
+                    reasoningSummary: "auto"
+                )
             case .agent:
-                OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+                OpenAIResponseControls(
+                    reasoningEffort: "low",
+                    verbosity: "low",
+                    reasoningSummary: "auto"
+                )
             }
         case .openAIGPT54Nano:
             switch operatingMode {
             case .fast:
                 OpenAIResponseControls(reasoningEffort: "none", verbosity: "low")
             case .thinking, .pro, .agent:
-                OpenAIResponseControls(reasoningEffort: "low", verbosity: "low")
+                OpenAIResponseControls(
+                    reasoningEffort: "low",
+                    verbosity: "low",
+                    reasoningSummary: "auto"
+                )
             }
         default:
             nil
