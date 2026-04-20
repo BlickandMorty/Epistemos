@@ -519,7 +519,7 @@ struct ThemePairTests {
 
         #expect(landingView.contains("private var landingBackdrop: some View"))
         #expect(landingView.contains("Color.black"))
-        #expect(landingView.contains("if theme.isDark"))
+        #expect(landingView.contains("theme.isDark ?"))
         #expect(landingView.contains("darkModeLandingBackdrop"))
         #expect(landingView.contains(".blur(radius: 90)"))
     }
@@ -807,7 +807,7 @@ struct ThemePairTests {
         #expect(rootView.contains("ASCIIRippleText("))
         #expect(rootView.contains("AnchoredPopoverButton("))
         #expect(rootView.contains("inference.setPreferredChatModelSelection(.localMLX(model.id))"))
-        #expect(rootView.contains("Button(\"Open Inference Settings\")"))
+        #expect(rootView.contains("Button(\"Open Settings\")"))
         #expect(!rootView.contains("Picker(\"Routing\", selection: routingBinding)"))
         #expect(!rootView.contains("InferenceControlPopoverButton"))
 
@@ -819,7 +819,8 @@ struct ThemePairTests {
         // Standalone composer surfaces retain the menu.
         #expect(miniChat.contains("LocalModelToolbarMenu("))
         #expect(miniChat.contains("variant: .toolbar"))
-        #expect(noteWorkspace.contains("LocalModelToolbarMenu(variant: .toolbar)"))
+        #expect(noteWorkspace.contains("LocalModelToolbarMenu("))
+        #expect(noteWorkspace.contains("variant: .toolbar"))
         #expect(miniChat.contains("threadState.ensureMiniChatSession(id: chatID)"))
         #expect(miniChat.contains("threadState.upsertMiniChatSession("))
         #expect(!noteWorkspace.contains("Label(\"Local Only\""))
@@ -1104,7 +1105,7 @@ struct ThemePairTests {
     @Test("Icon composer package keeps the current asset bundle")
     func iconComposerKeepsCurrentAssetBundle() throws {
         let assetNames = try FileManager.default.contentsOfDirectory(
-            atPath: repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/Assets").path
+            atPath: sourceMirrorURL(for: "Epistemos/AppIcon.icon/Assets").path
         )
         #expect(assetNames.count == 4)
         #expect(assetNames.contains("Gemini Generated Image 5.png"))
@@ -1125,7 +1126,7 @@ struct ThemePairTests {
     @Test("Project uses AppIcon.icon as the primary app icon source")
     func projectUsesIconComposerFile() throws {
         let pbxproj = try loadProjectFile()
-        let iconComposer = repoRootURL().appendingPathComponent("Epistemos/AppIcon.icon/icon.json")
+        let iconComposer = try sourceMirrorURL(for: "Epistemos/AppIcon.icon/icon.json")
 
         #expect(FileManager.default.fileExists(atPath: iconComposer.path))
         #expect(pbxproj.contains("PBXFileSystemSynchronizedRootGroup"))
@@ -1133,8 +1134,8 @@ struct ThemePairTests {
     }
 
     @Test("Assets catalog no longer keeps the stale AppIcon appiconset payload")
-    func assetsCatalogDropsStaleAppIconSet() {
-        let staleAppIconSet = repoRootURL().appendingPathComponent("Epistemos/Assets.xcassets/AppIcon.appiconset")
+    func assetsCatalogDropsStaleAppIconSet() throws {
+        let staleAppIconSet = try sourceMirrorURL(for: "Epistemos/Assets.xcassets/AppIcon.appiconset")
         #expect(!FileManager.default.fileExists(atPath: staleAppIconSet.path))
     }
 
@@ -1146,11 +1147,11 @@ struct ThemePairTests {
         #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core\";"))
         #expect(pbxproj.contains("\"@executable_path\","))
         #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
-        #expect(!pbxproj.contains(#"""
+        #expect(pbxproj.contains(#"""
 LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
+					"@executable_path",
 					"@executable_path/../Frameworks",
-					"$(PROJECT_DIR)/build-rust",
+					"@loader_path/../Frameworks",
 				);
 """#))
     }
@@ -1276,6 +1277,20 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!settingsView.contains("Cursor Animation"))
     }
 
+    @Test("landing settings re-expose quick capture and Siri shortcut guidance")
+    func landingSettingsReExposeQuickCaptureAndSiriGuidance() throws {
+        let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let landingView = try loadTextFile("Epistemos/Views/Landing/LandingView.swift")
+
+        #expect(settingsView.contains("Quick Capture & Siri"))
+        #expect(settingsView.contains("Open Quick Capture"))
+        #expect(settingsView.contains("Refresh Siri Shortcuts"))
+        #expect(settingsView.contains("Open Shortcuts"))
+        #expect(settingsView.contains("Microphone access"))
+        #expect(landingView.contains("Quick Capture"))
+        #expect(landingView.contains("showQuickCapture"))
+    }
+
     @Test("settings view exposes a native sidebar toggle in the toolbar")
     func settingsViewExposesSidebarToggle() throws {
         let settingsView = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -1344,7 +1359,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!noteSidebar.contains("await localVoice.toggleSpeak("))
     }
 
-    @Test("inference settings focus on qwen local routing without voice residue")
+    @Test("inference settings focus on the curated local routing stack without voice residue")
     func inferenceSettingsRefocusOnQwenRouting() throws {
         let settings = try loadTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let inferenceState = try loadTextFile("Epistemos/State/InferenceState.swift")
@@ -1356,6 +1371,7 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!settings.contains("Automatic Model Selection"))
         #expect(!settings.contains("Local Response Mode"))
         #expect(inferenceState.contains("Qwen 3.5"))
+        #expect(inferenceState.contains("Qwen 3.6"))
         #expect(inferenceState.contains("Local Only"))
         #expect(!environment.contains("localSidecarState"))
         #expect(!inferenceState.contains("Cloud Only"))
@@ -1363,7 +1379,10 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!settings.contains("Voice Playback"))
         #expect(!settings.contains("Auto-download core local pack"))
         #expect(!settings.contains("Chatterbox"))
-        #expect(!settings.contains("Gemma"))
+        #expect(settings.contains("Recommended Baseline"))
+        #expect(inferenceState.contains("Gemma 4 E4B"))
+        #expect(settings.contains("DeepSeek R1 7B"))
+        #expect(settings.contains("Qwen 2.5 Coder 7B"))
     }
 
     @Test("UIState source keeps the typewriter toggle and drops liquid greeting state")
@@ -1466,12 +1485,64 @@ LD_RUNPATH_SEARCH_PATHS = (
         #expect(!chatTypes.contains("var useLocal: Bool"))
     }
 
-    @Test("bundle plist drops unused speech permission prompts")
-    func bundlePlistDropsUnusedSpeechPermissionPrompt() throws {
+    @Test("bundle plist keeps speech recognition and microphone prompts for shipped voice input")
+    func bundlePlistKeepsRequiredVoicePermissionPrompts() throws {
         let plist = try loadBundlePlist()
 
-        #expect(plist["NSSpeechRecognitionUsageDescription"] == nil)
+        #expect(plist["NSSpeechRecognitionUsageDescription"] != nil)
         #expect(plist["NSMicrophoneUsageDescription"] != nil)
+    }
+
+    @Test("iMessage driver settings include native permission doctor actions")
+    func iMessageDriverSettingsExposePermissionDoctor() throws {
+        let source = try loadTextFile("Epistemos/Views/Settings/IMessageDriverSettingsView.swift")
+
+        #expect(source.contains("Permission Doctor"))
+        #expect(source.contains("Open Full Disk Access"))
+        #expect(source.contains("Open Automation Settings"))
+        #expect(source.contains("Run Native Setup"))
+        #expect(source.contains("Refresh setup status"))
+        #expect(source.contains("Messages database accessible"))
+        #expect(source.contains("Messages automation ready"))
+        #expect(source.contains("Messages app available"))
+    }
+
+    @Test("iMessage native setup doctor uses a real sqlite probe and Messages automation target")
+    func iMessageNativeSetupDoctorUsesExactNativeChecks() throws {
+        let source = try loadTextFile("Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift")
+
+        #expect(source.contains("import SQLite3"))
+        #expect(source.contains("sqlite3_open_v2"))
+        #expect(source.contains("sqlite3_prepare_v2"))
+        #expect(source.contains("com.apple.MobileSMS"))
+        #expect(source.contains("runGuidedSetup"))
+    }
+
+    @Test("iMessage setup surfaces the active app copy and relaunch guidance")
+    func iMessageSetupSurfacesActiveAppCopyAndRelaunchGuidance() throws {
+        let doctor = try loadTextFile("Epistemos/Omega/iMessageDriver/IMessageNativeSetupDoctor.swift")
+        let settings = try loadTextFile("Epistemos/Views/Settings/IMessageDriverSettingsView.swift")
+        let channels = try loadTextFile("Epistemos/Views/Settings/ChannelsSettingsView.swift")
+
+        #expect(doctor.contains("currentAppPath"))
+        #expect(doctor.contains("runningEpistemosAppPaths"))
+        #expect(doctor.contains("relaunchCurrentApp"))
+        #expect(settings.contains("Reveal This Epistemos"))
+        #expect(settings.contains("Relaunch Epistemos"))
+        #expect(settings.contains("Current Epistemos build"))
+        #expect(settings.contains("Another Epistemos copy is also running"))
+        #expect(channels.contains("Reveal This Epistemos"))
+        #expect(channels.contains("Relaunch Epistemos"))
+    }
+
+    @Test("channels settings surface guided native setup for iMessage")
+    func channelsSettingsSurfaceGuidedNativeSetup() throws {
+        let source = try loadTextFile("Epistemos/Views/Settings/ChannelsSettingsView.swift")
+
+        #expect(source.contains("Run Native Setup"))
+        #expect(source.contains("Messages database accessible"))
+        #expect(source.contains("Messages automation ready"))
+        #expect(source.contains("openIMessageSettings()"))
     }
 
     @Test("mini chat quick actions no longer use hidden system prompts")
@@ -1567,10 +1638,5 @@ LD_RUNPATH_SEARCH_PATHS = (
 
     private func loadTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
-    }
-
-    private func repoRootURL() -> URL {
-        let testsFileURL = URL(fileURLWithPath: #filePath)
-        return testsFileURL.deletingLastPathComponent().deletingLastPathComponent()
     }
 }
