@@ -865,3 +865,53 @@ Two more cleanup batches landed after §23:
 - `qwen25Coder7B` still needs launched-app verification in ACC and the main surfaces; the picker contract is now correct, but live cold-load UX still needs confirmation.
 - The agent OpenAI/Codex tool-call path still deserves an end-to-end runtime check to ensure structured tool calls never fall back to raw JSON text in the transcript.
 - The remaining big functional gaps are still the same: native PDF upload, batch queue, and any unreproduced crash path.
+
+## 25 · April 19 late-night continuation — qwen coder demotion + agent thinking routing
+
+Four more tightly-scoped runtime batches landed after §24:
+
+| SHA | What |
+|-----|------|
+| [b19a768e](commits/b19a768e) | OpenAI-compatible chat requests now always send a real `max_tokens` budget. When callers leave it at `0`, Epistemos resolves a 4096-token fallback instead of omitting the field and letting compatible providers run unbounded. |
+| [1563ad8d](commits/1563ad8d) | Local-model UX now separates `This Mac`, `Chat Memory`, and `Model Files` for `qwen25Coder7B`, and the coder tier uses a stricter 24 GB interactive floor so the app stops implying a ~4.7 GB model file means safe 20 GB live chat residency. |
+| [b587dda4](commits/b587dda4) | `qwen25Coder7B` is demoted out of the shipping optional baseline and hidden from the release chat picker until its freeze path is live-verified. Release fallback now stays on validated tiers like `qwen3_4B4Bit` / `qwen3CoderNext4Bit`. |
+| [6f9d863c](commits/6f9d863c) | Agent chat now mirrors main-chat reasoning separation: inline `<think>…</think>` blocks route into `streamingThinking`, the live agent bubble mounts `ThinkingPopoverView`, and finalized agent turns persist `thinkingTrace` + duration so the thought trail stays clickable after completion. |
+
+### 25A · What these batches close
+
+- OpenAI-compatible provider calls that could appear to “think forever” because the request omitted `max_tokens`
+- user confusion around `qwen25Coder7B` showing a ~4.7 GB download but then demanding much more interactive memory to run
+- the app continuing to recommend / expose the freeze-prone legacy coder tier like a normal release-ready local model
+- agent turns still leaking inline `<think>` text into the visible response stream with no dedicated reasoning popover
+
+### 25B · Verification
+
+- `b19a768e`:
+  - focused `xcodebuild` run for `CloudStreamingParserTests`
+  - first attempt failed only because disk space ran out on a fresh `/tmp` DerivedData path
+  - rerun on warmed default DerivedData exited `0`
+- `1563ad8d`:
+  - focused `xcodebuild` run for:
+    - `LocalModelInfrastructureTests/qwenCoderUsesStricterInteractiveMemoryFloor`
+    - `ChatPresentationTests/localModelUISeparatesChatMemoryFromFileSizeAndHardware`
+    - the already-touched picker simplification guards
+  - exited `0`
+- `b587dda4`:
+  - focused `xcodebuild` run for:
+    - `LocalModelInfrastructureTests/catalogExposesCuratedBaselineInstallStack`
+    - `LocalModelInfrastructureTests/releasePickerHidesQwenCoderUntilFreezePathIsValidated`
+    - `LocalModelInfrastructureTests/qwenCoderUsesStricterInteractiveMemoryFloor`
+  - exited `0`
+- `6f9d863c`:
+  - focused `xcodebuild` run for:
+    - `AgentChatStateTests/appendStreamingThinkingActivatesPopover`
+    - `AgentChatStateTests/inlineThinkTagsRouteIntoThinkingStream`
+    - `AgentChatStateTests/completeProcessingPersistsCapturedThinking`
+    - `AgentChatStateTests/completeProcessingAttachesResolvedModelLabel`
+  - exited `0`
+
+### 25C · Residual open items after these batches
+
+- There is still no fresh `.ips` crash log proving the user’s latest `qwen25Coder7B` failure was a hard OOM rather than a perceived freeze or stale build; launched-app verification is still required.
+- Main chat and agent chat now have dedicated reasoning routing, but note chat and mini chat still deserve a focused pass if the user can still reproduce “thinking typed in the main text, then disappeared” there.
+- Native PDF upload, batch queue, and any remaining unreproduced crash path remain open.
