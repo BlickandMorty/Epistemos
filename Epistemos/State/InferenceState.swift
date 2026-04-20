@@ -425,7 +425,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var isReleaseValidatedForInteractiveChat: Bool {
         switch self {
-        case .qwen35_4B4Bit, .qwen35_9B4Bit:
+        case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen25Coder7B:
             false
         // Gemma 4 ships in the catalog (weights download correctly) but
         // the mlx-swift-lm Swift loader for `model_type: gemma4` isn't
@@ -476,6 +476,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             return "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
         case .qwen35_9B4Bit:
             return "Hidden from the release chat picker after the April 8 live sweep failed long-context grounding."
+        case .qwen25Coder7B:
+            return "Hidden from the release chat picker until the cold-load freeze path is fully verified. Qwen 3 Coder Next is the validated shipping coder tier."
         default:
             return nil
         }

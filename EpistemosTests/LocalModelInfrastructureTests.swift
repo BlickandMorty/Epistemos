@@ -119,7 +119,6 @@ struct LocalModelInfrastructureTests {
             LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
             LocalTextModelID.qwqFlagship32B4Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
-            LocalTextModelID.qwen25Coder7B.rawValue,
         ]))
         #expect(experimentalIDs.isEmpty)
         #expect(advancedIDs.isEmpty)
@@ -315,6 +314,26 @@ struct LocalModelInfrastructureTests {
         #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
         #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
         #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen35_2B4Bit.displayName)
+    }
+
+    @MainActor
+    @Test("release picker hides qwen coder until the freeze path is validated")
+    func releasePickerHidesQwenCoderUntilFreezePathIsValidated() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen25Coder7B.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen25Coder7B.rawValue)
+
+        #expect(
+            inference.releaseSelectableInstalledLocalTextModelIDs
+                == [LocalTextModelID.qwen3_4B4Bit.rawValue]
+        )
+        #expect(inference.releaseHiddenInstalledLocalTextModelCount == 1)
+        #expect(inference.preferredLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.activeChatModelDisplayName == LocalTextModelID.qwen3_4B4Bit.displayName)
     }
 
     @MainActor
@@ -667,9 +686,72 @@ struct LocalModelInfrastructureTests {
                 LocalTextModelID.qwen36_35BA3B_DWQ4Bit.rawValue,
                 LocalTextModelID.qwqFlagship32B4Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B4Bit.rawValue,
-                LocalTextModelID.qwen25Coder7B.rawValue,
             ]
         )
+        #expect(manager.legacyInstalledDescriptors.map(\.id) == [LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+    }
+
+    @MainActor
+    @Test("legacy installed list hides Gemma preview tiers that still lack a runtime loader")
+    func legacyInstalledListHidesGemmaPreviewTiersAwaitingLoader() throws {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        let paths = makeTemporaryRoot()
+        try paths.ensureBaseDirectories()
+
+        let legacyDescriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        )
+        let gemmaDescriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue)
+        )
+
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: legacyDescriptor),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: gemmaDescriptor),
+            withIntermediateDirectories: true
+        )
+
+        let manifest = LocalModelInstallManifest(
+            records: [
+                LocalModelInstallRecord(
+                    modelID: legacyDescriptor.id,
+                    kind: legacyDescriptor.kind,
+                    activeDirectoryPath: paths.activeDirectory(for: legacyDescriptor).path,
+                    revision: legacyDescriptor.revision,
+                    installedAt: Date(),
+                    sizeBytes: 1_024
+                ),
+                LocalModelInstallRecord(
+                    modelID: gemmaDescriptor.id,
+                    kind: gemmaDescriptor.kind,
+                    activeDirectoryPath: paths.activeDirectory(for: gemmaDescriptor).path,
+                    revision: gemmaDescriptor.revision,
+                    installedAt: Date(),
+                    sizeBytes: 2_048
+                ),
+            ]
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode(manifest).write(to: paths.manifestURL, options: .atomic)
+
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: paths,
+            installer: FakeLocalModelInstaller()
+        )
+
         #expect(manager.legacyInstalledDescriptors.map(\.id) == [LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
     }
 
