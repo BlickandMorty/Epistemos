@@ -32,11 +32,20 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         let activeDirectory = paths.activeDirectory(for: descriptor)
         let cache = HubCache(cacheDirectory: paths.hubDirectory(for: descriptor.kind))
         let client = makeClient(cache: cache)
+        let requestedGlobs = Array(
+            Set(descriptor.matchingGlobs + ["model.safetensors"])
+        ).sorted()
 
         var activated = false
         defer {
             if !activated, fileManager.fileExists(atPath: stagingDirectory.path) {
-                try? fileManager.removeItem(at: stagingDirectory)
+                do {
+                    try fileManager.removeItem(at: stagingDirectory)
+                } catch {
+                    Log.engine.error(
+                        "ModelDownloadManager: failed to clean staging directory \(stagingDirectory.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
         }
 
@@ -47,7 +56,7 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
             kind: .model,
             to: stagingDirectory,
             revision: descriptor.revision,
-            matching: descriptor.matchingGlobs,
+            matching: requestedGlobs,
             progressHandler: progressHandler
         )
 
@@ -96,8 +105,15 @@ actor ModelDownloadManager: LocalModelArtifactInstalling {
         let hasConfig = contents.contains { $0.lastPathComponent == "config.json" }
         let hasWeights = contents.contains { url in
             guard url.pathExtension == "safetensors" else { return false }
-            let size = (try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-            return size > 0
+            do {
+                let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
+                return size > 0
+            } catch {
+                Log.engine.error(
+                    "ModelDownloadManager: failed to read size for \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return false
+            }
         }
         let hasTokenizer = contents.contains { url in
             [

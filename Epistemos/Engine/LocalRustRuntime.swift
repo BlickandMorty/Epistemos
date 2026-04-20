@@ -36,7 +36,7 @@ final class LocalRustRuntime: AgentRuntime {
     }
 
     func sessionEvents(_ sessionId: String) -> AsyncStream<AgentRuntimeEvent> {
-        AsyncStream { continuation in
+        AsyncStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             activeSessions[sessionId] = continuation
             continuation.onTermination = { @Sendable [weak self] _ in
                 Task { @MainActor in

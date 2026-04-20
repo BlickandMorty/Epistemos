@@ -58,7 +58,7 @@ final class ClaudeManagedRuntime: AgentRuntime {
     }
 
     func sessionEvents(_ sessionId: String) -> AsyncStream<AgentRuntimeEvent> {
-        AsyncStream { continuation in
+        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
             continuation.yield(.sessionStarted(sessionId: sessionId))
             continuation.yield(.sessionFailed(error: "Archived Claude managed runtime surface"))
             continuation.finish()
