@@ -888,13 +888,25 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
             let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
             return "Fast mode is unavailable for \(displayName) because this local model always emits thinking traces. Switch to Thinking or pick a different local model."
         case .modelLoaderUnavailable(let modelID):
-            return "The \(modelID) loader hasn't shipped yet. Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
+            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
+            let suggestion = isQwen3Small
+                ? "Pick a different local model in Settings → Inference — DeepSeek R1 7B is a solid default."
+                : "Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
+            return "The \(modelID) loader hasn't shipped yet. \(suggestion)"
         case .modelLoadStalled(let modelID):
             let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            return "The \(displayName) model couldn't finish loading. Try restarting the app or switch to a smaller local model like Qwen 3 4B."
+            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
+            let recovery = isQwen3Small
+                ? "Try restarting the app or switching to Apple Intelligence for lightweight turns."
+                : "Try restarting the app or switch to a smaller local model like Qwen 3 4B."
+            return "The \(displayName) model couldn't finish loading. \(recovery)"
         case .insufficientMemory(let modelID, let requiredGB, let availableGB):
             let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
-            return "\(displayName) needs about \(requiredGB) GB of free memory but only \(availableGB) GB is available right now. Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
+            let isQwen3Small = modelID == LocalTextModelID.qwen3_4B4Bit.rawValue
+            let recovery = isQwen3Small
+                ? "Close some apps or switch to Apple Intelligence / a cloud provider until the pressure clears."
+                : "Close some apps, reduce open notes, or pick a smaller local model like Qwen 3 4B."
+            return "\(displayName) needs about \(requiredGB) GB of free memory but only \(availableGB) GB is available right now. \(recovery)"
         }
     }
 }
