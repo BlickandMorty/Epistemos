@@ -215,6 +215,22 @@ struct ChatPresentationTests {
         #expect(!source.contains("model.releasePickerVisibilityReason"))
     }
 
+    @Test("local model UI separates chat memory, model file size, and this-mac memory copy")
+    func localModelUISeparatesChatMemoryFromFileSizeAndHardware() throws {
+        let rootSource = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let aboutSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ModelAboutSheet.swift")
+        let infrastructureSource = try loadMirroredSourceTextFile("Epistemos/Engine/LocalModelInfrastructure.swift")
+
+        #expect(rootSource.contains("minimumRecommendedInteractiveMemoryGB"))
+        #expect(settingsSource.contains("minimumRecommendedInteractiveMemoryGB"))
+        #expect(settingsSource.contains("localModelManager.hardwareSummary"))
+        #expect(aboutSource.contains("specRow(\"Chat Memory\""))
+        #expect(aboutSource.contains("specRow(\"Model Files\""))
+        #expect(infrastructureSource.contains("\"This Mac: \\(inference.hardwareCapabilitySnapshot.roundedMemoryGB) GB unified memory\""))
+        #expect(infrastructureSource.contains("\"Needs \\(model.minimumRecommendedInteractiveMemoryGB) GB for chat\""))
+    }
+
     @Test("agent command bar shows an explicit loading-model state before first token")
     func agentCommandBarShowsLoadingModelState() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")

@@ -275,6 +275,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     var minimumRecommendedInteractiveMemoryGB: Int {
         switch self {
+        case .qwen25Coder7B:
+            24
         case .qwen35_35BA3B4Bit:
             24
         case .qwen36_35BA3B4Bit,

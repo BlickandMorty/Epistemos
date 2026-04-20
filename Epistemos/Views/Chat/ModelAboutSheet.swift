@@ -97,6 +97,7 @@ struct ModelAboutSheet: View {
             specRow("Context Window", value: formatTokens(selection.activeMaxContextTokens))
 
             if case .localMLX(let id) = selection, let model = LocalTextModelID(rawValue: id) {
+                let descriptor = LocalModelCatalog.descriptor(for: id)
                 specRow("Architecture", value: model.isSSM ? "SSM" : (model.isMoE ? "MoE Transformer" : "Transformer"))
                 specRow("Temperature", value: String(format: "%.1f", model.optimalTemperature))
                 if model.supportsThinkingMode, let thinkTemp: Float = model.thinkingTemperature {
@@ -104,7 +105,10 @@ struct ModelAboutSheet: View {
                 }
                 specRow("Top-p", value: String(format: "%.2f", model.optimalTopP))
                 specRow("KV Cache", value: "\(model.optimalKVCacheSize)")
-                specRow("Memory", value: "\(model.minimumRecommendedMemoryGB) GB+")
+                specRow("Chat Memory", value: "\(model.minimumRecommendedInteractiveMemoryGB) GB+")
+                if let descriptor {
+                    specRow("Model Files", value: descriptor.approximateDownloadLabel)
+                }
                 if model.supportsAgentMode {
                     specRow(
                         "Tool Tier",

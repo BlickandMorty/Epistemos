@@ -1692,7 +1692,7 @@ final class LocalModelManager {
     }
 
     var hardwareSummary: String {
-        "\(inference.hardwareCapabilitySnapshot.roundedMemoryGB) GB unified memory"
+        "This Mac: \(inference.hardwareCapabilitySnapshot.roundedMemoryGB) GB unified memory"
     }
 
     var totalInstalledStorageBytes: Int64 {
@@ -1730,6 +1730,9 @@ final class LocalModelManager {
             return .installing(progress: installProgress[descriptor.id] ?? 0)
         }
         if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
+            if let model = LocalTextModelID(rawValue: descriptor.id) {
+                return .blocked(reason: "Needs \(model.minimumRecommendedInteractiveMemoryGB) GB for chat")
+            }
             return .blocked(reason: "Needs \(descriptor.minimumRecommendedMemoryGB) GB")
         }
         if inference.preparedLocalTextModelIDs.contains(descriptor.id) {

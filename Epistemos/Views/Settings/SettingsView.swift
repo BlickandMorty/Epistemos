@@ -2335,7 +2335,11 @@ private struct LocalModelRow: View {
                 HStack(spacing: 8) {
                     Text(descriptor.familyName)
                     Text(descriptor.approximateDownloadLabel)
-                    Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
+                    if let model = LocalTextModelID(rawValue: descriptor.id) {
+                        Text("Chat \(model.minimumRecommendedInteractiveMemoryGB) GB")
+                    } else {
+                        Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
+                    }
                 }
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
@@ -2448,7 +2452,7 @@ private struct LocalModelRow: View {
             return Self.userFacingInstallError(installError, fallback: reason)
         }
         if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
-            return "This Mac does not have enough unified memory for this model."
+            return "\(reason). \(localModelManager.hardwareSummary)."
         }
         return reason
     }
