@@ -2994,9 +2994,11 @@ final class InferenceState {
         }
         if case .cloud(let model) = self.preferredChatModelSelection {
             persistPreferredCloudModel(model, defaults: defaults)
-            if activeAIProvider == .localOnly {
-                self.preferredChatModelSelection = .localMLX(preferredLocalTextModelID)
-            } else if activeAIProvider.cloudProvider != model.provider {
+            // Honor the user's explicit cloud pick. If activeAIProvider
+            // is .localOnly, align the provider to match the selection
+            // rather than silently reverting to local (which is exactly
+            // the "selected GPT-5.4 but got DeepSeek" bug).
+            if activeAIProvider == .localOnly || activeAIProvider.cloudProvider != model.provider {
                 self.activeAIProvider = AIProviderSelection(cloudProvider: model.provider)
             }
         }
