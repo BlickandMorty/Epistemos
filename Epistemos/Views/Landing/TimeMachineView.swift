@@ -16,7 +16,7 @@ struct TimeMachineView: View {
     @State private var diff: TimeMachineService.StateDiff?
     @State private var isLoading = false
     @State private var appeared = false
-    @State private var eventDensity: [Date: Int] = [:]
+    @State private var selectionTask: Task<Void, Never>?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -128,6 +128,10 @@ struct TimeMachineView: View {
         .onAppear {
             withAnimation(.easeOut(duration: 0.2)) { appeared = true }
             loadTimeline()
+        }
+        .onDisappear {
+            selectionTask?.cancel()
+            selectionTask = nil
         }
     }
 
@@ -297,14 +301,15 @@ struct TimeMachineView: View {
 
     private func loadTimeline() {
         timeline = AppBootstrap.shared?.workspaceService.timeMachineService?.sessionTimeline() ?? []
-        eventDensity = AppBootstrap.shared?.workspaceService.timeMachineService?.eventDensity() ?? [:]
     }
 
     private func selectSnapshot(_ meta: EventStore.SnapshotMeta) {
         selectedSnapshot = meta
         isLoading = true
+        selectionTask?.cancel()
         // Yield to let SwiftUI render the loading state before heavy work.
-        Task { @MainActor in
+        selectionTask = Task { @MainActor in
+            defer { selectionTask = nil }
             // Small yield so the spinner becomes visible before the synchronous work blocks.
             do {
                 try await Task.sleep(for: .milliseconds(10))
@@ -318,12 +323,20 @@ struct TimeMachineView: View {
                 isLoading = false
                 return
             }
+            guard selectedSnapshot?.id == meta.id, !Task.isCancelled else {
+                isLoading = false
+                return
+            }
             guard let service = AppBootstrap.shared?.workspaceService.timeMachineService else {
                 isLoading = false
                 return
             }
             let state = service.reconstructState(at: meta.timestamp)
             let stateDiff = service.computeDiff(from: state)
+            guard selectedSnapshot?.id == meta.id, !Task.isCancelled else {
+                isLoading = false
+                return
+            }
             historicalState = state
             diff = stateDiff
             isLoading = false
@@ -358,6 +371,7 @@ struct TimeMachineView: View {
         do {
             try context.save()
         } catch {
+            context.delete(ws)
             Log.app.error(
                 "TimeMachineView: failed to persist restored workspace: \(error.localizedDescription, privacy: .public)"
             )

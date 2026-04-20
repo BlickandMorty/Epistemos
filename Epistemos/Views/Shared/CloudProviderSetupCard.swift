@@ -1,8 +1,10 @@
 import AppKit
+import os
 import SwiftUI
 
 @MainActor
 enum CloudProviderSetupAutomation {
+    private nonisolated static let logger = Logger(subsystem: "Epistemos", category: "CloudProviderSetupAutomation")
     private nonisolated static let googleOAuthClientConfigKeychainKey = "epistemos.google.oauthClientConfig"
     private nonisolated static let googleOAuthClientFilenameDefaultsKey = "epistemos.google.oauthClientFilename"
     private nonisolated static let googleOAuthProjectIDDraftDefaultsKey = "epistemos.google.oauthProjectIDDraft"
@@ -41,7 +43,11 @@ enum CloudProviderSetupAutomation {
               !rawValue.isEmpty else {
             return nil
         }
-        return Data(base64Encoded: rawValue)
+        guard let data = Data(base64Encoded: rawValue) else {
+            logger.error("Stored Google OAuth client configuration could not be decoded from base64.")
+            return nil
+        }
+        return data
     }
 
     static func loadGoogleOAuthClientFilename() -> String {
@@ -55,6 +61,7 @@ enum CloudProviderSetupAutomation {
     @discardableResult
     static func persistGoogleOAuthClientConfig(data: Data, filename: String) -> Bool {
         guard Keychain.save(data.base64EncodedString(), for: googleOAuthClientConfigKeychainKey) else {
+            logger.error("Failed to save Google OAuth client configuration to Keychain.")
             return false
         }
         UserDefaults.standard.set(filename, forKey: googleOAuthClientFilenameDefaultsKey)
@@ -78,8 +85,14 @@ enum CloudProviderSetupAutomation {
     static func storedGoogleOAuthClientConfiguration(
         projectIDOverride: String? = nil
     ) -> GoogleOAuthClientConfiguration? {
-        guard let configData = loadGoogleOAuthClientConfigData(),
-              let parsedConfiguration = try? GoogleOAuthClientConfiguration.parse(from: configData) else {
+        guard let configData = loadGoogleOAuthClientConfigData() else {
+            return nil
+        }
+        let parsedConfiguration: GoogleOAuthClientConfiguration
+        do {
+            parsedConfiguration = try GoogleOAuthClientConfiguration.parse(from: configData)
+        } catch {
+            logger.error("Failed to parse stored Google OAuth client configuration: \(error.localizedDescription, privacy: .public)")
             return nil
         }
         let resolvedProjectID = normalizedDraft(projectIDOverride)

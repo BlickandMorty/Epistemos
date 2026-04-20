@@ -412,6 +412,13 @@ private struct WorkspaceRow: View {
     }
 
     private static func decodeSnapshot(from data: Data) -> WorkspaceSnapshot? {
-        try? JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        do {
+            return try JSONDecoder().decode(WorkspaceSnapshot.self, from: data)
+        } catch {
+            Log.app.error(
+                "WorkspaceSwitcherOverlay: failed to decode workspace snapshot: \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
     }
 }
