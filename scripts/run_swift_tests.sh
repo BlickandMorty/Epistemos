@@ -39,31 +39,43 @@ echo ""
 
 cd "$PROJECT_DIR"
 
+BUILD_ARGS=(
+    build-for-testing
+    -project Epistemos.xcodeproj
+    -scheme Epistemos
+    -destination 'platform=macOS'
+    -derivedDataPath "$DERIVED_DATA_DIR"
+)
+if [ "${#PACKAGE_ARGS[@]}" -gt 0 ]; then
+    BUILD_ARGS+=("${PACKAGE_ARGS[@]}")
+fi
+BUILD_ARGS+=(CODE_SIGNING_ALLOWED=NO)
+
 echo "🔨 Building Swift test target..."
-"$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" build-for-testing \
-    -project Epistemos.xcodeproj \
-    -scheme Epistemos \
-    -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED_DATA_DIR" \
-    "${PACKAGE_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    2>&1 | tee "$RESULTS_DIR/swift_build_$TIMESTAMP.log"
+"$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" "${BUILD_ARGS[@]}" 2>&1 | tee "$RESULTS_DIR/swift_build_$TIMESTAMP.log"
 
 echo ""
 echo "🧪 Running Swift tests..."
 echo "   (This may take several minutes for 10,000+ tests)"
 echo ""
 
+TEST_ARGS=(
+    test-without-building
+    -project Epistemos.xcodeproj
+    -scheme Epistemos
+    -destination 'platform=macOS'
+    -derivedDataPath "$DERIVED_DATA_DIR"
+)
+if [ "${#PACKAGE_ARGS[@]}" -gt 0 ]; then
+    TEST_ARGS+=("${PACKAGE_ARGS[@]}")
+fi
+TEST_ARGS+=(
+    CODE_SIGNING_ALLOWED=NO
+    -resultBundlePath "$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult"
+)
+
 # Run tests
-if "$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" test-without-building \
-    -project Epistemos.xcodeproj \
-    -scheme Epistemos \
-    -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED_DATA_DIR" \
-    "${PACKAGE_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    -resultBundlePath "$RESULTS_DIR/swift_tests_$TIMESTAMP.xcresult" \
-    2>&1 | tee "$RESULTS_DIR/swift_tests_$TIMESTAMP.log"; then
+if "$PROJECT_DIR/scripts/xcodebuild_epistemos.sh" "${TEST_ARGS[@]}" 2>&1 | tee "$RESULTS_DIR/swift_tests_$TIMESTAMP.log"; then
     
     echo ""
     echo "✅ Swift tests completed"

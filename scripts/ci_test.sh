@@ -86,14 +86,19 @@ echo ""
 
 cd "$PROJECT_DIR"
 
-if "$XCODEBUILD_WRAPPER" build-for-testing \
-    -project Epistemos.xcodeproj \
-    -scheme Epistemos \
-    -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED_DATA_DIR" \
-    "${PACKAGE_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    2>&1 | tee "$RESULTS_DIR/swift_build.log"; then
+BUILD_ARGS=(
+    build-for-testing
+    -project Epistemos.xcodeproj
+    -scheme Epistemos
+    -destination 'platform=macOS'
+    -derivedDataPath "$DERIVED_DATA_DIR"
+)
+if [ "${#PACKAGE_ARGS[@]}" -gt 0 ]; then
+    BUILD_ARGS+=("${PACKAGE_ARGS[@]}")
+fi
+BUILD_ARGS+=(CODE_SIGNING_ALLOWED=NO)
+
+if "$XCODEBUILD_WRAPPER" "${BUILD_ARGS[@]}" 2>&1 | tee "$RESULTS_DIR/swift_build.log"; then
     
     echo "✅ Swift build successful"
 else
@@ -113,15 +118,22 @@ echo ""
 
 rm -rf "$RESULT_BUNDLE_PATH"
 
-if "$XCODEBUILD_WRAPPER" test-without-building \
-    -project Epistemos.xcodeproj \
-    -scheme Epistemos \
-    -destination 'platform=macOS' \
-    -derivedDataPath "$DERIVED_DATA_DIR" \
-    "${PACKAGE_ARGS[@]}" \
-    CODE_SIGNING_ALLOWED=NO \
-    -resultBundlePath "$RESULT_BUNDLE_PATH" \
-    2>&1 | tee "$RESULTS_DIR/swift_tests.log"; then
+TEST_ARGS=(
+    test-without-building
+    -project Epistemos.xcodeproj
+    -scheme Epistemos
+    -destination 'platform=macOS'
+    -derivedDataPath "$DERIVED_DATA_DIR"
+)
+if [ "${#PACKAGE_ARGS[@]}" -gt 0 ]; then
+    TEST_ARGS+=("${PACKAGE_ARGS[@]}")
+fi
+TEST_ARGS+=(
+    CODE_SIGNING_ALLOWED=NO
+    -resultBundlePath "$RESULT_BUNDLE_PATH"
+)
+
+if "$XCODEBUILD_WRAPPER" "${TEST_ARGS[@]}" 2>&1 | tee "$RESULTS_DIR/swift_tests.log"; then
     
     echo "✅ Swift tests completed"
 else
