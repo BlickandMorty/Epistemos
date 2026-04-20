@@ -1558,7 +1558,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// enough headroom (or when we can't resolve a required budget). Throws
     /// `LocalInferenceRoutingError.insufficientMemory` when the OS reports
     /// materially less available memory than the model documents as its
-    /// minimum. Refusing up-front beats the historical alternative of
+    /// interactive-chat minimum. Refusing up-front beats the historical alternative of
     /// "attempt the load, drag the Mac into SSD swap, get SIGKILL'd on
     /// jetsam" — which is exactly what the user reported on the Qwen
     /// Coder 30B path.
@@ -1569,7 +1569,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     /// reading on Apple Silicon unified memory.
     private nonisolated static func preflightAvailableMemory(for modelID: String) throws {
         guard let model = LocalTextModelID(rawValue: modelID) else { return }
-        let requiredGB = model.minimumRecommendedMemoryGB
+        let requiredGB = model.minimumRecommendedInteractiveMemoryGB
         guard requiredGB > 0 else { return }
 
         guard let availableBytes = approximateAvailableUnifiedMemoryBytes() else { return }
