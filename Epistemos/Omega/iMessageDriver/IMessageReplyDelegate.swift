@@ -98,8 +98,13 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
     func onTurnStarted(turnNumber: UInt32, messageCount: UInt32) {}
 
     func onComplete(stopReason: String, inputTokens: UInt32, outputTokens: UInt32) {
-        guard !reportedResult else { return }
+        lock.lock()
+        guard !reportedResult else {
+            lock.unlock()
+            return
+        }
         reportedResult = true
+        lock.unlock()
 
         let reply: String = {
             lock.lock()
@@ -131,8 +136,13 @@ nonisolated final class IMessageReplyDelegate: AgentStreamEventDelegate, @unchec
     }
 
     func onError(message: String) {
-        guard !reportedResult else { return }
+        lock.lock()
+        guard !reportedResult else {
+            lock.unlock()
+            return
+        }
         reportedResult = true
+        lock.unlock()
         logger.error("Agent error: \(message, privacy: .public)")
         let contactHandle = self.contactHandle
         let vaultPath = self.vaultPath

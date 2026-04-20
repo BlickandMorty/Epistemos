@@ -140,11 +140,10 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
                     titleMatch: .contains,
                     maxResults: 1
                 )
-                if case .success = descResponse {
-                    // Found by description-based query — try pressing it
+                if let resolvedTitle = Self.resolvedTitle(from: descResponse) {
                     let pressDesc = AXorcistBridge.shared.pressElement(
                         bundleID: bundleID,
-                        title: elementName
+                        title: resolvedTitle
                     )
                     if case .success = pressDesc {
                         return "{\"success\":true,\"method\":\"AXorcist-description-fallback\",\"element\":\"\(safeJsonString(elementName))\"}"
@@ -228,6 +227,74 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
         s.replacingOccurrences(of: "\\", with: "\\\\")
          .replacingOccurrences(of: "\"", with: "\\\"")
          .replacingOccurrences(of: "\n", with: "\\n")
+    }
+
+    private static func resolvedTitle(from response: AXResponse) -> String? {
+        guard case let .success(payload, _) = response else { return nil }
+        return resolvedTitle(from: payload)
+    }
+
+    private static func resolvedTitle(from payload: Any?) -> String? {
+        guard let payload else { return nil }
+
+        if let string = payload as? String {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return trimmed
+            }
+        }
+
+        if let dict = payload as? [String: Any] {
+            if let title = stringValue(dict["title"]) {
+                return title
+            }
+            if let description = stringValue(dict["description"]) {
+                return description
+            }
+            if let elements = dict["elements"] as? [[String: Any]] {
+                for element in elements {
+                    if let title = stringValue(element["title"]) {
+                        return title
+                    }
+                    if let description = stringValue(element["description"]) {
+                        return description
+                    }
+                }
+            }
+        }
+
+        if let array = payload as? [[String: Any]] {
+            for element in array {
+                if let title = stringValue(element["title"]) {
+                    return title
+                }
+                if let description = stringValue(element["description"]) {
+                    return description
+                }
+            }
+        }
+
+        if let array = payload as? [Any] {
+            for item in array {
+                if let title = resolvedTitle(from: item) {
+                    return title
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private static func stringValue(_ value: Any?) -> String? {
+        switch value {
+        case let string as String:
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        case let number as NSNumber:
+            return number.stringValue
+        default:
+            return nil
+        }
     }
 
     // MARK: - type
@@ -517,8 +584,8 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
                 let fuzzyResponse = AXorcistBridge.shared.findElements(
                     bundleID: bundleID, title: label, titleMatch: .contains, maxResults: 1
                 )
-                if case .success = fuzzyResponse {
-                    let retryPress = AXorcistBridge.shared.pressElement(bundleID: bundleID, title: label)
+                if let resolvedTitle = Self.resolvedTitle(from: fuzzyResponse) {
+                    let retryPress = AXorcistBridge.shared.pressElement(bundleID: bundleID, title: resolvedTitle)
                     if case .success = retryPress {
                         return "{\"success\":true,\"method\":\"AXorcist-fuzzy\",\"element\":\"\(mcpSafeJson(label))\"}"
                     }
