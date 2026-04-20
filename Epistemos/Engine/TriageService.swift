@@ -1984,11 +1984,15 @@ final class TriageService {
             }
         }
 
-        if let lastLocalError {
-            throw lastLocalError
-        }
+        // Surface cloud error first when cloud was the user's primary
+        // pick and both sides fail (see the stream-path equivalent for the
+        // full reasoning — users can't debug the real cloud failure when
+        // we hand them the local fallback's memory error instead).
         if let lastCloudError {
             throw lastCloudError
+        }
+        if let lastLocalError {
+            throw lastLocalError
         }
         throw LocalInferenceRoutingError.modelRequired
     }
@@ -2117,7 +2121,15 @@ final class TriageService {
                     return
                 }
 
-                continuation.finish(throwing: lastLocalError ?? lastCloudError ?? LocalInferenceRoutingError.modelRequired)
+                // Surface the cloud error first when cloud was the user's
+                // primary pick and both sides fail. The local-fallback error
+                // (typically `insufficientMemory` for a large model the user
+                // didn't ask for this turn) is almost never the explanation
+                // the user needs — if they picked GPT-5.4 and see
+                // "DeepSeek R1 7B needs 12 GB" with no mention of the cloud
+                // failure, they can't debug the real issue (missing API key,
+                // rate limit, network).
+                continuation.finish(throwing: lastCloudError ?? lastLocalError ?? LocalInferenceRoutingError.modelRequired)
             }
 
             continuation.onTermination = { _ in
