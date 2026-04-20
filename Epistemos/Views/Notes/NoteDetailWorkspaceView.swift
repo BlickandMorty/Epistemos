@@ -1617,6 +1617,7 @@ struct NoteDetailWorkspaceView: View {
             isStreaming: noteChatState.isStreaming,
             fieldWidth: width,
             chromeTuning: .noteAskBar,
+            analyzingText: "Loading \(inference.activeChatModelDisplayName)…",
             onSubmit: {
                 noteChatState.submitToolbarQuery(
                     noteChatState.inputText,

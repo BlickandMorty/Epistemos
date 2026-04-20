@@ -45,6 +45,17 @@ struct NoteToolbarGlowTests {
         #expect(typing.usesSweepHighlight)
     }
 
+    @Test("toolbar ask bar supports a custom loading label for analyzing state")
+    func toolbarAskBarSupportsCustomLoadingLabel() throws {
+        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
+        let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(sharedStatus.contains("let analyzingText: String"))
+        #expect(sharedStatus.contains("analyzingText: String = \"Thinking…\""))
+        #expect(sharedStatus.contains("analyzingText: analyzingText"))
+        #expect(noteWorkspace.contains("analyzingText: \"Loading \\(inference.activeChatModelDisplayName)…\""))
+    }
+
     @Test("typed input hides animated label")
     func typedInputHidesAnimatedLabel() {
         let state = AssistantComposerStatusLabelState.resolve(

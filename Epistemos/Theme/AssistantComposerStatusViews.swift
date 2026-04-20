@@ -535,6 +535,7 @@ struct AssistantToolbarAskBar<Leading: View>: View {
     let fieldWidth: CGFloat?
     let font: Font
     let chromeTuning: AssistantToolbarAskBarChromeTuning
+    let analyzingText: String
     let onSubmit: () -> Void
     let onStop: () -> Void
     let leading: () -> Leading
@@ -549,6 +550,7 @@ struct AssistantToolbarAskBar<Leading: View>: View {
         fieldWidth: CGFloat? = nil,
         font: Font = .system(size: 12),
         chromeTuning: AssistantToolbarAskBarChromeTuning = .standard,
+        analyzingText: String = "Thinking…",
         onSubmit: @escaping () -> Void,
         onStop: @escaping () -> Void,
         @ViewBuilder leading: @escaping () -> Leading
@@ -562,6 +564,7 @@ struct AssistantToolbarAskBar<Leading: View>: View {
         self.fieldWidth = fieldWidth
         self.font = font
         self.chromeTuning = chromeTuning
+        self.analyzingText = analyzingText
         self.onSubmit = onSubmit
         self.onStop = onStop
         self.leading = leading
@@ -609,7 +612,8 @@ struct AssistantToolbarAskBar<Leading: View>: View {
         AssistantComposerStatusLabelState.resolve(
             inputText: text,
             phase: phase,
-            idleText: placeholder
+            idleText: placeholder,
+            analyzingText: analyzingText
         )
     }
 

@@ -626,7 +626,8 @@ private struct MiniChatInputBar: View {
             inputText: text,
             phase: composerStatusPhase,
             idleText: ComposerAttachmentEntryHints.mainChatPlaceholder,
-            showsIdleLabel: false
+            showsIdleLabel: false,
+            analyzingText: "Loading \(inference.activeChatModelDisplayName)…"
         )
     }
     private var composerTextAreaHeight: CGFloat {

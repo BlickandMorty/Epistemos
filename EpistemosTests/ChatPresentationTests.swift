@@ -199,6 +199,16 @@ struct ChatPresentationTests {
         #expect(source.contains(".foregroundStyle(theme.textSecondary)"))
     }
 
+    @Test("agent command bar shows an explicit loading-model state before first token")
+    func agentCommandBarShowsLoadingModelState() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")
+
+        #expect(source.contains("private var isLoadingModel: Bool"))
+        #expect(source.contains("agentChat.streamingThinking"))
+        #expect(source.contains("private var activeBrainLoadingLabel: String"))
+        #expect(source.contains("Text(isLoadingModel ? activeBrainLoadingLabel : \"Running\")"))
+    }
+
     @Test("chat text export support writes content and throws for unwritable destinations")
     func chatTextExportSupportWritesContentAndThrowsForUnwritableDestinations() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
