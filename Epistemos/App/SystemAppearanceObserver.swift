@@ -21,6 +21,9 @@ final class SystemAppearanceObserver {
 
     @MainActor
     func start() {
+        if workspaceToken != nil || themeToken != nil {
+            stop()
+        }
         notifyNow()
         workspaceToken = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification,
