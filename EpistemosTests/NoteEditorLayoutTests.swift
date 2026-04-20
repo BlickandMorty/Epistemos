@@ -528,6 +528,24 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("Synchronous — when this returns, loadBody() reflects live edits."))
     }
 
+    @Test("transclusion and mode flush paths log save failures instead of swallowing them")
+    func transclusionAndModeFlushPathsLogSaveFailures() throws {
+        let bridgeSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorRepresentable2.swift")
+        let workspaceSource = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+        let overlaySource = try loadRepoTextFile("Epistemos/Views/Notes/TransclusionOverlayManager2.swift")
+
+        #expect(!bridgeSource.contains("try? mc.save()"))
+        #expect(!bridgeSource.contains("guard let block = try? mc.fetch(descriptor).first else { return }"))
+        #expect(bridgeSource.contains("ProseEditorRepresentable2: failed to persist transclusion edit"))
+        #expect(bridgeSource.contains("ProseEditorRepresentable2: failed to fetch block for transclusion edit"))
+        #expect(!workspaceSource.contains("try? modelContext.save()"))
+        #expect(workspaceSource.contains("NoteDetailWorkspaceView: failed to persist flushed editor body"))
+        #expect(!overlaySource.contains("guard let block = try? modelContext.fetch(descriptor).first else {"))
+        #expect(!overlaySource.contains("guard let title = try? modelContext.fetch(descriptor).first?.title else {"))
+        #expect(overlaySource.contains("TransclusionOverlayManager2: failed to fetch block"))
+        #expect(overlaySource.contains("TransclusionOverlayManager2: failed to fetch page title"))
+    }
+
     @Test("interactive note flush paths avoid synchronous durable writes on the main actor")
     func interactiveNoteFlushPathsAvoidSynchronousDurableWrites() throws {
         let proseSource = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")

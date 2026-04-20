@@ -229,11 +229,11 @@ final class TransclusionOverlayManager2 {
                     width: overlayRect.width,
                     height: overlayHeight
                 )
+                configureOverlay(existing, for: blockId)
             } else {
-                let resolved = resolveBlock(blockId)
                 let overlay = EditableTransclusionView(
                     blockId: blockId,
-                    sourcePageId: resolved?.pageId ?? ""
+                    sourcePageId: resolveBlock(blockId)?.pageId ?? ""
                 )
                 overlay.frame = NSRect(
                     x: overlayRect.origin.x,
@@ -241,14 +241,7 @@ final class TransclusionOverlayManager2 {
                     width: overlayRect.width,
                     height: overlayHeight
                 )
-                if let resolved {
-                    overlay.setContent(resolved.content)
-                    if let title = resolvePageTitle(resolved.pageId) {
-                        overlay.setProvenance(pageTitle: title)
-                    }
-                } else {
-                    overlay.setMissing()
-                }
+                configureOverlay(overlay, for: blockId)
                 overlay.onEdit = { [weak self] blockId, newContent in
                     self?.onBlockEdit?(blockId, newContent)
                 }
@@ -275,6 +268,20 @@ final class TransclusionOverlayManager2 {
         overlays.removeAll()
         pendingBufferedCharacterRange = nil
         bufferedVisibleCharacterRange = nil
+    }
+
+    private func configureOverlay(_ overlay: EditableTransclusionView, for blockId: String) {
+        if let resolved = resolveBlock(blockId) {
+            overlay.setContent(resolved.content)
+            if let title = resolvePageTitle(resolved.pageId) {
+                overlay.setProvenance(pageTitle: title)
+            } else {
+                overlay.clearProvenance()
+            }
+        } else {
+            overlay.setMissing()
+            overlay.clearProvenance()
+        }
     }
 
     // MARK: - Block Resolution
@@ -308,7 +315,14 @@ final class TransclusionOverlayManager2 {
         let descriptor = FetchDescriptor<SDBlock>(
             predicate: #Predicate<SDBlock> { $0.id == blockId }
         )
-        guard let block = try? modelContext.fetch(descriptor).first else {
+        let block: SDBlock?
+        do {
+            block = try modelContext.fetch(descriptor).first
+        } catch {
+            Log.notes.error("TransclusionOverlayManager2: failed to fetch block \(blockId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        guard let block else {
             missingBlockIds.insert(blockId)
             return nil
         }
@@ -325,7 +339,14 @@ final class TransclusionOverlayManager2 {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        guard let title = try? modelContext.fetch(descriptor).first?.title else {
+        let title: String?
+        do {
+            title = try modelContext.fetch(descriptor).first?.title
+        } catch {
+            Log.notes.error("TransclusionOverlayManager2: failed to fetch page title \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+        guard let title else {
             missingPageIds.insert(pageId)
             return nil
         }

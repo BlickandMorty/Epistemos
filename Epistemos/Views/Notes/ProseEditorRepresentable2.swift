@@ -496,8 +496,14 @@ extension ProseEditorRepresentable2 {
                         predicate: #Predicate<SDBlock> { $0.pageId == newPageId },
                         sortBy: [SortDescriptor(\.order)]
                     )
-                    let existingBlocks = (try? mc.fetch(descriptor)) ?? []
-                    translator.initIfNeeded(existingBlocks: existingBlocks)
+                    do {
+                        let existingBlocks = try mc.fetch(descriptor)
+                        translator.initIfNeeded(existingBlocks: existingBlocks)
+                    } catch {
+                        Log.notes.error(
+                            "ProseEditorRepresentable2: failed to fetch blocks for translator initialization on \(String(newPageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
+                    }
                 }
                 blockEditTranslator = translator
             } else {
@@ -1146,7 +1152,19 @@ extension ProseEditorRepresentable2 {
             let descriptor = FetchDescriptor<SDBlock>(
                 predicate: #Predicate<SDBlock> { $0.id == blockId }
             )
-            guard let block = try? mc.fetch(descriptor).first else { return }
+            let block: SDBlock
+            do {
+                guard let fetched = try mc.fetch(descriptor).first else {
+                    Log.notes.error("ProseEditorRepresentable2: missing block for transclusion edit \(blockId, privacy: .public)")
+                    return
+                }
+                block = fetched
+            } catch {
+                Log.notes.error(
+                    "ProseEditorRepresentable2: failed to fetch block for transclusion edit \(blockId, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
 
             // Rewrite the source page's body file on disk.
             // The app's canonical note body lives in NoteFileStorage (page.loadBody / saveBody).
@@ -1163,37 +1181,66 @@ extension ProseEditorRepresentable2 {
                 predicate: #Predicate<SDBlock> { $0.pageId == sourcePageId },
                 sortBy: [SortDescriptor(\.order)]
             )
-            if let page = try? mc.fetch(pageDesc).first {
-                let pageBody = page.loadBody()
-                let pageBlocks = (try? mc.fetch(pageBlocksDesc)) ?? [block]
-
-                guard let newBody = BlockMirror.rewrittenBody(
-                          body: pageBody,
-                          block: block,
-                          existingBlocks: pageBlocks,
-                          newContent: newContent
-                      ) else { return }
-
-                page.applyInteractiveDerivedState(from: newBody)
-                _ = NoteFileStorage.scheduleWriteBody(pageId: sourcePageId, content: newBody)
-                if let modelContainer = AppBootstrap.shared?.modelContainer {
-                    Task {
-                        await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                            pageId: sourcePageId,
-                            body: newBody,
-                            modelContainer: modelContainer
-                        )
-                    }
-                }
-                block.updatedAt = .now
-                transclusionManager?.invalidateResolvedBlock(blockId)
-                page.needsVaultSync = true
-                page.updatedAt = .now
-
-                // Notify open editors for the source page so they reload from disk.
-                NoteFileStorage.notifyBodyChanged(pageId: sourcePageId)
+            let page: SDPage
+            do {
+                guard let fetchedPage = try mc.fetch(pageDesc).first else { return }
+                page = fetchedPage
+            } catch {
+                Log.notes.error(
+                    "ProseEditorRepresentable2: failed to fetch source page for transclusion edit \(String(sourcePageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
             }
-            try? mc.save()
+
+            let pageBlocks: [SDBlock]
+            do {
+                pageBlocks = try mc.fetch(pageBlocksDesc)
+            } catch {
+                Log.notes.error(
+                    "ProseEditorRepresentable2: failed to fetch page blocks for transclusion edit \(String(sourcePageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return
+            }
+
+            let pageBody = page.loadBody()
+
+            guard let newBody = BlockMirror.rewrittenBody(
+                      body: pageBody,
+                      block: block,
+                      existingBlocks: pageBlocks,
+                      newContent: newContent
+                  ) else { return }
+
+            page.applyInteractiveDerivedState(from: newBody)
+            guard NoteFileStorage.scheduleWriteBody(pageId: sourcePageId, content: newBody) != nil else {
+                Log.notes.error(
+                    "ProseEditorRepresentable2: failed to stage transclusion edit body for page \(String(sourcePageId.prefix(8)), privacy: .public)"
+                )
+                return
+            }
+            if let modelContainer = AppBootstrap.shared?.modelContainer {
+                Task {
+                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                        pageId: sourcePageId,
+                        body: newBody,
+                        modelContainer: modelContainer
+                    )
+                }
+            }
+            block.updatedAt = .now
+            transclusionManager?.invalidateResolvedBlock(blockId)
+            page.needsVaultSync = true
+            page.updatedAt = .now
+
+            // Notify open editors for the source page so they reload from disk.
+            NoteFileStorage.notifyBodyChanged(pageId: sourcePageId)
+            do {
+                try mc.save()
+            } catch {
+                Log.notes.error(
+                    "ProseEditorRepresentable2: failed to persist transclusion edit for page \(String(sourcePageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
 
             if let engine = parent.graphState?.engineHandle {
                 let updated = BlockEditTranslator.updateBlock(

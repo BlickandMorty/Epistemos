@@ -103,6 +103,8 @@ final class EditableTransclusionView: NSView, NSTextViewDelegate {
     func setContent(_ text: String) {
         isSetting = true
         textView.string = text
+        textView.textColor = baseTextColor()
+        textView.isEditable = true
         isSetting = false
         invalidateIntrinsicContentSize()
         needsLayout = true
@@ -119,6 +121,10 @@ final class EditableTransclusionView: NSView, NSTextViewDelegate {
     /// Set provenance tooltip showing which page owns the source block.
     func setProvenance(pageTitle: String) {
         toolTip = "from [[\(pageTitle)]]"
+    }
+
+    func clearProvenance() {
+        toolTip = nil
     }
 
     // MARK: - Intrinsic Size
@@ -139,6 +145,13 @@ final class EditableTransclusionView: NSView, NSTextViewDelegate {
             return NSSize(width: NSView.noIntrinsicMetric, height: usedRect.height + 8)
         }
         return NSSize(width: NSView.noIntrinsicMetric, height: 32)
+    }
+
+    private func baseTextColor() -> NSColor {
+        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        return isDark
+            ? .white.withAlphaComponent(0.7)
+            : .black.withAlphaComponent(0.65)
     }
 
     // MARK: - NSTextViewDelegate
