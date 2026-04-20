@@ -267,6 +267,18 @@ struct TriageServiceTests {
         )
     }
 
+    @Test("pinned always-thinking local model hides fast mode")
+    @MainActor func pinnedAlwaysThinkingLocalModelHidesFastMode() {
+        let inference = makeIsolatedInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.deepseekR1Distill7B.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue))
+
+        #expect(!inference.availableOperatingModes.contains(.fast))
+        #expect(inference.availableOperatingModes.contains(.thinking))
+        #expect(inference.sanitizedOperatingMode(.fast) == .thinking)
+    }
+
     @Test("auto route keeps fast local but escalates pro chat to the configured cloud provider")
     @MainActor func inferenceStateEffectiveChatSurfaceSelectionTracksAutoRoutePolicy() throws {
         let inference = makeIsolatedInferenceState(
@@ -972,7 +984,7 @@ struct InferencePolicyEngineTests {
         )
 
         #expect(decision.selectedRoute == .localMLX)
-        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen25Coder7B.rawValue)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen36_35BA3B4Bit.rawValue)
         #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
@@ -1115,6 +1127,23 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
     }
 
+    @Test("preferred local selection skips fast-incompatible pinned model")
+    func preferredLocalSelectionSkipsFastIncompatiblePinnedModel() {
+        let engine = InferencePolicyEngine()
+
+        let selection = engine.resolvedPreferredLocalSelection(
+            in: makeContext(
+                appleAvailable: false,
+                preferredChatModelSelection: .localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue),
+                preferredLocalTextModelID: LocalTextModelID.deepseekR1Distill7B,
+                installed: [.deepseekR1Distill7B]
+            ),
+            reasoningMode: .fast
+        )
+
+        #expect(selection == nil)
+    }
+
     @Test("fast local routing refuses always-thinking fallback models when no fast-safe local tier exists")
     func fastLocalRoutingRefusesAlwaysThinkingFallbacks() {
         let engine = InferencePolicyEngine()
@@ -1153,6 +1182,7 @@ struct InferencePolicyEngineTests {
         cloudAutoRouteEnabled: Bool = false,
         hasConfiguredCloudModels: Bool = false,
         preferredChatModelSelection: ChatModelSelection = .localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue),
+        preferredLocalTextModelID: LocalTextModelID = .qwen35_4B4Bit,
         installed: [LocalTextModelID] = [.qwen35_2B4Bit, .qwen35_4B4Bit],
         runtimeConditions: LocalRuntimeConditions = LocalRuntimeConditions(
             lowPowerModeEnabled: false,
@@ -1166,7 +1196,7 @@ struct InferencePolicyEngineTests {
             cloudAutoRouteEnabled: cloudAutoRouteEnabled,
             hasConfiguredCloudModels: hasConfiguredCloudModels,
             preferredChatModelSelection: preferredChatModelSelection,
-            preferredLocalTextModelID: LocalTextModelID.qwen35_4B4Bit.rawValue,
+            preferredLocalTextModelID: preferredLocalTextModelID.rawValue,
             installedLocalTextModelIDs: Set(installed.map(\.rawValue)),
             hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
                 physicalMemoryBytes: 18_000_000_000,
