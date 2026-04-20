@@ -1086,7 +1086,8 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String? = nil,
-        localReasoningMode: LocalReasoningMode? = nil
+        localReasoningMode: LocalReasoningMode? = nil,
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         stream(
             prompt: prompt,
@@ -1094,7 +1095,8 @@ final class TriageService {
             operation: operation,
             contentLength: contentLength,
             query: query,
-            operatingMode: cloudOperatingMode(for: localReasoningMode)
+            operatingMode: cloudOperatingMode(for: localReasoningMode),
+            reasoningSink: reasoningSink
         )
     }
 
@@ -1104,7 +1106,8 @@ final class TriageService {
         operation: NotesOperation,
         contentLength: Int,
         query: String? = nil,
-        operatingMode: EpistemosOperatingMode
+        operatingMode: EpistemosOperatingMode,
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForNotes(
@@ -1124,7 +1127,8 @@ final class TriageService {
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 localSelection: decision.localSelection
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         case .localMLX:
             return userFacingStream(
@@ -1132,14 +1136,16 @@ final class TriageService {
                 prompt: prompt,
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         case .cloud:
             guard let model = selectedCloudModel(for: operatingMode) else {
                 return userFacingStream(
                     StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
-                    }
+                    },
+                    reasoningSink: reasoningSink
                 )
             }
             return userFacingStream(
@@ -1148,7 +1154,8 @@ final class TriageService {
                     systemPrompt: systemPrompt,
                     model: model,
                     operatingMode: operatingMode
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         }
     }
@@ -1288,7 +1295,8 @@ final class TriageService {
         contentLength: Int,
         operatingMode: EpistemosOperatingMode = .fast,
         localSurface: LocalModelSelectionSurface = .mainChat,
-        steeringHintsJSON: String? = nil
+        steeringHintsJSON: String? = nil,
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         prepareForRouting()
         let decision = routeDecisionForGeneral(
@@ -1309,7 +1317,8 @@ final class TriageService {
                 systemPrompt: systemPrompt,
                 localSelection: decision.localSelection,
                 steeringHintsJSON: steeringHintsJSON
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         case .localMLX:
             return userFacingStream(
@@ -1318,14 +1327,16 @@ final class TriageService {
                 systemPrompt: systemPrompt,
                 selection: decision.localSelection,
                 steeringHintsJSON: steeringHintsJSON
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         case .cloud:
             guard let model = selectedCloudModel(for: operatingMode) else {
                 return userFacingStream(
                     StreamingBufferPolicy.throwingStream { continuation in
                         continuation.finish(throwing: CloudLLMError.modelRequired)
-                    }
+                    },
+                    reasoningSink: reasoningSink
                 )
             }
             // Prominent per-turn log so "is it actually hitting
@@ -1341,7 +1352,8 @@ final class TriageService {
                     systemPrompt: systemPrompt,
                     model: model,
                     operatingMode: operatingMode
-                )
+                ),
+                reasoningSink: reasoningSink
             )
         }
     }
@@ -2229,15 +2241,21 @@ final class TriageService {
     }
 
     private func userFacingStream(
-        _ upstream: AsyncThrowingStream<String, Error>
+        _ upstream: AsyncThrowingStream<String, Error>,
+        reasoningSink: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         StreamingBufferPolicy.throwingStream { continuation in
             let task = Task {
                 var rawText = ""
                 var emittedVisibleText = ""
+                var reasoningRouter = ThinkTagStreamRouter()
 
                 do {
                     for try await chunk in upstream {
+                        let reasoningEmit = reasoningRouter.ingest(chunk)
+                        if !reasoningEmit.thinking.isEmpty {
+                            reasoningSink?(reasoningEmit.thinking)
+                        }
                         rawText += chunk
                         let visibleText = UserFacingModelOutput.streamingVisibleText(from: rawText)
                         guard visibleText.hasPrefix(emittedVisibleText) else { continue }
@@ -2251,6 +2269,11 @@ final class TriageService {
                             emittedVisibleText = visibleText
                             continuation.yield(delta)
                         }
+                    }
+
+                    let trailingReasoning = reasoningRouter.flush()
+                    if !trailingReasoning.thinking.isEmpty {
+                        reasoningSink?(trailingReasoning.thinking)
                     }
 
                     let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
