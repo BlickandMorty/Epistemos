@@ -74,10 +74,17 @@ actor VaultIndexActor {
     ]
 
     // MARK: - FTS5 Search Index (GRDB)
+    typealias SaveContextOperation = @Sendable (String) throws -> Void
+
     private var searchService: SearchIndexService?
+    private var saveContextOverride: SaveContextOperation?
 
     func setSearchService(_ service: SearchIndexService) {
         self.searchService = service
+    }
+
+    func setSaveContextOverrideForTesting(_ saveContextOverride: SaveContextOperation?) {
+        self.saveContextOverride = saveContextOverride
     }
 
     private func fetchAll<T: PersistentModel>(
@@ -116,6 +123,10 @@ actor VaultIndexActor {
     }
 
     private func saveContext(_ label: String) throws {
+        if let saveContextOverride {
+            try saveContextOverride(label)
+            return
+        }
         do {
             try modelContext.save()
         } catch {
@@ -331,6 +342,111 @@ actor VaultIndexActor {
 
     // MARK: - Full Vault Import
 
+    private struct UpdatedPageSnapshot {
+        let pageId: String
+        let body: String
+        let filePath: String?
+        let wordCount: Int
+        let emoji: String
+        let lastSyncedBodyHash: String?
+        let lastSyncedAt: Date?
+        let needsVaultSync: Bool
+        let updatedAt: Date
+        let title: String
+        let tags: [String]
+        let frontMatter: [String: String]
+        let parentPageId: String?
+        let templateId: String?
+        let subfolder: String?
+        let isJournal: Bool
+        let journalDate: String?
+    }
+
+    private enum PageUpsertResult {
+        case unchanged
+        case updated(UpdatedPageSnapshot)
+        case inserted(SDPage)
+    }
+
+    private func discardPendingImportedPages(
+        _ pendingInsertedPages: [SDPage],
+        failedSaveLabel: String
+    ) {
+        guard !pendingInsertedPages.isEmpty else { return }
+
+        var seenPageIDs = Set<String>()
+        var uniquePendingPages = [SDPage]()
+        uniquePendingPages.reserveCapacity(pendingInsertedPages.count)
+
+        for page in pendingInsertedPages where seenPageIDs.insert(page.id).inserted {
+            uniquePendingPages.append(page)
+        }
+
+        for page in uniquePendingPages {
+            modelContext.delete(page)
+        }
+
+        for pageID in seenPageIDs {
+            let blockDescriptor = FetchDescriptor<SDBlock>(
+                predicate: #Predicate<SDBlock> { $0.pageId == pageID }
+            )
+            if let blocks = fetchAll(
+                blockDescriptor,
+                label: "pending imported blocks for cleanup \(pageID)"
+            ) {
+                for block in blocks {
+                    modelContext.delete(block)
+                }
+            }
+
+            NoteFileStorage.deleteBody(pageId: pageID)
+
+            do {
+                try searchService?.delete(pageId: pageID)
+            } catch {
+                log.error(
+                    "VaultIndex: failed to remove search row for discarded imported page \(pageID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+
+        log.error(
+            "VaultIndex: discarded \(seenPageIDs.count, privacy: .public) pending imported pages after failed \(failedSaveLabel, privacy: .public)"
+        )
+    }
+
+    private func restorePendingUpdatedPages(
+        _ pendingUpdatedPages: [UpdatedPageSnapshot],
+        failedSaveLabel: String
+    ) {
+        guard !pendingUpdatedPages.isEmpty else { return }
+
+        var restoredPageIDs = Set<String>()
+        var restoredCount = 0
+
+        for snapshot in pendingUpdatedPages where restoredPageIDs.insert(snapshot.pageId).inserted {
+            NoteFileStorage.writeBody(pageId: snapshot.pageId, content: snapshot.body)
+            upsertSearchIndex(
+                pageId: snapshot.pageId,
+                title: snapshot.title,
+                body: snapshot.body,
+                tags: snapshot.tags,
+                updatedAt: snapshot.updatedAt
+            )
+
+            let restoredPageId = snapshot.pageId
+            Task { @MainActor in
+                NoteFileStorage.notifyBodyChanged(pageId: restoredPageId)
+            }
+
+            restoredCount += 1
+        }
+
+        log.error(
+            "VaultIndex: restored \(restoredCount, privacy: .public) pending updated pages after failed \(failedSaveLabel, privacy: .public)"
+        )
+    }
+
     /// Import vault incrementally: only process new, modified, or deleted files.
     /// Compares file modification dates against stored SDPage.updatedAt to skip unchanged files.
     func importVault(from url: URL, deleteMissingFiles: Bool = true) throws {
@@ -377,8 +493,24 @@ actor VaultIndexActor {
         var skipCount = 0
         var changeCount = 0
         var unreadableCount = 0
+        var pendingInsertedPages = [SDPage]()
+        var pendingUpdatedPages = [UpdatedPageSnapshot]()
         let batchSize = 200
         var completedScan = !Task.isCancelled
+
+        func saveImportProgress(_ label: String) throws {
+            do {
+                try saveContext(label)
+                pendingInsertedPages.removeAll(keepingCapacity: true)
+                pendingUpdatedPages.removeAll(keepingCapacity: true)
+            } catch {
+                discardPendingImportedPages(pendingInsertedPages, failedSaveLabel: label)
+                modelContext.rollback()
+                modelContext.processPendingChanges()
+                restorePendingUpdatedPages(pendingUpdatedPages, failedSaveLabel: label)
+                throw error
+            }
+        }
 
         if !completedScan {
             log.info("Vault import cancelled before enumeration started — skipping deletion pass")
@@ -427,20 +559,26 @@ actor VaultIndexActor {
                     // File exists in DB — check if it changed
                     if fileModDate > existingPage.updatedAt || needsLocalBodyRebuild {
                         // File was modified externally — re-read and update
-                        autoreleasepool {
-                            do {
-                                let changed = try upsertPage(from: fileURL, vaultURL: url)
-                                if changed {
-                                    updateCount += 1
-                                    changeCount += 1
-                                } else {
-                                    skipCount += 1
-                                }
-                            } catch {
-                                log.error(
-                                    "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                                )
+                        do {
+                            let result = try autoreleasepool {
+                                try upsertPage(from: fileURL, vaultURL: url)
                             }
+                            switch result {
+                            case .updated(let snapshot):
+                                pendingUpdatedPages.append(snapshot)
+                                updateCount += 1
+                                changeCount += 1
+                            case .inserted(let page):
+                                pendingInsertedPages.append(page)
+                                insertCount += 1
+                                changeCount += 1
+                            case .unchanged:
+                                skipCount += 1
+                            }
+                        } catch {
+                            log.error(
+                                "Failed to update \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                            )
                         }
                     } else {
                         // Unchanged — skip entirely (no disk read, no body load)
@@ -448,21 +586,31 @@ actor VaultIndexActor {
                     }
                 } else {
                     // New file — insert
-                    autoreleasepool {
-                        do {
-                            _ = try upsertPage(from: fileURL, vaultURL: url)
+                    do {
+                        let result = try autoreleasepool {
+                            try upsertPage(from: fileURL, vaultURL: url)
+                        }
+                        switch result {
+                        case .inserted(let page):
+                            pendingInsertedPages.append(page)
                             insertCount += 1
                             changeCount += 1
-                        } catch {
-                            log.error(
-                                "Failed to index \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                            )
+                        case .updated(let snapshot):
+                            pendingUpdatedPages.append(snapshot)
+                            updateCount += 1
+                            changeCount += 1
+                        case .unchanged:
+                            skipCount += 1
                         }
+                    } catch {
+                        log.error(
+                            "Failed to index \(fileURL.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                        )
                     }
                 }
 
                 if changeCount > 0 && changeCount.isMultiple(of: batchSize) {
-                    try saveContext("vault import batch progress")
+                    try saveImportProgress("vault import batch progress")
                     log.info("Vault import progress: \(changeCount, privacy: .public) changes")
                 }
             }
@@ -486,7 +634,7 @@ actor VaultIndexActor {
         }
 
         if changeCount > 0 || deleteCount > 0 {
-            try saveContext("vault import final changes")
+            try saveImportProgress("vault import final changes")
         }
 
         // Synthesize folders from subfolder paths.
@@ -672,7 +820,14 @@ actor VaultIndexActor {
     /// Re-index a single file that changed externally.
     @discardableResult
     func reindexFile(at url: URL, vaultURL: URL) throws -> Bool {
-        let changed = try upsertPage(from: url, vaultURL: vaultURL)
+        let result = try upsertPage(from: url, vaultURL: vaultURL)
+        let changed: Bool
+        switch result {
+        case .unchanged:
+            changed = false
+        case .updated, .inserted(_):
+            changed = true
+        }
         if changed {
             try saveContext("single file reindex")
             log.debug("Re-indexed: \(url.lastPathComponent, privacy: .public)")
@@ -723,11 +878,20 @@ actor VaultIndexActor {
             page.filePath = fileURL.path
         }
 
-        // Build content — markdown with front-matter for .md files, plain text for .txt
-        let ext = fileURL.pathExtension.lowercased()
+        // Build content — markdown front-matter only for markdown note files.
+        // Tracked source files (.swift, .rs, .py, etc.) must round-trip as raw text.
         let body = page.loadBody(mapped: true)
         let bodyHash = SDPage.bodyHash(body)
-        let output = (ext == "txt") ? body : buildMarkdown(for: page, body: body)
+        let output = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
+            ? buildMarkdown(for: page, body: body)
+            : body
+        try FileManager.default.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if !FileManager.default.fileExists(atPath: fileURL.path) {
+            FileManager.default.createFile(atPath: fileURL.path, contents: Data())
+        }
         try coordinatedWrite(output, to: fileURL)
 
         // Persist filePath back to the store so subsequent exports use the same path.
@@ -813,7 +977,7 @@ actor VaultIndexActor {
     // MARK: - Private Helpers
 
     /// Upsert a page from a .md file URL. Updates if exists (by filePath), creates if new.
-    private func upsertPage(from fileURL: URL, vaultURL: URL) throws -> Bool {
+    private func upsertPage(from fileURL: URL, vaultURL: URL) throws -> PageUpsertResult {
         // Pre-flight check: verify the file is actually readable before attempting I/O.
         // Security-scoped access is process-wide (granted by VaultSyncService), but individual
         // files may be locked, in Trash, symlinked, or otherwise inaccessible.
@@ -822,7 +986,7 @@ actor VaultIndexActor {
             log.warning(
                 "Skipping unreadable file: \(fileURL.lastPathComponent, privacy: .public)"
             )
-            return false  // Caller should increment unreadableCount
+            return .unchanged  // Caller should increment unreadableCount
         }
 
         let filePath = fileURL.path
@@ -833,7 +997,7 @@ actor VaultIndexActor {
                 at: fileURL,
                 label: "vault note file"
             ) else {
-                return false
+                return .unchanged
             }
             if let decoded = FoundationSafety.decodedText(from: data) {
                 content = decoded
@@ -849,10 +1013,12 @@ actor VaultIndexActor {
             log.error(
                 "Failed to read \(fileURL.lastPathComponent, privacy: .public): \(error, privacy: .public)"
             )
-            return false  // Skip this file instead of crashing the entire import
+            return .unchanged  // Skip this file instead of crashing the entire import
         }
 
-        let (frontMatter, body) = Self.parseFrontMatter(content)
+        let (frontMatter, body) = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
+            ? Self.parseFrontMatter(content)
+            : ([:], content)
 
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.filePath == filePath }
@@ -904,6 +1070,25 @@ actor VaultIndexActor {
                 || page.frontMatter != frontMatter
                 || page.wordCount != parsedWordCount
             {
+                let snapshot = UpdatedPageSnapshot(
+                    pageId: page.id,
+                    body: currentBody,
+                    filePath: page.filePath,
+                    wordCount: page.wordCount,
+                    emoji: page.emoji,
+                    lastSyncedBodyHash: page.lastSyncedBodyHash,
+                    lastSyncedAt: page.lastSyncedAt,
+                    needsVaultSync: page.needsVaultSync,
+                    updatedAt: page.updatedAt,
+                    title: page.title,
+                    tags: page.tags,
+                    frontMatter: page.frontMatter,
+                    parentPageId: page.parentPageId,
+                    templateId: page.templateId,
+                    subfolder: page.subfolder,
+                    isJournal: page.isJournal,
+                    journalDate: page.journalDate
+                )
                 if preserveBody {
                     log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
                     page.needsVaultSync = true
@@ -947,9 +1132,9 @@ actor VaultIndexActor {
 
                 let indexBody = preserveBody ? currentBody : body
                 upsertSearchIndex(page: page, body: indexBody)
-                return true
+                return .updated(snapshot)
             }
-            return false
+            return .unchanged
         } else {
             // Create new page
             let page = SDPage(title: parsedTitle)
@@ -1009,7 +1194,7 @@ actor VaultIndexActor {
 
             modelContext.insert(page)
             upsertSearchIndex(page: page, body: body)
-            return true
+            return .inserted(page)
         }
     }
 
@@ -1019,11 +1204,17 @@ actor VaultIndexActor {
             return nil
         }
 
+        let decode: (String) -> String = { decoded in
+            Self.shouldWriteMarkdownFrontMatter(to: fileURL)
+                ? Self.parseFrontMatter(decoded).1
+                : decoded
+        }
+
         if let decoded = FoundationSafety.decodedText(from: data) {
-            return parseFrontMatter(decoded).1
+            return decode(decoded)
         }
         if let latin1 = String(data: data, encoding: .isoLatin1) {
-            return parseFrontMatter(latin1).1
+            return decode(latin1)
         }
         return nil
     }
@@ -1112,6 +1303,15 @@ actor VaultIndexActor {
         return lines.joined(separator: "\n")
     }
 
+    private nonisolated static func shouldWriteMarkdownFrontMatter(to fileURL: URL) -> Bool {
+        switch fileURL.pathExtension.lowercased() {
+        case "", "md", "markdown":
+            return true
+        default:
+            return false
+        }
+    }
+
     /// YAML-escape a title for front-matter: wrap in double quotes if it contains special chars.
     private func yamlEscapeTitle(_ title: String) -> String {
         let needsQuoting = title.contains(":") || title.contains("\"") ||
@@ -1168,16 +1368,32 @@ actor VaultIndexActor {
     // MARK: - Search Index Helpers
 
     private func upsertSearchIndex(page: SDPage, body: String) {
+        upsertSearchIndex(
+            pageId: page.id,
+            title: page.title,
+            body: body,
+            tags: page.tags,
+            updatedAt: page.updatedAt
+        )
+    }
+
+    private func upsertSearchIndex(
+        pageId: String,
+        title: String,
+        body: String,
+        tags: [String],
+        updatedAt: Date
+    ) {
         do {
             try searchService?.upsert(
-                id: page.id,
-                title: page.title,
+                id: pageId,
+                title: title,
                 body: body,
-                tags: page.tags.joined(separator: " "),
-                updatedAt: page.updatedAt
+                tags: tags.joined(separator: " "),
+                updatedAt: updatedAt
             )
         } catch {
-            log.error("FTS5 upsert failed for page \(page.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            log.error("FTS5 upsert failed for page \(pageId, privacy: .public): \(error.localizedDescription, privacy: .public)")
         }
     }
 
