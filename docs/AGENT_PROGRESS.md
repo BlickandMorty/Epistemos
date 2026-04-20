@@ -2,6 +2,13 @@
 
 Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `codex/runtime-input-audit` — routing UX, Codex cloud-quality fix, agent thinking-delta wiring, empty-stream guard, QwQ-32B flagship reasoner, effective-model badge (data + UI).
 
+## 2026-04-19 Reasoning Trace Continuation ✅
+- [x] `3c17ac95` — note chat now persists `thinkingTrace` / `thinkingDurationSeconds` through its SwiftData round-trip; reloading a note no longer drops the assistant's collapsible thought trail
+- [x] Verification: focused `xcodebuild ... -only-testing:EpistemosTests/NoteChatStateTests` passed on the warmed `/tmp/epistemos-mlx-load-stall` path
+- [x] `79e70e52` — graph chat (`NodeInspectorState` + `HologramSearchSidebar`) now captures `reasoningSink` deltas, shows a live/persisted `ThinkingTrailView`, and stamps the final thought trace onto the assistant transcript instead of keeping reasoning invisible
+- [x] Verification: the new `RuntimeValidationTests.graphChatPreservesReasoningTracesSeparately()` source guard passed; the broader `RuntimeValidationTests` suite still has one unrelated pre-existing failure (`bootstrapThrottlesRefreshAndRuntimeSerializesTurns()`)
+- [ ] Remaining user-visible transcript surfaces to audit next: `PinnedInspector` node chat, `CodeEditorView` code-explain/ask flows, then lower-priority `DialogueChatState` persistence
+
 ## 2026-04-20 Handoff Correction ⚠️
 - Later manual testing contradicted several earlier "fixed" claims.
 - Do not treat Fast-mode local thinking, app-crash, Qwen Coder freeze, "thinks forever, never answers," or thinking-in-main-bubble as fully closed without fresh live verification.
