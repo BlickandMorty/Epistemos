@@ -268,6 +268,18 @@ enum PipelineEvent: Sendable {
     case error(String)
 }
 
+enum PipelineToolEvent: Sendable {
+    case started(id: String, name: String, inputJson: String)
+    case completed(
+        id: String,
+        name: String,
+        inputJson: String,
+        resultJson: String,
+        isError: Bool,
+        durationMs: UInt64
+    )
+}
+
 // MARK: - Evidence
 
 enum EvidenceGrade: String, Codable, Sendable {

@@ -382,7 +382,14 @@ enum LocalRuntimeSmokeSupport {
         #expect(record.revision == descriptor.revision)
         #expect(FileManager.default.fileExists(atPath: activeDirectory.path))
         #expect(FileManager.default.fileExists(atPath: activeDirectory.appendingPathComponent("config.json").path))
-        #expect(FileManager.default.fileExists(atPath: activeDirectory.appendingPathComponent("tokenizer.json").path))
+        let hasTokenizer = [
+            "tokenizer.json",
+            "tokenizer.model",
+            "vocab.json",
+        ].contains { name in
+            FileManager.default.fileExists(atPath: activeDirectory.appendingPathComponent(name).path)
+        }
+        #expect(hasTokenizer)
 
         let safetensorFiles = try FileManager.default.contentsOfDirectory(at: activeDirectory, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "safetensors" }
@@ -777,7 +784,7 @@ enum LocalRuntimeSmokeSupport {
         bootstrap: AppBootstrap
     ) async throws {
         guard let model = LocalTextModelID(rawValue: modelID),
-              model.supportsAgentMode else {
+              model.canRunLocalAgentLoop else {
             return
         }
 
