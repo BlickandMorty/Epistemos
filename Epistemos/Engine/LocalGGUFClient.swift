@@ -1037,7 +1037,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                 return .modelNotLoaded
             case .runtimeUnavailable:
                 return .runtimeUnavailable
-            case .modelLoaderUnavailable:
+            case .modelLoaderUnavailable, .modelLoadStalled:
                 return .modelNotLoaded
             }
         }

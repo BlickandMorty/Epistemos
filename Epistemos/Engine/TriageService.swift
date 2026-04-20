@@ -871,15 +871,22 @@ nonisolated enum LocalInferenceRoutingError: LocalizedError, Equatable {
     /// the opaque "Unsupported model type: gemma4" that mlx-swift-lm
     /// would otherwise emit.
     case modelLoaderUnavailable(modelID: String)
+    /// Thrown when a local model never finishes loading into memory. This is
+    /// distinct from a generic request timeout so the chat can tell the user
+    /// the model load stalled and suggest a smaller model.
+    case modelLoadStalled(modelID: String)
 
     var errorDescription: String? {
         switch self {
         case .modelRequired:
-            "No usable local model is available. Open Settings and install or select a supported local model."
+            return "No usable local model is available. Open Settings and install or select a supported local model."
         case .runtimeUnavailable:
-            "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
+            return "The local model runtime is unavailable right now. Reopen the app or re-enable the local model in Settings."
         case .modelLoaderUnavailable(let modelID):
-            "The \(modelID) loader hasn't shipped yet. Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
+            return "The \(modelID) loader hasn't shipped yet. Pick a different local model in Settings → Inference — Qwen 3 4B and DeepSeek R1 7B are solid defaults."
+        case .modelLoadStalled(let modelID):
+            let displayName = LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
+            return "The \(displayName) model couldn't finish loading. Try restarting the app or switch to a smaller local model like Qwen 3 4B."
         }
     }
 }

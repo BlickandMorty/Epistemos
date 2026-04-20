@@ -762,6 +762,19 @@ struct UserFacingChatErrorKindTests {
         let output = UserFacingChatError.message(from: PipelineError.analysisFailure(raw))
         #expect(output == raw)
     }
+
+    @Test("model load stalled preserves the actionable local-model copy")
+    func preservesModelLoadStalledCopy() {
+        let error = LocalInferenceRoutingError.modelLoadStalled(
+            modelID: LocalTextModelID.qwen25Coder7B.rawValue
+        )
+        let kind = UserFacingChatError.classify(error)
+        let message = UserFacingChatError.message(from: error)
+
+        #expect(kind == .generic)
+        #expect(message.contains("Qwen 2.5 Coder 7B"))
+        #expect(message.contains("Qwen 3 4B"))
+    }
 }
 
 @Suite("Pipeline Contracts")

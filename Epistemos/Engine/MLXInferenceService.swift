@@ -964,7 +964,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
                 return .modelNotLoaded
             case .runtimeUnavailable:
                 return .runtimeUnavailable
-            case .modelLoaderUnavailable:
+            case .modelLoaderUnavailable, .modelLoadStalled:
                 return .modelNotLoaded
             }
         }
@@ -1023,7 +1023,6 @@ actor MLXInferenceService: LocalMLXRuntime {
     private let snapshot: LocalHardwareCapabilitySnapshot
     private let serialController: LocalInferenceSerialController
     private var metalRuntimeManager: MetalRuntimeManager?
-
     private(set) var container: ModelContainer?
     private var loadedModelID: String?
     private var scheduledUnloadTask: Task<Void, Never>?
@@ -1433,27 +1432,47 @@ actor MLXInferenceService: LocalMLXRuntime {
         Memory.peakMemory = 0
 
         let configuration = ModelConfiguration(directory: request.modelDirectory)
+        let coldLoadTimeout = Self.coldLoadTimeoutSeconds(for: request.modelID)
 
         // Use VLMModelFactory for vision models (Gemma 4, Gemma 3, Llama 4 Scout),
         // LLMModelFactory for text-only models (Qwen, DeepSeek, Mistral, etc.)
         let isVisionModel = LocalTextModelID(rawValue: request.modelID)?.supportsVision ?? false
         let container: ModelContainer
-        #if canImport(MLXVLM)
-        if isVisionModel {
-            container = try await VLMModelFactory.shared.loadContainer(configuration: configuration)
-            log.info("Loaded local VLM model \(request.modelID, privacy: .public)")
-        } else {
-            container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
-            log.info("Loaded local LLM model \(request.modelID, privacy: .public)")
+        do {
+            #if canImport(MLXVLM)
+            if isVisionModel {
+                container = try await withTimeout(seconds: coldLoadTimeout) {
+                    try await VLMModelFactory.shared.loadContainer(configuration: configuration)
+                }
+                log.info("Loaded local VLM model \(request.modelID, privacy: .public)")
+            } else {
+                container = try await withTimeout(seconds: coldLoadTimeout) {
+                    try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+                }
+                log.info("Loaded local LLM model \(request.modelID, privacy: .public)")
+            }
+            #else
+            container = try await withTimeout(seconds: coldLoadTimeout) {
+                try await LLMModelFactory.shared.loadContainer(configuration: configuration)
+            }
+            log.info("Loaded local LLM model \(request.modelID, privacy: .public) (VLM unavailable)")
+            #endif
+        } catch is TimeoutError {
+            throw LocalInferenceRoutingError.modelLoadStalled(modelID: request.modelID)
         }
-        #else
-        container = try await LLMModelFactory.shared.loadContainer(configuration: configuration)
-        log.info("Loaded local LLM model \(request.modelID, privacy: .public) (VLM unavailable)")
-        #endif
         loadedModelID = request.modelID
         self.container = container
         await prepareCustomSSMRuntimeIfNeeded(for: request.modelID)
         return (container, true, start.duration(to: ContinuousClock.now).millisecondsValue)
+    }
+
+    private nonisolated static func coldLoadTimeoutSeconds(for modelID: String) -> Double {
+        switch LocalTextModelID(rawValue: modelID) {
+        case .qwen25Coder7B:
+            return 90.0
+        default:
+            return 120.0
+        }
     }
 
     private enum CustomSSMRuntimeWarmupError: LocalizedError {
