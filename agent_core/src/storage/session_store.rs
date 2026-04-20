@@ -223,6 +223,7 @@ impl SessionFolder {
         let json = serde_json::to_string_pretty(&self.metadata)
             .map_err(|e| VaultError::DatabaseError(format!("session json: {e}")))?;
         fs::write(self.root.join("session.json"), json)?;
+        let _ = self.sync_working_memory_status(status);
         Ok(())
     }
 
@@ -453,6 +454,50 @@ impl SessionFolder {
         let json = serde_json::to_string_pretty(&self.metadata)
             .map_err(|e| VaultError::DatabaseError(format!("session json: {e}")))?;
         fs::write(self.root.join("session.json"), json)?;
+        Ok(())
+    }
+
+    fn working_memory_path(&self) -> Option<PathBuf> {
+        let sessions_dir = self.root.parent()?;
+        let vault_root = sessions_dir.parent()?;
+        Some(
+            vault_root
+                .join(".epistemos")
+                .join("sessions")
+                .join(&self.metadata.id)
+                .join("working-memory.md"),
+        )
+    }
+
+    fn sync_working_memory_status(&self, status: &str) -> Result<(), VaultError> {
+        let Some(wm_path) = self.working_memory_path() else {
+            return Ok(());
+        };
+        if !wm_path.exists() {
+            return Ok(());
+        }
+
+        let content = fs::read_to_string(&wm_path)?;
+        let had_trailing_newline = content.ends_with('\n');
+        let mut replaced = false;
+        let mut lines = Vec::new();
+        for line in content.lines() {
+            if !replaced && line.trim_start().starts_with("status:") {
+                lines.push(format!("status: {status}"));
+                replaced = true;
+            } else {
+                lines.push(line.to_string());
+            }
+        }
+        if !replaced {
+            lines.insert(0, format!("status: {status}"));
+        }
+
+        let mut updated = lines.join("\n");
+        if had_trailing_newline {
+            updated.push('\n');
+        }
+        fs::write(wm_path, updated)?;
         Ok(())
     }
 
@@ -798,6 +843,29 @@ mod tests {
         assert_eq!(meta.token_count.input, 1000);
         assert_eq!(meta.token_count.output, 2000);
         assert!(meta.ended_at.is_some());
+    }
+
+    #[test]
+    fn finalize_session_marks_working_memory_as_terminal() {
+        let tmp = TempDir::new().unwrap();
+        let mut folder =
+            SessionFolder::create(tmp.path(), "sess_working", "claude", "anthropic").unwrap();
+        let wm_dir = tmp.path().join(".epistemos/sessions/sess_working");
+        fs::create_dir_all(&wm_dir).unwrap();
+        let wm_path = wm_dir.join("working-memory.md");
+        fs::write(
+            &wm_path,
+            "---\nsession_id: sess_working\nstatus: running\nturn: 2\n---\n\n## Goal\nShip cleanly.\n",
+        )
+        .unwrap();
+
+        folder
+            .finalize("completed", 5, 1000, 2000, None, None)
+            .unwrap();
+
+        let content = fs::read_to_string(&wm_path).unwrap();
+        assert!(content.contains("status: completed"));
+        assert!(!content.contains("status: running"));
     }
 
     #[test]
