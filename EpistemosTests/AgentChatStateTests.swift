@@ -126,6 +126,7 @@ struct AgentChatStateTests {
 
     @Test func mainChatBrainSnapshotClearsWithConversationReset() {
         let state = ChatState()
+        state.setCurrentChat("chat-brain")
         state.captureBrainSnapshot(
             ChatBrainSnapshot(
                 capturedAt: Date(timeIntervalSince1970: 0),
@@ -154,6 +155,7 @@ struct AgentChatStateTests {
 
     @Test func mainChatBrainSnapshotUpdatesSectionsForMatchingTurnOnly() {
         let state = ChatState()
+        state.setCurrentChat("chat-brain")
         let capturedAt = Date(timeIntervalSince1970: 42)
         state.captureBrainSnapshot(
             ChatBrainSnapshot(
@@ -240,6 +242,7 @@ struct AgentChatStateTests {
         state.startStreaming()
 
         state.appendStreamingText("<think>working through the plan</think>Final answer.")
+        state.stopStreaming()
 
         #expect(state.streamingThinking == "working through the plan")
         #expect(state.streamingText == "Final answer.")
@@ -346,6 +349,55 @@ struct AgentChatStateTests {
         #expect(message?.isError == true)
         #expect((message?.content ?? "").contains("No response"))
         #expect(!state.isStreaming)
+    }
+
+    @Test("agent chat recovers a final answer from hidden thinking before surfacing empty-stream error")
+    func completeProcessingSalvagesAnswerFromThinkingTrace() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking(
+            """
+            Thinking Process:
+            I should keep the response brief.
+
+            Final Answer:
+            The summary is ready.
+            """
+        )
+
+        state.completeProcessing(mode: .api)
+
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.isError != true)
+        #expect(message?.content == "The summary is ready.")
+        #expect(message?.thinkingTrace?.contains("Thinking Process") == true)
+    }
+
+    @Test("agent chat preserves thinking-only turns with a readable fallback instead of an empty-stream error")
+    func completeProcessingPreservesThinkingOnlyTurns() {
+        let state = AgentChatState()
+        state.startNewSession()
+        state.startStreaming()
+        state.appendStreamingThinking(
+            """
+            1. Query:
+            - Research the note network.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The linked notes.
+            Reduce Strategy: Keep the highest-signal passages.
+            """
+        )
+
+        state.completeProcessing(mode: .api)
+
+        let message = state.messages.last
+        #expect(message?.role == .assistant)
+        #expect(message?.isError != true)
+        #expect(message?.content.contains("never produced a final answer") == true)
+        #expect(message?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
     @Test("empty text but pending tool-use blocks still commit the turn")

@@ -2122,6 +2122,31 @@ struct ChatStateContextAttachmentTests {
         #expect(last?.thinkingTrace?.contains("Thinking Process") == true)
     }
 
+    @Test("main chat preserves thinking and shows a readable fallback when the model never reaches a final answer")
+    func completeProcessingPreservesThinkingOnlyTurns() {
+        let chatState = ChatState()
+        chatState.submitQuery("Hello?")
+        chatState.startStreaming()
+        chatState.appendStreamingThinking(
+            """
+            1. Query:
+            - Summarize the key findings.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The references.
+            Reduce Strategy: Keep only the strongest passages.
+            """
+        )
+
+        chatState.completeProcessing(mode: .api)
+
+        let last = chatState.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.isError != true)
+        #expect(last?.content.contains("never produced a final answer") == true)
+        #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
     @Test("complete processing snapshots active context attachments onto the assistant message")
     func completeProcessingCarriesContextAttachments() {
         let chatState = ChatState()

@@ -418,7 +418,9 @@ nonisolated enum ThinkingPreludeSyntax {
         if paragraphs.count >= 2 {
             for answerIndex in stride(from: paragraphs.count - 1, through: 1, by: -1) {
                 let candidate = paragraphs[answerIndex]
-                if isHeadingLike(candidate) || isBulletOnlyParagraph(candidate) {
+                if isHeadingLike(candidate)
+                    || isBulletOnlyParagraph(candidate)
+                    || isStructuredToolPayload(candidate) {
                     continue
                 }
                 let reasoning = paragraphs[..<answerIndex]
@@ -441,6 +443,7 @@ nonisolated enum ThinkingPreludeSyntax {
         if lines.count >= 2,
            let answerLine = lines.last,
            !isHeadingLike(answerLine),
+           !isStructuredToolPayload(answerLine),
            !answerLine.hasPrefix("-"),
            !answerLine.hasPrefix("*"),
            !answerLine.hasPrefix("•"),
@@ -552,6 +555,7 @@ nonisolated enum ThinkingPreludeSyntax {
         for paragraph in paragraphs.reversed() {
             if isHeadingLike(paragraph) { continue }
             if isBulletOnlyParagraph(paragraph) && paragraphs.count > 1 { continue }
+            if isStructuredToolPayload(paragraph) { continue }
             return paragraph
         }
 
@@ -568,6 +572,16 @@ nonisolated enum ThinkingPreludeSyntax {
         }
 
         return nil
+    }
+
+    private static func isStructuredToolPayload(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = normalized.lowercased()
+        if lowercased.contains("here is the function call:") {
+            return true
+        }
+        guard normalized.contains("\"name\""), normalized.contains("\"arguments\"") else { return false }
+        return true
     }
 
     private static func draftedAnswerCandidate(in text: String) -> String? {
@@ -765,7 +779,7 @@ nonisolated enum UserFacingModelOutput {
     }
 
     static func streamingReasoningText(from raw: String) -> String {
-        let cleaned = cleanedStreamingText(from: raw)
+        let cleaned = cleanedStreamingReasoningText(from: raw)
         guard !cleaned.isEmpty else { return "" }
         guard streamingVisibleText(from: raw).isEmpty else { return "" }
         let hasReasoningArtifacts = containsReasoningArtifacts(raw: raw, cleaned: cleaned)
@@ -789,6 +803,12 @@ nonisolated enum UserFacingModelOutput {
         return bestAnswerCandidate(in: cleaned) ?? ""
     }
 
+    static func incompleteReasoningFallback(from rawThinking: String) -> String? {
+        let trimmed = rawThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return "The model finished its thinking trace but never produced a final answer. Try Fast mode, a lower thinking level, or another model."
+    }
+
     private static func cleanedVisibleText(
         from raw: String,
         suppressIncompleteThinkingTail: Bool
@@ -810,6 +830,19 @@ nonisolated enum UserFacingModelOutput {
         )
         .replacingOccurrences(of: "\r\n", with: "\n")
         .trimmingLeadingWhitespaceAndNewlines()
+    }
+
+    private static func cleanedStreamingReasoningText(from raw: String) -> String {
+        let cleaned = cleanedStreamingText(from: raw)
+        guard !cleaned.isEmpty else { return "" }
+
+        if let boundary = ThinkingPreludeSyntax.answerBoundary(in: cleaned) {
+            let reasoning = String(cleaned[..<boundary.reasoningEnd])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return reasoning
+        }
+
+        return cleaned
     }
 
     private static func strippedThinkingArtifacts(
@@ -1042,6 +1075,12 @@ nonisolated enum UserFacingModelOutput {
             .replacingOccurrences(of: "`", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private static func isStructuredToolPayload(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.first == "{", normalized.last == "}" else { return false }
+        return normalized.contains("\"name\"") && normalized.contains("\"arguments\"")
     }
 }
 

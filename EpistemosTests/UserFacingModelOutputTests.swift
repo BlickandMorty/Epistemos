@@ -133,6 +133,18 @@ struct UserFacingModelOutputTests {
         )
     }
 
+    @Test("streaming reasoning strips dangling final-answer markers without content")
+    func streamingReasoningTextDropsDanglingAnswerMarker() {
+        let raw = """
+        <think>Inspecting the selected passage.</think>
+
+        Final Answer:
+        """
+
+        #expect(UserFacingModelOutput.streamingReasoningText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+    }
+
     @Test("streaming text stays silent during prose reasoning until an explicit answer appears")
     func streamingTextSuppressesProseReasoningPrelude() {
         let partial = """

@@ -269,6 +269,8 @@ final class AgentChatState {
             let salvagedFromThinking = UserFacingModelOutput.finalVisibleText(from: capturedThinking)
             if !salvagedFromThinking.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 answerText = salvagedFromThinking
+            } else if let fallback = UserFacingModelOutput.incompleteReasoningFallback(from: capturedThinking) {
+                answerText = fallback
             }
         }
         let thinkingDurationSeconds: Double? = {

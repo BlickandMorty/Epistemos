@@ -485,6 +485,42 @@ struct NoteChatStateTests {
         #expect(indexedText == "   \n   ")
     }
 
+    @Test("note chat response panel keeps a readable fallback when the model only emits thinking")
+    @MainActor func noteChatPreservesThinkingOnlyPanelTurns() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = [
+            """
+            1. Query:
+            - Summarize the note.
+
+            2. Detailed Analysis with chunk_reduce:
+            Input Text: The note body.
+            Reduce Strategy: Keep the strongest passages.
+            """
+        ]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-thinking-only")
+        state.noteBodyProvider = { "Current note body." }
+
+        state.submitQuery("Summarize the note.", triageService: triage)
+
+        for _ in 0..<50 where state.isStreaming {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let last = state.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.content.contains("never produced a final answer") == true)
+        #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
+    }
+
     @Test("note chat instant recall context filters duplicates and low-signal matches")
     @MainActor func noteChatCuratesInstantRecallContext() async throws {
         let inference = InferenceState()
