@@ -1295,13 +1295,16 @@ final class IMessageDriverService {
         case "qwen-8b", "qwen-9b", "qwen3.5-9b": return .qwen35_9B4Bit
         case "qwen-27b", "qwen3.5-27b": return .qwen35_27B4Bit
         case "qwen-35b", "qwen-moe", "qwen3.5-35b-moe": return .qwen35_35BA3B4Bit
+        case "qwen3.6-35b", "qwen-3.6-35b", "qwen36-35b", "qwen3.6-a3b": return .qwen36_35BA3B4Bit
         case "gemma-2b", "gemma4-2b", "gemma-4-2b": return .gemma4_2B4Bit
         case "gemma-4b", "gemma4-4b", "gemma-4-4b": return .gemma4_4B4Bit
-        case "gemma-27b", "gemma4-27b", "gemma-4-27b": return .gemma4_27BA4B4Bit
+        case "gemma-26b", "gemma-26b-a4b", "gemma4-26b", "gemma-4-26b", "gemma-27b", "gemma4-27b", "gemma-4-27b": return .gemma4_27BA4B4Bit
         case "qwopus", "qwopus-27b": return .qwopus27Bv3
         case "qwopus-moe", "qwopus-35b": return .qwopusMoE35BA3B
         case "deepseek-r1", "r1-7b", "deepseek-r1-7b": return .deepseekR1Distill7B
         case "qwen-coder", "coder-7b", "qwen2.5-coder": return .qwen25Coder7B
+        case "bonsai-4b", "ternary-bonsai-4b", "bonsai4b": return .bonsai4B2Bit
+        case "bonsai-8b", "ternary-bonsai-8b", "bonsai8b": return .bonsai8B2Bit
         case "smollm3", "smollm3-3b": return .smolLM3_3B4Bit
         case "devstral", "devstral-small": return .devstralSmall2505_4Bit
         case "mistral-small", "mistral-24b": return .mistralSmall31_24B4Bit
@@ -1374,13 +1377,16 @@ final class IMessageDriverService {
         case .qwen35_9B4Bit: "qwen-9b"
         case .qwen35_27B4Bit: "qwen-27b"
         case .qwen35_35BA3B4Bit: "qwen-35b"
+        case .qwen36_35BA3B4Bit: "qwen3.6-35b"
         case .gemma4_2B4Bit: "gemma-2b"
         case .gemma4_4B4Bit: "gemma-4b"
-        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: "gemma-27b"
+        case .gemma4_27BA4B4Bit, .gemma4_31BJANG: "gemma-26b-a4b"
         case .qwopus27Bv3: "qwopus-27b"
         case .qwopusMoE35BA3B: "qwopus-35b"
         case .deepseekR1Distill7B: "deepseek-r1"
         case .qwen25Coder7B: "qwen-coder"
+        case .bonsai4B2Bit: "bonsai-4b"
+        case .bonsai8B2Bit: "bonsai-8b"
         case .smolLM3_3B4Bit: "smollm3-3b"
         case .devstralSmall2505_4Bit: "devstral"
         case .mistralSmall31_24B4Bit: "mistral-small"

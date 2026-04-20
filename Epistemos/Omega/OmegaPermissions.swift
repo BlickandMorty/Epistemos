@@ -81,11 +81,11 @@ final class OmegaPermissions {
     /// Check screen recording with 5-second timeout.
     /// SCShareableContent can hang if replayd is in a broken state.
     private func checkScreenRecording() async -> Bool {
-        let fetchTask = Task { @MainActor () -> Bool in
+        let fetchTask = Task.detached(priority: .utility) { () -> Bool in
             _ = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             return true
         }
-        let timeoutTask = Task {
+        let timeoutTask = Task.detached(priority: .utility) {
             try await Task.sleep(for: .seconds(5))
             fetchTask.cancel()
         }

@@ -203,6 +203,15 @@ struct IMessageDriverServiceRoutingTests {
     }
 
     @MainActor
+    @Test("new local short-name aliases resolve to the intended runtime models")
+    func localShortNameAliasesResolveToExpectedModels() {
+        #expect(IMessageDriverService.localTextModelID(forShortName: "qwen3.6-35b") == .qwen36_35BA3B4Bit)
+        #expect(IMessageDriverService.localTextModelID(forShortName: "bonsai-4b") == .bonsai4B2Bit)
+        #expect(IMessageDriverService.localTextModelID(forShortName: "bonsai-8b") == .bonsai8B2Bit)
+        #expect(IMessageDriverService.localTextModelID(forShortName: "gemma-26b-a4b") == .gemma4_27BA4B4Bit)
+    }
+
+    @MainActor
     @Test("reply rate limiter blocks the sixty-first auto-reply inside one hour and clears after pruning old sends")
     func replyRateLimiterBlocksBurstAndPrunesOldEntries() {
         let now = Date(timeIntervalSince1970: 1_712_708_800)

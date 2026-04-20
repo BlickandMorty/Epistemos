@@ -207,6 +207,7 @@ private nonisolated struct ChannelRegistrySnapshot: Codable, Sendable {
 @MainActor @Observable
 final class ChannelRegistryState {
     private static let storageKey = "epistemos.channelRegistry.v1"
+    private static let staticLogger = Logger(subsystem: "com.epistemos", category: "ChannelRegistry")
     private let logger = Logger(subsystem: "com.epistemos", category: "ChannelRegistry")
 
     var driverChannel: ChannelIdentity {
@@ -348,6 +349,7 @@ final class ChannelRegistryState {
             channels: channels
         )
         guard let data = try? JSONEncoder().encode(snapshot) else {
+            Self.staticLogger.error("ChannelRegistryState: failed to encode registry snapshot; keeping existing stored snapshot")
             return
         }
         userDefaults.set(data, forKey: Self.storageKey)
@@ -388,7 +390,12 @@ final class ChannelRegistryState {
         guard let data = userDefaults.data(forKey: storageKey) else {
             return nil
         }
-        return try? JSONDecoder().decode(ChannelRegistrySnapshot.self, from: data)
+        do {
+            return try JSONDecoder().decode(ChannelRegistrySnapshot.self, from: data)
+        } catch {
+            Self.staticLogger.error("ChannelRegistryState: failed to decode registry snapshot: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
     }
 
     private static func mergedWithDefaults(_ storedChannels: [ChannelConfiguration]) -> [ChannelConfiguration] {

@@ -28,6 +28,10 @@ final class ScreenCaptureService {
         try await SCShareableContent.excludingDesktopWindows(excludeDesktop, onScreenWindowsOnly: onScreenOnly)
     }
 
+    private func logCaptureFailure(_ operation: String, error: Error) {
+        log.warning("\(operation, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+    }
+
     // MARK: - Streaming Pipeline
 
     /// Active stream (nil when not streaming).
@@ -187,6 +191,7 @@ final class ScreenCaptureService {
 
             return try await captureWindow(window)
         } catch {
+            logCaptureFailure("captureFrontmostWindow", error: error)
             return nil
         }
     }
@@ -229,6 +234,7 @@ final class ScreenCaptureService {
                 configuration: config
             )
         } catch {
+            logCaptureFailure("captureDisplay", error: error)
             return nil
         }
     }
@@ -247,6 +253,7 @@ final class ScreenCaptureService {
 
             return try await captureWindow(window)
         } catch {
+            logCaptureFailure("captureApp", error: error)
             return nil
         }
     }
@@ -257,6 +264,7 @@ final class ScreenCaptureService {
             _ = try await fetchShareableContent(excludeDesktop: true, onScreenOnly: true)
             return true
         } catch {
+            logCaptureFailure("hasScreenRecordingPermission", error: error)
             return false
         }
     }

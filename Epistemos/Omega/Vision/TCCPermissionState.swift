@@ -132,11 +132,11 @@ final class TCCPermissionState {
     /// Check screen recording permission with a 5-second timeout.
     /// SCShareableContent can block indefinitely if replayd is in a bad state.
     private func checkScreenRecording() async -> TCCStatus {
-        let fetchTask = Task { @MainActor () -> TCCStatus in
+        let fetchTask = Task.detached(priority: .utility) { () -> TCCStatus in
             _ = try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true)
             return .granted
         }
-        let timeoutTask = Task {
+        let timeoutTask = Task.detached(priority: .utility) {
             try await Task.sleep(for: .seconds(5))
             fetchTask.cancel()
         }
