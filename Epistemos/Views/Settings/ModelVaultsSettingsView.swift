@@ -266,7 +266,13 @@ struct ModelVaultsSettingsView: View {
 
         targets.append(
             contentsOf: LocalModelCatalog.allDescriptors
-                .filter { installedLocalTextModelIDs.contains($0.id) }
+                .filter { descriptor in
+                    guard installedLocalTextModelIDs.contains(descriptor.id),
+                          let model = LocalTextModelID(rawValue: descriptor.id) else {
+                        return false
+                    }
+                    return model.isReleaseValidatedForInteractiveChat
+                }
                 .map {
                     ModelVaultTarget(
                         modelID: $0.id,
