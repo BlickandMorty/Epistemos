@@ -8,11 +8,6 @@ import Speech
 /// `AudioTranscriber` (Apple Speech primary). Meant for utterances a
 /// few seconds long — longer dictation can use the existing file-
 /// import flow through `AudioTranscriber.transcribe(audioURL:)`.
-///
-/// Not using `SFSpeechRecognizer` directly because the app's Info.plist
-/// ships without `NSSpeechRecognitionUsageDescription` (see
-/// ThemePairTests.swift:1498). Record-then-transcribe keeps us on
-/// the existing `NSMicrophoneUsageDescription` entitlement.
 @MainActor
 final class ComposerVoiceInputService: ObservableObject {
     static let shared = ComposerVoiceInputService()

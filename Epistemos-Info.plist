@@ -18,6 +18,8 @@
 	<string>Epistemos uses Accessibility to read screen content for Omega desktop automation when you enable it.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Epistemos uses the microphone to dictate quick captures using local models.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Epistemos uses speech recognition to transcribe voice input into your notes and chats.</string>
 	<!-- Fix: [Issue 3 - TCC Permissions] — Screen Recording usage description -->
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Epistemos uses Screen Recording to capture screenshots for the Omega agent's visual verification loop.</string>

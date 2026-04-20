@@ -351,7 +351,7 @@ enum AudioTranscriberError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noBackendAvailable:
-            return "Neither mlx-whisper nor whisper.cpp found. Audio transcription unavailable."
+            return "Apple Speech is unavailable or not authorized, and no mlx-whisper or whisper.cpp fallback was found. Audio transcription is unavailable."
         case .invalidOutput:
             return "Failed to parse whisper output as JSON."
         case .processFailed(let msg):
