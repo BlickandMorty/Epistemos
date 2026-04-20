@@ -32,12 +32,13 @@ struct NonAgentPruningValidationTests {
         #expect(!source.contains("if vaultSync.vaultURL != nil {\n                    Button(\"Skip\")"))
     }
 
-    @Test("main window keeps background dragging disabled")
-    func mainWindowDisablesBackgroundDragging() throws {
+    @Test("main window leaves the SwiftUI home window background-drag policy untouched")
+    func mainWindowLeavesBackgroundDraggingUntouched() throws {
         let source = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
-        #expect(source.contains("if window.isMovableByWindowBackground {\n            return true\n        }"))
-        #expect(source.contains("window.isMovableByWindowBackground = false"))
+        #expect(!source.contains("window.isMovableByWindowBackground = false"))
+        #expect(!source.contains("if window.isMovableByWindowBackground"))
+        #expect(source.contains("enum WindowPresentationPolicy"))
     }
 
     @Test("session intelligence overlay prefers live editor text before disk fallback")
