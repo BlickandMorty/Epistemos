@@ -51,7 +51,7 @@ final class EventBus {
 
     func events() -> AsyncStream<AppEvent> {
         let id = UUID().uuidString
-        return AsyncStream { continuation in
+        return AsyncStream(bufferingPolicy: .bufferingNewest(256)) { continuation in
             self.continuations[id] = continuation
             continuation.onTermination = { [weak self] _ in
                 Task { @MainActor [weak self] in

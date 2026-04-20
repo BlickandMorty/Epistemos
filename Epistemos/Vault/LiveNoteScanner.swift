@@ -21,7 +21,9 @@ import SwiftData
 // [agent writes here]
 // <!--/task-target:apple-ai-updates-->
 
-private let log = Logger(subsystem: "com.epistemos", category: "LiveNotes")
+private enum LiveNoteScannerLog {
+    nonisolated static let logger = Logger(subsystem: "com.epistemos", category: "LiveNotes")
+}
 
 private struct LiveNotePageSnapshot: Sendable {
     let id: String
@@ -63,11 +65,21 @@ final class LiveNoteScanner {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.isArchived == false }
         )
-        let pages = (try? context.fetch(descriptor)) ?? []
+        let pages: [SDPage]
+        do {
+            pages = try context.fetch(descriptor)
+        } catch {
+            LiveNoteScannerLog.logger.error(
+                "LiveNoteScanner: failed to fetch active pages — \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
         let candidates = pages.map(Self.snapshot(for:))
         let result = Self.scanTasks(from: candidates)
 
-        log.info("LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages")
+        LiveNoteScannerLog.logger.info(
+            "LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages"
+        )
         return result.tasks
     }
 
@@ -79,12 +91,22 @@ final class LiveNoteScanner {
             let descriptor = FetchDescriptor<SDPage>(
                 predicate: #Predicate<SDPage> { $0.isArchived == false }
             )
-            let pages = (try? context.fetch(descriptor)) ?? []
+            let pages: [SDPage]
+            do {
+                pages = try context.fetch(descriptor)
+            } catch {
+                LiveNoteScannerLog.logger.error(
+                    "LiveNoteScanner: failed to fetch active pages — \(error.localizedDescription, privacy: .public)"
+                )
+                return LiveNoteScanResult(tasks: [], pageCount: 0)
+            }
             let candidates = pages.map(Self.snapshot(for:))
             return Self.scanTasks(from: candidates)
         }.value
 
-        log.info("LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages")
+        LiveNoteScannerLog.logger.info(
+            "LiveNoteScanner: found \(result.tasks.count) live tasks across \(result.pageCount) pages"
+        )
         return result.tasks
     }
 

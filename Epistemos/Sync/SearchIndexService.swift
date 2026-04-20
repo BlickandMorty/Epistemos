@@ -229,7 +229,9 @@ actor SearchIndexService {
     private nonisolated static func excludeDatabaseDirectoryFromSpotlight(_ databaseURL: URL) throws {
         let markerURL = databaseURL.deletingLastPathComponent().appendingPathComponent(".metadata_never_index")
         if !FileManager.default.fileExists(atPath: markerURL.path) {
-            FileManager.default.createFile(atPath: markerURL.path, contents: Data())
+            guard FileManager.default.createFile(atPath: markerURL.path, contents: Data()) else {
+                throw CocoaError(.fileWriteUnknown)
+            }
         }
     }
 

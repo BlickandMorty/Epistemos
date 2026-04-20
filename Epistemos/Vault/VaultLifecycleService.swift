@@ -647,7 +647,15 @@ nonisolated func listRegisteredSkillsLocal(vaultPath: String) -> [SkillRegistryE
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {
             continue
         }
-        let content = (try? String(contentsOf: manifestURL, encoding: .utf8)) ?? ""
+        let content: String
+        do {
+            content = try String(contentsOf: manifestURL, encoding: .utf8)
+        } catch {
+            VaultLifecycleService.log.warning(
+                "Skipping unreadable skill manifest at \(manifestURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            continue
+        }
         let description = content
             .split(separator: "\n")
             .map(String.init)

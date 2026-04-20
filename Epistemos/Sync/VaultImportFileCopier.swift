@@ -1,7 +1,10 @@
 import Foundation
+import OSLog
 
 /// A utility for copying files into the vault during import.
 enum VaultImportFileCopier {
+    private static let log = Logger(subsystem: "com.epistemos", category: "VaultImport")
+
     /// Copies files from source URLs to a destination directory.
     /// Skips files that already exist in the destination.
     /// - Parameters:
@@ -14,7 +17,14 @@ enum VaultImportFileCopier {
         
         // Ensure destination directory exists
         if !fm.fileExists(atPath: destination.path) {
-            try? fm.createDirectory(at: destination, withIntermediateDirectories: true)
+            do {
+                try fm.createDirectory(at: destination, withIntermediateDirectories: true)
+            } catch {
+                Self.log.error(
+                    "Failed to create vault import destination \(destination.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return 0
+            }
         }
         
         for url in urls {
@@ -29,7 +39,9 @@ enum VaultImportFileCopier {
                 try fm.copyItem(at: url, to: destinationURL)
                 count += 1
             } catch {
-                // Skip on error (e.g. permission issues) as per test expectations
+                Self.log.warning(
+                    "Failed to copy \(url.path, privacy: .public) to \(destinationURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
         
