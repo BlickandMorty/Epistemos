@@ -111,10 +111,15 @@ final class ModeMachine {
 
         // Create stream + continuation pair
         var capturedContinuation: AsyncStream<ModeTransition>.Continuation?
-        self.transitionStream = AsyncStream<ModeTransition> { continuation in
+        self.transitionStream = AsyncStream<ModeTransition>(bufferingPolicy: .bufferingNewest(256)) { continuation in
             capturedContinuation = continuation
         }
         self.continuation = capturedContinuation
+        capturedContinuation?.onTermination = { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.continuation = nil
+            }
+        }
     }
 
     // MARK: - Transition Validation
