@@ -492,6 +492,22 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("page.loadBody()"))
     }
 
+    @Test("vault changes panel snapshots diff bodies before presenting the sheet")
+    func vaultChangesPanelAvoidsRenderTimeLoadBodyReads() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/VaultChangesPanel.swift")
+
+        #expect(source.contains("private struct DiffPresentationRequest"))
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: page.id) ?? page.loadBody()"))
+        #expect(!source.contains("currentBody: page.loadBody()"))
+    }
+
+    @Test("hologram inspector edits invalidate graph structure after saving")
+    func hologramInspectorEditsInvalidateGraphStructure() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Graph/HologramNodeInspector.swift")
+
+        #expect(source.contains("AppBootstrap.shared?.graphState.needsRefresh = true"))
+    }
+
     @Test("editor save path offloads block mirror sync from the main actor")
     func editorSavePathOffloadsBlockMirrorSyncFromMainActor() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/ProseEditorView.swift")

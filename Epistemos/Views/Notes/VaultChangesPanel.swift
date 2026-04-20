@@ -4,12 +4,20 @@ import SwiftUI
 /// Panel showing pages with unsaved vault changes (dirty pages).
 /// Receives pre-filtered dirty pages from EditorActionsBar's @Query.
 struct VaultChangesPanel: View {
+    private struct DiffPresentationRequest: Identifiable {
+        let pageId: String
+        let currentTitle: String
+        let currentBody: String
+
+        var id: String { pageId }
+    }
+
     let dirtyPages: [SDPage]
 
     @Environment(UIState.self) private var ui
     @Environment(VaultSyncService.self) private var vaultSync
 
-    @State private var diffPageId: String?
+    @State private var diffRequest: DiffPresentationRequest?
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -51,7 +59,11 @@ struct VaultChangesPanel: View {
                             DirtyPageRow(page: page)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    diffPageId = page.id
+                                    diffRequest = DiffPresentationRequest(
+                                        pageId: page.id,
+                                        currentTitle: page.title,
+                                        currentBody: NoteWindowManager.shared.editorBody(for: page.id) ?? page.loadBody()
+                                    )
                                 }
                         }
                     }
@@ -60,14 +72,14 @@ struct VaultChangesPanel: View {
             }
         }
         .sheet(isPresented: Binding(
-            get: { diffPageId != nil },
-            set: { if !$0 { diffPageId = nil } }
+            get: { diffRequest != nil },
+            set: { if !$0 { diffRequest = nil } }
         )) {
-            if let page = dirtyPages.first(where: { $0.id == diffPageId }) {
+            if let diffRequest {
                 DiffSheetView(
-                    pageId: page.id,
-                    currentTitle: page.title,
-                    currentBody: page.loadBody()
+                    pageId: diffRequest.pageId,
+                    currentTitle: diffRequest.currentTitle,
+                    currentBody: diffRequest.currentBody
                 )
             }
         }
