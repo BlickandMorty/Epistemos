@@ -19,16 +19,27 @@ use crate::types::{
 const ANTHROPIC_API: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 const BETA_HEADER: &str = "interleaved-thinking-2025-05-14";
+const ANTHROPIC_OAUTH_BETA_HEADER: &str =
+    "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14,claude-code-20250219,oauth-2025-04-20";
+const ANTHROPIC_OAUTH_AUTH_MODE_ENV: &str = "ANTHROPIC_AUTH_MODE";
+const ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV: &str = "ANTHROPIC_ACCESS_TOKEN";
+const ANTHROPIC_OAUTH_AUTH_MODE: &str = "oauth";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ClaudeAuth {
+    ApiKey(String),
+    OAuthAccessToken(String),
+}
 
 pub struct ClaudeProvider {
     client: Client,
-    api_key: String,
+    auth: ClaudeAuth,
     model: &'static str,
     retry_config: RetryConfig,
 }
 
 impl ClaudeProvider {
-    pub fn new(api_key: impl Into<String>, model: &'static str) -> Self {
+    fn new(auth: ClaudeAuth, model: &'static str) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(300))
             .build()
@@ -36,31 +47,33 @@ impl ClaudeProvider {
 
         Self {
             client,
-            api_key: api_key.into(),
+            auth,
             model,
             retry_config: RetryConfig::default(),
         }
     }
 
-    pub fn opus() -> Self {
+    fn from_env(model: &'static str) -> Self {
         Self::new(
-            std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-            "claude-opus-4-6",
+            resolve_claude_auth(
+                std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
+                std::env::var(ANTHROPIC_OAUTH_ACCESS_TOKEN_ENV).unwrap_or_default(),
+                std::env::var(ANTHROPIC_OAUTH_AUTH_MODE_ENV).unwrap_or_default(),
+            ),
+            model,
         )
+    }
+
+    pub fn opus() -> Self {
+        Self::from_env("claude-opus-4-6")
     }
 
     pub fn sonnet() -> Self {
-        Self::new(
-            std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-            "claude-sonnet-4-6",
-        )
+        Self::from_env("claude-sonnet-4-6")
     }
 
     pub fn haiku() -> Self {
-        Self::new(
-            std::env::var("ANTHROPIC_API_KEY").unwrap_or_default(),
-            "claude-haiku-4-5",
-        )
+        Self::from_env("claude-haiku-4-5")
     }
 }
 
@@ -193,10 +206,18 @@ impl AgentProvider for ClaudeProvider {
         tools: &[ToolSchema],
         config: &AgentConfig,
     ) -> Result<MessageStream, AgentError> {
-        if self.api_key.trim().is_empty() {
-            return Err(AgentError::Provider(
-                "ANTHROPIC_API_KEY is not configured".to_string(),
-            ));
+        match &self.auth {
+            ClaudeAuth::ApiKey(api_key) if api_key.trim().is_empty() => {
+                return Err(AgentError::Provider(
+                    "ANTHROPIC_API_KEY is not configured".to_string(),
+                ));
+            }
+            ClaudeAuth::OAuthAccessToken(access_token) if access_token.trim().is_empty() => {
+                return Err(AgentError::Provider(
+                    "ANTHROPIC_ACCESS_TOKEN is not configured".to_string(),
+                ));
+            }
+            _ => {}
         }
 
         let thinking = if config.enable_thinking && self.model != "claude-haiku-4-5" {
@@ -267,22 +288,17 @@ impl AgentProvider for ClaudeProvider {
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
-        let api_key = self.api_key.clone();
+        let auth = self.auth.clone();
 
         let response = with_retry(
             &retry_config,
             &tokio_util::sync::CancellationToken::new(),
             || {
                 let client = client.clone();
-                let api_key = api_key.clone();
+                let auth = auth.clone();
                 let body = body.clone();
                 async move {
-                    let response = client
-                        .post(ANTHROPIC_API)
-                        .header("x-api-key", api_key)
-                        .header("anthropic-version", ANTHROPIC_VERSION)
-                        .header("anthropic-beta", BETA_HEADER)
-                        .header("content-type", "application/json")
+                    let response = authenticated_request(&client, &auth)
                         .json(&body)
                         .send()
                         .await
@@ -480,6 +496,36 @@ impl AgentProvider for ClaudeProvider {
     }
 }
 
+fn resolve_claude_auth(api_key: String, access_token: String, auth_mode: String) -> ClaudeAuth {
+    if auth_mode
+        .trim()
+        .eq_ignore_ascii_case(ANTHROPIC_OAUTH_AUTH_MODE)
+        && !access_token.trim().is_empty()
+    {
+        ClaudeAuth::OAuthAccessToken(access_token)
+    } else {
+        ClaudeAuth::ApiKey(api_key)
+    }
+}
+
+fn authenticated_request(client: &Client, auth: &ClaudeAuth) -> reqwest::RequestBuilder {
+    let builder = client
+        .post(ANTHROPIC_API)
+        .header("anthropic-version", ANTHROPIC_VERSION)
+        .header("content-type", "application/json");
+
+    match auth {
+        ClaudeAuth::ApiKey(api_key) => builder
+            .header("x-api-key", api_key)
+            .header("anthropic-beta", BETA_HEADER),
+        ClaudeAuth::OAuthAccessToken(access_token) => builder
+            .header("authorization", format!("Bearer {access_token}"))
+            .header("anthropic-beta", ANTHROPIC_OAUTH_BETA_HEADER)
+            .header("user-agent", "claude-cli/2.1.74 (external, cli)")
+            .header("x-app", "cli"),
+    }
+}
+
 fn message_to_api_json(message: &Message) -> Value {
     match message {
         Message::User { content } => json!({
@@ -594,8 +640,12 @@ fn map_stop_reason(reason: &str) -> StopReason {
 
 #[cfg(test)]
 mod tests {
-    use super::{content_block_to_json, initial_input_json, map_stop_reason};
+    use super::{
+        authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
+        resolve_claude_auth, ClaudeAuth, ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER,
+    };
     use crate::types::{ContentBlock, StopReason};
+    use reqwest::Client;
     use serde_json::json;
 
     #[test]
@@ -623,5 +673,71 @@ mod tests {
         assert_eq!(map_stop_reason("tool_use"), StopReason::ToolUse);
         assert_eq!(map_stop_reason("max_tokens"), StopReason::MaxTokens);
         assert_eq!(map_stop_reason("anything_else"), StopReason::EndTurn);
+    }
+
+    #[test]
+    fn resolves_oauth_auth_when_access_token_is_present() {
+        let auth = resolve_claude_auth(
+            "sk-ant-api-key".to_string(),
+            "anthropic-oauth-token".to_string(),
+            "oauth".to_string(),
+        );
+
+        assert_eq!(
+            auth,
+            ClaudeAuth::OAuthAccessToken("anthropic-oauth-token".to_string())
+        );
+    }
+
+    #[test]
+    fn resolves_oauth_auth_case_insensitively() {
+        let auth = resolve_claude_auth(
+            "sk-ant-api-key".to_string(),
+            "anthropic-oauth-token".to_string(),
+            "OAuth".to_string(),
+        );
+
+        assert_eq!(
+            auth,
+            ClaudeAuth::OAuthAccessToken("anthropic-oauth-token".to_string())
+        );
+    }
+
+    #[test]
+    fn oauth_requests_match_claude_code_session_headers() {
+        let client = Client::builder().build().unwrap();
+        let request = authenticated_request(
+            &client,
+            &ClaudeAuth::OAuthAccessToken("anthropic-oauth-token".to_string()),
+        )
+        .build()
+        .unwrap();
+
+        assert_eq!(
+            request.headers().get("authorization").unwrap(),
+            "Bearer anthropic-oauth-token"
+        );
+        assert_eq!(
+            request.headers().get("anthropic-beta").unwrap(),
+            ANTHROPIC_OAUTH_BETA_HEADER
+        );
+        assert_eq!(
+            request.headers().get("user-agent").unwrap(),
+            "claude-cli/2.1.74 (external, cli)"
+        );
+        assert_eq!(request.headers().get("x-app").unwrap(), "cli");
+    }
+
+    #[test]
+    fn api_key_requests_preserve_legacy_headers() {
+        let client = Client::builder().build().unwrap();
+        let request =
+            authenticated_request(&client, &ClaudeAuth::ApiKey("sk-ant-api-key".to_string()))
+                .build()
+                .unwrap();
+
+        assert_eq!(request.headers().get("x-api-key").unwrap(), "sk-ant-api-key");
+        assert_eq!(request.headers().get("anthropic-beta").unwrap(), BETA_HEADER);
+        assert!(request.headers().get("authorization").is_none());
     }
 }
