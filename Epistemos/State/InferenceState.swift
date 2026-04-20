@@ -3418,10 +3418,12 @@ final class InferenceState {
         chatAutoRouteToCloud
             && preferredAutoRouteCloudProvider != nil
             && {
-                if case .cloud = preferredChatModelSelection {
+                switch preferredChatModelSelection {
+                case .cloud, .localMLX:
                     return false
+                case .appleIntelligence:
+                    return true
                 }
-                return true
             }()
     }
 

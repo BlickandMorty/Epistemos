@@ -533,9 +533,6 @@ nonisolated struct InferencePolicyEngine {
     }
 
     private func shouldUseAutomaticLocalRouting(for context: InferencePolicyContext) -> Bool {
-        if context.cloudAutoRouteEnabled {
-            return true
-        }
         switch context.preferredChatModelSelection {
         case .localMLX:
             return false
