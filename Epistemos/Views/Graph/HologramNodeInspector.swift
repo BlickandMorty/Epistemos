@@ -44,22 +44,29 @@ struct HologramNodeInspector: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .onAppear {
+            syncSelection(from: currentId)
+        }
         .onChange(of: currentId) { _, newId in
-            if let newId, let node = graphState.store.nodes[newId] {
-                let previousSelection = inspectorState.selectedNodeId
-                inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
-                if previousSelection != newId {
-                    expandedSection = .profile
-                    isEditorExpanded = false
-                }
-                if graphState.requestEditorMode {
-                    graphState.requestEditorMode = false
-                    inspectorState.inspectorMode = .editor
-                }
-            } else {
-                inspectorState.clearSelection()
+            syncSelection(from: newId)
+        }
+    }
+
+    private func syncSelection(from nodeId: String?) {
+        if let nodeId, let node = graphState.store.nodes[nodeId] {
+            let previousSelection = inspectorState.selectedNodeId
+            inspectorState.selectNode(node, store: graphState.store, modelContext: modelContext)
+            if previousSelection != nodeId {
+                expandedSection = .profile
                 isEditorExpanded = false
             }
+            if graphState.requestEditorMode {
+                graphState.requestEditorMode = false
+                inspectorState.inspectorMode = .editor
+            }
+        } else {
+            inspectorState.clearSelection()
+            isEditorExpanded = false
         }
     }
 
@@ -208,23 +215,30 @@ struct HologramNodeInspector: View {
         NoteWindowManager.shared.currentBody(for: pageId)
     }
 
-    /// Detect code language for a page by looking up its file path.
-    private func detectedCodeLanguage(pageId: String) -> String? {
+    private func pageFilePath(for pageId: String) -> String? {
         let predicate = #Predicate<SDPage> { $0.id == pageId }
         var desc = FetchDescriptor(predicate: predicate)
         desc.fetchLimit = 1
-        guard let page = try? modelContext.fetch(desc).first,
-              let path = page.filePath else { return nil }
+
+        do {
+            return try modelContext.fetch(desc).first?.filePath
+        } catch {
+            Log.notes.error(
+                "HologramNodeInspector: failed to fetch page metadata for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    /// Detect code language for a page by looking up its file path.
+    private func detectedCodeLanguage(pageId: String) -> String? {
+        guard let path = pageFilePath(for: pageId) else { return nil }
         return CodeLanguage.detect(from: path)
     }
     
     /// Checks if the page is a code file (not .txt or .md)
     private func isCodeFile(pageId: String) -> Bool {
-        let predicate = #Predicate<SDPage> { $0.id == pageId }
-        var desc = FetchDescriptor(predicate: predicate)
-        desc.fetchLimit = 1
-        guard let page = try? modelContext.fetch(desc).first,
-              let path = page.filePath else { return false }
+        guard let path = pageFilePath(for: pageId) else { return false }
         
         let ext = (path as NSString).pathExtension.lowercased()
         // Code files are those that CodeLanguage detects AND are not .txt or .md
@@ -290,18 +304,19 @@ struct HologramNodeInspector: View {
         }
 
         page.applyInteractiveDerivedState(from: body)
-        if let modelContainer = AppBootstrap.shared?.modelContainer {
-            Task {
-                await BlockMirrorSyncCoordinator.shared.scheduleSync(
-                    pageId: pageId,
-                    body: body,
-                    modelContainer: modelContainer
-                )
-            }
-        }
         page.needsVaultSync = true
         do {
             try modelContext.save()
+            if let modelContainer = AppBootstrap.shared?.modelContainer {
+                Task {
+                    await BlockMirrorSyncCoordinator.shared.scheduleSync(
+                        pageId: pageId,
+                        body: body,
+                        modelContainer: modelContainer
+                    )
+                }
+            }
+            AppBootstrap.shared?.graphState.needsRefresh = true
         } catch {
             Log.notes.error(
                 "HologramNodeInspector: failed to save dirty page \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
