@@ -286,12 +286,7 @@ impl OpenAIProvider {
     ) -> Result<MessageStream, AgentError> {
         let input = build_codex_input(messages);
         let api_tools: Vec<Value> = tools.iter().map(tool_schema_to_codex_json).collect();
-        let body = build_codex_responses_body(
-            self.model.to_string(),
-            config,
-            input,
-            api_tools,
-        );
+        let body = build_codex_responses_body(self.model.to_string(), config, input, api_tools);
 
         let retry_config = self.retry_config.clone();
         let client = self.client.clone();
@@ -369,21 +364,18 @@ impl OpenAIProvider {
                             });
                         }
                     }
-                    // Reasoning summary / raw reasoning streams. The Responses
-                    // API puts the model's internal chain-of-thought in these
-                    // events (separate from `response.output_text.delta`).
-                    // Before this branch they fell into `_ => {}` and the
-                    // entire reasoning monologue leaked nowhere — the UI
-                    // rendered only the actual assistant reply, which on
-                    // o-series models was often empty because the model had
-                    // already "said" everything in reasoning. Route them to
-                    // ThinkingDelta so the thinking popover gets them and
-                    // the chat body stays clean.
-                    "response.reasoning_summary_text.delta" | "response.reasoning_text.delta" => {
-                        if let Some(text) = payload.get("delta").and_then(Value::as_str) {
+                    // Only forward the model-provided reasoning SUMMARY.
+                    // Raw `response.reasoning_text.delta` content is not
+                    // stable user-facing copy and often reads like gibberish
+                    // or partial chain-of-thought. The Swift direct-cloud
+                    // client already applies this filter; keep the Rust path
+                    // aligned so main chat, agent chat, and command-center
+                    // surfaces behave the same way.
+                    "response.reasoning_summary_text.delta" => {
+                        if let Some(text) = openai_responses_visible_reasoning_delta(&payload) {
                             yield Ok(StreamEvent::ThinkingDelta {
                                 index: 0,
-                                text: text.to_string(),
+                                text,
                             });
                         }
                     }
@@ -1054,6 +1046,17 @@ fn map_finish_reason(reason: &str) -> StopReason {
     }
 }
 
+fn openai_responses_visible_reasoning_delta(payload: &Value) -> Option<String> {
+    let event_type = payload.get("type").and_then(Value::as_str)?;
+    if event_type != "response.reasoning_summary_text.delta" {
+        return None;
+    }
+    payload
+        .get("delta")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1386,6 +1389,24 @@ mod tests {
             StopReason::StopSequence
         );
         assert_eq!(map_finish_reason("unknown_reason"), StopReason::EndTurn);
+    }
+
+    #[test]
+    fn visible_reasoning_delta_ignores_raw_responses_reasoning_text() {
+        let summary = json!({
+            "type": "response.reasoning_summary_text.delta",
+            "delta": "Checking the note structure"
+        });
+        let raw = json!({
+            "type": "response.reasoning_text.delta",
+            "delta": "Private chain of thought"
+        });
+
+        assert_eq!(
+            openai_responses_visible_reasoning_delta(&summary),
+            Some("Checking the note structure".to_string())
+        );
+        assert_eq!(openai_responses_visible_reasoning_delta(&raw), None);
     }
 
     // -- Usage merge test --

@@ -521,6 +521,35 @@ struct NoteChatStateTests {
         #expect(last?.thinkingTrace?.contains("Detailed Analysis with chunk_reduce") == true)
     }
 
+    @Test("note chat ignores late think tags after visible answer text has started")
+    @MainActor func noteChatIgnoresLateThinkingAfterAnswerStarts() async throws {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+
+        let llm = CapturingStreamingLLMClient()
+        llm.streamTokens = [
+            "Visible answer.",
+            "<think>late scratchpad</think>"
+        ]
+        let triage = TriageService(inference: inference, localLLMService: llm)
+
+        let state = NoteChatState(pageId: "page-late-thinking")
+        state.noteBodyProvider = { "Current note body." }
+        state.submitQuery("Summarize the note.", triageService: triage)
+
+        for _ in 0..<50 where state.isStreaming {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        let last = state.messages.last
+        #expect(last?.role == .assistant)
+        #expect(last?.content == "Visible answer.")
+        #expect(last?.thinkingTrace == nil)
+    }
+
     @Test("note chat instant recall context filters duplicates and low-signal matches")
     @MainActor func noteChatCuratesInstantRecallContext() async throws {
         let inference = InferenceState()
@@ -660,6 +689,14 @@ struct DialogueChatStateTests {
         #expect(source.contains("reasoningSink: { [weak self] delta in"))
         #expect(source.contains("UserFacingModelOutput.incompleteReasoningFallback"))
         #expect(source.contains("messages[lastIndex].thinkingTrace = trimmedThinking"))
+    }
+
+    @Test("dialogue chat ignores late reasoning after visible text begins")
+    func dialogueChatIgnoresLateReasoningAfterVisibleTextBegins() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/State/DialogueChatState.swift")
+
+        #expect(source.contains("guard !hasStartedVisibleAnswer else { return }"))
+        #expect(source.contains("hasStartedVisibleAnswer = true"))
     }
 }
 

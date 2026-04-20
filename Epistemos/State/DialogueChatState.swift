@@ -648,6 +648,7 @@ final class DialogueChatState {
     @ObservationIgnored private var streamingThinking = ""
     @ObservationIgnored private var thinkingStartedAt: Date?
     @ObservationIgnored private var thinkingEndedAt: Date?
+    @ObservationIgnored private var hasStartedVisibleAnswer = false
 
     // MARK: - Lifecycle
 
@@ -869,10 +870,12 @@ final class DialogueChatState {
     // MARK: - Token Buffering
 
     private func appendStreamingText(_ text: String) {
+        hasStartedVisibleAnswer = true
         streamBuffer.append(text)
     }
 
     private func appendStreamingThinking(_ text: String) {
+        guard !hasStartedVisibleAnswer else { return }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard thinkingStartedAt != nil || !trimmed.isEmpty else { return }
         if thinkingStartedAt == nil {
@@ -919,6 +922,7 @@ final class DialogueChatState {
         streamingThinking.removeAll(keepingCapacity: false)
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        hasStartedVisibleAnswer = false
     }
 
     // MARK: - Typewriter (~30 chars/sec)
