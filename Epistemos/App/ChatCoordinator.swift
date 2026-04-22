@@ -135,6 +135,42 @@ final class ChatCoordinator {
     fetchAll(descriptor, in: context, label: label)?.first
   }
 
+  // MARK: - Authorship (Pass 8 — per-model "involvement" memory)
+
+  /// Resolve the provider + model that authored an assistant message,
+  /// given the inference mode that just ran and the current
+  /// `InferenceState` snapshot. Best-effort: returns `nil` strings when
+  /// the selection cannot be identified (cold-start race, unknown
+  /// provider), so callers never record an incorrect attribution.
+  static func inferAuthorship(
+    inferenceMode: InferenceMode,
+    inference: InferenceState,
+    assistantMessage: ChatMessage?
+  ) -> (providerID: String?, modelID: String?) {
+    // If the assistant message already carries an explicit model
+    // label (populated by the runtime on turn completion), prefer it.
+    let trimmedLabel = assistantMessage?.resolvedModelLabel?
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+    let explicitModelLabel: String? = (trimmedLabel?.isEmpty == false) ? trimmedLabel : nil
+
+    switch inferenceMode {
+    case .appleIntelligence:
+      return ("appleIntelligence", explicitModelLabel ?? "apple_intelligence")
+    case .local:
+      let fallback = inference.activeLocalTextModelID
+      return ("local", explicitModelLabel ?? fallback)
+    case .api:
+      let providerID = inference.activeAIProvider.cloudProvider?.rawValue
+      let fallback: String?
+      switch inference.preferredChatModelSelection {
+      case .cloud(let model): fallback = model.rawValue
+      case .localMLX(let id): fallback = id
+      case .appleIntelligence: fallback = "apple_intelligence"
+      }
+      return (providerID, explicitModelLabel ?? fallback)
+    }
+  }
+
   // MARK: - Agent Command Center Submission
 
   /// Dedicated submission entry point for the Agent Command Center.
@@ -4300,6 +4336,19 @@ final class ChatCoordinator {
       contextAttachments: assistantMessage?.contextAttachments
     )
     assistantMsg.inferenceMode = mode.rawValue
+    // Pass 8 — per-model authorship memory. `mode.rawValue` captures
+    // the runtime tier ("local" / "api" / "appleIntelligence"); the
+    // provider + model-id capture WHICH provider and WHICH model under
+    // that tier. Read from the InferenceState source of truth. If the
+    // selection can't be resolved (cold-start race), leave both fields
+    // nil so future code doesn't treat "unknown" as a specific model.
+    let authorship = ChatCoordinator.inferAuthorship(
+        inferenceMode: mode,
+        inference: inferenceState,
+        assistantMessage: assistantMessage
+    )
+    assistantMsg.authoredByProviderID = authorship.providerID
+    assistantMsg.authoredByModelID = authorship.modelID
     // Persist extracted artifacts (JSON, YAML, code blocks, etc.)
     if let assistantMessage, !assistantMessage.artifacts.isEmpty {
       assistantMsg.setArtifacts(assistantMessage.artifacts)

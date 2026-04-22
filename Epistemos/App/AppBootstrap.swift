@@ -930,6 +930,13 @@ final class AppBootstrap {
     private nonisolated static let legacyMessageColumns: [(name: String, declaration: String)] = [
         ("ZTHINKINGTRACE", "TEXT"),
         ("ZTHINKINGDURATIONSECONDS", "DOUBLE"),
+        // Pass 8 — per-model authorship memory. Optional strings, no
+        // default needed; SwiftData lightweight migration handles new
+        // stores automatically but legacy SQLite stores adopted via
+        // `preparePersistentModelStoreIfNeeded` still need the columns
+        // explicitly added.
+        ("ZAUTHOREDBYPROVIDERID", "TEXT"),
+        ("ZAUTHOREDBYMODELID", "TEXT"),
     ]
 
     nonisolated static func legacyRootModelStoreURL(

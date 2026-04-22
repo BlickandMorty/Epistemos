@@ -30,6 +30,20 @@ final class SDMessage {
     var safetyState: String?            // "green", "yellow", "orange", "red"
     var inferenceMode: String?          // "local", "api", "appleIntelligence"
 
+    // MARK: - Authorship (Pass 8: per-model "involvement" memory)
+    /// Which provider authored this message, as a stable string id:
+    /// "openai" | "anthropic" | "google" | "local" | "appleIntelligence" | nil for user messages.
+    /// Legacy messages from before this column existed remain `nil`; code
+    /// reading this field MUST treat `nil` as "unknown" rather than any
+    /// specific provider.
+    var authoredByProviderID: String?
+    /// Which specific model authored this message, as a stable string id.
+    /// Cloud examples: "claude-opus-4-7", "gpt-5-4", "gemini-3.1-pro".
+    /// Local examples: "Qwen/Qwen3-4B-MLX-4bit",
+    /// "mlx-community/DeepSeek-R1-Distill-Qwen-7B-4bit". Legacy messages
+    /// remain `nil` — never infer a default.
+    var authoredByModelID: String?
+
     // MARK: - Content Blocks
     /// JSON-encoded [MessageContentBlock]. When present, `content` is a backward-compat
     /// computed join of .text blocks. New code should prefer contentBlocks.

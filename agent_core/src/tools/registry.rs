@@ -330,6 +330,13 @@ impl ToolRegistry {
         self.tools.insert(tool.name.clone(), tool);
     }
 
+    /// Returns true if a tool with the given name is already registered.
+    /// Used by late-bound registration paths (e.g. stdio MCP tool discovery)
+    /// to avoid clobbering a built-in handler with a same-named remote tool.
+    pub fn contains_tool(&self, name: &str) -> bool {
+        self.tools.contains_key(name)
+    }
+
     /// Return the schemas for every surfaced tool permitted by the current
     /// active tier AND the explicit allowlist (if set). This is what the
     /// agent loop sends to the model at each turn, so filtering here is how

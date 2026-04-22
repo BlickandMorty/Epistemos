@@ -81,6 +81,7 @@ pub mod tools {
     pub mod registry;
     pub mod scheduling;
     pub mod skills;
+    pub mod stdio_mcp;
     pub mod terminal;
     pub mod think;
     pub mod todo;
