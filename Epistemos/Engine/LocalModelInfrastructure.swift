@@ -2058,9 +2058,63 @@ final class LocalModelManager {
     }
 
     private func syncInferenceInstalledSets() {
-        inference.setInstalledLocalTextModelIDs(
-            Set(installRecords.values.filter { $0.kind == .text }.map(\.modelID))
-        )
+        // Start with the manifest-based set (models this app installed itself).
+        var installedIDs = Set(installRecords.values.filter { $0.kind == .text }.map(\.modelID))
+        // Also detect hub directories that exist on disk but aren't in the
+        // install manifest — e.g. models downloaded directly via
+        // `huggingface-cli` or left over from a previous install manifest that
+        // got wiped. Without this, the model picker shows "2 installed · 7
+        // available" even when 12 real model dirs are present, which is how
+        // Claude's 2026-04-22 audit surfaced the gap.
+        installedIDs.formUnion(detectedOnDiskHubTextModelIDs())
+        inference.setInstalledLocalTextModelIDs(installedIDs)
+    }
+
+    /// Return every catalog text-model ID whose expected HuggingFace hub
+    /// directory exists on disk AND contains at least one substantive weight
+    /// blob (`.safetensors`, `.gguf`, or `.npz`). This complements
+    /// `installRecords` so models put on disk outside the app's install
+    /// flow still count as installed. Intentionally catalog-driven so a
+    /// stray unrelated hub directory does not accidentally surface in the
+    /// picker.
+    private func detectedOnDiskHubTextModelIDs() -> Set<String> {
+        let hubDir = paths.hubDirectory(for: .text)
+        guard fileManager.fileExists(atPath: hubDir.path) else { return [] }
+
+        var result: Set<String> = []
+        for descriptor in LocalModelCatalog.textDescriptors {
+            let repoDirName = "models--\(descriptor.id.replacingOccurrences(of: "/", with: "--"))"
+            let repoDir = hubDir.appendingPathComponent(repoDirName, isDirectory: true)
+            guard fileManager.fileExists(atPath: repoDir.path) else { continue }
+            guard Self.hubDirectoryHasWeightBlobs(at: repoDir, fileManager: fileManager) else { continue }
+            result.insert(descriptor.id)
+        }
+        return result
+    }
+
+    private static func hubDirectoryHasWeightBlobs(
+        at repoDir: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        let snapshotsDir = repoDir.appendingPathComponent("snapshots", isDirectory: true)
+        if let snapshots = try? fileManager.contentsOfDirectory(
+            at: snapshotsDir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for snapshot in snapshots {
+                if let files = try? fileManager.contentsOfDirectory(atPath: snapshot.path),
+                   files.contains(where: { $0.hasSuffix(".safetensors") || $0.hasSuffix(".gguf") || $0.hasSuffix(".npz") }) {
+                    return true
+                }
+            }
+        }
+        // Some non-HF layouts stash blobs at the repo root without a snapshots/ dir.
+        if let files = try? fileManager.contentsOfDirectory(atPath: repoDir.path),
+           files.contains(where: { $0.hasSuffix(".safetensors") || $0.hasSuffix(".gguf") || $0.hasSuffix(".npz") }) {
+            return true
+        }
+        return false
     }
 
     private func adoptInstalledTextModelIfNeeded() {
