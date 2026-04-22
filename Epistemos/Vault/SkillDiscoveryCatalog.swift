@@ -94,6 +94,10 @@ nonisolated enum SkillDiscoveryCatalog {
             .joined(separator: " ")
     }
 
+    static func normalizedIdentifier(forName rawValue: String) -> String {
+        normalizedIdentifier(rawValue)
+    }
+
     private static func defaultRoots(fileManager: FileManager = .default) -> [SkillDiscoveryRoot] {
         var roots: [SkillDiscoveryRoot] = []
         let home = fileManager.homeDirectoryForCurrentUser

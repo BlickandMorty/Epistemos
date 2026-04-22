@@ -882,16 +882,7 @@ final class MetalGraphNSView: NSView {
             }
         }
         if shouldSnapInitialGlobalCamera {
-            graph_engine_snap_camera_to_fit(engine)
-            // Pad the initial frame so the graph doesn't fill the viewport
-            // edge-to-edge on first open. `magnify` with a factor < 1.0
-            // zooms OUT (shows ~1/0.72 ≈ 1.4× more area), which gives the
-            // user room to see the full topology breathing and invites
-            // drag/pan gestures before the physics cycle kicks in.
-            let scale = metalLayer?.contentsScale ?? 2.0
-            let cx = Float(bounds.width * 0.5 * scale)
-            let cy = Float(bounds.height * 0.5 * scale)
-            graph_engine_magnify(engine, cx, cy, 0.72)
+            applyDefaultGlobalCameraFrame(animated: false)
         }
 
         // Update static layout flag — physics controls grey out when true.
@@ -1152,6 +1143,23 @@ final class MetalGraphNSView: NSView {
         needsRender = true
     }
 
+    private func applyDefaultGlobalCameraFrame(animated: Bool) {
+        guard let engine else { return }
+        if animated {
+            graph_engine_zoom_to_fit(engine)
+            graph_engine_center_camera(engine)
+        } else {
+            graph_engine_snap_camera_to_fit(engine)
+        }
+        // Pad the default global frame so the graph doesn't fill the viewport
+        // edge-to-edge when the user opens or resets the full canvas.
+        let scale = metalLayer?.contentsScale ?? 2.0
+        let cx = Float(bounds.width * 0.5 * scale)
+        let cy = Float(bounds.height * 0.5 * scale)
+        graph_engine_magnify(engine, cx, cy, GraphOverlayPhysicsPolicy.defaultGlobalCameraMagnification)
+        needsRender = true
+    }
+
     func zoomToFit() {
         guard let engine else { return }
         graph_engine_zoom_to_fit(engine)
@@ -1356,9 +1364,8 @@ final class MetalGraphNSView: NSView {
             if isPageMode {
                 zoomInClose()
             } else {
-                graph_engine_zoom_to_fit(engine)
+                applyDefaultGlobalCameraFrame(animated: true)
             }
-            needsRender = true
         }
 
         // Lightweight filter sync: toggle node visibility in Rust without full recommit.
@@ -1421,10 +1428,9 @@ final class MetalGraphNSView: NSView {
             case .pageModeCloseIn:
                 zoomInClose()
             case .animateGlobalFit:
-                graph_engine_zoom_to_fit(engine)
-                graph_engine_center_camera(engine)
+                applyDefaultGlobalCameraFrame(animated: true)
             case .snapGlobalFit:
-                graph_engine_snap_camera_to_fit(engine)
+                applyDefaultGlobalCameraFrame(animated: false)
             }
         }
 

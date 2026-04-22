@@ -143,9 +143,9 @@ struct ChatView: View {
 
     private var theme: EpistemosTheme { ui.theme }
 
-    /// Near-OLED dark grey in dark mode, theme background in light mode.
+    /// Near-OLED dark grey in dark mode, landing-matched paper white in light mode.
     /// Applied as the root background so main chat reads like a deep dark
-    /// surface when dark, but stays on-theme when light.
+    /// surface when dark, but falls back to the same light canvas as Home.
     private var oledAwareBackground: Color {
         theme.isDark ? Color(red: 0.07, green: 0.07, blue: 0.07) : theme.resolved.background.color
     }
@@ -200,7 +200,7 @@ struct ChatView: View {
                                 }
 
                                 if pipeline.isProcessing || chat.isStreaming {
-                                    StreamingIndicator()
+                                    StreamingIndicator(selectedOperatingMode: selectedOperatingMode)
                                         .id("streaming-bottom")
                                 }
 
@@ -269,6 +269,7 @@ struct ChatView: View {
                 Divider()
                 ChatBrainPanelView(
                     snapshot: chat.latestBrainSnapshot,
+                    capturedModelInput: chat.latestCapturedModelInput,
                     pendingContextAttachments: chat.pendingContextAttachments,
                     pendingAttachments: chat.pendingAttachments
                 )
@@ -281,16 +282,30 @@ struct ChatView: View {
         .animation(.spring(response: 0.32, dampingFraction: 0.9), value: showBrainPanel)
         .onAppear {
             sanitizeStoredOperatingMode()
+            syncContextWindowMetrics()
+            refreshChatCapability()
+        }
+        .onChange(of: mainChatOperatingModeRaw) { _, _ in
+            sanitizeStoredOperatingMode()
+            syncContextWindowMetrics()
             refreshChatCapability()
         }
         .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
             sanitizeStoredOperatingMode()
+            syncContextWindowMetrics()
             refreshChatCapability()
         }
         .onChange(of: inference.activeAIProvider) { _, _ in
+            syncContextWindowMetrics()
             refreshChatCapability()
         }
         .onChange(of: chat.isAgentExecuting) { _, _ in
+            refreshChatCapability()
+        }
+        .onChange(of: pipeline.isProcessing) { _, _ in
+            refreshChatCapability()
+        }
+        .onChange(of: chat.latestBrainSnapshot) { _, _ in
             refreshChatCapability()
         }
         .navigationTitle("")
@@ -353,8 +368,8 @@ struct ChatView: View {
         .accessibilityLabel(showBrainPanel ? "Hide context panel" : "Show context panel")
         .help(
             showBrainPanel
-                ? "Hide the panel that shows what the model sees for each turn"
-                : "Show the panel that lists the notes, attachments, tools, and routing fed to the model"
+                ? "Hide turn context"
+                : "Show turn context"
         )
     }
 
@@ -386,6 +401,12 @@ struct ChatView: View {
         }
     }
 
+    private func syncContextWindowMetrics() {
+        chat.syncContextWindowMetrics(
+            maxTokens: inference.chatSurfaceMaxContextTokens(for: selectedOperatingMode)
+        )
+    }
+
     private func openCurrentChatInMiniChat() {
         if let chatId = chat.activeChatId {
             MiniChatWindowController.shared.openChat(chatId)
@@ -406,18 +427,34 @@ struct ChatView: View {
     /// selected in the composer picker; the pill is a user-facing honesty
     /// contract and must not lie.
     private func refreshChatCapability() {
+        if (chat.isAgentExecuting || pipeline.isProcessing),
+           let snapshot = chat.latestBrainSnapshot {
+            let hasPlannedTools = !snapshot.allowedToolNames.isEmpty
+            let isCloudSnapshot = snapshot.providerLabel != "Local MLX"
+                && snapshot.providerLabel != "Apple Intelligence"
+            chat.currentCapability = ChatCapability.classify(
+                isCloudProvider: isCloudSnapshot,
+                isAgentExecuting: hasPlannedTools,
+                isResearchMode: hasPlannedTools && !isCloudSnapshot,
+                isThinkingMode: snapshot.operatingMode == .thinking
+            )
+            return
+        }
+
+        let effectiveSelection = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)
         let isCloud: Bool
-        switch inference.preferredChatModelSelection {
+        switch effectiveSelection {
         case .cloud:
             isCloud = true
         case .localMLX, .appleIntelligence:
             isCloud = false
         }
+        let toolsModeSelected = selectedOperatingMode == .agent
         chat.currentCapability = ChatCapability.classify(
             isCloudProvider: isCloud,
-            isAgentExecuting: chat.isAgentExecuting,
+            isAgentExecuting: toolsModeSelected || chat.isAgentExecuting,
             isResearchMode: false,
-            isThinkingMode: false
+            isThinkingMode: selectedOperatingMode == .thinking && !isCloud
         )
     }
 }
@@ -431,6 +468,7 @@ private struct StreamingIndicator: View {
     @Environment(ChatState.self) private var chat
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
+    let selectedOperatingMode: EpistemosOperatingMode
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -440,6 +478,17 @@ private struct StreamingIndicator: View {
 
     private var streamingView: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            let selection = inference.effectiveChatSurfaceSelection(for: selectedOperatingMode)
+            let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: chat.streamingText)
+            let finalStreamingText = UserFacingModelOutput.finalVisibleText(from: chat.streamingText)
+            let expectsThinkingUI =
+                selectedOperatingMode.capturesReasoningTrace
+                && selection.supportsThinking
+                && (
+                    (pipeline.isProcessing && !chat.isStreaming)
+                        || (chat.isStreaming && visibleStreamingText.isEmpty)
+                )
+
             // Big visible status strip: "🔎 Searching the web for 'X'"
             // / "🧠 Thinking 12s" / "✍️ Writing reply…". Pops in the
             // moment the stream starts and swaps live as the phase
@@ -449,7 +498,7 @@ private struct StreamingIndicator: View {
                 LiveActivityStrip(
                     toolName: chat.isAgentExecuting ? chat.activeToolName : nil,
                     toolInputJson: chat.activeToolInputJson,
-                    isThinkingActive: chat.isThinkingActive,
+                    isThinkingActive: expectsThinkingUI || chat.isThinkingActive,
                     thinkingStartedAt: chat.thinkingStartedAt,
                     isStreaming: chat.isStreaming
                 )
@@ -462,10 +511,10 @@ private struct StreamingIndicator: View {
             // Collapses into a "Thought for Ns" chip as soon as the
             // first answer token arrives, persists until the turn
             // finalizes into a ChatMessage.
-            if chat.isThinkingActive || !chat.streamingThinking.isEmpty {
+            if expectsThinkingUI || chat.isThinkingActive || !chat.streamingThinking.isEmpty {
                 ThinkingPopoverView(
                     thinkingContent: chat.streamingThinking,
-                    isThinkingActive: chat.isThinkingActive,
+                    isThinkingActive: expectsThinkingUI || chat.isThinkingActive,
                     thinkingStartedAt: chat.thinkingStartedAt,
                     thinkingEndedAt: chat.thinkingEndedAt
                 )
@@ -476,9 +525,6 @@ private struct StreamingIndicator: View {
                 blocks: chat.pendingContentBlocks,
                 isStreaming: chat.isStreaming
             )
-
-            let visibleStreamingText = UserFacingModelOutput.streamingVisibleText(from: chat.streamingText)
-            let finalStreamingText = UserFacingModelOutput.finalVisibleText(from: chat.streamingText)
 
             if ChatStreamingDisplayPolicy.showsLiveResponseText, !visibleStreamingText.isEmpty {
                 TaggedMarkdownTextView(
@@ -494,14 +540,9 @@ private struct StreamingIndicator: View {
                     ProgressView()
                         .controlSize(.small)
                     Text("Loading \(inference.activeChatModelDisplayName)…")
-                        .font(.custom("Anthropic Sans", size: 13))
+                        .font(ClaudeAppTypography.userFont(size: 13))
                         .foregroundStyle(theme.textSecondary)
                 }
-            } else {
-                AssistantTypingIndicatorDots(
-                    theme: theme,
-                    accent: theme.resolved.accent.color
-                )
             }
         }
         .padding(.horizontal, 18)
@@ -514,6 +555,7 @@ private struct StreamingIndicator: View {
 private struct ChatBrainPanelView: View {
     @Environment(UIState.self) private var ui
     let snapshot: ChatBrainSnapshot?
+    let capturedModelInput: CapturedModelInput?
     let pendingContextAttachments: [ContextAttachment]
     let pendingAttachments: [FileAttachment]
 
@@ -605,7 +647,7 @@ private struct ChatBrainPanelView: View {
                     }
 
                     if !snapshot.allowedToolNames.isEmpty {
-                        section(title: "ALLOWED TOOLS", defaultExpanded: false) {
+                        section(title: "TOOLS THIS TURN", defaultExpanded: false) {
                             VStack(alignment: .leading, spacing: 4) {
                                 ForEach(snapshot.allowedToolNames, id: \.self) { tool in
                                     HStack(spacing: 6) {
@@ -622,6 +664,39 @@ private struct ChatBrainPanelView: View {
                         }
                     }
 
+                    if let capturedModelInput {
+                        section(title: "MODEL INPUT", defaultExpanded: false) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                detailRow(
+                                    "Runtime",
+                                    capturedModelInput.runtimeLabel,
+                                    valueMonospaced: true
+                                )
+                                Divider().opacity(0.4)
+                                detailRow("User", "User prompt")
+                                bodyBlock(capturedModelInput.userPrompt)
+
+                                if let systemPrompt = capturedModelInput.systemPrompt {
+                                    Divider().opacity(0.4)
+                                    detailRow("System", "System prompt")
+                                    bodyBlock(systemPrompt)
+                                }
+
+                                if let messageHistory = capturedModelInput.messageHistory {
+                                    Divider().opacity(0.4)
+                                    detailRow("History", "Conversation before wrapping")
+                                    bodyBlock(messageHistory)
+                                }
+
+                                if let toolDefinitionsJSON = capturedModelInput.toolDefinitionsJSON {
+                                    Divider().opacity(0.4)
+                                    detailRow("Tools", "Tool definitions sent this turn")
+                                    bodyBlock(toolDefinitionsJSON)
+                                }
+                            }
+                        }
+                    }
+
                     ForEach(snapshot.sections) { sectionBlock in
                         section(title: sectionBlock.title.uppercased(), defaultExpanded: false) {
                             bodyBlock(sectionBlock.body)
@@ -629,12 +704,12 @@ private struct ChatBrainPanelView: View {
                     }
                 } else if !hasPendingContext {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("WHAT THE MODEL SEES")
+                        Text("MODEL CONTEXT")
                             .font(.system(size: 10, weight: .semibold))
                             .tracking(0.8)
                             .foregroundStyle(theme.textTertiary)
                             .padding(.top, 4)
-                        Text("Once you send a chat turn, this panel shows the exact notes, attachments, tools, and routing fed to the model. @-mention or attach files to preview them here before sending.")
+                        Text("After you send, this shows the notes, files, tools, and routing for that turn. Use @ or attachments to preview context first.")
                             .font(.system(size: 12))
                             .foregroundStyle(theme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)

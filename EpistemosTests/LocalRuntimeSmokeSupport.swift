@@ -544,7 +544,7 @@ enum LocalRuntimeSmokeSupport {
 
         if let model = LocalTextModelID(rawValue: modelID) {
             #expect(bootstrap.inferenceState.availableOperatingModes.contains(.thinking) == model.supportsThinkingMode)
-            #expect(bootstrap.inferenceState.availableOperatingModes.contains(.agent) == model.supportsAgentMode)
+            #expect(bootstrap.inferenceState.availableOperatingModes.contains(.agent) == model.canRunLocalAgentLoop)
         }
     }
 

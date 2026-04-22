@@ -301,7 +301,13 @@ actor LocalAgentLoop {
                 availableTools: tools
             )
             if toolCalls.isEmpty {
-                return Self.stripAssistantMeta(from: output)
+                let visibleOutput = Self.stripAssistantMeta(from: output)
+                if !visibleOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    return visibleOutput
+                }
+                history.append(LocalMessage(role: .assistant, content: output))
+                history.append(LocalMessage(role: .user, content: Self.repairPromptForInvisibleTurn))
+                continue
             }
 
             history.append(LocalMessage(role: .assistant, content: output))
@@ -397,7 +403,13 @@ actor LocalAgentLoop {
             availableTools: tools
         )
         if toolCalls.isEmpty {
-            return Self.stripAssistantMeta(from: output)
+            let visibleOutput = Self.stripAssistantMeta(from: output)
+            if !visibleOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return visibleOutput
+            }
+            history.append(LocalMessage(role: .assistant, content: output))
+            history.append(LocalMessage(role: .user, content: Self.repairPromptForInvisibleTurn))
+            return nil
         }
 
         history.append(LocalMessage(role: .assistant, content: output))
@@ -548,5 +560,11 @@ actor LocalAgentLoop {
 
     private nonisolated static func stripAssistantMeta(from text: String) -> String {
         UserFacingModelOutput.finalVisibleText(from: text)
+    }
+
+    private nonisolated static var repairPromptForInvisibleTurn: String {
+        """
+        You have not produced any user-visible answer yet. Either call one of the available tools if the task needs web, note, or file access, or answer directly in plain text now. Do not return only <scratch_pad>, hidden reasoning, or tool-planning text.
+        """
     }
 }

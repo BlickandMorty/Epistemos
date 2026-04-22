@@ -1213,7 +1213,7 @@ enum AppHeadingRole: Sendable {
     var font: Font {
         AppDisplayTypography.font(
             size: fontSize,
-            allowDisplayFont: self == .h1 || self == .pageTitle || self == .chatTitle
+            allowDisplayFont: self == .h1 || self == .h2 || self == .pageTitle || self == .chatTitle
         )
     }
 
@@ -1353,9 +1353,6 @@ enum AppDisplayTypography: Sendable {
 }
 
 enum ClaudeAppTypography: Sendable {
-    nonisolated static let assistantFamilyName = "Anthropic Serif"
-    nonisolated static let userFamilyName = "Anthropic Sans"
-
     static func assistantFont(size: CGFloat) -> Font {
         Font(assistantUIFont(size: size))
     }
@@ -1364,38 +1361,38 @@ enum ClaudeAppTypography: Sendable {
         Font(userUIFont(size: size))
     }
 
+    static func monoFont(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        Font(monoUIFont(size: size, weight: nsWeight(for: weight)))
+    }
+
+    nonisolated static func monoUIFont(
+        size: CGFloat,
+        weight: NSFont.Weight = .regular
+    ) -> NSFont {
+        NSFont.monospacedSystemFont(ofSize: size, weight: weight)
+    }
+
     nonisolated static func assistantUIFont(size: CGFloat) -> NSFont {
-        preferredFont(
-            familyName: assistantFamilyName,
-            size: size,
-            fallback: serifFallback(size: size)
-        )
+        monoUIFont(size: size, weight: .regular)
     }
 
     nonisolated static func userUIFont(size: CGFloat) -> NSFont {
-        preferredFont(
-            familyName: userFamilyName,
-            size: size,
-            fallback: AppDisplayTypography.regularUIFont(size: size)
-        )
+        monoUIFont(size: size, weight: .medium)
     }
 
-    private nonisolated static func preferredFont(
-        familyName: String,
-        size: CGFloat,
-        fallback: NSFont
-    ) -> NSFont {
-        NSFont(name: familyName, size: size) ?? fallback
-    }
-
-    private nonisolated static func serifFallback(size: CGFloat) -> NSFont {
-        if let descriptor = NSFont.systemFont(ofSize: size).fontDescriptor.withDesign(.serif),
-           let font = NSFont(descriptor: descriptor, size: size) {
-            return font
+    private nonisolated static func nsWeight(for weight: Font.Weight) -> NSFont.Weight {
+        switch weight {
+        case .ultraLight: .ultraLight
+        case .thin: .thin
+        case .light: .light
+        case .regular: .regular
+        case .medium: .medium
+        case .semibold: .semibold
+        case .bold: .bold
+        case .heavy: .heavy
+        case .black: .black
+        default: .regular
         }
-
-        return NSFont(name: "Iowan Old Style Roman", size: size)
-            ?? NSFont.systemFont(ofSize: size)
     }
 }
 
@@ -1432,13 +1429,15 @@ enum InlineMarkdownStyler {
         _ text: String,
         strongFontSize: CGFloat? = nil,
         strongForegroundColor: Color?,
-        linkForegroundColor: Color? = nil
+        linkForegroundColor: Color? = nil,
+        strongFont: Font? = nil
     ) -> Text {
         if let attributed = attributedString(
             text,
             strongFontSize: strongFontSize,
             strongForegroundColor: strongForegroundColor,
-            linkForegroundColor: linkForegroundColor
+            linkForegroundColor: linkForegroundColor,
+            strongFont: strongFont
         ) {
             return Text(attributed)
         }
@@ -1458,7 +1457,8 @@ enum InlineMarkdownStyler {
         _ text: String,
         strongFontSize: CGFloat? = nil,
         strongForegroundColor: Color?,
-        linkForegroundColor: Color? = nil
+        linkForegroundColor: Color? = nil,
+        strongFont: Font? = nil
     ) -> AttributedString? {
         let cleaned = cleanedText(text)
         let linkified = linkifyRawURLs(in: cleaned)
@@ -1472,7 +1472,8 @@ enum InlineMarkdownStyler {
         applyDisplayStrongEmphasis(
             to: &attributed,
             fontSize: strongFontSize,
-            foregroundColor: strongForegroundColor
+            foregroundColor: strongForegroundColor,
+            strongFont: strongFont
         )
         applyLinkForegroundColor(to: &attributed, foregroundColor: linkForegroundColor)
         return attributed
@@ -1481,7 +1482,8 @@ enum InlineMarkdownStyler {
     static func applyDisplayStrongEmphasis(
         to attributed: inout AttributedString,
         fontSize: CGFloat,
-        foregroundColor: Color? = nil
+        foregroundColor: Color? = nil,
+        strongFont: Font? = nil
     ) {
         _ = fontSize
         let strongRuns = attributed.runs.compactMap { run -> (Range<AttributedString.Index>, InlinePresentationIntent)? in
@@ -1492,6 +1494,9 @@ enum InlineMarkdownStyler {
         }
 
         for (range, _) in strongRuns {
+            if let strongFont {
+                attributed[range].font = strongFont
+            }
             if let foregroundColor {
                 attributed[range].foregroundColor = foregroundColor
             }

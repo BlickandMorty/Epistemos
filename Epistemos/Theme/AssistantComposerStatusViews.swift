@@ -158,7 +158,7 @@ extension AssistantComposerHaloStyle {
 
 struct AssistantComposerStatusLabelState: Equatable {
     let text: String
-    let usesSweepHighlight: Bool
+    let animatesRetroEllipsis: Bool
 
     static func resolve(
         inputText: String,
@@ -171,22 +171,21 @@ struct AssistantComposerStatusLabelState: Equatable {
         guard inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         switch phase {
         case .idle:
-            return showsIdleLabel ? Self(text: idleText, usesSweepHighlight: false) : nil
+            return showsIdleLabel ? Self(text: idleText, animatesRetroEllipsis: false) : nil
         case .analyzing:
-            return Self(text: analyzingText, usesSweepHighlight: true)
+            return Self(text: analyzingText, animatesRetroEllipsis: true)
         case .typing:
-            return Self(text: typingText, usesSweepHighlight: true)
+            return Self(text: typingText, animatesRetroEllipsis: true)
         }
     }
 }
 
 struct AssistantAnimatedStatusLabel: View {
     let state: AssistantComposerStatusLabelState
-    let accent: Color
     let phase: AssistantComposerStatusPhase
     let theme: EpistemosTheme
     let font: Font
-    let haloStyle: AssistantComposerHaloStyle?
+    let activeFont: Font?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var activationProgress: CGFloat = 0
@@ -196,29 +195,16 @@ struct AssistantAnimatedStatusLabel: View {
         case .idle:
             theme.resolved.foreground.color.opacity(0.48)
         case .analyzing, .typing:
-            theme.resolved.foreground.color.opacity(theme.isDark ? 0.62 : 0.52)
+            theme.isDark
+                ? Color.white.opacity(0.84)
+                : Color.black.opacity(0.74)
         }
-    }
-
-    private var palette: [Color] {
-        if let haloStyle {
-            return haloStyle.palette(accent: accent)
-        }
-        return [
-            accent.opacity(0.80),
-            theme.resolved.foreground.color.opacity(0.92),
-            accent.opacity(0.68),
-        ]
-    }
-
-    private var sweepWidth: CGFloat {
-        min(max(CGFloat(state.text.count) * 14, 132), 240)
     }
 
     var body: some View {
         Group {
             if phase == .idle {
-                labelText
+                labelText(state.text, font: font)
                     .foregroundStyle(baseTextColor)
                     .allowsHitTesting(false)
             } else {
@@ -234,112 +220,66 @@ struct AssistantAnimatedStatusLabel: View {
     }
 
     private var warmingActiveLabel: some View {
-        ZStack(alignment: .leading) {
-            labelText
-                .foregroundStyle(baseTextColor.opacity(0.74))
-                .opacity(Double(max(0, 1 - activationProgress)))
-
-            animatedActiveLabel
-                .opacity(Double(activationProgress))
-                .blur(radius: (1 - activationProgress) * 2.2)
-                .scaleEffect(
-                    x: 0.985 + (activationProgress * 0.015),
-                    y: 1,
-                    anchor: .leading
-                )
-        }
+        animatedActiveLabel
+            .opacity(Double(activationProgress))
+            .blur(radius: (1 - activationProgress) * 1.4)
+            .scaleEffect(
+                x: 0.992 + (activationProgress * 0.008),
+                y: 1,
+                anchor: .leading
+            )
         .allowsHitTesting(false)
     }
 
     private var animatedActiveLabel: some View {
         Group {
-            if reduceMotion {
-                labelText
-                    .foregroundStyle(
-                        LinearGradient(colors: palette, startPoint: .leading, endPoint: .trailing)
-                    )
-                    .opacity(0.86)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if reduceMotion || !state.animatesRetroEllipsis {
+                activeLabel(animatedStatusText(at: Date()), opacity: 0.78)
             } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 24.0)) { context in
-                    let elapsed = context.date.timeIntervalSinceReferenceDate
-                    let paletteX = shimmerOffset(width: sweepWidth, elapsed: elapsed, speed: 30)
-                    let silverX = shimmerOffset(width: sweepWidth, elapsed: elapsed, speed: 48)
-
-                    ZStack(alignment: .leading) {
-                        labelText
-                            .foregroundStyle(baseTextColor)
-
-                        shimmerBand(
-                            colors: paletteBandColors,
-                            width: sweepWidth * 0.9,
-                            offset: paletteX,
-                            blurRadius: 0
-                        )
-                        .opacity(0.94)
-
-                        if state.usesSweepHighlight {
-                            shimmerBand(
-                                colors: silverBandColors,
-                                width: sweepWidth * 0.42,
-                                offset: silverX,
-                                blurRadius: 2.4
-                            )
-                            .opacity(0.74)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                TimelineView(.animation(minimumInterval: 1.0 / 4.0)) { context in
+                    activeLabel(
+                        animatedStatusText(at: context.date),
+                        opacity: animatedOpacity(at: context.date)
+                    )
                 }
             }
         }
-        .shadow(color: palette.first?.opacity(0.14) ?? .clear, radius: 3)
         .frame(maxWidth: .infinity, alignment: .leading)
         .allowsHitTesting(false)
     }
 
-    private var labelText: some View {
-        Text(state.text)
-            .font(font)
-            .lineLimit(1)
-            .fixedSize(horizontal: false, vertical: true)
+    private func activeLabel(_ text: String, opacity: Double) -> some View {
+        labelText(text, font: activeFont ?? font)
+            .foregroundStyle(baseTextColor.opacity(opacity))
+            .shadow(
+                color: Color.black.opacity(theme.isDark ? 0.24 : 0.10),
+                radius: 1.2,
+                x: 0,
+                y: 1
+            )
     }
 
-    private var alignedLabelMask: some View {
-        labelText
+    private func labelText(_ text: String, font: Font) -> some View {
+        Text(text)
+            .font(font)
+            .tracking(phase == .idle ? 0 : 0.7)
+            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var paletteBandColors: [Color] {
-        [.clear] + palette.map { $0.opacity(0.98) } + [.clear]
+    private func animatedStatusText(at date: Date) -> String {
+        let base = state.text
+            .replacingOccurrences(of: "…", with: "")
+            .replacingOccurrences(of: "...", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let dotCount = Int((date.timeIntervalSinceReferenceDate * 2.15).truncatingRemainder(dividingBy: 3)) + 1
+        return base + String(repeating: ".", count: dotCount)
     }
 
-    private var silverBandColors: [Color] {
-        [
-            .clear,
-            Color.white.opacity(0.08),
-            Color.white.opacity(0.96),
-            Color.white.opacity(0.18),
-            .clear,
-        ]
-    }
-
-    private func shimmerOffset(width: CGFloat, elapsed: TimeInterval, speed: Double) -> CGFloat {
-        let cycle = width * 1.9
-        return CGFloat((elapsed * speed).truncatingRemainder(dividingBy: cycle)) - (width * 0.95)
-    }
-
-    private func shimmerBand(
-        colors: [Color],
-        width: CGFloat,
-        offset: CGFloat,
-        blurRadius: CGFloat
-    ) -> some View {
-        LinearGradient(colors: colors, startPoint: .leading, endPoint: .trailing)
-            .frame(width: width)
-            .offset(x: offset)
-            .blur(radius: blurRadius)
-            .mask(alignedLabelMask)
-            .blendMode(.screen)
+    private func animatedOpacity(at date: Date) -> Double {
+        let pulse = (sin(date.timeIntervalSinceReferenceDate * 2.9) + 1) / 2
+        return 0.56 + (pulse * 0.26)
     }
 
     private func syncActivationProgress(
@@ -355,61 +295,6 @@ struct AssistantAnimatedStatusLabel: View {
         } else {
             activationProgress = nextValue
         }
-    }
-}
-
-struct AssistantTypingIndicatorDots: View {
-    let theme: EpistemosTheme
-    let accent: Color
-    let dotSize: CGFloat
-    let spacing: CGFloat
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    init(
-        theme: EpistemosTheme,
-        accent: Color,
-        dotSize: CGFloat = 6,
-        spacing: CGFloat = 5
-    ) {
-        self.theme = theme
-        self.accent = accent
-        self.dotSize = dotSize
-        self.spacing = spacing
-    }
-
-    var body: some View {
-        Group {
-            if reduceMotion {
-                dotRow(activeIndex: nil)
-            } else {
-                TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { context in
-                    let elapsed = context.date.timeIntervalSinceReferenceDate
-                    let activeIndex = Int((elapsed * 2.4).truncatingRemainder(dividingBy: 3))
-                    dotRow(activeIndex: activeIndex)
-                }
-            }
-        }
-        .frame(height: dotSize + 4)
-        .accessibilityLabel("Assistant is typing")
-    }
-
-    private func dotRow(activeIndex: Int?) -> some View {
-        HStack(spacing: spacing) {
-            ForEach(0..<3, id: \.self) { index in
-                let isActive = activeIndex == index
-                Circle()
-                    .fill(isActive ? accent.opacity(0.9) : theme.mutedForeground.opacity(0.34))
-                    .frame(width: dotSize, height: dotSize)
-                    .offset(y: isActive ? -1.2 : 0)
-                    .blur(radius: isActive ? 0.2 : 0)
-                    .shadow(
-                        color: isActive ? accent.opacity(0.26) : .clear,
-                        radius: isActive ? 4 : 0
-                    )
-            }
-        }
-        .animation(.easeInOut(duration: 0.18), value: activeIndex)
     }
 }
 
@@ -633,11 +518,10 @@ struct AssistantToolbarAskBar<Leading: View>: View {
                     if let labelState {
                         AssistantAnimatedStatusLabel(
                             state: labelState,
-                            accent: accent,
                             phase: phase,
                             theme: theme,
                             font: font,
-                            haloStyle: haloStyle
+                            activeFont: .custom(AppDisplayTypography.displayFontName, size: 11)
                         )
                     }
                 }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::panic::AssertUnwindSafe;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use async_trait::async_trait;
 use futures::FutureExt;
@@ -76,6 +76,69 @@ impl ToolTier {
 /// until the runtime lane is genuinely available.
 pub fn is_user_visible_tool(tool_name: &str) -> bool {
     !matches!(tool_name, "image_generate")
+}
+
+pub fn is_reserved_tool_name(tool_name: &str) -> bool {
+    static RESERVED: OnceLock<HashSet<String>> = OnceLock::new();
+    RESERVED
+        .get_or_init(build_reserved_tool_names)
+        .contains(tool_name)
+}
+
+fn build_reserved_tool_names() -> HashSet<String> {
+    struct ReservedNameVault;
+
+    #[async_trait]
+    impl VaultBackend for ReservedNameVault {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<crate::storage::vault::SearchResult>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn read(&self, _path: &str) -> Result<String, VaultError> {
+            Ok(String::new())
+        }
+
+        async fn write(
+            &self,
+            _path: &str,
+            _content: &str,
+            _tags: Option<&[String]>,
+            _append: bool,
+        ) -> Result<(), VaultError> {
+            Ok(())
+        }
+
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
+    let registry = ToolRegistry::with_tier(
+        Arc::new(ReservedNameVault),
+        true,
+        None::<std::path::PathBuf>,
+        ToolTier::Full,
+    );
+    let mut names: HashSet<String> = registry
+        .get_all_definitions()
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect();
+    names.insert("tool_manage".to_string());
+    names
 }
 
 pub struct RegisteredTool {
@@ -393,6 +456,7 @@ impl ToolRegistry {
         self.register_phase_one_todo();
         self.register_phase_one_scheduling();
         self.register_phase_one_skills_progressive();
+        self.register_phase_one_custom_tools();
 
         // Phase 2 knowledge & memory tools (vault-native specialties)
         self.register_phase_two_knowledge();
@@ -1033,6 +1097,46 @@ impl ToolRegistry {
         });
     }
 
+    fn register_phase_one_custom_tools(&mut self) {
+        use crate::tools::custom_tools::{
+            custom_tool_manage_schema, load_custom_tool_specs, CustomToolManageHandler,
+            CustomToolRuntimeHandler,
+        };
+
+        let Some(vault_root) = self.vault_root_path.clone() else {
+            return;
+        };
+
+        let schema = custom_tool_manage_schema();
+        self.register(RegisteredTool {
+            name: schema.name,
+            description: schema.description,
+            parameters: schema.parameters,
+            handler: Box::new(CustomToolManageHandler::new(vault_root.clone())),
+            risk_level: RiskLevel::Modification,
+            tier: ToolTier::Agent,
+        });
+
+        for spec in load_custom_tool_specs(&vault_root) {
+            if self.tools.contains_key(&spec.name) {
+                tracing::warn!(
+                    "custom tool '{}' conflicts with an existing tool and was skipped",
+                    spec.name
+                );
+                continue;
+            }
+
+            self.register(RegisteredTool {
+                name: spec.name.clone(),
+                description: spec.model_description(),
+                parameters: spec.input_schema.clone(),
+                handler: Box::new(CustomToolRuntimeHandler::new(spec.clone())),
+                risk_level: spec.risk_level(),
+                tier: spec.tier(),
+            });
+        }
+    }
+
     fn register_phase_two_knowledge(&mut self) {
         use crate::tools::knowledge::{
             contradiction_check_schema, neural_recall_schema, vault_recall_schema,
@@ -1192,7 +1296,9 @@ impl ToolRegistry {
         let vault = Arc::clone(&self.vault);
         self.register(RegisteredTool {
             name: "vault_search".to_string(),
-            description: "Hybrid semantic and keyword search across the personal knowledge vault."
+            description: "Hybrid semantic and keyword search across the personal knowledge vault. \
+                Use this first when the user names or describes a note but you do not yet have \
+                its exact vault-relative path."
                 .to_string(),
             parameters: json!({
                 "type": "object",
@@ -1223,7 +1329,9 @@ impl ToolRegistry {
         let vault = Arc::clone(&self.vault);
         self.register(RegisteredTool {
             name: "vault_read".to_string(),
-            description: "Read the full content of a note by its vault-relative path.".to_string(),
+            description: "Read the full content of a note by its vault-relative path. Use \
+                vault_search first if you only know the note title or topic."
+                .to_string(),
             parameters: json!({
                 "type": "object",
                 "properties": {
@@ -1863,6 +1971,15 @@ mod tier_tests {
         ToolRegistry::with_tier(Arc::new(NullVault), true, None::<std::path::PathBuf>, tier)
     }
 
+    fn build_registry_with_root(tier: ToolTier, vault_root: &std::path::Path) -> ToolRegistry {
+        ToolRegistry::with_tier(
+            Arc::new(NullVault),
+            true,
+            Some(vault_root.to_path_buf()),
+            tier,
+        )
+    }
+
     #[test]
     fn tool_tier_ordering_is_ladder() {
         assert!(ToolTier::None < ToolTier::ChatLite);
@@ -2125,5 +2242,48 @@ mod tier_tests {
             tier_only,
             "clearing allowlist must restore full tier-only surface"
         );
+    }
+
+    #[tokio::test]
+    async fn custom_tool_specs_become_runtime_tools() {
+        let vault_root = tempfile::tempdir().unwrap();
+        let tools_dir = vault_root.path().join(".epistemos").join("custom_tools");
+        std::fs::create_dir_all(&tools_dir).unwrap();
+        std::fs::write(
+            tools_dir.join("echo-name.json"),
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "name": "echo-name",
+                "description": "Echo the provided name.",
+                "guidance": "Use this instead of raw terminal for simple echoes.",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "name": { "type": "string" }
+                    },
+                    "required": ["name"]
+                },
+                "command_template": "printf %s {{name}}",
+                "risk_level": "read_only",
+                "tier": "chat_lite"
+            }))
+            .unwrap(),
+        )
+        .unwrap();
+
+        let registry = build_registry_with_root(ToolTier::ChatLite, vault_root.path());
+        let visible_names: std::collections::HashSet<String> = registry
+            .get_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+        assert!(visible_names.contains("echo-name"));
+
+        let result = registry
+            .execute("echo-name", &serde_json::json!({ "name": "Grace Hopper" }))
+            .await
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["success"], serde_json::json!(true));
+        assert_eq!(parsed["stdout"], serde_json::json!("Grace Hopper"));
     }
 }

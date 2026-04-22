@@ -24,6 +24,7 @@ struct AuthoritySettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 header
+                quickSetupCard
 
                 ForEach(AgentAuthorityCategory.allCases, id: \.self) { category in
                     categoryCard(for: category)
@@ -44,6 +45,35 @@ struct AuthoritySettingsView: View {
             Text("Decide what the agent can do without asking you first. These apply to every agent turn until you change them.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private var quickSetupCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Quick Setup")
+                    .font(.headline)
+                Text("Apply a permission posture in one step, then fine-tune any category below.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+
+                ForEach(AgentAuthorityQuickSetupPreset.allCases) { preset in
+                    Button {
+                        applyPreset(preset)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(preset.rawValue)
+                                .font(.subheadline.weight(.semibold))
+                            Text(preset.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
     }
 
@@ -102,6 +132,20 @@ struct AuthoritySettingsView: View {
             .buttonStyle(.bordered)
         }
         .padding(.top, 4)
+    }
+
+    private func applyPreset(_ preset: AgentAuthorityQuickSetupPreset) {
+        if preset == .recommended {
+            store.reset(
+                to: AgentAuthorityPolicySnapshot(
+                    decisions: preset.decisions,
+                    lastModified: Date()
+                )
+            )
+        } else {
+            store.applyPreset(preset.decisions)
+        }
+        onResetConfirmed?()
     }
 }
 

@@ -103,7 +103,7 @@ enum UtilityPanel: String, CaseIterable {
     var title: String {
         switch self {
         case .notes: "Notes"
-        case .omega: "Agent Runtime"
+        case .omega: "Tools Runtime"
         case .settings: "Settings"
         }
     }
@@ -208,6 +208,10 @@ final class UtilityWindowManager {
     // MARK: - Public API
 
     func show(_ panel: UtilityPanel) {
+        if panel == .omega {
+            routeOmegaPanelToMainChat()
+            return
+        }
         let window = getOrCreateWindow(panel)
         if let uiState = AppBootstrap.shared?.uiState {
             WindowThemeStyler.apply(to: window, uiState: uiState)
@@ -222,6 +226,10 @@ final class UtilityWindowManager {
     }
 
     func toggle(_ panel: UtilityPanel) {
+        if panel == .omega {
+            routeOmegaPanelToMainChat()
+            return
+        }
         let window = getOrCreateWindow(panel)
         if window.isVisible {
             window.orderOut(nil)
@@ -234,7 +242,10 @@ final class UtilityWindowManager {
     }
 
     func isVisible(_ panel: UtilityPanel) -> Bool {
-        windowFor(panel)?.isVisible ?? false
+        if panel == .omega {
+            return false
+        }
+        return windowFor(panel)?.isVisible ?? false
     }
 
     /// Sync appearance of all open utility windows to the current theme.
@@ -249,6 +260,18 @@ final class UtilityWindowManager {
 
     private func windowFor(_ panel: UtilityPanel) -> NSWindow? {
         panels[panel]
+    }
+
+    private func routeOmegaPanelToMainChat() {
+        guard let bootstrap = AppBootstrap.shared else {
+            HomeWindowIdentity.surfaceHomeWindow()
+            return
+        }
+
+        bootstrap.uiState.setActivePanel(.home)
+        bootstrap.uiState.homeTab = .home
+        bootstrap.chatState.showLanding = false
+        HomeWindowIdentity.surfaceHomeWindow()
     }
 
     // MARK: - Panel Creation
@@ -344,7 +367,8 @@ private struct ThemedUtilityRoot: View {
             case .notes: NotesBrowserView()
             case .omega:
                 OmegaPanel()
-            case .settings: SettingsView()
+            case .settings:
+                SettingsView(authorityStore: bootstrap.agentAuthorityStore)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

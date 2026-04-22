@@ -341,8 +341,11 @@ nonisolated enum ToolCallParser {
 
     /// Extract JSON from markdown code blocks: ```json ... ```
     private static func parseFromCodeBlock(_ text: String) -> [ParsedToolCall]? {
-        let pattern = "```(?:json)?\\s*\\n?(.*?)\\n?```"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
+        let pattern = "```(?:json|tool_call)?\\s*\\n?(.*?)\\n?```"
+        guard let regex = try? NSRegularExpression(
+            pattern: pattern,
+            options: [.dotMatchesLineSeparators]
+        ) else {
             return nil
         }
 

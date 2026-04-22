@@ -78,7 +78,7 @@ pub struct VaultStore {
     db: Mutex<Connection>,
     ft_index: Index,
     ft_reader: IndexReader,
-    ft_writer: Mutex<IndexWriter>,
+    ft_writer: Option<Mutex<IndexWriter>>,
     field_path: Field,
     field_content: Field,
     field_tags: Field,
@@ -86,6 +86,14 @@ pub struct VaultStore {
 
 impl VaultStore {
     pub fn open(vault_root: &str) -> Result<Self, VaultError> {
+        Self::open_with_mode(vault_root, true)
+    }
+
+    pub fn open_read_only(vault_root: &str) -> Result<Self, VaultError> {
+        Self::open_with_mode(vault_root, false)
+    }
+
+    fn open_with_mode(vault_root: &str, writable_index: bool) -> Result<Self, VaultError> {
         let vault_root = PathBuf::from(vault_root);
         let meta_dir = vault_root.join(".epistemos");
         std::fs::create_dir_all(&meta_dir)?;
@@ -137,19 +145,29 @@ impl VaultStore {
             .reload_policy(ReloadPolicy::OnCommitWithDelay)
             .try_into()
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
-        let ft_writer = ft_index
-            .writer(50_000_000)
-            .map_err(|error| VaultError::IndexError(error.to_string()))?;
+        let ft_writer = if writable_index {
+            Some(Mutex::new(ft_index.writer(50_000_000).map_err(
+                |error| VaultError::IndexError(error.to_string()),
+            )?))
+        } else {
+            None
+        };
 
         Ok(Self {
             vault_root,
             db: Mutex::new(db),
             ft_index,
             ft_reader,
-            ft_writer: Mutex::new(ft_writer),
+            ft_writer,
             field_path,
             field_content,
             field_tags,
+        })
+    }
+
+    fn writer(&self) -> Result<&Mutex<IndexWriter>, VaultError> {
+        self.ft_writer.as_ref().ok_or_else(|| {
+            VaultError::IndexError("vault opened read-only; index writer unavailable".to_string())
         })
     }
 
@@ -288,7 +306,7 @@ impl VaultStore {
 
     fn index_note(&self, path: &str, content: &str, tags: &[String]) -> Result<(), VaultError> {
         let mut writer = self
-            .ft_writer
+            .writer()?
             .lock()
             .map_err(|_| VaultError::IndexError("writer lock poisoned".to_string()))?;
 
@@ -477,7 +495,7 @@ impl VaultBackend for VaultStore {
         std::fs::remove_file(&absolute)?;
 
         let mut writer = self
-            .ft_writer
+            .writer()?
             .lock()
             .map_err(|_| VaultError::IndexError("writer lock poisoned".to_string()))?;
         writer.delete_term(Term::from_field_text(self.field_path, path));
@@ -493,5 +511,31 @@ impl VaultBackend for VaultStore {
             .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
 
         Ok(true)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::VaultStore;
+
+    #[test]
+    fn read_only_open_succeeds_while_a_writer_lock_is_held() {
+        let vault_root = tempfile::tempdir().expect("temp vault");
+
+        let writable = VaultStore::open(vault_root.path().to_str().expect("vault path"))
+            .expect("open writable vault");
+        let _held_writer = writable
+            .ft_writer
+            .as_ref()
+            .expect("writer present")
+            .lock()
+            .expect("lock writer");
+
+        let read_only = VaultStore::open_read_only(vault_root.path().to_str().expect("vault path"));
+
+        assert!(
+            read_only.is_ok(),
+            "read-only open should not need the index writer lock"
+        );
     }
 }

@@ -1083,12 +1083,8 @@ fn truncate_tool_output(output: String, max_chars: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        estimate_tokens,
-        objective_mentions_local_context,
-        prompt_mode_for_objective,
-        resolve_approval_requirement,
-        should_preload_vault_context,
-        truncate_tool_output,
+        estimate_tokens, objective_mentions_local_context, prompt_mode_for_objective,
+        resolve_approval_requirement, should_preload_vault_context, truncate_tool_output,
         AgentError,
     };
     use crate::approval::ApprovalDecision;

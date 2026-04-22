@@ -405,6 +405,36 @@ enum LocalModelCatalog {
             ],
             capabilityRole: .fastLocal
         ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen3_8B4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen3_8B4Bit.displayName,
+            familyName: LocalTextModelID.qwen3_8B4Bit.familyName,
+            summary: "Best all-round Qwen 3 tier that still fits a 16 GB Mac. One checkpoint covers both quick `/no_think` turns and deeper `/think` reasoning without leaving the local path.",
+            approximateDownloadBytes: 4_350_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen3_8B4Bit.minimumRecommendedMemoryGB,
+            revision: "383413e909f3bc5303ce195ebbdf0339c5a1a2a3",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .highEndLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.qwen3_4BThinking25074Bit.displayName,
+            familyName: LocalTextModelID.qwen3_4BThinking25074Bit.familyName,
+            summary: "Compact reasoning-first Qwen 3 checkpoint tuned for longer chain-of-thought on 16 GB Macs. Best when you want local thinking headroom without paying the 8B cost.",
+            approximateDownloadBytes: 2_260_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.qwen3_4BThinking25074Bit.minimumRecommendedMemoryGB,
+            revision: "627b019c66f22d4de0a641d289b41497651a55c9",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .reasoningLocal
+        ),
         // MARK: - Qwen 3 Coder (tool-calling code specialists)
         LocalModelDescriptor(
             id: LocalTextModelID.qwen3CoderNext4Bit.rawValue,
@@ -727,7 +757,8 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .reasoningLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.falconH1R_7B4Bit.rawValue,
@@ -741,9 +772,25 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .reasoningLocal
         ),
         // MARK: - Other Families
+        LocalModelDescriptor(
+            id: LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.llama32_3BInstruct4Bit.displayName,
+            familyName: LocalTextModelID.llama32_3BInstruct4Bit.familyName,
+            summary: "Lean fast-local tier with strong latency on Apple Silicon. Great for routing, short summaries, and low-friction chat when you want to leave maximum unified memory free.",
+            approximateDownloadBytes: 1_800_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.llama32_3BInstruct4Bit.minimumRecommendedMemoryGB,
+            revision: "7f0dc925e0d0afb0322d96f9255cfddf2ba5636e",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .fastLocal
+        ),
         LocalModelDescriptor(
             id: LocalTextModelID.smolLM3_3B4Bit.rawValue,
             kind: .text,
@@ -770,7 +817,8 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .codingLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.mistralSmall31_24B4Bit.rawValue,
@@ -784,7 +832,23 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .highEndLocal
+        ),
+        LocalModelDescriptor(
+            id: LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
+            kind: .text,
+            displayName: LocalTextModelID.gemma3_4BQAT4Bit.displayName,
+            familyName: LocalTextModelID.gemma3_4BQAT4Bit.familyName,
+            summary: "Practical Gemma 3 pick for 16 GB Macs. QAT 4-bit keeps the Gemma family available without the 27B memory cliff, with multimodal headroom for future local image-grounded work.",
+            approximateDownloadBytes: 3_000_000_000,
+            minimumRecommendedMemoryGB: LocalTextModelID.gemma3_4BQAT4Bit.minimumRecommendedMemoryGB,
+            revision: "3d9ef289111449933c22761961f16a5df237ce2a",
+            matchingGlobs: [
+                "*.json", "*.txt", "*.safetensors", "tokenizer.*",
+                "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
+            ],
+            capabilityRole: .generalist
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.gemma3_27BQAT4Bit.rawValue,
@@ -798,7 +862,8 @@ enum LocalModelCatalog {
             matchingGlobs: [
                 "*.json", "*.txt", "*.safetensors", "tokenizer.*",
                 "special_tokens_map.json", "merges.txt", "vocab.json", "*.jinja",
-            ]
+            ],
+            capabilityRole: .highEndLocal
         ),
         LocalModelDescriptor(
             id: LocalTextModelID.llama4Scout17B16E4Bit.rawValue,
@@ -867,8 +932,12 @@ enum LocalModelCatalog {
         // Ultra-light fallbacks for constrained Macs.
         LocalTextModelID.bonsai4B2Bit.rawValue,
         LocalTextModelID.bonsai8B2Bit.rawValue,
+        LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
+        LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
         // Flagship coder (30B A3B MoE — 24GB class).
         LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
+        LocalTextModelID.qwen3_8B4Bit.rawValue,
+        LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
         // Function-calling specialist (Hermes 4.3 36B — both quants).
         LocalTextModelID.hermes43_36B4Bit.rawValue,
         LocalTextModelID.hermes43_36B3Bit.rawValue,

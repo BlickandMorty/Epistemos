@@ -14,22 +14,58 @@ struct VaultManifest: Sendable {
     let generatedAt: Date
 
     struct ManifestEntry: Sendable, Identifiable {
-        let pageId: String
-        let title: String
-        let tags: [String]
-        let folderName: String?
-        let wordCount: Int
-        let snippet: String
-        let updatedAt: Date
-        let createdAt: Date
+        nonisolated let pageId: String
+        nonisolated let title: String
+        nonisolated let relativePath: String?
+        nonisolated let tags: [String]
+        nonisolated let folderName: String?
+        nonisolated let wordCount: Int
+        nonisolated let snippet: String
+        nonisolated let updatedAt: Date
+        nonisolated let createdAt: Date
 
-        var id: String { pageId }
+        nonisolated var id: String { pageId }
+
+        nonisolated init(
+            pageId: String,
+            title: String,
+            relativePath: String? = nil,
+            tags: [String],
+            folderName: String?,
+            wordCount: Int,
+            snippet: String,
+            updatedAt: Date,
+            createdAt: Date
+        ) {
+            self.pageId = pageId
+            self.title = title
+            self.relativePath = relativePath
+            self.tags = tags
+            self.folderName = folderName
+            self.wordCount = wordCount
+            self.snippet = snippet
+            self.updatedAt = updatedAt
+            self.createdAt = createdAt
+        }
     }
 
     struct NoteBody: Sendable {
-        let pageId: String
-        let title: String
-        let body: String
+        nonisolated let pageId: String
+        nonisolated let title: String
+        nonisolated let relativePath: String?
+        nonisolated let body: String
+
+        nonisolated init(
+            pageId: String,
+            title: String,
+            relativePath: String? = nil,
+            body: String
+        ) {
+            self.pageId = pageId
+            self.title = title
+            self.relativePath = relativePath
+            self.body = body
+        }
     }
 
     /// Format the manifest as an LLM-readable context string.
@@ -53,7 +89,8 @@ struct VaultManifest: Sendable {
         if !recentBodies.isEmpty {
             parts.append("\n## Recent Notes (full content)")
             for note in recentBodies {
-                parts.append("### \(note.title)\n\(note.body)")
+                let pathLine = note.vaultReadReferenceLine.map { "\($0)\n" } ?? ""
+                parts.append("### \(note.title)\n\(pathLine)\(note.body)")
             }
         }
 
@@ -96,17 +133,28 @@ struct VaultContextPack: Sendable {
         var seenNoteIDs = Set<String>()
         for note in referencedNotes {
             guard seenNoteIDs.insert(note.pageId).inserted else { continue }
-            parts.append("### Referenced Note: \(note.title)\n\(note.body)")
+            let pathLine = note.vaultReadReferenceLine.map { "\($0)\n" } ?? ""
+            parts.append("### Referenced Note: \(note.title)\n\(pathLine)\(note.body)")
         }
 
         if !matchedVaultNotes.isEmpty {
             parts.append("## Matched Vault Notes")
             for note in matchedVaultNotes {
                 guard seenNoteIDs.insert(note.pageId).inserted else { continue }
-                parts.append("### Vault Match: \(note.title)\n\(note.body)")
+                let pathLine = note.vaultReadReferenceLine.map { "\($0)\n" } ?? ""
+                parts.append("### Vault Match: \(note.title)\n\(pathLine)\(note.body)")
             }
         }
 
         return parts.isEmpty ? nil : parts.joined(separator: "\n\n")
+    }
+}
+
+extension VaultManifest.NoteBody {
+    nonisolated var vaultReadReferenceLine: String? {
+        guard let relativePath else { return nil }
+        let trimmedPath = relativePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPath.isEmpty else { return nil }
+        return "Canonical vault-relative path (use this with `vault_read`): \(trimmedPath)"
     }
 }

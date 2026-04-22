@@ -267,6 +267,49 @@ struct AgentChatStateTests {
         #expect(state.thinkingEndedAt != nil)
     }
 
+    @Test("scratch pad tags route into the thinking stream instead of the visible answer")
+    func scratchPadTagsRouteIntoThinkingStream() {
+        let state = AgentChatState()
+        state.startStreaming()
+
+        state.appendStreamingText(
+            "<scratch_pad>working through the outline</scratch_pad>Final answer."
+        )
+        state.stopStreaming()
+
+        #expect(state.streamingThinking == "working through the outline")
+        #expect(state.streamingText == "Final answer.")
+        #expect(!state.isThinkingActive)
+        #expect(state.thinkingEndedAt != nil)
+    }
+
+    @Test("analysis-style prose routing keeps local reasoning out of the visible answer stream")
+    func analysisStyleProseRoutesIntoThinkingStream() {
+        let state = AgentChatState()
+        state.startStreaming()
+
+        state.appendStreamingText("I will analyze the provided text and provide an answer based on the content.\n\n")
+        state.appendStreamingText("Key points include:\n1. It reframes the problem.\n\n")
+        state.appendStreamingText("In summary, the essay argues that veto capacity grounds responsibility.")
+        state.stopStreaming()
+
+        #expect(
+            state.streamingThinking.trimmingCharacters(in: .whitespacesAndNewlines)
+                == """
+                I will analyze the provided text and provide an answer based on the content.
+
+                Key points include:
+                1. It reframes the problem.
+                """
+        )
+        #expect(
+            state.streamingText
+                == "In summary, the essay argues that veto capacity grounds responsibility."
+        )
+        #expect(!state.isThinkingActive)
+        #expect(state.thinkingEndedAt != nil)
+    }
+
     @Test("starting a new streaming turn resets stale thinking state")
     func startStreamingResetsThinkingState() {
         let state = AgentChatState()

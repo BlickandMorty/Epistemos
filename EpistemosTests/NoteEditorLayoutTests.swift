@@ -161,6 +161,64 @@ struct NoteEditorLayoutTests {
         #expect(cramped.height == NoteWorkspaceSurfaceStyle.minimumEditorSize.height)
     }
 
+    @Test("note prose editor width caps at a centered readable measure in wide windows")
+    func noteProseEditorWidthCapsAtReadableMeasure() {
+        let compact = NoteDualPreviewLayout.editorReadableWidth(
+            for: "A readable paragraph of prose without tables.",
+            defaultWidth: 664
+        )
+        let wide = NoteDualPreviewLayout.editorReadableWidth(
+            for: "A readable paragraph of prose without tables.",
+            defaultWidth: 1080
+        )
+        let tableWide = NoteDualPreviewLayout.editorReadableWidth(
+            for: "| A | B |\n| - | - |\n| 1 | 2 |",
+            defaultWidth: 1080
+        )
+
+        #expect(compact == 664)
+        #expect(wide == NoteDualPreviewLayout.defaultEditorSurfaceMaxWidth)
+        #expect(tableWide == NoteDualPreviewLayout.tableEditorReadableMaxWidth)
+    }
+
+    @Test("note prose body keeps a wider centered text column in roomy windows")
+    func noteProseBodyUsesCenteredReadableInset() {
+        let compactInset = ProseEditorRepresentable2.horizontalInset(
+            for: 900,
+            markdown: "A readable paragraph of prose without tables."
+        )
+        let wideInset = ProseEditorRepresentable2.horizontalInset(
+            for: 1100,
+            markdown: "A readable paragraph of prose without tables."
+        )
+        let tableInset = ProseEditorRepresentable2.horizontalInset(
+            for: 1100,
+            markdown: "| A | B |\n| - | - |\n| 1 | 2 |"
+        )
+
+        #expect(compactInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
+        #expect(wideInset > compactInset)
+        #expect(wideInset == 130)
+        #expect(tableInset == NoteDualPreviewLayout.minimumTextHorizontalInset)
+    }
+
+    @Test("note editor surface centers the prose editor at the readable width cap")
+    func noteEditorSurfaceCentersReadableWidth() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("let readableWidth = NoteDualPreviewLayout.editorReadableWidth("))
+        #expect(source.contains(".frame(width: readableWidth, alignment: .topLeading)"))
+        #expect(source.contains(".frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)"))
+    }
+
+    @Test("note body paragraph style keeps a calmer writing rhythm")
+    func noteBodyParagraphStyleKeepsCalmerWritingRhythm() {
+        let paragraphStyle = MarkdownEditorStyle.bodyParagraphStyle()
+
+        #expect(paragraphStyle.lineSpacing == 6)
+        #expect(paragraphStyle.paragraphSpacing == 10)
+    }
+
     @Test("note footer keeps only the word count chip")
     func noteFooterKeepsOnlyWordCountChip() {
         #expect(!NoteWorkspaceFooterDisplay.showsBottomFade)
@@ -338,8 +396,8 @@ struct NoteEditorLayoutTests {
         #expect(source.contains("ForEach(NoteWorkspaceQuickAction.allCases"))
     }
 
-    @Test("toolbar ask field streams inline with siri glow instead of the old ascii status badge")
-    func toolbarAskFieldStreamsInlineWithoutPopover() throws {
+    @Test("toolbar ask field keeps the shared composer chrome while defaulting freeform asks to inline note chat")
+    func toolbarAskFieldKeepsSharedComposerChromeWhileDefaultingToInlineNoteChat() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
         guard let toolbarRange = source.range(of: "private func toolbarChatField(width: CGFloat) -> some View"),
@@ -350,10 +408,16 @@ struct NoteEditorLayoutTests {
 
         let toolbarSource = String(source[toolbarRange.lowerBound..<nextSectionRange.lowerBound])
 
-        #expect(toolbarSource.contains("noteChatState.submitToolbarQuery("))
+        #expect(toolbarSource.contains("submitToolbarAskInline()"))
+        #expect(toolbarSource.contains("routeToolbarAskToMainChat()"))
         #expect(toolbarSource.contains("AssistantToolbarAskBar("))
+        #expect(toolbarSource.contains("placeholder: \"Ask this note\""))
         #expect(toolbarSource.contains("phase: toolbarAskStatusPhase"))
         #expect(toolbarSource.contains("accent: toolbarAskAccentColor"))
+        #expect(toolbarSource.contains("Button(action: routeToolbarAskToMainChat)"))
+        #expect(toolbarSource.contains("Label(\"Send to Main Chat\""))
+        #expect(source.contains("ChatCapability.predictIntent("))
+        #expect(source.contains("inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode)"))
         #expect(sharedStatus.contains("struct AssistantToolbarAskBar<Leading: View>: View"))
         #expect(sharedStatus.contains("TextField(\"\", text: $text)"))
         #expect(sharedStatus.contains("AssistantAnimatedStatusLabel("))
@@ -366,6 +430,13 @@ struct NoteEditorLayoutTests {
         #expect(!source.contains("private var toolbarResponseDropdown"))
         #expect(!source.contains("private var toolbarAskStatusAnimation"))
         #expect(!source.contains("private var toolbarAskStatusBadge"))
+        #expect(source.contains("private func submitToolbarAskInline()"))
+        #expect(source.contains("noteChatState.submitToolbarQuery("))
+        #expect(source.contains("private func routeToolbarAskToMainChat()"))
+        #expect(source.contains("bootstrap.chatState.startNewChat()"))
+        #expect(source.contains("bootstrap.chatState.addContextAttachment(attachment)"))
+        #expect(source.contains("ui.setActivePanel(.home)"))
+        #expect(source.contains("MainChatSubmissionRouter.submit("))
     }
 
     @Test("code files do not show the note ask bar in the workspace toolbar")

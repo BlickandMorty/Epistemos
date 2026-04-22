@@ -54,6 +54,7 @@ nonisolated final class ThinkTagStreamRouter {
     /// or `<reasoning>…</reasoning>`. All match case-insensitively
     /// since some models emit uppercase variants.
     private static let tagPairs: [(open: String, close: String)] = [
+        ("<scratch_pad>", "</scratch_pad>"),
         ("<think>", "</think>"),
         ("<thinking>", "</thinking>"),
         ("<thought>", "</thought>"),
@@ -212,5 +213,82 @@ nonisolated final class ThinkTagStreamRouter {
             suffixLen += 1
         }
         return bestHold
+    }
+}
+
+/// Stateful classifier for raw visible-text streams after explicit hidden
+/// tags have already been stripped. This catches local-model runs that ignore
+/// the `<think>` contract and instead emit prose like "I will analyze…"
+/// before eventually producing a user-facing answer.
+nonisolated final class UserFacingStreamRouter {
+    private var rawText = ""
+    private var emittedVisibleText = ""
+    private var emittedReasoningText = ""
+
+    func ingest(_ chunk: String) -> ThinkTagStreamRouter.Emit {
+        guard !chunk.isEmpty else { return .empty }
+
+        let priorRawText = rawText
+        rawText.append(chunk)
+
+        var emit = ThinkTagStreamRouter.Emit.empty
+
+        let reasoningText = UserFacingModelOutput.streamingReasoningText(from: rawText)
+        if !reasoningText.isEmpty, reasoningText.hasPrefix(emittedReasoningText) {
+            let deltaStart = reasoningText.index(
+                reasoningText.startIndex,
+                offsetBy: emittedReasoningText.count
+            )
+            let delta = String(reasoningText[deltaStart...])
+            if !delta.isEmpty {
+                emittedReasoningText = reasoningText
+                emit = emit + ThinkTagStreamRouter.Emit(visible: "", thinking: delta)
+            }
+        }
+
+        let visibleText = UserFacingModelOutput.streamingVisibleText(from: rawText)
+        if visibleText.hasPrefix(emittedVisibleText) {
+            let deltaStart = visibleText.index(
+                visibleText.startIndex,
+                offsetBy: emittedVisibleText.count
+            )
+            let delta = String(visibleText[deltaStart...])
+            if !delta.isEmpty {
+                emittedVisibleText = visibleText
+                emit = emit + ThinkTagStreamRouter.Emit(visible: delta, thinking: "")
+                return emit
+            }
+        }
+
+        if emittedVisibleText.isEmpty,
+           let standaloneAnswer = UserFacingModelOutput
+               .streamingStandaloneAnswerChunk(chunk, afterReasoningRaw: priorRawText),
+           !standaloneAnswer.isEmpty {
+            emittedVisibleText = standaloneAnswer
+            emit = emit + ThinkTagStreamRouter.Emit(visible: standaloneAnswer, thinking: "")
+        }
+
+        return emit
+    }
+
+    func flush() -> ThinkTagStreamRouter.Emit {
+        let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)
+        guard finalVisibleText.hasPrefix(emittedVisibleText) else { return .empty }
+
+        let deltaStart = finalVisibleText.index(
+            finalVisibleText.startIndex,
+            offsetBy: emittedVisibleText.count
+        )
+        let delta = String(finalVisibleText[deltaStart...])
+        guard !delta.isEmpty else { return .empty }
+
+        emittedVisibleText = finalVisibleText
+        return ThinkTagStreamRouter.Emit(visible: delta, thinking: "")
+    }
+
+    func reset() {
+        rawText.removeAll(keepingCapacity: false)
+        emittedVisibleText.removeAll(keepingCapacity: false)
+        emittedReasoningText.removeAll(keepingCapacity: false)
     }
 }

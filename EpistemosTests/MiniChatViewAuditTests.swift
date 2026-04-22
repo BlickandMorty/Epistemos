@@ -100,6 +100,7 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains("threadState.setMiniChatStreaming(false, chatID: chatID)"))
         #expect(miniChatSource.contains("threadState.setMiniChatStreamingText(\"\", chatID: chatID)"))
         #expect(miniChatSource.contains("streamTask?.cancel()"))
+        #expect(miniChatSource.contains("AppBootstrap.shared?.queryTask?.cancel()"))
         #expect(mainChatSource.contains("if pipeline.isProcessing || chat.isStreaming"))
         #expect(!mainChatSource.contains("if chat.isStreaming || !chat.streamingText.isEmpty"))
         #expect(coordinatorSource.contains("pipelineService.cancelActiveRun()"))
@@ -125,6 +126,18 @@ struct MiniChatViewAuditTests {
         #expect(triageSource.contains("private func userFacingStream("))
         #expect(triageSource.contains("UserFacingModelOutput.streamingVisibleText(from: rawText)"))
         #expect(triageSource.contains("let finalVisibleText = UserFacingModelOutput.finalVisibleText(from: rawText)"))
+    }
+
+    @Test("mini chat escalates tool-worthy turns through the shared coordinator path")
+    func miniChatEscalatesToolWorthyTurnsThroughSharedCoordinatorPath() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let coordinatorSource = try loadRepoTextFile("Epistemos/App/AppCoordinator.swift")
+
+        #expect(miniChatSource.contains("private func shouldUseSharedCoordinator(for query: String) -> Bool"))
+        #expect(miniChatSource.contains("let shouldUseSharedCoordinator = shouldUseSharedCoordinator(for: trimmed)"))
+        #expect(miniChatSource.contains("try await runSharedCoordinatorTurn("))
+        #expect(miniChatSource.contains("mirrorSharedCoordinatorState("))
+        #expect(coordinatorSource.contains("func handleMiniChatQuery("))
     }
 
     @Test("mini chat preserves reasoning traces for assistant turns")

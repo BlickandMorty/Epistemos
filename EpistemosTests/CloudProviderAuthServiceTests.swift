@@ -332,6 +332,7 @@ struct CloudProviderAuthServiceTests {
             },
             keychainDelete: { keychainValues.removeValue(forKey: $0) }
         )
+        inference.setChatReasoningTier(.off)
         let session = makeURLSession { request in
             let url = try #require(request.url)
             #expect(url.path == "/v1/responses")
@@ -361,6 +362,54 @@ struct CloudProviderAuthServiceTests {
         let client = CloudLLMClient(inference: inference, urlSession: session)
         _ = try await client.generate(
             prompt: "Explain the architecture tradeoffs.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            model: .openAIGPT54,
+            operatingMode: .pro
+        )
+    }
+
+    @MainActor
+    @Test("OpenAI API pro mode ignores a saved off tier and still requests the higher reasoning route")
+    func openAIAPIProModeStillRequestsHighReasoningWhenSavedTierIsOff() async throws {
+        var keychainValues: [String: String] = [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ]
+
+        let inference = InferenceState(
+            keychainLoad: { keychainValues[$0] },
+            keychainSave: { value, key in
+                keychainValues[key] = value
+                return true
+            },
+            keychainDelete: { keychainValues.removeValue(forKey: $0) }
+        )
+        inference.setChatReasoningTier(.off)
+        let session = makeURLSession { request in
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+            #expect(reasoning["effort"] as? String == "high")
+            #expect(reasoning["summary"] as? String == "auto")
+
+            let text = try #require(json["text"] as? [String: Any])
+            #expect(text["verbosity"] as? String == "medium")
+
+            let url = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            {
+              "output_text": "done"
+            }
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        _ = try await client.generate(
+            prompt: "Give me the rigorous version.",
             systemPrompt: nil,
             maxTokens: 256,
             model: .openAIGPT54,
@@ -417,8 +466,131 @@ struct CloudProviderAuthServiceTests {
     }
 
     @MainActor
-    @Test("OpenAI Codex account requests omit native GPT-5 API controls")
-    func openAICodexRequestsOmitNativeGPT54Controls() async throws {
+    @Test("OpenAI API requests omit json_object mode when web search is enabled")
+    func openAIAPIRequestsOmitJSONModeWhenWebSearchIsEnabled() async throws {
+        var keychainValues: [String: String] = [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ]
+
+        let inference = InferenceState(
+            keychainLoad: { keychainValues[$0] },
+            keychainSave: { value, key in
+                keychainValues[key] = value
+                return true
+            },
+            keychainDelete: { keychainValues.removeValue(forKey: $0) }
+        )
+        inference.setChatReasoningTier(.off)
+        inference.setStructuredJSONOutputEnabled(true)
+        inference.setOpenAIWebSearchEnabled(true)
+
+        let session = makeURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/v1/responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+
+            let tools = try #require(json["tools"] as? [[String: Any]])
+            #expect(tools.count == 1)
+            #expect(tools[0]["type"] as? String == "web_search")
+
+            let text = try #require(json["text"] as? [String: Any])
+            #expect(text["verbosity"] as? String == "low")
+            #expect(text["format"] == nil)
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            {
+              "output_text": "search-ready"
+            }
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        let result = try await client.generate(
+            prompt: "Find the latest release notes.",
+            systemPrompt: nil,
+            maxTokens: 128,
+            model: .openAIGPT54,
+            operatingMode: .fast
+        )
+
+        #expect(result == "search-ready")
+    }
+
+    @MainActor
+    @Test("OpenAI structured generation drops web search when JSON schema is required")
+    func openAIStructuredGenerationDropsWebSearchWhenJSONSchemaIsRequired() async throws {
+        var keychainValues: [String: String] = [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ]
+
+        let inference = InferenceState(
+            keychainLoad: { keychainValues[$0] },
+            keychainSave: { value, key in
+                keychainValues[key] = value
+                return true
+            },
+            keychainDelete: { keychainValues.removeValue(forKey: $0) }
+        )
+        inference.setOpenAIWebSearchEnabled(true)
+
+        let session = makeURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/v1/responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            #expect(json["tools"] == nil)
+
+            let text = try #require(json["text"] as? [String: Any])
+            let format = try #require(text["format"] as? [String: Any])
+            #expect(format["type"] as? String == "json_schema")
+            #expect(format["name"] as? String == "search_payload")
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            {
+              "output_text": "{\\"answer\\":\\"ok\\"}"
+            }
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        let result = try await client.generateStructured(
+            prompt: "Return JSON only.",
+            systemPrompt: nil,
+            maxTokens: 32,
+            model: .openAIGPT54Mini,
+            schema: CloudJSONSchema(
+                name: "search_payload",
+                description: nil,
+                schema: [
+                    "type": "object",
+                    "properties": [
+                        "answer": ["type": "string"]
+                    ],
+                    "required": ["answer"],
+                    "additionalProperties": false,
+                ],
+                strict: true
+            ),
+            type: [String: String].self
+        )
+
+        #expect(result.value == ["answer": "ok"])
+    }
+
+    @MainActor
+    @Test("OpenAI Codex account requests carry native GPT-5 controls for thinking and pro work")
+    func openAICodexRequestsCarryNativeGPT54Controls() async throws {
         let expiration = Date(timeIntervalSinceNow: 3_600)
         let credential = CloudProviderOAuthCredential(
             provider: .openAI,
@@ -453,8 +625,12 @@ struct CloudProviderAuthServiceTests {
             let bodyData = try self.requestBodyData(from: request)
             let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
             #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
-            #expect(json["reasoning"] == nil)
-            #expect(json["text"] == nil)
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+            #expect(reasoning["effort"] as? String == "high")
+            #expect(reasoning["summary"] as? String == "auto")
+
+            let text = try #require(json["text"] as? [String: Any])
+            #expect(text["verbosity"] as? String == "medium")
 
             let response = try #require(
                 HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
@@ -477,6 +653,78 @@ struct CloudProviderAuthServiceTests {
             maxTokens: 256,
             model: .openAIGPT54,
             operatingMode: .pro
+        )
+    }
+
+    @MainActor
+    @Test("OpenAI Codex agent mode preserves low-effort selections instead of collapsing them to standard")
+    func openAICodexAgentModePreservesLowEffortSelection() async throws {
+        let expiration = Date(timeIntervalSinceNow: 3_600)
+        let credential = CloudProviderOAuthCredential(
+            provider: .openAI,
+            accessToken: makeJWT(expiration: expiration),
+            refreshToken: "refresh-token",
+            expiresAt: expiration,
+            clientID: OpenAICodexRuntimeMetadata.clientID,
+            clientSecret: nil,
+            projectID: nil,
+            authMode: .openAICodex,
+            accountLabel: "chatgpt@example.com"
+        )
+        let encoded = try JSONEncoder().encode(credential)
+        let encodedString = try #require(String(data: encoded, encoding: .utf8))
+
+        var keychainValues: [String: String] = [
+            CloudModelProvider.openAI.oauthKeychainKey: encodedString
+        ]
+
+        let inference = InferenceState(
+            keychainLoad: { keychainValues[$0] },
+            keychainSave: { value, key in
+                keychainValues[key] = value
+                return true
+            },
+            keychainDelete: { keychainValues.removeValue(forKey: $0) }
+        )
+        inference.setActiveAIProvider(.openAI)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        inference.setChatReasoningTier(.low, for: .agent)
+
+        let session = makeURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/backend-api/codex/responses")
+
+            let bodyData = try self.requestBodyData(from: request)
+            let json = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            #expect(json["model"] as? String == CloudTextModelID.openAIGPT54.vendorModelID)
+            let reasoning = try #require(json["reasoning"] as? [String: Any])
+            #expect(reasoning["effort"] as? String == "low")
+            #expect(reasoning["summary"] as? String == "auto")
+
+            let text = try #require(json["text"] as? [String: Any])
+            #expect(text["verbosity"] as? String == "low")
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":"clean"}
+
+            event: response.completed
+            data: {"type":"response.completed"}
+
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+
+        let client = CloudLLMClient(inference: inference, urlSession: session)
+        _ = try await client.generate(
+            prompt: "Handle this as an agent task.",
+            systemPrompt: nil,
+            maxTokens: 256,
+            model: .openAIGPT54,
+            operatingMode: .agent
         )
     }
 

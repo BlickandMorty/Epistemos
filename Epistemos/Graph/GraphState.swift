@@ -26,11 +26,26 @@ enum GraphMode: Sendable {
 }
 
 enum GraphOverlayPhysicsPolicy {
-    static let openingPreset: PhysicsPreset = .deepSea
+    static let openingPreset: PhysicsPreset = .constellation
     static let restingPreset: PhysicsPreset = .chaos
     static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
     static let interactionMotionAlphaTarget: Float = 0.015
+    static let defaultGlobalCameraMagnification: Float = 0.72
+    static let legacyDefaultTimelineSignature: [(Double, String)] = [
+        (0.0, "crystal"),
+        (3.0, "constellation"),
+        (4.0, "chaos"),
+    ]
+
+    static var openingPresetKey: String { String(describing: openingPreset) }
+    static var restingPresetKey: String { String(describing: restingPreset) }
+    static var defaultTimelineSignature: [(Double, String)] {
+        [
+            (0.0, openingPresetKey),
+            (chaosDelaySeconds, restingPresetKey),
+        ]
+    }
 
     static func preset(afterElapsedSeconds elapsed: TimeInterval) -> PhysicsPreset {
         elapsed >= chaosDelaySeconds ? restingPreset : openingPreset
@@ -104,7 +119,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .snowflake:     return 100
         case .rubberBand:    return 220
         case .zenGarden:     return 300
-        case .chaos:         return 150
+        case .chaos:         return 180
         }
     }
     var chargeStrength: Float {
@@ -169,7 +184,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .snowflake:     return 0.85
         case .rubberBand:    return 0.10
         case .zenGarden:     return 0.15
-        case .chaos:         return 0.05
+        case .chaos:         return 0.07
         }
     }
     var centerStrength: Float {
@@ -201,7 +216,7 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .snowflake:     return 25
         case .rubberBand:    return 45
         case .zenGarden:     return 60
-        case .chaos:         return 20
+        case .chaos:         return 26
         }
     }
 
@@ -381,6 +396,30 @@ enum GraphVaultMode: String, CaseIterable, Sendable {
 
 @MainActor @Observable
 final class GraphState {
+    private static let schedulerDefaultsVersion = 2
+    private static let schedulerDefaultsVersionKey = "epistemos.physics.schedulerDefaultsVersion"
+
+    private static func defaultTimelineSteps() -> [PhysicsScheduleStep] {
+        GraphOverlayPhysicsPolicy.defaultTimelineSignature.map { step in
+            PhysicsScheduleStep(delaySeconds: step.0, presetKey: step.1)
+        }
+    }
+
+    private static func timelineSignature(_ steps: [PhysicsScheduleStep]) -> [(Double, String)] {
+        steps.map { ($0.delaySeconds, $0.presetKey) }
+    }
+
+    private static func timelineSignatureMatches(
+        _ steps: [PhysicsScheduleStep],
+        expected signature: [(Double, String)]
+    ) -> Bool {
+        let actual = timelineSignature(steps)
+        guard actual.count == signature.count else { return false }
+        return zip(actual, signature).allSatisfy { lhs, rhs in
+            lhs.0 == rhs.0 && lhs.1 == rhs.1
+        }
+    }
+
     let store = GraphStore()
     let filter = FilterEngine()
 
@@ -1050,6 +1089,7 @@ final class GraphState {
         d.set(interactionMotionHoldSeconds, forKey: "epistemos.physics.interactionMotionHoldSeconds")
         d.set(interactionMotionAlphaTarget, forKey: "epistemos.physics.interactionMotionAlphaTarget")
         d.set(startupViewMode.rawValue, forKey: "epistemos.physics.startupViewMode")
+        d.set(Self.schedulerDefaultsVersion, forKey: Self.schedulerDefaultsVersionKey)
         // Timeline steps as JSON
         if let stepsData = try? JSONEncoder().encode(timelineSteps) {
             d.set(stepsData, forKey: "epistemos.physics.timelineSteps")
@@ -1147,7 +1187,37 @@ final class GraphState {
                 Log.app.error("GraphState: failed to decode timelineSteps; keeping in-memory schedule unchanged")
             }
         }
+        migrateLegacySchedulerDefaultsIfNeeded(defaults: d)
         if isPhysicsFrozen { physicsFrozenVersion += 1 }
+    }
+
+    private func migrateLegacySchedulerDefaultsIfNeeded(defaults: UserDefaults) {
+        let storedVersion = defaults.integer(forKey: Self.schedulerDefaultsVersionKey)
+        guard storedVersion < Self.schedulerDefaultsVersion else { return }
+
+        var didMigrate = false
+        if simpleOpeningPresetKey == "crystal",
+           abs(simpleOpeningDelaySeconds - 3.0) < 0.0001,
+           simpleRestingPresetKey == "chaos" {
+            simpleOpeningPresetKey = GraphOverlayPhysicsPolicy.openingPresetKey
+            simpleOpeningDelaySeconds = GraphOverlayPhysicsPolicy.chaosDelaySeconds
+            simpleRestingPresetKey = GraphOverlayPhysicsPolicy.restingPresetKey
+            didMigrate = true
+        }
+
+        if schedulerMode == .timeline,
+           Self.timelineSignatureMatches(
+                timelineSteps,
+                expected: GraphOverlayPhysicsPolicy.legacyDefaultTimelineSignature
+           ) {
+            timelineSteps = Self.defaultTimelineSteps()
+            didMigrate = true
+        }
+
+        defaults.set(Self.schedulerDefaultsVersion, forKey: Self.schedulerDefaultsVersionKey)
+        if didMigrate {
+            savePhysicsSettings()
+        }
     }
 
     // ── Cluster ──
@@ -1201,9 +1271,12 @@ final class GraphState {
     func applyPreset(
         _ preset: PhysicsPreset,
         persist: Bool = true,
-        applyLabOverrides: Bool = true
+        applyLabOverrides: Bool = true,
+        cancelOverlayCycle: Bool = true
     ) {
-        cancelOverlayPhysicsCycle()
+        if cancelOverlayCycle {
+            cancelOverlayPhysicsCycle()
+        }
         selectedPhysicsPreset = preset
         linkDistance = preset.linkDistance
         chargeStrength = preset.chargeStrength
@@ -1241,7 +1314,12 @@ final class GraphState {
     }
 
     private func applyOverlayPreset(_ preset: PhysicsPreset) {
-        applyPreset(preset, persist: false, applyLabOverrides: false)
+        applyPreset(
+            preset,
+            persist: false,
+            applyLabOverrides: false,
+            cancelOverlayCycle: false
+        )
     }
 
     /// Apply a scheduler step non-persistently, resolving its presetKey to a preset.
@@ -1368,28 +1446,23 @@ final class GraphState {
 
     /// Scheduler mode. `.simple` is the classic opening→resting 2-stage cycle.
     /// `.timeline` plays an arbitrary sequence of preset changes.
-    /// Default is `.timeline` with a 3-stage opening that lands the user
-    /// at a compact, bouncy chaos preset after briefly showing structure.
+    /// Default is `.timeline` with an airy opening that settles into
+    /// a slightly roomier chaos resting state.
     var schedulerMode: PhysicsSchedulerMode = .timeline
     /// Opening preset key (built-in name like "deepSea" or "custom:<UUID>").
-    var simpleOpeningPresetKey: String = "crystal"
+    var simpleOpeningPresetKey: String = GraphOverlayPhysicsPolicy.openingPresetKey
     /// Delay in seconds before switching from opening → resting in simple mode.
-    var simpleOpeningDelaySeconds: Double = 3.0
+    var simpleOpeningDelaySeconds: Double = GraphOverlayPhysicsPolicy.chaosDelaySeconds
     /// Resting preset key.
-    var simpleRestingPresetKey: String = "chaos"
+    var simpleRestingPresetKey: String = GraphOverlayPhysicsPolicy.restingPresetKey
     /// Timeline mode: ordered steps to play when the overlay opens.
-    /// Default is a 3-stage crystal → constellation → chaos cycle so the
+    /// Default is a 2-stage constellation → chaos cycle so the
     /// graph reads as:
-    /// 1. crystal (structured, tight, snappy) for ~3s — shows topology
-    /// 2. constellation (wide spacing, minimal gravity) for ~4s — lets
-    ///    clusters breathe and become legible before they compact
-    /// 3. chaos (tight repulsion, zero gravity, low friction) — resting
+    /// 1. constellation (wide spacing, minimal gravity) for ~4s — lets
+    ///    the topology breathe on open instead of crowding the viewport
+    /// 2. chaos (still lively, but with more breathing room) — resting
     ///    state with everything visible and interactive
-    var timelineSteps: [PhysicsScheduleStep] = [
-        PhysicsScheduleStep(delaySeconds: 0.0, presetKey: "crystal"),
-        PhysicsScheduleStep(delaySeconds: 3.0, presetKey: "constellation"),
-        PhysicsScheduleStep(delaySeconds: 4.0, presetKey: "chaos"),
-    ]
+    var timelineSteps: [PhysicsScheduleStep] = GraphState.defaultTimelineSteps()
     /// How long user-interaction-triggered motion is sustained (seconds).
     var interactionMotionHoldSeconds: Double = 30.0
     /// Alpha target during interaction-sustained motion (0.001-0.1).

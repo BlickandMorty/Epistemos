@@ -210,12 +210,15 @@ private struct MiniChatThread: View {
                                         .trimmingCharacters(in: .whitespacesAndNewlines)
                                     MiniChatAssistantBubbleChrome {
                                         VStack(alignment: .leading, spacing: Spacing.md) {
-                                            if visibleStreamingText.isEmpty {
-                                                AssistantTypingIndicatorDots(
-                                                    theme: theme,
-                                                    accent: theme.resolved.accent.color
-                                                )
-                                            } else {
+                                            LiveActivityStrip(
+                                                toolName: nil,
+                                                toolInputJson: nil,
+                                                isThinkingActive: visibleStreamingText.isEmpty && !streamingThinking.isEmpty,
+                                                thinkingStartedAt: nil,
+                                                isStreaming: true
+                                            )
+
+                                            if !visibleStreamingText.isEmpty {
                                                 TaggedMarkdownTextView(
                                                     content: visibleStreamingText + " ▍",
                                                     theme: theme
@@ -578,6 +581,7 @@ private struct MiniChatInputBar: View {
     private var operatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var text = ""
     @State private var isProcessing = false
+    @State private var isUsingSharedCoordinator = false
     @State private var streamTask: Task<Void, Never>?
     @State private var isFocused = false
     @State private var composerHeight = ChatComposerInputMetrics.minHeight
@@ -634,9 +638,6 @@ private struct MiniChatInputBar: View {
             isActive: isProcessing || threadState.miniChatIsStreaming(chatID: chatID),
             streamingText: threadState.miniChatStreamingText(chatID: chatID)
         )
-    }
-    private var composerHaloStyle: AssistantComposerHaloStyle? {
-        AssistantComposerHaloStyle.resolve(for: composerStatusPhase)
     }
     private var composerStatusLabelState: AssistantComposerStatusLabelState? {
         AssistantComposerStatusLabelState.resolve(
@@ -698,6 +699,31 @@ private struct MiniChatInputBar: View {
             + inference.activeChatModelDisplayName
     }
 
+    private var isCloudProviderSelection: Bool {
+        switch inference.effectiveChatSurfaceSelection(for: selectedOperatingMode) {
+        case .cloud:
+            return true
+        case .localMLX, .appleIntelligence:
+            return false
+        }
+    }
+
+    private var draftCapabilityPrediction: IntentPrediction {
+        ChatCapability.predictIntent(
+            text: text,
+            isCloudProvider: isCloudProviderSelection
+        )
+    }
+
+    private var composerCapability: ChatCapability {
+        ChatCapability.classify(
+            isCloudProvider: isCloudProviderSelection,
+            isAgentExecuting: isUsingSharedCoordinator || draftCapabilityPrediction.predicted == .agent,
+            isResearchMode: draftCapabilityPrediction.predicted == .research,
+            isThinkingMode: selectedOperatingMode.capturesReasoningTrace
+        )
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             if explicitScopedPageID != nil, activePage() != nil, !isProcessing {
@@ -723,24 +749,8 @@ private struct MiniChatInputBar: View {
 
                     Spacer(minLength: 4)
 
-                    // Capability pill — shared signal across main/mini/note/graph
-                    // chat. Mini chat doesn't own a full ChatState, so the
-                    // capability is derived inline from the active provider +
-                    // whether this composer is currently mid-stream. Agent tier
-                    // is reserved for the main-chat surface today (mini chat
-                    // doesn't drive the agent loop directly).
                     ChatCapabilityPill(
-                        capability: ChatCapability.classify(
-                            isCloudProvider: {
-                                switch inference.preferredChatModelSelection {
-                                case .cloud: true
-                                case .localMLX, .appleIntelligence: false
-                                }
-                            }(),
-                            isAgentExecuting: false,
-                            isResearchMode: false,
-                            isThinkingMode: false
-                        )
+                        capability: composerCapability
                     )
 
                     AssistantSendButton(
@@ -768,14 +778,6 @@ private struct MiniChatInputBar: View {
                 metrics: composerMetrics,
                 isActive: composerIsActive
             )
-            .background {
-                AssistantComposerOuterHalo(
-                    style: composerHaloStyle,
-                    accent: composerAccentColor,
-                    cornerRadius: composerMetrics.cornerRadius,
-                    animatesContinuously: false
-                )
-            }
         }
         .frame(maxWidth: MiniChatLayout.composerMaxWidth)
         .frame(maxWidth: .infinity)
@@ -825,11 +827,10 @@ private struct MiniChatInputBar: View {
             if let labelState = composerStatusLabelState {
                 AssistantAnimatedStatusLabel(
                     state: labelState,
-                    accent: composerAccentColor,
                     phase: composerStatusPhase,
                     theme: theme,
                     font: .system(size: 16, weight: .regular, design: .rounded),
-                    haloStyle: composerHaloStyle
+                    activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)
                 )
                 .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
                 .padding(.leading, ChatComposerInputMetrics.horizontalInset)
@@ -1201,6 +1202,16 @@ private struct MiniChatInputBar: View {
                 let page = activePage()
                 let currentThread = threadState.miniChatSession(id: chatID)
                 let attachments = currentThread?.contextAttachments ?? []
+                let shouldUseSharedCoordinator = shouldUseSharedCoordinator(for: trimmed)
+
+                if shouldUseSharedCoordinator {
+                    try await runSharedCoordinatorTurn(
+                        query: trimmed,
+                        attachments: attachments,
+                        page: page
+                    )
+                    return
+                }
 
                 let notesContext: ChatCoordinator.AttachedContextResolution
                 if ChatCoordinator.queryContainsExplicitNoteContext(trimmed) || !attachments.isEmpty {
@@ -1345,6 +1356,147 @@ private struct MiniChatInputBar: View {
                 persistMiniChatSession()
             }
         }
+    }
+
+    private func shouldUseSharedCoordinator(for query: String) -> Bool {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let prediction = ChatCapability.predictIntent(
+            text: trimmed,
+            isCloudProvider: isCloudProviderSelection
+        )
+        switch prediction.predicted {
+        case .agent, .research:
+            return true
+        case .local, .thinking, .cloud:
+            return false
+        }
+    }
+
+    private func runSharedCoordinatorTurn(
+        query: String,
+        attachments: [ContextAttachment],
+        page: SDPage?
+    ) async throws {
+        guard let bootstrap = AppBootstrap.shared else {
+            throw AgentRuntimeError(message: "Mini chat couldn't access the shared chat runtime.")
+        }
+
+        let bridgeState = bridgeChatState(attachments: attachments)
+        let baselineMessageCount = bridgeState.messages.count
+        isUsingSharedCoordinator = true
+        defer { isUsingSharedCoordinator = false }
+
+        bootstrap.coordinator.handleMiniChatQuery(
+            query,
+            chatState: bridgeState,
+            operatingMode: selectedOperatingMode
+        )
+
+        guard let bridgeTask = bootstrap.queryTask else {
+            throw AgentRuntimeError(message: "Mini chat couldn't start the shared tools path.")
+        }
+
+        let mirrorTask = Task {
+            while !Task.isCancelled {
+                mirrorSharedCoordinatorState(bridgeState)
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+        }
+        defer { mirrorTask.cancel() }
+
+        await bridgeTask.value
+        mirrorSharedCoordinatorState(bridgeState)
+        finalizeSharedCoordinatorTurn(
+            from: bridgeState,
+            baselineMessageCount: baselineMessageCount,
+            attachments: attachments,
+            page: page
+        )
+    }
+
+    private func bridgeChatState(attachments: [ContextAttachment]) -> ChatState {
+        let bridgeState = ChatState()
+        let existingMessages = threadState.miniChatSession(id: chatID)?.messages ?? []
+
+        bridgeState.setCurrentChat(chatID)
+        bridgeState.chatTitle = miniChatThread?.label
+        bridgeState.messages = existingMessages.map { message in
+            ChatMessage(
+                id: message.id,
+                chatId: chatID,
+                role: message.role,
+                content: message.content,
+                createdAt: message.createdAt,
+                loadedNoteTitles: message.loadedNoteTitles,
+                contextAttachments: message.contextAttachments,
+                thinkingTrace: message.thinkingTrace,
+                thinkingDurationSeconds: message.thinkingDurationSeconds
+            )
+        }
+        bridgeState.hasMessages = !bridgeState.messages.isEmpty
+        bridgeState.pendingContextAttachments = attachments
+        if let thread = miniChatThread {
+            bridgeState.loadedNoteIds = Set(thread.loadedNoteIds)
+            bridgeState.loadedNoteTitles = thread.loadedNoteTitles
+        }
+        return bridgeState
+    }
+
+    private func mirrorSharedCoordinatorState(_ bridgeState: ChatState) {
+        threadState.setMiniChatStreaming(true, chatID: chatID)
+        threadState.setMiniChatStreamingText(bridgeState.streamingText, chatID: chatID)
+        threadState.setMiniChatStreamingThinking(bridgeState.streamingThinking, chatID: chatID)
+        threadState.updateMiniChatLoadedNotes(
+            ids: bridgeState.loadedNoteIds,
+            titles: bridgeState.loadedNoteTitles,
+            chatID: chatID
+        )
+    }
+
+    private func finalizeSharedCoordinatorTurn(
+        from bridgeState: ChatState,
+        baselineMessageCount: Int,
+        attachments: [ContextAttachment],
+        page: SDPage?
+    ) {
+        threadState.setMiniChatStreamingText("", chatID: chatID)
+        threadState.clearMiniChatStreamingThinking(chatID: chatID)
+        threadState.updateMiniChatLoadedNotes(
+            ids: bridgeState.loadedNoteIds,
+            titles: bridgeState.loadedNoteTitles,
+            chatID: chatID
+        )
+
+        let newMessages = bridgeState.messages.dropFirst(baselineMessageCount)
+        guard let assistant = newMessages.last(where: { $0.role == .assistant }) else {
+            persistMiniChatSession()
+            return
+        }
+
+        let finalContent: String
+        if let page {
+            finalContent = executeActions(in: assistant.content, page: page)
+        } else {
+            finalContent = assistant.content
+        }
+
+        let finalMessage = AssistantMessage(
+            id: assistant.id,
+            role: .assistant,
+            content: finalContent,
+            thinkingTrace: assistant.thinkingTrace,
+            thinkingDurationSeconds: assistant.thinkingDurationSeconds,
+            loadedNoteTitles: assistant.loadedNoteTitles ?? bridgeState.loadedNoteTitles,
+            contextAttachments: assistant.contextAttachments ?? attachments,
+            createdAt: assistant.createdAt
+        )
+
+        if threadState.miniChatSession(id: chatID)?.messages.last?.id != finalMessage.id {
+            threadState.addMiniChatMessage(finalMessage, chatID: chatID)
+        }
+        persistMiniChatSession()
     }
 
     // MARK: - Action Parsing & Execution
@@ -1539,6 +1691,7 @@ private struct MiniChatInputBar: View {
     }
 
     private func cancelStream() {
+        let usedSharedCoordinator = isUsingSharedCoordinator
         let partial = UserFacingModelOutput.finalVisibleText(
             from: threadState.miniChatStreamingText(chatID: chatID)
         ).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1548,9 +1701,14 @@ private struct MiniChatInputBar: View {
         threadState.setMiniChatStreaming(false, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
         threadState.clearMiniChatStreamingThinking(chatID: chatID)
-        streamTask?.cancel()
-        streamTask = nil
-        if !partial.isEmpty {
+        if usedSharedCoordinator {
+            AppBootstrap.shared?.queryTask?.cancel()
+            isUsingSharedCoordinator = false
+        } else {
+            streamTask?.cancel()
+            streamTask = nil
+        }
+        if !usedSharedCoordinator, !partial.isEmpty {
             threadState.addMiniChatMessage(
                 AssistantMessage(
                     role: .assistant,

@@ -87,12 +87,10 @@ struct AgentPlanDocumentTests {
         #expect(state.planDocumentText == "Custom panel draft")
     }
 
-    @Test("plan surfaces support rendered document and raw markdown modes")
-    func planSurfacesSupportRenderedDocumentAndRawMarkdownModes() throws {
-        let editorSource = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentPlanEditorView.swift")
+    @Test("shared plan presentation toggle supports rendered document and raw markdown modes")
+    func sharedPlanPresentationToggleSupportsRenderedDocumentAndRawMarkdownModes() throws {
         let toggleSource = try loadMirroredSourceTextFile("Epistemos/Views/Shared/MarkdownDocumentModeToggle.swift")
 
-        #expect(editorSource.contains("TextEditor(text: $text)"))
         #expect(toggleSource.contains("case rendered"))
         #expect(toggleSource.contains("case markdown"))
     }

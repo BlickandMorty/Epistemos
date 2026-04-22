@@ -253,10 +253,11 @@ struct ChatMessage: Identifiable, Codable, Sendable {
 /// control consistent across providers; `LLMService` is responsible for
 /// silently dropping the control for models that don't support it.
 ///
-/// Each mode presents a subset with mode-specific labels:
+/// Each mode presents a fallback subset with mode-specific labels:
 /// - Thinking: `.low` / `.medium` / `.high` / `.heavy`
-/// - Pro: `.medium` ("Standard") / `.heavy` ("Heavy")
-/// - Agent: `.medium` ("Standard") / `.heavy` ("Heavy")
+/// - Pro / Agent: at least `.medium` / `.heavy`, with provider-native
+///   runtimes allowed to widen the ladder further (for example Codex
+///   exposing Low / Medium / High / Extra High)
 /// - Fast: no tier (reasoning disabled)
 public nonisolated enum ChatReasoningTier: String, Codable, Sendable, CaseIterable {
     /// Disable reasoning/thinking. Fastest + cheapest per turn.

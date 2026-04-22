@@ -85,6 +85,78 @@ struct LocalModelInfrastructureTests {
         #expect(descriptors.contains { !$0.id.hasPrefix("mlx-community/") })
     }
 
+    @Test("catalog includes the April 2026 16GB Mac local model picks")
+    func catalogIncludes16GBMacResearchPicks() {
+        let descriptorIDs = Set(LocalModelCatalog.allDescriptors.map(\.id))
+
+        #expect(descriptorIDs.contains(LocalTextModelID.qwen3_8B4Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.qwen3_4BThinking25074Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.llama32_3BInstruct4Bit.rawValue))
+        #expect(descriptorIDs.contains(LocalTextModelID.gemma3_4BQAT4Bit.rawValue))
+    }
+
+    @Test("thinking runtimes allow long-form local and cloud reasoning before timing out")
+    func thinkingRuntimesAllowLongReasoningBeforeTimingOut() throws {
+        let contractSource = try loadMirroredSourceTextFile("Epistemos/Engine/BackendRuntimeContract.swift")
+        let transportSource = try loadMirroredSourceTextFile("Epistemos/Engine/URLSessionTransportSupport.swift")
+        let mlxSource = try loadMirroredSourceTextFile("Epistemos/Engine/MLXInferenceService.swift")
+        let ggufSource = try loadMirroredSourceTextFile("Epistemos/Engine/LocalGGUFClient.swift")
+
+        #expect(contractSource.contains("static let localGenerationMS = 300_000"))
+        #expect(transportSource.contains("streamIdleWatchdogSeconds: Double = 300"))
+        #expect(mlxSource.contains("timeoutMS: BackendRuntimeTimeouts.localGenerationMS"))
+        #expect(ggufSource.contains("timeoutMS: BackendRuntimeTimeouts.localGenerationMS"))
+    }
+
+    @Test("new local model metadata stays aligned with hardened native capabilities")
+    func newLocalModelMetadataStaysCapabilityAware() {
+        #expect(LocalTextModelID.qwen3_4B4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen3_4B4Bit.primaryUseCase == .routing)
+
+        #expect(LocalTextModelID.qwen3_8B4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen3_8B4Bit.primaryUseCase == .general)
+
+        #expect(LocalTextModelID.qwen3_4BThinking25074Bit.primaryUseCase == .reasoning)
+
+        #expect(LocalTextModelID.qwen3CoderNext4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen3CoderNext4Bit.primaryUseCase == .coding)
+        #expect(LocalTextModelID.qwen3Coder30BA3B4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen3Coder30BA3B4Bit.primaryUseCase == .coding)
+
+        #expect(LocalTextModelID.hermes43_36B4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.hermes43_36B3Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.supportsNativeToolCalling)
+        #expect(LocalTextModelID.qwen36_35BA3B_DWQ4Bit.supportsNativeToolCalling)
+
+        #expect(LocalTextModelID.gemma3_27BQAT4Bit.primaryUseCase == .multimodal)
+        #expect(LocalTextModelID.jamba3B.primaryUseCase == .reasoning)
+        #expect(LocalTextModelID.falconH1R_7B4Bit.primaryUseCase == .reasoning)
+    }
+
+    @Test("new local descriptor roles stay populated for the extended stack")
+    func newLocalDescriptorRolesStayPopulated() {
+        #expect(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.devstralSmall2505_4Bit.rawValue)?.capabilityRole
+                == .codingLocal
+        )
+        #expect(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.gemma3_27BQAT4Bit.rawValue)?.capabilityRole
+                == .highEndLocal
+        )
+        #expect(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.jamba3B.rawValue)?.capabilityRole
+                == .reasoningLocal
+        )
+        #expect(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.falconH1R_7B4Bit.rawValue)?.capabilityRole
+                == .reasoningLocal
+        )
+        #expect(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.mistralSmall31_24B4Bit.rawValue)?.capabilityRole
+                == .highEndLocal
+        )
+    }
+
     @Test("catalog excludes gguf-only local models from the MLX install path")
     func catalogExcludesGGUFOnlyModels() {
         #expect(LocalModelCatalog.descriptor(for: LocalTextModelID.qwopus27Bv3.rawValue) == nil)
@@ -112,7 +184,11 @@ struct LocalModelInfrastructureTests {
         #expect(optionalIDs == Set([
             LocalTextModelID.bonsai4B2Bit.rawValue,
             LocalTextModelID.bonsai8B2Bit.rawValue,
+            LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
+            LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
             LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
+            LocalTextModelID.qwen3_8B4Bit.rawValue,
+            LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
             LocalTextModelID.hermes43_36B4Bit.rawValue,
             LocalTextModelID.hermes43_36B3Bit.rawValue,
             LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,
@@ -224,35 +300,56 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
-    @Test("qwen 4B local picker no longer advertises unvalidated thinking or local agent modes")
-    func qwen4BPickerOnlyShowsValidatedModes() {
+    @Test("qwen 4B local picker exposes fast and local agent work")
+    func qwen4BPickerExposesFastAndAgentModes() {
         let inference = InferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
 
+        #expect(inference.availableOperatingModes == [.fast, .agent])
+    }
+
+    @MainActor
+    @Test("16GB research picks expose the expected interactive operating modes")
+    func researchPicksExposeExpectedOperatingModes() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen3_8B4Bit.rawValue,
+            LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
+            LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
+        ])
+
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_8B4Bit.rawValue))
+        #expect(inference.availableOperatingModes == [.fast, .thinking])
+
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4BThinking25074Bit.rawValue))
+        #expect(inference.availableOperatingModes == [.thinking])
+
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.llama32_3BInstruct4Bit.rawValue))
         #expect(inference.availableOperatingModes == [.fast])
     }
 
     @MainActor
-    @Test("qwen 9B local picker no longer advertises unvalidated thinking or local agent modes")
-    func qwen9BPickerOnlyShowsValidatedModes() {
+    @Test("qwen 9B local picker exposes fast and local agent work")
+    func qwen9BPickerExposesFastAndAgentModes() {
         let inference = InferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_9B4Bit.rawValue])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_9B4Bit.rawValue))
 
-        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.availableOperatingModes == [.fast, .agent])
     }
 
     @MainActor
-    @Test("local agent mode stays hidden when structured local tool calling is unavailable")
-    func localAgentModeStaysHiddenWithoutStructuredToolCalling() {
+    @Test("local agent mode stays available when the soft-guidance loop is available")
+    func localAgentModeStaysAvailableWithSoftGuidanceLoop() {
         #expect(!LocalToolGrammar.supportsStructuredToolCalling)
+        #expect(LocalToolGrammar.supportsLocalAgentLoop)
 
         let inference = InferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue))
 
-        #expect(!inference.availableOperatingModes.contains(.agent))
+        #expect(inference.availableOperatingModes.contains(.agent))
     }
 
     @MainActor
@@ -267,13 +364,13 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
-    @Test("Qwen 3 4B release picker remains the fast-only local default")
-    func qwen34BPickerStaysFastOnly() {
+    @Test("Qwen 3 4B release picker exposes fast and local agent modes")
+    func qwen34BPickerExposesFastAndAgentModes() {
         let inference = InferenceState()
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
 
-        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.availableOperatingModes == [.fast, .agent])
         #expect(!inference.supportsThinkingOperatingMode)
     }
 
@@ -289,7 +386,7 @@ struct LocalModelInfrastructureTests {
         ])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
 
-        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.availableOperatingModes == [.fast, .agent])
         #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
         #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(inference.supportsLocalAgentLoop)
@@ -692,16 +789,20 @@ struct LocalModelInfrastructureTests {
         )
 
         #expect(manager.curatedBaselineDescriptors.count == 3)
-        // Stack refresh 2026-04-18 — optional baseline is now ordered as
+        // Stack refresh 2026-04-21 — optional baseline is now ordered as
         // declared in LocalModelCatalog.optionalBaselineModelIDs
-        // (Bonsai fallbacks, coder flagship, Hermes function-calling,
-        // Qwen 3.6 flagship quant variants, QwQ flagship reasoner, and
-        // the legacy coder fallback. Gemma 4 stays out until the loader lands.
+        // (Bonsai fallbacks, 16 GB Mac all-round/reasoning picks, coder
+        // flagship, Hermes function-calling, Qwen 3.6 flagship quant
+        // variants, QwQ flagship reasoner, and the legacy coder fallback).
         #expect(
             manager.optionalBaselineDescriptors.map(\.id) == [
                 LocalTextModelID.bonsai4B2Bit.rawValue,
                 LocalTextModelID.bonsai8B2Bit.rawValue,
+                LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
+                LocalTextModelID.gemma3_4BQAT4Bit.rawValue,
                 LocalTextModelID.qwen3Coder30BA3B4Bit.rawValue,
+                LocalTextModelID.qwen3_8B4Bit.rawValue,
+                LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
                 LocalTextModelID.hermes43_36B4Bit.rawValue,
                 LocalTextModelID.hermes43_36B3Bit.rawValue,
                 LocalTextModelID.qwen36_35BA3B_Unsloth4Bit.rawValue,

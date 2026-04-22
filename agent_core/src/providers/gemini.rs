@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 use crate::agent_loop::{AgentConfig, AgentError};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
+use crate::providers::schema::normalized_tool_parameters;
 use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
@@ -164,7 +165,7 @@ impl AgentProvider for GeminiProvider {
                 json!({
                     "name": tool.name,
                     "description": tool.description,
-                    "parameters": tool.parameters,
+                    "parameters": normalized_tool_parameters(&tool.parameters),
                 })
             })
             .collect();
@@ -494,7 +495,9 @@ fn message_to_gemini(message: &Message) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{resolve_gemini_auth, streaming_request, GeminiAuth};
+    use crate::providers::schema::normalized_tool_parameters;
     use reqwest::Client;
+    use serde_json::json;
 
     #[test]
     fn resolves_oauth_auth_when_access_token_and_project_are_present() {
@@ -570,5 +573,27 @@ mod tests {
 
         assert_eq!(request.url().query(), Some("alt=sse&key=AIza-legacy-key"));
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn gemini_function_schemas_close_nested_object_parameters() {
+        let normalized = normalized_tool_parameters(&json!({
+            "type": "object",
+            "properties": {
+                "query": { "type": "string" },
+                "filters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": { "type": "integer" }
+                    }
+                }
+            }
+        }));
+
+        assert_eq!(normalized["additionalProperties"], false);
+        assert_eq!(
+            normalized["properties"]["filters"]["additionalProperties"],
+            false
+        );
     }
 }

@@ -167,6 +167,23 @@ final class SDPage {
         templateId != nil
     }
 
+    var vaultRelativeNotePath: String? {
+        guard let filePath else { return nil }
+        let trimmedFilePath = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedFilePath.isEmpty else { return nil }
+
+        let fileName = URL(fileURLWithPath: trimmedFilePath)
+            .lastPathComponent
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fileName.isEmpty else { return nil }
+
+        let trimmedSubfolder = subfolder?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmedSubfolder.isEmpty {
+            return fileName
+        }
+        return "\(trimmedSubfolder)/\(fileName)"
+    }
+
     /// Cached ideas array — avoids JSON decode/encode on every access.
     @Transient private var _ideasCache: [NoteIdea]?
     @Transient private var _ideasCacheData: Data?

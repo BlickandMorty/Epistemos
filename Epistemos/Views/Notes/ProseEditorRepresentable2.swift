@@ -32,14 +32,14 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
     var graphState: GraphState?
     var outlineFoldMode: OutlineFoldMode = .expanded
 
-    static let maxReadableWidth: CGFloat = 720
-    static let minHorizontalInset: CGFloat = 60
     static let verticalInset: CGFloat = 40
 
     static func horizontalInset(for availableWidth: CGFloat, markdown: String) -> CGFloat {
-        _ = availableWidth
-        _ = markdown
-        return minHorizontalInset
+        NoteDualPreviewLayout.centeredTextInset(
+            for: availableWidth,
+            markdown: markdown,
+            maxReadableWidth: NoteDualPreviewLayout.editorTextReadableMaxWidth
+        )
     }
 
     func makeCoordinator() -> Coordinator2 { Coordinator2(self) }
@@ -54,7 +54,10 @@ struct ProseEditorRepresentable2: NSViewRepresentable {
         tv.delegate = coord
         tv.usesRenderedTableOverlays = false
         tv.markdownDelegate.usesRenderedTableOverlays = false
-        tv.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
+        tv.textContainerInset = NSSize(
+            width: NoteDualPreviewLayout.minimumTextHorizontalInset,
+            height: Self.verticalInset
+        )
 
         tv.applyTheme(theme)
 

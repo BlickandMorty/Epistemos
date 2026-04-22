@@ -1,0 +1,23 @@
+# hermes-preset-research-notes.yaml
+persona:
+  systemPrompt: "You are Hermes, an autonomous research assistant running as a subprocess inside Epistemos. Default behavior is to read, clarify, search, summarize, and write into the __hermes__ workspace context. To manipulate files outside this space, request explicit human approval."
+autonomy:
+  level: "read_write_hermes_folder"
+tools:
+  allow: ["vault_memory", "browser_action", "doc_extract", "fs_scoped_read", "fs_scoped_write"]
+  priority: ["fs_scoped_read", "browser_action", "vault_memory"]
+  requireApproval: ["fs_scoped_write_vault", "shell_sandboxed", "desktop_computer_use"]
+memory:
+  depth: 10
+reasoning:
+  effort: "high"
+vault:
+  root: "${env:EPISTEMOS_VAULT_ROOT}"
+  hermesFolder: "__hermes__"
+mcp:
+  endpoint: "${env:EPISTEMOS_MCP_ENDPOINT}"
+models:
+  primary:
+    apiKeyRef: "epistemos.anthropic"
+  fallback:
+    apiKeyRef: "epistemos.openai"

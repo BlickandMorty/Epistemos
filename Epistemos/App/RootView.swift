@@ -53,8 +53,6 @@ struct RootView: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
 
-    @Environment(AgentCommandCenterState.self) private var accState
-
     /// Set by EpistemosApp when AppBootstrap detected a database error.
     var databaseError: Error?
     /// Callback to reset database and relaunch.
@@ -75,31 +73,13 @@ struct RootView: View {
     /// True when Home tab is showing an active chat (not landing).
     private var activeHomeChat: Bool {
         ui.homeTab == .home
-            && homeSurfaceRoute == .home
             && !chat.showLanding
             && !chat.messages.isEmpty
     }
 
-    private var activeAgentWorkspace: Bool {
-        ui.homeTab == .home && homeSurfaceRoute == .agent
-    }
-
     private var showLandingToolbarControls: Bool {
         ui.homeTab == .home
-            && homeSurfaceRoute == .home
             && (chat.showLanding || chat.messages.isEmpty)
-    }
-
-    private var homeSurfaceRoute: HomeSurfaceRoute {
-        // Fused chat (2026-04-18): accState.isPresented is no longer a
-        // legitimate signal — no user-facing path calls present() anymore,
-        // and keeping the branch active meant stale workspace restores or
-        // programmatic paths could still pop the deprecated Agent Chat
-        // view on launch. Always return .home; main chat auto-promotes
-        // to agent tier when intent + cloud support it. The .agent case
-        // on HomeSurfaceRoute is kept for type compat with existing
-        // call sites but is now unreachable.
-        return .home
     }
 
     /// Canonical toolbar glass visibility — deterministic from app state.
@@ -108,7 +88,7 @@ struct RootView: View {
     /// For Home chat: gated by `homeChatToolbarReady` to suppress transition flash.
     private var toolbarGlassVisible: Bool {
         if ui.homeTab != .home { return true }
-        return (activeHomeChat || activeAgentWorkspace) && homeChatToolbarReady
+        return activeHomeChat && homeChatToolbarReady
     }
 
     var body: some View {
@@ -124,7 +104,7 @@ struct RootView: View {
     private var rootContent: some View {
         ZStack {
             // Pre-paint the window background so transitions from landing
-            // into chat / agent don't briefly flash the old theme surface at
+            // into chat don't briefly flash the old theme surface at
             // the title bar. Dark mode = OLED black, light mode = theme bg.
             // `allowsHitTesting(false)` is CRITICAL — without it the Color
             // swallows clicks, breaking every button on the window.
@@ -132,14 +112,9 @@ struct RootView: View {
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 
-            switch homeSurfaceRoute {
-            case .home:
-                ContentRouter()
-            case .agent:
-                AgentChatView()
-            }
+            ContentRouter()
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: homeSurfaceRoute)
+        .animation(.spring(response: 0.35, dampingFraction: 0.88), value: activeHomeChat)
         .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {
             appearanceObserver.stop()
@@ -150,14 +125,10 @@ struct RootView: View {
         }
         .toolbar {
             // Back button — only during active chat on Home tab
-            if ui.homeTab == .home && (activeHomeChat || activeAgentWorkspace) {
+            if ui.homeTab == .home && activeHomeChat {
                 ToolbarItem(placement: .navigation) {
                     Button {
-                        if activeAgentWorkspace {
-                            accState.dismiss()
-                        } else {
-                            chat.goHome()
-                        }
+                        chat.goHome()
                     } label: {
                         Label("Back", systemImage: "chevron.left")
                     }
@@ -165,12 +136,12 @@ struct RootView: View {
                     .help("Back to Home")
                 }
             }
-            if showLandingToolbarControls || activeHomeChat || activeAgentWorkspace {
+            if showLandingToolbarControls || activeHomeChat {
                 ToolbarItem(placement: .principal) {
                     rootToolbarControls
                 }
                 .sharedBackgroundVisibility(
-                    (ui.homeTab == .home && (activeHomeChat || activeAgentWorkspace))
+                    (ui.homeTab == .home && activeHomeChat)
                         ? .hidden : .automatic
                 )
             }
@@ -183,7 +154,7 @@ struct RootView: View {
             toolbarGlassVisible ? .automatic : .hidden,
             for: .windowToolbar
         )
-        .onChange(of: activeHomeChat || activeAgentWorkspace) { _, isActive in
+        .onChange(of: activeHomeChat) { _, isActive in
             if isActive {
                 // Delay reveal until HomeRouter's landing→chat animation settles.
                 Task { @MainActor in
@@ -279,10 +250,6 @@ struct RootView: View {
 
             if activeHomeChat {
                 modelToolbarButton(title: chat.chatTitle)
-            }
-
-            if activeAgentWorkspace {
-                modelToolbarButton(title: "Agent")
             }
         }
         .frame(minWidth: 160, minHeight: 28)
@@ -486,12 +453,15 @@ struct LocalModelToolbarMenu: View {
 
     private var currentDisplayedReasoningTier: ChatReasoningTier {
         guard let currentOperatingMode else { return inference.chatReasoningTier }
-        return currentOperatingMode.sanitizedReasoningTier(inference.chatReasoningTier)
+        return inference.sanitizedReasoningTier(
+            inference.chatReasoningTier,
+            for: currentOperatingMode
+        )
     }
 
     private var supportsRuntimeEffortButton: Bool {
         guard let currentOperatingMode,
-              !currentOperatingMode.availableReasoningTiers.isEmpty,
+              !inference.availableReasoningTiers(for: currentOperatingMode).isEmpty,
               let model = currentEffectiveCloudModel else {
             return false
         }
@@ -540,10 +510,10 @@ struct LocalModelToolbarMenu: View {
     private var disclosureWidth: CGFloat {
         NativeControlSystem.reservedWidth(
             for: [
-                "Apple Intelligence Agent",
+                "Apple Intelligence Tools",
                 "GPT-5.4 Thinking",
                 "GPT-5.4 Pro",
-                "Gemini 2.5 Pro Agent",
+                "Gemini 2.5 Pro Tools",
                 "Qwen 35B Thinking",
             ],
             variant: variant,
@@ -575,7 +545,7 @@ struct LocalModelToolbarMenu: View {
 
     private var effortDisclosureWidth: CGFloat {
         NativeControlSystem.reservedWidth(
-            for: ["Standard", "Extended", "Medium", "Heavy"],
+            for: ["Standard", "Extended", "Extra High", "Heavy", "Max"],
             variant: variant,
             includesDisclosureGlyph: true
         )
@@ -632,11 +602,15 @@ struct LocalModelToolbarMenu: View {
 
     private var effortButtonTitle: String {
         guard let currentOperatingMode else { return "Effort" }
-        return currentOperatingMode.reasoningTierLabel(for: currentDisplayedReasoningTier)
+        return inference.reasoningTierLabel(
+            for: currentDisplayedReasoningTier,
+            operatingMode: currentOperatingMode
+        )
     }
 
     private var nativeControlsButtonTitle: String {
-        currentEffectiveCloudModel?.preferredRuntimeControlTitle ?? "Native"
+        guard let provider = currentEffectiveCloudModel?.provider else { return "Native" }
+        return inference.runtimeControlTitle(for: provider)
     }
 
     private var nativeControlsButtonSystemImage: String {
@@ -676,7 +650,10 @@ struct LocalModelToolbarMenu: View {
     @MainActor
     private func syncReasoningTierToDisplayedModeIfNeeded() {
         guard let currentOperatingMode else { return }
-        let sanitized = currentOperatingMode.sanitizedReasoningTier(inference.chatReasoningTier)
+        let sanitized = inference.sanitizedReasoningTier(
+            inference.chatReasoningTier,
+            for: currentOperatingMode
+        )
         guard sanitized != inference.chatReasoningTier else { return }
         inference.setChatReasoningTier(sanitized, for: currentOperatingMode)
     }
@@ -1022,15 +999,20 @@ struct LocalModelToolbarMenu: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Reasoning Effort")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("\(model.provider.displayName) controls for \(currentOperatingMode.displayName) mode.")
+                    Text(
+                        "\(inference.runtimeProviderDisplayName(for: model.provider)) controls for \(currentOperatingMode.displayName) mode."
+                    )
                         .font(.system(size: 11))
                         .foregroundStyle(theme.textTertiary)
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    ForEach(currentOperatingMode.availableReasoningTiers, id: \.self) { tier in
+                    ForEach(inference.availableReasoningTiers(for: currentOperatingMode), id: \.self) { tier in
                         selectionRow(
-                            title: currentOperatingMode.reasoningTierLabel(for: tier),
+                            title: inference.reasoningTierLabel(
+                                for: tier,
+                                operatingMode: currentOperatingMode
+                            ),
                             subtitle: tier.summary,
                             systemImage: currentOperatingMode.systemImage,
                             isSelected: currentDisplayedReasoningTier == tier,
@@ -1092,9 +1074,9 @@ struct LocalModelToolbarMenu: View {
             VStack(alignment: .leading, spacing: 10) {
                 if model.supportsNativeReasoningEffortControl,
                    let currentOperatingMode,
-                   !currentOperatingMode.availableReasoningTiers.isEmpty {
+                   !inference.availableReasoningTiers(for: currentOperatingMode).isEmpty {
                     SettingsDescriptionText(
-                        text: "Use the Effort button for \(currentOperatingMode.displayName.lowercased()) reasoning. OpenAI tool toggles live here."
+                        text: "Use the Effort button for Low, Medium, High, or Extra High Codex effort. OpenAI tool toggles live here."
                     )
                 }
                 Toggle(
@@ -1117,7 +1099,7 @@ struct LocalModelToolbarMenu: View {
             VStack(alignment: .leading, spacing: 10) {
                 if model.supportsNativeReasoningEffortControl {
                     SettingsDescriptionText(
-                        text: "Use the Effort button for Standard or Extended reasoning. Extended Thinking must still be enabled here."
+                        text: "Use the Effort button for Low, Medium, High, or Max reasoning. Extended Thinking still matters for non-agent cloud turns."
                     )
                 }
                 if !model.nativeReasoningModes.isEmpty {
@@ -1156,7 +1138,7 @@ struct LocalModelToolbarMenu: View {
             VStack(alignment: .leading, spacing: 10) {
                 if model.supportsNativeReasoningEffortControl,
                    let currentOperatingMode,
-                   !currentOperatingMode.availableReasoningTiers.isEmpty {
+                   !inference.availableReasoningTiers(for: currentOperatingMode).isEmpty {
                     SettingsDescriptionText(
                         text: "Use the Effort button for \(currentOperatingMode.displayName.lowercased()) thinking depth. Grounding lives here."
                     )
@@ -1517,7 +1499,7 @@ struct LocalModelToolbarMenu: View {
             case .pro:
                 return "This model does not expose a verified pro-grade cloud route."
             case .agent:
-                return "This model cannot run the current visible agent loop."
+                return "This model cannot run the current visible tools/runtime path."
             case .fast:
                 return option.helpText
             }
@@ -1534,8 +1516,8 @@ struct LocalModelToolbarMenu: View {
         if modelID.supportsThinkingMode {
             features.append("Thinking")
         }
-        if modelID.supportsAgentMode {
-            features.append("Agent")
+        if modelID.canRunLocalAgentLoop {
+            features.append("Tools")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")
         return "\(featureSummary) • Chat \(modelID.minimumRecommendedInteractiveMemoryGB) GB+"
@@ -1754,21 +1736,6 @@ enum HomeTab: String, CaseIterable {
         case .home: "house"
         }
     }
-}
-
-// MARK: - Content Router
-// Main window content — Home only.
-
-enum HomeSurfaceRoute {
-    case home
-    // DEPRECATED (fused chat, 2026-04-18): this branch only fires if
-    // AgentCommandCenterState.isPresented becomes true, and no UI path
-    // calls .present() anymore (LandingView's picker was removed in
-    // 3d83f377). Kept as a programmatic safety net so any stale call
-    // site doesn't crash — main chat with auto-promotion supersedes
-    // this route for all visible flows. Delete when the orphaned
-    // AgentChatView / AgentCommandCenterView files are removed.
-    case agent
 }
 
 private enum RuntimeAuditRootFlags {

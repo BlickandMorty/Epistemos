@@ -44,8 +44,8 @@ enum MarkdownEditorStyle {
 
     nonisolated static func bodyParagraphStyle() -> NSParagraphStyle {
         frozenParagraphStyle {
-            $0.lineSpacing = 5
-            $0.paragraphSpacing = 8
+            $0.lineSpacing = 6
+            $0.paragraphSpacing = 10
             $0.paragraphSpacingBefore = 0
             $0.firstLineHeadIndent = bodyIndent
             $0.headIndent = bodyIndent

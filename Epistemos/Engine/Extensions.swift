@@ -55,6 +55,25 @@ nonisolated enum FoundationSafety {
         runtimeApplicationSupportDirectory(fileManager: fileManager)
     }
 
+    static func managedToolRuntimeVaultDirectory(
+        preferredVaultPath: String?,
+        fileManager: FileManager = .default
+    ) -> URL {
+        if let preferredVaultPath {
+            let trimmed = preferredVaultPath.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return URL(fileURLWithPath: trimmed, isDirectory: true).standardizedFileURL
+            }
+        }
+
+        let directory = userApplicationSupportDirectory(fileManager: fileManager)
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("ManagedToolRuntime", isDirectory: true)
+            .appendingPathComponent("ScratchVault", isDirectory: true)
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.standardizedFileURL
+    }
+
     static func utf8String(from data: Data) throws -> String {
         guard let string = String(data: data, encoding: .utf8) else {
             throw CocoaError(.fileWriteInapplicableStringEncoding)
@@ -250,6 +269,12 @@ nonisolated enum ThinkingPreludeSyntax {
         "let's think",
         "i need to think",
         "i should think",
+        "i need to review the provided text",
+        "i will analyze",
+        "i'll analyze",
+        "im going to analyze",
+        "i'm going to analyze",
+        "let me analyze the content",
         "let me reason through",
         "i need to reason through",
         "let me work through",
@@ -532,6 +557,9 @@ nonisolated enum ThinkingPreludeSyntax {
             "alright,",
             "well,",
             "hmm,",
+            "to answer this",
+            "to answer the user",
+            "to respond well",
             "user query:",
             "analyze the request",
         ]
@@ -593,6 +621,9 @@ nonisolated enum ThinkingPreludeSyntax {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = normalized.lowercased()
         if lowercased.contains("here is the function call:") {
+            return true
+        }
+        if lowercased.contains("```tool_call") {
             return true
         }
         guard normalized.contains("\"name\""), normalized.contains("\"arguments\"") else { return false }
@@ -766,6 +797,11 @@ nonisolated enum UserFacingModelOutput {
         "pattern identification:",
         "here is the function call:",
         "reduce strategy:",
+        "i need to review the provided text",
+        "i will analyze the provided text",
+        "i'll analyze the provided text",
+        "let me analyze the content",
+        "key points include:",
     ]
 
     static func streamingVisibleText(from raw: String) -> String {
@@ -1119,7 +1155,9 @@ nonisolated enum UserFacingModelOutput {
             return structuredLineCandidate
         }
 
-        let filteredParagraphs = paragraphs(in: text).filter { !isReasoningParagraph($0) }
+        let filteredParagraphs = paragraphs(in: text).filter {
+            !isReasoningParagraph($0) && !isStructuredToolPayload($0)
+        }
         if let lastParagraph = filteredParagraphs.last, !lastParagraph.isEmpty {
             return lastParagraph
         }
@@ -1154,6 +1192,10 @@ nonisolated enum UserFacingModelOutput {
             return true
         }
 
+        if isStructuredToolPayload(paragraph) {
+            return true
+        }
+
         if containsStructuredReasoningPlan(in: normalized) {
             return true
         }
@@ -1177,6 +1219,14 @@ nonisolated enum UserFacingModelOutput {
             return true
         }
 
+        if normalized.hasPrefix("to answer this")
+            || normalized.hasPrefix("to answer the user")
+            || normalized.hasPrefix("to respond well")
+            || normalized.hasPrefix("i need to review the provided text")
+            || normalized.hasPrefix("let me analyze the content") {
+            return true
+        }
+
         return false
     }
 
@@ -1189,6 +1239,21 @@ nonisolated enum UserFacingModelOutput {
             "i'll start by",
             "ill start by",
             "i will start by",
+            "i'll call the",
+            "ill call the",
+            "i will call the",
+            "i'm calling the",
+            "im calling the",
+            "i am calling the",
+            "i'll use the",
+            "ill use the",
+            "i will use the",
+            "i'm going to use the",
+            "im going to use the",
+            "i am going to use the",
+            "i'll invoke the",
+            "ill invoke the",
+            "i will invoke the",
         ]
         guard leadIns.contains(where: { normalized.hasPrefix($0) }) else {
             return false
@@ -1277,6 +1342,10 @@ nonisolated enum UserFacingModelOutput {
 
     private static func isStructuredToolPayload(_ text: String) -> Bool {
         let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let lowercased = normalized.lowercased()
+        if lowercased.contains("```tool_call") {
+            return true
+        }
         guard normalized.first == "{", normalized.last == "}" else { return false }
         return normalized.contains("\"name\"") && normalized.contains("\"arguments\"")
     }

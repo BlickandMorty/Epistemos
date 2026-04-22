@@ -757,6 +757,9 @@ final class AppBootstrap {
     let mcpBridge = MCPBridge()
     let agentCommandCenterState = AgentCommandCenterState()
     let agentChatState = AgentChatState()
+    let agentAuthorityStore = AgentAuthorityStore(
+        persistence: FileBackedAgentAuthorityPersistence()
+    )
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
     let channelRegistry: ChannelRegistryState
@@ -836,77 +839,38 @@ final class AppBootstrap {
         let liveBody: String?
     }
 
-    // DEPRECATED (fused chat, 2026-04-18): no UI path calls this method
-    // anymore. Kept so programmatic callers (slash shortcuts, tests,
-    // potential rollback) continue to resolve. The fused main-chat
-    // experience promotes to the agent loop automatically via
-    // MainChatSubmissionRouter.autoPromotedMode on OpenAI/Anthropic
-    // backends — presenting a separate Agent Command Center workspace
-    // is no longer the default UX.
-    func presentAgentCommandCenter(
+    private func routeMainChatDraft(
         prefill inputText: String? = nil,
         operatingMode: EpistemosOperatingMode? = nil
     ) {
         if let operatingMode {
-            agentCommandCenterState.selectedOperatingMode = operatingMode
+            let visibleMode: EpistemosOperatingMode =
+                operatingMode == .agent ? .pro : operatingMode
+            UserDefaults.standard.set(
+                visibleMode.rawValue,
+                forKey: MainChatOperatingModePreference.defaultsKey
+            )
         }
 
-        if agentCommandCenterState.isPresented {
-            agentCommandCenterState.refreshSkillCatalog()
-        } else {
-            agentCommandCenterState.present()
+        if let inputText {
+            let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                chatState.primeComposerDraft(trimmed)
+            }
         }
 
-        agentCommandCenterState.refreshBrainCatalog(from: inferenceState)
-        agentCommandCenterState.refreshToolCatalog(
-            from: mcpBridge,
-            vaultPath: vaultSync.vaultURL?.path ?? ""
-        )
-
-        let vaultNoteCount = vaultSync.ambientManifest?.entries.count ?? 0
-        let openNoteTitles = NoteWindowManager.shared.openPageIds.compactMap {
-            NoteWindowManager.shared.window(for: $0)?.title
-        }
-        agentCommandCenterState.refreshContextProviders(
-            vaultNoteCount: vaultNoteCount,
-            openNoteTitles: openNoteTitles
-        )
-
-        guard let inputText else { return }
-        agentCommandCenterState.primeInput(inputText)
+        chatState.showLanding = false
+        uiState.setActivePanel(.home)
+        uiState.homeTab = .home
+        HomeWindowIdentity.surfaceHomeWindow()
     }
 
-    // DEPRECATED (fused chat, 2026-04-18): only LandingView's orphaned
-    // submitLandingAgentPrompt still references this entry. LandingView's
-    // visible submission path (submitLandingPrompt) now routes through
-    // MainChatSubmissionRouter with auto-promotion, so this method no
-    // longer runs for any user-driven action.
-    func submitAgentWorkspacePrompt(
-        _ inputText: String,
-        operatingMode: EpistemosOperatingMode? = nil
-    ) {
-        presentAgentCommandCenter(
-            prefill: inputText,
-            operatingMode: operatingMode
-        )
-
-        let request = agentCommandCenterState.buildCommandRequest()
-        guard !request.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-
-        agentChatState.startNewSession()
-        agentChatState.submitAgentQuery(request.query)
-        agentCommandCenterState.clearInput()
-
-        let pipeline = coordinator.pipelineService
-        coordinator.chatCoordinator.handleCommandCenterSubmission(
-            query: request.query,
-            slashToken: request.slashToken,
-            mentions: request.mentions,
-            toolRestrictions: agentCommandCenterState.enabledToolNames,
-            brainOverride: agentCommandCenterState.selectedBrain,
-            pipeline: pipeline,
-            agentChat: agentChatState,
-            accState: agentCommandCenterState
+    func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest) {
+        let label = request.nodeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let draftLabel = label.isEmpty ? request.nodeType : label
+        chatState.primeGraphChatRequest(request)
+        routeMainChatDraft(
+            prefill: "Tell me about \(draftLabel)"
         )
     }
 

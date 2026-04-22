@@ -14,6 +14,8 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("</tool_call>"))
         #expect(prompt.contains("<tool_response>"))
         #expect(prompt.contains("</tool_response>"))
+        #expect(prompt.contains("<think></think>"))
+        #expect(prompt.contains("Never place raw reasoning"))
         #expect(prompt.contains("\"name\":\"vault_search\""))
         #expect(prompt.contains("Semantic plus keyword hybrid search"))
     }

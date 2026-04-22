@@ -9,16 +9,58 @@ nonisolated struct OmegaToolDefinition {
     let destructive: Bool
     let requiresConfirmation: Bool
 
-    fileprivate var planningSchema: [String: Any] {
+    var planningSchema: [String: Any] {
         var schema: [String: Any] = [
             "name": name,
             "description": description,
         ]
         if let data = schemaJson.data(using: .utf8),
            let parsed = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-            schema["inputSchema"] = parsed
+            schema["inputSchema"] = Self.normalizedPlanningInputSchema(parsed, isRoot: true)
         }
         return schema
+    }
+
+    private static func normalizedPlanningInputSchema(_ value: Any, isRoot: Bool = false) -> Any {
+        if var object = value as? [String: Any] {
+            let isObjectSchema = (object["type"] as? String) == "object"
+            let hasProperties = object["properties"] is [String: Any]
+
+            if isObjectSchema && (isRoot || hasProperties) && object["additionalProperties"] == nil {
+                object["properties"] = (object["properties"] as? [String: Any]) ?? [:]
+                object["additionalProperties"] = false
+            }
+
+            if let properties = object["properties"] as? [String: Any] {
+                object["properties"] = properties.mapValues {
+                    normalizedPlanningInputSchema($0)
+                }
+            }
+
+            if let items = object["items"] {
+                object["items"] = normalizedPlanningInputSchema(items)
+            }
+
+            for key in ["anyOf", "oneOf", "allOf", "prefixItems"] {
+                if let values = object[key] as? [Any] {
+                    object[key] = values.map { normalizedPlanningInputSchema($0) }
+                }
+            }
+
+            for key in ["$defs", "definitions"] {
+                if let values = object[key] as? [String: Any] {
+                    object[key] = values.mapValues { normalizedPlanningInputSchema($0) }
+                }
+            }
+
+            return object
+        }
+
+        if let array = value as? [Any] {
+            return array.map { normalizedPlanningInputSchema($0) }
+        }
+
+        return value
     }
 }
 

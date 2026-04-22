@@ -616,6 +616,8 @@ struct ToolExecutionPreviewList: View {
 }
 
 private struct ToolExecutionPreviewCard: View {
+    @Environment(UIState.self) private var ui
+
     let preview: ToolExecutionPreview
     let isStreaming: Bool
 
@@ -627,6 +629,8 @@ private struct ToolExecutionPreviewCard: View {
     /// choice via `userManuallyToggled`.
     @State private var isExpanded: Bool
     @State private var userManuallyToggled = false
+
+    private var theme: EpistemosTheme { ui.theme }
 
     init(preview: ToolExecutionPreview, isStreaming: Bool) {
         self.preview = preview
@@ -703,6 +707,10 @@ private struct ToolExecutionPreviewCard: View {
         return String(result.prefix(400))
     }
 
+    private var cardIsEmphasized: Bool {
+        preview.isError || (isStreaming && preview.result == nil)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
@@ -712,19 +720,24 @@ private struct ToolExecutionPreviewCard: View {
                 }
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: iconName)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.48))
+                        Image(systemName: iconName)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(statusColor)
+                    }
+                    .frame(width: 26, height: 26)
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(preview.name.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.primary)
+                            .font(ClaudeAppTypography.monoFont(size: 12, weight: .semibold))
+                            .foregroundStyle(theme.resolved.foreground.color)
 
                         if let planSummary, !planSummary.isEmpty {
                             Text(planSummary)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.secondary)
+                                .font(ClaudeAppTypography.monoFont(size: 11))
+                                .foregroundStyle(theme.textSecondary)
                                 .lineLimit(1)
                         }
                     }
@@ -732,12 +745,18 @@ private struct ToolExecutionPreviewCard: View {
                     Spacer()
 
                     Text(statusLabel)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
                         .foregroundStyle(statusColor)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 4)
+                        .background(
+                            Capsule()
+                                .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.48))
+                        )
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(theme.textTertiary)
                 }
                 .contentShape(Rectangle())
                 .padding(.horizontal, 12)
@@ -746,11 +765,12 @@ private struct ToolExecutionPreviewCard: View {
             .buttonStyle(.plain)
 
             if isExpanded {
-                Divider().opacity(0.15)
+                Divider()
+                    .overlay(theme.glassBorder.opacity(0.44))
 
                 VStack(alignment: .leading, spacing: 10) {
                     if let planDetail, !planDetail.isEmpty {
-                        toolSection(title: "Planned Action", content: planDetail)
+                        toolSection(title: "Input", content: planDetail)
                     }
 
                     if let resultDetail, !resultDetail.isEmpty {
@@ -761,29 +781,38 @@ private struct ToolExecutionPreviewCard: View {
                 .padding(.vertical, 10)
             }
         }
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.primary.opacity(0.08), lineWidth: 1)
+        .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: cardIsEmphasized)
+        .shadow(
+            color: .black.opacity(theme.isDark ? 0.14 : 0.05),
+            radius: 12,
+            x: 0,
+            y: 5
         )
     }
 
     private func toolSection(title: String, content: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
+                .foregroundStyle(theme.textSecondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 Text(content)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.primary)
+                    .font(ClaudeAppTypography.monoFont(size: 11))
+                    .foregroundStyle(theme.resolved.foreground.color)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(theme.muted.opacity(theme.isDark ? 0.62 : 0.40))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(theme.glassBorder.opacity(0.4), lineWidth: 0.55)
+                    }
+            )
         }
     }
 

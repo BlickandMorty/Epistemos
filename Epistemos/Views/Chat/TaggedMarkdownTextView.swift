@@ -73,22 +73,22 @@ struct TaggedMarkdownTextView: View {
 
         var bodyFontSize: CGFloat {
             switch self {
-            case .assistant: 16
+            case .assistant: 15
             case .user: 15
             }
         }
 
         var bodyLineSpacing: CGFloat {
             switch self {
-            case .assistant: 7
-            case .user: 5
+            case .assistant: 10
+            case .user: 7
             }
         }
 
         var paragraphVerticalPadding: CGFloat {
             switch self {
-            case .assistant: 4
-            case .user: 3
+            case .assistant: 5
+            case .user: 4
             }
         }
 
@@ -108,12 +108,12 @@ struct TaggedMarkdownTextView: View {
     var foregroundOverride: Color? = nil
     var typographyRole: TypographyRole = .assistant
     private let blocks: [MarkdownBlock]
-    private static let listMarkerWidth: CGFloat = 11
+    private static let listMarkerWidth: CGFloat = 12
     private static let numberedMarkerMinWidth: CGFloat = 24
     private static let listIndent: CGFloat = 4
     private static let nestedListIndent: CGFloat = 18
-    private static let listSpacing: CGFloat = 6
-    private static let listRunSpacing: CGFloat = 4
+    private static let listSpacing: CGFloat = 8
+    private static let listRunSpacing: CGFloat = 6
     private static let blockCacheLimit = 48
     private static let blockCacheLock = NSLock()
     private static var blockCache: [String: [MarkdownBlock]] = [:]
@@ -179,6 +179,10 @@ struct TaggedMarkdownTextView: View {
 
     private var bodyFont: Font {
         typographyRole.font(size: bodyFontSize)
+    }
+
+    private var strongBodyFont: Font {
+        ClaudeAppTypography.monoFont(size: bodyFontSize, weight: .semibold)
     }
 
     private var renderUnits: [MarkdownRenderUnit] {
@@ -549,9 +553,10 @@ struct TaggedMarkdownTextView: View {
             taggedInlineMarkdown(
                 cell,
                 baseFontSize: 13,
-                strongForegroundColor: theme.chatStrongForeground
+                strongForegroundColor: theme.chatStrongForeground,
+                strongFont: ClaudeAppTypography.monoFont(size: 13, weight: .semibold)
             )
-            .font(.system(size: 13))
+            .font(typographyRole.font(size: 13))
             .foregroundStyle(bodyForeground.opacity(isHeader ? 1.0 : 0.85))
             .fontWeight(isHeader ? .semibold : .regular)
         }
@@ -578,7 +583,8 @@ struct TaggedMarkdownTextView: View {
             taggedInlineMarkdown(
                 text,
                 baseFontSize: bodyFontSize,
-                strongForegroundColor: theme.chatStrongForeground
+                strongForegroundColor: theme.chatStrongForeground,
+                strongFont: strongBodyFont
             )
                 .font(bodyFont)
                 .lineSpacing(bodyLineSpacing)
@@ -604,7 +610,8 @@ struct TaggedMarkdownTextView: View {
                 taggedInlineMarkdown(
                     text,
                     baseFontSize: bodyFontSize,
-                    strongForegroundColor: theme.chatStrongForeground
+                    strongForegroundColor: theme.chatStrongForeground,
+                    strongFont: strongBodyFont
                 )
                     .font(bodyFont)
                     .lineSpacing(bodyLineSpacing)
@@ -685,13 +692,13 @@ struct TaggedMarkdownTextView: View {
         switch item.kind {
         case .bullet:
             Text("\u{2022}")
-                .font(.system(size: 17, weight: .semibold))
+                .font(ClaudeAppTypography.monoFont(size: 17, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
                 .frame(width: Self.listMarkerWidth, alignment: .leading)
                 .padding(.top, 1)
         case .numbered(let number):
             Text(number)
-                .font(.system(size: bodyFontSize, weight: .semibold).monospacedDigit())
+                .font(ClaudeAppTypography.monoFont(size: bodyFontSize, weight: .semibold))
                 .foregroundStyle(theme.resolved.accent.color)
                 .frame(minWidth: Self.numberedMarkerMinWidth, alignment: .trailing)
                 .padding(.top, 1)
@@ -713,7 +720,8 @@ struct TaggedMarkdownTextView: View {
         taggedInlineMarkdown(
             text,
             baseFontSize: bodyFontSize,
-            strongForegroundColor: theme.chatStrongForeground
+            strongForegroundColor: theme.chatStrongForeground,
+            strongFont: strongBodyFont
         )
         .font(bodyFont)
         .lineSpacing(bodyLineSpacing)
@@ -749,14 +757,18 @@ struct TaggedMarkdownTextView: View {
                 return .custom(AppDisplayTypography.displayFontName, size: fontSize)
             } else {
                 let weight: Font.Weight = MarkdownHeadingDisplay.noteHeadingFontWeight(for: level)
-                return .system(size: fontSize, weight: weight)
+                return ClaudeAppTypography.monoFont(size: fontSize, weight: weight)
             }
         }()
         let topPad = retroRole?.topPadding ?? 6
         let color = MarkdownHeadingDisplay.foregroundColor(for: theme, level: level)
         let displayText = MarkdownHeadingDisplay.displayText(text, level: level)
 
-        taggedInlineMarkdown(displayText, baseFontSize: fontSize)
+        taggedInlineMarkdown(
+            displayText,
+            baseFontSize: fontSize,
+            strongFont: font
+        )
             .font(font)
             .foregroundStyle(color)
             .asciiRippleOverlay(
@@ -797,7 +809,8 @@ struct TaggedMarkdownTextView: View {
     private func taggedInlineMarkdown(
         _ text: String,
         baseFontSize: CGFloat,
-        strongForegroundColor: Color? = nil
+        strongForegroundColor: Color? = nil,
+        strongFont: Font? = nil
     ) -> Text {
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
@@ -844,7 +857,8 @@ struct TaggedMarkdownTextView: View {
             return inlineMarkdown(
                 text,
                 baseFontSize: baseFontSize,
-                strongForegroundColor: strongForegroundColor
+                strongForegroundColor: strongForegroundColor,
+                strongFont: strongFont
             )
         }
 
@@ -862,7 +876,8 @@ struct TaggedMarkdownTextView: View {
                     inlineMarkdown(
                         before,
                         baseFontSize: baseFontSize,
-                        strongForegroundColor: strongForegroundColor
+                        strongForegroundColor: strongForegroundColor,
+                        strongFont: strongFont
                     )
                 )
             }
@@ -886,7 +901,8 @@ struct TaggedMarkdownTextView: View {
                 inlineMarkdown(
                     remaining,
                     baseFontSize: baseFontSize,
-                    strongForegroundColor: strongForegroundColor
+                    strongForegroundColor: strongForegroundColor,
+                    strongFont: strongFont
                 )
             )
         }
@@ -898,13 +914,15 @@ struct TaggedMarkdownTextView: View {
     private func inlineMarkdown(
         _ text: String,
         baseFontSize: CGFloat,
-        strongForegroundColor: Color? = nil
+        strongForegroundColor: Color? = nil,
+        strongFont: Font? = nil
     ) -> Text {
         InlineMarkdownStyler.text(
             text,
             strongFontSize: baseFontSize,
             strongForegroundColor: strongForegroundColor,
-            linkForegroundColor: theme.preferredMarkdownLinkColor
+            linkForegroundColor: theme.preferredMarkdownLinkColor,
+            strongFont: strongFont
         )
     }
 }

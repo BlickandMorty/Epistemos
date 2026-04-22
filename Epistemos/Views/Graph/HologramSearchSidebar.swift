@@ -718,9 +718,14 @@ struct HologramSearchSidebar: View {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     if displayText.isEmpty {
                         if inspectorState.isChatStreaming {
-                            AssistantTypingIndicatorDots(
-                                theme: theme,
-                                accent: graphChatAccentColor
+                            LiveActivityStrip(
+                                toolName: nil,
+                                toolInputJson: nil,
+                                isThinkingActive: !inspectorState.currentChatStreamingThinking
+                                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                                    .isEmpty,
+                                thinkingStartedAt: nil,
+                                isStreaming: true
                             )
                         } else {
                             Text("No response received.")

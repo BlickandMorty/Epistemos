@@ -45,34 +45,6 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
-// DEPRECATED (fused chat, 2026-04-18): the Chat / Agent segmented picker
-// that drove this enum was removed in 3d83f377. The enum still exists
-// because several private state/vars in LandingView are typed against it;
-// those branches are now dead (landingPromptSurface is initialized to
-// .chat and never reassigned) and will be collapsed in a follow-up
-// refactor. Do not reintroduce a UI that sets this to .agent — the main
-// chat auto-promotes via MainChatSubmissionRouter.autoPromotedMode.
-enum LandingPromptSurface: String, CaseIterable, Identifiable {
-    case chat
-    case agent
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .chat: "Chat"
-        case .agent: "Agent"
-        }
-    }
-
-    var icon: String {
-        switch self {
-        case .chat: "bubble.left.and.bubble.right"
-        case .agent: "command.circle"
-        }
-    }
-}
-
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 
@@ -104,8 +76,6 @@ struct LandingView: View {
     @State private var showLandingMentionDropdown = false
     @State private var landingMentionFilter = ""
     @State private var landingMentionPickerAutofocus = false
-    @State private var landingPromptSurface: LandingPromptSurface = .chat
-    @State private var landingSelectedAgentSlash: ACCSlashCommand? = nil
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
@@ -120,12 +90,18 @@ struct LandingView: View {
         landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     private var landingSearchPlaceholder: String {
-        switch landingPromptSurface {
-        case .chat:
-            ComposerAttachmentEntryHints.landingPlaceholder
-        case .agent:
-            "Ask the agent to inspect, plan, or operate across your workspace"
-        }
+        ComposerAttachmentEntryHints.landingPlaceholder
+    }
+    private var landingSearchAccent: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
+                Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
+                Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
     private var ambientManifest: VaultManifest? {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
@@ -429,14 +405,10 @@ struct LandingView: View {
         VStack(spacing: 16) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(landingPromptSurface == .chat ? "Landing Chat" : "Agent Workspace")
+                    Text("Landing Chat")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(theme.textPrimary)
-                    Text(
-                        landingPromptSurface == .chat
-                            ? "Start a lightweight chat from anywhere on the landing page."
-                            : "Prefill the dedicated agent page with tools, slash actions, and inspector controls."
-                    )
+                    Text("Start a lightweight chat from anywhere on the landing page.")
                     .font(.system(size: 11.5, weight: .medium, design: .rounded))
                     .foregroundStyle(theme.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -454,13 +426,7 @@ struct LandingView: View {
 
             VStack(spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
-                    // Chat/Agent segmented picker removed — the fused chat
-                    // experience (ChatCapability pill + auto-routing) lets
-                    // a single submission path promote to agent tier when
-                    // the classifier detects tool-use intent, and honestly
-                    // surface "needs cloud" when a local model is selected
-                    // and the intent implies agent. One submission path,
-                    // one visible chat, all modes.
+                    // One submission path, one visible chat, all modes.
 
                     if !landingContextAttachments.isEmpty {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -492,18 +458,15 @@ struct LandingView: View {
                     }
 
                     VStack(alignment: .leading, spacing: LandingSearchLayout.controlRowTopPadding) {
-                        // Single unified control strip: the chat-specific
-                        // controls are now the only ones. Agent-specific
-                        // controls (slash shortcuts, workspace draft
-                        // options) are folded into chat via the capability
-                        // pill + auto-router; the separate agent-specific
-                        // strip stays available for programmatic callers.
+                        // Single unified control strip: tool/runtime work
+                        // stays in the same chat via the capability pill
+                        // and auto-router.
                         landingChatSpecificControls
 
                         HStack(alignment: .top, spacing: LandingSearchLayout.topRowSpacing) {
-                            Image(systemName: landingPromptSurface.icon)
+                            Image(systemName: "bubble.left.and.bubble.right")
                                 .font(.system(size: 18, weight: .medium))
-                                .foregroundStyle(landingPromptSurfaceAccent)
+                                .foregroundStyle(landingSearchAccent)
                                 .padding(.top, 8)
 
                             ZStack(alignment: .topLeading) {
@@ -515,7 +478,7 @@ struct LandingView: View {
                                     fontSize: LandingSearchLayout.inputFontSize,
                                     isProcessing: false
                                 ) {
-                                    submitLandingPrompt()
+                                    submitLandingSearch()
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .frame(height: landingComposerHeight)
@@ -558,11 +521,7 @@ struct LandingView: View {
                         }
 
                         HStack(spacing: LandingSearchLayout.controlRowSpacing) {
-                            Text(
-                                landingPromptSurface == .chat
-                                    ? "Use `@` to pull notes and recent chats into the prompt."
-                                    : "Use `@` for note context and quick slash chips for agent workflows."
-                            )
+                            Text("Use `@` to pull notes and recent chats into the prompt.")
                             .font(.system(size: 11.5, weight: .medium, design: .rounded))
                             .foregroundStyle(theme.textTertiary)
 
@@ -591,7 +550,7 @@ struct LandingView: View {
                                 isProcessing: false,
                                 metrics: .compactChat
                             ) {
-                                submitLandingPrompt()
+                                submitLandingSearch()
                             }
                             .help("Send")
                             .accessibilityLabel("Send prompt")
@@ -620,21 +579,6 @@ struct LandingView: View {
                 .padding(.bottom, 4)
             }
         }
-    }
-
-    // DEPRECATED (fused chat, 2026-04-18): unused. Kept as dead code so we
-    // can visually audit what the picker used to look like; remove in the
-    // next LandingView refactor along with landingAgentSpecificControls and
-    // submitLandingAgentPrompt.
-    private var landingPromptSurfacePicker: some View {
-        Picker("Landing Surface", selection: $landingPromptSurface) {
-            ForEach(LandingPromptSurface.allCases) { surface in
-                Label(surface.title, systemImage: surface.icon)
-                    .tag(surface)
-            }
-        }
-        .pickerStyle(.segmented)
-        .labelsHidden()
     }
 
     @ViewBuilder
@@ -674,110 +618,6 @@ struct LandingView: View {
         }
     }
 
-    // DEPRECATED (fused chat, 2026-04-18): unused since the Chat/Agent
-    // picker was removed. The fused composer uses landingChatSpecificControls
-    // unconditionally; agent-tier behavior is reached by auto-promotion
-    // rather than a separate control strip.
-    private var landingAgentSpecificControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Dedicated agent workspace")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(theme.textPrimary)
-                    Text("Launch into the native agent page with slash actions, tool gates, and inspector controls intact.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(theme.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer(minLength: 0)
-
-                BrainPickerMenu()
-            }
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(ACCSlashCommand.featuredAgentQuickActions, id: \.self) { command in
-                        landingAgentCommandChip(for: command)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 11)
-        .background(
-            theme.resolved.foreground.color.opacity(theme.isDark ? 0.05 : 0.06),
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(theme.border.opacity(0.6), lineWidth: 0.8)
-        }
-    }
-
-    private func landingAgentCommandChip(for command: ACCSlashCommand) -> some View {
-        let isSelected = landingSelectedAgentSlash == command
-
-        return Button {
-            if landingSelectedAgentSlash == command {
-                landingSelectedAgentSlash = nil
-            } else {
-                landingSelectedAgentSlash = command
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: command.icon)
-                    .font(.system(size: 11, weight: .semibold))
-                Text("/\(command.rawValue)")
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(isSelected ? theme.textPrimary : theme.textSecondary)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 7)
-            .background(
-                isSelected
-                    ? theme.resolved.accent.color.opacity(theme.isDark ? 0.22 : 0.16)
-                    : theme.resolved.foreground.color.opacity(theme.isDark ? 0.045 : 0.035),
-                in: Capsule()
-            )
-            .overlay {
-                Capsule()
-                    .strokeBorder(
-                        isSelected ? theme.resolved.accent.color.opacity(0.28) : theme.border.opacity(0.55),
-                        lineWidth: 0.8
-                    )
-            }
-        }
-        .buttonStyle(.plain)
-        .help(command.helpText)
-    }
-
-    private var landingPromptSurfaceAccent: LinearGradient {
-        switch landingPromptSurface {
-        case .chat:
-            LinearGradient(
-                colors: [
-                    Color(hue: 0.75, saturation: 0.5, brightness: 0.9),
-                    Color(hue: 0.55, saturation: 0.5, brightness: 0.95),
-                    Color(hue: 0.05, saturation: 0.5, brightness: 0.95),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        case .agent:
-            LinearGradient(
-                colors: [
-                    theme.resolved.accent.color,
-                    theme.resolved.foreground.color.opacity(0.9),
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-    }
-
     private func activateLandingSearch() {
         guard !showingBrief && !showWelcomeBack else { return }
         if showingSearchPopover {
@@ -811,8 +651,6 @@ struct LandingView: View {
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
-        landingPromptSurface = .chat
-        landingSelectedAgentSlash = nil
         showLandingMentionDropdown = false
         landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
@@ -825,8 +663,6 @@ struct LandingView: View {
         landingSearchText = ""
         landingComposerHeight = LandingSearchLayout.inputMinHeight
         isLandingSearchFocused = false
-        landingPromptSurface = .chat
-        landingSelectedAgentSlash = nil
         showLandingMentionDropdown = false
         landingReferencePopoverStyle = .mention
         landingMentionFilter = ""
@@ -890,74 +726,6 @@ struct LandingView: View {
         if sanitized.rawValue != mainChatOperatingModeRaw {
             mainChatOperatingModeRaw = sanitized.rawValue
         }
-    }
-
-    private func submitLandingPrompt() {
-        // Fused chat — always route through the chat submission path. The
-        // ChatCapability classifier inside ChatView/ChatCoordinator decides
-        // whether a given turn should promote to agent tier (tools / web /
-        // long-running execution) and the pill surfaces that decision.
-        // submitLandingAgentPrompt() remains defined for programmatic
-        // callers that want to force the agent workspace explicitly.
-        submitLandingSearch()
-    }
-
-    // DEPRECATED (fused chat, 2026-04-18): no visible UI path calls this.
-    // The only remaining reference is the enum-switch branch in
-    // submitLandingPrompt (also dead). Kept so any external programmatic
-    // invocation continues to resolve. Removal scheduled when the
-    // LandingPromptSurface enum itself is collapsed.
-    private func submitLandingAgentPrompt(
-        _ query: String,
-        attachments: [ContextAttachment]
-    ) {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
-        let draft = landingAgentDraft(
-            query: trimmed,
-            attachments: attachments
-        )
-        dismissLandingSearch()
-        ui.setActivePanel(.home)
-        AppBootstrap.shared?.submitAgentWorkspacePrompt(
-            draft,
-            operatingMode: landingSelectedAgentSlash?.defaultOperatingMode ?? .agent
-        )
-    }
-
-    private func landingAgentDraft(
-        query: String,
-        attachments: [ContextAttachment]
-    ) -> String {
-        let prefixes = attachments.compactMap { attachment -> String? in
-            switch attachment.kind {
-            case .note:
-                return "@[\(attachment.title)]"
-            case .allNotes:
-                return "@AllNotes"
-            case .folder:
-                // Folders expand into individual note attachments at
-                // turn time via `expandFolderAttachments`; the visible
-                // mention stays on the folder name so the user sees
-                // what they attached.
-                return "@[\(attachment.title)] (folder)"
-            case .chat:
-                let title = attachment.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !title.isEmpty else { return nil }
-                return "Use the recent chat titled \"\(title)\" as context."
-            }
-        }
-
-        var fragments = [String]()
-        if let slash = landingSelectedAgentSlash {
-            fragments.append("/\(slash.rawValue)")
-        }
-        if !prefixes.isEmpty {
-            fragments.append(prefixes.joined(separator: " "))
-        }
-        fragments.append(query)
-        return fragments.joined(separator: " ")
     }
 
     private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {

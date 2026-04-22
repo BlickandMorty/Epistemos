@@ -232,14 +232,24 @@ struct TriageServiceTests {
     @Test("cloud models expose about-sheet metadata")
     func cloudModelsExposeAboutSheetMetadata() {
         #expect(CloudTextModelID.openAIGPT54.aboutSheetBadge == "OpenAI")
-        #expect(CloudTextModelID.openAIGPT54.aboutSheetModeSummary == "Fast, Thinking, Pro, Agent")
+        #expect(CloudTextModelID.openAIGPT54.aboutSheetModeSummary == "Fast, Thinking, Pro, Inline Tools")
         #expect(CloudTextModelID.openAIGPT54.aboutSheetStructuredOutputSummary == "Structured JSON")
         #expect(
             CloudTextModelID.openAIGPT54.aboutSheetPurposeSummary
-                == "Complex reasoning, coding, and agentic professional work."
+                == "Complex reasoning, coding, and tool-heavy professional work."
         )
         #expect(CloudTextModelID.kimiK25.aboutSheetStructuredOutputSummary == "Prompt JSON fallback")
         #expect(CloudTextModelID.deepseekReasoner.aboutSheetBadge == "DeepSeek")
+    }
+
+    @Test("visible chat mode copy reads as one fused chat with depth controls")
+    func operatingModeCopyEmphasizesFusedChat() {
+        #expect(EpistemosOperatingMode.pro.displayName == "Pro")
+        #expect(EpistemosOperatingMode.agent.displayName == "Tools")
+        #expect(EpistemosOperatingMode.fast.helpText.contains("same chat"))
+        #expect(EpistemosOperatingMode.thinking.helpText.contains("same chat"))
+        #expect(EpistemosOperatingMode.pro.helpText.contains("same chat"))
+        #expect(EpistemosOperatingMode.agent.helpText.contains("this chat"))
     }
 
     @Test("inference state sanitizes unsupported cloud operating modes")
@@ -289,6 +299,28 @@ struct TriageServiceTests {
                 for: inference,
                 availableModes: noteSurfaceModes
             ) == .thinking
+        )
+    }
+
+    @Test("main chat operating mode preference keeps tools visible on supported surfaces")
+    @MainActor func mainChatOperatingModePreferenceKeepsToolsVisibleOnSupportedSurfaces() {
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        #expect(
+            MainChatOperatingModePreference.supportedModes(for: inference) == [.fast, .thinking, .pro, .agent]
+        )
+        #expect(
+            MainChatOperatingModePreference.sanitize(.agent, for: inference) == .agent
+        )
+        #expect(
+            MainChatOperatingModePreference.sanitize(.pro, for: inference) == .pro
         )
     }
 
@@ -694,6 +726,81 @@ struct TriageServiceTests {
             let label = inference.effectiveModelLabel(for: mode)
             #expect(!label.isEmpty, "label was empty for mode=\(mode)")
         }
+    }
+
+    @Test("effectiveModelLabel reflects Codex and Claude Code runtimes when account sessions back the model")
+    @MainActor func effectiveModelLabelReflectsProviderNativeCodingRuntime() throws {
+        let expiration = Date(timeIntervalSince1970: 1_888_888_888)
+        let openAICredential = CloudProviderOAuthCredential(
+            provider: .openAI,
+            accessToken: "openai-access-token",
+            refreshToken: "openai-refresh",
+            expiresAt: expiration,
+            clientID: OpenAICodexRuntimeMetadata.clientID,
+            clientSecret: nil,
+            projectID: nil,
+            authMode: .openAICodex,
+            accountLabel: "chatgpt@example.com"
+        )
+        let anthropicCredential = CloudProviderOAuthCredential(
+            provider: .anthropic,
+            accessToken: "anthropic-access-token",
+            refreshToken: "anthropic-refresh",
+            expiresAt: expiration,
+            clientID: "claude-code-client",
+            clientSecret: nil,
+            projectID: nil,
+            authMode: .anthropicClaudeCode,
+            accountLabel: "claude@example.com"
+        )
+        let openAIEncoded = try #require(
+            String(data: JSONEncoder().encode(openAICredential), encoding: .utf8)
+        )
+        let anthropicEncoded = try #require(
+            String(data: JSONEncoder().encode(anthropicCredential), encoding: .utf8)
+        )
+
+        let inference = makeIsolatedInferenceState(
+            keychainLoad: { key in
+                switch key {
+                case CloudModelProvider.openAI.oauthKeychainKey:
+                    openAIEncoded
+                case CloudModelProvider.anthropic.oauthKeychainKey:
+                    anthropicEncoded
+                default:
+                    nil
+                }
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        inference.setPreferredChatModelSelection(ChatModelSelection.cloud(CloudTextModelID.openAIGPT54))
+        #expect(inference.effectiveModelLabel(for: EpistemosOperatingMode.agent) == "Codex GPT-5.4")
+        #expect(
+            inference.availableReasoningTiers(for: EpistemosOperatingMode.agent)
+                == [.low, .medium, .high, .heavy]
+        )
+        #expect(
+            inference.reasoningTierLabel(
+                for: .heavy,
+                operatingMode: EpistemosOperatingMode.agent
+            ) == "Extra High"
+        )
+
+        inference.setPreferredChatModelSelection(
+            ChatModelSelection.cloud(CloudTextModelID.anthropicClaudeSonnet4)
+        )
+        #expect(
+            inference.effectiveModelLabel(for: EpistemosOperatingMode.agent)
+                == "Claude Code Claude Sonnet 4 (Latest Sonnet)"
+        )
+        #expect(
+            inference.reasoningTierLabel(
+                for: .heavy,
+                operatingMode: EpistemosOperatingMode.agent
+            ) == "Max"
+        )
     }
 }
 
@@ -1211,6 +1318,36 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.reasoningMode == .thinking)
     }
 
+    @Test("auto local routing promotes the compact qwen thinking tier before generic fallbacks")
+    func autoLocalRoutingPrefersQwenThinkingCheckpointWhenDeepSeekIsAbsent() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .noteChat,
+                intent: .noteAnalysis,
+                contentLength: 3_400,
+                promptLength: 2_900,
+                contextBlockCount: 3,
+                estimatedTokenLoad: 1_200,
+                baseComplexity: 0.48,
+                queryComplexity: 0.24,
+                operatingMode: .thinking,
+                requestedReasoningMode: .thinking,
+                explicitThinkingRequested: true,
+                explicitFastRequested: false,
+                visibleThinkingRequested: true
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.qwen3_8B4Bit, .qwen3_4BThinking25074Bit, .gemma3_4BQAT4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_4BThinking25074Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .thinking)
+    }
+
     @Test("auto local routing uses Bonsai as the fast fallback when Gemma is absent")
     func autoLocalRoutingUsesBonsaiFallbackWhenGemmaMissing() {
         let engine = InferencePolicyEngine()
@@ -1238,6 +1375,36 @@ struct InferencePolicyEngineTests {
 
         #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID == LocalTextModelID.bonsai4B2Bit.rawValue)
+    }
+
+    @Test("auto local routing uses llama 3.2 for lightweight fast work before larger 16GB tiers")
+    func autoLocalRoutingUsesLlamaForLightFastWork() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .simpleAsk,
+                contentLength: 96,
+                promptLength: 84,
+                contextBlockCount: 1,
+                estimatedTokenLoad: 40,
+                baseComplexity: 0.12,
+                queryComplexity: 0.04,
+                operatingMode: .fast,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: true,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.llama32_3BInstruct4Bit, .qwen3_8B4Bit, .gemma3_4BQAT4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.llama32_3BInstruct4Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
     @Test("auto local routing prefers a non-Gemma fallback for general pro work (Gemma 4 excluded until loader ships)")
@@ -1280,6 +1447,36 @@ struct InferencePolicyEngineTests {
         #expect(decision.selectedRoute == .localMLX)
         #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
         #expect(decision.localSelection?.modelID != LocalTextModelID.gemma4_4B4Bit.rawValue)
+    }
+
+    @Test("auto local routing uses qwen 3 8B as the 16GB generalist pro tier when the flagship stack is absent")
+    func autoLocalRoutingUsesQwen38BForGeneralProWork() {
+        let engine = InferencePolicyEngine()
+        let decision = engine.decide(
+            profile: InferenceRequestProfile(
+                surface: .mainChat,
+                intent: .synthesis,
+                contentLength: 2_800,
+                promptLength: 2_100,
+                contextBlockCount: 3,
+                estimatedTokenLoad: 920,
+                baseComplexity: 0.46,
+                queryComplexity: 0.26,
+                operatingMode: .pro,
+                requestedReasoningMode: .fast,
+                explicitThinkingRequested: false,
+                explicitFastRequested: false,
+                visibleThinkingRequested: false
+            ),
+            context: makeContext(
+                appleAvailable: false,
+                installed: [.qwen3_8B4Bit, .deepseekR1Distill7B, .gemma3_4BQAT4Bit]
+            )
+        )
+
+        #expect(decision.selectedRoute == .localMLX)
+        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen3_8B4Bit.rawValue)
+        #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
     @Test("auto local routing skips heavy interactive-qwen tiers on 18GB machines")
@@ -1500,6 +1697,33 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.plan.route == .managedAgentSession)
         #expect(executionPlan.plan.depthBudget.maxTurns >= 10)
         #expect(executionPlan.plan.depthBudget.maxToolCalls >= 8)
+        #expect(!executionPlan.plan.toolPermissions.isEmpty)
+        #expect(executionPlan.allowedToolNames.contains("search_web"))
+        #expect(executionPlan.allowedToolNames.contains("write_file"))
+    }
+
+    @Test("cloud file-path reads escalate to a managed tools session")
+    @MainActor func cloudFilePathReadsEscalateToManagedAgentSession() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "Use tools to read the local file /tmp/epistemos-audit/out_of_vault_read.txt and tell me its first line exactly.",
+            contentLength: 109,
+            operatingMode: .thinking,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.plan.route == .managedAgentSession)
+        #expect(executionPlan.allowedToolNames.contains("read_file"))
     }
 
     @Test("agent route uses a hidden local agent tier when no release-visible chat tier is available")
@@ -1960,6 +2184,30 @@ struct TriageServiceIntegrationTests {
         #expect(systemPrompt?.contains("/no_think") == true)
     }
 
+    @Test("thinking local stream instructs reasoning-capable models to hide reasoning in think tags")
+    @MainActor func thinkingLocalStreamInjectsHiddenReasoningTagContract() async {
+        let llm = RecordingConfigurableLocalLLMClient()
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen35_35BA3B4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: llm
+        )
+
+        let stream = triage.streamGeneral(
+            prompt: "Analyze the essay.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Analyze the essay."),
+            contentLength: 64,
+            operatingMode: .thinking
+        )
+        _ = await LocalRuntimeSmokeSupport.collect(stream)
+
+        let systemPrompt = llm.streamRequests.first?.systemPrompt
+        #expect(systemPrompt?.contains("keep any hidden reasoning inside <think>") == true)
+        #expect(systemPrompt?.contains("final user-facing answer only after </think>") == true)
+    }
+
     @Test("local path injects a baseline local system prompt when none is provided")
     @MainActor func localPathInjectsBaselineLocalSystemPrompt() async throws {
         let llm = TriageIntegrationMockLLMClient()
@@ -1985,6 +2233,46 @@ struct TriageServiceIntegrationTests {
             )
         )
         #expect(systemPrompt.contains("local Epistemos assistant running on-device"))
+    }
+
+    @Test("local path adds model specific guidance for coding and multimodal tiers")
+    @MainActor func localPathAddsModelSpecificGuidance() async throws {
+        let codingLLM = RecordingConfigurableLocalLLMClient()
+        let codingTriage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.qwen3CoderNext4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: codingLLM
+        )
+
+        _ = try await codingTriage.generateGeneral(
+            prompt: "Fix the parser regression.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Fix the parser regression."),
+            contentLength: 26
+        )
+
+        let codingPrompt = try #require(codingLLM.generateRequests.first?.systemPrompt)
+        #expect(codingPrompt.contains("Prioritize concrete, runnable code"))
+        #expect(codingPrompt.contains("prefer structured tool use"))
+
+        let multimodalLLM = RecordingConfigurableLocalLLMClient()
+        let multimodalTriage = makeService(
+            appleAvailable: false,
+            localInstalled: [LocalTextModelID.gemma3_4BQAT4Bit.rawValue],
+            routingMode: .localOnly,
+            localLLMService: multimodalLLM
+        )
+
+        _ = try await multimodalTriage.generateGeneral(
+            prompt: "Describe what is visible.",
+            systemPrompt: nil,
+            operation: .chatResponse(query: "Describe what is visible."),
+            contentLength: 24
+        )
+
+        let multimodalPrompt = try #require(multimodalLLM.generateRequests.first?.systemPrompt)
+        #expect(multimodalPrompt.contains("If image attachments are present"))
     }
 
     @Test("missing local model throws in local only mode")
@@ -2093,6 +2381,55 @@ struct TriageServiceIntegrationTests {
             #expect(outcome.error == nil)
             #expect(outcome.tokens.joined() == "cloud note answer")
             #expect(cloud.streamCalls.count == 1)
+            #expect(triage.lastDecision == .cloud)
+        }
+    }
+
+    @Test("thinking chat routes through the effective cloud selection when a stale local pick cannot run")
+    @MainActor func thinkingChatUsesEffectiveCloudSelectionInsteadOfStaleLocalFallback() async {
+        await withSavedAPIKey(for: .openAI) {
+            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+
+            let inference = makeIsolatedInferenceState(
+                hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                    physicalMemoryBytes: 18_000_000_000,
+                    roundedMemoryGB: 18,
+                    maxRecommendedLocalContentLength: 8_000
+                )
+            )
+            inference.appleIntelligenceAvailable = false
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+            inference.setActiveAIProvider(.openAI)
+            inference.setChatAutoRouteToCloud(true)
+
+            #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .cloud(.openAIGPT54))
+
+            let local = TriageIntegrationMockLLMClient()
+            local.streamTokens = ["local fallback"]
+
+            let cloud = TriageIntegrationMockCloudLLMClient()
+            cloud.streamTokens = ["cloud answer"]
+
+            let triage = TriageService(
+                inference: inference,
+                localLLMService: local,
+                cloudLLMService: cloud
+            )
+
+            let stream = triage.streamGeneral(
+                prompt: "Trace this carefully.",
+                operation: .chatResponse(query: "Trace this carefully."),
+                contentLength: 21,
+                operatingMode: .thinking
+            )
+            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+            #expect(outcome.error == nil)
+            #expect(outcome.tokens.joined() == "cloud answer")
+            #expect(cloud.streamCalls.count == 1)
+            #expect(local.streamCalls.isEmpty)
             #expect(triage.lastDecision == .cloud)
         }
     }

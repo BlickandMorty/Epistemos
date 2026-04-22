@@ -32,6 +32,30 @@ struct CloudStreamingParserTests {
         #expect(CloudStreamingParser.openAIResponsesReasoningDelta(from: rawReasoning) == nil)
     }
 
+    @Test("OpenAI responses reasoning parser accepts documented summary completion events")
+    func openAIResponsesReasoningParserAcceptsSummaryDoneEvents() {
+        let done: [String: Any] = [
+            "type": "response.reasoning_summary_text.done",
+            "text": "Checking the note structure"
+        ]
+        let partDone: [String: Any] = [
+            "type": "response.reasoning_summary_part.done",
+            "part": [
+                "type": "summary_text",
+                "text": "Checking the note structure"
+            ]
+        ]
+
+        #expect(
+            CloudStreamingParser.openAIResponsesReasoningDelta(from: done)
+                == "Checking the note structure"
+        )
+        #expect(
+            CloudStreamingParser.openAIResponsesReasoningDelta(from: partDone)
+                == "Checking the note structure"
+        )
+    }
+
     @Test("Anthropic streaming extracts text delta payloads")
     func anthropicStreamingDelta() {
         let json: [String: Any] = [

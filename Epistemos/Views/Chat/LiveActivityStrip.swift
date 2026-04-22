@@ -15,47 +15,86 @@ import SwiftUI
 /// + streaming result, this strip is the first thing the user sees
 /// pop in at the TOP of the bubble so tool activity is unmissable.
 struct LiveActivityStrip: View {
+    @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     let toolName: String?
     let toolInputJson: String?
     let isThinkingActive: Bool
     let thinkingStartedAt: Date?
     let isStreaming: Bool
 
+    private var theme: EpistemosTheme { ui.theme }
+
     var body: some View {
         HStack(spacing: 8) {
-            icon
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(tint)
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(theme.muted.opacity(theme.isDark ? 0.68 : 0.5))
+                icon
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(tint)
+            }
+            .frame(width: 26, height: 26)
 
-            Text(phrase)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(1)
+            phraseLabel
 
             if showsTimer, let start = thinkingStartedAt {
                 TimelineView(.periodic(from: start, by: 1)) { context in
                     Text(duration(start, now: context.date))
-                        .font(.system(size: 11, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.secondary)
+                        .font(ClaudeAppTypography.monoFont(size: 11))
+                        .foregroundStyle(theme.textSecondary)
                 }
             }
 
             Spacer()
 
-            ProgressView()
-                .controlSize(.mini)
-                .tint(tint)
+            HStack(spacing: 7) {
+                Text(statusBadgeTitle)
+                    .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.52))
+                    )
+
+                ProgressView()
+                    .controlSize(.mini)
+                    .tint(tint)
+            }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(tint.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(tint.opacity(0.14), lineWidth: 1)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: true)
+        .shadow(
+            color: .black.opacity(theme.isDark ? 0.16 : 0.06),
+            radius: 14,
+            x: 0,
+            y: 6
         )
     }
 
     // MARK: - Derived
+
+    @ViewBuilder
+    private var phraseLabel: some View {
+        if reduceMotion {
+            activityText(phrase)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 4.0)) { context in
+                activityText(animatedPhrase(at: context.date))
+            }
+        }
+    }
+
+    private func activityText(_ text: String) -> some View {
+        Text(text)
+            .font(ClaudeAppTypography.monoFont(size: 12, weight: .medium))
+            .foregroundStyle(theme.resolved.foreground.color)
+            .lineLimit(1)
+    }
 
     private var phrase: String {
         if let tool = toolName, !tool.isEmpty {
@@ -78,6 +117,12 @@ struct LiveActivityStrip: View {
         return Image(systemName: "pencil.line")
     }
 
+    private var statusBadgeTitle: String {
+        if toolName != nil { return "TOOL" }
+        if isThinkingActive { return "THINK" }
+        return "WRITE"
+    }
+
     private var tint: Color {
         if toolName != nil { return .orange }
         if isThinkingActive { return .purple }
@@ -86,6 +131,15 @@ struct LiveActivityStrip: View {
 
     private var showsTimer: Bool {
         toolName == nil && isThinkingActive
+    }
+
+    private func animatedPhrase(at date: Date) -> String {
+        let base = phrase
+            .replacingOccurrences(of: "…", with: "")
+            .replacingOccurrences(of: "...", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let dotCount = Int((date.timeIntervalSinceReferenceDate * 2.2).truncatingRemainder(dividingBy: 3)) + 1
+        return base + String(repeating: ".", count: dotCount)
     }
 
     private func duration(_ start: Date, now: Date) -> String {

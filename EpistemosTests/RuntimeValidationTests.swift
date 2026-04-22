@@ -15,6 +15,18 @@ private func loadRepoTextFileWithRetry(
 
 @Suite("Runtime Validation")
 struct RuntimeValidationTests {
+    private var repoRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private func repoFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(
+            atPath: repoRootURL.appendingPathComponent(relativePath).path
+        )
+    }
+
     private let inferenceDefaultsKeys = [
         "epistemos.localRoutingMode",
         "epistemos.chatAutoRouteToCloud",
@@ -25,6 +37,9 @@ struct RuntimeValidationTests {
         "epistemos.openAIWebSearchEnabled",
         "epistemos.openAICodeInterpreterEnabled",
         "epistemos.anthropicExtendedThinkingEnabled",
+        "epistemos.anthropicWebSearchEnabled",
+        "epistemos.anthropicWebFetchEnabled",
+        "epistemos.anthropicCodeExecutionEnabled",
         "epistemos.anthropicThinkingBudgetTokens",
         "epistemos.googleGroundingEnabled",
         "epistemos.cloudSetupHintShown",
@@ -203,12 +218,32 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("inference.preferredCloudModel(for: provider)"))
     }
 
-    @Test("inference settings expose the shared local to cloud auto-route toggle")
-    func inferenceSettingsExposeLocalToCloudAutoRouteToggle() throws {
+    @Test("managed tool runtime falls back to a writable scratch vault when no vault is attached")
+    func managedToolRuntimeFallsBackToWritableScratchVaultWhenNoVaultIsAttached() throws {
+        let url = FoundationSafety.managedToolRuntimeVaultDirectory(preferredVaultPath: nil)
+
+        #expect(url.lastPathComponent == "ScratchVault")
+        #expect(url.path.contains("ManagedToolRuntime"))
+        #expect(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    @Test("managed tool runtime keeps the attached vault path when one is available")
+    func managedToolRuntimeKeepsAttachedVaultPathWhenAvailable() {
+        let preferred = URL(fileURLWithPath: "/tmp/epistemos-runtime-vault", isDirectory: true)
+
+        let url = FoundationSafety.managedToolRuntimeVaultDirectory(
+            preferredVaultPath: preferred.path
+        )
+
+        #expect(url.path == preferred.standardizedFileURL.path)
+    }
+
+    @Test("inference settings expose the shared cloud fallback toggle")
+    func inferenceSettingsExposeCloudFallbackToggle() throws {
         let settings = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(settings.contains("Text(\"Auto-route local -> cloud\")"))
-        #expect(settings.contains("inference.setChatAutoRouteToCloud($0)"))
+        #expect(settings.contains("Text(\"Auto-route on failure\")"))
+        #expect(settings.contains("inference.setCloudAutoFallback($0)"))
     }
 
     @Test("inference settings expose model-aware provider-native runtime controls")
@@ -230,6 +265,41 @@ struct RuntimeValidationTests {
 
         #expect(pipeline.contains("let effectiveChatSelection = inference.effectiveChatSurfaceSelection("))
         #expect(pipeline.contains("guard case .localMLX = effectiveChatSelection else"))
+    }
+
+    @Test("direct-stream manifest suppresses app tools it cannot execute")
+    func pipelineDirectStreamManifestSuppressesUnexecutableTools() throws {
+        // The direct-stream path (Fast / Thinking for cloud, local non-agent)
+        // cannot execute app tools like vault_read or fs_read — only the
+        // Rust agent loop or LocalAgentLoop can. Advertising those tools
+        // in the system manifest for direct-stream turns caused models to
+        // emit tool-call JSON that the runtime silently ignored, leaving
+        // the answer looking hallucinated. The fix passes
+        // `toolExecutionAvailable: false` to the manifest builder so the
+        // builder only surfaces provider-native tools (web_search, etc.)
+        // that the cloud provider actually executes natively.
+        let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
+
+        #expect(pipeline.contains("toolExecutionAvailable: false"))
+        #expect(pipeline.contains("toolExecutionAvailable: Bool"))
+        #expect(pipeline.contains("providerNativeCapabilityToolNameList"))
+    }
+
+    @MainActor
+    @Test("provider-native capability list only exposes tools the cloud request actually attaches")
+    func providerNativeCapabilityListIsBoundedByEnabledToggles() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
+            inference.setOpenAIWebSearchEnabled(false)
+
+            let disabled = inference.providerNativeCapabilityToolNameList(for: .fast)
+            #expect(disabled.isEmpty)
+
+            inference.setOpenAIWebSearchEnabled(true)
+            let enabled = inference.providerNativeCapabilityToolNameList(for: .fast)
+            #expect(enabled == ["web_search"])
+        }
     }
 
     @Test("note reasoning loop preserves the selected operating mode")
@@ -261,9 +331,9 @@ struct RuntimeValidationTests {
             testsFilePath: #filePath
         )
 
-        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat || activeAgentWorkspace"))
+        #expect(rootView.contains("if showLandingToolbarControls || activeHomeChat"))
         #expect(rootView.contains("ToolbarItem(placement: .principal)"))
-        #expect(rootView.contains("private var activeAgentWorkspace: Bool"))
+        #expect(!rootView.contains("private var activeAgentWorkspace: Bool"))
         #expect(rootView.contains("private var showLandingToolbarControls: Bool"))
         #expect(rootView.contains("ToolbarItem(placement: .navigation)"))
     }
@@ -436,6 +506,21 @@ struct RuntimeValidationTests {
         #expect(rootView.contains("AuditRootShellMinimalContentView()"))
         #expect(rootView.contains("root_shell_button_pressed"))
         #expect(rootView.contains("if RuntimeAuditRootFlags.rootShellMinimalContentEnabled"))
+    }
+
+    @Test("audit launcher isolates the latest build behind a dedicated audit app identity")
+    func auditLauncherIsolatesLatestBuildBehindDedicatedIdentity() throws {
+        let script = try loadRepoTextFile("scripts/launch_audit_app.sh")
+
+        #expect(script.contains("build/audit-derived-data"))
+        #expect(script.contains("com.epistemos.audit"))
+        #expect(script.contains("Epistemos Audit"))
+        #expect(script.contains("epistemos.restoreLastSession"))
+        #expect(script.contains("epistemos.vaultBookmark"))
+        #expect(script.contains("epistemos.lastVaultPath"))
+        #expect(script.contains("EPISTEMOS_SKIP_VAULT_RESTORE"))
+        #expect(script.contains("EPI_HOME_WINDOW_MINIMAL_CONTENT"))
+        #expect(script.contains("scripts/xcodebuild_epistemos.sh"))
     }
 
     @Test("workspace restore offers a one-shot skip restore relaunch escape hatch")
@@ -636,7 +721,7 @@ struct RuntimeValidationTests {
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_9B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast])
+            #expect(inference.availableOperatingModes == [.fast, .agent])
         }
     }
 
@@ -665,7 +750,7 @@ struct RuntimeValidationTests {
             ])
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
-            #expect(inference.availableOperatingModes == [.fast])
+            #expect(inference.availableOperatingModes == [.fast, .agent])
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.smolLM3_3B4Bit.rawValue))
             #expect(inference.availableOperatingModes == [.fast])
@@ -1296,6 +1381,22 @@ struct RuntimeValidationTests {
         #expect(triage.contains("supportsInteractiveChatModel(textModelID: $0.rawValue)"))
     }
 
+    @Test("local mlx unload releases custom Metal runtime state")
+    func localMLXUnloadReleasesCustomMetalRuntimeState() throws {
+        let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
+        let metalRuntime = try loadRepoTextFile("Epistemos/Engine/MetalRuntimeManager.swift")
+
+        #expect(runtime.contains("let runtimeManager = metalRuntimeManager"))
+        #expect(runtime.contains("await MainActor.run {"))
+        #expect(runtime.contains("runtimeManager?.releaseWorkingSet()"))
+        #expect(runtime.contains("metalRuntimeManager = nil"))
+        #expect(runtime.contains("preparedCustomSSMRuntimeKey = nil"))
+        #expect(metalRuntime.contains("func releaseWorkingSet()"))
+        #expect(metalRuntime.contains("stateBufferA = nil"))
+        #expect(metalRuntime.contains("stateBufferB = nil"))
+        #expect(metalRuntime.contains("inferenceHeap = nil"))
+    }
+
     @Test("local mlx memory preflight uses the interactive chat memory budget")
     func localMLXMemoryPreflightUsesInteractiveChatBudget() throws {
         let runtime = try loadRepoTextFile("Epistemos/Engine/MLXInferenceService.swift")
@@ -1456,6 +1557,48 @@ struct RuntimeValidationTests {
         #expect(utilityManager.contains("NSApp.activate(ignoringOtherApps: true)"))
         #expect(utilityManager.contains("window.orderFrontRegardless()"))
         #expect(utilityManager.contains("window.makeKeyAndOrderFront(nil)"))
+    }
+
+    @Test("legacy omega utility routing now forwards straight into the fused main chat")
+    func omegaUtilityRoutingForwardsIntoMainChat() throws {
+        let utilityManager = try loadRepoTextFile("Epistemos/App/UtilityWindowManager.swift")
+
+        #expect(utilityManager.contains("if panel == .omega"))
+        #expect(utilityManager.contains("routeOmegaPanelToMainChat()"))
+        #expect(utilityManager.contains("bootstrap.uiState.setActivePanel(.home)"))
+        #expect(utilityManager.contains("bootstrap.uiState.homeTab = .home"))
+        #expect(utilityManager.contains("bootstrap.chatState.showLanding = false"))
+        #expect(utilityManager.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+    }
+
+    @Test("fused main-chat bootstrap keeps only the live graph handoff helper")
+    func fusedMainChatBootstrapKeepsOnlyTheLiveGraphHandoffHelper() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("chatState.primeComposerDraft(trimmed)"))
+        #expect(bootstrap.contains("chatState.showLanding = false"))
+        #expect(bootstrap.contains("HomeWindowIdentity.surfaceHomeWindow()"))
+        #expect(!bootstrap.contains("func presentAgentCommandCenter("))
+        #expect(!bootstrap.contains("func submitAgentWorkspacePrompt("))
+        #expect(!bootstrap.contains("routeLegacyAgentSurfaceIntoMainChat("))
+        #expect(!bootstrap.contains("agentCommandCenterState.present()"))
+    }
+
+    @Test("graph chat requests now route into main chat while preserving structured graph context")
+    func graphChatRequestsRouteIntoMainChatWithStructuredContext() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+        let accState = try loadRepoTextFile("Epistemos/State/AgentCommandCenterState.swift")
+
+        #expect(bootstrap.contains("func routeGraphChatRequestIntoMainChat(_ request: GraphChatRequest)"))
+        #expect(bootstrap.contains("chatState.primeGraphChatRequest(request)"))
+        #expect(accState.contains("AppBootstrap.shared?.routeGraphChatRequestIntoMainChat(request)"))
+        #expect(chatState.contains("var pendingGraphChatRequest: GraphChatRequest?"))
+        #expect(chatState.contains("func primeGraphChatRequest(_ request: GraphChatRequest)"))
+        #expect(chatState.contains("func consumePendingGraphChatRequest() -> GraphChatRequest?"))
+        #expect(coordinator.contains("graphContextSection = Self.graphContextSection("))
+        #expect(coordinator.contains("ChatBrainSection(title: \"Graph Context\""))
     }
 
     @Test("retired omega settings no longer advertise old training experiments")
@@ -2166,15 +2309,13 @@ struct RuntimeValidationTests {
         #expect(triage.contains("case .mainChat, .miniChat:"))
     }
 
-    @Test("chat surfaces expose mode selection while the dedicated agent page owns advanced agent controls")
-    func chatSurfacesExposeOperatingModeSelectionAndRouteOnlyAgentModeThroughOmega() throws {
+    @Test("chat surfaces expose mode selection without keeping a separate agent page alive")
+    func chatSurfacesExposeOperatingModeSelectionWithoutSeparateAgentPage() throws {
         let inference = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let chatView = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let root = try loadRepoTextFile("Epistemos/App/RootView.swift")
-        let agentView = try loadRepoTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
-        let agentCommandBar = try loadRepoTextFile("Epistemos/Views/AgentCommandCenter/CommandBarView.swift")
         let chatState = try loadRepoTextFile("Epistemos/State/ChatState.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let pipeline = try loadRepoTextFile("Epistemos/Engine/PipelineService.swift")
@@ -2189,9 +2330,9 @@ struct RuntimeValidationTests {
         #expect(chatState.contains("case .agent"))
         #expect(chatView.contains("MainChatSubmissionRouter.submit("))
         #expect(landing.contains("MainChatSubmissionRouter.submit("))
-        #expect(root.contains("AgentChatView()"))
-        #expect(agentView.contains("CommandBarView()"))
-        #expect(agentCommandBar.contains("BrainPickerMenu()"))
+        #expect(!root.contains("AgentChatView()"))
+        #expect(!repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
         #expect(miniChat.contains("let modes = inference.availableOperatingModes.filter { $0 != .agent }"))
         #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
         #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
@@ -2202,17 +2343,20 @@ struct RuntimeValidationTests {
         #expect(pipeline.contains("operatingMode: operatingMode"))
     }
 
-    @Test("agent page keeps a quiet utility row and a lighter empty-state launch surface")
-    func agentPageUsesCompactUtilityRowAndGridLaunchSurface() throws {
-        let agentView = try loadRepoTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
-
-        #expect(agentView.contains("ControlGroup"))
-        #expect(agentView.contains("quickActionGrid"))
-        #expect(agentView.contains("ViewThatFits(in: .horizontal)"))
+    @Test("legacy agent workspace view files are removed after fusion")
+    func legacyAgentWorkspaceViewFilesAreRemovedAfterFusion() {
+        #expect(!repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/AgentPlanEditorView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/BrainPickerMenu.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/InspectorPanelView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/SuggestionPopoverView.swift"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/ToolTogglePillsView.swift"))
     }
 
-    @Test("main chat and landing composers keep the lightweight chat surface free of advanced agent chrome")
-    func mainChatAndLandingDelegateAdvancedControlsToAgentCommandCenter() throws {
+    @Test("main chat and landing composers keep the lightweight chat surface free of removed agent chrome")
+    func mainChatAndLandingStayFreeOfRemovedAgentChrome() throws {
         let chatInput = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
@@ -2225,19 +2369,25 @@ struct RuntimeValidationTests {
         #expect(landing.contains("ComposerAttachmentEntryHints.landingPlaceholder"))
         #expect(!chatInput.contains("⌘J"))
         #expect(!landing.contains("Command Center"))
+        #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
 
         #expect(miniChat.contains("LocalModelToolbarMenu("))
     }
 
-    @Test("landing popover can switch between chat and dedicated agent submission modes")
-    func landingPopoverSupportsAgentMode() throws {
+    @Test("landing search keeps only the fused main-chat composer path")
+    func landingSearchKeepsOnlyTheFusedMainChatComposerPath() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
 
-        #expect(landing.contains("enum LandingPromptSurface"))
-        #expect(landing.contains("case chat"))
-        #expect(landing.contains("case agent"))
-        #expect(landing.contains("landingAgentSpecificControls"))
-        #expect(landing.contains("submitLandingAgentPrompt("))
+        #expect(!landing.contains("enum LandingPromptSurface"))
+        #expect(!landing.contains("landingPromptSurface: LandingPromptSurface = .chat"))
+        #expect(!landing.contains("landingPromptSurfacePicker"))
+        #expect(!landing.contains("landingAgentSpecificControls"))
+        #expect(!landing.contains("submitLandingAgentPrompt("))
+        #expect(!landing.contains("landingAgentDraft("))
+        #expect(landing.contains("ChatBrainPickerMenu("))
+        #expect(landing.contains("MainChatSubmissionRouter.submit("))
+        #expect(!bootstrap.contains("agentChatState.startNewSession()"))
     }
 
     @Test("interactive surfaces use Task.sleep instead of DispatchQueue.main.asyncAfter")
@@ -3650,9 +3800,26 @@ struct RuntimeValidationTests {
 
         #expect(coordinator.contains("let executionPlan = await buildOverseerExecutionPlan("))
         #expect(coordinator.contains("let planner = ModelRefinedPlanner(inference: inferenceState)"))
-        #expect(coordinator.contains("switch executionPlan.route"))
-        #expect(coordinator.contains("case .managedAgentSession"))
+        #expect(coordinator.contains("if let executionPlan, mode == .api, executionPlan.route == .managedAgentSession {"))
+        #expect(!coordinator.contains("if let executionPlan, mode == .api, operatingMode == .agent {"))
         #expect(coordinator.contains("executionPlan: executionPlan"))
+    }
+
+    @Test("main chat planning is not gated behind visible agent mode")
+    func mainChatPlanningIsNotGatedBehindVisibleAgentMode() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("private func buildOverseerExecutionPlan("))
+        #expect(!coordinator.contains("guard operatingMode == .agent else { return nil }"))
+        #expect(coordinator.contains("return await planner.planForMainChat("))
+    }
+
+    @Test("pro rust agent path stays scoped to cloud-selected turns")
+    func proRustAgentPathStaysScopedToCloudSelectedTurns() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("let isCloudSelectedSurface: Bool"))
+        #expect(coordinator.contains("} else if let executionPlan, mode == .api, operatingMode == .pro, isCloudSelectedSurface {"))
     }
 
     @Test("workspace and attachment-heavy chats keep lightweight workspace context on the default path")
@@ -3660,10 +3827,12 @@ struct RuntimeValidationTests {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
         #expect(coordinator.contains("let hasExplicitContext = Self.queryContainsExplicitContext("))
-        #expect(coordinator.contains("let hasExplicitUserContext = hasExplicitContext || !userAttachments.isEmpty"))
+        #expect(coordinator.contains("let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)"))
+        #expect(coordinator.contains("let hasAttachedUserContext = !chatState.pendingContextAttachments.isEmpty || !userAttachments.isEmpty"))
         #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
         #expect(coordinator.contains("let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }"))
         #expect(coordinator.contains("buildRequiredAttachmentContractSection()"))
+        #expect(coordinator.contains("buildRequestedVaultLookupContractSection()"))
         #expect(coordinator.contains("if deepContext {"))
         #expect(coordinator.contains("[Today's Conversations]"))
     }
@@ -3942,6 +4111,9 @@ struct InferenceCloudSelectionTests {
         "epistemos.openAIWebSearchEnabled",
         "epistemos.openAICodeInterpreterEnabled",
         "epistemos.anthropicExtendedThinkingEnabled",
+        "epistemos.anthropicWebSearchEnabled",
+        "epistemos.anthropicWebFetchEnabled",
+        "epistemos.anthropicCodeExecutionEnabled",
         "epistemos.anthropicThinkingBudgetTokens",
         "epistemos.googleGroundingEnabled",
         "epistemos.cloudSetupHintShown",
@@ -4091,6 +4263,32 @@ struct InferenceCloudSelectionTests {
     }
 
     @MainActor
+    @Test("provider-native search defaults stay enabled unless explicitly disabled")
+    func providerNativeSearchDefaultsStayEnabledUnlessDisabled() async {
+        await withResetInferenceDefaults {
+            let fresh = InferenceState()
+            #expect(fresh.openAIWebSearchEnabled)
+            #expect(fresh.anthropicWebSearchEnabled)
+            #expect(fresh.anthropicWebFetchEnabled)
+            #expect(fresh.anthropicCodeExecutionEnabled)
+            #expect(fresh.googleGroundingEnabled)
+
+            fresh.setOpenAIWebSearchEnabled(false)
+            fresh.setAnthropicWebSearchEnabled(false)
+            fresh.setAnthropicWebFetchEnabled(false)
+            fresh.setAnthropicCodeExecutionEnabled(false)
+            fresh.setGoogleGroundingEnabled(false)
+
+            let reloaded = InferenceState()
+            #expect(!reloaded.openAIWebSearchEnabled)
+            #expect(!reloaded.anthropicWebSearchEnabled)
+            #expect(!reloaded.anthropicWebFetchEnabled)
+            #expect(!reloaded.anthropicCodeExecutionEnabled)
+            #expect(!reloaded.googleGroundingEnabled)
+        }
+    }
+
+    @MainActor
     @Test("provider runtime controls and Firecrawl key persist through inference state")
     func providerRuntimeControlsAndFirecrawlKeyPersistThroughInferenceState() async {
         await withResetInferenceDefaults {
@@ -4104,23 +4302,37 @@ struct InferenceCloudSelectionTests {
                 keychainDelete: { keychainValues.removeValue(forKey: $0) }
             )
 
-            #expect(!inference.openAIWebSearchEnabled)
+            #expect(inference.openAIWebSearchEnabled)
             #expect(!inference.openAICodeInterpreterEnabled)
             #expect(!inference.anthropicExtendedThinkingEnabled)
+            #expect(inference.anthropicWebSearchEnabled)
+            #expect(inference.anthropicWebFetchEnabled)
+            #expect(inference.anthropicCodeExecutionEnabled)
             #expect(inference.anthropicThinkingBudgetTokens == 8_000)
-            #expect(!inference.googleGroundingEnabled)
+            #expect(inference.googleGroundingEnabled)
             #expect(inference.firecrawlAPIKey() == nil)
 
+            inference.setOpenAIWebSearchEnabled(false)
             inference.setOpenAIWebSearchEnabled(true)
             inference.setOpenAICodeInterpreterEnabled(true)
             inference.setAnthropicExtendedThinkingEnabled(true)
+            inference.setAnthropicWebSearchEnabled(false)
+            inference.setAnthropicWebSearchEnabled(true)
+            inference.setAnthropicWebFetchEnabled(false)
+            inference.setAnthropicWebFetchEnabled(true)
+            inference.setAnthropicCodeExecutionEnabled(false)
+            inference.setAnthropicCodeExecutionEnabled(true)
             inference.setAnthropicThinkingBudgetTokens(12_288)
+            inference.setGoogleGroundingEnabled(false)
             inference.setGoogleGroundingEnabled(true)
             _ = inference.setFirecrawlAPIKey("fc-test-key")
 
             #expect(inference.openAIWebSearchEnabled)
             #expect(inference.openAICodeInterpreterEnabled)
             #expect(inference.anthropicExtendedThinkingEnabled)
+            #expect(inference.anthropicWebSearchEnabled)
+            #expect(inference.anthropicWebFetchEnabled)
+            #expect(inference.anthropicCodeExecutionEnabled)
             #expect(inference.anthropicThinkingBudgetTokens == 12_288)
             #expect(inference.googleGroundingEnabled)
             #expect(inference.firecrawlAPIKey() == "fc-test-key")
@@ -4518,9 +4730,9 @@ struct InferenceCloudSelectionTests {
             testsFilePath: #filePath
         )
 
-        #expect(source.contains("Text(\"Auto-route local -> cloud\")"))
-        #expect(source.contains("Text(\"Auto-route on failure\")"))
-        #expect(source.contains("inference.setChatAutoRouteToCloud($0)"))
+        #expect(source.contains("Text(\"Fallback on failure\")"))
+        #expect(source.contains("inference.setCloudAutoFallback($0)"))
+        #expect(source.contains("routeSummaryCard(for:"))
         #expect(source.contains("inference.setPreferredCloudModel(model)"))
     }
 
@@ -5185,6 +5397,22 @@ struct InferenceCloudSelectionTests {
         #expect(pipeline.contains(".completed("))
         #expect(coordinator.contains("toolEventHandler: { event in"))
         #expect(coordinator.contains("bootstrap.mcpBridge.logExecution("))
+    }
+
+    @Test("managed main chat agent path honors the planned tool allowlist and selected surface runtime")
+    func managedMainChatAgentPathHonorsPlannedToolAllowlistAndSelectedSurfaceRuntime() throws {
+        let coordinator = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/ChatCoordinator.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(coordinator.contains("let selectedSurface = inferenceState.effectiveChatSurfaceSelection(for: surfaceOperatingMode)"))
+        #expect(coordinator.contains("let allowedTools = executionPlan.allowedToolNames"))
+        #expect(coordinator.contains("allowedToolNames: Array(allowedTools).sorted()"))
+        #expect(coordinator.contains("enableThinking: surfaceOperatingMode.capturesReasoningTrace"))
+        #expect(coordinator.contains("effort: rustAgentEffort(for: surfaceOperatingMode)"))
+        #expect(coordinator.contains("resolveRustProviderName(for: selectedSurface)"))
+        #expect(!coordinator.contains("allowedToolNames: nil"))
     }
 
     @Test("GGUF availability probe only runs for GGUF-capable model candidates")

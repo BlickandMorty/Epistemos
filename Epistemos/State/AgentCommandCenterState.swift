@@ -3,10 +3,11 @@ import Observation
 import os
 
 // MARK: - Agent Command Center State
-// Central @Observable state object for the Agent Command Center overlay.
+// Central @Observable state object for the legacy Agent Command Center overlay.
 // Manages presentation lifecycle, unified slash/skill parsing, brain/model selection,
 // tool/MCP capability toggles, skill discovery, context providers, and inspector panel state.
-// This state is SEPARATE from ChatState — the Agent home is a dedicated surface.
+// Fused main chat is the live user surface; this state remains for compat paths,
+// diagnostics, and the dormant dedicated workspace.
 
 @MainActor @Observable
 final class AgentCommandCenterState {
@@ -382,18 +383,16 @@ final class AgentCommandCenterState {
         }
     }
 
-    /// Prefill the command bar with context from a graph node and present
-    /// the command center. The user still decides whether to submit — no
-    /// automatic execution happens here.
+    /// Prefill the legacy command state with context from a graph node and
+    /// hand the request off to the fused main chat. The structured graph
+    /// request is still retained here so any dormant compat callers that
+    /// compile ACC requests keep the same payload shape.
     func handleGraphChatRequest(_ request: GraphChatRequest) {
         let label = request.nodeLabel.isEmpty ? request.nodeType : request.nodeLabel
         inputText = "Tell me about \(label)"
 
         pendingGraphChatRequest = request
-
-        if !isPresented {
-            present()
-        }
+        AppBootstrap.shared?.routeGraphChatRequestIntoMainChat(request)
 
         log.info("[ACC] Graph chat request received for node \(request.graphNodeId, privacy: .public) type=\(request.nodeType, privacy: .public)")
     }
@@ -651,6 +650,11 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         .plan, .notes, .code, .debug, .research, .securityReview,
     ]
 
+    static func availableCommands(for availableOperatingModes: [EpistemosOperatingMode]) -> [ACCSlashCommand] {
+        let availableModes = Set(availableOperatingModes)
+        return allCases.filter { $0.isAvailable(for: availableModes) }
+    }
+
     var displayName: String {
         switch self {
         case .ask: "Ask"
@@ -702,20 +706,24 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         }
     }
 
+    func isAvailable(for availableOperatingModes: Set<EpistemosOperatingMode>) -> Bool {
+        availableOperatingModes.contains(defaultOperatingMode)
+    }
+
     var helpText: String {
         switch self {
         case .ask: "Quick conversational answer"
-        case .notes: "Read, write, create, and organize notes with vault-first tools"
-        case .code: "Implement focused changes with repo tools and note context"
-        case .debug: "Investigate failures from files, logs, and repro steps"
-        case .plan: "Break work into steps with vault and graph context first"
-        case .research: "Research from notes, graph context, and cited sources"
-        case .review: "Read-only critique for drafts, notes, or code"
-        case .securityReview: "Audit code and config with tighter, read-only permissions"
+        case .notes: "Work with notes and folders"
+        case .code: "Make focused repo changes"
+        case .debug: "Trace failures from logs and repros"
+        case .plan: "Break work into steps"
+        case .research: "Use notes plus cited sources"
+        case .review: "Read-only critique"
+        case .securityReview: "Audit code and config"
         case .summarize: "Condense content to key points"
         case .readBranch: "Read and understand a code branch"
         case .explain: "Explain a concept clearly"
-        case .image: "Generate an image via the on-device MLX Flux pipeline (falls back to Fal when explicitly asked)"
+        case .image: "Generate an image"
         }
     }
 
@@ -770,6 +778,35 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             "Read-only branch orientation"
         case .image:
             "On-device first; Fal only when explicitly named"
+        }
+    }
+
+    var suggestedPrompt: String {
+        switch self {
+        case .ask:
+            "Help me with "
+        case .notes:
+            "Find or update notes about "
+        case .code:
+            "Implement this change: "
+        case .debug:
+            "Debug this issue: "
+        case .plan:
+            "Create a step-by-step plan for "
+        case .research:
+            "Research this topic and cite strong sources: "
+        case .review:
+            "Review this and flag the biggest issues: "
+        case .securityReview:
+            "Do a security review and flag the risks in "
+        case .summarize:
+            "Summarize this: "
+        case .readBranch:
+            "Read this branch and summarize what changed: "
+        case .explain:
+            "Explain this clearly: "
+        case .image:
+            "Generate an image of "
         }
     }
 
@@ -1051,7 +1088,7 @@ enum ACCBrainSelection: Hashable, Identifiable {
                 } else if supportsThinking {
                     modes.append(.thinking)
                 }
-                if supportsTools {
+                if model.canRunLocalAgentLoop || supportsTools {
                     modes.append(.agent)
                 }
                 return modes.isEmpty ? [.fast] : modes

@@ -560,6 +560,45 @@ final class OverseerComplexityRouter {
             return .managedAgentSession
         }
 
+        let effectiveSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
+        let effectiveIntentPrediction = ChatCapability.predictIntent(
+            text: query,
+            isCloudProvider: {
+                if case .cloud = effectiveSelection {
+                    return true
+                }
+                return false
+            }()
+        )
+        let cloudSelectionSupportsManagedTools: Bool = {
+            if case .cloud(let model) = effectiveSelection {
+                return model.provider.supportsAgentTier
+            }
+            return false
+        }()
+        let shouldPlanToolsInChat = shouldUseOverseerLocalExecution(
+            analysis: analysis,
+            intent: intent,
+            hasExplicitContext: hasExplicitContext,
+            attachmentCount: attachmentCount,
+            contentLength: contentLength
+        )
+        switch effectiveSelection {
+        case .cloud(let model):
+            if model.provider.supportsAgentTier,
+               (operatingMode == .agent
+                    || effectiveIntentPrediction.predicted == .agent
+                    || effectiveIntentPrediction.predicted == .research
+                    || shouldPlanToolsInChat) {
+                return .managedAgentSession
+            }
+        case .localMLX, .appleIntelligence:
+            if effectiveIntentPrediction.predicted == .agent
+                || effectiveIntentPrediction.predicted == .research {
+                return .overseerLocalExecution
+            }
+        }
+
         if isManagedAgentQuery(
             query: query,
             analysis: analysis,
@@ -577,13 +616,10 @@ final class OverseerComplexityRouter {
             return .localOnly
         }
 
-        if shouldUseOverseerLocalExecution(
-            analysis: analysis,
-            intent: intent,
-            hasExplicitContext: hasExplicitContext,
-            attachmentCount: attachmentCount,
-            contentLength: contentLength
-        ) {
+        if shouldPlanToolsInChat {
+            if cloudSelectionSupportsManagedTools {
+                return .managedAgentSession
+            }
             return .overseerLocalExecution
         }
 
@@ -691,6 +727,9 @@ final class OverseerComplexityRouter {
         attachmentCount: Int
     ) -> Bool {
         let normalized = query.lowercased()
+        if ChatCapability.requiresManagedResearchTools(text: normalized) {
+            return true
+        }
         let managedSignals = [
             "gmail", "calendar", "drive", "twitter", "twitter/x", "x ", "reddit",
             "monitor", "keep watching", "for a few hours", "overnight", "background",
@@ -776,13 +815,13 @@ final class OverseerComplexityRouter {
     ) -> String {
         switch (route, intent) {
         case (.managedAgentSession, _):
-            return "Escalate to the managed agent path for long-running external orchestration."
+            return "Use the managed tools runtime for long-running external orchestration."
         case (.overseerLocalExecution, .coding), (.overseerLocalExecution, .debugging):
-            return "Keep execution local, but constrain the turn to code-heavy reasoning and explicitly permitted tools."
+            return "Use a bounded tools plan in this chat for code-heavy reasoning and explicitly permitted tools."
         case (.overseerLocalExecution, _):
-            return "Keep execution local and use a narrow overseer plan to bound tools, depth, and working context."
+            return "Use a bounded tools plan in this chat."
         case (.localOnly, _):
-            return "Answer locally without tool use."
+            return "Answer directly in this chat without tools."
         }
     }
 
@@ -852,7 +891,7 @@ final class OverseerComplexityRouter {
     }
 
     private func toolPermissions(for route: OverseerExecutionRoute) -> [OverseerToolPermission] {
-        guard route == .overseerLocalExecution else { return [] }
+        guard route == .overseerLocalExecution || route == .managedAgentSession else { return [] }
 
         let liveTools = ToolSurfacePolicy.surfacedTools(OmegaToolRegistry.all)
         if !liveTools.isEmpty {
@@ -897,13 +936,17 @@ final class OverseerComplexityRouter {
 
         if tool.destructive
             || name.contains("delete")
-            || name.contains("write")
+            || name.contains("trash") {
+            return .deny
+        }
+
+        if name.contains("write")
             || name.contains("edit")
             || name.contains("create")
             || name.contains("rename")
             || name.contains("move")
-            || name.contains("trash") {
-            return .deny
+            || name.contains("patch") {
+            return .ask
         }
 
         if name.contains("web")
@@ -970,11 +1013,11 @@ final class OverseerComplexityRouter {
     ) -> String {
         switch route {
         case .localOnly:
-            return "Keep this turn local and answer directly with \(intentLabel(intent)) reasoning."
+            return "Answer directly in this chat with \(intentLabel(intent)) reasoning."
         case .overseerLocalExecution:
-            return "Keep this turn local, but enforce an overseer plan because the request complexity is \(String(format: "%.2f", analysis.complexity))."
+            return "Use a bounded tools plan in this chat because the request complexity is \(String(format: "%.2f", analysis.complexity))."
         case .managedAgentSession:
-            return "Escalate to the managed agent path for long-running external orchestration."
+            return "Use the managed tools runtime for long-running external orchestration."
         }
     }
 
@@ -1071,11 +1114,11 @@ final class OverseerComplexityRouter {
         let summary: String
         switch slashToken {
         case .builtinMode(let cmd):
-            summary = "Agent: /\(cmd.rawValue) — \(cmd.helpText)"
+            summary = "Tools: /\(cmd.rawValue) — \(cmd.helpText)"
         case .skill(let entry):
-            summary = "Agent: skill \(entry.identifier) — \(entry.description)"
+            summary = "Tools: skill \(entry.identifier) — \(entry.description)"
         case nil:
-            summary = "Agent: agent mode"
+            summary = "Tools: broad tools access in this chat"
         }
 
         let plan = OverseerPlanV1(

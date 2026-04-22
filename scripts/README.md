@@ -10,6 +10,7 @@ Convenient shell scripts for running tests, generating test suites, and profilin
 | `run_quick_test.sh` | Fast subset for dev feedback | ~2-3 min |
 | `run_rust_tests.sh` | Rust/graph-engine only | ~30 sec |
 | `run_swift_tests.sh` | Swift tests only | ~8-12 min |
+| `launch_audit_app.sh` | Build and launch isolated latest-build audit app | varies |
 
 ## Release Scripts
 
@@ -186,6 +187,26 @@ Run chaos engineering tests.
 - Dependency failures
 
 ## Development Scripts
+
+### launch_audit_app.sh
+Build the latest Debug app into dedicated audit `DerivedData`, clone it into a
+separate `Epistemos Audit` bundle id/app name, clear sticky restore and vault
+defaults for that audit domain, and launch it without drifting back to the
+installed `/Applications/Epistemos.app`.
+
+```bash
+# Build latest and launch isolated audit app
+./scripts/launch_audit_app.sh
+
+# Reuse the existing audit build and launch a bare minimal home scene
+./scripts/launch_audit_app.sh --no-build --minimal-home
+```
+
+The isolated bundle is written to:
+- `build/audit-app/EpistemosAudit.app`
+
+The dedicated build lives under:
+- `build/audit-derived-data/`
 
 ### test_watch.sh
 Watch mode - continuously runs tests on file changes.

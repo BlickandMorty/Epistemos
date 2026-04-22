@@ -207,9 +207,10 @@ impl ToolHandler for ReadFileHandler {
             } else {
                 String::new()
             };
+            let recovery_hint = missing_file_recovery_hint(path_arg);
             return Err(ToolError::ExecutionFailed(format!(
-                "file '{}' does not exist{}",
-                resolved_display, expansion_hint
+                "file '{}' does not exist{}{}",
+                resolved_display, expansion_hint, recovery_hint
             )));
         }
 
@@ -269,7 +270,8 @@ pub fn read_file_schema() -> crate::types::ToolSchema {
         name: "read_file".to_string(),
         description: "Read a text file with line numbers and pagination. Rejects binary files. \
              Use 'offset' and 'limit' to page through large files (1-indexed lines, default 500, \
-             max 2000 per call)."
+             max 2000 per call). Do not use this to find a vault note by title; use vault_search \
+             first and then vault_read with the returned vault-relative path."
             .to_string(),
         parameters: json!({
             "type": "object",
@@ -280,6 +282,25 @@ pub fn read_file_schema() -> crate::types::ToolSchema {
             },
             "required": ["path"]
         }),
+    }
+}
+
+fn missing_file_recovery_hint(path_arg: &str) -> String {
+    let trimmed = path_arg.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+
+    let looks_like_note_lookup = !Path::new(trimmed).is_absolute()
+        || trimmed.ends_with(".md")
+        || !trimmed.contains(std::path::MAIN_SEPARATOR);
+
+    if looks_like_note_lookup {
+        " If you are trying to open a vault note by title or guessed markdown path, call \
+         vault_search first and then vault_read with the exact vault-relative path it returns."
+            .to_string()
+    } else {
+        String::new()
     }
 }
 
@@ -1105,6 +1126,18 @@ mod tests {
         let message = format!("{err}");
         assert!(message.contains("does not exist"));
         assert!(message.contains(&missing.to_string_lossy().to_string()));
+    }
+
+    #[tokio::test]
+    async fn read_file_missing_markdown_path_includes_vault_recovery_hint() {
+        let handler = ReadFileHandler;
+        let err = handler
+            .execute(&json!({ "path": "Old/me/Essays/Common app/schools/Princeton/essays/All Things Must Go.md" }))
+            .await
+            .unwrap_err();
+        let message = format!("{err}");
+        assert!(message.contains("vault_search first"));
+        assert!(message.contains("vault_read"));
     }
 
     #[tokio::test]

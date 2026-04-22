@@ -970,7 +970,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             executionPolicyRef: nil,
             steeringHintsJSON: request.steeringHintsJSON,
             priority: 0,
-            timeoutMS: 60_000,
+            timeoutMS: BackendRuntimeTimeouts.localGenerationMS,
             streamOptions: BackendGenerationStreamOptions()
         )
     }

@@ -197,6 +197,7 @@ enum ComposerReferenceBrowserInventoryBuilder {
         VaultManifest.ManifestEntry(
             pageId: page.id,
             title: page.title,
+            relativePath: page.vaultRelativeNotePath,
             tags: page.tags,
             folderName: page.folder?.name ?? page.subfolder,
             wordCount: page.wordCount,

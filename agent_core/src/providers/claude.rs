@@ -12,6 +12,7 @@ use serde_json::{json, Value};
 use crate::agent_loop::{AgentConfig, AgentError, Effort};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
+use crate::providers::schema::normalized_tool_parameters;
 use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
@@ -606,7 +607,7 @@ fn tool_definition_to_claude_json(tool: &ToolSchema) -> Value {
     json!({
         "name": tool.name,
         "description": tool.description,
-        "input_schema": tool.parameters,
+        "input_schema": normalized_tool_parameters(&tool.parameters),
     })
 }
 
@@ -642,9 +643,10 @@ fn map_stop_reason(reason: &str) -> StopReason {
 mod tests {
     use super::{
         authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
-        resolve_claude_auth, ClaudeAuth, ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER,
+        resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth,
+        ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER,
     };
-    use crate::types::{ContentBlock, StopReason};
+    use crate::types::{ContentBlock, StopReason, ToolSchema};
     use reqwest::Client;
     use serde_json::json;
 
@@ -736,8 +738,40 @@ mod tests {
                 .build()
                 .unwrap();
 
-        assert_eq!(request.headers().get("x-api-key").unwrap(), "sk-ant-api-key");
-        assert_eq!(request.headers().get("anthropic-beta").unwrap(), BETA_HEADER);
+        assert_eq!(
+            request.headers().get("x-api-key").unwrap(),
+            "sk-ant-api-key"
+        );
+        assert_eq!(
+            request.headers().get("anthropic-beta").unwrap(),
+            BETA_HEADER
+        );
         assert!(request.headers().get("authorization").is_none());
+    }
+
+    #[test]
+    fn claude_tool_schemas_close_nested_object_parameters() {
+        let tool_json = tool_definition_to_claude_json(&ToolSchema {
+            name: "write_file".to_string(),
+            description: "Write a file".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "options": {
+                        "type": "object",
+                        "properties": {
+                            "overwrite": { "type": "boolean" }
+                        }
+                    }
+                }
+            }),
+        });
+
+        assert_eq!(tool_json["input_schema"]["additionalProperties"], false);
+        assert_eq!(
+            tool_json["input_schema"]["properties"]["options"]["additionalProperties"],
+            false
+        );
     }
 }

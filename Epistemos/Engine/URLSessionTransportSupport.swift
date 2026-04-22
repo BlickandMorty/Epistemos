@@ -57,11 +57,11 @@ nonisolated enum URLSessionTransportSupport {
     }
 
     /// How long the stream may go idle (no bytes, no heartbeat) before
-    /// we abort with a watchdog error. Some reasoning turns legitimately
-    /// take 30–60s of silent thinking; 120s is generous but still short
-    /// enough to unstick a truly-dropped connection without the user
-    /// staring at a frozen "Thinking…" bubble indefinitely.
-    private static let streamIdleWatchdogSeconds: Double = 120
+    /// we abort with a watchdog error. Deep reasoning turns can now sit
+    /// silently for multiple minutes before the provider emits the first
+    /// answer token, so give them a full five-minute idle budget while
+    /// still eventually surfacing a dropped connection.
+    private static let streamIdleWatchdogSeconds: Double = 300
 
     /// Streaming SSE read that can optionally emit reasoning deltas
     /// through a side-channel callback in addition to the main string

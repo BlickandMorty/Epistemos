@@ -21,6 +21,7 @@ use serde_json::{json, Value};
 use crate::agent_loop::{AgentConfig, AgentError};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
+use crate::providers::schema::normalized_tool_parameters;
 use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
@@ -418,7 +419,7 @@ impl AgentProvider for OpenAICompatibleProvider {
                     "function": {
                         "name": t.name,
                         "description": t.description,
-                        "parameters": t.parameters,
+                        "parameters": normalized_tool_parameters(&t.parameters),
                     }
                 })
             })
@@ -672,5 +673,33 @@ fn message_to_openai_json(message: &Message) -> Value {
             }
             msg
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::providers::schema::normalized_tool_parameters;
+    use serde_json::json;
+
+    #[test]
+    fn openai_compatible_tools_use_closed_object_schemas() {
+        let normalized = normalized_tool_parameters(&json!({
+            "type": "object",
+            "properties": {
+                "path": { "type": "string" },
+                "options": {
+                    "type": "object",
+                    "properties": {
+                        "overwrite": { "type": "boolean" }
+                    }
+                }
+            }
+        }));
+
+        assert_eq!(normalized["additionalProperties"], false);
+        assert_eq!(
+            normalized["properties"]["options"]["additionalProperties"],
+            false
+        );
     }
 }

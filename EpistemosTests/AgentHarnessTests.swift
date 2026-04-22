@@ -98,6 +98,16 @@ struct AgentHarnessTests {
     }
 
     @Test
+    @MainActor
+    func storeRefusesToAutoAllowSystemProtectedCategory() {
+        let store = AgentAuthorityStore(persistence: InMemoryAgentAuthorityPersistence())
+
+        store.setDecision(.autoAllow, for: .systemProtected)
+
+        #expect(store.snapshot.decision(for: .systemProtected) == .neverAllow)
+    }
+
+    @Test
     func vaultCategoriesDefaultToAutoAllow() {
         #expect(AgentAuthorityDefaults.decision(for: .vaultRead) == .autoAllow)
         #expect(AgentAuthorityDefaults.decision(for: .vaultWrite) == .autoAllow)

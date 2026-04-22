@@ -117,9 +117,15 @@ nonisolated enum UserFacingChatError {
         if case let PipelineError.analysisFailure(msg) = error {
             return msg
         }
+        let underlying = (error as NSError).localizedDescription
+        let normalizedUnderlying = underlying.lowercased()
+        if normalizedUnderlying == BackendRuntimeContractError.policyDenied.rawValue
+            || normalizedUnderlying.contains("policy_denied")
+            || normalizedUnderlying.contains("policy denied") {
+            return "This turn was blocked because tools or restricted actions were not available here. Try Tools/Agent mode for tool use, or ask again in plain chat."
+        }
         let kind = classify(error)
         if kind == .generic {
-            let underlying = (error as NSError).localizedDescription
             return message(for: .generic, fallback: underlying)
         }
         return message(for: kind)
@@ -167,7 +173,8 @@ final class PipelineService {
         operatingMode: EpistemosOperatingMode = .fast,
         executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil,
         toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)? = nil,
-        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil
+        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil,
+        modelInputCaptureHandler: (@MainActor @Sendable (CapturedModelInput) -> Void)? = nil
     ) -> AsyncThrowingStream<PipelineEvent, Error> {
         let _ = (mode, llmService, inference, eventBus)
         let runID = UUID()
@@ -201,7 +208,6 @@ final class PipelineService {
                         effectiveChatSelection: effectiveChatSelection
                     )
                     let isLocalModelSelected: Bool = {
-                        if executionPlan?.forcesLocalExecution == true { return true }
                         if case .localMLX = effectiveChatSelection { return true }
                         return false
                     }()
@@ -224,6 +230,7 @@ final class PipelineService {
                             localClient: localClient,
                             toolEventHandler: toolEventHandler,
                             toolApprovalHandler: toolApprovalHandler,
+                            modelInputCaptureHandler: modelInputCaptureHandler,
                             onToken: { token in
                                 continuation.yield(.textDelta(token))
                             }
@@ -237,6 +244,7 @@ final class PipelineService {
                             conversationHistory: conversationHistory,
                             operatingMode: operatingMode,
                             executionPlan: executionPlan,
+                            modelInputCaptureHandler: modelInputCaptureHandler,
                             reasoningEventHandler: { delta in
                                 continuation.yield(.thinkingDelta(delta))
                             }
@@ -293,6 +301,10 @@ final class PipelineService {
         executionPlan: OverseerComplexityRouter.ExecutionPlan?,
         effectiveChatSelection: ChatModelSelection
     ) -> Bool {
+        guard case .localMLX = effectiveChatSelection else {
+            return false
+        }
+
         if let executionPlan {
             switch executionPlan.route {
             case .managedAgentSession:
@@ -302,10 +314,6 @@ final class PipelineService {
             case .overseerLocalExecution:
                 return executionPlan.allowsToolExecution
             }
-        }
-
-        guard case .localMLX = effectiveChatSelection else {
-            return false
         }
 
         // Keep standard local chat simple and fast. Only the explicit
@@ -326,9 +334,13 @@ final class PipelineService {
         localClient: any LocalConfigurableLLMClient,
         toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)?,
         toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)?,
+        modelInputCaptureHandler: (@MainActor @Sendable (CapturedModelInput) -> Void)?,
         onToken: @escaping @MainActor (String) -> Void
     ) async throws -> String {
-        let tier = ChatToolTier.from(operatingMode: operatingMode)
+        let tier = Self.localToolTier(
+            for: operatingMode,
+            executionPlan: executionPlan
+        )
         let bridge = ToolTierBridge(vaultPath: vaultPath, tier: tier)
         let tools = filteredTools(
             bridge.loadTools(),
@@ -346,7 +358,8 @@ final class PipelineService {
                 notesContext: notesContext,
                 conversationHistory: conversationHistory,
                 operatingMode: operatingMode,
-                executionPlan: executionPlan
+                executionPlan: executionPlan,
+                modelInputCaptureHandler: modelInputCaptureHandler
             )
             for try await token in stream {
                 accumulated += token
@@ -363,6 +376,7 @@ final class PipelineService {
             notesContext: notesContext,
             conversationHistory: conversationHistory
         )
+        let additionalSystemPrompt = executionPlan?.additionalSystemPrompt()
 
         let reasoningMode: LocalReasoningMode = switch operatingMode {
         case .thinking: .thinking
@@ -405,13 +419,21 @@ final class PipelineService {
             "🔧 Tool loop starting — tier=\(tier.rawValue) tools=\(tools.count) mode=\(String(describing: operatingMode))"
         )
 
-        let additional = executionPlan?.additionalSystemPrompt()
+        emitCapturedModelInput(
+            systemPrompt: additionalSystemPrompt,
+            userPrompt: objective,
+            conversationHistory: conversationHistory,
+            operatingMode: operatingMode,
+            toolDefinitionsJSON: Self.encodedToolDefinitionsJSON(tools),
+            handler: modelInputCaptureHandler
+        )
+
         let result = try await loop.run(
             objective: objective,
             tools: tools,
             maxTurns: 6,
             reasoningMode: reasoningMode,
-            additionalSystemPrompt: additional,
+            additionalSystemPrompt: additionalSystemPrompt,
             reflexMode: true,
             onToken: { token in
                 Task { @MainActor in
@@ -589,6 +611,7 @@ final class PipelineService {
         conversationHistory: String? = nil,
         operatingMode: EpistemosOperatingMode = .fast,
         executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil,
+        modelInputCaptureHandler: (@MainActor @Sendable (CapturedModelInput) -> Void)? = nil,
         reasoningEventHandler: (@MainActor @Sendable (String) -> Void)? = nil
     ) -> AsyncThrowingStream<String, Error> {
         Log.pipeline.info("🔬 generateDirectStream — chatMode=PLAIN queryLen=\(query.count)")
@@ -604,27 +627,61 @@ final class PipelineService {
         )
 
         // Prepend the capability manifest so non-agent turns (Fast /
-        // Thinking mode, local and cloud) get the same identity + app-
-        // routes + how-to-act brief the Rust-agent path already has.
-        // Without this the model only sees `additionalSystemPrompt()`
-        // and has no context for "you are Epistemos, here are the
-        // surfaces, here are the rules" — same root cause as the
-        // agent-ignoring-attached-content bug, one tier shallower.
+        // Thinking mode, local and cloud) have the same identity +
+        // app-routes + how-to-act brief the Rust-agent path builds.
+        //
+        // Tool-contract: this direct-stream path cannot execute app
+        // tools (vault_read, fs_read, etc.) — only the Rust agent
+        // path and LocalAgentLoop can. We filter app tools out of
+        // the manifest (toolExecutionAvailable: false) and skip the
+        // overseer-plan tool prompt so the model isn't lied to about
+        // tool availability. Provider-native tools (web_search,
+        // web_fetch, code_execution, google_search) still work
+        // because LLMService wires them directly into the provider
+        // request body.
         var systemParts: [String] = []
         if let manifest = buildCapabilityManifest(
             operatingMode: operatingMode,
-            executionPlan: executionPlan
+            executionPlan: executionPlan,
+            toolExecutionAvailable: false
         ), !manifest.isEmpty {
             systemParts.append(manifest)
-        }
-        if let additional = executionPlan?.additionalSystemPrompt(), !additional.isEmpty {
-            systemParts.append(additional)
         }
         let systemPrompt: String? = systemParts.isEmpty
             ? nil
             : systemParts.joined(separator: "\n\n")
 
-        if executionPlan?.forcesLocalExecution == true {
+        emitCapturedModelInput(
+            systemPrompt: systemPrompt,
+            userPrompt: finalPrompt,
+            conversationHistory: conversationHistory,
+            operatingMode: operatingMode,
+            toolDefinitionsJSON: Self.encodedToolNameJSON(
+                inference.capabilityToolNames(
+                    for: operatingMode,
+                    executionPlan: executionPlan
+                )
+            ),
+            handler: modelInputCaptureHandler
+        )
+
+        let effectiveChatSelection = inference.effectiveChatSurfaceSelection(
+            for: operatingMode
+        )
+        let shouldForceDirectLocalStream = executionPlan?.forcesLocalExecution == true
+            && {
+                switch inference.preferredChatModelSelection {
+                case .cloud, .appleIntelligence:
+                    return false
+                case .localMLX:
+                    if case .localMLX = effectiveChatSelection {
+                        return true
+                    }
+                    return false
+                }
+            }()
+
+        if shouldForceDirectLocalStream {
             return triageService.streamGeneralLocally(
                 prompt: finalPrompt,
                 systemPrompt: systemPrompt,
@@ -653,14 +710,25 @@ final class PipelineService {
     /// pipeline state + render it to markdown. Local paths get the
     /// compact variant (small-model-friendly); cloud gets the full
     /// manifest. Returns nil if we don't have enough info.
+    ///
+    /// `toolExecutionAvailable` is false for direct-stream callers
+    /// (Fast / Thinking cloud, local non-agent) that can't execute
+    /// app tools. When false, app-level tools are filtered out so
+    /// the manifest only advertises provider-native tools the request
+    /// actually supports (web_search, web_fetch, code_execution,
+    /// google_search). This prevents the model from hallucinating
+    /// tool calls for vault_read / fs_read / patch etc. that the
+    /// runtime can't honor.
     private func buildCapabilityManifest(
         operatingMode: EpistemosOperatingMode,
-        executionPlan: OverseerComplexityRouter.ExecutionPlan?
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?,
+        toolExecutionAvailable: Bool = true
     ) -> String? {
+        let effectiveSelection = inference.effectiveChatSurfaceSelection(for: operatingMode)
         let providerLabel: String
         let modelLabel: String
         let isLocal: Bool
-        switch inference.preferredChatModelSelection {
+        switch effectiveSelection {
         case .cloud(let model):
             providerLabel = model.provider.rawValue
             modelLabel = model.vendorModelID
@@ -675,12 +743,20 @@ final class PipelineService {
             isLocal = true
         }
 
-        let allowedNames: [String]
-        if let executionPlan {
-            allowedNames = Array(executionPlan.allowedToolNames).sorted()
-        } else {
-            allowedNames = []
-        }
+        let allowedNames: [String] = {
+            if toolExecutionAvailable {
+                return inference.capabilityToolNames(
+                    for: operatingMode,
+                    executionPlan: executionPlan
+                )
+            }
+            // Direct-stream path: only keep provider-native tools
+            // the cloud request actually attaches. App tools would
+            // just lie to the model.
+            return inference.providerNativeCapabilityToolNameList(
+                for: operatingMode
+            )
+        }()
 
         let vaultName = vaultPathProvider().flatMap {
             URL(fileURLWithPath: $0).lastPathComponent
@@ -705,6 +781,36 @@ final class PipelineService {
         return manifest
     }
 
+    private func emitCapturedModelInput(
+        systemPrompt: String?,
+        userPrompt: String,
+        conversationHistory: String?,
+        operatingMode: EpistemosOperatingMode,
+        toolDefinitionsJSON: String?,
+        handler: (@MainActor @Sendable (CapturedModelInput) -> Void)?
+    ) {
+        guard let handler else { return }
+        handler(
+            CapturedModelInput(
+                runtimeLabel: inference.effectiveModelLabel(for: operatingMode),
+                systemPrompt: systemPrompt,
+                userPrompt: userPrompt,
+                messageHistory: conversationHistory,
+                toolDefinitionsJSON: toolDefinitionsJSON
+            )
+        )
+    }
+
+    static func localToolTier(
+        for operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan?
+    ) -> ChatToolTier {
+        let effectiveMode = executionPlan?.allowsToolExecution == true
+            ? executionPlan?.localOperatingMode ?? operatingMode
+            : operatingMode
+        return ChatToolTier.from(operatingMode: effectiveMode)
+    }
+
     private func filteredTools(
         _ tools: [OmegaToolDefinition],
         using executionPlan: OverseerComplexityRouter.ExecutionPlan?
@@ -713,5 +819,34 @@ final class PipelineService {
         let allowed = executionPlan.allowedToolNames
         guard !allowed.isEmpty else { return [] }
         return tools.filter { allowed.contains($0.name) }
+    }
+
+    nonisolated private static func encodedToolDefinitionsJSON(
+        _ tools: [OmegaToolDefinition]
+    ) -> String? {
+        let schemas = tools.map(\.planningSchema)
+        guard !schemas.isEmpty else { return nil }
+        return encodedJSON(schemas)
+    }
+
+    nonisolated private static func encodedToolNameJSON(
+        _ toolNames: [String]
+    ) -> String? {
+        let payload = toolNames.map { ["name": $0] }
+        guard !payload.isEmpty else { return nil }
+        return encodedJSON(payload)
+    }
+
+    nonisolated private static func encodedJSON(
+        _ payload: Any
+    ) -> String? {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(
+                withJSONObject: payload,
+                options: [.prettyPrinted, .sortedKeys]
+              ) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
     }
 }

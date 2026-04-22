@@ -1563,6 +1563,7 @@ actor VaultIndexActor {
             VaultManifest.ManifestEntry(
                 pageId: page.id,
                 title: page.title,
+                relativePath: page.vaultRelativeNotePath,
                 tags: page.tags,
                 folderName: page.folder?.name,
                 wordCount: page.wordCount,
@@ -1598,6 +1599,7 @@ actor VaultIndexActor {
             VaultManifest.ManifestEntry(
                 pageId: page.id,
                 title: page.title,
+                relativePath: page.vaultRelativeNotePath,
                 tags: page.tags,
                 folderName: page.folder?.name,
                 wordCount: page.wordCount,  // Use cached field — no body read
@@ -1614,6 +1616,7 @@ actor VaultIndexActor {
             VaultManifest.NoteBody(
                 pageId: page.id,
                 title: page.title,
+                relativePath: page.vaultRelativeNotePath,
                 body: String(page.loadBody(mapped: true).prefix(2000))
             )
         }
@@ -1641,7 +1644,10 @@ actor VaultIndexActor {
             )
             if let page = fetchFirst(descriptor, label: "note body for \(id)") {
                 results.append(VaultManifest.NoteBody(
-                    pageId: page.id, title: page.title, body: page.loadBody(mapped: true)
+                    pageId: page.id,
+                    title: page.title,
+                    relativePath: page.vaultRelativeNotePath,
+                    body: page.loadBody(mapped: true)
                 ))
             }
         }
@@ -1661,6 +1667,7 @@ actor VaultIndexActor {
             VaultManifest.ManifestEntry(
                 pageId: page.id,
                 title: page.title,
+                relativePath: page.vaultRelativeNotePath,
                 tags: page.tags,
                 folderName: page.folder?.name,
                 wordCount: page.wordCount,  // Use cached field — no body read

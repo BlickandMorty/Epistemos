@@ -663,12 +663,14 @@ struct AssistantComposerChrome: ViewModifier {
     let theme: EpistemosTheme
     let metrics: AssistantComposerMetrics
     let isActive: Bool
+    let lightModeSurfaceTint: Color?
     private var prefersNativeAssistantGlass: Bool {
-        theme.usesNativeWindowBlur || theme == .light || theme == .oled
+        lightModeSurfaceTint == nil && (theme.usesNativeWindowBlur || theme == .light || theme == .oled)
     }
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
+        let lightSurfaceTint = lightModeSurfaceTint ?? theme.resolved.background.color
 
         content
             .background {
@@ -684,7 +686,7 @@ struct AssistantComposerChrome: ViewModifier {
                 } else {
                     ZStack {
                         shape.fill(.regularMaterial)
-                        shape.fill(theme.resolved.background.color.opacity(0.16))
+                        shape.fill(lightSurfaceTint.opacity(lightModeSurfaceTint == nil ? 0.16 : 0.94))
                     }
                 }
             }
@@ -1185,9 +1187,17 @@ extension View {
     func assistantComposerChrome(
         theme: EpistemosTheme,
         metrics: AssistantComposerMetrics = .mainChat,
-        isActive: Bool = true
+        isActive: Bool = true,
+        lightModeSurfaceTint: Color? = nil
     ) -> some View {
-        modifier(AssistantComposerChrome(theme: theme, metrics: metrics, isActive: isActive))
+        modifier(
+            AssistantComposerChrome(
+                theme: theme,
+                metrics: metrics,
+                isActive: isActive,
+                lightModeSurfaceTint: lightModeSurfaceTint
+            )
+        )
     }
 
     func assistantPopoverChrome(

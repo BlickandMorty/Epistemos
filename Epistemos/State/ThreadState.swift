@@ -176,6 +176,10 @@ final class ThreadState {
         miniChatStreamingThinkingByID[chatID] ?? ""
     }
 
+    func setMiniChatStreamingThinking(_ text: String, chatID: String) {
+        miniChatStreamingThinkingByID[chatID] = text
+    }
+
     func appendMiniChatStreamingThinking(_ delta: String, chatID: String) {
         guard !delta.isEmpty else { return }
         miniChatStreamingThinkingByID[chatID, default: ""].append(delta)

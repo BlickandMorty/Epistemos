@@ -69,6 +69,7 @@ struct ChatInputBar: View {
     @State private var text = ""
     @State private var isFocused = false
     @State private var composerHeight = ChatComposerInputMetrics.minHeight
+    @State private var lastConsumedDraftRevision: UInt = 0
 
     // Notes Mode @-mention dropdown
     @State private var showMentionDropdown = false
@@ -85,6 +86,7 @@ struct ChatInputBar: View {
     /// everywhere.
     @State private var showSlashMenu = false
     @State private var slashFilter = ""
+    @State private var selectedSlashCommand: ACCSlashCommand?
 
     private var theme: EpistemosTheme { ui.theme }
     private var trimmedText: String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -95,7 +97,7 @@ struct ChatInputBar: View {
         vaultSync.ambientManifest ?? AppBootstrap.shared?.ambientManifest
     }
     private let composerMetrics = AssistantComposerMetrics.mainChat
-    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  The chat auto-routes — tools and longer runs promote to agent tier when your prompt needs it."
+    private let placeholderText = ComposerAttachmentEntryHints.mainChatPlaceholder + "  Auto-routes when your prompt needs tools or a longer run."
 
     /// Capability the pill should display right now. During a streaming /
     /// agent turn, chat.currentCapability (set by ChatCoordinator from live
@@ -196,6 +198,9 @@ struct ChatInputBar: View {
             return
         }
         let afterSlash = String(trimmedLeading.dropFirst())
+        if !afterSlash.isEmpty {
+            selectedSlashCommand = nil
+        }
         // Close the menu as soon as the user adds whitespace — the
         // intent has become a free-form prompt that happens to start
         // with /something.
@@ -220,6 +225,7 @@ struct ChatInputBar: View {
                 availableModes: availableOperatingModes
             )
         }
+        selectedSlashCommand = command
 
         // Trim the leading `/token` plus any single trailing space so
         // the user can start typing immediately. If the user had already
@@ -242,8 +248,19 @@ struct ChatInputBar: View {
             }
         }
 
+        if trimmedText.isEmpty {
+            text = command.suggestedPrompt
+        }
+
         showSlashMenu = false
         slashFilter = ""
+    }
+
+    private func openSlashCommandMenu() {
+        guard !supportedSlashCommands.isEmpty else { return }
+        slashFilter = ""
+        showSlashMenu = true
+        isFocused = true
     }
 
     private var needsCloudBanner: some View {
@@ -254,7 +271,7 @@ struct ChatInputBar: View {
                 Image(systemName: "cloud.bolt.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.orange)
-                Text("This looks like agent work. Tap to switch to OpenAI and run it with tools.")
+                Text("This needs tools. Tap to switch to OpenAI and keep it in the main chat.")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -275,7 +292,7 @@ struct ChatInputBar: View {
         )
         .padding(.top, 6)
         .accessibilityLabel(
-            "Switch to OpenAI to run this as an agent. This prompt looks like agent work but a local model is selected."
+            "Switch to OpenAI and keep this in the main chat with tools. This prompt needs tools but a local model is selected."
         )
         .accessibilityAddTraits(.isButton)
     }
@@ -315,6 +332,21 @@ struct ChatInputBar: View {
     private var selectedOperatingMode: EpistemosOperatingMode {
         operatingMode?.wrappedValue ?? .fast
     }
+    private var supportedSlashCommands: [ACCSlashCommand] {
+        ACCSlashCommand.availableCommands(
+            for: MainChatOperatingModePreference.supportedModes(
+                for: inference,
+                availableModes: availableOperatingModes
+            )
+        )
+    }
+    private var activeSelectedSlashCommand: ACCSlashCommand? {
+        guard let selectedSlashCommand,
+              supportedSlashCommands.contains(selectedSlashCommand) else {
+            return nil
+        }
+        return selectedSlashCommand
+    }
     private var composerIsActive: Bool {
         isFocused || !trimmedText.isEmpty || isProcessing || !chat.pendingAttachments.isEmpty || !chat.pendingContextAttachments.isEmpty
     }
@@ -323,9 +355,6 @@ struct ChatInputBar: View {
             isActive: isProcessing,
             streamingText: chat.streamingText
         )
-    }
-    private var composerHaloStyle: AssistantComposerHaloStyle? {
-        AssistantComposerHaloStyle.resolve(for: composerStatusPhase)
     }
     private var composerStatusLabelState: AssistantComposerStatusLabelState? {
         AssistantComposerStatusLabelState.resolve(
@@ -462,6 +491,7 @@ struct ChatInputBar: View {
                     }
                     .popover(isPresented: $showSlashMenu, arrowEdge: .top) {
                         SlashCommandPopover(
+                            commands: supportedSlashCommands,
                             filter: slashFilter,
                             onSelect: { command in
                                 applySlashCommand(command)
@@ -476,6 +506,12 @@ struct ChatInputBar: View {
 
                 HStack(alignment: .center, spacing: MainChatComposerLayout.controlRowSpacing) {
                     ComposerControlStrip(spacing: 8, resetKey: composerControlResetKey) {
+                        if !supportedSlashCommands.isEmpty {
+                            slashButton
+                        }
+                        if let selectedSlashCommand = activeSelectedSlashCommand {
+                            selectedSlashPill(for: selectedSlashCommand)
+                        }
                         ChatBrainPickerMenu(
                             operatingMode: operatingMode,
                             availableOperatingModes: availableOperatingModes,
@@ -532,16 +568,9 @@ struct ChatInputBar: View {
         .assistantComposerChrome(
             theme: theme,
             metrics: composerMetrics,
-            isActive: composerIsActive
+            isActive: composerIsActive,
+            lightModeSurfaceTint: theme.resolved.background.color
         )
-        .background {
-            AssistantComposerOuterHalo(
-                style: composerHaloStyle,
-                accent: composerAccentColor,
-                cornerRadius: composerMetrics.cornerRadius,
-                animatesContinuously: false
-            )
-        }
         .overlay(alignment: .topLeading) {
             if showMentionDropdown {
                 ComposerReferencePopover(
@@ -564,6 +593,12 @@ struct ChatInputBar: View {
         .padding(.bottom, Spacing.md)
         .frame(maxWidth: ChatLayout.mainComposerMaxWidth)
         .frame(maxWidth: .infinity)
+        .onAppear {
+            applyPendingComposerDraftIfNeeded()
+        }
+        .onChange(of: chat.pendingComposerDraftRevision) { _, _ in
+            applyPendingComposerDraftIfNeeded()
+        }
     }
 
     private var composerTextArea: some View {
@@ -588,11 +623,10 @@ struct ChatInputBar: View {
             if let labelState = composerStatusLabelState {
                 AssistantAnimatedStatusLabel(
                     state: labelState,
-                    accent: composerAccentColor,
                     phase: composerStatusPhase,
                     theme: theme,
                     font: .system(size: 16, weight: .regular, design: .rounded),
-                    haloStyle: composerHaloStyle
+                    activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)
                 )
                 .padding(.top, ChatComposerInputMetrics.placeholderTopPadding)
                 .padding(.leading, ChatComposerInputMetrics.horizontalInset)
@@ -639,6 +673,34 @@ struct ChatInputBar: View {
             openFilePicker()
         }
         .accessibilityHint("Open file picker to attach a document")
+        .disabled(isProcessing)
+    }
+
+    private var slashButton: some View {
+        ToolbarCapsuleButton(
+            title: "/",
+            systemImage: "command",
+            variant: .toolbar,
+            helpText: "Commands",
+            accessibilityLabel: "Open commands"
+        ) {
+            openSlashCommandMenu()
+        }
+        .accessibilityHint("Open the slash command menu")
+        .disabled(isProcessing)
+    }
+
+    private func selectedSlashPill(for command: ACCSlashCommand) -> some View {
+        ToolbarCapsuleButton(
+            title: "/\(command.rawValue)",
+            systemImage: command.icon,
+            variant: .toolbar,
+            helpText: command.helpText,
+            accessibilityLabel: "Selected command \(command.displayName)"
+        ) {
+            selectedSlashCommand = nil
+        }
+        .accessibilityHint("Clear the selected slash command")
         .disabled(isProcessing)
     }
 
@@ -732,14 +794,42 @@ struct ChatInputBar: View {
 
     private func submitCurrentText() {
         guard !trimmedText.isEmpty, !isProcessing else { return }
+        let predictedCapability = ChatCapability.predictIntent(
+            text: trimmedText,
+            isCloudProvider: isCloudSelection
+        ).predicted
+        if predictedCapability == .agent,
+           let operatingMode {
+            let supportedModes = MainChatOperatingModePreference.supportedModes(
+                for: inference,
+                availableModes: availableOperatingModes
+            )
+            if supportedModes.contains(.agent) {
+                operatingMode.wrappedValue = .agent
+            }
+        }
+        chat.queuePendingSlashCommand(activeSelectedSlashCommand)
         onSubmit(trimmedText)
         text = ""
         composerHeight = ChatComposerInputMetrics.minHeight
+        selectedSlashCommand = nil
         showMentionDropdown = false
         referencePopoverStyle = .mention
         mentionPickerAutofocus = false
         mentionFilter = ""
         referenceSearch.reset()
+    }
+
+    private func applyPendingComposerDraftIfNeeded() {
+        let revision = chat.pendingComposerDraftRevision
+        guard revision != lastConsumedDraftRevision else { return }
+        lastConsumedDraftRevision = revision
+
+        guard let draft = chat.consumePendingComposerDraft() else { return }
+        text = draft
+        selectedSlashCommand = nil
+        refreshSlashMenu(for: draft)
+        isFocused = true
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
