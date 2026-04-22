@@ -562,7 +562,7 @@ struct NoteDetailWorkspaceView: View {
     @State private var legacyRecoveryRefreshTask: Task<Void, Never>?
 
     @State private var showIdeasPopover = false
-    @State private var showChatSidebar = false
+    @AppStorage("noteWorkspace.showChatSidebar") private var showChatSidebar = false
     @State private var showBacklinksPopover = false
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0

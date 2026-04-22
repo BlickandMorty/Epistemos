@@ -13,7 +13,7 @@ struct ChatSidebarView: View {
 
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
-    @State private var showNotesOnly = false
+    @AppStorage("chatSidebar.showNotesOnly") private var showNotesOnly = false
     @State private var deleteErrorMessage: String?
     private var theme: EpistemosTheme { ui.theme }
 
