@@ -66,7 +66,7 @@ impl ClaudeProvider {
     }
 
     pub fn opus() -> Self {
-        Self::from_env("claude-opus-4-6")
+        Self::from_env("claude-opus-4-7")
     }
 
     pub fn sonnet() -> Self {
@@ -480,12 +480,12 @@ impl AgentProvider for ClaudeProvider {
             supports_streaming: true,
             supports_compaction: true,
             cost_input_per_million: match self.model {
-                "claude-opus-4-6" => 15.0,
+                "claude-opus-4-7" => 15.0,
                 "claude-sonnet-4-6" => 3.0,
                 _ => 0.8,
             },
             cost_output_per_million: match self.model {
-                "claude-opus-4-6" => 75.0,
+                "claude-opus-4-7" => 75.0,
                 "claude-sonnet-4-6" => 15.0,
                 _ => 4.0,
             },

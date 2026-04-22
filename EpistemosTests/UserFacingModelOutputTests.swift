@@ -186,6 +186,25 @@ struct UserFacingModelOutputTests {
         #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
     }
 
+    @Test("final text drops dangling fenced-language markers without surfacing them raw")
+    func finalTextDropsDanglingFencedLanguageMarker() {
+        let raw = """
+        ```xml
+        """
+
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
+    @Test("final text drops malformed repeated tool payload fragments without surfacing raw JSON")
+    func finalTextDropsMalformedRepeatedToolPayloadFragments() {
+        let raw = """
+        {"name": "vault_search", "arguments": {"path": "tmp"}}{"name": "vault_search", "arguments": {"path": "tmp
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+    }
+
     @Test("streaming text stays silent during prose reasoning until an explicit answer appears")
     func streamingTextSuppressesProseReasoningPrelude() {
         let partial = """

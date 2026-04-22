@@ -90,6 +90,11 @@ clear_audit_defaults() {
   defaults delete "${AUDIT_DEFAULTS_DOMAIN}" epistemos.skipWorkspaceAutoSaveOnce >/dev/null 2>&1 || true
 }
 
+clear_audit_saved_state() {
+  rm -rf "${TMPDIR%/}/${AUDIT_BUNDLE_ID}.savedState"
+  rm -rf "${HOME}/Library/Saved Application State/${AUDIT_BUNDLE_ID}.savedState"
+}
+
 kill_existing_audit_processes() {
   pkill -f "${AUDIT_APP_PATH}/Contents/MacOS/Epistemos" >/dev/null 2>&1 || true
 }
@@ -145,6 +150,7 @@ fi
 
 kill_existing_audit_processes
 clear_audit_defaults
+clear_audit_saved_state
 prepare_audit_bundle
 
 if [[ "${launch_app}" == "1" ]]; then

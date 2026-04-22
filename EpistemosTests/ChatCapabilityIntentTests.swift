@@ -40,6 +40,26 @@ struct ChatCapabilityIntentTests {
         #expect(prediction.needsCloud == false)
     }
 
+    @Test("essay and draft vault lookup verbs predict agent intent")
+    func essayAndDraftLookupVerbsPredictAgentIntent() {
+        let prompts = [
+            "read my essay on determinism and summarize it",
+            "find the essay where i mentioned psychoneuroimmunology a few weeks ago",
+            "rewrite my draft on determinism",
+            "review the draft where i wrote about trauma",
+        ]
+
+        for prompt in prompts {
+            let local = ChatCapability.predictIntent(text: prompt, isCloudProvider: false)
+            let cloud = ChatCapability.predictIntent(text: prompt, isCloudProvider: true)
+
+            #expect(local.predicted == .agent, "\"\(prompt)\" should predict .agent locally")
+            #expect(local.needsCloud == false)
+            #expect(cloud.predicted == .agent, "\"\(prompt)\" should predict .agent on cloud")
+            #expect(cloud.needsCloud == false)
+        }
+    }
+
     @Test("local note-writing verbs stay tool-capable without forcing cloud")
     func localNoteWritingSignalsUseResearchPrediction() {
         let prediction = ChatCapability.predictIntent(

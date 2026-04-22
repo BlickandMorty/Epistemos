@@ -320,7 +320,7 @@ struct LocalModelInfrastructureTests {
         ])
 
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_8B4Bit.rawValue))
-        #expect(inference.availableOperatingModes == [.fast, .thinking])
+        #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
 
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4BThinking25074Bit.rawValue))
         #expect(inference.availableOperatingModes == [.thinking])
@@ -359,7 +359,7 @@ struct LocalModelInfrastructureTests {
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.deepseekR1Distill7B.rawValue))
 
-        #expect(inference.availableOperatingModes == [.thinking])
+        #expect(inference.availableOperatingModes == [.thinking, .agent])
         #expect(inference.supportsThinkingOperatingMode)
     }
 
@@ -375,6 +375,106 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("Qwen 3 fast and thinking checkpoints collapse into one picker model with mode-aware routing")
+    func qwen3UnifiedPickerCollapsesFastAndThinkingCheckpoints() {
+        let inference = InferenceState()
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen3_4BThinking25074Bit.rawValue,
+        ])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        #expect(
+            inference.releaseSelectableInstalledLocalTextModelIDs
+                == [LocalTextModelID.qwen3_4B4Bit.rawValue]
+        )
+        #expect(inference.localModelPickerDisplayName(for: LocalTextModelID.qwen3_4B4Bit.rawValue) == "Qwen 3")
+        #expect(inference.availableOperatingModes == [.fast, .thinking, .agent])
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .localMLX(LocalTextModelID.qwen3_4BThinking25074Bit.rawValue))
+        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+    }
+
+    @MainActor
+    @Test("agent mode promotes fast local routing tiers to a stronger installed local agent model")
+    func agentModePromotesFastRoutingTierToStrongerInstalledAgentModel() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen3CoderNext4Bit.rawValue,
+        ])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        inference.setLatestLocalRuntimeHealth(
+            LocalRuntimeHealthSnapshot(
+                requestedRuntimeKind: nil,
+                resolvedRuntimeKind: .mlx,
+                executionMode: .local,
+                modelID: LocalTextModelID.qwen3_4B4Bit.rawValue,
+                artifactID: nil,
+                fallbackMode: "resident",
+                executionPhase: "idle",
+                timeToFirstTokenMS: nil,
+                totalDurationMS: 0,
+                tokensPerSecond: nil,
+                outputTokenCount: 0,
+                outputCharacterCount: 0,
+                availableMemoryBytes: 24 * 1_073_741_824,
+                runtimeResourceURL: nil
+            )
+        )
+
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen3CoderNext4Bit.rawValue)
+        #expect(inference.effectiveChatSurfaceSelection(for: .fast) == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == .localMLX(LocalTextModelID.qwen3CoderNext4Bit.rawValue))
+    }
+
+    @MainActor
+    @Test("agent mode keeps the routed local model when the stronger dedicated agent tier would fail memory preflight")
+    func agentModeKeepsRoutedModelWhenStrongerDedicatedTierCannotFitCurrentMemory() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 64_000_000_000,
+                roundedMemoryGB: 64,
+                maxRecommendedLocalContentLength: 28_000
+            )
+        )
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen3CoderNext4Bit.rawValue,
+        ])
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+        inference.setLatestLocalRuntimeHealth(
+            LocalRuntimeHealthSnapshot(
+                requestedRuntimeKind: nil,
+                resolvedRuntimeKind: .mlx,
+                executionMode: .local,
+                modelID: LocalTextModelID.qwen3_4B4Bit.rawValue,
+                artifactID: nil,
+                fallbackMode: "resident",
+                executionPhase: "idle",
+                timeToFirstTokenMS: nil,
+                totalDurationMS: 0,
+                tokensPerSecond: nil,
+                outputTokenCount: 0,
+                outputCharacterCount: 0,
+                availableMemoryBytes: 4 * 1_073_741_824,
+                runtimeResourceURL: nil
+            )
+        )
+
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen3_4B4Bit.rawValue)
+        #expect(inference.effectiveChatSurfaceSelection(for: .agent) == .localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+    }
+
+    @MainActor
     @Test("hidden local agent tiers still back the local agent loop when soft guidance is available")
     func hiddenLocalAgentTiersStillBackTheLocalAgentLoop() {
         #expect(LocalToolGrammar.supportsLocalAgentLoop)
@@ -386,7 +486,7 @@ struct LocalModelInfrastructureTests {
         ])
         inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
 
-        #expect(inference.availableOperatingModes == [.fast, .agent])
+        #expect(inference.availableOperatingModes == [.fast])
         #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen35_2B4Bit.rawValue)
         #expect(inference.effectiveLocalAgentTextModelID == LocalTextModelID.qwen35_4B4Bit.rawValue)
         #expect(inference.supportsLocalAgentLoop)

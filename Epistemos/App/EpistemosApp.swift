@@ -72,6 +72,14 @@ private struct AuditMinimalHomeSceneView: View {
 enum SavedApplicationStatePurger {
     private static let log = Logger(subsystem: "com.epistemos", category: "SavedApplicationState")
 
+    static func shouldPurgeAtLaunch(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        !VaultSyncService.shouldRestoreVaultFromBookmark(
+            processInfoEnvironment: processInfoEnvironment
+        )
+    }
+
     static func purgeIfNeeded(bundleIdentifier: String? = Bundle.main.bundleIdentifier) {
         guard let bundleIdentifier, !bundleIdentifier.isEmpty else { return }
         let fileManager = FileManager.default
@@ -482,6 +490,9 @@ struct EpistemosApp: App {
     @State private var showQuickCapture = false
 
     init() {
+        if SavedApplicationStatePurger.shouldPurgeAtLaunch() {
+            SavedApplicationStatePurger.purgeIfNeeded()
+        }
         if !Self.isRunningTests {
             CrashReportCollector.shared.startCollecting()
             RuntimeDiagnostics.logStorageLocations()
@@ -496,7 +507,7 @@ struct EpistemosApp: App {
     }
 
     var body: some Scene {
-        Window("Epistemos", id: "main") {
+        WindowGroup("Epistemos") {
             homeSceneContent
         }
         .restorationBehavior(.disabled)

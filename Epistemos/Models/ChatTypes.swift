@@ -363,6 +363,7 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
     var id: String
     var role: MessageRole
     var content: String
+    var contentBlocks: [MessageContentBlock]?
     var thinkingTrace: String?
     var thinkingDurationSeconds: Double?
     var loadedNoteTitles: [String]?
@@ -373,6 +374,7 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         id: String = UUID().uuidString,
         role: MessageRole,
         content: String,
+        contentBlocks: [MessageContentBlock]? = nil,
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
         loadedNoteTitles: [String]? = nil,
@@ -382,6 +384,7 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         self.id = id
         self.role = role
         self.content = content
+        self.contentBlocks = contentBlocks
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.loadedNoteTitles = loadedNoteTitles
@@ -399,12 +402,12 @@ enum ChatPreviewText {
             return preview
         }
 
-        if let assistantMessage = thread.messages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && $0.role == .assistant }) {
-            return cleanedPreview(from: assistantMessage.content, role: assistantMessage.role)
+        if let assistantMessage = thread.messages.last(where: { hasPreviewContent($0) && $0.role == .assistant }) {
+            return cleanedPreview(from: assistantMessage)
         }
 
-        if let latestMessage = thread.messages.last(where: { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) {
-            return cleanedPreview(from: latestMessage.content, role: latestMessage.role)
+        if let latestMessage = thread.messages.last(where: hasPreviewContent) {
+            return cleanedPreview(from: latestMessage)
         }
 
         return nil
@@ -441,6 +444,13 @@ enum ChatPreviewText {
 
     private static func cleanedPreview(from message: ChatMessage) -> String? {
         if let preview = cleanedPreview(from: message.effectiveText, role: message.role) {
+            return preview
+        }
+        return toolSummaryPreview(from: message.contentBlocks)
+    }
+
+    private static func cleanedPreview(from message: AssistantMessage) -> String? {
+        if let preview = cleanedPreview(from: message.content, role: message.role) {
             return preview
         }
         return toolSummaryPreview(from: message.contentBlocks)
@@ -485,6 +495,13 @@ enum ChatPreviewText {
     }
 
     private static func hasPreviewContent(_ message: ChatMessage) -> Bool {
+        if !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return true
+        }
+        return toolSummaryPreview(from: message.contentBlocks) != nil
+    }
+
+    private static func hasPreviewContent(_ message: AssistantMessage) -> Bool {
         if !message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return true
         }

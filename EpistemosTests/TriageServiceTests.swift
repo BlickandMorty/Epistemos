@@ -185,29 +185,29 @@ struct TriageServiceTests {
     @Test("legacy cloud model selections migrate to supported cloud models")
     func legacyCloudModelSelectionsMigrateForward() {
         #expect(ChatModelSelection(rawValue: "cloud:openai:gpt-5.3") == .cloud(.openAIGPT54))
-        #expect(ChatModelSelection(rawValue: "cloud:anthropic:claude-sonnet-4-6") == .cloud(.anthropicClaudeSonnet4))
-        #expect(ChatModelSelection(rawValue: "cloud:google:gemini-1.5-pro") == .cloud(.googleGemini25Pro))
+        #expect(ChatModelSelection(rawValue: "cloud:anthropic:claude-sonnet-4-6") == .cloud(.anthropicClaudeSonnet46))
+        #expect(ChatModelSelection(rawValue: "cloud:google:gemini-1.5-pro") == .cloud(.googleGemini31ProPreview))
     }
 
-    @Test("cloud catalog still covers the flagship provider families")
-    func cloudCatalogStillCoversFlagshipFamilies() {
-        #expect(CloudTextModelID.models(for: .openAI).contains(.openAIGPT54))
-        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeOpus41))
-        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeSonnet4))
-        #expect(CloudTextModelID.models(for: .anthropic).contains(.anthropicClaudeHaiku35))
-        #expect(CloudTextModelID.models(for: .google).contains(.googleGemini31ProPreview))
-        #expect(CloudTextModelID.models(for: .zai).contains(.zaiGLM5))
-        #expect(CloudTextModelID.models(for: .kimi).contains(.kimiK25))
-        #expect(CloudTextModelID.models(for: .minimax).contains(.minimaxM25))
-        #expect(CloudTextModelID.models(for: .deepseek).contains(.deepseekReasoner))
+    @MainActor
+    @Test("visible cloud picker surfaces stay curated to the main providers")
+    func visibleCloudPickerSurfacesStayCurated() {
+        let inference = InferenceState()
+
+        #expect(inference.cloudModels(for: .openAI) == [.openAIGPT54, .openAIGPT54Mini])
+        #expect(inference.cloudModels(for: .anthropic) == [.anthropicClaudeOpus47, .anthropicClaudeSonnet46])
+        #expect(inference.cloudModels(for: .google) == [.googleGemini31ProPreview, .googleGemini3FlashPreview])
+        #expect(CloudModelProvider.preferredOrder == [.openAI, .anthropic, .google])
     }
 
     @Test("cloud models expose only their supported operating modes")
     func cloudModelsExposeSupportedOperatingModes() {
         #expect(CloudTextModelID.openAIGPT54.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
         #expect(CloudTextModelID.openAIGPT54Mini.supportedOperatingModes == [.fast, .agent])
-        #expect(CloudTextModelID.anthropicClaudeHaiku35.supportedOperatingModes == [.fast])
-        #expect(CloudTextModelID.googleGemini25Pro.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.anthropicClaudeOpus47.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.anthropicClaudeSonnet46.supportedOperatingModes == [.fast, .thinking, .agent])
+        #expect(CloudTextModelID.googleGemini31ProPreview.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
+        #expect(CloudTextModelID.googleGemini3FlashPreview.supportedOperatingModes == [.fast, .agent])
         #expect(CloudTextModelID.zaiGLM5.supportedOperatingModes == [.fast, .thinking, .pro, .agent])
         #expect(CloudTextModelID.kimiK2Thinking.supportedOperatingModes == [.thinking, .pro, .agent])
         #expect(CloudTextModelID.minimaxM25HighSpeed.supportedOperatingModes == [.fast, .agent])
@@ -219,13 +219,13 @@ struct TriageServiceTests {
     func cloudRuntimeCapabilityMatrixStaysModelAware() {
         #expect(CloudTextModelID.openAIGPT54.supportsNativeReasoningEffortControl)
         #expect(!CloudTextModelID.openAIO3.supportsNativeReasoningEffortControl)
-        #expect(CloudTextModelID.anthropicClaudeSonnet4.supportsNativeReasoningEffortControl)
-        #expect(CloudTextModelID.googleGemini25Pro.supportsNativeReasoningEffortControl)
+        #expect(CloudTextModelID.anthropicClaudeSonnet46.supportsNativeReasoningEffortControl)
+        #expect(CloudTextModelID.googleGemini31ProPreview.supportsNativeReasoningEffortControl)
         #expect(!CloudTextModelID.deepseekReasoner.supportsNativeReasoningEffortControl)
 
         #expect(CloudTextModelID.openAIGPT54.supportsProviderNativeFeatureControls)
-        #expect(CloudTextModelID.anthropicClaudeSonnet4.supportsProviderNativeFeatureControls)
-        #expect(CloudTextModelID.googleGemini25Pro.supportsProviderNativeFeatureControls)
+        #expect(CloudTextModelID.anthropicClaudeSonnet46.supportsProviderNativeFeatureControls)
+        #expect(CloudTextModelID.googleGemini31ProPreview.supportsProviderNativeFeatureControls)
         #expect(!CloudTextModelID.deepseekReasoner.supportsProviderNativeFeatureControls)
     }
 
@@ -256,14 +256,14 @@ struct TriageServiceTests {
     @MainActor func inferenceStateSanitizesUnsupportedCloudOperatingModes() {
         let inference = makeIsolatedInferenceState(
             keychainLoad: { key in
-                key == CloudModelProvider.anthropic.apiKeyKeychainKey ? "sk-ant-test" : nil
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
             },
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
-        inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54Mini))
 
-        #expect(inference.availableOperatingModes == [.fast])
+        #expect(inference.availableOperatingModes == [.fast, .agent])
         #expect(inference.sanitizedOperatingMode(.thinking) == .fast)
         #expect(inference.sanitizedOperatingMode(.pro) == .fast)
     }
@@ -457,8 +457,8 @@ struct TriageServiceTests {
         inference.setPreferredCloudModel(.openAIGPT52)
 
         #expect(inference.preferredChatModelSelection == .localMLX(localModelID))
-        #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT52)
-        #expect(inference.preferredAutoRouteCloudModel(for: .pro) == .openAIGPT52)
+        #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT54)
+        #expect(inference.preferredAutoRouteCloudModel(for: .pro) == .openAIGPT54)
     }
 
     @Test("cloud auto fallback persists across inference state reloads")
@@ -789,11 +789,11 @@ struct TriageServiceTests {
         )
 
         inference.setPreferredChatModelSelection(
-            ChatModelSelection.cloud(CloudTextModelID.anthropicClaudeSonnet4)
+            ChatModelSelection.cloud(CloudTextModelID.anthropicClaudeSonnet46)
         )
         #expect(
             inference.effectiveModelLabel(for: EpistemosOperatingMode.agent)
-                == "Claude Code Claude Sonnet 4 (Latest Sonnet)"
+                == "Claude Code Claude Sonnet 4.6"
         )
         #expect(
             inference.reasoningTierLabel(
@@ -1724,6 +1724,64 @@ struct OverseerComplexityRouterTests {
         #expect(executionPlan.route == .managedAgentSession)
         #expect(executionPlan.plan.route == .managedAgentSession)
         #expect(executionPlan.allowedToolNames.contains("read_file"))
+    }
+
+    @Test("cloud note-seeking turns with resolved vault context escalate to a managed tools session")
+    @MainActor func cloudNoteSeekingTurnsWithResolvedVaultContextEscalateToManagedAgentSession() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "read my essay on determinism and summarize it",
+            contentLength: 44,
+            operatingMode: .thinking,
+            hasExplicitContext: true,
+            attachmentCount: 0,
+            notesContext: "Resolved note context",
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.plan.route == .managedAgentSession)
+        #expect(
+            executionPlan.allowedToolNames.contains("vault_read") ||
+            executionPlan.allowedToolNames.contains("readpagecontent")
+        )
+    }
+
+    @Test("cloud essay lookup turns escalate to a managed tools session before note resolution")
+    @MainActor func cloudEssayLookupTurnsEscalateToManagedAgentSessionBeforeResolution() {
+        let inference = makeIsolatedInferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let router = OverseerComplexityRouter(inference: inference)
+        let executionPlan = router.planForMainChat(
+            query: "read my essay on determinism and summarize it",
+            contentLength: 44,
+            operatingMode: .thinking,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.plan.route == .managedAgentSession)
+        #expect(
+            executionPlan.allowedToolNames.contains("vault_search") ||
+            executionPlan.allowedToolNames.contains("list_notes")
+        )
+        #expect(
+            executionPlan.allowedToolNames.contains("vault_read") ||
+            executionPlan.allowedToolNames.contains("readpagecontent")
+        )
     }
 
     @Test("agent route uses a hidden local agent tier when no release-visible chat tier is available")

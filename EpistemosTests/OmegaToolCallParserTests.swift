@@ -198,6 +198,21 @@ struct ToolCallParserTests {
         #expect(calls[0].arguments["path"] as? String == "All Things Must Go")
     }
 
+    @Test("Parses embedded JSON tool call hidden inside reasoning tags")
+    func parseEmbeddedJsonInsideThinkingTags() {
+        let input = """
+        <think>
+        I should use a file tool here.
+        {"name":"write_file","arguments":{"path":"/tmp/epistemos_local_tool_smoke.txt","content":"tool smoke ok"}}
+        </think>
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "write_file")
+        #expect(calls[0].arguments["path"] as? String == "/tmp/epistemos_local_tool_smoke.txt")
+        #expect(calls[0].arguments["content"] as? String == "tool smoke ok")
+    }
+
     @Test("Parses training-style JSON from inline markdown code")
     func parseInlineMarkdownCode() {
         let input = #"""

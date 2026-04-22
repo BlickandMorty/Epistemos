@@ -1141,7 +1141,7 @@ final class VaultSyncService {
         return Array(data.prefix(16)) == Array("SQLite format 3\u{0}".utf8)
     }
 
-    private nonisolated static func backupSQLiteDatabaseIfPresent(at sourceURL: URL, to destinationURL: URL) throws {
+    nonisolated static func backupSQLiteDatabaseIfPresent(at sourceURL: URL, to destinationURL: URL) throws {
         guard FileManager.default.fileExists(atPath: sourceURL.path) else {
             return
         }

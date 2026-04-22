@@ -4,6 +4,7 @@ import Foundation
 import Metal
 import os
 import QuartzCore
+import SQLite3
 import SwiftData
 
 // MARK: - Ship Gate
@@ -122,19 +123,18 @@ nonisolated struct StartupAutoDiscoveryReport: Sendable, Equatable {
     }
 }
 
-@MainActor
 enum StartupAutoDiscovery {
-    private static let browserbaseKeychainMappings: [StartupAutoDiscoveryKeyMapping] = [
+    private nonisolated static let browserbaseKeychainMappings: [StartupAutoDiscoveryKeyMapping] = [
         .init(envVar: "BROWSERBASE_API_KEY", keychainKey: "epistemos.browserbase.apiKey"),
         .init(envVar: "BROWSERBASE_PROJECT_ID", keychainKey: "epistemos.browserbase.projectID"),
     ]
 
-    static var keyMappings: [StartupAutoDiscoveryKeyMapping] {
+    nonisolated static var keyMappings: [StartupAutoDiscoveryKeyMapping] {
         var seen = Set<StartupAutoDiscoveryKeyMapping>()
         return browserbaseKeychainMappings.filter { seen.insert($0).inserted }
     }
 
-    private static let configAliases: [String: [String]] = [
+    private nonisolated static let configAliases: [String: [String]] = [
         "OPENROUTER_API_KEY": [
             "OPENROUTER_API_KEY",
             "openrouter_api_key",
@@ -210,7 +210,7 @@ enum StartupAutoDiscovery {
         ],
     ]
 
-    static func perform(
+    nonisolated static func perform(
         environment: [String: String] = ProcessInfo.processInfo.environment,
         fileManager: FileManager = .default,
         homeDirectoryURL: URL? = nil,
@@ -306,7 +306,7 @@ enum StartupAutoDiscovery {
         )
     }
 
-    static func testHostReport(
+    nonisolated static func testHostReport(
         temporaryRootURL: URL = FileManager.default.temporaryDirectory
     ) -> StartupAutoDiscoveryReport {
         return StartupAutoDiscoveryReport(
@@ -324,7 +324,7 @@ enum StartupAutoDiscovery {
         )
     }
 
-    static func defaultConfigFileURLs(
+    nonisolated static func defaultConfigFileURLs(
         fileManager: FileManager = .default,
         homeDirectoryURL: URL? = nil
     ) -> [URL] {
@@ -341,7 +341,7 @@ enum StartupAutoDiscovery {
         ]
     }
 
-    static func parseConfigValues(_ contents: String) -> [String: String] {
+    nonisolated static func parseConfigValues(_ contents: String) -> [String: String] {
         var values: [String: String] = [:]
         var sectionPath: [String] = []
 
@@ -388,7 +388,7 @@ enum StartupAutoDiscovery {
         return values
     }
 
-    static func discoverLocalModelDirectories(
+    nonisolated static func discoverLocalModelDirectories(
         rootDirectory: URL = LocalModelPaths.defaultRootDirectory(),
         fileManager: FileManager = .default
     ) -> [URL] {
@@ -435,7 +435,7 @@ enum StartupAutoDiscovery {
         return discovered.sorted { $0.path < $1.path }
     }
 
-    static func discoverHuggingFaceModelDirectories(
+    nonisolated static func discoverHuggingFaceModelDirectories(
         homeDirectoryURL: URL,
         fileManager: FileManager = .default
     ) -> [URL] {
@@ -481,7 +481,7 @@ enum StartupAutoDiscovery {
         .sorted { $0.path < $1.path }
     }
 
-    static func isExecutableAvailable(
+    nonisolated static func isExecutableAvailable(
         named executableName: String,
         path: String,
         fileManager: FileManager = .default
@@ -499,7 +499,7 @@ enum StartupAutoDiscovery {
             }
     }
 
-    static func log(_ report: StartupAutoDiscoveryReport) {
+    nonisolated static func log(_ report: StartupAutoDiscoveryReport) {
         let available = report.availableCredentialLabels.joined(separator: ", ")
         let missing = report.missingCredentialEnvVars.joined(separator: ", ")
         Log.app.info(
@@ -513,7 +513,7 @@ enum StartupAutoDiscovery {
         )
     }
 
-    private static func normalizedCredential(_ value: String?) -> String? {
+    private nonisolated static func normalizedCredential(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else {
             return nil
@@ -521,7 +521,7 @@ enum StartupAutoDiscovery {
         return trimmed
     }
 
-    private static func configMatch(
+    private nonisolated static func configMatch(
         for envVar: String,
         parsedConfigs: [(url: URL, values: [String: String])]
     ) -> (url: URL, value: String)? {
@@ -536,7 +536,7 @@ enum StartupAutoDiscovery {
         return nil
     }
 
-    private static func parseScalarValue(_ rawValue: String) -> String? {
+    private nonisolated static func parseScalarValue(_ rawValue: String) -> String? {
         let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -553,7 +553,7 @@ enum StartupAutoDiscovery {
         return trimmed
     }
 
-    private static func stripComment(from line: String) -> String {
+    private nonisolated static func stripComment(from line: String) -> String {
         var result = ""
         var insideSingleQuote = false
         var insideDoubleQuote = false
@@ -581,7 +581,7 @@ final class AppBootstrap {
     /// Shared instance for App Intent access. Set during init.
     static var shared: AppBootstrap?
     private nonisolated static let isRunningTests = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    private static let agentCoreManagedOAuthEnvironmentVars: Set<String> = [
+    private nonisolated static let agentCoreManagedOAuthEnvironmentVars: Set<String> = [
         "OPENAI_ACCESS_TOKEN",
         "OPENAI_AUTH_MODE",
         "OPENAI_CLIENT_VERSION",
@@ -591,7 +591,7 @@ final class AppBootstrap {
         "GOOGLE_AUTH_MODE",
         "GOOGLE_PROJECT_ID",
     ]
-    private static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = [
+    private nonisolated static let agentCoreEnvironmentKeyMappings: [(envVar: String, keychainKey: String)] = [
         ("ANTHROPIC_API_KEY", "epistemos.anthropic.apiKey"),
         ("OPENAI_API_KEY", "epistemos.openai.apiKey"),
         ("GOOGLE_API_KEY", "epistemos.google.apiKey"),
@@ -609,7 +609,7 @@ final class AppBootstrap {
 
     /// Mirrors stored provider credentials into process env vars so the in-process
     /// Rust agent runtime can immediately see API-key and OAuth-backed credentials.
-    static func populateAgentCoreEnvironment(
+    nonisolated static func populateAgentCoreEnvironment(
         keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
     ) {
         let overrides = agentCoreEnvironmentOverrides(keychainLoad: keychainLoad)
@@ -625,7 +625,7 @@ final class AppBootstrap {
         }
     }
 
-    static func agentCoreEnvironmentOverrides(
+    nonisolated static func agentCoreEnvironmentOverrides(
         keychainLoad: (String) -> String? = { Keychain.load(for: $0) }
     ) -> [String: String] {
         var overrides: [String: String] = [:]
@@ -668,7 +668,7 @@ final class AppBootstrap {
         return overrides
     }
 
-    private static func storedOAuthCredential(
+    private nonisolated static func storedOAuthCredential(
         for provider: CloudModelProvider,
         authMode: CloudProviderOAuthMode,
         keychainLoad: (String) -> String?
@@ -684,7 +684,7 @@ final class AppBootstrap {
         return credential
     }
 
-    private static func normalizedAgentCoreEnvironmentValue(_ value: String?) -> String? {
+    private nonisolated static func normalizedAgentCoreEnvironmentValue(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
               !trimmed.isEmpty else {
             return nil
@@ -697,7 +697,7 @@ final class AppBootstrap {
     private nonisolated static let isDebugBuild = false
     #endif
 
-    static func startupAutoDiscoveryReportForTesting(
+    nonisolated static func startupAutoDiscoveryReportForTesting(
         isRunningTests: Bool,
         discover: () -> StartupAutoDiscoveryReport = { StartupAutoDiscovery.perform() }
     ) -> StartupAutoDiscoveryReport {
@@ -705,6 +705,31 @@ final class AppBootstrap {
             return StartupAutoDiscovery.testHostReport()
         }
         return discover()
+    }
+
+    nonisolated static func shouldReadKeychainAtLaunch(
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        VaultSyncService.shouldRestoreVaultFromBookmark(
+            processInfoEnvironment: processInfoEnvironment
+        )
+    }
+
+    nonisolated static func shouldPopulateAgentCoreEnvironmentAtLaunch(
+        deferredCloudCredentialBootstrapInFlight: Bool,
+        launchKeychainAccessAllowed: Bool = shouldReadKeychainAtLaunch()
+    ) -> Bool {
+        launchKeychainAccessAllowed && !deferredCloudCredentialBootstrapInFlight
+    }
+
+    private nonisolated static func scheduleStartupAutoDiscoveryLoggingIfNeeded() {
+        guard shouldReadKeychainAtLaunch() else { return }
+        Task.detached(priority: .utility) {
+            let report = startupAutoDiscoveryReportForTesting(
+                isRunningTests: Self.isRunningTests
+            )
+            StartupAutoDiscovery.log(report)
+        }
     }
 
 
@@ -902,6 +927,148 @@ final class AppBootstrap {
         }
     }
 
+    private nonisolated static let legacyMessageColumns: [(name: String, declaration: String)] = [
+        ("ZTHINKINGTRACE", "TEXT"),
+        ("ZTHINKINGDURATIONSECONDS", "DOUBLE"),
+    ]
+
+    nonisolated static func legacyRootModelStoreURL(
+        applicationSupportDirectory: URL
+    ) -> URL {
+        applicationSupportDirectory
+            .appendingPathComponent("default.store", isDirectory: false)
+            .standardizedFileURL
+    }
+
+    nonisolated static func persistentModelStoreURL(
+        applicationSupportDirectory: URL,
+        fileManager: FileManager = .default
+    ) -> URL {
+        let directory = applicationSupportDirectory
+            .appendingPathComponent("Epistemos", isDirectory: true)
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+            .appendingPathComponent("default.store", isDirectory: false)
+            .standardizedFileURL
+    }
+
+    nonisolated static func preparePersistentModelStoreIfNeeded(
+        applicationSupportDirectory: URL,
+        fileManager: FileManager = .default
+    ) throws -> URL {
+        let destinationURL = persistentModelStoreURL(
+            applicationSupportDirectory: applicationSupportDirectory,
+            fileManager: fileManager
+        )
+        let legacyURL = legacyRootModelStoreURL(applicationSupportDirectory: applicationSupportDirectory)
+
+        if !fileManager.fileExists(atPath: destinationURL.path),
+           fileManager.fileExists(atPath: legacyURL.path) {
+            try VaultSyncService.backupSQLiteDatabaseIfPresent(at: legacyURL, to: destinationURL)
+        }
+
+        try repairLegacyMessageColumnsIfNeeded(at: destinationURL)
+        return destinationURL
+    }
+
+    private nonisolated static func repairLegacyMessageColumnsIfNeeded(
+        at storeURL: URL
+    ) throws {
+        guard FileManager.default.fileExists(atPath: storeURL.path) else { return }
+
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(
+            storeURL.path,
+            &db,
+            SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX,
+            nil
+        ) == SQLITE_OK, let db else {
+            throw sqliteStoreError(
+                domain: "AppBootstrap.ModelStore.Open",
+                code: -1,
+                storeURL: storeURL,
+                db: db
+            )
+        }
+        defer { sqlite3_close(db) }
+
+        sqlite3_busy_timeout(db, 1_000)
+
+        let columnNames = try sqliteColumnNames(in: "ZSDMESSAGE", db: db, storeURL: storeURL)
+        guard !columnNames.isEmpty else { return }
+
+        for column in legacyMessageColumns where !columnNames.contains(column.name) {
+            let sql = "ALTER TABLE ZSDMESSAGE ADD COLUMN \(column.name) \(column.declaration);"
+            guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else {
+                throw sqliteStoreError(
+                    domain: "AppBootstrap.ModelStore.AlterMessage",
+                    code: Int(sqlite3_errcode(db)),
+                    storeURL: storeURL,
+                    db: db
+                )
+            }
+        }
+    }
+
+    private nonisolated static func sqliteColumnNames(
+        in tableName: String,
+        db: OpaquePointer,
+        storeURL: URL
+    ) throws -> Set<String> {
+        var statement: OpaquePointer?
+        let query = "PRAGMA table_info(\(tableName));"
+        guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+            throw sqliteStoreError(
+                domain: "AppBootstrap.ModelStore.TableInfo",
+                code: Int(sqlite3_errcode(db)),
+                storeURL: storeURL,
+                db: db
+            )
+        }
+        defer { sqlite3_finalize(statement) }
+
+        var columnNames = Set<String>()
+        while sqlite3_step(statement) == SQLITE_ROW {
+            guard let rawName = sqlite3_column_text(statement, 1) else { continue }
+            columnNames.insert(String(cString: rawName))
+        }
+        return columnNames
+    }
+
+    private nonisolated static func sqliteStoreError(
+        domain: String,
+        code: Int,
+        storeURL: URL,
+        db: OpaquePointer?
+    ) -> NSError {
+        let message = db.map { String(cString: sqlite3_errmsg($0)) } ?? "Unknown SQLite store error"
+        return NSError(
+            domain: domain,
+            code: code,
+            userInfo: [
+                NSFilePathErrorKey: storeURL.path,
+                NSLocalizedDescriptionKey: "\(message) (\(storeURL.lastPathComponent))",
+            ]
+        )
+    }
+
+    private nonisolated static func modelStoreArtifactURLs(for storeURL: URL) -> [URL] {
+        [
+            storeURL,
+            URL(fileURLWithPath: storeURL.path + "-shm", isDirectory: false),
+            URL(fileURLWithPath: storeURL.path + "-wal", isDirectory: false),
+        ]
+    }
+
+    private nonisolated static func removeModelStoreArtifacts(
+        at storeURL: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        for url in modelStoreArtifactURLs(for: storeURL) where fileManager.fileExists(atPath: url.path) {
+            try fileManager.removeItem(at: url)
+        }
+    }
+
     // MARK: - Services
     let llmService: LLMService
     let localInferenceService: MLXInferenceService
@@ -935,17 +1102,50 @@ final class AppBootstrap {
         // Register custom fonts (RetroGaming, etc.)
         EpistemosFont.registerFonts()
 
-        // Create model container with implicit lightweight migration.
-        // SwiftData auto-handles adding defaulted properties without an explicit MigrationPlan.
-        // Falls back to in-memory container on failure (corrupt DB, schema mismatch).
+        // Create the SwiftData container against an explicit app-scoped store path.
+        // Legacy root-level default.store files are adopted once into the app
+        // directory, and known message-column gaps are repaired before opening.
+        // Falls back to in-memory only under tests or if container creation fails.
         let schema = Schema(EpistemosSchema.models)
         let container: ModelContainer
         let dbError: Error?
+        let fileManager = FileManager.default
+        let applicationSupportDirectory = FoundationSafety.userApplicationSupportDirectory(fileManager: fileManager)
         let usesInMemoryModelStore = Self.isRunningTests
+        let modelStoreURL = Self.persistentModelStoreURL(
+            applicationSupportDirectory: applicationSupportDirectory,
+            fileManager: fileManager
+        )
+        let modelConfiguration: ModelConfiguration
+        if usesInMemoryModelStore {
+            modelConfiguration = ModelConfiguration(isStoredInMemoryOnly: true)
+        } else {
+            do {
+                _ = try Self.preparePersistentModelStoreIfNeeded(
+                    applicationSupportDirectory: applicationSupportDirectory,
+                    fileManager: fileManager
+                )
+            } catch {
+                Log.persistence.error(
+                    "Persistent model store preparation failed: \(error.localizedDescription, privacy: .public)"
+                )
+                RuntimeDiagnostics.record(
+                    .error,
+                    category: "Persistence",
+                    message: "Persistent model store preparation failed",
+                    metadata: [
+                        "error": error.localizedDescription,
+                        "storePath": modelStoreURL.path,
+                    ]
+                )
+                try? Self.removeModelStoreArtifacts(at: modelStoreURL, fileManager: fileManager)
+            }
+            modelConfiguration = ModelConfiguration(url: modelStoreURL)
+        }
         do {
             container = try ModelContainer(
                 for: schema,
-                configurations: ModelConfiguration(isStoredInMemoryOnly: usesInMemoryModelStore)
+                configurations: modelConfiguration
             )
             dbError = nil
         } catch {
@@ -963,11 +1163,6 @@ final class AppBootstrap {
         }
         self.modelContainer = container
         self.databaseError = dbError
-
-        let autoDiscoveryReport = Self.startupAutoDiscoveryReportForTesting(
-            isRunningTests: Self.isRunningTests
-        )
-        StartupAutoDiscovery.log(autoDiscoveryReport)
 
         let channelRegistry = ChannelRegistryState()
         self.channelRegistry = channelRegistry
@@ -1692,9 +1887,19 @@ final class AppBootstrap {
         guard !didStartPrimaryLaunchInitialization else { return }
         didStartPrimaryLaunchInitialization = true
 
+        Self.scheduleStartupAutoDiscoveryLoggingIfNeeded()
+        let shouldPopulateAgentCoreEnvironment = Self.shouldPopulateAgentCoreEnvironmentAtLaunch(
+            deferredCloudCredentialBootstrapInFlight: inferenceState.isDeferredCloudCredentialBootstrapInFlight
+        )
+
         // Populate process environment with API keys from Keychain so the
         // in-process Rust agent_core providers can read them via std::env::var.
-        Self.populateAgentCoreEnvironment()
+        // Keychain reads can stall on the main thread, so do this in the
+        // background and let the first window settle first.
+        Task.detached(priority: .utility) {
+            guard shouldPopulateAgentCoreEnvironment else { return }
+            Self.populateAgentCoreEnvironment()
+        }
 
         activityTracker.loadFlushedEvents()
         workspaceService.autoRestore()
@@ -1938,11 +2143,15 @@ final class AppBootstrap {
 
         let fm = FileManager.default
         let appSupport = FoundationSafety.userApplicationSupportDirectory(fileManager: fm)
+        let legacyStoreURL = Self.legacyRootModelStoreURL(applicationSupportDirectory: appSupport)
+        let appScopedStoreURL = Self.persistentModelStoreURL(
+            applicationSupportDirectory: appSupport,
+            fileManager: fm
+        )
 
-        // SwiftData default.store lives at the Application Support root (no subdirectory)
-        for name in ["default.store", "default.store-shm", "default.store-wal"] {
+        for url in Self.modelStoreArtifactURLs(for: legacyStoreURL) + Self.modelStoreArtifactURLs(for: appScopedStoreURL) {
             removeItemIfPresent(
-                at: appSupport.appendingPathComponent(name),
+                at: url,
                 fileManager: fm,
                 failureMessage: "Database reset cleanup failed"
             )

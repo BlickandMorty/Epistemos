@@ -215,12 +215,12 @@ final class PipelineService {
 
                     if useToolLoop,
                        isLocalModelSelected,
-                       let localClient = localModelClient,
-                       let vaultPath = vaultPathProvider(),
-                       !vaultPath.isEmpty {
+                       let localClient = localModelClient {
+                        let vaultPath = resolvedManagedToolRuntimeVaultPath()
+                        var streamedToolLoopText = ""
                         // Tool-enabled local path: LocalAgentLoop handles
                         // multi-turn tool execution via the Rust FFI.
-                        emittedVisibleText = try await runToolLoop(
+                        let toolLoopOutput = try await runToolLoop(
                             query: query,
                             notesContext: notesContext,
                             conversationHistory: conversationHistory,
@@ -232,9 +232,18 @@ final class PipelineService {
                             toolApprovalHandler: toolApprovalHandler,
                             modelInputCaptureHandler: modelInputCaptureHandler,
                             onToken: { token in
+                                streamedToolLoopText += token
                                 continuation.yield(.textDelta(token))
                             }
                         )
+                        let reconciledToolLoopOutput = Self.reconcileToolLoopVisibleText(
+                            streamedText: streamedToolLoopText,
+                            finalOutput: toolLoopOutput
+                        )
+                        emittedVisibleText = reconciledToolLoopOutput.completedText
+                        if let missingDelta = reconciledToolLoopOutput.missingDelta {
+                            continuation.yield(.textDelta(missingDelta))
+                        }
                     } else {
                         // Legacy direct-stream path (cloud models in non-agent
                         // mode, or when localClient / vault aren't available).
@@ -319,6 +328,33 @@ final class PipelineService {
         // Keep standard local chat simple and fast. Only the explicit
         // overseer/agent route should opt into the local tool loop.
         return false
+    }
+
+    private func resolvedManagedToolRuntimeVaultPath() -> String {
+        FoundationSafety.managedToolRuntimeVaultDirectory(
+            preferredVaultPath: vaultPathProvider()
+        ).path
+    }
+
+    nonisolated static func reconcileToolLoopVisibleText(
+        streamedText: String,
+        finalOutput: String
+    ) -> (completedText: String, missingDelta: String?) {
+        let trimmedStreamedText = streamedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedFinalOutput = finalOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if trimmedStreamedText.isEmpty {
+            return (
+                completedText: finalOutput,
+                missingDelta: trimmedFinalOutput.isEmpty ? nil : finalOutput
+            )
+        }
+
+        if trimmedFinalOutput.isEmpty {
+            return (completedText: streamedText, missingDelta: nil)
+        }
+
+        return (completedText: finalOutput, missingDelta: nil)
     }
 
     /// Tool-enabled local-model path. Builds a tier-filtered tool registry
