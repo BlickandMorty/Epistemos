@@ -283,7 +283,16 @@ impl AgentConfig {
             enable_web_fetch: false,
             enable_code_execution: false,
             enable_computer_use: true,
-            mcp_servers: None,
+            // Tunnel B.1 — discover URL-based MCP servers from
+            // ~/.config/mcp/url_servers.json (+ project override). Anthropic's
+            // API handles the connection remotely, so every tool those
+            // servers expose becomes available to the model with zero
+            // per-tool code on our side. Empty list → None so we don't emit
+            // an empty `mcp_servers` field.
+            mcp_servers: {
+                let servers = crate::mcp::url_servers::discover_url_mcp_servers();
+                if servers.is_empty() { None } else { Some(servers) }
+            },
             parallel_tool_execution: true,
             permissions: PermissionConfig {
                 auto_approve_read_only: ffi.auto_approve_reads,
