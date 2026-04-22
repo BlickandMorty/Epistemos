@@ -508,3 +508,105 @@ user wants is ~80% built (§6), and the runtime-validation matrix in §8 is
 the next 2-4 hours of work before anything else ships.
 
 — Claude, 2026-04-22
+
+---
+
+## 11. Addendum — April 22 build-as-much-as-possible pass (later same day)
+
+After §10 was written, the user asked: "can u build as muc has yo can
+with all the thigns i sent … commmiut eevery pass and make sryue u
+shrink the gap as much as you can." Five passes landed on top of the
+docs-only commit `1a4210be`. Each built green and was committed alone
+so nothing is coupled.
+
+### 11.1 `29c94da3` — persistence fixes
+
+- Converted the user-named "context panel on the right of main chat
+  that disappears when I leave chat" + three sibling toggles from
+  `@State` (view-local, resets on navigate) to `@AppStorage` with
+  namespaced keys:
+  - `ChatView.showBrainPanel` → `mainChat.showBrainPanel`
+  - `ChatSidebarView.showNotesOnly` → `chatSidebar.showNotesOnly`
+  - `MiniChatView.showRecentChats` → `miniChat.showRecentChats`
+  - `NoteDetailWorkspaceView.showChatSidebar` → `noteWorkspace.showChatSidebar`
+- Removed `@Observable` side effects from `InferenceState.apiKey(for:)`
+  and `oauthCredential(for:)` — the anti-pattern flagged in this same
+  doc's §3A, responsible for the SwiftUI hot-loop. Reads are pure;
+  cache population happens explicitly via `applyCloudCredentialSnapshot`,
+  `setAPIKey`, `clearAPIKey`.
+- `xcodebuild` green (only pre-existing SwiftLint script-phase failures
+  from CodeEditSourceEditor / CodeEditTextView).
+
+### 11.2 `300a8af2` — install detection + shell-tool disclosure
+
+- `LocalModelInfrastructure.syncInferenceInstalledSets` now unions the
+  manifest-based set with a catalog-driven disk scan. Every catalog
+  descriptor whose expected HF hub dir exists on disk AND contains a
+  weight blob (`.safetensors` / `.gguf` / `.npz`) counts as installed.
+  This is the ISSUE-2026-04-22-002 fix. It also unlocks
+  ISSUE-2026-04-22-003: once both Qwen 3 variants register as
+  installed, `qwen3UnifiedPickerPairAvailable` becomes true and the
+  unified "Qwen 3" entry surfaces.
+- `EpistemosOperatingMode.agent.helpText` now explicitly mentions
+  "shell/terminal commands with approval." The bash and terminal tools
+  already ship at `ToolTier::Agent` with full `approval.rs` risk
+  classification; the help text was hiding that from the user.
+
+### 11.3 `78d62a6f` — Tunnel B.1 (URL MCP passthrough to Anthropic)
+
+- New module `agent_core/src/mcp/url_servers.rs`. Reads a list of
+  `{ name, url }` entries from `~/.config/mcp/url_servers.json`
+  (global) and `.epistemos/mcp_url_servers.json` (per-vault). Missing
+  or malformed files return an empty list silently.
+- `AgentConfig::from_ffi` in `bridge.rs` now populates
+  `AgentConfig.mcp_servers` from that discovery. The Claude provider
+  already forwards that field into Anthropic's `mcp_servers` API
+  parameter at `providers/claude.rs:287`, so every tool those servers
+  expose becomes available to the active Claude model with zero
+  per-tool code on our side.
+- `docs/mcp-url-servers.md` documents the config format + limitations
+  (Anthropic-only today; auth headers TBD; stdio MCP servers separate).
+- 3 new cargo tests green (544 total on `agent_core`).
+
+This is the first shipped piece of the capability-tunnel the user asked
+for. They can drop a config file at `~/.config/mcp/url_servers.json`,
+and on the next Agent turn the model gets the tools. No recompile.
+
+### 11.4 What did NOT land (flagged for the next session)
+
+- **Pass 6 — brain-snapshot disk persistence.** `brainSnapshotsByChat`
+  (the per-chat context-envelope history backing the right panel's
+  content) lives in `@Observable` memory only. App relaunch wipes it.
+  The in-session persistence across chat switches already works via
+  the per-chat dict keyed by `activeChatId`. Disk persistence would
+  require a throttled async writer + a catalog-directory layout under
+  the vault and was too big to scope-creep into this pass.
+- **Tunnel B.2 — stdio MCP registry wiring.** `McpClient::discover_servers`
+  exists at `agent_core/src/mcp/client.rs:111` and reads
+  `~/.config/mcp/servers.json` (the `{ name, command, args, env }`
+  shape). Not yet wired into `ToolRegistry` construction. When this
+  lands, local MCP processes (filesystem, git, fetch, sequential-
+  thinking, etc.) will auto-register their tools into the agent loop
+  with the same approval flow as native tools.
+- **Tunnel C — Claude Code / Codex CLI passthrough via the shell tool.**
+  Works out of the box once a user runs `npm i -g @anthropic-ai/claude-code`
+  and asks the agent to shell out. Nothing to build.
+- **Worker Session chat kind** (§6.4 W2) — deferred.
+- **App-managed diff / history** + **model authorship memory** (§12 /
+  §14 / §15 of Codex's April 22 handoff) — deferred; requires design
+  review from the user.
+
+### 11.5 Runtime-validation matrix (§8) still open
+
+Re-run this on the fresh build with Pass 3's install-detection fix live:
+
+1. Anthropic `Check Access` end-to-end
+2. Main Chat Opus 4.7 tool call, in-vault and outside-vault
+3. Note-create round-trip — verify the note actually lands in the vault
+4. Approval deny flow
+5. Qwen 3 unified picker — should now show one row after Pass 3, not two
+6. Agent mode on Anthropic: try `bash_execute` on `ls` and `uname -a`
+   and confirm approval UI fires for the first one, then auto-approves
+   the same command within the session
+
+— Claude, 2026-04-22 (addendum)
