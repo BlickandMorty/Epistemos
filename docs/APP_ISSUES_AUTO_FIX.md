@@ -351,6 +351,122 @@ Investigation Log:
 
 ---
 
+### ISSUE-2026-04-22-001: SwiftUI hot-loop at 98-100% CPU, "Internal inconsistency in menus"
+
+Status: Investigating
+Priority: P0
+First Observed: 2026-04-22
+Affected Version: `97adbf83` (Codex's live-runtime checkpoint)
+
+Symptom:
+- App pegs CPU at `98-100%`, memory climbs from `3.3 GB` to `4.0 GB`
+- Xcode console logs repeated `Internal inconsistency in menus`
+- Memory-pressure warnings fire
+- Sample at `/tmp/Epistemos_2026-04-22_155736_eHeO.sample.txt` shows all 5 seconds stuck in `GraphHost.flushTransactions → StackLayout.sizeThatFits` layout chain
+- The only Epistemos user-code leaf in the sample is `UserBubbleShape.path(in:)` once
+- Did NOT reproduce on the `Apr 22 16:22` rebuild during the 2026-04-22 walkthrough — suspect it fires on certain launch paths (e.g. when a menu interaction coincides with a cloud-credential snapshot landing)
+
+Suspected Cause (two compounding anti-patterns introduced in `97adbf83`):
+
+A. Lazy-cache writes on `@Observable` state during reads:
+- [`Epistemos/State/InferenceState.swift:4285-4305`](Epistemos/State/InferenceState.swift:4285) — `apiKey(for:)` mutates `missingCloudAPIKeyProviders`, `cachedCloudAPIKeys`, and `cloudProviderValidationStates` as a side effect of a read
+- Same pattern in `oauthCredential(for:)` at line 4307-4327
+- Called via `hasConfiguredCloudAccess(for:)` at line 4354, which is called by `preferredAutoRouteCloudProvider` at 4073-4091 (iterates all providers) and `configuredCloudProviders` at 4267-4271
+- SwiftUI `body` that reads any of those dependencies gets invalidated by the same read it performed — classic infinite-layout pattern
+
+B. Per-row `@Observable` fan-out in LocalModelToolbarMenu:
+- [`Epistemos/App/RootView.swift:1510-1525`](Epistemos/App/RootView.swift:1510) — `localModelSubtitle(for:)` calls `inference.availableOperatingModes(for: .localMLX(model.id))` per row; chain reads `latestLocalRuntimeHealth`, `supportedAvailableLocalTextModels`, and on agent-fit calls `LocalInferenceMemoryPressureMonitor.availableMemoryBytes()` (a mach syscall)
+- Under real memory pressure, pressure monitor updates `latestLocalRuntimeHealth`, invalidating every menu row, re-layout raises pressure, etc.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Run Instruments with Time Profiler on a fresh launch and confirm whether A or B or both drive the loop
+- Write a Swift test that calls `inference.apiKey(for:)` under a view-body-equivalent observation scope and asserts no observable property is mutated
+
+Destructive Fixes (require user approval):
+- Move all lazy-cache writes in `apiKey(for:)` / `oauthCredential(for:)` out of the getter path (hygiene fix; should land regardless of whether it's the loop driver)
+- Cache `availableOperatingModes` per model-ID in `LocalModelToolbarMenu` `@State` once per picker open; move memory-fit check out of per-row path
+
+Investigation Log:
+- 2026-04-22: Diagnosed from sample + diff review of `97adbf83`. Live build did not reproduce during walkthrough but has not been stressed under memory pressure. Handoff doc `docs/handoffs/2026-04-22-claude-to-codex-live-runtime-and-tunnel-findings.md` §3 captures the full reasoning.
+
+---
+
+### ISSUE-2026-04-22-002: Local model install detection misses 10+ hub directories
+
+Status: Open
+Priority: P1
+First Observed: 2026-04-22
+Affected Version: `97adbf83`
+
+Symptom:
+- Model picker shows `2 installed · 7 available` and only detects `Qwen3 4B` and `R1 7B` as installed
+- Hub directory at `~/Library/Application Support/Epistemos/Models/text/hub` contains at least 12 ready models including `Qwen3-4B-Thinking-2507-4bit`, `Qwen3-8B-MLX-4bit`, `Qwen3-Coder-Next-4bit`, `Qwen3.5-4B-4bit`, `Qwen3.5-9B-4bit`, `gemma-3-4b-it-qat-4bit`, `gemma-4-e4b-it-4bit`, `gemma-4-26b-a4b-it-4bit`, `Gemma-4-31B-JANG_4M-CRACK`, `Llama-3.2-3B-Instruct-4bit`, `Falcon-H1R-7B-4bit`, `Ternary-Bonsai-{4B,8B}-mlx-2bit`
+- Some of those surface as "Available to install" rows (implying a catalog entry exists); others are hidden entirely (implying `isReleaseValidatedForInteractiveChat` or a hardware-fit filter hides them)
+
+Suspected Cause:
+- Hub-directory name ↔ `LocalModelCatalog.shippedModelIDs` mismatch in `LocalModelManager.installRecords` detection — the hub blobs are present but the manager requires an explicit install manifest or a matching catalog ID to count as installed
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Grep for `installRecords` / `is_installed` / `hubDirectoryName` in `Epistemos/LocalAgent/` and confirm the matching rule
+- Add a debug log that prints each hub dir it sees and the catalog ID it compared against
+
+Destructive Fixes (require user approval):
+- Extend the matching rule to accept blob-only hub dirs
+- Add missing catalog entries for `Qwen3.5-{4B,9B}-4bit`, `gemma-4-e4b-it-4bit`, `gemma-4-26b-a4b-it-4bit`, `Gemma-4-31B-JANG_4M-CRACK`, `Falcon-H1R-7B-4bit`
+
+Investigation Log:
+- 2026-04-22: Observed live on the `Apr 22 16:22` build. 2026-04-22 handoff §1.4 captures the full list.
+
+---
+
+### ISSUE-2026-04-22-003: Qwen 3 unified picker never surfaces
+
+Status: Open
+Priority: P2
+First Observed: 2026-04-22
+Affected Version: `97adbf83`
+
+Symptom:
+- Model picker shows `Qwen3 4B` and `Qwen3 Think 4B` as two separate rows instead of the unified `Qwen 3` entry that Codex shipped in `97adbf83` §3.2
+
+Suspected Cause:
+- `qwen3UnifiedPickerPairAvailable` at [`Epistemos/State/InferenceState.swift:3653-3656`](Epistemos/State/InferenceState.swift:3653) requires BOTH `.qwen3_4B4Bit` AND `.qwen3_4BThinking25074Bit` to be in `supportedAvailableLocalTextModels`
+- ISSUE-2026-04-22-002 prevents the Thinking variant from being detected as installed → the union is false → fallback to two-row form
+
+Safe Auto-Fix Attempts:
+- Dependent on ISSUE-2026-04-22-002. Fix install detection, then the unified picker engages automatically.
+
+Investigation Log:
+- 2026-04-22: Observed live on the `Apr 22 16:22` build. Root cause is downstream of ISSUE-2026-04-22-002.
+
+---
+
+### ISSUE-2026-04-22-004: Opus 4.1 Main Chat outside-vault read produced "No response received"
+
+Status: Open (inherited from Codex §5.2)
+Priority: P1
+First Observed: 2026-04-22
+
+Symptom:
+- Prompt: "Use tools to read the local file /tmp/epistemos_opus41_main_outside_20260422.txt and reply with only the first line exactly."
+- Result shown in Main Chat: "No response received. The tools run ended before a final answer was produced."
+- Same prompt in Mini Chat, with `read_file` on `/tmp/epistemos_live_tool_smoke_…`, succeeds with `tool smoke ok`
+
+Suspected Cause:
+- Main Chat Agent-mode tool loop for Opus 4.1 ends without a `.complete` event after tool execution
+- Opus 4.1 is the OLD Anthropic model ID; the curated surface now prefers `claude-opus-4-7`. Re-run on Opus 4.7 to confirm whether this is a model-specific regression or a tool-loop termination bug that affects all Anthropic Agent turns on Main Chat
+
+Safe Auto-Fix Attempts:
+- Re-run the same prompt on Opus 4.7 and Sonnet 4.6 on the `Apr 22 16:22` build with Console logs capturing every `.complete` / `.error` event
+
+Destructive Fixes:
+- If the pattern reproduces across all Anthropic models, inspect `Epistemos/App/ChatCoordinator.swift` main-agent path for the same silent-stream-ending bug that was patched on the Command Center path in the April 20 blocker batch
+
+Investigation Log:
+- 2026-04-22: Observed in a prior session on the live app, still visible on the `Apr 22 16:22` build in the persisted chat. 2026-04-22 handoff §1.5 lists this as the next runtime re-test.
+
+---
+
 ## Resolved Issues
 
 _(Issues moved here after manual runtime verification confirms the fix)_
