@@ -2583,7 +2583,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         case .pro:
             "Stay in the same chat and use the provider's deepest route before falling back to on-device reasoning."
         case .agent:
-            "Keep the turn in this chat while enabling the full tools/runtime path (web search, file ops, code, computer use)."
+            "Keep the turn in this chat while enabling the full tools/runtime path (web search, file ops, shell/terminal commands with approval, code, computer use)."
         }
     }
 
