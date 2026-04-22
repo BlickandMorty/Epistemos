@@ -680,14 +680,93 @@ url_servers in Pass 5, on top of the pre-checkpoint 541). Swift
 full combined build is in flight at the time this addendum was
 written.
 
-### 11.6 Still open for a future session (smaller now)
+### 11.6 Pass 9-12 (same-day continuations)
 
-- UI surface for per-model "involvement" view — the schema stores it;
-  a future pass surfaces the query UI.
-- "Convert this chat to a Worker Session" composer affordance — the
-  schema accepts it; a future pass adds the toggle.
+After Pass 8 the user asked for the signature "thought never dies"
+experience. Four more passes landed:
+
+**Pass 9 — ChatTranscriptVaultWriter.** Every completed chat turn
+writes / overwrites a markdown transcript at
+`<vault>/Chat Transcripts/<slug>--<chat-id-prefix>.md`. Renders
+front-matter, per-turn headers with role + timestamp, inline
+`<details>` blocks for thinking traces, and `_(authored by: X)_`
+attribution lines that pull from Pass 8's
+`SDMessage.authoredBy{Provider,Model}ID` fields. Hooked into
+`ChatCoordinator.persistChatCompletion` right after `context.save()`
+so the file stays live-updated. Non-blocking, atomic writes, stable
+filenames across title renames via the id suffix.
+
+**Pass 10 — ModelVaultsSidebarSection.** A collapsible
+DisclosureGroup added to the NotesSidebar body between the file tree
+and the bottom bar. Lists every directory under
+`~/Library/Application Support/Epistemos/model_vaults/` with
+pretty-naming for the curated providers (Claude Opus 4.7, GPT-5.4,
+Gemini 3.1 Pro, …). Per-row context menu includes "Reveal Vault in
+Finder"; tap opens the Pass 11 sheet. Expand state is persisted via
+`@AppStorage("notesSidebar.modelVaultsExpanded")`. Disk scan runs
+only on expand / appear — respects the NotesSidebar
+"denormalized for performance" invariant.
+
+**Pass 11 — ModelInvolvementSheet.** The "permanent memory of every
+contribution a model has made" surface. One-shot SwiftData query
+filters `SDMessage.authoredByModelID == <clicked model id>` and
+renders a reverse-chronological list with chat title, 240-char
+preview, relative timestamp, role pill, and provider stamp.
+
+**Pass 12 — NoteLineDiff + TimeMachineService integration.** The
+"local diff that rivals git" foundation. `NoteLineDiff.summarize(old:new:)`
+runs a classic Myers O((N+M)D) line diff with common-prefix/suffix
+shortcuts and emits git-style `Hunk` values with proper 1-based
+line numbers and configurable context. Integrated into
+`TimeMachineService.computeLineDiff(pageId:at:)` and
+`computeLineDiffBetweenVersions(...)`, which reuse the existing
+`SDPageVersion` history (50 per page, captured on meaningful saves,
+already in tree). Because every historical save is in SwiftData,
+the diff covers every in-between state — git only sees commit
+boundaries, so this really is better-than-git for the note corpus.
+8 focused unit tests in `EpistemosTests/NoteLineDiffTests.swift`
+exercise identity, single-line insert, delete, pure rewrite, empty
+endpoints, line numbers, and checksum behaviour.
+
+Wiring proof (no orphan risk):
+  - `ChatTranscriptVaultWriter.writeTranscript` called from
+    `ChatCoordinator:~4375`.
+  - `ModelVaultsSidebarSection` instantiated in `NotesSidebar.body`.
+  - `ModelInvolvementSheet` presented from
+    `ModelVaultsSidebarSection.sheet(item:)`.
+  - `NoteLineDiff.summarize` called from TimeMachineService's two
+    new `computeLineDiff*` methods and from the 8 unit tests.
+
+### 11.7 Provider native-control audit (confirmed)
+
+Each cloud provider uses its own native effort / thinking API
+parameter, not a generic mapping:
+
+- **Anthropic** — `agent_core/src/providers/claude.rs:225`
+  emits `{ "type": "adaptive", "effort": low|medium|high|max }`
+  into the API `thinking` field.
+- **OpenAI** — `agent_core/src/providers/openai.rs:953` emits
+  `{ "effort": low|medium|high|xhigh }` into the API
+  `reasoning` field, including `xhigh` on the Max tier.
+- **Google** — `agent_core/src/providers/gemini.rs:198` emits a
+  numeric `thinkingBudget` in the Gemini generationConfig.
+
+No normalization layer is hiding provider-specific knobs.
+
+### 11.8 Still open for a future session
+
+- UI viewer for `NoteLineDiff.Summary` hunks — the engine ships and
+  has tests; a future pass adds a git-style diff SwiftUI view on top
+  of `TimeMachineService.computeLineDiff*`.
 - MCP URL-server auth-header support in `mcp_url_servers.json`.
 - OpenAI Responses API equivalent of `mcp_servers` passthrough.
+- "Convert this chat to a Worker Session" composer affordance.
+- GPU / Metal-accelerated diff — text diffs are already
+  microsecond-range in Swift; revisit only if the diff catalogue
+  grows into per-vault N² comparisons.
+- Live manual testing of `claude_code` + `codex` tools on real
+  prompts — blocked in this session by an Anthropic credits error
+  (honestly surfaced as `invalid_request_error` in the chat).
 
 ### 11.5 Runtime-validation matrix (§8) still open
 

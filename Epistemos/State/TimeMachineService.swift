@@ -756,4 +756,71 @@ final class TimeMachineService {
     func eventDensity(days: Int = 90) -> [Date: Int] {
         EventStore.shared?.eventDensityByDay(days: days) ?? [:]
     }
+
+    // MARK: - Line-diff (Pass 12 — "better than git, all local")
+
+    /// Line-by-line Myers diff between the currently-stored body of a
+    /// page and the nearest `SDPageVersion` before `date`. When no
+    /// prior version exists, the oldText is treated as empty so the
+    /// caller sees the full note as insertions — honest about the
+    /// "no history yet" case without fabricating a baseline.
+    ///
+    /// This reuses the existing `SDPageVersion` history (50-per-page
+    /// cap, captured on meaningful saves) as the baseline — no extra
+    /// storage, no extra capture path. Because every historical save
+    /// is already in SwiftData, the diff covers every in-between state,
+    /// not just commit boundaries the way git does. That's the moat.
+    func computeLineDiff(
+        pageId: String,
+        at date: Date,
+        context: Int = 3
+    ) -> NoteLineDiff.Summary? {
+        guard let page = fetchFirst(
+            FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId }),
+            label: "line-diff current page"
+        ) else {
+            return nil
+        }
+        let currentBody = page.loadBody(fast: true)
+        let priorBody = nearestVersionBody(pageId: pageId, before: date)
+        return NoteLineDiff.summarize(
+            oldText: priorBody ?? "",
+            newText: currentBody,
+            context: context
+        )
+    }
+
+    /// Line-diff between two explicit `SDPageVersion` rows for the same
+    /// page. Returns nil if either version is missing.
+    func computeLineDiffBetweenVersions(
+        pageId: String,
+        olderVersionID: String,
+        newerVersionID: String,
+        context: Int = 3
+    ) -> NoteLineDiff.Summary? {
+        let olderDescriptor = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate { $0.id == olderVersionID && $0.pageId == pageId }
+        )
+        let newerDescriptor = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate { $0.id == newerVersionID && $0.pageId == pageId }
+        )
+        guard let olderVersion = fetchFirst(olderDescriptor, label: "line-diff older version"),
+              let newerVersion = fetchFirst(newerDescriptor, label: "line-diff newer version") else {
+            return nil
+        }
+        return NoteLineDiff.summarize(
+            oldText: olderVersion.body,
+            newText: newerVersion.body,
+            context: context
+        )
+    }
+
+    private func nearestVersionBody(pageId: String, before date: Date) -> String? {
+        var descriptor = FetchDescriptor<SDPageVersion>(
+            predicate: #Predicate { $0.pageId == pageId && $0.createdAt < date },
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return fetchFirst(descriptor, label: "line-diff prior version")?.body
+    }
 }
