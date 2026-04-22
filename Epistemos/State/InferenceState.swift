@@ -4282,6 +4282,14 @@ final class InferenceState {
         !hasShownCloudSetupHint && !isBootstrappingCloudCredentials && !hasConfiguredCloudModels
     }
 
+    /// Read-only lookup. Must NOT mutate any `@Observable` state — SwiftUI
+    /// views read this during `body` evaluation, and any mutation would
+    /// invalidate the same body that just read it (classic infinite-layout
+    /// loop via `StackLayout.sizeThatFits`). Cache population happens in
+    /// explicit refresh paths: `applyCloudCredentialSnapshot`, `setAPIKey`,
+    /// `clearAPIKey`. If no snapshot has landed yet, a cache miss falls
+    /// through to a transient keychain read; callers get a correct answer
+    /// and observable state stays stable.
     func apiKey(for provider: CloudModelProvider) -> String? {
         if let cached = cachedCloudAPIKeys[provider] {
             return cached
@@ -4292,18 +4300,13 @@ final class InferenceState {
         guard let key = keychainLoad(provider.apiKeyKeychainKey)?
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !key.isEmpty else {
-            missingCloudAPIKeyProviders.insert(provider)
-            cloudProviderValidationStates[provider] = .missing
             return nil
-        }
-        cachedCloudAPIKeys[provider] = key
-        if cloudProviderValidationStates[provider] == nil ||
-            cloudProviderValidationStates[provider] == .missing {
-            cloudProviderValidationStates[provider] = .unchecked
         }
         return key
     }
 
+    /// Read-only lookup. Same SwiftUI-safety contract as `apiKey(for:)`.
+    /// Cache writes happen only on explicit refresh / set / clear paths.
     func oauthCredential(for provider: CloudModelProvider) -> CloudProviderOAuthCredential? {
         if let cached = cachedCloudOAuthCredentials[provider] {
             return cached
@@ -4315,13 +4318,7 @@ final class InferenceState {
             .trimmingCharacters(in: .whitespacesAndNewlines),
               !rawValue.isEmpty,
               let credential = CloudProviderOAuthCredential.decode(from: rawValue) else {
-            missingCloudOAuthProviders.insert(provider)
             return nil
-        }
-        cachedCloudOAuthCredentials[provider] = credential
-        if cloudProviderValidationStates[provider] == nil ||
-            cloudProviderValidationStates[provider] == .missing {
-            cloudProviderValidationStates[provider] = .unchecked
         }
         return credential
     }

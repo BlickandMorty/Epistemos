@@ -136,7 +136,7 @@ struct ChatView: View {
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
-    @State private var showBrainPanel = false
+    @AppStorage("mainChat.showBrainPanel") private var showBrainPanel = false
     @State private var transcriptRows: [ChatTranscriptRow] = []
     /// Throttles scroll-to-bottom during streaming to ~4 fps instead of per-token.
     @State private var lastScrollTime: ContinuousClock.Instant = .now
