@@ -450,6 +450,14 @@ impl ToolRegistry {
         }
         self.register_pkm_graph_neighbors();
 
+        // Tunnel C — delegate a task to Claude Code / Codex CLI. Same
+        // `enable_bash` gate because these are subprocess spawners with
+        // the same trust profile.
+        if self.enable_bash {
+            self.register_claude_code_passthrough();
+            self.register_codex_passthrough();
+        }
+
         // Phase 1 core tools (Hermes/OpenClaw parity)
         self.register_phase_one_filesystem();
         self.register_phase_one_terminal();
@@ -1403,6 +1411,86 @@ impl ToolRegistry {
                 "required": ["command"]
             }),
             handler: Box::new(BashExecuteHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_claude_code_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "claude_code".to_string(),
+            description: "Delegate a coding task to Anthropic's Claude Code CLI running in non-interactive mode. \
+                The delegated agent has Claude Code's full tool surface (shell, file edit, git, test runner, MCP servers, skills). \
+                Use for multi-step coding work where you want Claude Code's own loop to own the turn. \
+                Returns combined stdout/stderr. If Claude Code is not installed, returns a structured install-hint.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Claude Code."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Claude Code session in."
+                    },
+                    "model": {
+                        "type": "string",
+                        "description": "Optional model alias or id (e.g. 'opus', 'sonnet', 'claude-sonnet-4-6'). Omit to use Claude Code's default."
+                    },
+                    "bypass_permissions": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "When true (default), run with --permission-mode bypassPermissions so the delegated agent doesn't re-prompt. Set false to keep Claude Code's own approval flow."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::ClaudeCodeHandler),
+            risk_level: RiskLevel::Destructive,
+            tier: ToolTier::Agent,
+        });
+    }
+
+    fn register_codex_passthrough(&mut self) {
+        self.register(RegisteredTool {
+            name: "codex".to_string(),
+            description: "Delegate a coding task to OpenAI's Codex CLI running in `codex exec` mode. \
+                The delegated agent has Codex's full tool surface (shell, file edit, sandboxed commands, MCP servers, git). \
+                Set sandbox=true to run under `codex sandbox` for an additional command sandbox layer. \
+                Returns combined stdout/stderr. If Codex is not installed, returns a structured install-hint.".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "The prompt / instructions to pass to Codex."
+                    },
+                    "working_dir": {
+                        "type": "string",
+                        "description": "Optional absolute path to run the Codex session in."
+                    },
+                    "sandbox": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "When true, invoke `codex sandbox <task>` instead of `codex exec <task>`. Extra sandbox layer for untrusted tasks."
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "default": 300,
+                        "maximum": 1800,
+                        "description": "Timeout for the CLI invocation. Default 5 minutes, max 30 minutes."
+                    }
+                },
+                "required": ["task"]
+            }),
+            handler: Box::new(crate::tools::cli_passthrough::CodexHandler),
             risk_level: RiskLevel::Destructive,
             tier: ToolTier::Agent,
         });

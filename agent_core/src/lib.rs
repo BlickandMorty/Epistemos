@@ -61,6 +61,7 @@ pub mod tools {
     pub mod channel_contacts;
     pub mod chunk_reduce;
     pub mod clarify;
+    pub mod cli_passthrough;
     pub mod communication;
     pub mod computer_use;
     pub mod custom_tools;
