@@ -156,15 +156,63 @@ struct MiniChatViewAuditTests {
         #expect(messageSource.contains("var thinkingDurationSeconds: Double?"))
     }
 
-    @Test("mini chat hides the retired agent handoff instead of routing into Omega")
-    func miniChatHidesRetiredAgentHandoff() throws {
+    @Test("mini chat shared coordinator preserves tool blocks and live tool activity")
+    func miniChatSharedCoordinatorPreservesToolBlocksAndLiveToolActivity() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let threadStateSource = try loadRepoTextFile("Epistemos/State/ThreadState.swift")
+        let chatTypesSource = try loadRepoTextFile("Epistemos/Models/ChatTypes.swift")
+        let messageSource = try loadRepoTextFile("Epistemos/Models/SDMessage.swift")
+
+        #expect(chatTypesSource.contains("var contentBlocks: [MessageContentBlock]?"))
+        #expect(miniChatSource.contains("ToolExecutionPreviewList(blocks: contentBlocks)"))
+        #expect(miniChatSource.contains("contentBlocks: restoredMessage.contentBlocks"))
+        #expect(miniChatSource.contains("contentBlocks: message.contentBlocks"))
+        #expect(miniChatSource.contains("threadState.setMiniChatActiveTool("))
+        #expect(miniChatSource.contains("threadState.setMiniChatPendingContentBlocks("))
+        #expect(threadStateSource.contains("private var miniChatPendingContentBlocksByID"))
+        #expect(threadStateSource.contains("private var miniChatActiveToolNameByID"))
+        #expect(threadStateSource.contains("func setMiniChatPendingContentBlocks("))
+        #expect(threadStateSource.contains("func setMiniChatActiveTool("))
+        #expect(messageSource.contains("func setContentBlocks(_ blocks: [MessageContentBlock]?)"))
+        #expect(miniChatSource.contains("stored.setContentBlocks(message.contentBlocks)"))
+    }
+
+    @Test("mini chat exposes shared tools modes without routing into Omega")
+    func miniChatExposesSharedToolsModesWithoutOmega() throws {
         let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
 
         #expect(miniChatSource.contains("private var supportedOperatingModes: [EpistemosOperatingMode]"))
-        #expect(miniChatSource.contains("filter { $0 != .agent }"))
+        #expect(!miniChatSource.contains("filter { $0 != .agent }"))
+        #expect(miniChatSource.contains("availableOperatingModes("))
+        #expect(miniChatSource.contains("for: inference.preferredChatModelSelection"))
         #expect(miniChatSource.contains("availableOperatingModes: supportedOperatingModes"))
+        #expect(miniChatSource.contains("case .agent, .pro:"))
+        #expect(miniChatSource.contains(".onChange(of: inference.preferredChatModelSelection.rawValue)"))
         #expect(!miniChatSource.contains("UtilityWindowManager.shared.show(.omega)"))
         #expect(!miniChatSource.contains("await orchestrator.submitTask"))
+    }
+
+    @Test("mini chat capability pill treats explicit tools mode as tools instead of thinking")
+    func miniChatCapabilityPillTreatsExplicitToolsModeAsTools() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains("let toolsModeSelected = selectedOperatingMode == .agent"))
+        #expect(miniChatSource.contains("isAgentExecuting: toolsModeSelected || isUsingSharedCoordinator || draftCapabilityPrediction.predicted == .agent"))
+        #expect(miniChatSource.contains("isThinkingMode: selectedOperatingMode == .thinking"))
+    }
+
+    @Test("mini chat scroll follow uses shared bool hysteresis instead of rewriting state every geometry tick")
+    func miniChatScrollFollowUsesSharedBoolHysteresis() throws {
+        let miniChatSource = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(miniChatSource.contains(".onScrollGeometryChange("))
+        #expect(miniChatSource.contains("for: Bool.self"))
+        #expect(miniChatSource.contains("ScrollStability.followMode(for: geometry, from: autoFollow)"))
+        #expect(miniChatSource.contains("guard isFollowingBottom != autoFollow.isFollowingBottom else { return }"))
+        #expect(miniChatSource.contains("autoFollow.setFollowingBottom(isFollowingBottom)"))
+        #expect(!miniChatSource.contains("for: CGFloat.self"))
+        #expect(!miniChatSource.contains("ScrollStability.distanceToBottom(for:)"))
+        #expect(!miniChatSource.contains("autoFollow = nextState"))
     }
 
     private func loadRepoTextFile(_ relativePath: String) throws -> String {

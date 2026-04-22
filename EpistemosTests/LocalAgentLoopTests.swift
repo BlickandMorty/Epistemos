@@ -225,6 +225,58 @@ struct LocalAgentLoopTests {
         #expect(answer == "Transformer notes found from fenced tool_call JSON.")
     }
 
+    @Test("local loop executes embedded JSON tool calls hidden inside reasoning tags")
+    func localLoopExecutesEmbeddedJsonToolCallInsideThinkingTags() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            <think>
+            I should create the scratch file first.
+            {"name":"write_file","arguments":{"path":"/tmp/epistemos_local_tool_smoke.txt","content":"tool smoke ok"}}
+            </think>
+            """,
+            """
+            tool smoke ok
+            """,
+        ])
+
+        let writeTool = OmegaToolDefinition(
+            name: "write_file",
+            agent: "file",
+            description: "Write a file.",
+            argumentsExample: #"{"path":"/tmp/example.txt","content":"hello"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "write_file")
+                #expect(argumentsJson.contains("\"path\":\"/tmp/epistemos_local_tool_smoke.txt\""))
+                #expect(argumentsJson.contains("\"content\":\"tool smoke ok\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Write a scratch file and then read it back.",
+            tools: [writeTool],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "tool smoke ok")
+    }
+
     @Test("local loop canonicalizes case-variant tool calls to the declared schema")
     func localLoopCanonicalizesCaseVariantToolCalls() async throws {
         let responseQueue = ResponseQueue(outputs: [
@@ -448,6 +500,726 @@ struct LocalAgentLoopTests {
         #expect(answer == "Hegemony notes found after the repair retry.")
     }
 
+    @Test("reflex mode rejects guessed direct answers until the explicit file round-trip tools finish")
+    @MainActor
+    func reflexModeRejectsGuessedDirectAnswersUntilExplicitFileRoundTripToolsFinish() async throws {
+        let promptRecorder = PromptRecorder()
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                "tool smoke ok",
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"write_file","arguments":{"content":"tool smoke ok","path":"tmp/tool-smoke.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                "tool smoke ok",
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"tmp/tool-smoke.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                "tool smoke ok",
+            ],
+        ])
+        let toolCalls = ToolCallRecorder()
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { prompt, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: name == "read_file"
+                        ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
+                        : #"{"name":"write_file","success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/tool-smoke.txt, then use read_file on that same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 6,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+        #expect(prompts.count == 4)
+        if prompts.count >= 4 {
+            #expect(prompts[1].contains("missing required tool step"))
+            #expect(prompts[1].contains("write_file"))
+            #expect(prompts[3].contains("missing required tool step"))
+            #expect(prompts[3].contains("read_file"))
+        }
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode rejects example-path tool drift until the exact requested file path is used")
+    @MainActor
+    func reflexModeRejectsExamplePathToolDriftUntilExactRequestedFilePathIsUsed() async throws {
+        let promptRecorder = PromptRecorder()
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"tmp/example.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"write_file","arguments":{"content":"tool smoke ok","path":"tmp/epistemos_live_tool_smoke.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"tmp/epistemos_live_tool_smoke.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                "tool smoke ok",
+            ],
+        ])
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { prompt, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: name == "read_file"
+                        ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
+                        : #"{"name":"write_file","success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/epistemos_live_tool_smoke.txt, then use read_file on that exact same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 5,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+        #expect(prompts.count == 3)
+        if prompts.count >= 2 {
+            #expect(prompts[1].contains("tmp/epistemos_live_tool_smoke.txt"))
+            #expect(prompts[1].contains("tmp/example.txt"))
+            #expect(prompts[1].contains("write_file"))
+        }
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        if executedCalls.count == 2 {
+            let normalizedWriteArguments = executedCalls[0].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            let normalizedReadArguments = executedCalls[1].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            #expect(normalizedWriteArguments.contains("\"path\":\"tmp/epistemos_live_tool_smoke.txt\""))
+            #expect(normalizedReadArguments.contains("\"path\":\"tmp/epistemos_live_tool_smoke.txt\""))
+        }
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode rejects example-path drift for explicit absolute filesystem paths")
+    @MainActor
+    func reflexModeRejectsExamplePathDriftForExplicitAbsoluteFilesystemPaths() async throws {
+        let promptRecorder = PromptRecorder()
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"tmp/example.txt"}}
+                </tool_call>
+                """,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"/tmp/absolute-tool-smoke.txt"}}
+                </tool_call>
+                """,
+            ],
+        ])
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { prompt, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                let normalizedArguments = argumentsJson.replacingOccurrences(of: "\\/", with: "/")
+                if normalizedArguments.contains("\"path\":\"/tmp/absolute-tool-smoke.txt\"") {
+                    return LocalToolResult(
+                        toolName: name,
+                        resultJson: #"{"content":"1\toutside tool smoke ok\n2\tsecond line","path":"/tmp/absolute-tool-smoke.txt","showing":{"from":1,"to":2},"total_lines":2}"#,
+                        isError: false
+                    )
+                }
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"error":"file 'tmp/example.txt' does not exist","success":false}"#,
+                    isError: true
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use tools to read the local file /tmp/absolute-tool-smoke.txt and reply with only the first line exactly.",
+            tools: [readTool()],
+            maxTurns: 4,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+        #expect(prompts.count == 2)
+        if prompts.count >= 2 {
+            #expect(prompts[1].contains(#"exact path "/tmp/absolute-tool-smoke.txt""#))
+            #expect(prompts[1].contains("tmp/example.txt"))
+            #expect(prompts[1].contains("read_file"))
+            #expect(prompts[1].contains("Do not reuse example paths such as tmp/example.txt"))
+        }
+        #expect(executedCalls.map(\.name) == ["read_file"])
+        if let executedCall = executedCalls.first {
+            let normalizedArguments = executedCall.argumentsJson.replacingOccurrences(of: "\\/", with: "/")
+            #expect(normalizedArguments.contains("\"path\":\"/tmp/absolute-tool-smoke.txt\""))
+        }
+        #expect(answer == "outside tool smoke ok")
+    }
+
+    @Test("reflex mode falls back to one-shot generation when streaming turns stay empty")
+    @MainActor
+    func reflexModeFallsBackToOneShotGenerationWhenStreamingTurnsStayEmpty() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [],
+        ])
+        let fallbackResponses = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"write_file","arguments":{"content":"tool smoke ok","path":"/tmp/tool-smoke.txt"}}
+            </tool_call>
+            """,
+            "tool smoke ok",
+        ])
+        let toolCalls = ToolCallRecorder()
+        var visibleText = ""
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await fallbackResponses.nextOutput()
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"write_file","ok":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Write tool smoke ok to /tmp/tool-smoke.txt and then tell me the contents.",
+            tools: [writeTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.count == 1)
+        #expect(executedCalls[0].name == "write_file")
+        let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
+        let argumentsObject = try #require(
+            JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
+        )
+        #expect(argumentsObject["path"] as? String == "/tmp/tool-smoke.txt")
+        #expect(argumentsObject["content"] as? String == "tool smoke ok")
+        #expect(visibleText.isEmpty)
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode synthesizes explicit-file round-trip steps after repeated empty repairs")
+    @MainActor
+    func reflexModeSynthesizesExplicitFileRoundTripStepsAfterRepeatedEmptyRepairs() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [],
+        ])
+        let fallbackResponses = ResponseQueue(outputs: [
+            "",
+            "",
+        ])
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await fallbackResponses.nextOutput()
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: name == "read_file"
+                        ? #"{"name":"read_file","content":"tool smoke ok","success":true}"#
+                        : #"{"name":"write_file","success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/tool-smoke.txt, then use read_file on that exact same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 2,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        if executedCalls.count == 2 {
+            let normalizedWriteArguments = executedCalls[0].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            let normalizedReadArguments = executedCalls[1].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            #expect(normalizedWriteArguments.contains("\"content\":\"tool smoke ok\""))
+            #expect(normalizedWriteArguments.contains("\"path\":\"tmp/tool-smoke.txt\""))
+            #expect(normalizedReadArguments.contains("\"path\":\"tmp/tool-smoke.txt\""))
+        }
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode treats dangling xml fence repairs as invisible and continues the explicit file round-trip")
+    @MainActor
+    func reflexModeTreatsDanglingXmlFenceRepairAsInvisible() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [],
+        ])
+        let fallbackResponses = ResponseQueue(outputs: [
+            "```xml\n",
+            "```xml\n",
+        ])
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await fallbackResponses.nextOutput()
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: name == "read_file"
+                        ? #"{"content":"1\ttool smoke ok","path":"tmp/tool-smoke.txt","showing":{"from":1,"to":1},"total_lines":1}"#
+                        : #"{"name":"write_file","success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/tool-smoke.txt, then use read_file on that exact same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("explicit file round-trip strips numbered read_file content from the final answer")
+    @MainActor
+    func explicitFileRoundTripStripsNumberedReadFileContentFromFinalAnswer() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"write_file","arguments":{"content":"tool smoke ok","path":"tmp/tool-smoke.txt"}}
+            </tool_call>
+            """,
+            """
+            <tool_call>
+            {"name":"read_file","arguments":{"path":"tmp/tool-smoke.txt"}}
+            </tool_call>
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, _ in
+                let resultJson: String
+                switch name {
+                case "write_file":
+                    resultJson = #"{"name":"write_file","success":true}"#
+                case "read_file":
+                    resultJson = #"{"content":"1\ttool smoke ok","path":"tmp/tool-smoke.txt","showing":{"from":1,"to":1},"total_lines":1}"#
+                default:
+                    Issue.record("Unexpected tool call: \(name)")
+                    resultJson = #"{"error":"unexpected tool"}"#
+                }
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: resultJson,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/tool-smoke.txt, then use read_file on that exact same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode uses explicit-file invisible-turn repair prompts for stalled file requests")
+    @MainActor
+    func reflexModeUsesExplicitFileInvisibleTurnRepairPromptForStalledFileRequests() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [
+                """
+                <tool_call>
+                {"name":"read_file","arguments":{"path":"tmp/tool-smoke.txt"}}
+                </tool_call>
+                """
+            ],
+            ["tool smoke ok"],
+        ])
+        let promptRecorder = PromptRecorder()
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                return """
+                <tool_call>
+                {"name":"write_file","arguments":{"content":"tool smoke ok","path":"tmp/tool-smoke.txt"}}
+                </tool_call>
+                """
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                let resultJson: String
+                switch name {
+                case "write_file":
+                    resultJson = #"{"name":"write_file","success":true}"#
+                case "read_file":
+                    resultJson = #"{"name":"read_file","content":"tool smoke ok"}"#
+                default:
+                    resultJson = #"{"name":"unknown"}"#
+                }
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: resultJson,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Use write_file to write exactly tool smoke ok to tmp/tool-smoke.txt, then use read_file on that exact same path and reply with only the file contents.",
+            tools: [writeTool(), readTool()],
+            maxTurns: 4,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+        #expect(prompts.count == 1)
+        if let prompt = prompts.first {
+            #expect(prompt.contains("The next required tool step is write_file"))
+            #expect(prompt.contains(#"exact path "tmp/tool-smoke.txt""#))
+            #expect(prompt.contains("Do not output prose"))
+        }
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("live loop repairs empty streaming turns with one-shot local generation")
+    @MainActor
+    func liveLoopRepairsEmptyStreamingTurnsWithOneShotLocalGeneration() async throws {
+        let client = QueueingLocalLLMClient(
+            generateOutputs: [
+                """
+                <tool_call>
+                {"name":"write_file","arguments":{"content":"tool smoke ok","path":"/tmp/tool-smoke.txt"}}
+                </tool_call>
+                """,
+                "tool smoke ok",
+            ],
+            streamOutputs: [
+                [],
+                [],
+            ]
+        )
+        let toolCalls = ToolCallRecorder()
+        var visibleText = ""
+
+        let loop = LocalAgentLoop.liveLoop(
+            using: client,
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"write_file","ok":true}"#,
+                    isError: false
+                )
+            },
+            modelID: LocalTextModelID.qwen3_4B4Bit.rawValue
+        )
+
+        let answer = try await loop.run(
+            objective: "Write tool smoke ok to /tmp/tool-smoke.txt and then tell me the contents.",
+            tools: [writeTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.count == 1)
+        #expect(executedCalls[0].name == "write_file")
+        #expect(client.streamRequestCount == 2)
+        #expect(client.generateRequestCount == 2)
+        #expect(visibleText.isEmpty)
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("reflex mode falls back to constrained structured generation when streaming and one-shot repair stay empty")
+    @MainActor
+    func reflexModeFallsBackToStructuredGenerationWhenStreamingAndOneShotRepairStayEmpty() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [],
+        ])
+        let structuredResponses = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"write_file","arguments":{"content":"tool smoke ok","path":"tmp/tool-smoke.txt"}}
+            </tool_call>
+            """,
+            "tool smoke ok",
+        ])
+        let toolCalls = ToolCallRecorder()
+        var visibleText = ""
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                ""
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            structuredGenerator: { _, _, _, _, _, _, _ in
+                await structuredResponses.nextOutput()
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"write_file","ok":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Write tool smoke ok to tmp/tool-smoke.txt and then tell me the contents.",
+            tools: [writeTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.count == 1)
+        #expect(executedCalls[0].name == "write_file")
+        let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
+        let argumentsObject = try #require(
+            JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
+        )
+        #expect(argumentsObject["path"] as? String == "tmp/tool-smoke.txt")
+        #expect(argumentsObject["content"] as? String == "tool smoke ok")
+        #expect(visibleText.isEmpty)
+        #expect(answer == "tool smoke ok")
+    }
+
     @Test("local loop prefers the structured generator when one is available")
     func localLoopPrefersTheStructuredGeneratorWhenOneIsAvailable() async throws {
         let promptRecorder = PromptRecorder()
@@ -485,6 +1257,111 @@ struct LocalAgentLoopTests {
         #expect(prompts.count == 1)
         #expect(prompts[0].contains("Summarize my note locally."))
         #expect(answer == "Structured final answer.")
+    }
+
+    @Test("local loop falls back to unconstrained generation when structured output stays invisible")
+    func localLoopFallsBackToUnconstrainedGenerationWhenStructuredOutputStaysInvisible() async throws {
+        let fallbackResponses = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"write_file","arguments":{"content":"tool smoke ok","path":"/tmp/tool-smoke.txt"}}
+            </tool_call>
+            """,
+            "tool smoke ok",
+        ])
+        let structuredResponses = ResponseQueue(outputs: [
+            "<think>Need to write the file first.</think>",
+            "<think>The tool result is ready.</think>",
+        ])
+        let toolCalls = ToolCallRecorder()
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await fallbackResponses.nextOutput()
+                await onToken(output)
+                return output
+            },
+            structuredGenerator: { _, _, _, _, _, _, _ in
+                await structuredResponses.nextOutput()
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"write_file","ok":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Write tool smoke ok to /tmp/tool-smoke.txt and then tell me the contents.",
+            tools: [writeTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.count == 1)
+        #expect(executedCalls[0].name == "write_file")
+        let argumentsData = try #require(executedCalls[0].argumentsJson.data(using: .utf8))
+        let argumentsObject = try #require(
+            JSONSerialization.jsonObject(with: argumentsData) as? [String: Any]
+        )
+        #expect(argumentsObject["path"] as? String == "/tmp/tool-smoke.txt")
+        #expect(argumentsObject["content"] as? String == "tool smoke ok")
+        #expect(answer == "tool smoke ok")
+    }
+
+    @Test("local loop repairs explicit note creation before accepting a hallucinated success")
+    func localLoopRepairsExplicitNoteCreationBeforeAcceptingAHallucinatedSuccess() async throws {
+        let promptRecorder = PromptRecorder()
+        let responses = ResponseQueue(outputs: [
+            #"I created the note titled "Quick Thought" and the body is main note smoke ok."#,
+            """
+            <tool_call>
+            {"name":"vault_write","arguments":{"content":"main note smoke ok","path":"Quick Thought.md"}}
+            </tool_call>
+            """,
+            """
+            <tool_call>
+            {"name":"vault_read","arguments":{"path":"Quick Thought.md"}}
+            </tool_call>
+            """,
+            "main note smoke ok",
+        ])
+        let toolCalls = ToolCallRecorder()
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = await responses.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"content":"main note smoke ok"}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Create a new note in the vault titled Quick Thought with the exact body main note smoke ok, then read it back and reply with only the exact note body.",
+            tools: [vaultWriteTool(), vaultReadTool()],
+            maxTurns: 5,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedCalls = await toolCalls.snapshot()
+
+        #expect(prompts.contains(where: { $0.contains("You have not satisfied the user's explicit note request yet.") }))
+        #expect(executedCalls.count == 2)
+        #expect(executedCalls[0].name == "vault_write")
+        #expect(executedCalls[1].name == "vault_read")
+        #expect(answer == "main note smoke ok")
     }
 
     @Test("local loop stops when tool calls never converge")
@@ -551,6 +1428,47 @@ struct LocalAgentLoopTests {
         #expect(
             answer
                 == "The attached note compares app stages to organs because each stage has a specialized job inside one coordinated system."
+        )
+    }
+
+    @Test("local loop salvages a final answer hidden entirely inside scratch pad tags")
+    func localLoopSalvagesHiddenScratchPadAnswerBeforeRetrying() async throws {
+        let promptRecorder = PromptRecorder()
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = """
+                <scratch_pad>
+                I already have the note content in the provided context.
+
+                Answer: CMS v2 makes moral coherence a constitutive property of the model architecture rather than a post-hoc filter.
+                </scratch_pad>
+                """
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { _, _ in
+                Issue.record("Hidden-answer salvage should finish without calling tools.")
+                return LocalToolResult(
+                    toolName: "vault_search",
+                    resultJson: #"{"name":"vault_search","content":[]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Summarize the attached note.",
+            tools: [sampleTool()],
+            maxTurns: 2,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        #expect(prompts.count == 1)
+        #expect(
+            answer
+                == "CMS v2 makes moral coherence a constitutive property of the model architecture rather than a post-hoc filter."
         )
     }
 
@@ -657,6 +1575,54 @@ struct LocalAgentLoopTests {
             requiresConfirmation: false
         )
     }
+
+    private func writeTool() -> OmegaToolDefinition {
+        OmegaToolDefinition(
+            name: "write_file",
+            agent: "file",
+            description: "Write a file.",
+            argumentsExample: #"{"path":"/tmp/tool-smoke.txt","content":"tool smoke ok"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+    }
+
+    private func readTool() -> OmegaToolDefinition {
+        OmegaToolDefinition(
+            name: "read_file",
+            agent: "file",
+            description: "Read a file.",
+            argumentsExample: #"{"path":"tmp/tool-smoke.txt"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+    }
+
+    private func vaultWriteTool() -> OmegaToolDefinition {
+        OmegaToolDefinition(
+            name: "vault_write",
+            agent: "notes",
+            description: "Create or update a vault note.",
+            argumentsExample: #"{"path":"Quick Thought.md","content":"main note smoke ok"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+    }
+
+    private func vaultReadTool() -> OmegaToolDefinition {
+        OmegaToolDefinition(
+            name: "vault_read",
+            agent: "notes",
+            description: "Read a vault note.",
+            argumentsExample: #"{"path":"Quick Thought.md"}"#,
+            schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}"#,
+            destructive: false,
+            requiresConfirmation: false
+        )
+    }
 }
 
 private actor PromptRecorder {
@@ -686,6 +1652,18 @@ private actor ResponseQueue {
     }
 }
 
+private actor ToolCallRecorder {
+    private var calls: [(name: String, argumentsJson: String)] = []
+
+    func record(_ name: String, _ argumentsJson: String) {
+        calls.append((name, argumentsJson))
+    }
+
+    func snapshot() -> [(name: String, argumentsJson: String)] {
+        calls
+    }
+}
+
 private actor StreamChunkQueue {
     private var streams: [[String]]
 
@@ -710,6 +1688,104 @@ private actor ToolInvocationRecorder {
 
     func snapshot() -> [String] {
         names
+    }
+}
+
+@MainActor
+private final class QueueingLocalLLMClient: LocalConfigurableLLMClient {
+    private let generateQueue: ResponseQueue
+    private let streamQueue: StreamChunkQueue
+
+    private(set) var generateRequestCount = 0
+    private(set) var streamRequestCount = 0
+
+    init(generateOutputs: [String], streamOutputs: [[String]]) {
+        self.generateQueue = ResponseQueue(outputs: generateOutputs)
+        self.streamQueue = StreamChunkQueue(streams: streamOutputs)
+    }
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        try await generate(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) async throws -> String {
+        _ = prompt
+        _ = systemPrompt
+        _ = maxTokens
+        _ = reasoningMode
+        _ = modelID
+        _ = steeringHintsJSON
+        generateRequestCount += 1
+        return await generateQueue.nextOutput()
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        _ = prompt
+        _ = systemPrompt
+        _ = maxTokens
+        _ = reasoningMode
+        _ = modelID
+        _ = steeringHintsJSON
+        streamRequestCount += 1
+
+        return AsyncThrowingStream<String, Error> { continuation in
+            let task = Task {
+                let chunks = await self.streamQueue.nextStream()
+                for chunk in chunks {
+                    guard !Task.isCancelled else {
+                        continuation.finish()
+                        return
+                    }
+                    continuation.yield(chunk)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(
+            provider: .localMLX,
+            model: LocalTextModelID.qwen3_4B4Bit.rawValue,
+            reasoningMode: .fast
+        )
     }
 }
 

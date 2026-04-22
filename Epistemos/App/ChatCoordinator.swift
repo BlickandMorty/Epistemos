@@ -718,9 +718,9 @@ final class ChatCoordinator {
 
     let reasoningMode: LocalReasoningMode =
       switch compiled.resolvedExecutionPolicy.effectiveOperatingMode {
-      case .fast:
+      case .fast, .agent:
         .fast
-      case .thinking, .pro, .agent:
+      case .thinking, .pro:
         .thinking
       }
 
@@ -866,6 +866,7 @@ final class ChatCoordinator {
       maxTurns: max(1, compiled.resolvedExecutionPolicy.maxTurns),
       reasoningMode: reasoningMode,
       additionalSystemPrompt: systemInstructions.joined(separator: "\n\n"),
+      reflexMode: true,
       onToken: { token in
         agentChat.appendStreamingText(token)
       }
@@ -1338,6 +1339,8 @@ final class ChatCoordinator {
           attachments: chatState.pendingContextAttachments
         )
         let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)
+        let hasRequestedNoteWriteOperation = Self.queryContainsExplicitNoteWriteOperation(query)
+        let hasRequestedFileOperation = Self.queryContainsExplicitFileOperation(query)
         let notesContext: String?
         let resolvedQuery: String
         if hasVault, hasExplicitContext {
@@ -1374,7 +1377,9 @@ final class ChatCoordinator {
         )
         let requiredContextContract = Self.mergedContextSections(
           hasAttachedUserContext ? Self.buildRequiredAttachmentContractSection() : nil,
-          hasRequestedVaultLookup ? Self.buildRequestedVaultLookupContractSection() : nil
+          hasRequestedVaultLookup ? Self.buildRequestedVaultLookupContractSection() : nil,
+          hasRequestedNoteWriteOperation ? Self.buildRequestedNoteWriteContractSection() : nil,
+          hasRequestedFileOperation ? Self.buildRequestedFileOperationContractSection() : nil
         )
 
         // Extract image URLs for vision-capable models
@@ -1465,6 +1470,7 @@ final class ChatCoordinator {
 
         let pendingAssistantId = UUID().uuidString
         let capturedChatId = chatState.activeChatId
+        let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup
         let executionPlan = Self.augmentedExecutionPlan(
           await buildOverseerExecutionPlan(
             query: effectiveQuery,
@@ -1472,7 +1478,7 @@ final class ChatCoordinator {
               + (effectiveNotesContextWithWorkspace?.count ?? 0)
               + (conversationHistory?.count ?? 0),
             operatingMode: operatingMode,
-            hasExplicitContext: hasAttachedUserContext,
+            hasExplicitContext: plannerHasExplicitContext,
             attachmentCount: userAttachments.count + chatState.pendingContextAttachments.count,
             notesContext: effectiveNotesContextWithWorkspace,
             conversationHistory: conversationHistory
@@ -2177,11 +2183,11 @@ final class ChatCoordinator {
       return "ollama"
     case .cloud(let model):
       switch model {
-      case .anthropicClaudeOpus41, .anthropicClaudeOpus4:
+      case .anthropicClaudeOpus47, .anthropicClaudeOpus41, .anthropicClaudeOpus4:
         return "claude_opus"
       case .anthropicClaudeHaiku35:
         return "claude_haiku"
-      case .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
+      case .anthropicClaudeSonnet46, .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
         return "claude_sonnet"
       case .googleGemini25Pro, .googleGemini3ProPreview, .googleGemini31ProPreview:
         return "gemini_pro"
@@ -3463,6 +3469,38 @@ final class ChatCoordinator {
       || queryLikelyTargetsExistingNote(query)
   }
 
+  static func queryContainsExplicitNoteWriteOperation(_ query: String) -> Bool {
+    let normalized = normalizedSearchField(query)
+    guard !normalized.isEmpty else { return false }
+
+    let writeSignals = [
+      "create a new note",
+      "create new note",
+      "create a note",
+      "create note",
+      "new note",
+      "save a note",
+      "save note",
+      "write a note",
+      "write note",
+      "write this note",
+      "write that note",
+      "update my note",
+      "update the note",
+      "edit my note",
+      "edit the note",
+      "append to my note",
+      "append to the note",
+      "add to my note",
+      "add to the note",
+    ]
+    return writeSignals.contains { normalized.contains($0) }
+  }
+
+  static func queryContainsExplicitFileOperation(_ query: String) -> Bool {
+    ChatCapability.looksLikeExplicitFileOperation(text: query)
+  }
+
   static func queryRequiresVerifiedVaultRead(_ query: String) -> Bool {
     let normalized = normalizedSearchField(query)
     guard !normalized.isEmpty else { return false }
@@ -3474,6 +3512,12 @@ final class ChatCoordinator {
       "find the note",
       "find my note",
       "find a note",
+      "find the essay",
+      "find my essay",
+      "find an essay",
+      "find the draft",
+      "find my draft",
+      "find a draft",
       "look up ",
       "in my notes",
       "from my notes",
@@ -3482,6 +3526,42 @@ final class ChatCoordinator {
       "open the note",
       "read my note",
       "read the note",
+      "open my essay",
+      "open the essay",
+      "read my essay",
+      "read the essay",
+      "summarize my essay",
+      "summarize the essay",
+      "analyze my essay",
+      "analyze the essay",
+      "review my essay",
+      "review the essay",
+      "edit my essay",
+      "edit the essay",
+      "rewrite my essay",
+      "rewrite the essay",
+      "copy my essay",
+      "copy the essay",
+      "duplicate my essay",
+      "duplicate the essay",
+      "open my draft",
+      "open the draft",
+      "read my draft",
+      "read the draft",
+      "summarize my draft",
+      "summarize the draft",
+      "analyze my draft",
+      "analyze the draft",
+      "review my draft",
+      "review the draft",
+      "edit my draft",
+      "edit the draft",
+      "rewrite my draft",
+      "rewrite the draft",
+      "copy my draft",
+      "copy the draft",
+      "duplicate my draft",
+      "duplicate the draft",
       "summarize my note",
       "summarize the note",
       "analyze my note",
@@ -3769,6 +3849,41 @@ final class ChatCoordinator {
         If approval is required, wait for it and continue the lookup after approval instead of answering from memory or nearby context.
         If the first lookup attempt fails, retry with a title or fuzzy vault search before you give up.
         If no real vault read succeeds, say plainly that you couldn't find or read the note in the user's notes.
+        """
+    )
+  }
+
+  private nonisolated static func buildRequestedNoteWriteContractSection() -> String? {
+    wrapRequiredContextSection(
+      title: "Requested Note Write Contract",
+      instruction:
+        "The user asked you to create or update a vault note on this turn. Execute a real note write before claiming success.",
+      body: """
+        Use `vault_write` to create or update the note with full markdown content.
+        If the user gave only a title and not a path, choose a clear human-readable vault-relative `.md` path that matches that requested title.
+        If the user gave an explicit vault-relative path, use that exact path.
+        If the user asks you to create or update a note and then read it back, call `vault_write` first and then `vault_read` on that same exact note path.
+        Wait for each tool result before deciding the next note step.
+        If approval is required, wait for it and continue after approval instead of pretending the write already happened.
+        If the write or read-back fails, explain that exact failure instead of claiming the note was created, updated, or verified.
+        """
+    )
+  }
+
+  private nonisolated static func buildRequestedFileOperationContractSection() -> String? {
+    wrapRequiredContextSection(
+      title: "Requested File Operation Contract",
+      instruction:
+        "The user asked for a concrete file read/write operation on this turn. Execute the requested file operation honestly instead of improvising nearby paths or filenames.",
+      body: """
+        If the user already provided a path, use that exact path.
+        File tools can use explicit filesystem paths the user provided, including absolute paths and ~/ home expansion, or vault-relative paths inside the active vault or managed runtime ScratchVault.
+        Do not rewrite absolute paths into vault-relative guesses.
+        Do not invent alternate file names, directories, or fallback paths.
+        If the user asks you to write a file and then read it back, do the write first and then read that same exact path.
+        Wait for each tool result before deciding the next file step.
+        If approval is required, wait for it and continue after approval instead of pretending the operation already happened.
+        If the exact requested path fails, explain that exact failure instead of pretending a nearby path worked.
         """
     )
   }

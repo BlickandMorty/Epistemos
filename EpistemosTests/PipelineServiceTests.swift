@@ -666,8 +666,9 @@ struct PipelineServiceTests {
         #expect(localClient.streamRequests.isEmpty)
         #expect(cloudClient.streamCalls.count == 1)
         let systemPrompt = try #require(cloudClient.streamCalls.first?.systemPrompt)
-        #expect(systemPrompt.contains("OVERSEER_PLAN_V1"))
-        #expect(systemPrompt.contains("\"mask_plan\""))
+        #expect(!systemPrompt.contains("OVERSEER_PLAN_V1"))
+        #expect(!systemPrompt.contains("\"mask_plan\""))
+        #expect(systemPrompt.contains("Tools available: `web_search`"))
     }
 
     @Test("local overseer execution plan forwards steering hints into the local runtime path")
@@ -1684,12 +1685,40 @@ struct PipelineContractTests {
         #expect(gotCompleted, "Pipeline should emit a .completed event")
     }
 
+    @Test("tool loop completion emits a visible delta when the final answer was not streamed")
+    func toolLoopCompletionEmitsVisibleDeltaForNonStreamedFinalAnswer() {
+        let reconciled = PipelineService.reconcileToolLoopVisibleText(
+            streamedText: "",
+            finalOutput: "tool smoke ok"
+        )
+
+        #expect(reconciled.completedText == "tool smoke ok")
+        #expect(reconciled.missingDelta == "tool smoke ok")
+
+        let alreadyStreamed = PipelineService.reconcileToolLoopVisibleText(
+            streamedText: "tool smoke ok",
+            finalOutput: "tool smoke ok"
+        )
+
+        #expect(alreadyStreamed.completedText == "tool smoke ok")
+        #expect(alreadyStreamed.missingDelta == nil)
+    }
+
     @Test("local tool loop uses reflex execution and guards the executor to surfaced tools")
     func localToolLoopUsesReflexExecutionAndAllowlistedExecutor() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
 
         #expect(source.contains("allowedToolNames: Set(tools.map(\\.name))"))
         #expect(source.contains("reflexMode: true"))
+    }
+
+    @Test("local tool loop resolves the managed scratch vault when no user vault is attached")
+    func localToolLoopResolvesManagedScratchVaultFallback() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/PipelineService.swift")
+
+        #expect(source.contains("private func resolvedManagedToolRuntimeVaultPath() -> String"))
+        #expect(source.contains("FoundationSafety.managedToolRuntimeVaultDirectory("))
+        #expect(source.contains("let vaultPath = resolvedManagedToolRuntimeVaultPath()"))
     }
 
 }
@@ -2309,6 +2338,8 @@ struct ChatCoordinatorPersistenceTests {
         #expect(determinism.loadedNoteIds == Set(["determinism-id"]))
         #expect(determinism.loadedNoteTitles == ["A Neuroscientific Explanation of Determinism in Society"])
         #expect(determinism.context?.contains("Essay body on determinism.") == true)
+        #expect(ChatCoordinator.queryRequiresVerifiedVaultRead("read my essay on determinism and summarize it"))
+        #expect(ChatCoordinator.queryRequiresVerifiedVaultRead("rewrite my draft on determinism"))
 
         let psych = await ChatCoordinator.resolveNotesContext(
             query: "find the essay where i mentioned psychoneuroimmunology a few weeks ago and summarize it",

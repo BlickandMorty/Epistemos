@@ -808,6 +808,8 @@ nonisolated enum UserFacingModelOutput {
         let cleaned = cleanedStreamingText(from: raw)
         guard !cleaned.isEmpty else { return "" }
         guard !isOnlyDanglingAnswerMarker(cleaned) else { return "" }
+        guard !isOnlyDanglingFenceLanguageMarker(raw: raw, cleaned: cleaned) else { return "" }
+        guard !isOnlyStructuredToolPayloadFragment(cleaned) else { return "" }
 
         if let directAnswer = directAnswerText(in: cleaned) {
             return directAnswer
@@ -835,6 +837,8 @@ nonisolated enum UserFacingModelOutput {
         let cleaned = cleanedVisibleText(from: raw, suppressIncompleteThinkingTail: true)
         guard !cleaned.isEmpty else { return "" }
         guard !isOnlyDanglingAnswerMarker(cleaned) else { return "" }
+        guard !isOnlyDanglingFenceLanguageMarker(raw: raw, cleaned: cleaned) else { return "" }
+        guard !isOnlyStructuredToolPayloadFragment(cleaned) else { return "" }
 
         if let directAnswer = directAnswerText(in: cleaned) {
             return directAnswer
@@ -884,6 +888,50 @@ nonisolated enum UserFacingModelOutput {
 
     private static func isOnlyDanglingAnswerMarker(_ text: String) -> Bool {
         ThinkingPreludeSyntax.containsOnlyAnswerMarker(text)
+    }
+
+    private static func isOnlyDanglingFenceLanguageMarker(raw: String, cleaned: String) -> Bool {
+        let normalizedRaw = raw
+            .replacingOccurrences(of: "\r\n", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalizedRaw.hasPrefix("```"),
+              !normalizedRaw.contains("\n") else {
+            return false
+        }
+
+        let fenceLanguage = normalizedRaw
+            .dropFirst(3)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let normalizedCleaned = cleaned
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        if normalizedCleaned == normalizedRaw.lowercased() {
+            return true
+        }
+
+        if fenceLanguage.isEmpty {
+            return normalizedCleaned == "```"
+        }
+
+        return normalizedCleaned == fenceLanguage
+    }
+
+    private static func isOnlyStructuredToolPayloadFragment(_ text: String) -> Bool {
+        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return false }
+
+        let lowercased = normalized.lowercased()
+        if lowercased.contains("<tool_call") || lowercased.contains("```tool_call") {
+            return true
+        }
+
+        guard normalized.contains("\"name\""), normalized.contains("\"arguments\"") else {
+            return false
+        }
+
+        return normalized.hasPrefix("{")
     }
 
     static func incompleteReasoningFallback(from rawThinking: String) -> String? {

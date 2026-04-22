@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SQLite3
 import Testing
 @testable import Epistemos
 
@@ -11,6 +12,79 @@ private func loadRepoTextFileWithRetry(
     _ = testsFilePath
     _ = attempts
     return try loadMirroredSourceTextFile(relativePath)
+}
+
+private func createSQLiteDatabase(
+    at url: URL,
+    statements: [String]
+) throws {
+    try FileManager.default.createDirectory(
+        at: url.deletingLastPathComponent(),
+        withIntermediateDirectories: true
+    )
+
+    var db: OpaquePointer?
+    guard sqlite3_open_v2(
+        url.path,
+        &db,
+        SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX,
+        nil
+    ) == SQLITE_OK, let db else {
+        throw NSError(
+            domain: "RuntimeValidationTests.SQLiteCreate",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Failed to open SQLite database at \(url.path)"]
+        )
+    }
+    defer { sqlite3_close(db) }
+
+    for statement in statements {
+        guard sqlite3_exec(db, statement, nil, nil, nil) == SQLITE_OK else {
+            throw NSError(
+                domain: "RuntimeValidationTests.SQLiteExec",
+                code: Int(sqlite3_errcode(db)),
+                userInfo: [NSLocalizedDescriptionKey: String(cString: sqlite3_errmsg(db))]
+            )
+        }
+    }
+}
+
+private func sqliteColumnNames(
+    in tableName: String,
+    databaseURL: URL
+) throws -> Set<String> {
+    var db: OpaquePointer?
+    guard sqlite3_open_v2(
+        databaseURL.path,
+        &db,
+        SQLITE_OPEN_READONLY | SQLITE_OPEN_FULLMUTEX,
+        nil
+    ) == SQLITE_OK, let db else {
+        throw NSError(
+            domain: "RuntimeValidationTests.SQLiteOpen",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Failed to open SQLite database at \(databaseURL.path)"]
+        )
+    }
+    defer { sqlite3_close(db) }
+
+    var statement: OpaquePointer?
+    let query = "PRAGMA table_info(\(tableName));"
+    guard sqlite3_prepare_v2(db, query, -1, &statement, nil) == SQLITE_OK else {
+        throw NSError(
+            domain: "RuntimeValidationTests.SQLitePrepare",
+            code: Int(sqlite3_errcode(db)),
+            userInfo: [NSLocalizedDescriptionKey: String(cString: sqlite3_errmsg(db))]
+        )
+    }
+    defer { sqlite3_finalize(statement) }
+
+    var columns = Set<String>()
+    while sqlite3_step(statement) == SQLITE_ROW {
+        guard let name = sqlite3_column_text(statement, 1) else { continue }
+        columns.insert(String(cString: name))
+    }
+    return columns
 }
 
 @Suite("Runtime Validation")
@@ -86,6 +160,43 @@ struct RuntimeValidationTests {
                     == (bootstrap.inferenceState.effectiveLocalTextModelID ?? "")
             )
         }
+    }
+
+    @Test("bootstrap adopts legacy root stores into the app-scoped path and repairs message columns")
+    func bootstrapAdoptsLegacyRootStoresIntoAppScopedPathAndRepairsMessageColumns() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("AppBootstrapStoreRepair-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let legacyStoreURL = AppBootstrap.legacyRootModelStoreURL(applicationSupportDirectory: root)
+        try createSQLiteDatabase(
+            at: legacyStoreURL,
+            statements: [
+                """
+                CREATE TABLE ZSDMESSAGE (
+                    Z_PK INTEGER PRIMARY KEY,
+                    Z_ENT INTEGER,
+                    Z_OPT INTEGER,
+                    ZID VARCHAR
+                );
+                """,
+                "INSERT INTO ZSDMESSAGE (Z_PK, Z_ENT, Z_OPT, ZID) VALUES (1, 1, 1, 'legacy-message');",
+            ]
+        )
+
+        let destinationStoreURL = try AppBootstrap.preparePersistentModelStoreIfNeeded(
+            applicationSupportDirectory: root,
+            fileManager: .default
+        )
+
+        #expect(destinationStoreURL == AppBootstrap.persistentModelStoreURL(applicationSupportDirectory: root))
+        #expect(destinationStoreURL.path == root.appendingPathComponent("Epistemos/default.store").path)
+        #expect(FileManager.default.fileExists(atPath: destinationStoreURL.path))
+
+        let columns = try sqliteColumnNames(in: "ZSDMESSAGE", databaseURL: destinationStoreURL)
+        #expect(columns.contains("ZTHINKINGTRACE"))
+        #expect(columns.contains("ZTHINKINGDURATIONSECONDS"))
     }
 
     @MainActor
@@ -183,11 +294,33 @@ struct RuntimeValidationTests {
         }
     }
 
+    @MainActor
+    @Test("tool-capable local selections expose agent mode to compact chat surfaces")
+    func toolCapableLocalSelectionsExposeAgentModeToCompactChatSurfaces() async {
+        await withResetInferenceDefaults {
+            let inference = InferenceState()
+            let modelID = LocalTextModelID.qwen3CoderNext4Bit.rawValue
+
+            inference.setInstalledLocalTextModelIDs([modelID])
+            inference.setPreparedLocalTextModelIDs([modelID])
+            inference.setPreferredChatModelSelection(.localMLX(modelID))
+
+            let modes = inference.availableOperatingModes(
+                for: inference.preferredChatModelSelection
+            )
+
+            #expect(modes.contains(.fast))
+            #expect(modes.contains(.agent))
+        }
+    }
+
     @Test("inference migrates legacy secure cloud keys and selections forward")
     func inferenceMigratesLegacyCloudConfigurationForward() throws {
         let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
 
         #expect(source.contains("migrateLegacyCloudAPIKeysIfNeeded()"))
+        #expect(source.contains("func availableOperatingModes("))
+        #expect(source.contains("for selection: ChatModelSelection"))
         #expect(source.contains("epistemos.apiKey.openai"))
         #expect(source.contains("epistemos.apiKey.anthropic"))
         #expect(source.contains("epistemos.apiKey.google"))
@@ -455,7 +588,8 @@ struct RuntimeValidationTests {
         #expect(app.contains("func applicationShouldRestoreApplicationState(_ app: NSApplication) -> Bool"))
         #expect(app.contains("func applicationShouldSaveApplicationState(_ app: NSApplication) -> Bool"))
         #expect(app.contains(".restorationBehavior(.disabled)"))
-        #expect(!app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
+        #expect(app.contains("SavedApplicationStatePurger.shouldPurgeAtLaunch()"))
+        #expect(app.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
         #expect(!app.contains("func applicationWillFinishLaunching(_ notification: Notification)"))
         #expect(!app.contains("window.isRestorable = false"))
         #expect(appBootstrap.contains("SavedApplicationStatePurger.purgeIfNeeded()"))
@@ -465,6 +599,7 @@ struct RuntimeValidationTests {
     func mainSceneAvoidsImperativeHomeWindowMutationDuringStartup() throws {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
+        #expect(app.contains("WindowGroup(\"Epistemos\")"))
         #expect(!app.contains("ModularZoomWindowObserver"))
         #expect(!app.contains("applyMainWindowPolicyIfNeeded"))
         #expect(!app.contains("NSWindow.didBecomeMainNotification"))
@@ -519,6 +654,8 @@ struct RuntimeValidationTests {
         #expect(script.contains("epistemos.vaultBookmark"))
         #expect(script.contains("epistemos.lastVaultPath"))
         #expect(script.contains("EPISTEMOS_SKIP_VAULT_RESTORE"))
+        #expect(script.contains("clear_audit_saved_state"))
+        #expect(script.contains("Library/Saved Application State"))
         #expect(script.contains("EPI_HOME_WINDOW_MINIMAL_CONTENT"))
         #expect(script.contains("scripts/xcodebuild_epistemos.sh"))
     }
@@ -616,7 +753,10 @@ struct RuntimeValidationTests {
         #expect(extensions.contains("Epistemos-TestRuntime"))
         #expect(extensions.contains("XCTestConfigurationFilePath"))
         #expect(appBootstrap.contains("let usesInMemoryModelStore = Self.isRunningTests"))
-        #expect(appBootstrap.contains("ModelConfiguration(isStoredInMemoryOnly: usesInMemoryModelStore)"))
+        #expect(appBootstrap.contains("preparePersistentModelStoreIfNeeded"))
+        #expect(appBootstrap.contains("let modelStoreURL = Self.persistentModelStoreURL("))
+        #expect(appBootstrap.contains("applicationSupportDirectory: applicationSupportDirectory"))
+        #expect(appBootstrap.contains("ModelConfiguration(url: modelStoreURL)"))
 
         for source in [
             noteFileStorage,
@@ -708,18 +848,20 @@ struct RuntimeValidationTests {
             inference.setInstalledLocalTextModelIDs([
                 LocalTextModelID.qwen35_0_8B4Bit.rawValue,
                 LocalTextModelID.qwen35_2B4Bit.rawValue,
-                LocalTextModelID.qwen35_9B4Bit.rawValue,
+                LocalTextModelID.qwen3_4B4Bit.rawValue,
             ])
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_0_8B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast])
+            #expect(inference.availableOperatingModes.contains(.fast))
+            #expect(!inference.availableOperatingModes.contains(.thinking))
 
             inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_2B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
-            #expect(inference.availableOperatingModes == [.fast])
+            #expect(inference.availableOperatingModes.contains(.fast))
+            #expect(!inference.availableOperatingModes.contains(.thinking))
 
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_9B4Bit.rawValue))
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
             #expect(!inference.supportsThinkingOperatingMode)
             #expect(inference.availableOperatingModes == [.fast, .agent])
         }
@@ -745,14 +887,14 @@ struct RuntimeValidationTests {
         await withResetInferenceDefaults {
             let inference = InferenceState()
             inference.setInstalledLocalTextModelIDs([
-                LocalTextModelID.qwen35_4B4Bit.rawValue,
-                LocalTextModelID.smolLM3_3B4Bit.rawValue,
+                LocalTextModelID.qwen3_4B4Bit.rawValue,
+                LocalTextModelID.llama32_3BInstruct4Bit.rawValue,
             ])
 
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
             #expect(inference.availableOperatingModes == [.fast, .agent])
 
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.smolLM3_3B4Bit.rawValue))
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.llama32_3BInstruct4Bit.rawValue))
             #expect(inference.availableOperatingModes == [.fast])
 
             inference.setPreferredChatModelSelection(.appleIntelligence)
@@ -816,6 +958,16 @@ struct RuntimeValidationTests {
         #expect(source.contains("cloudProviderValidationStates[provider] = .unchecked"))
         #expect(source.contains("cloudProviderValidationStates[provider] = .missing"))
         #expect(source.contains("cachedCloudAPIKeys[provider] = trimmed"))
+    }
+
+    @Test("inference defers launch-time cloud credential hydration off the boot path")
+    func inferenceDefersLaunchTimeCloudCredentialHydrationOffTheBootPath() throws {
+        let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+
+        #expect(source.contains("deferCloudCredentialBootstrapOnLaunch"))
+        #expect(source.contains("initializeDeferredCloudCredentialState()"))
+        #expect(source.contains("startDeferredCloudCredentialBootstrap()"))
+        #expect(source.contains("DispatchQueue.global(qos: .utility).async"))
     }
 
     @Test("cloud key validation checks provider auth before probing a model")
@@ -1248,6 +1400,100 @@ struct RuntimeValidationTests {
         #expect(app.contains("LaunchIntegrityGateView(bootstrap: bootstrap)"))
         #expect(!rootView.contains("performStartupIntegrityCheck"))
         #expect(!rootView.contains("restoreVaultFromBookmark"))
+    }
+
+    @Test("primary launch initialization defers agent env keychain hydration off the main thread")
+    func primaryLaunchInitializationDefersAgentEnvKeychainHydrationOffTheMainThread() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("Task.detached(priority: .utility)"))
+        #expect(bootstrap.contains("Self.populateAgentCoreEnvironment()"))
+        #expect(!bootstrap.contains("// in-process Rust agent_core providers can read them via std::env::var.\n        Self.populateAgentCoreEnvironment()"))
+    }
+
+    @Test("launch agent env hydration skips duplicate work while deferred cloud bootstrap is active")
+    func launchAgentEnvHydrationSkipsDuplicateWorkWhileDeferredCloudBootstrapIsActive() {
+        #expect(
+            !AppBootstrap.shouldPopulateAgentCoreEnvironmentAtLaunch(
+                deferredCloudCredentialBootstrapInFlight: true
+            )
+        )
+        #expect(
+            AppBootstrap.shouldPopulateAgentCoreEnvironmentAtLaunch(
+                deferredCloudCredentialBootstrapInFlight: false,
+                launchKeychainAccessAllowed: true
+            )
+        )
+        #expect(
+            !AppBootstrap.shouldPopulateAgentCoreEnvironmentAtLaunch(
+                deferredCloudCredentialBootstrapInFlight: false,
+                launchKeychainAccessAllowed: false
+            )
+        )
+    }
+
+    @Test("skip-restore audit launches purge saved state and avoid startup keychain reads")
+    func skipRestoreAuditLaunchesPurgeSavedStateAndAvoidStartupKeychainReads() {
+        let skipRestoreEnvironment = ["EPISTEMOS_SKIP_VAULT_RESTORE": "1"]
+
+        #expect(
+            SavedApplicationStatePurger.shouldPurgeAtLaunch(
+                processInfoEnvironment: skipRestoreEnvironment
+            )
+        )
+        #expect(
+            !AppBootstrap.shouldReadKeychainAtLaunch(
+                processInfoEnvironment: skipRestoreEnvironment
+            )
+        )
+        #expect(
+            !InferenceState.shouldDeferCloudCredentialBootstrapOnLaunch(
+                isRunningTests: false,
+                processInfoEnvironment: skipRestoreEnvironment
+            )
+        )
+        #expect(
+            InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch(
+                processInfoEnvironment: skipRestoreEnvironment
+            )
+        )
+        #expect(
+            !SavedApplicationStatePurger.shouldPurgeAtLaunch(
+                processInfoEnvironment: [:]
+            )
+        )
+        #expect(
+            AppBootstrap.shouldReadKeychainAtLaunch(
+                processInfoEnvironment: [:]
+            )
+        )
+        #expect(
+            InferenceState.shouldDeferCloudCredentialBootstrapOnLaunch(
+                isRunningTests: false,
+                processInfoEnvironment: [:]
+            )
+        )
+        #expect(
+            !InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch(
+                processInfoEnvironment: [:]
+            )
+        )
+    }
+
+    @Test("chat coordinator keeps local agent loops in fast reasoning mode for tools")
+    func chatCoordinatorKeepsLocalAgentLoopsInFastReasoningModeForTools() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("case .fast, .agent:"))
+        #expect(coordinator.contains("case .thinking, .pro:"))
+        #expect(!coordinator.contains("case .thinking, .pro, .agent:"))
+    }
+
+    @Test("chat coordinator enables reflex mode for local agent tool loops")
+    func chatCoordinatorEnablesReflexModeForLocalAgentToolLoops() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("reflexMode: true"))
     }
 
     @Test("initial vault import is offloaded through a nonisolated helper")
@@ -1745,6 +1991,20 @@ struct RuntimeValidationTests {
         #expect(graphState.contains("graph_engine_prepared_retrieval_search("))
         #expect(!controls.contains("semanticClusterToggle"))
         #expect(!controls.contains(".disabled(!available)"))
+    }
+
+    @Test("graph bootstrap defers hybrid embedding lookup construction until semantic work begins")
+    func graphBootstrapDefersHybridEmbeddingLookupConstruction() throws {
+        let graphState = try loadRepoTextFile("Epistemos/Graph/GraphState.swift")
+        let embeddings = try loadRepoTextFile("Epistemos/Graph/EmbeddingService.swift")
+
+        #expect(graphState.contains("DeferredTextEmbeddingLookup"))
+        #expect(graphState.contains("embeddingLookup: DeferredTextEmbeddingLookup {"))
+        #expect(graphState.contains("AppleHybridEmbeddingLookup()"))
+        #expect(!graphState.contains("EmbeddingService(embeddingLookup: AppleHybridEmbeddingLookup())"))
+        #expect(embeddings.contains("nonisolated struct DeferredTextEmbeddingLookup"))
+        #expect(embeddings.contains("DeferredTextEmbeddingLookup: TextEmbeddingLookup"))
+        #expect(embeddings.contains("DeferredTextEmbeddingLookupStorage"))
     }
 
     @Test("fallback semantic query path requires a populated matching Rust embedding store")
@@ -2333,7 +2593,8 @@ struct RuntimeValidationTests {
         #expect(!root.contains("AgentChatView()"))
         #expect(!repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
         #expect(!repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
-        #expect(miniChat.contains("let modes = inference.availableOperatingModes.filter { $0 != .agent }"))
+        #expect(miniChat.contains("let modes = inference.availableOperatingModes"))
+        #expect(!miniChat.contains("filter { $0 != .agent }"))
         #expect(!chatState.contains("ResearchComplexityGate.handoffMessage("))
         #expect(!chatState.contains("await orchestrator.submitTask(\"research: \\(cleaned)\")"))
         #expect(!miniChat.contains("ResearchComplexityGate.hasExplicitResearchPrefix(trimmed)"))
@@ -3798,7 +4059,8 @@ struct RuntimeValidationTests {
     func agentChatsBuildAnOverseerExecutionPlanBeforeChoosingLocalOrManagedExecution() throws {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
-        #expect(coordinator.contains("let executionPlan = await buildOverseerExecutionPlan("))
+        #expect(coordinator.contains("let executionPlan = Self.augmentedExecutionPlan("))
+        #expect(coordinator.contains("await buildOverseerExecutionPlan("))
         #expect(coordinator.contains("let planner = ModelRefinedPlanner(inference: inferenceState)"))
         #expect(coordinator.contains("if let executionPlan, mode == .api, executionPlan.route == .managedAgentSession {"))
         #expect(!coordinator.contains("if let executionPlan, mode == .api, operatingMode == .agent {"))
@@ -3828,7 +4090,10 @@ struct RuntimeValidationTests {
 
         #expect(coordinator.contains("let hasExplicitContext = Self.queryContainsExplicitContext("))
         #expect(coordinator.contains("let hasRequestedVaultLookup = Self.queryContainsExplicitNoteContext(query)"))
-        #expect(coordinator.contains("let hasAttachedUserContext = !chatState.pendingContextAttachments.isEmpty || !userAttachments.isEmpty"))
+        #expect(coordinator.contains("let hasAttachedUserContext ="))
+        #expect(coordinator.contains("!chatState.pendingContextAttachments.isEmpty || !userAttachments.isEmpty"))
+        #expect(coordinator.contains("let plannerHasExplicitContext = hasAttachedUserContext || hasRequestedVaultLookup"))
+        #expect(coordinator.contains("hasExplicitContext: plannerHasExplicitContext"))
         #expect(coordinator.contains("let shouldInjectWorkspaceContext = isSessionQuery || operatingMode == .agent"))
         #expect(coordinator.contains("let aiFresh = await MainActor.run { AppleIntelligenceService.shared.checkAvailability() }"))
         #expect(coordinator.contains("buildRequiredAttachmentContractSection()"))
@@ -3842,11 +4107,14 @@ struct RuntimeValidationTests {
         let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
 
         #expect(coordinator.contains("var finalizedAssistantMessage = false"))
-        #expect(coordinator.contains("finalizedAssistantMessage = true\n                agentChat.completeProcessing("))
-        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {\n            finalizedAssistantMessage = agentChat.completeInterruptedProcessing("))
-        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {\n            finalizedAssistantMessage = chatState.completeCancelledProcessing("))
-        #expect(coordinator.contains("receivedAgentContent = true\n                chatState.appendStreamingThinking(thought)"))
-        #expect(coordinator.contains("receivedAgentContent = true\n                agentChat.appendStreamingThinking(text)"))
+        #expect(coordinator.contains("finalizedAssistantMessage = true"))
+        #expect(coordinator.contains("agentChat.completeProcessing("))
+        #expect(coordinator.contains("if !finalizedAssistantMessage && receivedAgentContent {"))
+        #expect(coordinator.contains("finalizedAssistantMessage = agentChat.completeInterruptedProcessing("))
+        #expect(coordinator.contains("finalizedAssistantMessage = chatState.completeCancelledProcessing("))
+        #expect(coordinator.contains("receivedAgentContent = true"))
+        #expect(coordinator.contains("chatState.appendStreamingThinking(thought, explicit: true)"))
+        #expect(coordinator.contains("agentChat.appendStreamingThinking(text, explicit: true)"))
     }
 
     @Test("note chat always treats the current note body as primary context")

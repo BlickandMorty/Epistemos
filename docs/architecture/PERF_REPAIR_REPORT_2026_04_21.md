@@ -11,10 +11,32 @@ from user-reported runtime symptoms:
   (fenced ```` ```tool_call ```` blocks not recognized by parser).
 - Cloud GPT-5.x acting as if tools aren't available despite the model being
   told so in the manifest.
+- Essay / draft requests not consistently promoting into the same
+  tool-required note-read contract as explicit `note` wording.
+- Mini Chat showing `Thinking` while the runtime was explicitly in `Tools`
+  mode on local models, making the UI lie about the actual execution path.
 - MLX idle unload keeping Metal working set resident, contributing to the
   ~500 MB idle-memory regression.
+- Graph bootstrap eagerly constructing the Apple hybrid embedding lookup,
+  front-loading large NLP assets before any semantic graph access.
 
 ## Root causes confirmed in code
+
+### 0 · Semantic note lookups were not fully propagated into planner context
+
+`Epistemos/App/ChatCoordinator.swift` already detected semantic vault/note
+queries with `queryContainsExplicitNoteContext(query)` and resolved note
+bodies into `notesContext`, but it only forwarded **attachment-backed**
+context into `buildOverseerExecutionPlan(...)` via `hasAttachedUserContext`.
+That meant planner heuristics could still treat a request like
+`"read my essay on determinism and summarize it"` as if it were missing
+explicit context unless the user had attached a note manually.
+
+Separately, `queryRequiresVerifiedVaultRead(_:)` only recognized
+`note`-wording (`read my note`, `summarize the note`, etc.). Equivalent
+`essay` / `draft` phrasing was not treated as a required verified read,
+which weakened the "don't guess, actually read" contract on the managed
+tools path.
 
 ### 1 · Fenced ```` ```tool_call ```` blocks were never parsed as tool calls
 
@@ -51,6 +73,24 @@ which explicitly tells the model:
 That was telling the model it had tools the runtime could not honor —
 the root cause of the "can see related notes but I can't do a real vault
 search" behavior.
+
+### 4 · Mini Chat mapped explicit Tools mode into a Thinking pill
+
+`Epistemos/Views/MiniChat/MiniChatView.swift` — the composer pill used
+`selectedOperatingMode.capturesReasoningTrace` to decide whether to show
+the brain / Thinking affordance. `.agent` also captures reasoning traces,
+so an explicit local `Tools` selection (`Tools • Qwen3 4B`) still rendered
+as `Thinking` even though the runtime description correctly said
+`Tools runs directly on Qwen 3 4B`.
+
+### 5 · Graph bootstrap eagerly loaded the Apple hybrid embedding stack
+
+`Epistemos/Graph/GraphState.swift` initialized
+`EmbeddingService(embeddingLookup: AppleHybridEmbeddingLookup())` directly
+at launch. On Apple Silicon that can synchronously instantiate
+`NLContextualEmbedding` plus the fallback `NLEmbedding` before any graph
+semantic query, which is exactly the kind of idle-memory regression the
+handoff had narrowed to `GraphState.init()`.
 
 ## What was patched
 
@@ -107,6 +147,58 @@ Regression coverage (in `EpistemosTests/RuntimeValidationTests.swift`):
   actually attaches` — flips `openAIWebSearchEnabled` and confirms the
   list stays in sync.
 
+### Shared tool routing: essay / draft phrasing now escalates like note reads
+
+Files:
+- `Epistemos/Engine/AgentHarness/ChatCapability.swift` — expanded the
+  shared agent-signal list so `essay` / `draft` lookup, summarize,
+  rewrite, review, analyze, duplicate, and read verbs all classify as
+  `.agent` instead of falling through to plain local / cloud chat.
+- `Epistemos/App/ChatCoordinator.swift` — planner context and the
+  verified-read guard now treat essay / draft phrasing as real note-read
+  work instead of letting the model guess.
+
+Regression coverage:
+- `EpistemosTests/ChatCapabilityIntentTests.swift`
+  (`essay and draft vault lookup verbs predict agent intent`)
+- `EpistemosTests/TriageServiceTests.swift`
+  (`cloud essay lookup turns escalate to a managed tools session before note resolution`)
+
+### Mini Chat mode honesty: explicit Tools mode now renders as Tools
+
+Files:
+- `Epistemos/Views/MiniChat/MiniChatView.swift`
+  - model-aware operating-mode list via
+    `inference.availableOperatingModes(for:)`
+  - mode re-sanitization when the selected model changes
+  - explicit `.agent` and `.pro` turns stay on the shared coordinator path
+  - composer pill treats only `.thinking` as Thinking and treats
+    explicit `.agent` as Tools
+- `EpistemosTests/MiniChatViewAuditTests.swift`
+  - source-contract coverage for the new Tools-pill behavior
+
+Runtime validation (2026-04-22, rebuilt audit app):
+- `Tools • Qwen3 4B` now shows the purple `Tools` pill instead of the old
+  `Thinking` pill.
+- The prompt `read my essay on determinism and summarize it` returned an
+  honest `I couldn't find or read the note in the user's notes.` response
+  instead of the old guessed-path / fabricated-read behavior from the
+  screenshots.
+
+### Idle-memory hardening: defer Apple hybrid embedding construction
+
+Files:
+- `Epistemos/Graph/EmbeddingService.swift` — added
+  `DeferredTextEmbeddingLookup`, a locked one-time factory wrapper that
+  resolves the real lookup only on first semantic access.
+- `Epistemos/Graph/GraphState.swift` — wraps `AppleHybridEmbeddingLookup()`
+  in `DeferredTextEmbeddingLookup` so launch no longer eagerly loads the
+  contextual + word embedding assets.
+
+Regression coverage:
+- `EpistemosTests/BlockEmbeddingTests.swift`
+  (`deferred embedding lookup waits until the first semantic access`)
+
 ## Tests run
 
 ```
@@ -120,6 +212,45 @@ xcodebuild -scheme Epistemos -destination 'platform=macOS' test-without-building
 Targeted manifest + capability-list tests in `RuntimeValidationTests`
 were added and run against the compiled target via `xcodebuild test`.
 
+```
+./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination 'platform=macOS' test \
+  -only-testing:EpistemosTests/ChatCapabilityIntentTests \
+  -only-testing:EpistemosTests/TriageServiceTests \
+  -only-testing:EpistemosTests/MiniChatViewAuditTests
+→ 62/62 passed.
+Result bundle:
+/Users/jojo/Downloads/Epistemos/build/xcode-results/2026-04-22-001150-64378.xcresult
+```
+
+```
+./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination 'platform=macOS' test \
+  -only-testing:EpistemosTests/BlockEmbeddingTests \
+  -only-testing:EpistemosTests/Mamba2MetalRuntimeTests
+→ 25/25 passed.
+Result bundle:
+/Users/jojo/Downloads/Epistemos/build/xcode-results/2026-04-22-002422-72623.xcresult
+```
+
+Manual/runtime verification:
+
+```
+./scripts/launch_audit_app.sh --minimal-home --root-shell-minimal
+./scripts/launch_audit_app.sh --no-build
+```
+
+- Rebuilt audit bundle from the current worktree and drove Mini Chat with
+  Computer Use.
+- Verified the old `Tools • Qwen3 4B` + `Thinking` mismatch is gone in the
+  rebuilt app.
+- Spot-checked resident memory after a local `Qwen3 4B` Tools turn:
+
+```
+ps -o pid=,rss=,etime=,command= -p 70373
+→ RSS 68464 KB (~67 MB resident)
+```
+
 ## What changed in user-visible behavior
 
 - A local model that emits a fenced ```` ```tool_call ```` block now
@@ -130,10 +261,23 @@ were added and run against the compiled target via `xcodebuild test`.
   (web_search, etc.) still appear. The manifest's existing "No tools
   are available … Answer in plain text only." message now fires in
   the right cases.
+- Semantic vault-read requests such as `read my essay on determinism`
+  now count as explicit context for planning, even when the user did
+  not attach a note manually.
+- Essay / draft phrasing now trips the same verified-read guard as
+  `read my note`, so the app is less willing to let a tool-capable
+  runtime bluff its way through note-reading work.
+- Mini Chat no longer shows a Thinking brain when the selected runtime is
+  explicitly `Tools`.
+- Switching Mini Chat between local models now re-sanitizes invalid modes
+  instead of leaving stale `Thinking` / `Tools` combinations attached to
+  the wrong model family.
+- The graph embedding stack is no longer forced into memory at launch
+  before the user does any semantic graph work.
 - MLX idle unload returns the Metal runtime's state / heap buffers to
   the system instead of keeping them warm indefinitely.
 
-## Memory regression (500 MB idle) — narrowed, not fully resolved
+## Memory regression (500 MB idle) — reduced, not fully closed
 
 The 2026-04-20 handoff (`docs/handoffs/2026-04-20-claude-to-next-session-remaining-work.md`
 § 6) noted that idle memory was ~300 MB at that point and explicitly
@@ -142,14 +286,15 @@ current report of ~500 MB suggests a further regression on top.
 
 ### Concrete contributors located in source
 
-1. **NLContextualEmbedding + NLEmbedding** eagerly constructed in
+1. **NLContextualEmbedding + NLEmbedding** were eagerly constructed in
    `GraphState.init()` via `AppleHybridEmbeddingLookup()`. On Apple
    Silicon with contextual assets present, `NLContextualEmbedding(language: .english)`
    loads a ~40-100 MB CoreML asset; the word fallback loads another
    ~150 MB FastText-style model. Both happen synchronously at
    `AppBootstrap` instantiation (see `Epistemos/App/AppBootstrap.swift:752`,
    `Epistemos/Graph/GraphState.swift:604-613`). Added in commit
-   a56d97ab (2026-04-17) — a plausible regression source.
+   a56d97ab (2026-04-17) — this session now defers that construction
+   behind first semantic access.
 2. **PreparedModelRegistry manifest** (`preparedModelRegistry.load()`)
    moved to deferred init 250 ms after launch in commit da06929e.
    Post-deferral it's still resident once loaded; the manifest's
@@ -159,15 +304,16 @@ current report of ~500 MB suggests a further regression on top.
    patch above, but the tokenizer vocabulary + weight residency still
    depends on whether a model has ever been loaded in the session.
 
-### Why this isn't fully resolved in this patch set
+### Why this still isn't fully resolved
 
-Per the handoff rules (*Prefer local fixes over theory* / *Do not
-paper over the problem*), a blind "lazy-init the embedding lookup"
-change risks breaking the graph's embedding-dependent code paths
-(`GraphState.dimension`, prepared-retrieval index loading) without
-Instruments data to validate the save. The Metal working-set release
-is the one memory fix that is both safe and measurable via the new
-unit test.
+The biggest *safe* eager-load contributor is now patched: the graph no
+longer constructs `AppleHybridEmbeddingLookup` until semantic work
+actually needs it, and the audit app's resident set after a local Tools
+turn was ~67 MB (`ps` RSS) instead of the previously reported
+hundreds-of-MB idle footprint. That said, `ps` undercounts unified-memory
+pressure, and the audit bundle used an isolated / minimal environment.
+PreparedRetrieval manifests, SwiftData caches, and real-user-vault graph
+state still need Instruments confirmation in the production app.
 
 ### Recommended follow-up
 
@@ -175,14 +321,14 @@ Run `Instruments → Allocations` on an idle-after-launch app, sort by
 Persistent, and land targeted lazy-inits in the top 3 owners. Most
 likely candidates (prioritized):
 
-1. `AppleHybridEmbeddingLookup` — delay construction until first
-   `embeddingService.textVector(for:)` or `dimension` access. Requires
-   refactoring the pinned-dimension contract in
-   `Epistemos/Graph/EmbeddingService.swift:102-133`.
-2. PreparedRetrieval manifest caches — only hold descriptors for the
+1. PreparedRetrieval manifest caches — only hold descriptors for the
    currently-selected model profile.
-3. SwiftData `@Query` result caches in `NotesSidebar`, `ChatView`,
+2. SwiftData `@Query` result caches in `NotesSidebar`, `ChatView`,
    `NoteTabView` — narrow predicates or `.fetchLimit(...)`.
+3. Repeat the idle-after-local-model measurement in the user's normal
+   app state (non-audit bundle) after a real note-search / tool turn so
+   unified-memory pressure can be compared against the earlier ~500 MB
+   report.
 
 ## Items in the prior session's master repair prompt *not* addressed
 
@@ -202,6 +348,17 @@ the warning is not causal to the tool/memory symptoms.
 - `Epistemos/Engine/PipelineService.swift` — direct-stream manifest no
   longer advertises app tools; `buildCapabilityManifest` gained
   `toolExecutionAvailable`.
+- `Epistemos/Engine/AgentHarness/ChatCapability.swift` — essay / draft
+  verbs now classify as agent/tool intent alongside note wording.
+- `Epistemos/App/ChatCoordinator.swift` — semantic note-lookups feed
+  planner context and verified-read checks consistently.
+- `Epistemos/Views/MiniChat/MiniChatView.swift` — model-aware mode
+  sanitization, explicit Tools-path routing, and truthful Tools vs
+  Thinking composer capability pill.
+- `Epistemos/Graph/EmbeddingService.swift` — deferred lookup wrapper for
+  large semantic embedding backends.
+- `Epistemos/Graph/GraphState.swift` — graph bootstrap now defers Apple
+  hybrid embedding construction until first use.
 - `Epistemos/State/InferenceState.swift` — added
   `providerNativeCapabilityToolNameList(for:)`.
 
@@ -209,6 +366,18 @@ the warning is not causal to the tool/memory symptoms.
 
 - `EpistemosTests/RuntimeValidationTests.swift` — two new tests for the
   direct-stream manifest fix and the provider-native capability list.
+- `EpistemosTests/ChatCapabilityIntentTests.swift` — essay / draft
+  prompts now assert `.agent`.
+- `EpistemosTests/TriageServiceTests.swift` — cloud note-seeking turns
+  with resolved vault context and unresolved essay lookup both assert a
+  managed-tools route.
+- `EpistemosTests/MiniChatViewAuditTests.swift` — explicit Tools mode in
+  Mini Chat now asserts a Tools pill instead of Thinking.
+- `EpistemosTests/BlockEmbeddingTests.swift` — deferred embedding lookup
+  stays cold until the first semantic access.
+- `EpistemosTests/PipelineServiceTests.swift` — verified-read coverage
+  for essay / draft phrasing and an updated direct-stream prompt
+  expectation that matches the post-fix cloud manifest contract.
 
 ### Already-in-place from the prior session (commit blocks noted below)
 
@@ -219,16 +388,172 @@ the warning is not causal to the tool/memory symptoms.
 - `EpistemosTests/LocalAgentLoopTests.swift`
 - `EpistemosTests/Mamba2MetalRuntimeTests.swift`
 
+### Additional hardening from the follow-up audit pass
+
+- `Epistemos/App/ChatCoordinator.swift`
+  - planner context now uses
+    `hasAttachedUserContext || hasRequestedVaultLookup`
+    when building the Overseer execution plan
+  - `queryRequiresVerifiedVaultRead(_:)` now recognizes essay / draft
+    read-rewrite-review phrasing in addition to note-only wording
+- `EpistemosTests/TriageServiceTests.swift`
+  - added `cloud note-seeking turns with resolved vault context escalate
+    to a managed tools session`
+- `EpistemosTests/PipelineServiceTests.swift`
+  - added verified-read coverage for essay / draft phrasing
+  - updated the direct-stream cloud prompt expectation so it matches the
+    post-fix contract (capability manifest present, raw overseer JSON absent)
+- `EpistemosTests/RuntimeValidationTests.swift`
+  - added source-contract coverage for the new
+    `plannerHasExplicitContext` wiring
+
+## Additional verification and follow-up fixes (2026-04-22)
+
+### Automated verification
+
+```
+./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath /tmp/epistemos-runtime-finish \
+  build
+→ BUILD SUCCEEDED
+```
+
+```
+cd graph-engine && cargo test
+→ 2458 passed, 0 failed, 8 ignored
+```
+
+```
+cd omega-mcp && cargo test
+→ 126 passed, 0 failed
+```
+
+```
+cd omega-ax && cargo test
+→ 12 passed, 0 failed
+```
+
+```
+./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath /tmp/epistemos-runtime-finish \
+  test \
+  -only-testing:EpistemosTests/UserFacingModelOutputTests \
+  -only-testing:EpistemosTests/LocalAgentLoopTests
+→ 53/53 passed
+Result bundle:
+/Users/jojo/Downloads/Epistemos/build/xcode-results/2026-04-22-124231-16628.xcresult
+```
+
+The broader Swift sweep was also started:
+
+```
+./scripts/xcodebuild_epistemos.sh -project Epistemos.xcodeproj -scheme Epistemos \
+  -destination 'platform=macOS,arch=arm64' \
+  -derivedDataPath /tmp/epistemos-runtime-finish \
+  test
+```
+
+That run did not go green in the current worktree. Early failures appeared in
+`CloudProviderAuthServiceTests` and `TriageServiceTests` before the run
+continued through the suite, so the branch still does **not** have a clean
+full-suite pass.
+
+### Manual/runtime evidence
+
+Fresh audit-app runtime checks on `Mini Chat` showed the main local blocker
+resolved on the primary ship target (`Qwen 3 4B`):
+
+- Prompt:
+  `Use write_file to write exactly tool smoke ok to tmp/epistemos_live_tool_smoke_20260422_fix7.txt, then use read_file on that exact same path, and reply with only the file contents.`
+- UI showed:
+  `Write File … Finished`, `Read File … Finished`, final plain text
+  `tool smoke ok`
+- Tool DB evidence (`omega_executions.db` rows 15-16) confirmed the real
+  `write_file` + `read_file` calls executed successfully on the requested path
+- Logs showed the local repair path and synthetic explicit-file steps instead of
+  the earlier stalled / unusable turn state
+
+The in-app idle-memory check after local model use also looks materially better:
+
+- `ps` RSS dropped from about `109 MB` to `55 MB` over roughly one minute of
+  idle time after the tool run, which supports the MLX unload / deferred graph
+  embedding fixes in the real app
+
+Approval-gating verification is partially complete:
+
+- forcing `vault_read` to `ask_first` surfaced the real `Allow read_file?`
+  prompt in Mini Chat
+- the deny **prompt** is real, but the deny **outcome** was not conclusively
+  validated under automation because repeated button-driving attempts still
+  ended in successful reads
+- the authority file was restored to the original `auto_allow` state after the
+  check
+
+Cloud-tool manual validation is currently blocked by environment, not parser or
+runtime behavior:
+
+- the Mini Chat model/runtime popover reports `Cloud Provider — OpenAI • Account first`
+- no connected cloud account is configured on this validation surface, so a
+  truthful live cloud-tool round-trip could not be run here
+
+### Follow-up fix for non-Qwen tool-capable local tiers
+
+A second live manual check on `Gemma 3 4B` surfaced a different but related
+coherence bug:
+
+- the runtime selector honestly exposed `Tools` for `Gemma 3 4B`
+- the same explicit file round-trip request produced raw fenced `xml` output
+  instead of continuing the tool repair path
+- logs captured the failure exactly:
+  `Local agent repair turn summary — source=one-shot chars=7 visibleChars=6 toolCalls=0 hasFence=true preview=```xml`
+
+Root cause:
+
+- the shared user-facing output sanitizer treated a dangling fenced-language
+  marker like `````xml```` as visible answer text, so the local agent loop
+  returned that marker instead of treating the turn as still invisible and
+  continuing the explicit-file repair / synthetic-step path
+
+Patch:
+
+- `Epistemos/Engine/Extensions.swift`
+  - `UserFacingModelOutput.streamingVisibleText(from:)` and
+    `finalVisibleText(from:)` now suppress dangling fenced-language markers
+    such as `````xml```` / `````tool_call```` / `````json```` before they can
+    leak into the visible answer stream
+- `EpistemosTests/UserFacingModelOutputTests.swift`
+  - added `final text drops dangling fenced-language markers without surfacing
+    them raw`
+- `EpistemosTests/LocalAgentLoopTests.swift`
+  - added `reflex mode treats dangling xml fence repairs as invisible and
+    continues the explicit file round-trip`
+
+The focused regression pass above proves the exact live Gemma failure mode now
+routes back into the synthetic explicit-file repair path in code/log terms.
+However, the post-fix **manual** Gemma rerun could not be completed on the
+patched audit bundle because the refreshed `Epistemos Audit` app relaunch did
+not present a controllable window (logs showed a startup accessibility/request
+oddity and `No windows open yet`), so the launcher/window issue remains a
+separate validation blocker.
+
 ## Remaining risk
 
-- Full-suite test run was not completed in this session; only the focused
-  suites covering the patched paths were re-run. A broad `xcodebuild test`
-  should be run before the release gate to catch any regression from the
-  full uncommitted worktree (135 files touched across both sessions).
+- The main local ship blocker (`Qwen 3 4B` live tool loop / raw output leak)
+  now has real app evidence behind it, but the post-fix Gemma manual rerun is
+  still blocked by the audit-bundle relaunch/window problem.
+- The current worktree still does **not** have a green broad `xcodebuild test`
+  pass. The full sweep started, but current-branch failures were already
+  observed in `CloudProviderAuthServiceTests` and `TriageServiceTests`.
 - Idle memory is profiled by description, not Instruments. The patch
-  here is bounded: releaseWorkingSet + tool-contract fix. The
-  NLContextualEmbedding eager-load hypothesis is documented but not
-  patched.
+  here is still bounded: `releaseWorkingSet()` plus deferred graph
+  embedding construction and an audit-app RSS spot check. Unified-memory
+  pressure in the user's real app state still needs Instruments.
+- The approval deny-path prompt exists, but the deny result itself still needs
+  a trustworthy manual human click-through instead of automation.
+- Live cloud-tool validation is blocked on this machine until a cloud account
+  is connected on the validation surface.
 - The `additionalSystemPrompt` omission in direct-stream paths may hide
   overseer-plan route/summary context from Fast/Thinking turns. Chat
   behavior should stay identical because the manifest already carries

@@ -11,6 +11,9 @@ final class ThreadState {
     private var miniChatStreamingStateByID: [String: Bool] = [:]
     private var miniChatStreamingTextByID: [String: String] = [:]
     private var miniChatStreamingThinkingByID: [String: String] = [:]
+    private var miniChatPendingContentBlocksByID: [String: [MessageContentBlock]] = [:]
+    private var miniChatActiveToolNameByID: [String: String] = [:]
+    private var miniChatActiveToolInputJsonByID: [String: String] = [:]
 
     @discardableResult
     func createThread(type: String = "chat", label: String = "Thread", pageId: String? = nil) -> String {
@@ -128,6 +131,9 @@ final class ThreadState {
         miniChatStreamingStateByID.removeValue(forKey: id)
         miniChatStreamingTextByID.removeValue(forKey: id)
         miniChatStreamingThinkingByID.removeValue(forKey: id)
+        miniChatPendingContentBlocksByID.removeValue(forKey: id)
+        miniChatActiveToolNameByID.removeValue(forKey: id)
+        miniChatActiveToolInputJsonByID.removeValue(forKey: id)
         normalizeActiveThreadSelection()
     }
 
@@ -187,6 +193,42 @@ final class ThreadState {
 
     func clearMiniChatStreamingThinking(chatID: String) {
         miniChatStreamingThinkingByID.removeValue(forKey: chatID)
+    }
+
+    func miniChatPendingContentBlocks(chatID: String) -> [MessageContentBlock] {
+        miniChatPendingContentBlocksByID[chatID] ?? []
+    }
+
+    func setMiniChatPendingContentBlocks(_ blocks: [MessageContentBlock], chatID: String) {
+        if blocks.isEmpty {
+            miniChatPendingContentBlocksByID.removeValue(forKey: chatID)
+        } else {
+            miniChatPendingContentBlocksByID[chatID] = blocks
+        }
+    }
+
+    func miniChatActiveToolName(chatID: String) -> String? {
+        miniChatActiveToolNameByID[chatID]
+    }
+
+    func miniChatActiveToolInputJson(chatID: String) -> String? {
+        miniChatActiveToolInputJsonByID[chatID]
+    }
+
+    func setMiniChatActiveTool(name: String?, inputJson: String?, chatID: String) {
+        if let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !trimmedName.isEmpty {
+            miniChatActiveToolNameByID[chatID] = trimmedName
+        } else {
+            miniChatActiveToolNameByID.removeValue(forKey: chatID)
+        }
+
+        if let trimmedInput = inputJson?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !trimmedInput.isEmpty {
+            miniChatActiveToolInputJsonByID[chatID] = trimmedInput
+        } else {
+            miniChatActiveToolInputJsonByID.removeValue(forKey: chatID)
+        }
     }
 
     private func normalizeActiveThreadSelection() {

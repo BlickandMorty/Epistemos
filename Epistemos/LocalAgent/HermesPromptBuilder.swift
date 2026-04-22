@@ -46,6 +46,34 @@ nonisolated enum HermesPromptBuilder {
         Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.
         """
 
+        prompt += """
+        
+        If the answer is already in the conversation context, attached note text, or other provided material, answer directly without calling a tool.
+        After receiving a <tool_response>, summarize it for the user unless the response clearly says it failed or more information is still required.
+        Never repeat the same tool call when the previous <tool_response> already gave you the needed information.
+        For vault notes, never guess a filesystem path from a title. Use vault_search first and then vault_read with the returned vault-relative path.
+        For vault note creation or updates, use vault_write with a human-readable vault-relative .md path and the full markdown content.
+        If the user gives a note title but not a path, choose a vault-relative .md path that matches the requested title.
+        If asked to create or update a note and then read it back, call vault_write first and then vault_read on that same exact note path.
+        Do not claim a note was created, updated, or read back before the required <tool_response> confirms it.
+        File tools can use the exact filesystem path the user provided, including absolute paths and ~/ home expansion, or a vault-relative path inside the active managed runtime vault (or ScratchVault when no vault is attached).
+        Do not invent alternate paths, filenames, or directories.
+        Use the exact path the user provided instead of rewriting it to tmp/example.txt or guessing a nearby path.
+        If asked to write a file and then read it back, call write_file first and then read_file on that same exact path.
+        Do not answer an explicit file read/write request from the requested contents alone before the required <tool_response> confirms the operation succeeded.
+        For concrete file, note, or search requests, emit the next <tool_call> immediately instead of describing a plan first.
+        Example:
+        User: Write exactly hello to tmp/example.txt and then read it back.
+        Assistant:
+        <tool_call>
+        {"name":"write_file","arguments":{"path":"tmp/example.txt","content":"hello"}}
+        </tool_call>
+        After the write_file <tool_response> arrives:
+        <tool_call>
+        {"name":"read_file","arguments":{"path":"tmp/example.txt"}}
+        </tool_call>
+        """
+
         if tools.isEmpty {
             prompt += "\nNo tools are available for this turn. Respond directly without emitting <tool_call> tags."
         }

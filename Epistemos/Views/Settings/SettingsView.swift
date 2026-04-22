@@ -871,7 +871,11 @@ private struct InferenceDetailView: View {
         return inference.activeLocalTextModelDisplayName
     }
     private var activeCloudWorkspaceProvider: CloudModelProvider {
-        inference.activeCloudProvider ?? .openAI
+        if let activeProvider = inference.activeCloudProvider,
+           CloudModelProvider.preferredOrder.contains(activeProvider) {
+            return activeProvider
+        }
+        return inference.preferredAutoRouteCloudProvider ?? .openAI
     }
     private var otherCloudProviders: [CloudModelProvider] {
         CloudModelProvider.preferredOrder.filter { $0 != activeCloudWorkspaceProvider }
@@ -1051,7 +1055,7 @@ private struct InferenceDetailView: View {
                     )
                 ) {
                     ForEach(releaseSelectableLocalDescriptors, id: \.id) { descriptor in
-                        Text(descriptor.displayName).tag(descriptor.id)
+                        Text(inference.localModelPickerDisplayName(for: descriptor.id)).tag(descriptor.id)
                     }
                 }
                 .disabled(releaseSelectableLocalDescriptors.isEmpty)
@@ -1254,7 +1258,7 @@ private struct InferenceDetailView: View {
                     "Cloud Model",
                     selection: activeCloudModelBinding(for: activeCloudWorkspaceProvider)
                 ) {
-                    ForEach(CloudTextModelID.models(for: activeCloudWorkspaceProvider), id: \.rawValue) { model in
+                    ForEach(inference.cloudModels(for: activeCloudWorkspaceProvider), id: \.rawValue) { model in
                         Text(model.displayName).tag(model)
                     }
                 }

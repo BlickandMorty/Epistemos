@@ -1,3 +1,4 @@
+import Dispatch
 import Foundation
 import Observation
 import os
@@ -1273,10 +1274,6 @@ nonisolated enum AIProviderSelection: String, Codable, Sendable, CaseIterable {
         .openAI,
         .anthropic,
         .google,
-        .deepseek,
-        .zai,
-        .kimi,
-        .minimax,
         .localOnly,
     ]
 }
@@ -1290,6 +1287,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     case openAIGPT41Mini = "openai:gpt-4.1-mini"
     case openAIO3 = "openai:o3"
     case openAIO3Mini = "openai:o3-mini"
+    case anthropicClaudeOpus47 = "anthropic:claude-opus-4-7"
+    case anthropicClaudeSonnet46 = "anthropic:claude-sonnet-4-6"
     case anthropicClaudeOpus41 = "anthropic:claude-opus-4-1"
     case anthropicClaudeOpus4 = "anthropic:claude-opus-4"
     case anthropicClaudeSonnet4 = "anthropic:claude-sonnet-4"
@@ -1316,7 +1315,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52, .openAIGPT41,
              .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
             .openAI
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+             .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             .anthropic
         case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
@@ -1343,6 +1343,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT41Mini: "gpt-4.1-mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus47: "claude-opus-4-7"
+        case .anthropicClaudeSonnet46: "claude-sonnet-4-6"
         case .anthropicClaudeOpus41: "claude-opus-4-1-20250805"
         case .anthropicClaudeOpus4: "claude-opus-4-20250514"
         case .anthropicClaudeSonnet4: "claude-sonnet-4-20250514"
@@ -1376,6 +1378,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT41Mini: "GPT-4.1 Mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus47: "Claude Opus 4.7"
+        case .anthropicClaudeSonnet46: "Claude Sonnet 4.6"
         case .anthropicClaudeOpus41: "Claude Opus 4.1 (Latest Opus)"
         case .anthropicClaudeOpus4: "Claude Opus 4"
         case .anthropicClaudeSonnet4: "Claude Sonnet 4 (Latest Sonnet)"
@@ -1409,6 +1413,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIGPT41Mini: "GPT-4.1 Mini"
         case .openAIO3: "o3"
         case .openAIO3Mini: "o3-mini"
+        case .anthropicClaudeOpus47: "Opus 4.7"
+        case .anthropicClaudeSonnet46: "Sonnet 4.6"
         case .anthropicClaudeOpus41: "Opus 4.1"
         case .anthropicClaudeOpus4: "Opus 4"
         case .anthropicClaudeSonnet4: "Sonnet 4"
@@ -1473,9 +1479,9 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             "Deliberate reasoning-heavy fallback when GPT-5 is not the right fit."
         case .openAIO3Mini:
             "Lean reasoning and lightweight tool loops."
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4:
+        case .anthropicClaudeOpus47, .anthropicClaudeOpus41, .anthropicClaudeOpus4:
             "High-rigor writing, careful analysis, and long-form synthesis."
-        case .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
+        case .anthropicClaudeSonnet46, .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
             "Fast general Anthropic reasoning, planning, and agent work."
         case .anthropicClaudeHaiku35:
             "Low-latency Anthropic chat and lightweight automation."
@@ -1517,7 +1523,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             return true
         case .openAIO3, .openAIO3Mini:
             return false // reasoning models — structured output not guaranteed
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+             .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             return true // via tool_use forced tool_choice
         case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
@@ -1546,10 +1553,12 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             [.thinking, .pro, .agent]
         case .openAIO3Mini:
             [.fast, .thinking, .agent]
-        case .anthropicClaudeOpus41,
+        case .anthropicClaudeOpus47,
+             .anthropicClaudeOpus41,
              .anthropicClaudeOpus4:
             [.fast, .thinking, .pro, .agent]
-        case .anthropicClaudeSonnet4,
+        case .anthropicClaudeSonnet46,
+             .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37:
             [.fast, .thinking, .agent]
         case .anthropicClaudeHaiku35:
@@ -1588,7 +1597,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .openAIGPT54, .openAIGPT54Mini, .openAIGPT54Nano, .openAIGPT52:
             true
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+             .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37:
             true
         case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
@@ -1683,7 +1693,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             131_072
         case .openAIO3, .openAIO3Mini:
             200_000
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4:
+        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+             .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4:
             200_000
         case .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             200_000
@@ -1709,7 +1720,8 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
             true
         case .openAIO3, .openAIO3Mini:
             false  // reasoning-only, no vision
-        case .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
+        case .anthropicClaudeOpus47, .anthropicClaudeSonnet46,
+             .anthropicClaudeOpus41, .anthropicClaudeOpus4, .anthropicClaudeSonnet4,
              .anthropicClaudeSonnet37, .anthropicClaudeHaiku35:
             true
         case .googleGemini25Pro, .googleGemini25Flash, .googleGemini3FlashPreview,
@@ -1776,24 +1788,25 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         "o1-pro": .openAIO3,
         "o3": .openAIO3,
         "o3-mini": .openAIO3Mini,
-        "claude-opus-4-6": .anthropicClaudeOpus41,
+        "claude-opus-4-7": .anthropicClaudeOpus47,
+        "claude-opus-4-6": .anthropicClaudeOpus47,
         "claude-opus-4-1": .anthropicClaudeOpus41,
         "claude-opus-4-20250514": .anthropicClaudeOpus4,
-        "claude-sonnet-4-6": .anthropicClaudeSonnet4,
-        "claude-sonnet-4-5": .anthropicClaudeSonnet4,
-        "claude-sonnet-4-5-20250929": .anthropicClaudeSonnet4,
+        "claude-sonnet-4-6": .anthropicClaudeSonnet46,
+        "claude-sonnet-4-5": .anthropicClaudeSonnet46,
+        "claude-sonnet-4-5-20250929": .anthropicClaudeSonnet46,
         "claude-sonnet-4-20250514": .anthropicClaudeSonnet4,
         "claude-3-7-sonnet-20250219": .anthropicClaudeSonnet37,
         "claude-haiku-4-5-20251001": .anthropicClaudeHaiku35,
         "claude-3-5-haiku-latest": .anthropicClaudeHaiku35,
-        "gemini-1.5-pro": .googleGemini25Pro,
-        "gemini-1.5-flash": .googleGemini25Flash,
-        "gemini-2.0-flash": .googleGemini25Flash,
-        "gemini-2.0-flash-lite": .googleGemini25Flash,
-        "gemini-2.5-pro": .googleGemini25Pro,
-        "gemini-2.5-flash": .googleGemini25Flash,
+        "gemini-1.5-pro": .googleGemini31ProPreview,
+        "gemini-1.5-flash": .googleGemini3FlashPreview,
+        "gemini-2.0-flash": .googleGemini3FlashPreview,
+        "gemini-2.0-flash-lite": .googleGemini3FlashPreview,
+        "gemini-2.5-pro": .googleGemini31ProPreview,
+        "gemini-2.5-flash": .googleGemini3FlashPreview,
         "gemini-3-flash-preview": .googleGemini3FlashPreview,
-        "gemini-3-pro-preview": .googleGemini3ProPreview,
+        "gemini-3-pro-preview": .googleGemini31ProPreview,
         "gemini-3.1-pro-preview": .googleGemini31ProPreview,
         "glm-5": .zaiGLM5,
         "glm-4.5-flash": .zaiGLM45Flash,
@@ -2137,11 +2150,11 @@ extension CloudModelProvider {
     var modelSummary: String {
         switch self {
         case .openAI:
-            "GPT-5.4, GPT-5.2, GPT-4.1, o3"
+            "GPT-5.4, GPT-5.4 Mini"
         case .anthropic:
-            "Claude Opus 4.1, Opus 4, Sonnet 4"
+            "Claude Opus 4.7, Sonnet 4.6"
         case .google:
-            "Gemini 2.5 Pro, 2.5 Flash, Gemini 3 previews"
+            "Gemini 3.1 Pro, Gemini 3 Flash"
         case .zai:
             "GLM-5, GLM-4.5 Flash"
         case .kimi:
@@ -2156,11 +2169,11 @@ extension CloudModelProvider {
     var validationModel: CloudTextModelID {
         switch self {
         case .openAI:
-            .openAIGPT41Mini
+            .openAIGPT54Mini
         case .anthropic:
-            .anthropicClaudeSonnet4
+            .anthropicClaudeSonnet46
         case .google:
-            .googleGemini25Flash
+            .googleGemini3FlashPreview
         case .zai:
             .zaiGLM45Flash
         case .kimi:
@@ -2177,9 +2190,9 @@ extension CloudModelProvider {
         case .openAI:
             .openAIGPT54
         case .anthropic:
-            .anthropicClaudeSonnet4
+            .anthropicClaudeSonnet46
         case .google:
-            .googleGemini25Pro
+            .googleGemini31ProPreview
         case .zai:
             .zaiGLM5
         case .kimi:
@@ -2700,13 +2713,13 @@ extension CloudModelProvider {
             case (.openAI, .pro), (.openAI, .agent):
                 .openAIGPT54
             case (.anthropic, .pro):
-                .anthropicClaudeOpus41
+                .anthropicClaudeOpus47
             case (.anthropic, .agent), (.anthropic, .thinking), (.anthropic, .fast):
-                .anthropicClaudeSonnet4
+                .anthropicClaudeSonnet46
             case (.google, .fast):
-                .googleGemini25Flash
+                .googleGemini3FlashPreview
             case (.google, .thinking), (.google, .pro), (.google, .agent):
-                .googleGemini25Pro
+                .googleGemini31ProPreview
             case (.zai, .fast):
                 .zaiGLM45Flash
             case (.zai, .thinking), (.zai, .pro), (.zai, .agent):
@@ -2984,6 +2997,7 @@ final class InferenceState {
     private let keychainSave: (String, String) -> Bool
     private let keychainDelete: (String) -> Void
     private let authService: CloudProviderAuthService
+    private var isBootstrappingCloudCredentials = false
     private(set) var cachedCloudAPIKeys: [CloudModelProvider: String] = [:]
     private var missingCloudAPIKeyProviders: Set<CloudModelProvider> = []
     private(set) var cachedCloudOAuthCredentials: [CloudModelProvider: CloudProviderOAuthCredential] = [:]
@@ -3050,11 +3064,33 @@ final class InferenceState {
     /// straight from UserDefaults and missed the update.
     private(set) var observedPreferredCloudModels: [CloudModelProvider: CloudTextModelID] = [:]
 
+    nonisolated static func shouldSkipCloudCredentialBootstrapOnLaunch(
+        isRunningTests: Bool = InferenceState.isRunningTests,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        !isRunningTests && !VaultSyncService.shouldRestoreVaultFromBookmark(
+            processInfoEnvironment: processInfoEnvironment
+        )
+    }
+
+    nonisolated static func shouldDeferCloudCredentialBootstrapOnLaunch(
+        isRunningTests: Bool = InferenceState.isRunningTests,
+        processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> Bool {
+        !isRunningTests
+            && !shouldSkipCloudCredentialBootstrapOnLaunch(
+                isRunningTests: isRunningTests,
+                processInfoEnvironment: processInfoEnvironment
+            )
+    }
+
     init(
         hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
         keychainLoad: @escaping (String) -> String? = InferenceState.defaultKeychainLoad,
         keychainSave: @escaping (String, String) -> Bool = InferenceState.defaultKeychainSave,
-        keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete
+        keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete,
+        deferCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldDeferCloudCredentialBootstrapOnLaunch(),
+        skipCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch()
     ) {
         self.hardwareCapabilitySnapshot = hardwareCapabilitySnapshot
         self.keychainLoad = keychainLoad
@@ -3069,8 +3105,15 @@ final class InferenceState {
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
         self.appleIntelligenceAvailable = available
         self.appleIntelligenceUnavailableReason = reason
-        migrateLegacyCloudAPIKeysIfNeeded()
-        refreshCachedCloudAPIKeys()
+        if skipCloudCredentialBootstrapOnLaunch {
+            initializeDeferredCloudCredentialState()
+        } else if deferCloudCredentialBootstrapOnLaunch {
+            initializeDeferredCloudCredentialState()
+            startDeferredCloudCredentialBootstrap()
+        } else {
+            migrateLegacyCloudAPIKeysIfNeeded()
+            refreshCachedCloudAPIKeys()
+        }
 
         let defaults = UserDefaults.standard
         Self.migrateLegacyOpenAI52To54(defaults: defaults)
@@ -3111,9 +3154,11 @@ final class InferenceState {
         }
         if let savedProvider = defaults.string(forKey: Self.activeAIProviderDefaultsKey),
            let provider = AIProviderSelection(rawValue: savedProvider) {
-            self.activeAIProvider = provider
+            self.activeAIProvider = normalizedVisibleAIProvider(provider)
         } else if case .cloud(let model) = self.preferredChatModelSelection {
-            self.activeAIProvider = AIProviderSelection(cloudProvider: model.provider)
+            self.activeAIProvider = AIProviderSelection(
+                cloudProvider: normalizedVisibleCloudProvider(model.provider)
+            )
         } else {
             self.activeAIProvider = .openAI
         }
@@ -3197,8 +3242,72 @@ final class InferenceState {
     }
 
     private func migrateLegacyCloudAPIKeysIfNeeded() {
+        Self.migrateLegacyCloudAPIKeysIfNeeded(
+            keychainLoad: keychainLoad,
+            keychainSave: keychainSave,
+            keychainDelete: keychainDelete
+        )
+    }
+
+    private func refreshCachedCloudAPIKeys() {
+        applyCloudCredentialSnapshot(Self.loadCloudCredentialSnapshot(keychainLoad: keychainLoad))
+        AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
+    }
+
+    private func initializeDeferredCloudCredentialState() {
+        isBootstrappingCloudCredentials = true
+        missingCloudAPIKeyProviders = Set(CloudModelProvider.allCases)
+        missingCloudOAuthProviders = Set(CloudModelProvider.allCases)
+        cachedCloudAPIKeys.removeAll()
+        cachedCloudOAuthCredentials.removeAll()
+        cloudProviderValidationStates = Dictionary(
+            uniqueKeysWithValues: CloudModelProvider.allCases.map { ($0, .missing) }
+        )
+    }
+
+    private func startDeferredCloudCredentialBootstrap() {
+        guard isBootstrappingCloudCredentials else { return }
+        let keychainAccess = KeychainAccess(
+            load: keychainLoad,
+            save: keychainSave,
+            delete: keychainDelete
+        )
+
+        DispatchQueue.global(qos: .utility).async {
+            Self.migrateLegacyCloudAPIKeysIfNeeded(
+                keychainLoad: keychainAccess.load,
+                keychainSave: keychainAccess.save,
+                keychainDelete: keychainAccess.delete
+            )
+            let snapshot = Self.loadCloudCredentialSnapshot(keychainLoad: keychainAccess.load)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainAccess.load)
+
+            Task { @MainActor in
+                self.applyCloudCredentialSnapshot(snapshot)
+            }
+        }
+    }
+
+    private func applyCloudCredentialSnapshot(_ snapshot: CloudCredentialSnapshot) {
+        cachedCloudAPIKeys = snapshot.apiKeys
+        missingCloudAPIKeyProviders = snapshot.missingAPIKeyProviders
+        cachedCloudOAuthCredentials = snapshot.oauthCredentials
+        missingCloudOAuthProviders = snapshot.missingOAuthProviders
+        cloudProviderValidationStates = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
+            let hasConfiguredAccess = snapshot.apiKeys[provider] != nil
+                || snapshot.oauthCredentials[provider] != nil
+            partialResult[provider] = hasConfiguredAccess ? .unchecked : .missing
+        }
+        isBootstrappingCloudCredentials = false
+    }
+
+    private nonisolated static func migrateLegacyCloudAPIKeysIfNeeded(
+        keychainLoad: (String) -> String?,
+        keychainSave: (String, String) -> Bool,
+        keychainDelete: (String) -> Void
+    ) {
         for provider in CloudModelProvider.allCases {
-            if let existing = apiKey(for: provider)?
+            if let existing = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !existing.isEmpty {
                 continue
@@ -3211,44 +3320,59 @@ final class InferenceState {
                     continue
                 }
 
-                guard setAPIKey(legacyValue, for: provider) else { break }
+                guard keychainSave(legacyValue, provider.apiKeyKeychainKey) else { break }
                 keychainDelete(legacyKey)
                 break
             }
         }
     }
 
-    private func refreshCachedCloudAPIKeys() {
-        missingCloudAPIKeyProviders.removeAll()
-        missingCloudOAuthProviders.removeAll()
-        cachedCloudAPIKeys = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
-            guard let key = keychainLoad(provider.apiKeyKeychainKey)?
+    private nonisolated static func loadCloudCredentialSnapshot(
+        keychainLoad: (String) -> String?
+    ) -> CloudCredentialSnapshot {
+        var apiKeys: [CloudModelProvider: String] = [:]
+        var missingAPIKeyProviders: Set<CloudModelProvider> = []
+        var oauthCredentials: [CloudModelProvider: CloudProviderOAuthCredential] = [:]
+        var missingOAuthProviders: Set<CloudModelProvider> = []
+
+        for provider in CloudModelProvider.allCases {
+            if let key = keychainLoad(provider.apiKeyKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !key.isEmpty else {
-                missingCloudAPIKeyProviders.insert(provider)
-                return
+               !key.isEmpty {
+                apiKeys[provider] = key
+            } else {
+                missingAPIKeyProviders.insert(provider)
             }
-            partialResult[provider] = key
-        }
 
-        cachedCloudOAuthCredentials = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
-            guard let rawValue = keychainLoad(provider.oauthKeychainKey)?
+            if let rawValue = keychainLoad(provider.oauthKeychainKey)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
-                  !rawValue.isEmpty,
-                  let credential = CloudProviderOAuthCredential.decode(from: rawValue) else {
-                missingCloudOAuthProviders.insert(provider)
-                return
+               !rawValue.isEmpty,
+               let credential = CloudProviderOAuthCredential.decode(from: rawValue) {
+                oauthCredentials[provider] = credential
+            } else {
+                missingOAuthProviders.insert(provider)
             }
-            partialResult[provider] = credential
         }
 
-        cloudProviderValidationStates = CloudModelProvider.allCases.reduce(into: [:]) { partialResult, provider in
-            let hasConfiguredAccess = cachedCloudAPIKeys[provider] != nil
-                || cachedCloudOAuthCredentials[provider] != nil
-            partialResult[provider] = hasConfiguredAccess ? .unchecked : .missing
-        }
+        return CloudCredentialSnapshot(
+            apiKeys: apiKeys,
+            missingAPIKeyProviders: missingAPIKeyProviders,
+            oauthCredentials: oauthCredentials,
+            missingOAuthProviders: missingOAuthProviders
+        )
+    }
 
-        AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainLoad)
+    private struct KeychainAccess: @unchecked Sendable {
+        let load: (String) -> String?
+        let save: (String, String) -> Bool
+        let delete: (String) -> Void
+    }
+
+    private struct CloudCredentialSnapshot: Sendable {
+        let apiKeys: [CloudModelProvider: String]
+        let missingAPIKeyProviders: Set<CloudModelProvider>
+        let oauthCredentials: [CloudModelProvider: CloudProviderOAuthCredential]
+        let missingOAuthProviders: Set<CloudModelProvider>
     }
 
     /// Migrate any persisted local-model selection that currently points
@@ -3381,10 +3505,14 @@ final class InferenceState {
         _ provider: AIProviderSelection,
         defaults: UserDefaults = .standard
     ) {
-        activeAIProvider = provider
-        defaults.set(provider.rawValue, forKey: Self.activeAIProviderDefaultsKey)
-        if provider != .localOnly {
-            defaults.set(provider.rawValue, forKey: Self.lastNonLocalAIProviderDefaultsKey)
+        let normalizedProvider = normalizedVisibleAIProvider(provider)
+        activeAIProvider = normalizedProvider
+        defaults.set(normalizedProvider.rawValue, forKey: Self.activeAIProviderDefaultsKey)
+        if normalizedProvider != .localOnly {
+            defaults.set(
+                normalizedProvider.rawValue,
+                forKey: Self.lastNonLocalAIProviderDefaultsKey
+            )
         }
     }
 
@@ -3394,7 +3522,7 @@ final class InferenceState {
         if let savedProvider = defaults.string(forKey: Self.lastNonLocalAIProviderDefaultsKey),
            let provider = AIProviderSelection(rawValue: savedProvider),
            provider != .localOnly {
-            return provider
+            return normalizedVisibleAIProvider(provider)
         }
         return .openAI
     }
@@ -3524,6 +3652,24 @@ final class InferenceState {
         )
     }
 
+    private var qwen3UnifiedPickerPairAvailable: Bool {
+        supportedAvailableLocalTextModels.contains(.qwen3_4B4Bit)
+            && supportedAvailableLocalTextModels.contains(.qwen3_4BThinking25074Bit)
+    }
+
+    private func normalizedReleaseSelectableLocalTextModelID(_ modelID: String) -> String {
+        guard qwen3UnifiedPickerPairAvailable,
+              let model = LocalTextModelID(rawValue: modelID) else {
+            return modelID
+        }
+        switch model {
+        case .qwen3_4BThinking25074Bit:
+            return LocalTextModelID.qwen3_4B4Bit.rawValue
+        default:
+            return modelID
+        }
+    }
+
     private var supportedAvailableLocalAgentModels: [LocalTextModelID] {
         supportedLocalAgentTextModels(
             from: installedLocalTextModelIDs.union(preparedLocalTextModelIDs)
@@ -3580,7 +3726,11 @@ final class InferenceState {
     }
 
     var releaseSelectableInstalledLocalTextModelIDs: [String] {
-        supportedAvailableLocalTextModels.map(\.rawValue)
+        var seen: Set<String> = []
+        return supportedAvailableLocalTextModels
+            .map(\.rawValue)
+            .map(normalizedReleaseSelectableLocalTextModelID)
+            .filter { seen.insert($0).inserted }
     }
 
     var releaseHiddenInstalledLocalTextModelCount: Int {
@@ -3598,13 +3748,72 @@ final class InferenceState {
         sanitizedInteractiveLocalTextModelID(for: preferredLocalTextModelID)
     }
 
+    private func effectiveLocalTextModelID(for operatingMode: EpistemosOperatingMode) -> String? {
+        guard let baseModelID = effectiveLocalTextModelID else { return nil }
+        guard qwen3UnifiedPickerPairAvailable,
+              let baseModel = LocalTextModelID(rawValue: baseModelID),
+              baseModel == .qwen3_4B4Bit || baseModel == .qwen3_4BThinking25074Bit else {
+            return baseModelID
+        }
+
+        switch operatingMode {
+        case .thinking:
+            return LocalTextModelID.qwen3_4BThinking25074Bit.rawValue
+        case .fast, .pro, .agent:
+            return LocalTextModelID.qwen3_4B4Bit.rawValue
+        }
+    }
+
+    func localModelPickerDisplayName(for modelID: String) -> String {
+        if qwen3UnifiedPickerPairAvailable,
+           let model = LocalTextModelID(rawValue: modelID),
+           model == .qwen3_4B4Bit || model == .qwen3_4BThinking25074Bit {
+            return "Qwen 3"
+        }
+        return LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID
+    }
+
     var effectiveLocalAgentTextModelID: String? {
+        let strongestInstalledAgentModel = supportedAvailableLocalAgentModels.first
+        let strongestFittingAgentModel = supportedAvailableLocalAgentModels.first(
+            where: localAgentModelFitsCurrentMemoryBudget(_:)
+        )
         if let interactiveModelID = effectiveLocalTextModelID,
            let interactiveModel = LocalTextModelID(rawValue: interactiveModelID),
            interactiveModel.canRunLocalAgentLoop {
+            if let strongestFittingAgentModel,
+               shouldPreferDedicatedLocalAgentModel(
+                strongestFittingAgentModel,
+                over: interactiveModel
+               ) {
+                return strongestFittingAgentModel.rawValue
+            }
             return interactiveModelID
         }
-        return supportedAvailableLocalAgentModels.first?.rawValue
+        return strongestFittingAgentModel?.rawValue ?? strongestInstalledAgentModel?.rawValue
+    }
+
+    private func shouldPreferDedicatedLocalAgentModel(
+        _ candidate: LocalTextModelID,
+        over interactiveModel: LocalTextModelID
+    ) -> Bool {
+        guard candidate != interactiveModel else { return false }
+        guard interactiveModel.primaryUseCase == .routing else { return false }
+        return candidate.primaryUseCase != .routing
+    }
+
+    private func localAgentModelFitsCurrentMemoryBudget(_ model: LocalTextModelID) -> Bool {
+        let requiredGB = model.minimumRecommendedInteractiveMemoryGB
+        guard requiredGB > 0 else { return true }
+
+        let availableBytes = latestLocalRuntimeHealth?.availableMemoryBytes
+            ?? LocalInferenceMemoryPressureMonitor.availableMemoryBytes()
+        guard availableBytes > 0 else { return true }
+
+        let bytesPerGB: UInt64 = 1_073_741_824
+        let availableGB = Int(availableBytes / bytesPerGB)
+        let headroomGB = 6
+        return availableGB + headroomGB >= requiredGB
     }
 
     var hasUsableLocalTextModel: Bool {
@@ -3619,8 +3828,10 @@ final class InferenceState {
         usesAutomaticCloudRouteForChatSurfaces
     }
 
-    private var baseOperatingModeCapabilities: OperatingModeCapabilities {
-        switch preferredChatModelSelection {
+    private func baseOperatingModeCapabilities(
+        for selection: ChatModelSelection
+    ) -> OperatingModeCapabilities {
+        switch selection {
         case .appleIntelligence:
             return OperatingModeCapabilities(availableModes: [.fast])
         case .cloud(let model):
@@ -3628,8 +3839,18 @@ final class InferenceState {
         case .localMLX(let modelID):
             let activeModelID = LocalTextModelID(rawValue: modelID) != nil ? modelID : activeLocalTextModelID
             guard let activeModelID,
-                  let model = LocalTextModelID(rawValue: activeModelID) else {
+                  let model = LocalTextModelID(
+                    rawValue: normalizedReleaseSelectableLocalTextModelID(activeModelID)
+                  ) else {
                 return OperatingModeCapabilities(availableModes: [.fast])
+            }
+            if qwen3UnifiedPickerPairAvailable,
+               model == .qwen3_4B4Bit {
+                var modes: [EpistemosOperatingMode] = [.fast, .thinking]
+                if model.canRunLocalAgentLoop {
+                    modes.append(.agent)
+                }
+                return OperatingModeCapabilities(availableModes: modes)
             }
             var modes: [EpistemosOperatingMode] = []
             if !model.cannotDisableThinkingInFast {
@@ -3643,6 +3864,10 @@ final class InferenceState {
             }
             return OperatingModeCapabilities(availableModes: modes.isEmpty ? [.fast] : modes)
         }
+    }
+
+    private var baseOperatingModeCapabilities: OperatingModeCapabilities {
+        baseOperatingModeCapabilities(for: preferredChatModelSelection)
     }
 
     private var usesAutomaticCloudRouteForChatSurfaces: Bool {
@@ -3773,7 +3998,11 @@ final class InferenceState {
 
         switch preferredChatModelSelection {
         case .localMLX:
-            if let activeLocalTextModelID {
+            if operatingMode == .agent,
+               let agentModelID = effectiveLocalAgentTextModelID {
+                return .localMLX(agentModelID)
+            }
+            if let activeLocalTextModelID = effectiveLocalTextModelID(for: operatingMode) {
                 return .localMLX(activeLocalTextModelID)
             }
             if appleIntelligenceAvailable {
@@ -3846,10 +4075,10 @@ final class InferenceState {
 
         var candidates: [CloudModelProvider] = []
         if let active = activeAIProvider.cloudProvider {
-            candidates.append(active)
+            candidates.append(normalizedVisibleCloudProvider(active))
         }
         if let last = lastNonLocalAIProvider().cloudProvider {
-            candidates.append(last)
+            candidates.append(normalizedVisibleCloudProvider(last))
         }
         candidates.append(contentsOf: CloudModelProvider.preferredOrder)
 
@@ -3906,6 +4135,12 @@ final class InferenceState {
 
     var availableOperatingModes: [EpistemosOperatingMode] {
         operatingModeCapabilities.availableModes
+    }
+
+    func availableOperatingModes(
+        for selection: ChatModelSelection
+    ) -> [EpistemosOperatingMode] {
+        baseOperatingModeCapabilities(for: selection).availableModes
     }
 
     var supportsThinkingOperatingMode: Bool {
@@ -4030,7 +4265,7 @@ final class InferenceState {
     }
 
     var configuredCloudProviders: [CloudModelProvider] {
-        CloudModelProvider.allCases.filter { provider in
+        CloudModelProvider.preferredOrder.filter { provider in
             hasConfiguredCloudAccess(for: provider)
         }
     }
@@ -4039,8 +4274,12 @@ final class InferenceState {
         !configuredCloudProviders.isEmpty
     }
 
+    var isDeferredCloudCredentialBootstrapInFlight: Bool {
+        isBootstrappingCloudCredentials
+    }
+
     var shouldShowCloudSetupHint: Bool {
-        !hasShownCloudSetupHint && !hasConfiguredCloudModels
+        !hasShownCloudSetupHint && !isBootstrappingCloudCredentials && !hasConfiguredCloudModels
     }
 
     func apiKey(for provider: CloudModelProvider) -> String? {
@@ -4530,16 +4769,17 @@ final class InferenceState {
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
-        if provider != .localOnly, routingMode == .localOnly {
+        let normalizedProvider = normalizedVisibleAIProvider(provider)
+        if normalizedProvider != .localOnly, routingMode == .localOnly {
             setRoutingMode(.auto)
         }
-        persistActiveAIProvider(provider)
+        persistActiveAIProvider(normalizedProvider)
 
         switch preferredChatModelSelection {
         case .appleIntelligence, .localMLX:
             return
         case .cloud(let currentModel):
-            guard let activeCloudProvider = provider.cloudProvider else {
+            guard let activeCloudProvider = normalizedProvider.cloudProvider else {
                 persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
                 return
             }
@@ -4604,6 +4844,7 @@ final class InferenceState {
     }
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
+        let normalizedSelection = normalizedChatModelSelection(selection)
         // Previously, picking a cloud model without a configured API key
         // silently rewrote the selection to `.localMLX(preferredLocalTextModelID)`.
         // The picker UI still reflected the cloud choice (via the separate
@@ -4618,7 +4859,7 @@ final class InferenceState {
         // a specific, actionable "API key not configured" error — which
         // tells the user exactly what to do, rather than lying about
         // which model is active.
-        switch selection {
+        switch normalizedSelection {
         case .cloud, .appleIntelligence:
             if routingMode == .localOnly {
                 setRoutingMode(.auto)
@@ -4626,7 +4867,7 @@ final class InferenceState {
         case .localMLX:
             break
         }
-        persistPreferredChatModelSelection(selection)
+        persistPreferredChatModelSelection(normalizedSelection)
     }
 
     func cloudFallbackChain(for operatingMode: EpistemosOperatingMode) -> [CloudTextModelID] {
@@ -4699,19 +4940,52 @@ final class InferenceState {
         }
     }
 
-    private func normalizedPreferredCloudModel(_ model: CloudTextModelID) -> CloudTextModelID {
-        guard model.provider == .openAI,
-              openAIUsesCodexAccountRuntime else {
-            return model
-        }
+    private func preferredVisibleCloudProviderFallback() -> CloudModelProvider {
+        CloudModelProvider.preferredOrder.first(where: hasConfiguredCloudAccess(for:)) ?? .openAI
+    }
 
-        switch model {
-        case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
-            return model
-        case .openAIGPT54Nano, .openAIGPT41, .openAIGPT41Mini, .openAIO3, .openAIO3Mini:
-            return .openAIGPT54
-        default:
-            return model
+    private func normalizedVisibleCloudProvider(_ provider: CloudModelProvider) -> CloudModelProvider {
+        guard CloudModelProvider.preferredOrder.contains(provider) else {
+            return preferredVisibleCloudProviderFallback()
+        }
+        return provider
+    }
+
+    private func normalizedVisibleAIProvider(_ provider: AIProviderSelection) -> AIProviderSelection {
+        guard let cloudProvider = provider.cloudProvider else { return provider }
+        return AIProviderSelection(cloudProvider: normalizedVisibleCloudProvider(cloudProvider))
+    }
+
+    private func normalizedPreferredCloudModel(_ model: CloudTextModelID) -> CloudTextModelID {
+        switch model.provider {
+        case .openAI:
+            switch model {
+            case .openAIGPT54, .openAIGPT54Mini:
+                return model
+            default:
+                return .openAIGPT54
+            }
+        case .anthropic:
+            switch model {
+            case .anthropicClaudeOpus47, .anthropicClaudeSonnet46:
+                return model
+            case .anthropicClaudeOpus41, .anthropicClaudeOpus4:
+                return .anthropicClaudeOpus47
+            default:
+                return .anthropicClaudeSonnet46
+            }
+        case .google:
+            switch model {
+            case .googleGemini31ProPreview, .googleGemini3FlashPreview:
+                return model
+            case .googleGemini25Flash:
+                return .googleGemini3FlashPreview
+            default:
+                return .googleGemini31ProPreview
+            }
+        case .zai, .kimi, .minimax, .deepseek:
+            return supportedCloudModels(for: preferredVisibleCloudProviderFallback()).first
+                ?? .openAIGPT54
         }
     }
 
@@ -4751,18 +5025,15 @@ final class InferenceState {
     }
 
     private func supportedCloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
-        let models = CloudTextModelID.models(for: provider)
-        guard provider == .openAI,
-              openAIUsesCodexAccountRuntime else {
-            return models
-        }
-        return models.filter { model in
-            switch model {
-            case .openAIGPT54, .openAIGPT54Mini, .openAIGPT52:
-                true
-            default:
-                false
-            }
+        switch provider {
+        case .openAI:
+            return [.openAIGPT54, .openAIGPT54Mini]
+        case .anthropic:
+            return [.anthropicClaudeOpus47, .anthropicClaudeSonnet46]
+        case .google:
+            return [.googleGemini31ProPreview, .googleGemini3FlashPreview]
+        case .zai, .kimi, .minimax, .deepseek:
+            return CloudTextModelID.models(for: provider)
         }
     }
 
@@ -4814,7 +5085,7 @@ final class InferenceState {
 
     private func sanitizedStoredLocalChatModelID(for modelID: String) -> String {
         if let sanitizedModelID = sanitizedInteractiveLocalTextModelID(for: modelID) {
-            return sanitizedModelID
+            return normalizedReleaseSelectableLocalTextModelID(sanitizedModelID)
         }
         if let model = LocalTextModelID(rawValue: modelID),
            model.isAwaitingSwiftRuntimeLoader {
@@ -4850,10 +5121,6 @@ extension CloudModelProvider {
         .openAI,
         .anthropic,
         .google,
-        .deepseek,
-        .zai,
-        .kimi,
-        .minimax,
     ]
 
     nonisolated static func fallbackPriority(after primary: CloudModelProvider) -> [CloudModelProvider] {

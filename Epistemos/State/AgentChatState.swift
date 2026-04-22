@@ -31,6 +31,8 @@ final class AgentChatState {
     var thinkingStartedAt: Date?
     /// Timestamp when thinking ended this turn (first text delta).
     var thinkingEndedAt: Date?
+    /// Timestamp when the first visible answer text arrived this turn.
+    var visibleAnswerStartedAt: Date?
 
     // MARK: - Session Identity
 
@@ -192,7 +194,11 @@ final class AgentChatState {
         if !visibleEmit.thinking.isEmpty {
             appendStreamingThinking(visibleEmit.thinking)
         }
-        routeVisibleStreamingText(visibleEmit.visible, scheduleFlush: true)
+        if !visibleEmit.visible.isEmpty {
+            routeVisibleStreamingText(visibleEmit.visible, scheduleFlush: true)
+            return
+        }
+        routeFallbackVisibleChunkIfNeeded(fromRawVisibleChunk: emit.visible, scheduleFlush: true)
     }
 
     /// Accumulate a live thinking delta for the streaming agent turn.
@@ -231,6 +237,7 @@ final class AgentChatState {
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        visibleAnswerStartedAt = nil
         hasStartedVisibleAnswer = false
         hasExplicitThinkingTrace = false
         userFacingStreamRouter.reset()
@@ -266,12 +273,55 @@ final class AgentChatState {
 
     private func routeVisibleStreamingText(_ text: String, scheduleFlush: Bool) {
         guard !text.isEmpty else { return }
+        if visibleAnswerStartedAt == nil {
+            visibleAnswerStartedAt = Date()
+        }
         hasStartedVisibleAnswer = true
         if isThinkingActive {
             isThinkingActive = false
-            thinkingEndedAt = Date()
+            thinkingEndedAt = visibleAnswerStartedAt
+        } else if thinkingEndedAt == nil, thinkingStartedAt != nil {
+            thinkingEndedAt = visibleAnswerStartedAt
         }
         streamBuffer.append(text, scheduleFlush: scheduleFlush)
+    }
+
+    private func routeFallbackVisibleChunkIfNeeded(
+        fromRawVisibleChunk rawVisibleChunk: String,
+        scheduleFlush: Bool
+    ) {
+        guard !hasStartedVisibleAnswer else { return }
+        let trimmedChunk = rawVisibleChunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedChunk.isEmpty else { return }
+        guard visibleAnswerFallbackEligible(trimmedChunk) else { return }
+        routeVisibleStreamingText(trimmedChunk, scheduleFlush: scheduleFlush)
+    }
+
+    private func visibleAnswerFallbackEligible(_ chunk: String) -> Bool {
+        guard UserFacingModelOutput.streamingReasoningText(from: chunk).isEmpty else { return false }
+
+        let lowercased = chunk.lowercased()
+        if lowercased.contains("```tool_call") {
+            return false
+        }
+        if chunk.first == "{",
+           chunk.last == "}",
+           chunk.contains("\"name\""),
+           chunk.contains("\"arguments\"") {
+            return false
+        }
+        if chunk.contains("\n") {
+            let multilineAnswerPrefixes = [
+                "in summary",
+                "overall",
+                "therefore",
+                "the answer is",
+                "bottom line",
+                "taken together",
+            ]
+            return multilineAnswerPrefixes.contains(where: lowercased.hasPrefix)
+        }
+        return true
     }
 
     // MARK: - Tool Tracking

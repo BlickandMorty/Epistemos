@@ -584,6 +584,17 @@ struct ReleasePackagingHardeningTests {
         #expect(source.contains("return StartupAutoDiscovery.testHostReport()"))
     }
 
+    @Test("bootstrap defers startup auto-discovery off the synchronous init path")
+    func bootstrapDefersStartupAutoDiscoveryOffSynchronousInitPath() throws {
+        let source = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(source.contains("private nonisolated static func scheduleStartupAutoDiscoveryLoggingIfNeeded()"))
+        #expect(source.contains("let report = startupAutoDiscoveryReportForTesting("))
+        #expect(source.contains("StartupAutoDiscovery.log(report)"))
+        #expect(source.contains("Self.scheduleStartupAutoDiscoveryLoggingIfNeeded()"))
+        #expect(!source.contains("let autoDiscoveryReport = Self.startupAutoDiscoveryReportForTesting("))
+    }
+
     @Test("test hosts skip Metal shader warmup bootstrap work")
     func testHostsSkipMetalShaderWarmupBootstrapWork() throws {
         let source = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")

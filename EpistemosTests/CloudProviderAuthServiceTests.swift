@@ -831,11 +831,7 @@ struct CloudProviderAuthServiceTests {
 
         inference.setActiveAIProvider(.openAI)
 
-        #expect(inference.activeCloudModels.contains(.openAIGPT54))
-        #expect(inference.activeCloudModels.contains(.openAIGPT54Mini))
-        #expect(inference.activeCloudModels.contains(.openAIGPT52))
-        #expect(!inference.activeCloudModels.contains(.openAIGPT41Mini))
-        #expect(!inference.activeCloudModels.contains(.openAIO3))
+        #expect(inference.activeCloudModels == [.openAIGPT54, .openAIGPT54Mini])
     }
 
     @MainActor
@@ -1307,6 +1303,42 @@ struct CloudProviderAgentEnvironmentTests {
         #expect(processEnvironmentValue(for: "MINIMAX_API_KEY") == "minimax-api-key")
     }
 
+    @MainActor
+    @Test("launch defers cloud credential bootstrap off the boot-critical path")
+    func launchDefersCloudCredentialBootstrapOffTheBootCriticalPath() async throws {
+        let savedValue = processEnvironmentValue(for: "DEEPSEEK_API_KEY")
+        defer {
+            setProcessEnvironmentValue(savedValue, for: "DEEPSEEK_API_KEY")
+        }
+        setProcessEnvironmentValue(nil, for: "DEEPSEEK_API_KEY")
+
+        let probe = DeferredKeychainProbe(
+            values: [CloudModelProvider.deepseek.apiKeyKeychainKey: "deepseek-api-key"],
+            initialDelay: 0.35
+        )
+        let clock = ContinuousClock()
+        let start = clock.now
+        let inference = InferenceState(
+            keychainLoad: { probe.load($0) },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in },
+            deferCloudCredentialBootstrapOnLaunch: true
+        )
+        let elapsed = start.duration(to: clock.now)
+
+        #expect(elapsed < .milliseconds(150))
+        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == nil)
+
+        let deadline = clock.now + .seconds(2)
+        while processEnvironmentValue(for: "DEEPSEEK_API_KEY") != "deepseek-api-key",
+              clock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        #expect(processEnvironmentValue(for: "DEEPSEEK_API_KEY") == "deepseek-api-key")
+        withExtendedLifetime(inference) {}
+    }
+
     private func encodedCredential(_ credential: CloudProviderOAuthCredential) throws -> String {
         let data = try JSONEncoder().encode(credential)
         return try #require(String(data: data, encoding: .utf8))
@@ -1322,6 +1354,31 @@ struct CloudProviderAgentEnvironmentTests {
             setenv(name, value, 1)
         } else {
             unsetenv(name)
+        }
+    }
+
+    private final class DeferredKeychainProbe {
+        private let lock = NSLock()
+        private let values: [String: String]
+        private let initialDelay: TimeInterval
+        private var didSleep = false
+
+        init(values: [String: String], initialDelay: TimeInterval) {
+            self.values = values
+            self.initialDelay = initialDelay
+        }
+
+        func load(_ key: String) -> String? {
+            let shouldSleep: Bool
+            lock.lock()
+            shouldSleep = !didSleep
+            didSleep = true
+            lock.unlock()
+
+            if shouldSleep {
+                Thread.sleep(forTimeInterval: initialDelay)
+            }
+            return values[key]
         }
     }
 

@@ -908,7 +908,7 @@ struct LocalModelToolbarMenu: View {
                                     ForEach(installedSelectableModels, id: \.id) { model in
                                         HStack(spacing: 0) {
                                             selectionRow(
-                                                title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                                title: inference.localModelPickerDisplayName(for: model.id),
                                                 subtitle: localModelSubtitle(for: model),
                                                 systemImage: "memorychip",
                                                 isSelected: selectedMenuItem == .inProcess(model)
@@ -937,7 +937,7 @@ struct LocalModelToolbarMenu: View {
 
                                     ForEach(installableSelectableModels, id: \.id) { model in
                                         selectionRow(
-                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                            title: inference.localModelPickerDisplayName(for: model.id),
                                             subtitle: "Available to install • \(localModelSubtitle(for: model))",
                                             systemImage: "arrow.down.circle",
                                             isSelected: false
@@ -1243,7 +1243,7 @@ struct LocalModelToolbarMenu: View {
                                     ForEach(installedSelectableModels, id: \.id) { model in
                                         HStack(spacing: 0) {
                                             selectionRow(
-                                                title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                                title: inference.localModelPickerDisplayName(for: model.id),
                                                 subtitle: localModelSubtitle(for: model),
                                                 systemImage: "memorychip",
                                                 isSelected: selectedMenuItem == .inProcess(model)
@@ -1272,7 +1272,7 @@ struct LocalModelToolbarMenu: View {
 
                                     ForEach(installableSelectableModels, id: \.id) { model in
                                         selectionRow(
-                                            title: LocalTextModelID(rawValue: model.id)?.compactDisplayName ?? model.displayName,
+                                            title: inference.localModelPickerDisplayName(for: model.id),
                                             subtitle: "Available to install • \(localModelSubtitle(for: model))",
                                             systemImage: "arrow.down.circle",
                                             isSelected: false
@@ -1512,11 +1512,12 @@ struct LocalModelToolbarMenu: View {
             return "On-device model"
         }
 
+        let modes = inference.availableOperatingModes(for: .localMLX(model.id))
         var features: [String] = []
-        if modelID.supportsThinkingMode {
+        if modes.contains(.thinking) {
             features.append("Thinking")
         }
-        if modelID.canRunLocalAgentLoop {
+        if modes.contains(.agent) {
             features.append("Tools")
         }
         let featureSummary = features.isEmpty ? "Fast only" : features.joined(separator: " • ")

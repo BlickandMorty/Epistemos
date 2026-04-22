@@ -24,6 +24,27 @@ private struct SlowTextEmbeddingLookup: TextEmbeddingLookup {
     }
 }
 
+private nonisolated final class DeferredLookupProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var creations = 0
+
+    func makeLookup() -> any TextEmbeddingLookup {
+        lock.lock()
+        creations += 1
+        lock.unlock()
+        return StubTextEmbeddingLookup(
+            vectors: ["alpha": [1, 2]],
+            dimension: 2
+        )
+    }
+
+    var creationCount: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return creations
+    }
+}
+
 @MainActor
 private struct StubPreparedRetrievalRuntimeResolver: PreparedRetrievalRuntimeResolving {
     let lookup: any TextEmbeddingLookup
@@ -140,6 +161,20 @@ struct BlockEmbeddingTests {
         let result = service.queryEmbedding(for: "alpha beta", expectedDimension: 2)
 
         #expect(result == [1, 1])
+    }
+
+    @Test("deferred embedding lookup waits until the first semantic access")
+    func deferredEmbeddingLookupWaitsForFirstAccess() async {
+        let probe = DeferredLookupProbe()
+        let lookup = DeferredTextEmbeddingLookup {
+            probe.makeLookup()
+        }
+
+        #expect(probe.creationCount == 0)
+        #expect(lookup.dimension == 2)
+        #expect(probe.creationCount == 1)
+        #expect(lookup.vector(for: "alpha") == [1, 2])
+        #expect(probe.creationCount == 1)
     }
 
     @Test("queryEmbedding refuses dimension mismatch")

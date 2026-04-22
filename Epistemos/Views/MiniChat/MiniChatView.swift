@@ -135,15 +135,17 @@ struct MiniChatView: View {
                 label: chat.title,
                 pageId: chat.linkedPageId,
                 messages: chat.sortedMessages.map { message in
-                    AssistantMessage(
-                        id: message.id,
-                        role: MessageRole(rawValue: message.role) ?? .assistant,
-                        content: message.content,
-                        thinkingTrace: message.thinkingTrace,
-                        thinkingDurationSeconds: message.thinkingDurationSeconds,
-                        loadedNoteTitles: message.chatMessage(chatId: chat.id).loadedNoteTitles,
-                        contextAttachments: message.chatMessage(chatId: chat.id).contextAttachments,
-                        createdAt: message.createdAt
+                    let restoredMessage = message.chatMessage(chatId: chat.id)
+                    return AssistantMessage(
+                        id: restoredMessage.id,
+                        role: restoredMessage.role,
+                        content: restoredMessage.content,
+                        contentBlocks: restoredMessage.contentBlocks,
+                        thinkingTrace: restoredMessage.thinkingTrace,
+                        thinkingDurationSeconds: restoredMessage.thinkingDurationSeconds,
+                        loadedNoteTitles: restoredMessage.loadedNoteTitles,
+                        contextAttachments: restoredMessage.contextAttachments,
+                        createdAt: restoredMessage.createdAt
                     )
                 }
             )
@@ -208,15 +210,25 @@ private struct MiniChatThread: View {
                                     )
                                     let streamingThinking = threadState.miniChatStreamingThinking(chatID: chatID)
                                         .trimmingCharacters(in: .whitespacesAndNewlines)
+                                    let pendingToolBlocks = threadState.miniChatPendingContentBlocks(chatID: chatID)
+                                    let activeToolName = threadState.miniChatActiveToolName(chatID: chatID)
+                                    let activeToolInputJson = threadState.miniChatActiveToolInputJson(chatID: chatID)
                                     MiniChatAssistantBubbleChrome {
                                         VStack(alignment: .leading, spacing: Spacing.md) {
                                             LiveActivityStrip(
-                                                toolName: nil,
-                                                toolInputJson: nil,
+                                                toolName: activeToolName,
+                                                toolInputJson: activeToolInputJson,
                                                 isThinkingActive: visibleStreamingText.isEmpty && !streamingThinking.isEmpty,
                                                 thinkingStartedAt: nil,
                                                 isStreaming: true
                                             )
+
+                                            if !pendingToolBlocks.isEmpty {
+                                                ToolExecutionPreviewList(
+                                                    blocks: pendingToolBlocks,
+                                                    isStreaming: true
+                                                )
+                                            }
 
                                             if !visibleStreamingText.isEmpty {
                                                 TaggedMarkdownTextView(
@@ -245,15 +257,13 @@ private struct MiniChatThread: View {
                         .padding(.vertical, 18)
                     }
                     .onScrollGeometryChange(
-                        for: CGFloat.self,
-                        of: ScrollStability.distanceToBottom(for:)
-                    ) { _, distance in
-                        let nextState = ScrollStability.updatedAutoFollowState(
-                            from: autoFollow,
-                            distanceToBottom: distance
-                        )
-                        guard nextState != autoFollow else { return }
-                        autoFollow = nextState
+                        for: Bool.self,
+                        of: { geometry in
+                            ScrollStability.followMode(for: geometry, from: autoFollow)
+                        }
+                    ) { _, isFollowingBottom in
+                        guard isFollowingBottom != autoFollow.isFollowingBottom else { return }
+                        autoFollow.setFollowingBottom(isFollowingBottom)
                     }
                     .onChange(of: miniChatThread?.messages.count) { _, _ in
                         guard autoFollow.isFollowingBottom else { return }
@@ -373,6 +383,13 @@ private struct MiniChatBubble: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var isUser: Bool { message.role == .user }
+    private var persistedThinking: String? {
+        if let trace = message.thinkingTrace?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !trace.isEmpty {
+            return trace
+        }
+        return message.contentBlocks?.thinkingContent
+    }
 
     var body: some View {
         let displayContent = message.role == .assistant
@@ -394,11 +411,14 @@ private struct MiniChatBubble: View {
         } else {
             MiniChatAssistantBubbleChrome {
                 VStack(alignment: .leading, spacing: Spacing.md) {
+                    if let contentBlocks = message.contentBlocks {
+                        ToolExecutionPreviewList(blocks: contentBlocks)
+                    }
+
                     TaggedMarkdownTextView(content: displayContent, theme: theme)
                         .textSelection(.enabled)
 
-                    if let thinkingTrace = message.thinkingTrace?
-                        .trimmingCharacters(in: .whitespacesAndNewlines),
+                    if let thinkingTrace = persistedThinking,
                        !thinkingTrace.isEmpty {
                         ThinkingTrailView(
                             content: thinkingTrace,
@@ -600,7 +620,9 @@ private struct MiniChatInputBar: View {
     private var composerAccentColor: Color { theme.resolved.accent.color }
     private let composerMetrics = AssistantComposerMetrics.compactChat
     private var supportedOperatingModes: [EpistemosOperatingMode] {
-        let modes = inference.availableOperatingModes.filter { $0 != .agent }
+        let modes = inference.availableOperatingModes(
+            for: inference.preferredChatModelSelection
+        )
         return modes.isEmpty ? [.fast] : modes
     }
     private func sanitizedMiniChatOperatingMode(_ mode: EpistemosOperatingMode) -> EpistemosOperatingMode {
@@ -716,11 +738,12 @@ private struct MiniChatInputBar: View {
     }
 
     private var composerCapability: ChatCapability {
-        ChatCapability.classify(
+        let toolsModeSelected = selectedOperatingMode == .agent
+        return ChatCapability.classify(
             isCloudProvider: isCloudProviderSelection,
-            isAgentExecuting: isUsingSharedCoordinator || draftCapabilityPrediction.predicted == .agent,
+            isAgentExecuting: toolsModeSelected || isUsingSharedCoordinator || draftCapabilityPrediction.predicted == .agent,
             isResearchMode: draftCapabilityPrediction.predicted == .research,
-            isThinkingMode: selectedOperatingMode.capturesReasoningTrace
+            isThinkingMode: selectedOperatingMode == .thinking
         )
     }
 
@@ -788,6 +811,9 @@ private struct MiniChatInputBar: View {
             cancelStream()
         }
         .onChange(of: inference.supportsThinkingOperatingMode) { _, _ in
+            sanitizeStoredOperatingMode()
+        }
+        .onChange(of: inference.preferredChatModelSelection.rawValue) { _, _ in
             sanitizeStoredOperatingMode()
         }
         .overlay(alignment: .topLeading) {
@@ -1070,6 +1096,8 @@ private struct MiniChatInputBar: View {
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
         threadState.clearMiniChatStreamingThinking(chatID: chatID)
+        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+        threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
 
         streamTask = Task {
             defer {
@@ -1362,6 +1390,13 @@ private struct MiniChatInputBar: View {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
+        switch selectedOperatingMode {
+        case .agent, .pro:
+            return true
+        case .fast, .thinking:
+            break
+        }
+
         let prediction = ChatCapability.predictIntent(
             text: trimmed,
             isCloudProvider: isCloudProviderSelection
@@ -1431,6 +1466,7 @@ private struct MiniChatInputBar: View {
                 createdAt: message.createdAt,
                 loadedNoteTitles: message.loadedNoteTitles,
                 contextAttachments: message.contextAttachments,
+                contentBlocks: message.contentBlocks,
                 thinkingTrace: message.thinkingTrace,
                 thinkingDurationSeconds: message.thinkingDurationSeconds
             )
@@ -1448,6 +1484,15 @@ private struct MiniChatInputBar: View {
         threadState.setMiniChatStreaming(true, chatID: chatID)
         threadState.setMiniChatStreamingText(bridgeState.streamingText, chatID: chatID)
         threadState.setMiniChatStreamingThinking(bridgeState.streamingThinking, chatID: chatID)
+        threadState.setMiniChatActiveTool(
+            name: bridgeState.activeToolName,
+            inputJson: bridgeState.activeToolInputJson,
+            chatID: chatID
+        )
+        threadState.setMiniChatPendingContentBlocks(
+            bridgeState.pendingContentBlocks,
+            chatID: chatID
+        )
         threadState.updateMiniChatLoadedNotes(
             ids: bridgeState.loadedNoteIds,
             titles: bridgeState.loadedNoteTitles,
@@ -1463,6 +1508,8 @@ private struct MiniChatInputBar: View {
     ) {
         threadState.setMiniChatStreamingText("", chatID: chatID)
         threadState.clearMiniChatStreamingThinking(chatID: chatID)
+        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+        threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
         threadState.updateMiniChatLoadedNotes(
             ids: bridgeState.loadedNoteIds,
             titles: bridgeState.loadedNoteTitles,
@@ -1486,6 +1533,7 @@ private struct MiniChatInputBar: View {
             id: assistant.id,
             role: .assistant,
             content: finalContent,
+            contentBlocks: assistant.contentBlocks,
             thinkingTrace: assistant.thinkingTrace,
             thinkingDurationSeconds: assistant.thinkingDurationSeconds,
             loadedNoteTitles: assistant.loadedNoteTitles ?? bridgeState.loadedNoteTitles,
@@ -1653,6 +1701,7 @@ private struct MiniChatInputBar: View {
             stored.createdAt = message.createdAt
             stored.thinkingTrace = message.thinkingTrace
             stored.thinkingDurationSeconds = message.thinkingDurationSeconds
+            stored.setContentBlocks(message.contentBlocks)
             stored.updatePresentationSnapshot(
                 attachments: [],
                 loadedNoteTitles: message.loadedNoteTitles,
@@ -1701,6 +1750,8 @@ private struct MiniChatInputBar: View {
         threadState.setMiniChatStreaming(false, chatID: chatID)
         threadState.setMiniChatStreamingText("", chatID: chatID)
         threadState.clearMiniChatStreamingThinking(chatID: chatID)
+        threadState.setMiniChatActiveTool(name: nil, inputJson: nil, chatID: chatID)
+        threadState.setMiniChatPendingContentBlocks([], chatID: chatID)
         if usedSharedCoordinator {
             AppBootstrap.shared?.queryTask?.cancel()
             isUsingSharedCoordinator = false

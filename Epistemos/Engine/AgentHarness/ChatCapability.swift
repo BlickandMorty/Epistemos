@@ -90,6 +90,10 @@ extension ChatCapability {
 /// This matches user intuition: an active tool-using turn should dominate
 /// a "thinking on" flag, which should dominate the plain cloud/local axis.
 extension ChatCapability {
+    static func looksLikeExplicitFileOperation(text: String) -> Bool {
+        looksLikeExplicitFileOperation(in: normalizedIntentText(text))
+    }
+
     static func requiresResearchTools(text: String) -> Bool {
         requiresResearchTools(in: normalizedIntentText(text))
     }
@@ -188,11 +192,32 @@ extension ChatCapability {
             "send a message", "open the app",
             // Vault lookup verbs — require a real tool call, not a guess.
             "find the note", "find a note", "find my note",
+            "find the essay", "find an essay", "find my essay",
+            "find the draft", "find a draft", "find my draft",
             "look up ", "search for ", "locate ", "show me the note",
+            "show me the essay", "show me the draft",
             "open the note", "which note", "which of my notes",
+            "open my essay", "open the essay",
+            "open my draft", "open the draft",
             "summarize my note", "summarize the note",
+            "summarize my essay", "summarize the essay",
+            "summarize my draft", "summarize the draft",
+            "analyze my essay", "analyze the essay",
+            "analyze my draft", "analyze the draft",
+            "review my essay", "review the essay",
+            "review my draft", "review the draft",
+            "edit my essay", "edit the essay",
+            "edit my draft", "edit the draft",
+            "rewrite my essay", "rewrite the essay",
+            "rewrite my draft", "rewrite the draft",
+            "copy my essay", "copy the essay",
+            "copy my draft", "copy the draft",
+            "duplicate my essay", "duplicate the essay",
+            "duplicate my draft", "duplicate the draft",
             "what am i working on", "what am i currently working on",
             "what's in my note", "what is in my note", "read my note",
+            "what's in my essay", "what is in my essay", "read my essay",
+            "what's in my draft", "what is in my draft", "read my draft",
         ]
 
         for signal in agentSignals {

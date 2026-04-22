@@ -148,7 +148,7 @@ struct AuditFixRegressionTests {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
 
         #expect(coordinator.contains("buildRequestedVaultLookupContractSection"))
-        #expect(coordinator.contains("Do not describe them as attached files or uploads."))
+        #expect(coordinator.contains("Do not describe those notes as attached files or uploads."))
         #expect(coordinator.contains("let hasAttachedUserContext"))
         #expect(coordinator.contains("let hasRequestedVaultLookup"))
     }
@@ -161,12 +161,42 @@ struct AuditFixRegressionTests {
         #expect(coordinator.contains("hasAttachedUserContext ? Self.buildRequiredAttachmentContractSection() : nil"))
         #expect(coordinator.contains("hasRequestedVaultLookup ? Self.buildRequestedVaultLookupContractSection() : nil"))
         #expect(coordinator.contains("queryRequiresVerifiedVaultRead"))
-        #expect(coordinator.contains("Do not open with a provenance sentence like \\\"I found it in your notes\\\""))
+        #expect(coordinator.contains("Do not open with a provenance sentence like \"I found it in your notes\""))
         #expect(coordinator.contains("say plainly that you couldn't find or read the note in the user's notes"))
         #expect(coordinator.contains("I couldn't find a note titled"))
         #expect(coordinator.contains("I couldn't read \\\""))
         #expect(!coordinator.contains("so I won't pretend the lookup succeeded"))
         #expect(coordinator.contains("Conversation history or attached context may mention the same note"))
+    }
+
+    @Test("explicit file operations keep exact user paths stable across runtime prompts")
+    func explicitFileOperationsKeepExactUserPathsStable() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("let hasRequestedFileOperation"))
+        #expect(coordinator.contains("buildRequestedFileOperationContractSection"))
+        #expect(coordinator.contains("If the user already provided a path, use that exact path."))
+        #expect(coordinator.contains("File tools can use explicit filesystem paths the user provided"))
+        #expect(coordinator.contains("including absolute paths and ~/ home expansion"))
+        #expect(coordinator.contains("Do not invent alternate file names, directories, or fallback paths."))
+        #expect(coordinator.contains("Do not rewrite absolute paths into vault-relative guesses"))
+        #expect(coordinator.contains("If the user asks you to write a file and then read it back, do the write first and then read that same exact path."))
+        #expect(coordinator.contains("If the exact requested path fails, explain that exact failure instead of pretending a nearby path worked."))
+        #expect(coordinator.contains("hasRequestedFileOperation ? Self.buildRequestedFileOperationContractSection() : nil"))
+    }
+
+    @Test("explicit note writes keep a real vault_write contract across runtime prompts")
+    func explicitNoteWritesKeepAVaultWriteContractAcrossRuntimePrompts() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let promptBuilder = try loadAuditSource("Epistemos/LocalAgent/HermesPromptBuilder.swift")
+
+        #expect(coordinator.contains("let hasRequestedNoteWriteOperation"))
+        #expect(coordinator.contains("queryContainsExplicitNoteWriteOperation"))
+        #expect(coordinator.contains("buildRequestedNoteWriteContractSection"))
+        #expect(coordinator.contains("Use `vault_write` to create or update the note"))
+        #expect(coordinator.contains("If the user asks you to create or update a note and then read it back"))
+        #expect(promptBuilder.contains("For vault note creation or updates, use vault_write"))
+        #expect(promptBuilder.contains("Do not claim a note was created, updated, or read back"))
     }
 
     @Test("embedded rust dylibs still ad hoc sign when hosted tests disable app signing")

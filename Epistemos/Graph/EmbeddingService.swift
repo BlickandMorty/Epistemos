@@ -19,6 +19,49 @@ extension TextEmbeddingLookup {
     nonisolated func textVector(for text: String) -> [Float]? { nil }
 }
 
+private nonisolated final class DeferredTextEmbeddingLookupStorage: @unchecked Sendable {
+    private let lock = NSLock()
+    private let factory: @Sendable () -> any TextEmbeddingLookup
+    private var resolvedLookup: (any TextEmbeddingLookup)?
+
+    init(factory: @escaping @Sendable () -> any TextEmbeddingLookup) {
+        self.factory = factory
+    }
+
+    func lookup() -> any TextEmbeddingLookup {
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let resolvedLookup {
+            return resolvedLookup
+        }
+
+        let lookup = factory()
+        resolvedLookup = lookup
+        return lookup
+    }
+}
+
+nonisolated struct DeferredTextEmbeddingLookup: TextEmbeddingLookup, @unchecked Sendable {
+    private let storage: DeferredTextEmbeddingLookupStorage
+
+    init(factory: @escaping @Sendable () -> any TextEmbeddingLookup) {
+        storage = DeferredTextEmbeddingLookupStorage(factory: factory)
+    }
+
+    var dimension: Int {
+        storage.lookup().dimension
+    }
+
+    func vector(for token: String) -> [Float]? {
+        storage.lookup().vector(for: token)
+    }
+
+    func textVector(for text: String) -> [Float]? {
+        storage.lookup().textVector(for: text)
+    }
+}
+
 nonisolated struct AppleWordEmbeddingLookup: TextEmbeddingLookup {
     nonisolated var dimension: Int {
         NLEmbedding.wordEmbedding(for: .english)?.dimension ?? 0
