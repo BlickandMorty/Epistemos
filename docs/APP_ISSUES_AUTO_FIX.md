@@ -199,6 +199,158 @@ Investigation Log:
 
 ---
 
+### ISSUE-2026-04-21-001: Cloud direct-stream turns advertise tools they cannot execute
+
+Status: Patched
+Priority: P1
+First Observed: 2026-04-21
+Affected Version: pre-b4e5d45a
+
+Symptom:
+Cloud models (GPT-5.4 Fast / Thinking, Claude Sonnet Fast / Thinking)
+emit tool-call text into the answer bubble without ever executing a
+vault_read / fs_read / patch. The capability manifest tells the model
+"Tools available: vault_read, fs_read, …" even though the direct-stream
+path can only attach provider-native tools (web_search / web_fetch /
+code_execution / google_search) to the outgoing request.
+
+Suspected Cause:
+`Epistemos/Engine/PipelineService.swift` `buildCapabilityManifest`
+unioned `executionPlan.allowedToolNames` with
+`providerNativeCapabilityToolNames`. The direct-stream path never
+hits the Rust agent, so app tools were advertised but never attached.
+
+Fix (b4e5d45a):
+- `toolExecutionAvailable: Bool = true` on `buildCapabilityManifest`.
+  Direct-stream callers pass `false`, which uses
+  `inference.providerNativeCapabilityToolNameList(for:)` — the subset
+  the cloud request body actually attaches.
+- Dropped `executionPlan?.additionalSystemPrompt()` in direct-stream
+  because its `tool_permissions` instructions prescribed tools the
+  path cannot honor.
+
+Regression Coverage:
+`EpistemosTests/RuntimeValidationTests.swift` — two new tests.
+
+---
+
+### ISSUE-2026-04-21-002: Fenced ```tool_call blocks not parsed as tool calls
+
+Status: Patched
+Priority: P1
+First Observed: 2026-04-20
+Affected Version: pre-b4e5d45a
+
+Symptom:
+Local Qwen / Hermes turns emitted ```tool_call{...}``` fences. The
+UI suppressed them from the bubble but the executor never ran, so
+the model stalled after "calling" a tool.
+
+Fix (b4e5d45a):
+`Epistemos/Omega/Inference/ToolCallParser.swift` extended
+`"```(?:json)?"` → `"```(?:json|tool_call)?"` in the markdown
+code-block strategy.
+
+Regression Coverage:
+`EpistemosTests/OmegaToolCallParserTests.swift`.
+
+---
+
+### ISSUE-2026-04-21-003: MLX idle unload kept Metal working set resident
+
+Status: Patched
+Priority: P2
+First Observed: 2026-04-20
+Affected Version: pre-b4e5d45a
+
+Symptom:
+After a local-model turn, idle memory stayed elevated even after
+`performUnload`. The Metal SSM state buffers and the inference heap
+lived on until the process exited.
+
+Fix (b4e5d45a):
+- `Epistemos/Engine/MetalRuntimeManager.swift`: new `releaseWorkingSet()`.
+- `Epistemos/Engine/MLXInferenceService.swift`: `performUnload` is
+  async and hops to `@MainActor` to call `releaseWorkingSet()`
+  before releasing its own `metalRuntimeManager` reference.
+
+Regression Coverage:
+`EpistemosTests/Mamba2MetalRuntimeTests.swift`.
+
+---
+
+### ISSUE-2026-04-21-004: Idle memory regression (~500 MB) — unresolved
+
+Status: Open
+Priority: P1
+First Observed: 2026-04-21
+Affected Version: b4e5d45a
+
+Symptom:
+User reports app idles around 500 MB (historically ~50 MB, noted as
+~300 MB in the 2026-04-20 handoff). Metal working-set release
+(ISSUE-003) partially addresses post-unload, but the initial boot
+footprint is still high.
+
+Suspected Causes (not yet Instruments-profiled):
+1. `AppleHybridEmbeddingLookup()` in `GraphState.init()` eagerly
+   loads `NLContextualEmbedding(.english)` (~40-100 MB CoreML when
+   ANE assets are present) + `NLEmbedding.wordEmbedding(.english)`
+   (~150 MB FastText). Added in commit a56d97ab (2026-04-17).
+2. `PreparedRetrievalRuntimeConfiguration` retains parsed manifest
+   descriptors after the deferred load in
+   `startDeferredRuntimeServicesIfNeeded`.
+3. SwiftData `@Query` result caches in sidebars / chat views.
+4. Tokenizer vocab / model-weight residency after first local turn.
+
+Safe Auto-Fix Attempts (no user approval needed):
+- Run `Instruments → Allocations` on a launched-then-idle app and
+  identify the top 10 persistent allocations.
+- Audit GraphState's embedding-lookup usage to see whether
+  `AppleHybridEmbeddingLookup` can be lazy without breaking the
+  `dimension` contract.
+
+Destructive Fixes (require user approval):
+- Restructuring `AppleHybridEmbeddingLookup` to lazy-load contextual
+  + word embeddings (changes `dimension` semantics).
+- Narrowing @Query predicates or adding fetch limits.
+
+Investigation Log:
+- 2026-04-21: Prior handoff § 6 flagged as profiling-required, not
+  blind-fix. Metal working-set release only addresses post-unload.
+
+---
+
+### ISSUE-2026-04-21-005: Brittle source-text tests in RuntimeValidationTests
+
+Status: Open
+Priority: P3
+First Observed: 2026-04-21
+Affected Version: b4e5d45a
+
+Symptom:
+Nine tests in `EpistemosTests/RuntimeValidationTests.swift` fail
+because they assert concatenated substrings (with specific
+indentation) from `Epistemos/App/ChatCoordinator.swift` that shifted
+during this session's refactor.
+
+Suspected Cause:
+`loadRepoTextFile(...)` + `#expect(coordinator.contains("..."))`
+with hand-written multi-line snippets like
+`"finalizedAssistantMessage = true\n                agentChat.completeProcessing("`.
+The semantics are still present; the layout has shifted.
+
+Safe Auto-Fix Attempts:
+- Rewrite the assertions as behavioral tests.
+- Or refresh the substrings against the current source.
+
+Investigation Log:
+- 2026-04-21: Confirmed not caused by this session's code fixes;
+  tests were already failing against the prior session's
+  ChatCoordinator refactor.
+
+---
+
 ## Resolved Issues
 
 _(Issues moved here after manual runtime verification confirms the fix)_
