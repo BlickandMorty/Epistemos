@@ -163,4 +163,38 @@ struct ToolSchemaGrammarTests {
         #expect(!schemas.isEmpty)
         #expect(schemas.count == runtime.toolCount)
     }
+
+    @Test("Planning schemas close object inputs for strict tool runtimes")
+    func planningSchemasCloseObjectInputsForStrictToolRuntimes() throws {
+        let tool = OmegaToolDefinition(
+            name: "write_file",
+            agent: "file",
+            description: "Write a file",
+            argumentsExample: "{\"path\":\"Notes/test.md\"}",
+            schemaJson: """
+            {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "options": {
+                  "type": "object",
+                  "properties": {
+                    "overwrite": { "type": "boolean" }
+                  }
+                }
+              },
+              "required": ["path"]
+            }
+            """,
+            destructive: false,
+            requiresConfirmation: false
+        )
+
+        let schema = try #require(tool.planningSchema["inputSchema"] as? [String: Any])
+        #expect(schema["additionalProperties"] as? Bool == false)
+
+        let properties = try #require(schema["properties"] as? [String: Any])
+        let options = try #require(properties["options"] as? [String: Any])
+        #expect(options["additionalProperties"] as? Bool == false)
+    }
 }

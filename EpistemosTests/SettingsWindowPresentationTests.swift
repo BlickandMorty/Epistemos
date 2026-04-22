@@ -22,6 +22,33 @@ struct SettingsWindowPresentationTests {
         #expect(source.contains(".toolbarBackgroundVisibility(.hidden, for: .windowToolbar)"))
     }
 
+    @Test("skills settings source exposes a create skill form with an instruction sheet")
+    func skillsSettingsSourceExposesCreateSkillFormWithInstructionSheet() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Settings/SkillsSettingsView.swift")
+
+        #expect(source.contains("Text(\"Create Skill\")"))
+        #expect(source.contains("Instruction Sheet"))
+        #expect(source.contains("createSkill(vaultPath: vaultPath)"))
+    }
+
+    @Test("agent control source exposes a JSON custom tool editor")
+    func agentControlSourceExposesCustomToolEditor() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")
+
+        #expect(source.contains("Text(\"Custom Tools\")"))
+        #expect(source.contains("Tool Spec JSON"))
+        #expect(source.contains("saveCustomTool(vaultPath: vaultPath)"))
+    }
+
+    @Test("authority settings source exposes a quick setup for fewer permission interruptions")
+    func authoritySettingsSourceExposesQuickSetupPresets() throws {
+        let source = try loadRepoTextFile("Epistemos/Views/Settings/AuthoritySettingsView.swift")
+
+        #expect(source.contains("Text(\"Quick Setup\")"))
+        #expect(source.contains("Less Interruptions"))
+        #expect(source.contains("applyPreset("))
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         try loadMirroredSourceTextFile(relativePath)
     }

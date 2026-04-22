@@ -17,12 +17,16 @@ import SwiftUI
 /// streaming assistant turn. The legacy type name stays because call
 /// sites already reference it, but it no longer uses a detached popover.
 struct ThinkingPopoverView: View {
+    @Environment(UIState.self) private var ui
+
     let thinkingContent: String
     let isThinkingActive: Bool
     let thinkingStartedAt: Date?
     let thinkingEndedAt: Date?
 
     @State private var isExpanded = true
+
+    private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
         panel
@@ -49,19 +53,19 @@ struct ThinkingPopoverView: View {
                 HStack(spacing: 6) {
                     Image(systemName: isThinkingActive ? "brain" : "brain.fill")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.purple.opacity(isThinkingActive ? 0.95 : 0.72))
+                        .foregroundStyle(theme.resolved.accent.color.opacity(isThinkingActive ? 0.95 : 0.72))
                     Text(label)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
+                        .font(ClaudeAppTypography.monoFont(size: 11, weight: .medium))
+                        .foregroundStyle(theme.textSecondary)
                     if isThinkingActive {
                         ProgressView()
                             .controlSize(.mini)
-                            .tint(.purple.opacity(0.7))
+                            .tint(theme.resolved.accent.color.opacity(0.7))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(theme.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
                 .padding(.horizontal, 10)
@@ -73,13 +77,14 @@ struct ThinkingPopoverView: View {
             .accessibilityLabel(accessibilityLabel)
 
             if isExpanded {
-                Divider().opacity(0.15)
+                Divider()
+                    .overlay(theme.glassBorder.opacity(0.44))
 
                 ScrollView {
                     ScrollViewReader { proxy in
                         Text(displayedThinkingContent)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(.secondary)
+                            .font(ClaudeAppTypography.monoFont(size: 12))
+                            .foregroundStyle(theme.textSecondary)
                             .lineSpacing(4)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -98,9 +103,14 @@ struct ThinkingPopoverView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(background)
-        .overlay(border)
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: isThinkingActive)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .shadow(
+            color: .black.opacity(theme.isDark ? 0.16 : 0.06),
+            radius: 12,
+            x: 0,
+            y: 5
+        )
         .modifier(ThinkingPulse(active: isThinkingActive))
     }
 
@@ -162,18 +172,6 @@ struct ThinkingPopoverView: View {
                 ? "Waiting for the model's first thought token…"
                 : "(No reasoning content was captured.)")
             : thinkingContent
-    }
-
-    // MARK: - Styling
-
-    private var background: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(.ultraThinMaterial)
-    }
-
-    private var border: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .strokeBorder(Color.purple.opacity(0.22), lineWidth: 0.9)
     }
 }
 

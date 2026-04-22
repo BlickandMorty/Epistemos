@@ -4,6 +4,18 @@ import Testing
 
 @MainActor
 struct AgentCommandCenterStateTests {
+    private static var repoRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
+    private static func repoFileExists(_ relativePath: String) -> Bool {
+        FileManager.default.fileExists(
+            atPath: repoRootURL.appendingPathComponent(relativePath).path
+        )
+    }
+
     private static func makeTool(name: String, agent: String = "rust") -> OmegaToolDefinition {
         OmegaToolDefinition(
             name: name,
@@ -126,6 +138,27 @@ struct AgentCommandCenterStateTests {
         #expect(ACCSlashCommand.securityReview.expertAllowlist.contains("security-review"))
     }
 
+    @Test func slashCommandsFilterToSupportedOperatingModes() {
+        #expect(
+            ACCSlashCommand.availableCommands(for: [.fast, .agent]).contains(.code)
+        )
+        #expect(
+            !ACCSlashCommand.availableCommands(for: [.fast]).contains(.code)
+        )
+        #expect(
+            ACCSlashCommand.availableCommands(for: [.thinking]).contains(.debug)
+        )
+        #expect(
+            !ACCSlashCommand.availableCommands(for: [.thinking]).contains(.ask)
+        )
+    }
+
+    @Test func slashCommandsProvideVisibleStarterPrompts() {
+        #expect(!ACCSlashCommand.plan.suggestedPrompt.isEmpty)
+        #expect(ACCSlashCommand.code.suggestedPrompt.contains("Implement"))
+        #expect(ACCSlashCommand.research.suggestedPrompt.contains("sources"))
+    }
+
     @Test func nativeProviderEffortOnlyAppearsForSupportedCloudBrains() {
         let state = AgentCommandCenterState()
         #expect(state.supportedNativeProviderEfforts.isEmpty)
@@ -201,7 +234,7 @@ struct AgentCommandCenterStateTests {
         let deepseek = Self.makeLocalBrain(.deepseekR1Distill7B)
         let qwenCoder = Self.makeLocalBrain(.qwen25Coder7B)
 
-        #expect(deepseek.supportedOperatingModes == [.thinking, .agent])
+        #expect(deepseek.supportedOperatingModes == [.thinking])
         #expect(qwenCoder.supportedOperatingModes == [.agent])
     }
 
@@ -401,58 +434,31 @@ struct AgentCommandCenterStateTests {
         #expect(state.contextProviders.contains { $0.token == "My Note" })
     }
 
-    @Test func agentLandingKeepsRetroGreetingAndUsefulStats() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
-
-        #expect(source.contains("Greetings,"))
-        #expect(source.contains("AppDisplayTypography.font(size: 21, allowDisplayFont: true)"))
-        #expect(source.contains("ACCLandingStatsTab"))
-        #expect(source.contains("overviewStatsGrid"))
-        #expect(source.contains("modelStatsChart"))
-        #expect(source.contains("activityHeatmap"))
-        #expect(source.contains("agentPersonaLabel"))
+    @Test func legacyAgentWorkspaceViewsAreRemovedFromRepo() {
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/AgentPlanEditorView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/BrainPickerMenu.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/CommandBarView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/InspectorPanelView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/SuggestionPopoverView.swift"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentCommandCenter/ToolTogglePillsView.swift"))
     }
 
-    @Test func agentLandingPreservesTerminalSyntaxAndSafetyLanguage() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
-
-        #expect(source.contains("rust:authority"))
-        #expect(source.contains("trace:ready"))
-        #expect(source.contains("permission:gated"))
-        #expect(source.contains("-silentFallback"))
-        #expect(source.contains("turnFailureCard"))
-        #expect(source.contains("inlineDiffCard"))
-    }
-
-    @Test func agentShellUsesOLEDBackgroundAndChromeInDarkMode() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/AgentCommandCenter/AgentCommandCenterView.swift")
-
-        #expect(source.contains("if theme.isDark {"))
-        #expect(source.contains("Color.black"))
-        #expect(source.contains("toolbarBackgroundStyle"))
-        #expect(source.contains("workspaceCardFillStyle"))
-        #expect(source.contains("workspaceSubcardFillStyle"))
-        #expect(!source.contains(".background(.ultraThinMaterial)"))
-    }
-
-    @Test func fusedChatLeavesLegacyAgentSurfaceDeprecatedAndUnreachableByDefault() throws {
+    @Test func fusedChatLeavesLegacyAgentSurfaceUnwiredFromRootView() throws {
         let rootSource = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
-        let agentViewSource = try loadMirroredSourceTextFile("Epistemos/Views/AgentChat/AgentChatView.swift")
 
-        #expect(rootSource.contains("case agent"))
-        #expect(rootSource.contains("return .home"))
-        #expect(rootSource.contains("AgentChatView()"))
+        #expect(rootSource.contains("ContentRouter()"))
+        #expect(!rootSource.contains("AgentChatView()"))
         #expect(!rootSource.contains(".overlay { agentCommandCenterOverlay }"))
         #expect(!rootSource.contains("if accState.isPresented"))
-        #expect(agentViewSource.contains("DEPRECATED (fused chat, 2026-04-18)"))
-        #expect(agentViewSource.contains("struct AgentChatView: View"))
-        #expect(agentViewSource.contains("InspectorPanelView()"))
-        #expect(agentViewSource.contains("CommandBarView()"))
+        #expect(!rootSource.contains("enum HomeSurfaceRoute"))
+        #expect(!Self.repoFileExists("Epistemos/Views/AgentChat/AgentChatView.swift"))
     }
 
     // MARK: - Graph Chat Receiver
 
-    @Test func handleGraphChatRequestPresentsAndPrefills() {
+    @Test func handleGraphChatRequestPrefillsWithoutPresentingDeprecatedSurface() {
         let state = AgentCommandCenterState()
         #expect(!state.isPresented)
 
@@ -465,7 +471,7 @@ struct AgentCommandCenterStateTests {
         )
         state.handleGraphChatRequest(request)
 
-        #expect(state.isPresented)
+        #expect(!state.isPresented)
         #expect(state.inputText == "Tell me about Design Review")
         #expect(state.pendingGraphChatRequest == request)
     }
@@ -531,7 +537,7 @@ struct AgentCommandCenterStateTests {
         )
         await Task.yield()
 
-        #expect(state.isPresented)
+        #expect(!state.isPresented)
         #expect(state.inputText == "Tell me about Notification Node")
         #expect(state.pendingGraphChatRequest == request)
     }

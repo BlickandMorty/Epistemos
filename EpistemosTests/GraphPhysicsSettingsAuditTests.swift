@@ -36,6 +36,15 @@ struct GraphPhysicsSettingsAuditTests {
         "epistemos.physics.enableOrbital",
         "epistemos.physics.orbitalSpeed",
         "epistemos.physics.selectedPreset",
+        "epistemos.physics.schedulerMode",
+        "epistemos.physics.simpleOpeningPresetKey",
+        "epistemos.physics.simpleOpeningDelaySeconds",
+        "epistemos.physics.simpleRestingPresetKey",
+        "epistemos.physics.interactionMotionHoldSeconds",
+        "epistemos.physics.interactionMotionAlphaTarget",
+        "epistemos.physics.startupViewMode",
+        "epistemos.physics.timelineSteps",
+        "epistemos.physics.schedulerDefaultsVersion",
     ]
 
     private func clearPhysicsDefaults() {
@@ -61,6 +70,10 @@ struct GraphPhysicsSettingsAuditTests {
             try? await Task.sleep(for: .milliseconds(50))
         }
         return true
+    }
+
+    private func timelineSignature(_ steps: [PhysicsScheduleStep]) -> [String] {
+        steps.map { "\($0.delaySeconds):\($0.presetKey)" }
     }
 
     @Test("Semantic strength change persists even before engine exists")
@@ -125,18 +138,19 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(abs(state.orbitalSpeed - 0.3) < 0.0001)
     }
 
-    @Test("Overlay cycle reaches chaos in 4 seconds from the Deep Sea opening preset without enabling fluid wake")
+    @Test("Overlay cycle reaches chaos in 4 seconds from the constellation opening preset without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()
 
         #expect(GraphOverlayPhysicsPolicy.chaosDelaySeconds == 4)
-        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .deepSea)
+        #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 3.99) == .constellation)
         #expect(GraphOverlayPhysicsPolicy.preset(afterElapsedSeconds: 4) == .chaos)
 
         let state = GraphState()
         state.startOverlayPhysicsCycle()
 
-        #expect(state.selectedPhysicsPreset == .deepSea)
+        #expect(await waitForPreset(.constellation, in: state))
+        #expect(state.selectedPhysicsPreset == .constellation)
         #expect(!state.enableFluidDynamics)
 
         #expect(await waitForPreset(.chaos, in: state))
@@ -144,16 +158,70 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(!state.enableFluidDynamics)
     }
 
-    @Test("Graph rebuild requests restart in Deep Sea and mark rebuild pending")
-    func graphRebuildRequestStartsDeepSeaCycle() {
+    @Test("Graph rebuild requests restart in constellation and mark rebuild pending")
+    func graphRebuildRequestStartsConstellationCycle() async {
         clearPhysicsDefaults()
 
         let state = GraphState()
         state.requestGraphRebuild()
 
         #expect(state.pendingRebuild)
-        #expect(state.selectedPhysicsPreset == .deepSea)
+        #expect(await waitForPreset(.constellation, in: state))
+        #expect(state.selectedPhysicsPreset == .constellation)
         #expect(!state.enableFluidDynamics)
+    }
+
+    @Test("legacy default scheduler migrates to the new constellation opening cycle")
+    func legacyDefaultSchedulerMigratesForward() throws {
+        clearPhysicsDefaults()
+
+        let seed = GraphState()
+        seed.savePhysicsSettings()
+
+        let defaults = UserDefaults.standard
+        defaults.set(0, forKey: "epistemos.physics.schedulerDefaultsVersion")
+        defaults.set(PhysicsSchedulerMode.timeline.rawValue, forKey: "epistemos.physics.schedulerMode")
+        defaults.set("crystal", forKey: "epistemos.physics.simpleOpeningPresetKey")
+        defaults.set(3.0, forKey: "epistemos.physics.simpleOpeningDelaySeconds")
+        defaults.set("chaos", forKey: "epistemos.physics.simpleRestingPresetKey")
+        let legacySteps = [
+            PhysicsScheduleStep(delaySeconds: 0.0, presetKey: "crystal"),
+            PhysicsScheduleStep(delaySeconds: 3.0, presetKey: "constellation"),
+            PhysicsScheduleStep(delaySeconds: 4.0, presetKey: "chaos"),
+        ]
+        defaults.set(try JSONEncoder().encode(legacySteps), forKey: "epistemos.physics.timelineSteps")
+
+        let state = GraphState()
+        let signature = timelineSignature(state.timelineSteps)
+
+        #expect(state.simpleOpeningPresetKey == GraphOverlayPhysicsPolicy.openingPresetKey)
+        #expect(abs(state.simpleOpeningDelaySeconds - GraphOverlayPhysicsPolicy.chaosDelaySeconds) < 0.0001)
+        #expect(state.simpleRestingPresetKey == GraphOverlayPhysicsPolicy.restingPresetKey)
+        #expect(signature == GraphOverlayPhysicsPolicy.defaultTimelineSignature.map { "\($0.0):\($0.1)" })
+        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 2)
+    }
+
+    @Test("custom scheduler survives the default-schedule migration")
+    func customSchedulerSurvivesMigration() throws {
+        clearPhysicsDefaults()
+
+        let seed = GraphState()
+        seed.savePhysicsSettings()
+
+        let defaults = UserDefaults.standard
+        defaults.set(0, forKey: "epistemos.physics.schedulerDefaultsVersion")
+        defaults.set(PhysicsSchedulerMode.timeline.rawValue, forKey: "epistemos.physics.schedulerMode")
+        let customSteps = [
+            PhysicsScheduleStep(delaySeconds: 0.0, presetKey: "observatory"),
+            PhysicsScheduleStep(delaySeconds: 2.0, presetKey: "windTunnel"),
+        ]
+        defaults.set(try JSONEncoder().encode(customSteps), forKey: "epistemos.physics.timelineSteps")
+
+        let state = GraphState()
+        let signature = timelineSignature(state.timelineSteps)
+
+        #expect(signature == customSteps.map { "\($0.delaySeconds):\($0.presetKey)" })
+        #expect(UserDefaults.standard.integer(forKey: "epistemos.physics.schedulerDefaultsVersion") == 2)
     }
 
     @Test("Semantic clustering defaults off without saved settings")

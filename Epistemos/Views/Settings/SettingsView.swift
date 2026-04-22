@@ -19,9 +19,14 @@ struct SettingsView: View {
     /// persistence so user allow/ask/deny decisions survive a relaunch —
     /// prior to 2026-04-19 this defaulted to in-memory and silently
     /// dropped the user's settings on quit.
-    @State private var sharedAuthorityStore = AgentAuthorityStore(
-        persistence: FileBackedAgentAuthorityPersistence()
-    )
+    @State private var sharedAuthorityStore: AgentAuthorityStore
+
+    init(authorityStore: AgentAuthorityStore? = nil) {
+        let resolvedStore = authorityStore
+            ?? AppBootstrap.shared?.agentAuthorityStore
+            ?? AgentAuthorityStore(persistence: FileBackedAgentAuthorityPersistence())
+        _sharedAuthorityStore = State(initialValue: resolvedStore)
+    }
 
     // MARK: - Settings Categories (Phase 7 Step 7)
     //
@@ -980,7 +985,7 @@ private struct InferenceDetailView: View {
 
             Section {
                 SettingsDescriptionText(
-                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting. Thinking mode uses Low/Medium/High/Heavy; Pro and Agent use Standard or Heavy."
+                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting. Provider-native runtimes can expose a fuller ladder in Pro / Tools too, like Codex Extra High or Claude Code Max."
                 )
                 Picker(
                     selection: Binding(
@@ -1713,7 +1718,9 @@ private struct InferenceDetailView: View {
             get: { providerNativeReasoningMode(for: model) },
             set: { mode in
                 providerNativeReasoningPreviewModes[model.provider] = mode
-                inference.setChatReasoningTier(inference.chatReasoningTier, for: mode)
+                inference.setChatReasoningTier(
+                    model.sanitizedReasoningTier(inference.chatReasoningTier, for: mode)
+                )
             }
         )
     }
@@ -1724,11 +1731,11 @@ private struct InferenceDetailView: View {
         Binding(
             get: {
                 let mode = providerNativeReasoningMode(for: model)
-                return mode.sanitizedReasoningTier(inference.chatReasoningTier)
+                return model.sanitizedReasoningTier(inference.chatReasoningTier, for: mode)
             },
             set: { tier in
                 let mode = providerNativeReasoningMode(for: model)
-                inference.setChatReasoningTier(tier, for: mode)
+                inference.setChatReasoningTier(model.sanitizedReasoningTier(tier, for: mode))
             }
         )
     }
@@ -1760,14 +1767,14 @@ private struct InferenceDetailView: View {
                 "Reasoning Effort",
                 selection: providerNativeReasoningTierBinding(for: model)
             ) {
-                ForEach(selectedMode.availableReasoningTiers, id: \.self) { tier in
-                    Text(selectedMode.reasoningTierLabel(for: tier)).tag(tier)
+                ForEach(model.availableReasoningTiers(for: selectedMode), id: \.self) { tier in
+                    Text(model.reasoningTierLabel(for: tier, operatingMode: selectedMode)).tag(tier)
                 }
             }
             .pickerStyle(.menu)
 
             SettingsDescriptionText(
-                text: "\(selectedMode.displayName) uses \(selectedMode.reasoningTierLabel(for: selectedMode.sanitizedReasoningTier(inference.chatReasoningTier))) right now."
+                text: "\(selectedMode.displayName) uses \(model.reasoningTierLabel(for: model.sanitizedReasoningTier(inference.chatReasoningTier, for: selectedMode), operatingMode: selectedMode)) right now."
             )
         }
     }
@@ -1788,11 +1795,11 @@ private struct InferenceDetailView: View {
         switch provider {
         case .openAI:
             VStack(alignment: .leading, spacing: 10) {
-                Label("OpenAI Runtime Controls", systemImage: CloudModelProvider.openAI.systemImage)
+                Label("\(inference.runtimeControlTitle(for: .openAI)) Runtime Controls", systemImage: CloudModelProvider.openAI.systemImage)
                     .font(.body.weight(.semibold))
                 providerReasoningEffortControls(
                     for: model,
-                    description: "OpenAI exposes native reasoning effort on GPT-5.x models. Thinking mode gets the four-step ladder, while Pro and Agent collapse to Standard or Extended."
+                    description: "OpenAI exposes native reasoning effort on GPT-5.x models. When Epistemos is using the Codex account runtime, Thinking, Pro, and Tools keep the full Low-to-Extra-High ladder on supported models."
                 )
                 SettingsDescriptionText(
                     text: "Enable built-in OpenAI tools for the selected OpenAI model. These apply to cloud requests sent through the Responses API."
@@ -1827,11 +1834,11 @@ private struct InferenceDetailView: View {
 
         case .anthropic:
             VStack(alignment: .leading, spacing: 10) {
-                Label("Anthropic Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
+                Label("\(inference.runtimeControlTitle(for: .anthropic)) Runtime Controls", systemImage: CloudModelProvider.anthropic.systemImage)
                     .font(.body.weight(.semibold))
                 providerReasoningEffortControls(
                     for: model,
-                    description: "Anthropic maps the shared effort dial to Standard or Extended reasoning for higher-capability modes, and to the full ladder in Thinking mode."
+                    description: "Anthropic's Claude models can map the shared effort dial to Low, Medium, High, and Max on thinking-capable modes, including Claude Code-backed tools work."
                 )
                 SettingsDescriptionText(
                     text: "Extended thinking uses Anthropic's thinking configuration. Server-side tools (web search, web fetch, code execution) run inside Anthropic's sandbox and are billed per use."

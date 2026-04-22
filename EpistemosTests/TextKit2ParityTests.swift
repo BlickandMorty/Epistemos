@@ -2156,11 +2156,11 @@ struct TK2PageSwapPersistenceTests {
 @MainActor
 struct TK2CenteringTests {
 
-    @Test("TK2 horizontal inset stays stable instead of recentering the editor body")
-    func horizontalInsetStaysStable() {
+    @Test("TK2 horizontal inset recenters wide prose while keeping compact and table notes stable")
+    func horizontalInsetRecentersWideProse() {
         #expect(ProseEditorRepresentable2.horizontalInset(for: 900, markdown: "Body") == 60)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 60)
-        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 60)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1000, markdown: "Body") == 80)
+        #expect(ProseEditorRepresentable2.horizontalInset(for: 1200, markdown: "Body") == 180)
         #expect(
             ProseEditorRepresentable2.horizontalInset(
                 for: 1000,

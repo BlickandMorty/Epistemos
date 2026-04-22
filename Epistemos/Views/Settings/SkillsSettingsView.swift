@@ -6,6 +6,11 @@ struct SkillsDetailView: View {
     @State private var skills: [SkillInventoryEntry] = []
     @State private var discoveredSkills: [SkillDiscoveryEntry] = []
     @State private var isLoading = false
+    @State private var createTitle: String = ""
+    @State private var createDescription: String = ""
+    @State private var createCategory: String = "general"
+    @State private var createTags: String = ""
+    @State private var createInstructionSheet: String = ""
     @State private var installURL: String = ""
     @State private var installSource: SkillInstallSource = .github
     @State private var searchQuery: String = ""
@@ -20,6 +25,7 @@ struct SkillsDetailView: View {
                 discoveryCard(vaultPath: vaultSync.vaultURL?.path)
 
                 if let vaultPath = vaultSync.vaultURL?.path {
+                    createCard(vaultPath: vaultPath)
                     installCard(vaultPath: vaultPath)
                     inventoryCard
                 } else {
@@ -128,6 +134,89 @@ struct SkillsDetailView: View {
                             Divider()
                         }
                     }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func createCard(vaultPath: String) -> some View {
+        let draft = SkillAuthoringDraft(
+            title: createTitle,
+            description: createDescription,
+            category: createCategory,
+            tagsText: createTags,
+            instructionSheet: createInstructionSheet
+        )
+
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Create Skill")
+                            .font(.headline)
+                        Text("Write a reusable instruction sheet straight into your vault's managed skills directory. This is the real skill substrate the local agent can follow; tool creation still needs runtime registration work.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !draft.identifier.isEmpty {
+                        ChannelStatusPill(title: draft.identifier, tint: .blue)
+                    }
+                }
+
+                TextField("Skill title", text: $createTitle)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("Short description", text: $createDescription)
+                    .textFieldStyle(.roundedBorder)
+
+                HStack(spacing: 12) {
+                    TextField("Category", text: $createCategory)
+                        .textFieldStyle(.roundedBorder)
+                    TextField("Tags (comma separated)", text: $createTags)
+                        .textFieldStyle(.roundedBorder)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Instruction Sheet")
+                        .font(.subheadline.weight(.semibold))
+                    TextEditor(text: $createInstructionSheet)
+                        .font(.body)
+                        .frame(minHeight: 180)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.thinMaterial)
+                        )
+                }
+
+                HStack(spacing: 10) {
+                    Button("Create Skill") {
+                        Task { await createSkill(vaultPath: vaultPath) }
+                    }
+                    .disabled(
+                        draft.identifier.isEmpty
+                        || createDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        || createInstructionSheet.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    )
+
+                    Text("Creates `skills/\(draft.identifier.isEmpty ? "skill-name" : draft.identifier)/SKILL.md`")
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+
+                if !draft.tags.isEmpty {
+                    Text(draft.tags.joined(separator: " • "))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+
+                if let statusMessage {
+                    Label(statusMessage, systemImage: statusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(statusIsError ? .orange : .green)
                 }
             }
         }
@@ -295,6 +384,35 @@ struct SkillsDetailView: View {
         }
     }
 
+    private func createSkill(vaultPath: String) async {
+        let draft = SkillAuthoringDraft(
+            title: createTitle,
+            description: createDescription,
+            category: createCategory,
+            tagsText: createTags,
+            instructionSheet: createInstructionSheet
+        )
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let payload = try draft.createPayload()
+            let response = try await callSkillManager(payload: payload, vaultPath: vaultPath)
+            let outcome = SkillInstallOutcome(responseJSON: response)
+            statusMessage = outcome.success ? "Created \(draft.identifier)." : outcome.message
+            statusIsError = !outcome.success
+            if outcome.success {
+                resetCreateForm()
+                skills = try await loadSkills(vaultPath: vaultPath)
+                refreshDiscovery()
+            }
+        } catch {
+            statusMessage = error.localizedDescription
+            statusIsError = true
+        }
+    }
+
     private func installDiscoveredSkill(_ skill: SkillDiscoveryEntry, vaultPath: String) async {
         isLoading = true
         defer { isLoading = false }
@@ -342,6 +460,14 @@ struct SkillsDetailView: View {
     private func isDiscoveredSkillInstalled(_ skill: SkillDiscoveryEntry) -> Bool {
         let installedNames = Set(skills.map(\.name))
         return installedNames.contains(skill.identifier)
+    }
+
+    private func resetCreateForm() {
+        createTitle = ""
+        createDescription = ""
+        createCategory = "general"
+        createTags = ""
+        createInstructionSheet = ""
     }
 }
 

@@ -246,6 +246,16 @@ final class MetalRuntimeManager: @unchecked Sendable {
         inferenceHeap?.makeBuffer(length: length, options: options)
     }
 
+    /// Release large runtime allocations so idle unload can return unified
+    /// memory to the system instead of keeping SSM buffers warm indefinitely.
+    func releaseWorkingSet() {
+        stateBufferA = nil
+        stateBufferB = nil
+        currentStateIndex = 0
+        inferenceHeap = nil
+        Self.log.info("Released Metal runtime working set")
+    }
+
     // MARK: - Command Buffer Creation
 
     /// Create a new command buffer for encoding a forward pass.

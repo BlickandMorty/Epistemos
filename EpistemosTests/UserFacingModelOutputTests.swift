@@ -145,6 +145,24 @@ struct UserFacingModelOutputTests {
         )
     }
 
+    @Test("direct tool-call narration is suppressed in plain chat output")
+    func directToolCallNarrationIsSuppressedInPlainChatOutput() {
+        let raw = """
+        I will call the read_file tool to read the file and then use the output to create a file containing the relevant content.
+
+        ```tool_call
+        {"name": "read_file", "arguments": {"path": "~/home/user/my_file.txt"}}
+        ```
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(UserFacingModelOutput.finalVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("I will call the read_file tool")
+        )
+    }
+
     @Test("streaming reasoning strips dangling final-answer markers without content")
     func streamingReasoningTextDropsDanglingAnswerMarker() {
         let raw = """
@@ -333,6 +351,73 @@ struct UserFacingModelOutputTests {
         #expect(
             UserFacingModelOutput.finalVisibleText(from: raw)
                 == "The attached note compares app stages to organs because each stage has a distinct role that only makes sense inside the larger coordinated system."
+        )
+    }
+
+    @Test("analysis-style prose prelude stays in reasoning and salvages the summary as the answer")
+    func analysisStyleProsePreludeStaysInReasoning() {
+        let raw = """
+        I will analyze the provided text and provide an answer based on the content.
+
+        Key points include:
+        1. The author reframes free will around a veto system.
+        2. The basal ganglia act as the gating mechanism.
+
+        In summary, the essay argues that agency lives in regulatory veto power rather than magical authorship.
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("I will analyze the provided text")
+        )
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "In summary, the essay argues that agency lives in regulatory veto power rather than magical authorship."
+        )
+    }
+
+    @Test("to-answer-this prose preludes stay in reasoning until the real answer arrives")
+    func toAnswerThisPreludeStaysInReasoning() {
+        let raw = """
+        To answer this well, I should first compare the central claims, decide which objections matter most, and keep the framing careful.
+
+        The essay's strongest move is shifting agency from magical authorship to the capacity to veto and regulate impulses.
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("To answer this well")
+        )
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == "The essay's strongest move is shifting agency from magical authorship to the capacity to veto and regulate impulses."
+        )
+    }
+
+    @Test("review-and-analyze local preludes stay in reasoning and keep the review in the final answer")
+    func reviewAndAnalyzePreludeStaysInReasoning() {
+        let raw = """
+        I need to review the provided text and flag the biggest issues. Let me analyze the content:
+
+        1. Philosophical Caution: The text should distinguish readiness-potential findings from broader claims about agency.
+        2. Schurger et al. (2012): The reinterpretation matters because it weakens overconfident appeals to Libet.
+        3. Retributive Desert: The essay should say more clearly why punishment becomes harder to justify on this view.
+        """
+
+        #expect(UserFacingModelOutput.streamingVisibleText(from: raw).isEmpty)
+        #expect(
+            UserFacingModelOutput.streamingReasoningText(from: raw)
+                .contains("I need to review the provided text and flag the biggest issues")
+        )
+        #expect(
+            UserFacingModelOutput.finalVisibleText(from: raw)
+                == """
+                1. Philosophical Caution: The text should distinguish readiness-potential findings from broader claims about agency.
+                2. Schurger et al. (2012): The reinterpretation matters because it weakens overconfident appeals to Libet.
+                3. Retributive Desert: The essay should say more clearly why punishment becomes harder to justify on this view.
+                """
         )
     }
 }

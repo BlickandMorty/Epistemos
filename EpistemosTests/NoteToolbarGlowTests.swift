@@ -38,11 +38,11 @@ struct NoteToolbarGlowTests {
         )
 
         #expect(idle.text == "Ask this note")
-        #expect(!idle.usesSweepHighlight)
+        #expect(!idle.animatesRetroEllipsis)
         #expect(analyzing.text == "Thinking…")
-        #expect(analyzing.usesSweepHighlight)
+        #expect(analyzing.animatesRetroEllipsis)
         #expect(typing.text == "Responding…")
-        #expect(typing.usesSweepHighlight)
+        #expect(typing.animatesRetroEllipsis)
     }
 
     @Test("toolbar ask bar supports a custom loading label for analyzing state")
@@ -126,75 +126,64 @@ struct NoteToolbarGlowTests {
         )
     }
 
-    @Test("active note toolbar label avoids a duplicated base text layer")
-    func activeNoteToolbarLabelAvoidsDuplicatedBaseTextLayer() throws {
+    @Test("active note toolbar label uses the retro ellipsis path instead of the old shimmer sweep")
+    func activeNoteToolbarLabelUsesTheRetroEllipsisPathInsteadOfTheOldShimmerSweep() throws {
         let source = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
-        #expect(
-            !source.contains(
-                """
-                ZStack(alignment: .leading) {
-                                labelText
-                                    .foregroundStyle(baseTextColor)
-
-                                if reduceMotion {
-                """
-            )
-        )
-        #expect(source.contains("private var alignedLabelMask: some View"))
-        #expect(source.contains(".mask(alignedLabelMask)"))
-        #expect(!source.contains(".mask(labelText)"))
+        #expect(source.contains("let animatesRetroEllipsis: Bool"))
+        #expect(source.contains("private func animatedStatusText(at date: Date) -> String"))
+        #expect(source.contains("TimelineView(.animation(minimumInterval: 1.0 / 4.0))"))
+        #expect(source.contains("activeLabel(animatedStatusText(at:"))
+        #expect(!source.contains("private var alignedLabelMask: some View"))
+        #expect(!source.contains("LinearGradient(colors: palette"))
+        #expect(!source.contains("private func shimmerBand("))
     }
 
-    @Test("active composer treatment warms into glow instead of snapping on")
-    func activeComposerTreatmentWarmsIntoGlowInsteadOfSnappingOn() throws {
+    @Test("active composer treatment still eases in instead of snapping on")
+    func activeComposerTreatmentStillEasesInInsteadOfSnappingOn() throws {
         let source = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
         #expect(source.contains("private enum AssistantComposerWarmup"))
         #expect(source.contains("@State private var activationProgress: CGFloat = 0"))
         #expect(source.contains("withAnimation(AssistantComposerWarmup.animation(for: phase))"))
-        #expect(source.contains(".blur(radius: (1 - activationProgress) * 6)"))
+        #expect(source.contains(".blur(radius: (1 - activationProgress) * 1.4)"))
         #expect(source.contains(".opacity(Double(activationProgress))"))
     }
 
-    @Test("main and mini chat composers use the shared animated status treatment")
-    func mainAndMiniChatComposersUseSharedAnimatedStatusTreatment() throws {
+    @Test("main and mini chat composers use the shared retro status treatment")
+    func mainAndMiniChatComposersUseTheSharedRetroStatusTreatment() throws {
         let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
         #expect(mainChat.contains("AssistantAnimatedStatusLabel("))
-        #expect(mainChat.contains("AssistantComposerOuterHalo("))
-        #expect(mainChat.contains("cornerRadius: composerMetrics.cornerRadius"))
+        #expect(mainChat.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)"))
         #expect(miniChat.contains("AssistantAnimatedStatusLabel("))
-        #expect(miniChat.contains("AssistantComposerOuterHalo("))
-        #expect(miniChat.contains("cornerRadius: composerMetrics.cornerRadius"))
-        #expect(sharedStatus.contains("RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)"))
+        #expect(miniChat.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 12)"))
+        #expect(sharedStatus.contains("activeFont: .custom(AppDisplayTypography.displayFontName, size: 11)"))
     }
 
-    @Test("main and mini chat use the lighter halo path on large composers")
-    func mainAndMiniChatUseLighterHaloPath() throws {
+    @Test("main and mini chat rely on chrome instead of the old outer halo")
+    func mainAndMiniChatRelyOnChromeInsteadOfTheOldOuterHalo() throws {
         let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
-        let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
-        #expect(sharedStatus.contains("let animatesContinuously: Bool"))
-        #expect(sharedStatus.contains("if reduceMotion || !animatesContinuously"))
-        #expect(sharedStatus.contains("TimelineView(.animation(minimumInterval: 1.0 / 24.0))"))
-        #expect(mainChat.contains("animatesContinuously: false"))
-        #expect(miniChat.contains("animatesContinuously: false"))
-        #expect(!mainChat.contains(".compositingGroup()"))
-        #expect(!miniChat.contains(".compositingGroup()"))
+        #expect(mainChat.contains(".assistantComposerChrome("))
+        #expect(miniChat.contains(".assistantComposerChrome("))
+        #expect(!mainChat.contains("private var composerHaloStyle"))
+        #expect(!miniChat.contains("private var composerHaloStyle"))
+        #expect(!mainChat.contains("AssistantComposerOuterHalo("))
+        #expect(!miniChat.contains("AssistantComposerOuterHalo("))
     }
 
-    @Test("status shimmer no longer scales with the full composer width")
-    func statusShimmerNoLongerScalesWithFullComposerWidth() throws {
+    @Test("status label now animates retro ellipsis instead of shimmer sweep math")
+    func statusLabelNowAnimatesRetroEllipsisInsteadOfShimmerSweepMath() throws {
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
 
-        #expect(sharedStatus.contains("private var sweepWidth: CGFloat"))
-        #expect(sharedStatus.contains("CGFloat(state.text.count) * 14"))
-        #expect(!sharedStatus.contains("GeometryReader { proxy in"))
-        #expect(!sharedStatus.contains("let width = max(proxy.size.width, 120)"))
+        #expect(sharedStatus.contains("private func animatedOpacity(at date: Date) -> Double"))
+        #expect(sharedStatus.contains("date.timeIntervalSinceReferenceDate * 2.15"))
+        #expect(!sharedStatus.contains("private var sweepWidth: CGFloat"))
+        #expect(!sharedStatus.contains("private func shimmerOffset("))
     }
 
     @Test("main and mini chat composers pin the text area to its real height")
@@ -276,16 +265,25 @@ struct NoteToolbarGlowTests {
         #expect(sharedStatus.contains(".overlay(alignment: .leading) {"))
     }
 
-    @Test("transcript loading state uses a dot bubble instead of a responding label")
-    func transcriptLoadingStateUsesADotBubbleInsteadOfARespondingLabel() throws {
+    @Test("streaming surfaces remove the old dots and use the live activity strip")
+    func streamingSurfacesRemoveTheOldDotsAndUseTheLiveActivityStrip() throws {
         let sharedStatus = try loadRepoTextFile("Epistemos/Theme/AssistantComposerStatusViews.swift")
         let mainChat = try loadRepoTextFile("Epistemos/Views/Chat/ChatView.swift")
         let miniChat = try loadRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+        let graphChat = try loadRepoTextFile("Epistemos/Views/Graph/HologramSearchSidebar.swift")
+        let liveActivity = try loadRepoTextFile("Epistemos/Views/Chat/LiveActivityStrip.swift")
+        let messageBubble = try loadRepoTextFile("Epistemos/Views/Chat/MessageBubble.swift")
 
-        #expect(sharedStatus.contains("struct AssistantTypingIndicatorDots: View"))
-        #expect(sharedStatus.contains("TimelineView(.animation(minimumInterval: 1.0 / 12.0))"))
-        #expect(mainChat.contains("AssistantTypingIndicatorDots("))
-        #expect(miniChat.contains("AssistantTypingIndicatorDots("))
+        #expect(!sharedStatus.contains("struct AssistantTypingIndicatorDots: View"))
+        #expect(mainChat.contains("LiveActivityStrip("))
+        #expect(miniChat.contains("LiveActivityStrip("))
+        #expect(graphChat.contains("LiveActivityStrip("))
+        #expect(!mainChat.contains("AssistantTypingIndicatorDots("))
+        #expect(!miniChat.contains("AssistantTypingIndicatorDots("))
+        #expect(!graphChat.contains("AssistantTypingIndicatorDots("))
+        #expect(liveActivity.contains(".assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: true)"))
+        #expect(liveActivity.contains("ClaudeAppTypography.monoFont(size: 12, weight: .medium)"))
+        #expect(messageBubble.contains(".assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: cardIsEmphasized)"))
         #expect(!mainChat.contains("Text(\"Responding\")"))
         #expect(!miniChat.contains("Text(\"Responding…\")"))
         #expect(!miniChat.contains("ProgressView().controlSize(.small)"))

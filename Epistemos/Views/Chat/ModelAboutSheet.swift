@@ -65,7 +65,7 @@ struct ModelAboutSheet: View {
             ], spacing: 6) {
                 capRow("Vision", supported: selection.activeSupportsVision, icon: "eye")
                 capRow("Thinking", supported: supportsThinking, icon: "brain.head.profile")
-                capRow("Agent", supported: supportsAgent, icon: "cpu")
+                capRow("Tools", supported: supportsAgent, icon: "cpu")
                 capRow("Tool Calling", supported: supportsNativeTools, icon: "wrench.and.screwdriver")
             }
         }
@@ -109,7 +109,7 @@ struct ModelAboutSheet: View {
                 if let descriptor {
                     specRow("Model Files", value: descriptor.approximateDownloadLabel)
                 }
-                if model.supportsAgentMode {
+                if model.canRunLocalAgentLoop {
                     specRow(
                         "Tool Tier",
                         value: model.agentToolTier.rawValue
@@ -263,7 +263,7 @@ struct ModelAboutSheet: View {
             }
             return false
         }
-        return LocalTextModelID(rawValue: id)?.supportsAgentMode ?? false
+        return LocalTextModelID(rawValue: id)?.canRunLocalAgentLoop ?? false
     }
 
     private var supportsNativeTools: Bool {

@@ -769,8 +769,8 @@ struct ThemePairTests {
         #expect(rows[4].originalQuery == "second question")
     }
 
-    @Test("Main chat transcript uses calmer bubble and markdown spacing")
-    func mainChatTranscriptUsesCalmerBubbleAndMarkdownSpacing() throws {
+    @Test("Main chat transcript uses roomier mono-friendly markdown spacing")
+    func mainChatTranscriptUsesRoomierMonoFriendlyMarkdownSpacing() throws {
         let chatView = try loadTextFile("Epistemos/Views/Chat/ChatView.swift")
         let messageBubble = try loadTextFile("Epistemos/Views/Chat/MessageBubble.swift")
         let markdownView = try loadTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
@@ -778,8 +778,9 @@ struct ThemePairTests {
         #expect(chatView.contains("static let transcriptSpacing: CGFloat = 28"))
         #expect(messageBubble.contains(".padding(.horizontal, 18)"))
         #expect(messageBubble.contains(".padding(.vertical, 14)"))
-        #expect(markdownView.contains("case .assistant: 7"))
-        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 11"))
+        #expect(markdownView.contains("case .assistant: 10"))
+        #expect(markdownView.contains("private static let listMarkerWidth: CGFloat = 12"))
+        #expect(markdownView.contains("private static let listSpacing: CGFloat = 8"))
     }
 
     @Test("Chat streaming stays plain and no longer routes through a separate thinking accordion")
@@ -988,6 +989,26 @@ struct ThemePairTests {
         let links = attributed?.runs.compactMap(\.link) ?? []
         #expect(links.contains(URL(string: "https://example.com/raw")!))
         #expect(links.contains(URL(string: "https://example.com/paper")!))
+    }
+
+    @Test("Inline markdown can pin strong emphasis to a supplied monospaced font")
+    func inlineMarkdownStrongEmphasisCanUseSuppliedMonospacedFont() {
+        let attributed = InlineMarkdownStyler.attributedString(
+            "Normal **bold idea** text",
+            strongFontSize: 15,
+            strongForegroundColor: nil,
+            linkForegroundColor: nil,
+            strongFont: ClaudeAppTypography.monoFont(size: 15, weight: .semibold)
+        )
+
+        let hasPinnedStrongFont = attributed?.runs.contains { run in
+            guard let intent = run.inlinePresentationIntent, intent.contains(.stronglyEmphasized) else {
+                return false
+            }
+            return run.font != nil
+        } ?? false
+
+        #expect(hasPinnedStrongFont)
     }
 
     @Test("Main chat sources use the popover panel presentation")

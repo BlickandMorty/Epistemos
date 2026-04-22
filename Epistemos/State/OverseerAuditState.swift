@@ -68,7 +68,7 @@ nonisolated struct OverseerAuditEntry: Identifiable, Sendable {
         switch plan.route {
         case .localOnly: "Local only"
         case .overseerLocalExecution: "Overseer + local tools"
-        case .managedAgentSession: "Managed agent (cloud)"
+        case .managedAgentSession: "Managed tools (cloud)"
         }
     }
 }

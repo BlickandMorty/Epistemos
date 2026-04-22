@@ -288,14 +288,17 @@ mod tests {
 
     #[test]
     fn research_queries_prefer_web_search_before_vault_tools() {
-        let tools = default_tools_for_objective("research Gemini 2.5 and compare the current models");
+        let tools =
+            default_tools_for_objective("research Gemini 2.5 and compare the current models");
         assert_eq!(tools.first().map(String::as_str), Some("web_search"));
         assert!(!tools.iter().any(|tool| tool == "vault_search"));
     }
 
     #[test]
     fn note_scoped_research_queries_keep_vault_tools_available() {
-        let tools = default_tools_for_objective("research my notes about Gemini and compare them to the latest release");
+        let tools = default_tools_for_objective(
+            "research my notes about Gemini and compare them to the latest release",
+        );
         assert_eq!(tools.first().map(String::as_str), Some("vault_search"));
         assert!(tools.iter().any(|tool| tool == "vault_read"));
         assert!(tools.iter().any(|tool| tool == "web_search"));

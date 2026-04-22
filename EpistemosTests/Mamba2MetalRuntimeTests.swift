@@ -12,6 +12,22 @@ struct Mamba2MetalRuntimeTests {
         #expect(runtime.loadState(Data()))
     }
 
+    @Test("releaseWorkingSet drops state buffers and the inference heap")
+    func releaseWorkingSetDropsRuntimeAllocations() throws {
+        guard let runtime = MetalRuntimeManager() else { return }
+
+        runtime.allocateStateBuffers(layers: 1, stateDim: 2, headDim: 2, heads: 2)
+        runtime.allocateInferenceHeap(sizeBytes: 4_096)
+
+        #expect(runtime.snapshotState() != nil)
+        #expect(runtime.heapBuffer(length: 128) != nil)
+
+        runtime.releaseWorkingSet()
+
+        #expect(runtime.snapshotState() == nil)
+        #expect(runtime.heapBuffer(length: 128) == nil)
+    }
+
     @Test("diagnostic forward pass compiles kernels and produces finite outputs")
     func diagnosticForwardPassProducesFiniteOutputs() throws {
         guard CustomSSMRuntimeSupport.isAvailable else { return }

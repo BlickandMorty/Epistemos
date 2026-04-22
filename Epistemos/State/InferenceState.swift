@@ -19,6 +19,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
 
     // MARK: - Qwen 3 Family (newer gen, official MLX, tool-calling native)
     case qwen3_4B4Bit = "Qwen/Qwen3-4B-MLX-4bit"
+    case qwen3_8B4Bit = "Qwen/Qwen3-8B-MLX-4bit"
+    case qwen3_4BThinking25074Bit = "mlx-community/Qwen3-4B-Thinking-2507-4bit"
 
     // MARK: - Qwen 3 Coder (tool-calling code specialists)
     case qwen3CoderNext4Bit = "mlx-community/Qwen3-Coder-Next-4bit"
@@ -70,9 +72,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     case falconH1R_7B4Bit = "mlx-community/Falcon-H1R-7B-4bit"
 
     // MARK: - Other Families
+    case llama32_3BInstruct4Bit = "mlx-community/Llama-3.2-3B-Instruct-4bit"
     case smolLM3_3B4Bit = "mlx-community/SmolLM3-3B-4bit"
     case devstralSmall2505_4Bit = "mlx-community/Devstral-Small-2505-4bit"
     case mistralSmall31_24B4Bit = "mlx-community/Mistral-Small-3.1-24B-Instruct-2503-4bit"
+    case gemma3_4BQAT4Bit = "mlx-community/gemma-3-4b-it-qat-4bit"
     case gemma3_27BQAT4Bit = "mlx-community/gemma-3-27b-it-qat-4bit"
     case llama4Scout17B16E4Bit = "mlx-community/meta-llama-Llama-4-Scout-17B-16E-4bit"
 
@@ -97,6 +101,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen36_35BA3B_Unsloth4Bit: "Qwen 3.6 35B A3B — Unsloth UD"
         case .qwen36_35BA3B_DWQ4Bit: "Qwen 3.6 35B A3B — DWQ"
         case .qwen3_4B4Bit: "Qwen 3 4B"
+        case .qwen3_8B4Bit: "Qwen 3 8B"
+        case .qwen3_4BThinking25074Bit: "Qwen 3 4B Thinking"
         case .qwen3CoderNext4Bit: "Qwen 3 Coder Next"
         case .qwen3Coder30BA3B4Bit: "Qwen 3 Coder 30B A3B"
         case .hermes43_36B4Bit: "Hermes 4.3 36B"
@@ -124,9 +130,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .jamba3B: "Jamba Reasoning 3B"
         case .falconH1_1B4Bit: "FalconH1 1.5B"
         case .falconH1R_7B4Bit: "FalconH1R 7B"
+        case .llama32_3BInstruct4Bit: "Llama 3.2 3B"
         case .smolLM3_3B4Bit: "SmolLM3 3B"
         case .devstralSmall2505_4Bit: "Devstral Small"
         case .mistralSmall31_24B4Bit: "Mistral Small 24B"
+        case .gemma3_4BQAT4Bit: "Gemma 3 4B"
         case .gemma3_27BQAT4Bit: "Gemma 3 27B"
         case .llama4Scout17B16E4Bit: "Llama 4 Scout"
         }
@@ -144,6 +152,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen36_35BA3B_Unsloth4Bit: "Qwen3.6 UD"
         case .qwen36_35BA3B_DWQ4Bit: "Qwen3.6 DWQ"
         case .qwen3_4B4Bit: "Qwen3 4B"
+        case .qwen3_8B4Bit: "Qwen3 8B"
+        case .qwen3_4BThinking25074Bit: "Qwen3 Think 4B"
         case .qwen3CoderNext4Bit: "Qwen3 Coder"
         case .qwen3Coder30BA3B4Bit: "Qwen3 Coder 30B"
         case .hermes43_36B4Bit: "Hermes 4.3"
@@ -159,9 +169,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen25Coder7B: "Coder 7B"
         case .bonsai4B2Bit: "Bonsai 4B"
         case .bonsai8B2Bit: "Bonsai 8B"
+        case .llama32_3BInstruct4Bit: "Llama3.2 3B"
         case .smolLM3_3B4Bit: "SmolLM3"
         case .devstralSmall2505_4Bit: "Devstral"
         case .mistralSmall31_24B4Bit: "Mistral 24B"
+        case .gemma3_4BQAT4Bit: "Gemma3 4B"
         case .gemma3_27BQAT4Bit: "Gemma3 27B"
         case .llama4Scout17B16E4Bit: "Llama 4"
         case .lfm25_350M: "LFM 350M"
@@ -188,7 +200,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .qwen36_35BA3B_Unsloth4Bit,
              .qwen36_35BA3B_DWQ4Bit:
             "Qwen 3.6"
-        case .qwen3_4B4Bit:
+        case .qwen3_4B4Bit, .qwen3_8B4Bit, .qwen3_4BThinking25074Bit:
             "Qwen 3"
         case .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit:
             "Qwen 3 Coder"
@@ -207,13 +219,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             "Qwen Coder"
         case .bonsai4B2Bit, .bonsai8B2Bit:
             "Ternary Bonsai"
+        case .llama32_3BInstruct4Bit:
+            "Llama 3.2"
         case .smolLM3_3B4Bit:
             "SmolLM3"
         case .devstralSmall2505_4Bit:
             "Devstral"
         case .mistralSmall31_24B4Bit:
             "Mistral"
-        case .gemma3_27BQAT4Bit:
+        case .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit:
             "Gemma 3"
         case .llama4Scout17B16E4Bit:
             "Llama 4"
@@ -250,13 +264,15 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_0_8B4Bit, .gemma4_2B4Bit, .falconH1_1B4Bit,
              .lfm25_350M, .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B: 8
         case .qwen35_2B4Bit, .lfm2_2B4Bit, .mamba2_2B4Bit: 8
-        case .qwen35_4B4Bit, .gemma4_4B4Bit, .smolLM3_3B4Bit,
-             .bonsai4B2Bit, .bonsai8B2Bit: 8
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .qwen3_4B4Bit,
+             .qwen3_4BThinking25074Bit, .llama32_3BInstruct4Bit,
+             .smolLM3_3B4Bit, .bonsai4B2Bit, .bonsai8B2Bit,
+             .gemma3_4BQAT4Bit: 8
         // Realistic working set for a 4-bit 7B is ~6 GB (3.5 GB weights + 1 GB
         // KV at 8K ctx + ~1 GB buffers). 12 GB gives 2× headroom and lets
         // a 16 GB Mac load DeepSeek R1 with ~6 GB free instead of requiring
         // 10 GB free. Coding 7B keeps its higher ceiling (longer contexts).
-        case .deepseekR1Distill7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit: 12
+        case .deepseekR1Distill7B, .lfm2_8BA1B3Bit, .falconH1R_7B4Bit, .qwen3_8B4Bit: 12
         case .qwen25Coder7B: 16
         case .qwqFlagship32B4Bit: 24
         case .qwen35_9B4Bit, .jamba3B: 18
@@ -265,7 +281,6 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen36_35BA3B4Bit,
              .qwen36_35BA3B_Unsloth4Bit,
              .qwen36_35BA3B_DWQ4Bit: 24
-        case .qwen3_4B4Bit: 8
         case .qwen3CoderNext4Bit: 12
         case .qwen3Coder30BA3B4Bit: 24
         case .hermes43_36B4Bit: 24
@@ -317,7 +332,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .gemma4_27BA4B4Bit, .gemma4_31BJANG,
              .lfm25_1BThinking, .jamba3B,
              .qwopus27Bv3, .qwopusMoE35BA3B,
-             .deepseekR1Distill7B,
+             .deepseekR1Distill7B, .qwen3_8B4Bit, .qwen3_4BThinking25074Bit,
              .qwqFlagship32B4Bit,
              .hermes43_36B4Bit, .hermes43_36B3Bit:
             true
@@ -332,6 +347,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var cannotDisableThinkingInFast: Bool {
         switch self {
         case .deepseekR1Distill7B,
+             .qwen3_4BThinking25074Bit,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .qwen25Coder7B:
             true
@@ -344,10 +360,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_4B4Bit, .qwen35_9B4Bit, .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
              .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-             .qwen3_4B4Bit,
+             .qwen3_4B4Bit, .qwen3_8B4Bit,
              .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
              .hermes43_36B4Bit, .hermes43_36B3Bit,
              .gemma4_4B4Bit, .gemma4_27BA4B4Bit, .gemma4_31BJANG,
+             .gemma3_4BQAT4Bit,
              .qwopus27Bv3, .qwopusMoE35BA3B,
              .deepseekR1Distill7B, .qwqFlagship32B4Bit, .qwen25Coder7B,
              .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit, .gemma3_27BQAT4Bit,
@@ -394,6 +411,10 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         // Current shipping stack (2026-04-18 refresh).
         // Fast local: Qwen3-4B official, Bonsai fallback.
         case .qwen3_4B4Bit,
+             .qwen3_8B4Bit,
+             .qwen3_4BThinking25074Bit,
+             .llama32_3BInstruct4Bit,
+             .gemma3_4BQAT4Bit,
              .bonsai4B2Bit,
              .bonsai8B2Bit,
              // Reasoning local (DeepSeek R1 7B + QwQ 32B flagship).
@@ -514,6 +535,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen36_35BA3B_DWQ4Bit: 262_144
         // Qwen 3 4B (official): 128K
         case .qwen3_4B4Bit: 128_000
+        case .qwen3_8B4Bit: 128_000
+        case .qwen3_4BThinking25074Bit: 32_768
         // Qwen 3 Coder: 128K+ (architecture spec)
         case .qwen3CoderNext4Bit: 128_000
         case .qwen3Coder30BA3B4Bit: 262_144
@@ -530,9 +553,11 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .bonsai4B2Bit: 32_768
         case .bonsai8B2Bit: 65_536
         // Others
+        case .llama32_3BInstruct4Bit: 128_000 // Llama 3.2 3B: 128K
         case .smolLM3_3B4Bit: 128_000        // SmolLM3: 128K (with YaRN)
         case .devstralSmall2505_4Bit: 256_000 // Devstral: 256K
         case .mistralSmall31_24B4Bit: 128_000 // Mistral Small 3.1: 128K
+        case .gemma3_4BQAT4Bit: 131_072
         case .gemma3_27BQAT4Bit: 131_072
         case .llama4Scout17B16E4Bit: 131_072
         // SSM / State Space Models — context is theoretically infinite (fixed state)
@@ -559,7 +584,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             true  // All Gemma 4 are multimodal
         case .lfm25_VL1B:
             true  // LFM2.5 Vision-Language
-        case .gemma3_27BQAT4Bit:
+        case .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit:
             true  // Gemma 3 is multimodal
         case .llama4Scout17B16E4Bit:
             true  // Llama 4 Scout supports images
@@ -577,8 +602,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             true  // Trained with RL specifically for tool calling
         case .gemma4_27BA4B4Bit, .gemma4_31BJANG:
             true  // Gemma 4 supports native JSON tool use
-        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit:
-            true  // Qwen 3.5 large supports tool calling
+        case .qwen35_27B4Bit, .qwen35_35BA3B4Bit,
+             .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3_4B4Bit, .qwen3_8B4Bit,
+             .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+             .hermes43_36B4Bit, .hermes43_36B3Bit:
+            true  // Qwen/Hermes families here are validated for structured tool output
         case .devstralSmall2505_4Bit:
             true  // Devstral designed for coding + tool use
         case .qwen25Coder7B:
@@ -617,6 +646,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.7
         // Qwen 3 family — 0.7 is Qwen's recommendation across generations.
         case .qwen3_4B4Bit,
+             .qwen3_8B4Bit,
+             .qwen3_4BThinking25074Bit,
              .qwen3CoderNext4Bit,
              .qwen3Coder30BA3B4Bit:
             0.7
@@ -637,13 +668,13 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.4
         case .bonsai4B2Bit, .bonsai8B2Bit:
             0.7
-        case .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
+        case .llama32_3BInstruct4Bit, .devstralSmall2505_4Bit, .mistralSmall31_24B4Bit:
             0.4
         // SmolLM3: moderate
         case .smolLM3_3B4Bit:
             0.7
         // Others
-        case .gemma3_27BQAT4Bit:
+        case .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit:
             0.7
         case .llama4Scout17B16E4Bit:
             0.6
@@ -665,6 +696,8 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
             0.0   // Qwen 3.5 official: temp=0.0 for thinking mode
         case .qwen36_35BA3B4Bit:
             1.0   // Qwen 3.6 model card recommends temp=1.0 for general thinking
+        case .qwen3_8B4Bit, .qwen3_4BThinking25074Bit:
+            0.6   // Qwen 3 thinking checkpoints and /think mode prefer a slightly lower temp
         case .qwopus27Bv3, .qwopusMoE35BA3B:
             0.0   // Qwopus inherits Qwen thinking behavior
         case .deepseekR1Distill7B:
@@ -713,6 +746,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     var requiresThinkingLoopGuard: Bool {
         switch self {
         case .qwen35_4B4Bit:         true  // Small thinking model, loop-prone
+        case .qwen3_4BThinking25074Bit: true
         case .deepseekR1Distill7B:   true  // Notorious for thinking loops
         case .qwen25Coder7B:         true  // User-reported freeze path
         case .qwopusMoE35BA3B:       true  // MoE can loop in thinking
@@ -740,10 +774,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_2B4Bit, .smolLM3_3B4Bit:
             6_144
         // Small models: moderate KV
-        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai4B2Bit:
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai4B2Bit,
+             .qwen3_4B4Bit, .qwen3_4BThinking25074Bit,
+             .llama32_3BInstruct4Bit, .gemma3_4BQAT4Bit:
             4_096
         // Medium models: balanced KV
-        case .deepseekR1Distill7B, .qwen25Coder7B, .bonsai8B2Bit:
+        case .deepseekR1Distill7B, .qwen25Coder7B, .bonsai8B2Bit, .qwen3_8B4Bit:
             3_072
         // QwQ 32B (dense reasoning flagship, 24GB class)
         case .qwqFlagship32B4Bit:
@@ -769,9 +805,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
              .qwen3Coder30BA3B4Bit,
              .qwopusMoE35BA3B:
             2_048
-        // Qwen 3 4B and Qwen 3 Coder Next — small + native tool-calling.
-        case .qwen3_4B4Bit:
-            4_096
+        // Qwen 3 4B / 8B and Qwen 3 Coder Next — small + native tool-calling.
         case .qwen3CoderNext4Bit:
             3_072
         // Hermes 4.3 36B dense (ByteDance Seed base) — moderate KV
@@ -815,10 +849,12 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         switch self {
         case .qwen35_0_8B4Bit: 0.8
         case .qwen35_2B4Bit, .gemma4_2B4Bit: 2.0
-        case .smolLM3_3B4Bit: 3.0
-        case .qwen35_4B4Bit, .gemma4_4B4Bit: 4.0
+        case .llama32_3BInstruct4Bit, .smolLM3_3B4Bit: 3.0
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .qwen3_4B4Bit,
+             .qwen3_4BThinking25074Bit, .gemma3_4BQAT4Bit: 4.0
         case .bonsai4B2Bit: 4.0
         case .deepseekR1Distill7B, .qwen25Coder7B: 7.0
+        case .qwen3_8B4Bit: 8.0
         case .qwqFlagship32B4Bit: 32.0
         case .bonsai8B2Bit: 8.0
         case .qwen35_9B4Bit: 9.0
@@ -829,8 +865,7 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         case .qwen35_35BA3B4Bit,
              .qwen36_35BA3B4Bit, .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
              .qwopusMoE35BA3B: 3.0  // MoE: 35B total, 3B active
-        // Qwen 3 4B + Qwen 3 Coder Next — small dense.
-        case .qwen3_4B4Bit: 4.0
+        // Qwen 3 Coder Next — small dense.
         case .qwen3CoderNext4Bit: 7.0
         // Qwen 3 Coder 30B A3B — MoE, 3B active out of 30B.
         case .qwen3Coder30BA3B4Bit: 3.0
@@ -855,25 +890,36 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
     /// Best use case for this model — used for smart routing.
     var primaryUseCase: LocalModelUseCase {
         switch self {
-        case .qwopus27Bv3, .qwopusMoE35BA3B:
+        case .qwopus27Bv3, .qwopusMoE35BA3B,
+             .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
+             .devstralSmall2505_4Bit:
             .coding       // Claude Opus distilled, 95.73% HumanEval
         case .qwen25Coder7B:
             .coding       // Coding specialist
-        case .deepseekR1Distill7B:
+        case .deepseekR1Distill7B, .qwen3_4BThinking25074Bit,
+             .jamba3B, .falconH1R_7B4Bit:
             .reasoning    // DeepSeek R1 reasoning distilled
         case .qwqFlagship32B4Bit:
             .reasoning    // QwQ 32B — flagship on-device reasoner
-        case .qwen36_35BA3B4Bit:
+        case .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwen3_8B4Bit,
+             .hermes43_36B4Bit, .hermes43_36B3Bit,
+             .gemma4_31BJANG, .mistralSmall31_24B4Bit:
             .general      // High-end local agentic/generalist tier
-        case .gemma4_31BJANG:
-            .general      // Abliterated: unconstrained general use
-        case .gemma4_27BA4B4Bit:
+        case .gemma4_27BA4B4Bit,
+             .gemma3_4BQAT4Bit, .gemma3_27BQAT4Bit,
+             .llama4Scout17B16E4Bit, .lfm25_VL1B:
             .multimodal   // Vision + reasoning
         case .gemma4_2B4Bit, .gemma4_4B4Bit,
-             .bonsai4B2Bit, .bonsai8B2Bit:
+             .bonsai4B2Bit, .bonsai8B2Bit,
+             .qwen35_0_8B4Bit, .qwen35_2B4Bit,
+             .llama32_3BInstruct4Bit, .smolLM3_3B4Bit,
+             .qwen3_4B4Bit, .lfm25_350M, .lfm25_1BInstruct,
+             .falconH1_1B4Bit:
             .routing      // Fast intent classification
-        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .smolLM3_3B4Bit:
-            .routing      // Ultra-fast routing
+        case .lfm25_1BThinking:
+            .reasoning
         default:
             .general      // General assistant
         }
@@ -973,11 +1019,12 @@ extension LocalTextModelID {
     var agentToolTier: LocalAgentToolTier {
         switch self {
         // Tiny models (≤2B): vault only — too small for tool chains
-        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit, .smolLM3_3B4Bit,
-             .bonsai4B2Bit:
+        case .qwen35_0_8B4Bit, .qwen35_2B4Bit, .gemma4_2B4Bit,
+             .llama32_3BInstruct4Bit, .smolLM3_3B4Bit, .bonsai4B2Bit:
             .readOnly
         // Small general models (4B): vault + read
-        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai8B2Bit:
+        case .qwen35_4B4Bit, .gemma4_4B4Bit, .bonsai8B2Bit,
+             .qwen3_4BThinking25074Bit, .gemma3_4BQAT4Bit:
             .readWrite
         // Specialist 7B models: elevated to full agent — these are specifically
         // trained for tool calling (Coder) and reasoning (R1)
@@ -992,7 +1039,7 @@ extension LocalTextModelID {
             .fullAgent
         // Qwen 3 4B (official, native tool-calling): full agent despite
         // size — the whole point of this tier is reliable tool use.
-        case .qwen3_4B4Bit:
+        case .qwen3_4B4Bit, .qwen3_8B4Bit:
             .fullAgent
         // Qwen 3 Coder (Next + 30B A3B): coding + tools, first-class.
         case .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit:
@@ -1394,7 +1441,14 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     }
 
     var aboutSheetModeSummary: String {
-        supportedOperatingModes.map(\.displayName).joined(separator: ", ")
+        supportedOperatingModes.map { mode in
+            switch mode {
+            case .agent:
+                "Inline Tools"
+            default:
+                mode.displayName
+            }
+        }.joined(separator: ", ")
     }
 
     var aboutSheetStructuredOutputSummary: String {
@@ -1404,7 +1458,7 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var aboutSheetPurposeSummary: String {
         switch self {
         case .openAIGPT54:
-            "Complex reasoning, coding, and agentic professional work."
+            "Complex reasoning, coding, and tool-heavy professional work."
         case .openAIGPT54Mini:
             "Fast cloud coding, subagents, and lower-latency tool work."
         case .openAIGPT54Nano:
@@ -1418,7 +1472,7 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .openAIO3:
             "Deliberate reasoning-heavy fallback when GPT-5 is not the right fit."
         case .openAIO3Mini:
-            "Lean reasoning and lightweight agent loops."
+            "Lean reasoning and lightweight tool loops."
         case .anthropicClaudeOpus41, .anthropicClaudeOpus4:
             "High-rigor writing, careful analysis, and long-form synthesis."
         case .anthropicClaudeSonnet4, .anthropicClaudeSonnet37:
@@ -1438,7 +1492,7 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
         case .kimiK2Thinking:
             "Longer-horizon Kimi reasoning and deliberate planning."
         case .kimiK2TurboPreview:
-            "Fast Kimi cloud turns and agent-style chat."
+            "Fast Kimi cloud turns and tool-oriented chat."
         case .minimaxM25:
             "Large-context MiniMax reasoning and synthesis."
         case .minimaxM25HighSpeed:
@@ -1566,6 +1620,59 @@ nonisolated enum CloudTextModelID: String, Codable, Sendable, CaseIterable {
     var nativeReasoningModes: [EpistemosOperatingMode] {
         guard supportsNativeReasoningEffortControl else { return [] }
         return supportedOperatingModes.filter { !$0.availableReasoningTiers.isEmpty }
+    }
+
+    nonisolated func availableReasoningTiers(
+        for operatingMode: EpistemosOperatingMode
+    ) -> [ChatReasoningTier] {
+        guard supportsNativeReasoningEffortControl else {
+            return operatingMode.availableReasoningTiers
+        }
+        switch operatingMode {
+        case .fast:
+            return []
+        case .thinking, .pro, .agent:
+            return [.low, .medium, .high, .heavy]
+        }
+    }
+
+    nonisolated func sanitizedReasoningTier(
+        _ tier: ChatReasoningTier,
+        for operatingMode: EpistemosOperatingMode
+    ) -> ChatReasoningTier {
+        let tiers = availableReasoningTiers(for: operatingMode)
+        guard !tiers.isEmpty else { return .off }
+        guard tiers.contains(tier) else {
+            return tiers.contains(operatingMode.defaultReasoningTier)
+                ? operatingMode.defaultReasoningTier
+                : (tiers.first ?? .off)
+        }
+        return tier
+    }
+
+    nonisolated func reasoningTierLabel(
+        for tier: ChatReasoningTier,
+        operatingMode: EpistemosOperatingMode
+    ) -> String {
+        let tiers = availableReasoningTiers(for: operatingMode)
+        guard tiers.contains(tier) else {
+            return operatingMode.reasoningTierLabel(for: tier)
+        }
+        guard supportsNativeReasoningEffortControl,
+              operatingMode != .thinking else {
+            return tier.displayName
+        }
+
+        switch provider {
+        case .openAI:
+            return tier == .heavy ? "Extra High" : tier.displayName
+        case .anthropic:
+            return tier == .heavy ? "Max" : tier.displayName
+        case .google:
+            return tier.displayName
+        case .zai, .kimi, .minimax, .deepseek:
+            return operatingMode.reasoningTierLabel(for: tier)
+        }
     }
 
     var maxContextTokens: Int {
@@ -2318,6 +2425,17 @@ nonisolated enum ChatModelSelection: Codable, Sendable, Equatable, Identifiable 
         }
     }
 
+    var supportsThinking: Bool {
+        switch self {
+        case .appleIntelligence:
+            false
+        case .localMLX(let id):
+            LocalTextModelID(rawValue: id)?.supportsThinkingMode ?? false
+        case .cloud(let model):
+            model.supportedOperatingModes.contains(.thinking)
+        }
+    }
+
     var compactDisplayName: String {
         switch self {
         case .appleIntelligence:
@@ -2378,12 +2496,10 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     case pro
     case agent
 
-    /// Which reasoning tiers are meaningful for this mode.
-    /// - Fast: none (reasoning disabled by design)
-    /// - Thinking: low / medium / high / heavy (4 levels — matches the
-    ///   user's "4 effort modes on thinking" ask)
-    /// - Pro / Agent: medium / heavy (2 levels — "standard" vs "heavy"
-    ///   in UI labels)
+    /// Fallback reasoning tiers for this mode when the active runtime
+    /// does not expose a provider-native effort ladder. Cloud models
+    /// with native effort control can widen Pro / Agent via
+    /// `CloudTextModelID.availableReasoningTiers(for:)`.
     var availableReasoningTiers: [ChatReasoningTier] {
         switch self {
         case .fast: []
@@ -2392,10 +2508,9 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         }
     }
 
-    /// Mode-specific label for a reasoning tier. Pro / Agent call
-    /// `.medium` "Standard" and `.heavy` "Extended" while Thinking
-    /// keeps the generic tier name so the 4-level ladder reads as
-    /// low/medium/high/heavy.
+    /// Fallback mode-specific label for a reasoning tier. Provider-
+    /// native runtimes can override these labels (for example Codex
+    /// showing "Extra High") via `CloudTextModelID.reasoningTierLabel`.
     nonisolated func reasoningTierLabel(for tier: ChatReasoningTier) -> String {
         switch (self, tier) {
         case (.pro, .medium), (.agent, .medium): "Standard"
@@ -2433,7 +2548,7 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
         case .fast: "Fast"
         case .thinking: "Thinking"
         case .pro: "Pro"
-        case .agent: "Agent"
+        case .agent: "Tools"
         }
     }
 
@@ -2449,13 +2564,13 @@ nonisolated enum EpistemosOperatingMode: String, Codable, Sendable, CaseIterable
     var helpText: String {
         switch self {
         case .fast:
-            "Quick local replies with the lightest reasoning overhead."
+            "Stay in the same chat with the lightest reasoning overhead."
         case .thinking:
-            "Spend more local reasoning budget before answering."
+            "Stay in the same chat and spend more reasoning budget before answering."
         case .pro:
-            "Use the provider's highest-quality route before falling back to on-device reasoning."
+            "Stay in the same chat and use the provider's deepest route before falling back to on-device reasoning."
         case .agent:
-            "Use cloud AI with full tool execution (web search, file ops, code, computer use)."
+            "Keep the turn in this chat while enabling the full tools/runtime path (web search, file ops, code, computer use)."
         }
     }
 
@@ -2665,13 +2780,21 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
             return nil
         case .gemma4_4B4Bit:
             return .qwen3_4B4Bit
+        case .llama32_3BInstruct4Bit:
+            return .bonsai4B2Bit
         case .qwen3_4B4Bit:
             return .bonsai4B2Bit
+        case .qwen3_4BThinking25074Bit:
+            return .qwen3_4B4Bit
+        case .gemma3_4BQAT4Bit:
+            return .qwen3_4B4Bit
         case .bonsai4B2Bit:
             return nil
         case .bonsai8B2Bit:
             return .bonsai4B2Bit
         case .deepseekR1Distill7B:
+            return .qwen3_4B4Bit
+        case .qwen3_8B4Bit:
             return .qwen3_4B4Bit
         case .qwen25Coder7B:
             return .qwen3_4B4Bit
@@ -2887,8 +3010,10 @@ final class InferenceState {
     /// Whether Anthropic's hosted web-search tool is enabled on chat
     /// turns going through the `/v1/messages` endpoint. When true we
     /// attach the `web_search_20250305` server-side tool + required
-    /// `anthropic-beta: web-search-2025-03-05` header. Default off so
-    /// the user pays no latency cost until they explicitly ask for it.
+    /// `anthropic-beta: web-search-2025-03-05` header. Fresh installs
+    /// default this on so main chat can actually use provider-native
+    /// search without a hidden settings trip, while an explicit false
+    /// preference is still honored on reload.
     var anthropicWebSearchEnabled = false
     /// Anthropic's `web_fetch_20250910` beta — single-URL grounding.
     /// Complements web search: the model can pull a specific page the
@@ -3003,12 +3128,28 @@ final class InferenceState {
             }
         }
         self.chatOutputTokens = defaults.integer(forKey: "epistemos.chatOutputTokens")  // 0 if unset
-        self.openAIWebSearchEnabled = defaults.bool(forKey: Self.openAIWebSearchDefaultsKey)
+        self.openAIWebSearchEnabled = Self.boolPreference(
+            defaults: defaults,
+            key: Self.openAIWebSearchDefaultsKey,
+            defaultIfUnset: true
+        )
         self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
         self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
-        self.anthropicWebSearchEnabled = defaults.bool(forKey: Self.anthropicWebSearchDefaultsKey)
-        self.anthropicWebFetchEnabled = defaults.bool(forKey: Self.anthropicWebFetchDefaultsKey)
-        self.anthropicCodeExecutionEnabled = defaults.bool(forKey: Self.anthropicCodeExecutionDefaultsKey)
+        self.anthropicWebSearchEnabled = Self.boolPreference(
+            defaults: defaults,
+            key: Self.anthropicWebSearchDefaultsKey,
+            defaultIfUnset: true
+        )
+        self.anthropicWebFetchEnabled = Self.boolPreference(
+            defaults: defaults,
+            key: Self.anthropicWebFetchDefaultsKey,
+            defaultIfUnset: true
+        )
+        self.anthropicCodeExecutionEnabled = Self.boolPreference(
+            defaults: defaults,
+            key: Self.anthropicCodeExecutionDefaultsKey,
+            defaultIfUnset: true
+        )
         self.structuredJSONOutputEnabled = defaults.bool(forKey: Self.structuredJSONOutputDefaultsKey)
         // Migrating initializer honors old `"standard"` / `"extended"`
         // UserDefaults values (the pre-refactor tier names) by aliasing
@@ -3022,7 +3163,11 @@ final class InferenceState {
         self.anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(
             savedBudget > 0 ? savedBudget : 8_000
         )
-        self.googleGroundingEnabled = defaults.bool(forKey: Self.googleGroundingDefaultsKey)
+        self.googleGroundingEnabled = Self.boolPreference(
+            defaults: defaults,
+            key: Self.googleGroundingDefaultsKey,
+            defaultIfUnset: true
+        )
         self.chatAutoRouteToCloud = false  // Auto-route removed: user has full control
         self.cloudAutoFallback = defaults.bool(forKey: Self.cloudAutoFallbackDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
@@ -3032,6 +3177,17 @@ final class InferenceState {
 
     private nonisolated static func clampedAnthropicThinkingBudget(_ tokens: Int) -> Int {
         min(max(tokens, 1_024), 32_000)
+    }
+
+    private nonisolated static func boolPreference(
+        defaults: UserDefaults,
+        key: String,
+        defaultIfUnset: Bool = false
+    ) -> Bool {
+        if defaults.object(forKey: key) == nil {
+            return defaultIfUnset
+        }
+        return defaults.bool(forKey: key)
     }
 
     static func purgeLegacyRemoteConfiguration(defaults: UserDefaults = .standard) {
@@ -3482,7 +3638,7 @@ final class InferenceState {
             if model.supportsThinkingMode {
                 modes.append(.thinking)
             }
-            if model.supportsAgentMode {
+            if model.canRunLocalAgentLoop {
                 modes.append(.agent)
             }
             return OperatingModeCapabilities(availableModes: modes.isEmpty ? [.fast] : modes)
@@ -3516,7 +3672,64 @@ final class InferenceState {
             }
             return modelID
         case .cloud(let model):
-            return "\(model.provider.displayName) \(model.displayName)"
+            return "\(runtimeProviderDisplayName(for: model.provider)) \(model.displayName)"
+        }
+    }
+
+    func availableReasoningTiers(for operatingMode: EpistemosOperatingMode) -> [ChatReasoningTier] {
+        switch effectiveChatSurfaceSelection(for: operatingMode) {
+        case .cloud(let model):
+            return model.availableReasoningTiers(for: operatingMode)
+        case .appleIntelligence, .localMLX:
+            return operatingMode.availableReasoningTiers
+        }
+    }
+
+    func sanitizedReasoningTier(
+        _ tier: ChatReasoningTier,
+        for operatingMode: EpistemosOperatingMode
+    ) -> ChatReasoningTier {
+        switch effectiveChatSurfaceSelection(for: operatingMode) {
+        case .cloud(let model):
+            return model.sanitizedReasoningTier(tier, for: operatingMode)
+        case .appleIntelligence, .localMLX:
+            return operatingMode.sanitizedReasoningTier(tier)
+        }
+    }
+
+    func reasoningTierLabel(
+        for tier: ChatReasoningTier,
+        operatingMode: EpistemosOperatingMode
+    ) -> String {
+        switch effectiveChatSurfaceSelection(for: operatingMode) {
+        case .cloud(let model):
+            return model.reasoningTierLabel(for: tier, operatingMode: operatingMode)
+        case .appleIntelligence, .localMLX:
+            return operatingMode.reasoningTierLabel(for: tier)
+        }
+    }
+
+    func runtimeProviderDisplayName(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .openAI where openAIUsesCodexAccountRuntime:
+            return "Codex"
+        case .anthropic where anthropicUsesClaudeCodeAccountRuntime:
+            return "Claude Code"
+        default:
+            return provider.displayName
+        }
+    }
+
+    func runtimeControlTitle(for provider: CloudModelProvider) -> String {
+        switch provider {
+        case .openAI where openAIUsesCodexAccountRuntime:
+            return "Codex"
+        case .anthropic where anthropicUsesClaudeCodeAccountRuntime:
+            return "Claude Code"
+        case .anthropic:
+            return "Claude"
+        default:
+            return provider.displayName
         }
     }
 
@@ -3570,6 +3783,62 @@ final class InferenceState {
         case .appleIntelligence, .cloud:
             return preferredChatModelSelection
         }
+    }
+
+    func capabilityToolNames(
+        for operatingMode: EpistemosOperatingMode,
+        executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
+    ) -> [String] {
+        var names = executionPlan.map(\.allowedToolNames) ?? Set<String>()
+        names.formUnion(
+            providerNativeCapabilityToolNames(
+                for: effectiveChatSurfaceSelection(for: operatingMode)
+            )
+        )
+        return Array(names).sorted()
+    }
+
+    /// Sorted list of provider-native tools the current cloud
+    /// selection actually attaches to direct-stream requests (web
+    /// search, code execution, etc.). Used by the direct-stream
+    /// manifest path so it only advertises tools the runtime can
+    /// honor, not app tools the Rust agent would otherwise execute.
+    func providerNativeCapabilityToolNameList(
+        for operatingMode: EpistemosOperatingMode
+    ) -> [String] {
+        let selection = effectiveChatSurfaceSelection(for: operatingMode)
+        return Array(providerNativeCapabilityToolNames(for: selection)).sorted()
+    }
+
+    private func providerNativeCapabilityToolNames(
+        for selection: ChatModelSelection
+    ) -> Set<String> {
+        guard case .cloud(let model) = selection else { return [] }
+
+        var names: Set<String> = []
+        switch model.provider {
+        case .openAI:
+            if openAIWebSearchEnabled {
+                names.insert("web_search")
+            }
+        case .anthropic:
+            if anthropicWebSearchEnabled {
+                names.insert("web_search")
+            }
+            if anthropicWebFetchEnabled {
+                names.insert("web_fetch")
+            }
+            if anthropicCodeExecutionEnabled {
+                names.insert("code_execution")
+            }
+        case .google:
+            if googleGroundingEnabled {
+                names.insert("google_search")
+            }
+        case .zai, .kimi, .minimax, .deepseek:
+            break
+        }
+        return names
     }
 
     var preferredAutoRouteCloudProvider: CloudModelProvider? {
@@ -3693,7 +3962,7 @@ final class InferenceState {
                     ? "\(operatingMode.displayName) stays local on \(label) unless the chat stack needs a cloud escalation."
                     : "\(operatingMode.displayName) runs directly on \(label)."
             case .cloud(let model):
-                let providerLabel = model.provider.displayName
+                let providerLabel = runtimeProviderDisplayName(for: model.provider)
                 return usesAutomaticCloudRouteForChatSurfaces
                     ? "\(operatingMode.displayName) escalates to \(model.displayName) on \(providerLabel)."
                     : "\(operatingMode.displayName) runs directly on \(model.displayName) on \(providerLabel)."
@@ -4085,12 +4354,35 @@ final class InferenceState {
         _ = setAPIKey("", for: provider)
     }
 
+    private func effectivePolicyContext(
+        for operatingMode: EpistemosOperatingMode
+    ) -> InferencePolicyContext {
+        let base = policyContext
+        return InferencePolicyContext(
+            routingMode: base.routingMode,
+            appleIntelligenceAvailable: base.appleIntelligenceAvailable,
+            cloudAutoRouteEnabled: base.cloudAutoRouteEnabled,
+            hasConfiguredCloudModels: base.hasConfiguredCloudModels,
+            preferredChatModelSelection: effectiveChatSurfaceSelection(for: operatingMode),
+            preferredLocalTextModelID: base.preferredLocalTextModelID,
+            installedLocalTextModelIDs: base.installedLocalTextModelIDs,
+            hardwareCapabilitySnapshot: base.hardwareCapabilitySnapshot,
+            runtimeConditions: base.runtimeConditions
+        )
+    }
+
     func routeDecision(for profile: InferenceRequestProfile) -> InferenceRouteDecision {
-        policyEngine.decide(profile: profile, context: policyContext)
+        policyEngine.decide(
+            profile: profile,
+            context: effectivePolicyContext(for: profile.operatingMode)
+        )
     }
 
     func localModelSelection(for profile: InferenceRequestProfile) -> LocalModelSelection? {
-        policyEngine.localSelection(for: profile, context: policyContext)
+        policyEngine.localSelection(
+            for: profile,
+            context: effectivePolicyContext(for: profile.operatingMode)
+        )
     }
 
     func canAutomaticallyRouteToLocalMLX(for profile: InferenceRequestProfile) -> Bool {
@@ -4234,10 +4526,13 @@ final class InferenceState {
     }
 
     func setChatReasoningTier(_ tier: ChatReasoningTier, for operatingMode: EpistemosOperatingMode) {
-        setChatReasoningTier(operatingMode.sanitizedReasoningTier(tier))
+        setChatReasoningTier(sanitizedReasoningTier(tier, for: operatingMode))
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
+        if provider != .localOnly, routingMode == .localOnly {
+            setRoutingMode(.auto)
+        }
         persistActiveAIProvider(provider)
 
         switch preferredChatModelSelection {
@@ -4323,6 +4618,14 @@ final class InferenceState {
         // a specific, actionable "API key not configured" error — which
         // tells the user exactly what to do, rather than lying about
         // which model is active.
+        switch selection {
+        case .cloud, .appleIntelligence:
+            if routingMode == .localOnly {
+                setRoutingMode(.auto)
+            }
+        case .localMLX:
+            break
+        }
         persistPreferredChatModelSelection(selection)
     }
 
@@ -4465,6 +4768,10 @@ final class InferenceState {
 
     private var openAIUsesCodexAccountRuntime: Bool {
         oauthCredential(for: .openAI)?.authMode == .openAICodex
+    }
+
+    private var anthropicUsesClaudeCodeAccountRuntime: Bool {
+        oauthCredential(for: .anthropic)?.authMode == .anthropicClaudeCode
     }
 
     func setLocalRuntimeConditions(_ conditions: LocalRuntimeConditions) {

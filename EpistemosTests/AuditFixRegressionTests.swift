@@ -86,6 +86,89 @@ struct AuditFixRegressionTests {
         #expect(agentLoop.contains("delegate.execute_computer_action(input_json.clone())"))
     }
 
+    @Test("chat coordinator auto-approved permissions do not append a fake approval banner")
+    func autoApprovedPermissionsDoNotAppendFakeApprovalBanner() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("case .autoAllow:"))
+        #expect(coordinator.contains("approved = true"))
+        #expect(!coordinator.contains("case .autoAllow:\n                        approved = await promptForToolApproval(request)"))
+        #expect(!coordinator.contains("case .autoAllow:\n                        chatState.appendStreamingText"))
+    }
+
+    @Test("approval prompts name the persistent permission group and point to quick setup presets")
+    func approvalPromptsNameThePersistentPermissionGroupAndPointToQuickSetupPresets() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let authority = try loadAuditSource("Epistemos/Engine/AgentHarness/AgentAuthority.swift")
+
+        #expect(coordinator.contains("Always Allow \\(authorityCategory.displayName)"))
+        #expect(coordinator.contains("Authority → Less Interruptions"))
+        #expect(coordinator.contains("Use Less Interruptions"))
+        #expect(coordinator.contains("AgentAuthorityQuickSetupPreset.lessInterruptions.decisions"))
+        #expect(authority.contains("enum AgentAuthorityQuickSetupPreset"))
+        #expect(authority.contains("case lessInterruptions = \"Less Interruptions\""))
+    }
+
+    @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")
+    func managedToolsUseApplicationSupportScratchVaultWhenNoVaultIsAttached() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let bridge = try loadAuditSource("Epistemos/Bridge/ToolTierBridge.swift")
+        let extensions = try loadAuditSource("Epistemos/Engine/Extensions.swift")
+
+        #expect(extensions.contains("managedToolRuntimeVaultDirectory"))
+        #expect(extensions.contains("ManagedToolRuntime"))
+        #expect(extensions.contains("ScratchVault"))
+        #expect(coordinator.contains("FoundationSafety.managedToolRuntimeVaultDirectory"))
+        #expect(bridge.contains("FoundationSafety.managedToolRuntimeVaultDirectory"))
+    }
+
+    @Test("session context preview opens the vault read-only so tool runs do not trip an index writer lock")
+    func sessionContextPreviewOpensTheVaultReadOnlySoToolRunsDoNotTripAnIndexWriterLock() throws {
+        let bridge = try loadAuditSource("agent_core/src/bridge.rs")
+        let vault = try loadAuditSource("agent_core/src/storage/vault.rs")
+        let commandCenter = try loadAuditSource("agent_core/src/command_center.rs")
+
+        #expect(bridge.contains("VaultStore::open_read_only(&vault_path)"))
+        #expect(vault.contains("pub fn open_read_only(vault_root: &str) -> Result<Self, VaultError>"))
+        #expect(commandCenter.contains("VaultStore::open_read_only(vault_path)"))
+    }
+
+    @Test("main chat no longer narrates approval banners into the assistant answer stream")
+    func mainChatNoLongerNarratesApprovalBannersIntoAssistantAnswerStream() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(!coordinator.contains("**Approval required:**"))
+        #expect(!coordinator.contains("**Denied:**"))
+        #expect(!coordinator.contains("**Denied by policy:**"))
+        #expect(!coordinator.contains("case .permissionRequired(let request):\n                receivedAgentContent = true"))
+    }
+
+    @Test("implicit vault note lookups use a separate provenance contract from attached context")
+    func implicitVaultNoteLookupsUseSeparateProvenanceContract() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("buildRequestedVaultLookupContractSection"))
+        #expect(coordinator.contains("Do not describe them as attached files or uploads."))
+        #expect(coordinator.contains("let hasAttachedUserContext"))
+        #expect(coordinator.contains("let hasRequestedVaultLookup"))
+    }
+
+    @Test("explicit vault read requests keep lookup discipline even when note context is also attached")
+    func explicitVaultReadRequestsKeepLookupDisciplineEvenWhenContextIsAttached() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("Self.mergedContextSections("))
+        #expect(coordinator.contains("hasAttachedUserContext ? Self.buildRequiredAttachmentContractSection() : nil"))
+        #expect(coordinator.contains("hasRequestedVaultLookup ? Self.buildRequestedVaultLookupContractSection() : nil"))
+        #expect(coordinator.contains("queryRequiresVerifiedVaultRead"))
+        #expect(coordinator.contains("Do not open with a provenance sentence like \\\"I found it in your notes\\\""))
+        #expect(coordinator.contains("say plainly that you couldn't find or read the note in the user's notes"))
+        #expect(coordinator.contains("I couldn't find a note titled"))
+        #expect(coordinator.contains("I couldn't read \\\""))
+        #expect(!coordinator.contains("so I won't pretend the lookup succeeded"))
+        #expect(coordinator.contains("Conversation history or attached context may mention the same note"))
+    }
+
     @Test("embedded rust dylibs still ad hoc sign when hosted tests disable app signing")
     func embeddedRustDylibsStillAdHocSignWithoutAppSigning() throws {
         let helper = try loadAuditSource("embed-and-sign-rust-dylib.sh")

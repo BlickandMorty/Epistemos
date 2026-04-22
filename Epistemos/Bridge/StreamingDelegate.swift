@@ -340,7 +340,7 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     private var pendingPermissions: [String: DispatchSemaphore] = [:]
     private var permissionResults: [String: Bool] = [:]
     private let permissionLock = NSLock()
-    private let permissionTimeout: TimeInterval = 120
+    private let permissionTimeout: TimeInterval = 300
 
     init(continuation: AsyncStream<AgentStreamEvent>.Continuation) {
         self.continuation = continuation

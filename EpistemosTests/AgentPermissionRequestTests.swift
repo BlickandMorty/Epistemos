@@ -71,4 +71,30 @@ struct AgentPermissionRequestTests {
         #expect(request.requiresHumanApproval)
         #expect(request.approvalTargetSummary == "rm -rf /tmp/demo")
     }
+
+    @Test("relative file reads resolve to vault authority so remembered approvals can persist")
+    func relativeFileReadsUseVaultAuthorityCategory() {
+        let request = AgentPermissionRequest(
+            id: "perm-note-title-read",
+            toolName: "read_file",
+            inputJson: #"{"path":"All Things Must Go","offset":1,"limit":500}"#,
+            riskLevel: .readOnly,
+            description: "Read a note by title."
+        )
+
+        #expect(request.authorityCategory(vaultPath: "/Users/jojo/Vault") == .vaultRead)
+    }
+
+    @Test("absolute file reads outside the vault stay in the out-of-vault authority bucket")
+    func absoluteFileReadsOutsideVaultStayScoped() {
+        let request = AgentPermissionRequest(
+            id: "perm-external-read",
+            toolName: "read_file",
+            inputJson: #"{"path":"/Users/jojo/Documents/private.txt","offset":1,"limit":500}"#,
+            riskLevel: .readOnly,
+            description: "Read a private file."
+        )
+
+        #expect(request.authorityCategory(vaultPath: "/Users/jojo/Downloads/EpistemosVault") == .outOfVaultFileAccess)
+    }
 }

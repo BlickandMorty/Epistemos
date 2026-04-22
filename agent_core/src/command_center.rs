@@ -416,7 +416,7 @@ fn build_catalog_for_tier(vault_path: &str, tier: &str) -> Vec<ToolCatalogEntry>
     if vault_path.is_empty() {
         return Vec::new();
     }
-    let Ok(vault) = crate::storage::vault::VaultStore::open(vault_path) else {
+    let Ok(vault) = crate::storage::vault::VaultStore::open_read_only(vault_path) else {
         return Vec::new();
     };
     let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(tier);
@@ -939,8 +939,14 @@ mod tests {
             identifier: "code".to_string(),
             display_name: "Code".to_string(),
         };
-        let policy =
-            build_execution_policy(OperatingMode::Agent, &runtime, Some(&slash), false, 0, false);
+        let policy = build_execution_policy(
+            OperatingMode::Agent,
+            &runtime,
+            Some(&slash),
+            false,
+            0,
+            false,
+        );
         assert!(policy.expert_allowlist.contains(&"coding".to_string()));
         assert!(policy.expert_allowlist.contains(&"tool-use".to_string()));
         assert!(policy.summary.starts_with("Command Center: /code"));
@@ -969,7 +975,9 @@ mod tests {
         assert!(policy
             .expert_allowlist
             .contains(&"vulnerability-analysis".to_string()));
-        assert!(policy.summary.starts_with("Command Center: /security-review"));
+        assert!(policy
+            .summary
+            .starts_with("Command Center: /security-review"));
     }
 
     #[test]

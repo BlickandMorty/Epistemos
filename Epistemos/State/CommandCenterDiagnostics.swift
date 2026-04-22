@@ -102,9 +102,9 @@ struct CommandCenterExecutionDiagnostics: Sendable {
     var resolvedRouteLabel: String {
         guard let route = compiledRequest?.resolvedExecutionPolicy.route else { return "—" }
         switch route {
-        case "local_only": return "Local Only"
-        case "overseer_local_execution": return "Overseer (Local)"
-        case "managed_agent_session": return "Managed Agent"
+        case "local_only": return "Direct Chat"
+        case "overseer_local_execution": return "Planned Tools"
+        case "managed_agent_session": return "Managed Tools"
         default: return route
         }
     }

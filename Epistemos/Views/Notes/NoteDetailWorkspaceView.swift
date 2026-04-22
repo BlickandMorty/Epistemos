@@ -237,9 +237,13 @@ enum NoteDualPreviewLayout {
     static let pageSpacing: CGFloat = 28
     static let pageMaxWidth: CGFloat = 580
     static let defaultSinglePageMaxWidth: CGFloat = 920
+    static let defaultEditorSurfaceMaxWidth: CGFloat = 1000
     static let tableSinglePageMaxWidth: CGFloat = 840
     static let tableReadableMaxWidth: CGFloat = 740
     static let tableEditorReadableMaxWidth: CGFloat = 520
+    static let previewTextReadableMaxWidth: CGFloat = 760
+    static let editorTextReadableMaxWidth: CGFloat = 840
+    static let minimumTextHorizontalInset: CGFloat = 60
     static let outerPadding = EdgeInsets(top: 28, leading: 32, bottom: 40, trailing: 32)
     static let pagePadding = EdgeInsets(top: 34, leading: 38, bottom: 36, trailing: 38)
     static let sectionTargetCharacterCount = 900
@@ -281,7 +285,22 @@ enum NoteDualPreviewLayout {
     }
 
     static func editorReadableWidth(for markdown: String, defaultWidth: CGFloat) -> CGFloat {
-        defaultWidth
+        if containsTable(in: markdown) {
+            return min(defaultWidth, tableEditorReadableMaxWidth)
+        }
+        return min(defaultWidth, defaultEditorSurfaceMaxWidth)
+    }
+
+    static func centeredTextInset(
+        for availableWidth: CGFloat,
+        markdown: String,
+        maxReadableWidth: CGFloat
+    ) -> CGFloat {
+        guard availableWidth.isFinite else { return minimumTextHorizontalInset }
+        guard !containsTable(in: markdown) else { return minimumTextHorizontalInset }
+
+        let clampedWidth = max(0, availableWidth)
+        return max(minimumTextHorizontalInset, (clampedWidth - maxReadableWidth) / 2)
     }
 
     static func paragraphBlocks(in markdown: String) -> [String] {
@@ -838,7 +857,9 @@ struct NoteDetailWorkspaceView: View {
                         if showPreview {
                             notePreview(body: displayBody(for: page))
                         } else {
-                            noteEditorSurface(page: page)
+                            GeometryReader { proxy in
+                                noteEditorSurface(page: page, availableSize: proxy.size)
+                            }
                         }
                     }
                     .frame(minWidth: 400, minHeight: 300)
@@ -1009,7 +1030,7 @@ struct NoteDetailWorkspaceView: View {
     }
 
     @ViewBuilder
-    private func noteEditorSurface(page: SDPage) -> some View {
+    private func noteEditorSurface(page: SDPage, availableSize: CGSize) -> some View {
         if let path = page.filePath,
            let lang = CodeLanguage.detect(from: path) {
             CodeEditorView(
@@ -1022,12 +1043,18 @@ struct NoteDetailWorkspaceView: View {
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         } else {
+            let initialBodyOverride = currentModeBodySnapshot(for: page.id)
+            let readableWidth = NoteDualPreviewLayout.editorReadableWidth(
+                for: initialBodyOverride ?? currentEditorBody(for: page) ?? persistedBodyFor(page),
+                defaultWidth: NoteWorkspaceSurfaceStyle.editorCardSize(for: availableSize).width
+            )
             ProseEditorView(
                 page: page,
                 isEditable: true,
-                initialBodyOverride: currentModeBodySnapshot(for: page.id)
+                initialBodyOverride: initialBodyOverride
             )
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(width: readableWidth, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
     }
     
@@ -1603,6 +1630,32 @@ struct NoteDetailWorkspaceView: View {
         ui.theme.resolved.accent.color
     }
 
+    private var toolbarAskCapability: ChatCapability {
+        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isCloudProvider: Bool = {
+            switch inference.effectiveChatSurfaceSelection(for: selectedNoteChatOperatingMode) {
+            case .cloud:
+                return true
+            case .localMLX, .appleIntelligence:
+                return false
+            }
+        }()
+
+        if !trimmed.isEmpty {
+            return ChatCapability.predictIntent(
+                text: trimmed,
+                isCloudProvider: isCloudProvider
+            ).predicted
+        }
+
+        return ChatCapability.classify(
+            isCloudProvider: isCloudProvider,
+            isAgentExecuting: false,
+            isResearchMode: false,
+            isThinkingMode: selectedNoteChatOperatingMode == .thinking || selectedNoteChatOperatingMode == .pro
+        )
+    }
+
     // MARK: - Toolbar Chat Field
 
     private func toolbarChatField(width: CGFloat) -> some View {
@@ -1619,11 +1672,7 @@ struct NoteDetailWorkspaceView: View {
             chromeTuning: .noteAskBar,
             analyzingText: "Loading \(inference.activeChatModelDisplayName)…",
             onSubmit: {
-                noteChatState.submitToolbarQuery(
-                    noteChatState.inputText,
-                    triageService: triageService,
-                    operatingMode: selectedNoteChatOperatingMode
-                )
+                submitToolbarAskInline()
             },
             onStop: {
                 noteChatState.stopStreaming()
@@ -1635,23 +1684,19 @@ struct NoteDetailWorkspaceView: View {
                     operatingMode: noteChatOperatingModeBinding,
                     availableOperatingModes: supportedNoteChatOperatingModes
                 )
-                // Capability pill (honest gating) — note-scoped chat never
-                // hits the agent loop today, so the isAgentExecuting arg is
-                // always false here. Still reads .local vs .cloud correctly
-                // based on the user's selected provider.
                 ChatCapabilityPill(
-                    capability: ChatCapability.classify(
-                        isCloudProvider: {
-                            switch inference.preferredChatModelSelection {
-                            case .cloud: true
-                            case .localMLX, .appleIntelligence: false
-                            }
-                        }(),
-                        isAgentExecuting: false,
-                        isResearchMode: false,
-                        isThinkingMode: false
-                    )
+                    capability: toolbarAskCapability
                 )
+                Button(action: routeToolbarAskToMainChat) {
+                    Label("Send to Main Chat", systemImage: "arrow.up.forward.app")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .disabled(
+                    noteChatState.isStreaming
+                        || noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                )
+                .help("Send this ask to main chat")
             }
         }
     }
@@ -1662,6 +1707,41 @@ struct NoteDetailWorkspaceView: View {
             kind: .note,
             targetId: page.id,
             title: page.title.isEmpty ? "Untitled" : page.title
+        )
+    }
+
+    private func submitToolbarAskInline() {
+        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        noteChatState.submitToolbarQuery(
+            trimmed,
+            triageService: triageService,
+            operatingMode: selectedNoteChatOperatingMode
+        )
+    }
+
+    private func routeToolbarAskToMainChat() {
+        let trimmed = noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        guard let bootstrap = AppBootstrap.shared else {
+            submitToolbarAskInline()
+            return
+        }
+
+        noteChatState.inputText = ""
+        bootstrap.chatState.startNewChat()
+        if let attachment = noteChatContextAttachment {
+            bootstrap.chatState.addContextAttachment(attachment)
+        }
+        ui.setActivePanel(.home)
+        MainChatSubmissionRouter.submit(
+            trimmed,
+            operatingMode: selectedNoteChatOperatingMode,
+            chat: bootstrap.chatState,
+            orchestrator: bootstrap.orchestratorState,
+            inference: inference
         )
     }
 
@@ -2809,9 +2889,6 @@ private struct IdeaRow: View {
 private struct NotePreviewView2: NSViewRepresentable {
     let body: String
     let theme: EpistemosTheme
-
-    private static let maxReadableWidth: CGFloat = 720
-    private static let minHorizontalInset: CGFloat = 60
     private static let verticalInset: CGFloat = 54
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -2821,7 +2898,10 @@ private struct NotePreviewView2: NSViewRepresentable {
         textView.allowsUndo = false
         textView.drawsBackground = false
         textView.backgroundColor = .clear
-        textView.textContainerInset = NSSize(width: Self.minHorizontalInset, height: Self.verticalInset)
+        textView.textContainerInset = NSSize(
+            width: NoteDualPreviewLayout.minimumTextHorizontalInset,
+            height: Self.verticalInset
+        )
         textView.applyTheme(theme)
         textView.textStorage?.setAttributedString(NSAttributedString(string: body))
         textView.reparseAndInvalidate()
@@ -2889,7 +2969,11 @@ private struct NotePreviewView2: NSViewRepresentable {
     private static func updateCenteringInsets(for textView: ProseTextView2) {
         guard let scrollView = textView.enclosingScrollView else { return }
         let availableWidth = scrollView.contentSize.width
-        let horizontalInset = max(minHorizontalInset, (availableWidth - maxReadableWidth) / 2)
+        let horizontalInset = NoteDualPreviewLayout.centeredTextInset(
+            for: availableWidth,
+            markdown: textView.string,
+            maxReadableWidth: NoteDualPreviewLayout.previewTextReadableMaxWidth
+        )
         let currentInset = textView.textContainerInset
         if abs(currentInset.width - horizontalInset) > 0.5
             || abs(currentInset.height - verticalInset) > 0.5

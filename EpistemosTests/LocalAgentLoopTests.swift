@@ -185,6 +185,46 @@ struct LocalAgentLoopTests {
         #expect(answer == "Transformer notes found from inline training-style tool calling.")
     }
 
+    @Test("local loop executes tool_call fenced JSON before returning the final answer")
+    func localLoopExecutesToolCallFenceJson() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            ```tool_call
+            {"name":"vault_search","arguments":{"query":"transformer architecture"}}
+            ```
+            """,
+            """
+            Transformer notes found from fenced tool_call JSON.
+            """,
+        ])
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, onToken in
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"ml/transformers.md","excerpt":"Fenced tool_call JSON now triggers tools."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Find my transformer architecture notes and summarize them.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "Transformer notes found from fenced tool_call JSON.")
+    }
+
     @Test("local loop canonicalizes case-variant tool calls to the declared schema")
     func localLoopCanonicalizesCaseVariantToolCalls() async throws {
         let responseQueue = ResponseQueue(outputs: [
@@ -333,6 +373,79 @@ struct LocalAgentLoopTests {
         #expect(!visibleText.contains("\"vault_search\""))
         #expect(!visibleText.contains("THIS SHOULD NEVER REACH THE USER"))
         #expect(answer == "Transformer notes found after reflex execution.")
+    }
+
+    @Test("reflex mode retries when a tool-capable turn emits only hidden scratchpad")
+    @MainActor
+    func reflexModeRetriesInvisibleScratchpadOnlyTurns() async throws {
+        let promptRecorder = PromptRecorder()
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                """
+                <scratch_pad>I should search before answering.</scratch_pad>
+                """,
+            ],
+            [
+                """
+                <tool_call>
+                {"name":"vault_search","arguments":{"query":"hegemony"}}
+                </tool_call>
+                """,
+            ],
+            [
+                "Hegemony notes found after the repair retry.",
+            ],
+        ])
+
+        let toolRecorder = ToolInvocationRecorder()
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { prompt, _, _, _, _ in
+                await promptRecorder.record(prompt)
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolRecorder.append(name)
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"hegemony\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"name":"vault_search","content":[{"path":"politics/hegemony.md","excerpt":"Repair retry forced a visible tool step."}]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Search my notes for hegemony and summarize what matters.",
+            tools: [sampleTool()],
+            maxTurns: 4,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let prompts = await promptRecorder.snapshot()
+        let executedToolNames = await toolRecorder.snapshot()
+        #expect(prompts.count == 3)
+        #expect(prompts[1].contains("You have not produced any user-visible answer yet."))
+        #expect(executedToolNames == ["vault_search"])
+        #expect(answer == "Hegemony notes found after the repair retry.")
     }
 
     @Test("local loop prefers the structured generator when one is available")

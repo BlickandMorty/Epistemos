@@ -68,6 +68,10 @@ enum CapabilityManifestBuilder {
                 .joined(separator: ", ")
             let more = context.enabledToolNames.count > 12 ? " (+more)" : ""
             lines.append("Tools available: \(toolList)\(more).")
+        } else {
+            lines.append(
+                "No tools are available on this turn. Answer in plain text only. Do not emit tool-call JSON, `<tool_call>` tags, or policy/status tokens."
+            )
         }
 
         lines.append("")

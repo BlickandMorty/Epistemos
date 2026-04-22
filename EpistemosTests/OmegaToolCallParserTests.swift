@@ -185,6 +185,19 @@ struct ToolCallParserTests {
         #expect(calls[0].name == "run_command")
     }
 
+    @Test("Parses JSON from tool_call fenced code block")
+    func parseToolCallFence() {
+        let input = """
+        ```tool_call
+        {"name":"read_file","arguments":{"path":"All Things Must Go"}}
+        ```
+        """
+        let calls = ToolCallParser.parse(input)
+        #expect(calls.count == 1)
+        #expect(calls[0].name == "read_file")
+        #expect(calls[0].arguments["path"] as? String == "All Things Must Go")
+    }
+
     @Test("Parses training-style JSON from inline markdown code")
     func parseInlineMarkdownCode() {
         let input = #"""

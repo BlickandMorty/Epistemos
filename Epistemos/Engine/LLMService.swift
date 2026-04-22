@@ -1204,17 +1204,17 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // never emits an answer — user-visible as "it just thinks and
         // never provides the final answer." Floor = user's Settings
         // slider (or sensible defaults) auto-expanded by tier.
-        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
-        applyOpenAIResponsesControls(
-            to: &body,
+        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
+            userRequested: maxTokens,
+            model: resolvedModel,
+            operatingMode: operatingMode
+        )
+        configureOpenAIResponsesBody(
+            &body,
             model: resolvedModel,
             operatingMode: operatingMode,
             credential: credential
         )
-        let tools = openAIToolsConfiguration()
-        if !tools.isEmpty {
-            body["tools"] = tools
-        }
 
         guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
             throw CloudLLMError.invalidResponse
@@ -1301,30 +1301,18 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // never emits an answer — user-visible as "it just thinks and
         // never provides the final answer." Floor = user's Settings
         // slider (or sensible defaults) auto-expanded by tier.
-        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
-        applyOpenAIResponsesControls(
-            to: &body,
+        body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
+            userRequested: maxTokens,
+            model: resolvedModel,
+            operatingMode: operatingMode
+        )
+        configureOpenAIResponsesBody(
+            &body,
             model: resolvedModel,
             operatingMode: operatingMode,
-            credential: credential
+            credential: credential,
+            schema: schema
         )
-        let tools = openAIToolsConfiguration()
-        if !tools.isEmpty {
-            body["tools"] = tools
-        }
-
-        // Structured output: constrain response to JSON schema.
-        // https://platform.openai.com/docs/guides/structured-outputs
-        var formatSchema: [String: Any] = [
-            "type": "json_schema",
-            "name": schema.name,
-            "schema": schema.schema,
-            "strict": schema.strict,
-        ]
-        if let desc = schema.description {
-            formatSchema["description"] = desc
-        }
-        body["text"] = ["format": formatSchema]
 
         guard let url = openAIRequestURL(path: "/responses", credential: credential) else {
             throw CloudLLMError.invalidResponse
@@ -2392,30 +2380,19 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             // expands for reasoning tiers so the answer always has
             // room. Codex OAuth skips this because the endpoint
             // enforces its own cap.
-            body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(userRequested: maxTokens)
+            body["max_output_tokens"] = resolvedOpenAIMaxOutputTokens(
+                userRequested: maxTokens,
+                model: model,
+                operatingMode: operatingMode
+            )
         }
-        applyOpenAIResponsesControls(
-            to: &body,
+        configureOpenAIResponsesBody(
+            &body,
             model: model,
             operatingMode: operatingMode,
-            credential: credential
+            credential: credential,
+            schema: schema
         )
-        let tools = openAIToolsConfiguration()
-        if !tools.isEmpty {
-            body["tools"] = tools
-        }
-        if let schema {
-            var formatSchema: [String: Any] = [
-                "type": "json_schema",
-                "name": schema.name,
-                "schema": schema.schema,
-                "strict": schema.strict,
-            ]
-            if let description = schema.description {
-                formatSchema["description"] = description
-            }
-            body["text"] = ["format": formatSchema]
-        }
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -2439,7 +2416,10 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         operatingMode: EpistemosOperatingMode,
         credential: CloudProviderResolvedCredential
     ) -> OpenAIResponseControls? {
-        guard case .apiKey = credential else {
+        switch credential {
+        case .apiKey, .openAICodex:
+            break
+        case .anthropicOAuth, .googleOAuth:
             return nil
         }
 
@@ -2465,7 +2445,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // `.medium` on its own still falls through to the per-mode
         // defaults below so the legacy tuning stays intact when the
         // user hasn't explicitly bumped the dial.
-        let tier = inference.chatReasoningTier
+        let tier = model.sanitizedReasoningTier(inference.chatReasoningTier, for: operatingMode)
 
         switch tier {
         case .off:
@@ -2576,7 +2556,8 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         to body: inout [String: Any],
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode,
-        credential: CloudProviderResolvedCredential
+        credential: CloudProviderResolvedCredential,
+        allowsJSONObjectFormat: Bool
     ) {
         guard let controls = openAIResponseControls(
             for: model,
@@ -2601,12 +2582,36 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // `{ type: "json_object" }` for unconstrained JSON output. The
         // more expressive `{ type: "json_schema", schema: … }` form is
         // attached separately by callers that have a schema in hand.
-        if inference.structuredJSONOutputEnabled {
+        if inference.structuredJSONOutputEnabled && allowsJSONObjectFormat {
             var text = body["text"] as? [String: Any] ?? [:]
             if text["format"] == nil {
                 text["format"] = ["type": "json_object"]
             }
             body["text"] = text
+        }
+    }
+
+    private func configureOpenAIResponsesBody(
+        _ body: inout [String: Any],
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
+        credential: CloudProviderResolvedCredential,
+        schema: CloudJSONSchema? = nil
+    ) {
+        let tools = openAIToolsConfiguration()
+        let hasJSONIncompatibleTools = openAIToolsConflictWithJSONFormat(tools)
+        applyOpenAIResponsesControls(
+            to: &body,
+            model: model,
+            operatingMode: operatingMode,
+            credential: credential,
+            allowsJSONObjectFormat: schema == nil && !hasJSONIncompatibleTools
+        )
+        if !tools.isEmpty && !(schema != nil && hasJSONIncompatibleTools) {
+            body["tools"] = tools
+        }
+        if let schema {
+            body["text"] = ["format": openAIResponseFormatSchema(for: schema)]
         }
     }
 
@@ -2630,6 +2635,25 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         // `anthropicServerSideTools` still works and is the
         // currently-functional code-interpreter-parity path.
         return tools
+    }
+
+    private func openAIToolsConflictWithJSONFormat(_ tools: [[String: Any]]) -> Bool {
+        tools.contains { tool in
+            (tool["type"] as? String) == "web_search"
+        }
+    }
+
+    private func openAIResponseFormatSchema(for schema: CloudJSONSchema) -> [String: Any] {
+        var formatSchema: [String: Any] = [
+            "type": "json_schema",
+            "name": schema.name,
+            "schema": schema.schema,
+            "strict": schema.strict,
+        ]
+        if let description = schema.description {
+            formatSchema["description"] = description
+        }
+        return formatSchema
     }
 
     private func openAIResponsesInstructions(
@@ -2680,9 +2704,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     /// Floor is the user's Settings slider (or 4k default). Then the
     /// floor grows based on the active reasoning tier so Heavy always
     /// has room for a real answer after 32k+ of reasoning.
-    private func resolvedOpenAIMaxOutputTokens(userRequested: Int) -> Int {
+    private func resolvedOpenAIMaxOutputTokens(
+        userRequested: Int,
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) -> Int {
         let floor = userRequested > 0 ? userRequested : 4_096
-        switch inference.chatReasoningTier {
+        switch model.sanitizedReasoningTier(inference.chatReasoningTier, for: operatingMode) {
         case .off, .low:
             return max(floor, 4_096)
         case .medium:
@@ -2886,10 +2914,20 @@ nonisolated enum CloudStreamingParser {
     /// thinking UI. Complements `openAITextDelta`, which only catches
     /// `response.output_text.delta`.
     static func openAIResponsesReasoningDelta(from json: [String: Any]) -> String? {
-        guard json["type"] as? String == "response.reasoning_summary_text.delta" else {
+        switch json["type"] as? String {
+        case "response.reasoning_summary_text.delta":
+            return json["delta"] as? String
+        case "response.reasoning_summary_text.done":
+            return json["text"] as? String
+        case "response.reasoning_summary_part.done":
+            guard let part = json["part"] as? [String: Any],
+                  part["type"] as? String == "summary_text" else {
+                return nil
+            }
+            return part["text"] as? String
+        default:
             return nil
         }
-        return json["delta"] as? String
     }
 
     static func googleTextDelta(from json: [String: Any]) -> String? {

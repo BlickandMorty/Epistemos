@@ -7,11 +7,10 @@ import Foundation
 /// those signals to surface in the UI so the user never has to reason about
 /// backend machinery.
 ///
-/// The cardinal rule (from CLAUDE.md): honest capability gating. Local
-/// models get `.local`, `.thinking`, `.research`. Cloud models get
-/// `.cloud`, `.research`, `.agent`. There is no `.agent` for local — that's
-/// enforced in Rust (`AgentError::LocalProviderNotAllowed`) and mirrored
-/// here so the pill never lies.
+/// The cardinal rule: honest capability gating. `.agent` is the user-facing
+/// "tools are active" surface whether the hidden runtime is cloud-managed or
+/// the local overseer/tool loop. The badge should describe what the turn can
+/// do, not leak backend distinctions the user can't act on.
 nonisolated enum ChatCapability: String, Codable, Hashable, Sendable, CaseIterable {
     /// Local model, everyday chat. Fast, no external calls.
     case local
@@ -21,8 +20,8 @@ nonisolated enum ChatCapability: String, Codable, Hashable, Sendable, CaseIterab
     case research
     /// Cloud model, plain chat. No tools active.
     case cloud
-    /// Cloud model running the agent loop: tools, long-running turns, and
-    /// permission-gated operations are all live. Cloud-only by contract.
+    /// Tools are active: long-running turns, file/note/web access, and
+    /// permission-gated operations may all be in play.
     case agent
 }
 
@@ -33,7 +32,7 @@ extension ChatCapability {
         case .thinking: "Thinking"
         case .research: "Research"
         case .cloud: "Cloud"
-        case .agent: "Agent"
+        case .agent: "Tools"
         }
     }
 
@@ -60,7 +59,7 @@ extension ChatCapability {
         case .cloud:
             "Cloud model. No tools active — plain chat."
         case .agent:
-            "Cloud agent: tools, long runs, and permission-gated operations."
+            "Tools are active: web, files, long runs, and approval-gated actions may be in play."
         }
     }
 
@@ -76,8 +75,8 @@ extension ChatCapability {
     /// device" tooltip and metered-cost summaries.
     var usesCloud: Bool {
         switch self {
-        case .local, .thinking: false
-        case .research, .cloud, .agent: true
+        case .local, .thinking, .agent: false
+        case .research, .cloud: true
         }
     }
 }
@@ -91,13 +90,21 @@ extension ChatCapability {
 /// This matches user intuition: an active tool-using turn should dominate
 /// a "thinking on" flag, which should dominate the plain cloud/local axis.
 extension ChatCapability {
+    static func requiresResearchTools(text: String) -> Bool {
+        requiresResearchTools(in: normalizedIntentText(text))
+    }
+
+    static func requiresManagedResearchTools(text: String) -> Bool {
+        requiresManagedResearchTools(in: normalizedIntentText(text))
+    }
+
     static func classify(
         isCloudProvider: Bool,
         isAgentExecuting: Bool,
         isResearchMode: Bool,
         isThinkingMode: Bool
     ) -> ChatCapability {
-        if isAgentExecuting && isCloudProvider {
+        if isAgentExecuting {
             return .agent
         }
         if isResearchMode {
@@ -116,21 +123,39 @@ extension ChatCapability {
     /// the chat feels like one surface because the pill tells the user
     /// what's about to happen, not just what's happening.
     ///
-    /// Honest gating: if the heuristic predicts `.agent` but the user is on
-    /// a local model, we return `.cloud` as the BEST AVAILABLE prediction
-    /// and let the UI layer surface a "needs cloud" affordance separately.
-    /// We never pretend `.agent` is running on a local model.
+    /// Honest gating: local users can still preview `.agent` when the hidden
+    /// local overseer/tool loop is what will handle the turn. The visible
+    /// badge stays focused on capability, not the backend implementation.
     static func predictIntent(
         text: String,
         isCloudProvider: Bool
     ) -> IntentPrediction {
-        let normalized = text
-            .lowercased()
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalized = normalizedIntentText(text)
 
         if normalized.isEmpty {
             return IntentPrediction(
                 predicted: isCloudProvider ? .cloud : .local,
+                needsCloud: false
+            )
+        }
+
+        if looksLikeExplicitFileOperation(in: normalized) {
+            return IntentPrediction(
+                predicted: .agent,
+                needsCloud: false
+            )
+        }
+
+        if requiresManagedResearchTools(in: normalized) {
+            return IntentPrediction(
+                predicted: .agent,
+                needsCloud: false
+            )
+        }
+
+        if requiresResearchTools(in: normalized) {
+            return IntentPrediction(
+                predicted: .research,
                 needsCloud: false
             )
         }
@@ -146,6 +171,14 @@ extension ChatCapability {
             "create a note", "create note", "save a note", "save to",
             "delete a note", "delete note", "remove a note",
             "update my note", "update the note", "edit the note",
+            "write this to a file", "write that to a file", "write to a file",
+            "write a file", "save this as a file", "save it as a file",
+            "save to a file", "save it to a file", "save this to a file",
+            "create a file", "make a file", "new file called",
+            "edit the file", "edit file", "update the file", "patch the file",
+            "modify the file",
+            "read the file", "read file", "open the file", "open file",
+            "show me the file", "what's in the file", "what is in the file",
             "clone", "git pull", "git push",
             "install ", "brew install", "pip install", "cargo install",
             "npm install",
@@ -165,8 +198,8 @@ extension ChatCapability {
         for signal in agentSignals {
             if normalized.contains(signal) {
                 return IntentPrediction(
-                    predicted: isCloudProvider ? .agent : .cloud,
-                    needsCloud: !isCloudProvider
+                    predicted: .agent,
+                    needsCloud: false
                 )
             }
         }
@@ -201,6 +234,102 @@ extension ChatCapability {
             predicted: isCloudProvider ? .cloud : .local,
             needsCloud: false
         )
+    }
+
+    private static func normalizedIntentText(_ text: String) -> String {
+        text
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func looksLikeExplicitFileOperation(in normalized: String) -> Bool {
+        guard !normalized.contains("http://"), !normalized.contains("https://") else {
+            return false
+        }
+
+        let fileLocationSignals = [
+            "/tmp/",
+            "/users/",
+            "/var/",
+            "/etc/",
+            "/applications/",
+            ".md",
+            ".txt",
+            ".pdf",
+            ".json",
+            ".csv",
+            ".swift",
+            ".rs",
+            ".py",
+            ".js",
+        ]
+        let fileVerbSignals = [
+            "read ",
+            "open ",
+            "show ",
+            "write ",
+            "save ",
+            "create ",
+            "edit ",
+            "patch ",
+            "modify ",
+            "move ",
+            "rename ",
+            "delete ",
+            "copy ",
+        ]
+
+        let mentionsFileLocation = normalized.contains(" local file ")
+            || normalized.contains(" file ")
+            || fileLocationSignals.contains { normalized.contains($0) }
+        guard mentionsFileLocation else { return false }
+
+        return fileVerbSignals.contains { normalized.contains($0) }
+    }
+
+    private static func requiresResearchTools(in normalized: String) -> Bool {
+        if requiresManagedResearchTools(in: normalized) {
+            return true
+        }
+
+        let liveInfoSignals = [
+            "what's the weather",
+            "what is the weather",
+            "weather in ",
+            "weather for ",
+            "forecast for ",
+            "forecast in ",
+            "temperature in ",
+            "temperature for ",
+            "is it raining",
+            "will it rain",
+            "headlines",
+            "breaking news",
+            "latest on ",
+            "today's weather",
+            "today weather",
+        ]
+        return liveInfoSignals.contains { normalized.contains($0) }
+    }
+
+    private static func requiresManagedResearchTools(in normalized: String) -> Bool {
+        let signals = [
+            "search up ",
+            "search the web",
+            "search online",
+            "browse the web",
+            "browse for ",
+            "look online",
+            "find information on",
+            "find info on",
+            "find sources for",
+            "find references for",
+            "latest news",
+            "recent news",
+            "what's the latest",
+            "what is the latest",
+        ]
+        return signals.contains { normalized.contains($0) }
     }
 }
 

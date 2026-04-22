@@ -63,6 +63,14 @@ nonisolated enum BackendRuntimeOperation: String, Codable, Sendable, CaseIterabl
     case imageGenerate
 }
 
+nonisolated enum BackendRuntimeTimeouts {
+    /// Long-form local reasoning turns routinely spend well over a
+    /// minute in pre-answer thinking, especially on smaller on-device
+    /// models. Give them a full five-minute wall-clock budget before
+    /// the backend contract forces a timeout.
+    static let localGenerationMS = 300_000
+}
+
 nonisolated enum BackendRuntimeContractError: String, Error, Codable, Sendable, Equatable, LocalizedError {
     case modelNotFound = "model_not_found"
     case modelNotLoaded = "model_not_loaded"

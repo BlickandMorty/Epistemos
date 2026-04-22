@@ -167,6 +167,7 @@ struct PipelineServiceTests {
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
         inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(interactiveReleaseFixtureModelID.rawValue))
         let triage = TriageService(inference: inference, localLLMService: mock)
         let eventBus = EventBus()
 
@@ -174,7 +175,7 @@ struct PipelineServiceTests {
             pipelineState: pipelineState,
             llmService: mock,
             triageService: triage,
-            inference: InferenceState(),
+            inference: inference,
             eventBus: eventBus
         )
 
@@ -326,6 +327,55 @@ struct PipelineServiceTests {
 
         #expect(thinking.contains("historical and modern senses"))
         #expect(text == "It usually refers to the modern US-led imperial order.")
+    }
+
+    @Test("Pipeline routes scratch pad reasoning into thinking deltas before the visible answer")
+    @MainActor func pipelineRoutesScratchPadReasoningIntoThinkingDeltas() async throws {
+        let mock = MockLLMClient()
+        mock.streamTokens = [
+            "<scratch_pad>",
+            "I will analyze the provided text first.",
+            "</scratch_pad>",
+            "Final answer."
+        ]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.setRoutingMode(.localOnly)
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+        let triage = TriageService(inference: inference, localLLMService: mock)
+        let eventBus = EventBus()
+
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: mock,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        var thinking = ""
+        var text = ""
+        let stream = pipeline.run(
+            query: "Explain the note.",
+            mode: .api
+        )
+
+        for try await event in stream {
+            switch event {
+            case .thinkingDelta(let delta):
+                thinking += delta
+            case .textDelta(let delta):
+                text += delta
+            default:
+                break
+            }
+        }
+
+        #expect(thinking == "I will analyze the provided text first.")
+        #expect(text == "Final answer.")
     }
 
     @Test("Pipeline suppresses prose reasoning preludes and emits only the answer")
@@ -541,10 +591,11 @@ struct PipelineServiceTests {
         _ = triage
     }
 
-    @Test("agent execution plan forces the pipeline onto the local stream even when cloud is selected")
-    @MainActor func agentExecutionPlanForcesLocalStreamEvenWhenCloudIsSelected() async throws {
-        let mock = MockLLMClient()
-        mock.streamTokens = ["Local", " plan"]
+    @Test("agent execution plans keep the selected cloud runtime instead of forcing the legacy local stream")
+    @MainActor func agentExecutionPlanKeepsSelectedCloudRuntime() async throws {
+        let localClient = RecordingConfigurableLocalLLMClient()
+        let cloudClient = TriageIntegrationMockCloudLLMClient()
+        cloudClient.streamTokens = ["Cloud", " plan"]
 
         let pipelineState = PipelineState()
         let inference = InferenceState(
@@ -552,21 +603,37 @@ struct PipelineServiceTests {
                 physicalMemoryBytes: 24_000_000_000,
                 roundedMemoryGB: 24,
                 maxRecommendedLocalContentLength: 12_000
-            )
+            ),
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
         )
         inference.appleIntelligenceAvailable = false
         inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
         inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
-        let triage = TriageService(inference: inference, localLLMService: mock)
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localClient,
+            cloudLLMService: cloudClient
+        )
+        let llmService = LLMService(
+            inference: inference,
+            localLLMClient: localClient,
+            cloudLLMClient: cloudClient
+        )
         let eventBus = EventBus()
 
         let pipeline = PipelineService(
             pipelineState: pipelineState,
-            llmService: mock,
+            llmService: llmService,
             triageService: triage,
             inference: inference,
-            eventBus: eventBus
+            eventBus: eventBus,
+            localModelClient: localClient,
+            vaultPathProvider: { "/tmp/epistemos-test-vault" }
         )
 
         let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
@@ -595,9 +662,10 @@ struct PipelineServiceTests {
             }
         }
 
-        #expect(visibleText == "Local plan")
-        #expect(mock.streamCalls.count == 1)
-        let systemPrompt = try #require(mock.streamCalls.first?.systemPrompt)
+        #expect(visibleText == "Cloud plan")
+        #expect(localClient.streamRequests.isEmpty)
+        #expect(cloudClient.streamCalls.count == 1)
+        let systemPrompt = try #require(cloudClient.streamCalls.first?.systemPrompt)
         #expect(systemPrompt.contains("OVERSEER_PLAN_V1"))
         #expect(systemPrompt.contains("\"mask_plan\""))
     }
@@ -659,6 +727,433 @@ struct PipelineServiceTests {
         #expect(normalizedActual == normalizedExpected)
     }
 
+    @Test("cloud thinking execution plans keep the main chat on the selected cloud model")
+    @MainActor func cloudThinkingExecutionPlansStayOnCloud() async throws {
+        let localClient = RecordingConfigurableLocalLLMClient()
+        let cloudClient = TriageIntegrationMockCloudLLMClient()
+        cloudClient.streamTokens = ["cloud", " answer"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 18_000_000_000,
+                roundedMemoryGB: 18,
+                maxRecommendedLocalContentLength: 8_000
+            ),
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.deepseekR1Distill7B.rawValue)
+        inference.setRoutingMode(.localOnly)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        #expect(inference.routingMode == .auto)
+        #expect(inference.preferredChatModelSelection == .cloud(.openAIGPT54))
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .cloud(.openAIGPT54))
+
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localClient,
+            cloudLLMService: cloudClient
+        )
+        let llmService = LLMService(
+            inference: inference,
+            localLLMClient: localClient,
+            cloudLLMClient: cloudClient
+        )
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Trace this carefully.",
+            contentLength: 21,
+            operatingMode: .thinking,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+        #expect(executionPlan.forcesLocalExecution)
+
+        var emittedText = ""
+        let stream = pipeline.run(
+            query: "Trace this carefully.",
+            mode: .api,
+            operatingMode: .thinking,
+            executionPlan: executionPlan
+        )
+
+        for try await event in stream {
+            if case .textDelta(let token) = event {
+                emittedText += token
+            }
+        }
+
+        #expect(emittedText == "cloud answer")
+        #expect(cloudClient.streamCalls.count == 1)
+        #expect(localClient.streamRequests.isEmpty)
+    }
+
+    @Test("plain cloud chat manifests provider-native web search when it is enabled")
+    @MainActor func cloudManifestIncludesProviderNativeWebSearch() async throws {
+        let localClient = RecordingConfigurableLocalLLMClient()
+        let cloudClient = TriageIntegrationMockCloudLLMClient()
+        cloudClient.streamTokens = ["fresh", " result"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 18_000_000_000,
+                roundedMemoryGB: 18,
+                maxRecommendedLocalContentLength: 8_000
+            ),
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        inference.setOpenAIWebSearchEnabled(true)
+
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localClient,
+            cloudLLMService: cloudClient
+        )
+        let llmService = LLMService(
+            inference: inference,
+            localLLMClient: localClient,
+            cloudLLMClient: cloudClient
+        )
+        let eventBus = EventBus()
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            inference: inference,
+            eventBus: eventBus
+        )
+
+        let stream = pipeline.run(
+            query: "What is the latest on hegemony debates?",
+            mode: .api,
+            operatingMode: .fast
+        )
+
+        for try await _ in stream {}
+
+        let systemPrompt = try #require(cloudClient.streamCalls.first?.systemPrompt)
+        #expect(systemPrompt.contains("Tools available:"))
+        #expect(systemPrompt.contains("`web_search`"))
+    }
+
+    @Test("pipeline captures the final assembled model input for the transparency panel")
+    @MainActor func pipelineCapturesFinalAssembledModelInput() async throws {
+        let localClient = RecordingConfigurableLocalLLMClient()
+        let cloudClient = TriageIntegrationMockCloudLLMClient()
+        cloudClient.streamTokens = ["Done"]
+
+        let pipelineState = PipelineState()
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 18_000_000_000,
+                roundedMemoryGB: 18,
+                maxRecommendedLocalContentLength: 8_000
+            ),
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-openai-test" : nil
+            },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        inference.setOpenAIWebSearchEnabled(true)
+
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localClient,
+            cloudLLMService: cloudClient
+        )
+        let llmService = LLMService(
+            inference: inference,
+            localLLMClient: localClient,
+            cloudLLMClient: cloudClient
+        )
+        let pipeline = PipelineService(
+            pipelineState: pipelineState,
+            llmService: llmService,
+            triageService: triage,
+            inference: inference,
+            eventBus: EventBus()
+        )
+
+        var capturedInput: CapturedModelInput?
+        let stream = pipeline.run(
+            query: "Summarize the note.",
+            mode: .api,
+            notesContext: "Resolved Note Context:\nAlpha note body",
+            conversationHistory: "User: Earlier turn",
+            operatingMode: .fast,
+            modelInputCaptureHandler: { capturedInput = $0 }
+        )
+
+        for try await _ in stream {}
+
+        let captured = try #require(capturedInput)
+        #expect(captured.systemPrompt?.contains("Tools available:") == true)
+        #expect(captured.userPrompt.contains("Resolved Note Context:\nAlpha note body"))
+        #expect(captured.userPrompt.contains("Conversation history:\nUser: Earlier turn"))
+        #expect(captured.userPrompt.contains("Current request:\nSummarize the note."))
+        #expect(captured.messageHistory == "User: Earlier turn")
+        #expect(captured.toolDefinitionsJSON?.contains("\"web_search\"") == true)
+    }
+
+    @Test("captured local direct prompts explicitly forbid tool markup when no tools are active")
+    @MainActor func capturedLocalDirectPromptForbidsToolMarkupWhenNoToolsAreActive() async throws {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([interactiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(interactiveReleaseFixtureModelID.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(interactiveReleaseFixtureModelID.rawValue))
+
+        let localClient = MockLLMClient()
+        localClient.snapshot = LLMSnapshot(
+            provider: .localMLX,
+            model: interactiveReleaseFixtureModelID.rawValue,
+            reasoningMode: .fast
+        )
+        localClient.streamTokens = ["Direct answer."]
+
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: localClient
+        )
+        let llmService = LLMService(
+            inference: inference,
+            localLLMClient: localClient
+        )
+        let pipeline = PipelineService(
+            pipelineState: PipelineState(),
+            llmService: llmService,
+            triageService: triage,
+            inference: inference,
+            eventBus: EventBus()
+        )
+
+        var capturedInput: CapturedModelInput?
+        let stream = pipeline.run(
+            query: "reasd",
+            mode: .api,
+            operatingMode: .fast,
+            modelInputCaptureHandler: { capturedInput = $0 }
+        )
+
+        for try await _ in stream {}
+
+        let captured = try #require(capturedInput)
+        let systemPrompt = try #require(captured.systemPrompt)
+        #expect(systemPrompt.contains("No tools are available on this turn."))
+        #expect(systemPrompt.contains("Do not emit tool-call JSON"))
+        #expect(systemPrompt.contains("policy/status tokens"))
+    }
+
+    @Test("explicit local web search requests route into overseer local execution")
+    @MainActor func explicitLocalWebSearchQueriesUseToolCapableRoute() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "search up hegemony",
+            contentLength: 18,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.allowedToolNames.contains("search_web"))
+    }
+
+    @Test("current-info local prompts route into overseer local execution")
+    @MainActor func currentInfoLocalQueriesUseToolCapableRoute() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "What's the weather in Chicago today?",
+            contentLength: 35,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.allowedToolNames.contains("search_web"))
+    }
+
+    @Test("local note-writing prompts stay on the local overseer path and expose write tools")
+    @MainActor func localNoteWritingQueriesExposeWriteTools() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Create a note called Migration Plan and write today's outline into it.",
+            contentLength: 68,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.allowedToolNames.contains("write_file"))
+    }
+
+    @Test("hidden local agent tier backs fast-mode tool execution when overseer escalates")
+    @MainActor func hiddenLocalAgentTierBacksEscalatedFastMode() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([
+            LocalTextModelID.qwen35_2B4Bit.rawValue,
+            LocalTextModelID.qwen35_4B4Bit.rawValue,
+        ])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Create a note called Migration Plan and write today's outline into it.",
+            contentLength: 68,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .overseerLocalExecution)
+        #expect(executionPlan.localOperatingMode == .agent)
+        #expect(PipelineService.localToolTier(for: .fast, executionPlan: executionPlan) == .agent)
+    }
+
+    @Test("cloud-selected agent work promotes to the managed agent session instead of local execution")
+    @MainActor func cloudAgentPromptsUseManagedAgentSession() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Create a note called Migration Plan and save the rollout checklist there.",
+            contentLength: 71,
+            operatingMode: .agent,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.localOperatingMode == .agent)
+        #expect(!executionPlan.plan.toolPermissions.isEmpty)
+        #expect(executionPlan.allowedToolNames.contains("search_web"))
+        #expect(executionPlan.allowedToolNames.contains("write_file"))
+    }
+
+    @Test("cloud-selected fast tool prompts still promote into the managed agent session")
+    @MainActor func cloudFastToolPromptsUseManagedAgentSession() {
+        let inference = InferenceState(
+            hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
+                physicalMemoryBytes: 24_000_000_000,
+                roundedMemoryGB: 24,
+                maxRecommendedLocalContentLength: 12_000
+            )
+        )
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+        let executionPlan = OverseerComplexityRouter(inference: inference).planForMainChat(
+            query: "Create a note called Migration Plan and save the rollout checklist there.",
+            contentLength: 71,
+            operatingMode: .fast,
+            hasExplicitContext: false,
+            attachmentCount: 0,
+            notesContext: nil,
+            conversationHistory: nil
+        )
+
+        #expect(executionPlan.route == .managedAgentSession)
+        #expect(executionPlan.localOperatingMode == .agent)
+        #expect(!executionPlan.plan.toolPermissions.isEmpty)
+        #expect(executionPlan.allowedToolNames.contains("search_web"))
+        #expect(executionPlan.allowedToolNames.contains("write_file"))
+    }
+
     @Test("standard local chat modes use the direct stream instead of the local tool loop")
     @MainActor func standardLocalChatModesUseDirectStream() async throws {
         for operatingMode: EpistemosOperatingMode in [.fast, .thinking, .pro] {
@@ -667,9 +1162,9 @@ struct PipelineServiceTests {
             let pipelineState = PipelineState()
             let inference = InferenceState()
             inference.appleIntelligenceAvailable = false
-            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_4B4Bit.rawValue])
-            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+            inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
+            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_4B4Bit.rawValue))
 
             let triage = TriageService(inference: inference, localLLMService: directClient)
             let eventBus = EventBus()
@@ -1430,6 +1925,7 @@ struct ChatCoordinatorPersistenceTests {
                 VaultManifest.ManifestEntry(
                     pageId: "alpha-id",
                     title: "Alpha",
+                    relativePath: "Research/Alpha.md",
                     tags: ["focus"],
                     folderName: nil,
                     wordCount: 120,
@@ -1440,6 +1936,7 @@ struct ChatCoordinatorPersistenceTests {
                 VaultManifest.ManifestEntry(
                     pageId: "beta-id",
                     title: "Beta",
+                    relativePath: "Beta.md",
                     tags: ["archive"],
                     folderName: nil,
                     wordCount: 80,
@@ -1462,7 +1959,14 @@ struct ChatCoordinatorPersistenceTests {
             },
             fetchNoteBodies: { ids in
                 ids.contains("alpha-id")
-                    ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
+                    ? [
+                        VaultManifest.NoteBody(
+                            pageId: "alpha-id",
+                            title: "Alpha",
+                            relativePath: "Research/Alpha.md",
+                            body: "Alpha full body"
+                        )
+                    ]
                     : []
             },
             searchNoteIDs: { _ in [] }
@@ -1472,6 +1976,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(first.loadedNoteIds == Set(["alpha-id"]))
         #expect(first.loadedNoteTitles == ["Alpha"])
         #expect(first.context?.contains("### Referenced Note: Alpha") == true)
+        #expect(first.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Alpha.md") == true)
 
         let second = await ChatCoordinator.resolveNotesContext(
             query: "Use the same note again",
@@ -1480,7 +1985,14 @@ struct ChatCoordinatorPersistenceTests {
             findNotesByTitle: { _ in [] },
             fetchNoteBodies: { ids in
                 ids.contains("alpha-id")
-                    ? [VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")]
+                    ? [
+                        VaultManifest.NoteBody(
+                            pageId: "alpha-id",
+                            title: "Alpha",
+                            relativePath: "Research/Alpha.md",
+                            body: "Alpha full body"
+                        )
+                    ]
                     : []
             },
             searchNoteIDs: { _ in [] }
@@ -1500,9 +2012,19 @@ struct ChatCoordinatorPersistenceTests {
                 ids.compactMap { id in
                     switch id {
                     case "beta-id":
-                        VaultManifest.NoteBody(pageId: "beta-id", title: "Beta", body: "Beta full body")
+                        VaultManifest.NoteBody(
+                            pageId: "beta-id",
+                            title: "Beta",
+                            relativePath: "Beta.md",
+                            body: "Beta full body"
+                        )
                     case "alpha-id":
-                        VaultManifest.NoteBody(pageId: "alpha-id", title: "Alpha", body: "Alpha full body")
+                        VaultManifest.NoteBody(
+                            pageId: "alpha-id",
+                            title: "Alpha",
+                            relativePath: "Research/Alpha.md",
+                            body: "Alpha full body"
+                        )
                     default:
                         nil
                     }
@@ -1522,6 +2044,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(third.context?.contains("## Matched Vault Notes") == true)
         #expect(third.context?.contains("### Vault Match: Beta") == true)
         #expect(third.context?.contains("Beta full body") == true)
+        #expect(third.context?.contains("Canonical vault-relative path (use this with `vault_read`): Beta.md") == true)
         #expect(third.loadedNoteIds == Set(["beta-id", "alpha-id"]))
         #expect(third.loadedNoteTitles == ["Beta", "Alpha"])
 
@@ -1566,6 +2089,7 @@ struct ChatCoordinatorPersistenceTests {
                 VaultManifest.ManifestEntry(
                     pageId: "alpha-id",
                     title: "Project Atlas",
+                    relativePath: "Plans/Project Atlas.md",
                     tags: [],
                     folderName: "Plans",
                     wordCount: 120,
@@ -1576,6 +2100,7 @@ struct ChatCoordinatorPersistenceTests {
                 VaultManifest.ManifestEntry(
                     pageId: "beta-id",
                     title: "Project Atlas",
+                    relativePath: "Research/Project Atlas.md",
                     tags: [],
                     folderName: "Research",
                     wordCount: 140,
@@ -1600,6 +2125,7 @@ struct ChatCoordinatorPersistenceTests {
                     VaultManifest.ManifestEntry(
                         pageId: "alpha-id",
                         title: "Project Atlas",
+                        relativePath: "Plans/Project Atlas.md",
                         tags: [],
                         folderName: "Plans",
                         wordCount: 120,
@@ -1613,9 +2139,19 @@ struct ChatCoordinatorPersistenceTests {
                 ids.compactMap { id in
                     switch id {
                     case "alpha-id":
-                        VaultManifest.NoteBody(pageId: "alpha-id", title: "Project Atlas", body: "Alpha full body")
+                        VaultManifest.NoteBody(
+                            pageId: "alpha-id",
+                            title: "Project Atlas",
+                            relativePath: "Plans/Project Atlas.md",
+                            body: "Alpha full body"
+                        )
                     case "beta-id":
-                        VaultManifest.NoteBody(pageId: "beta-id", title: "Project Atlas", body: "Beta full body")
+                        VaultManifest.NoteBody(
+                            pageId: "beta-id",
+                            title: "Project Atlas",
+                            relativePath: "Research/Project Atlas.md",
+                            body: "Beta full body"
+                        )
                     default:
                         nil
                     }
@@ -1630,6 +2166,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.context?.contains("Treat the inlined `Content:` blocks as the authoritative source") == true)
         #expect(resolution.context?.contains("Do not ask the user to locate, reattach, or restate these notes.") == true)
         #expect(resolution.context?.contains("### Attached Note: Project Atlas") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Project Atlas.md") == true)
         #expect(resolution.context?.contains("Priority: Required context.") == true)
         #expect(resolution.context?.contains("Beta full body") == true)
         #expect(resolution.context?.contains("Alpha full body") == false)
@@ -1648,6 +2185,7 @@ struct ChatCoordinatorPersistenceTests {
                 VaultManifest.ManifestEntry(
                     pageId: "determinism-id",
                     title: "Determinism",
+                    relativePath: "Philosophy/Determinism.md",
                     tags: ["philosophy"],
                     folderName: nil,
                     wordCount: 140,
@@ -1678,6 +2216,7 @@ struct ChatCoordinatorPersistenceTests {
                         VaultManifest.NoteBody(
                             pageId: "determinism-id",
                             title: "Determinism",
+                            relativePath: "Philosophy/Determinism.md",
                             body: "Determinism says every event is fixed by prior causes."
                         )
                     ]
@@ -1690,6 +2229,7 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.loadedNoteIds == Set(["determinism-id"]))
         #expect(resolution.loadedNoteTitles == ["Determinism"])
         #expect(resolution.context?.contains("### Referenced Note: Determinism") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Philosophy/Determinism.md") == true)
         #expect(resolution.context?.contains("Determinism says every event is fixed by prior causes.") == true)
     }
 
@@ -1809,6 +2349,65 @@ struct ChatCoordinatorPersistenceTests {
         #expect(psych.context?.contains("Psychoneuroimmunology body.") == true)
     }
 
+    @Test("requested vault note context keeps provenance distinct from attached uploads")
+    func requestedVaultNoteContextKeepsProvenanceDistinctFromAttachments() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "all-things-id",
+                    title: "All Things Must Go",
+                    relativePath: "Essays/All Things Must Go.md",
+                    tags: ["philosophy"],
+                    folderName: "Essays",
+                    wordCount: 900,
+                    snippet: "Essay on neuroscience and free will.",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+        let entry = manifest.entries[0]
+
+        let resolution = await ChatCoordinator.resolveAttachedContext(
+            query: "Find the note titled All Things Must Go in my notes and summarize it in two sentences.",
+            attachments: [],
+            manifest: manifest,
+            includeAllNotesContext: false,
+            findNotesByTitle: { query in
+                query.lowercased().contains("all things must go") ? [entry] : []
+            },
+            fetchNoteBodies: { ids in
+                ids.contains("all-things-id")
+                    ? [
+                        VaultManifest.NoteBody(
+                            pageId: "all-things-id",
+                            title: "All Things Must Go",
+                            relativePath: "Essays/All Things Must Go.md",
+                            body: "Choices may arise from unconscious processing before awareness."
+                        )
+                    ]
+                    : []
+            },
+            searchNoteIDs: { query in
+                query.lowercased().contains("all things must go") ? ["all-things-id"] : []
+            },
+            fetchChatMessages: { _ in [] }
+        )
+
+        #expect(resolution.loadedNoteIds == Set(["all-things-id"]))
+        #expect(resolution.loadedNoteTitles == ["All Things Must Go"])
+        #expect(resolution.context?.contains("## Requested Note Context") == true)
+        #expect(resolution.context?.contains("Do not describe them as attached files or uploads.") == true)
+        #expect(resolution.context?.contains("### Referenced Note: All Things Must Go") == true)
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Essays/All Things Must Go.md") == true)
+    }
+
     @Test("pipeline direct stream uses bare prompts and only appends explicit note context")
     @MainActor func pipelineDirectStreamUsesBarePrompts() async throws {
         let mock = MockLLMClient()
@@ -1883,6 +2482,40 @@ struct ChatCoordinatorPersistenceTests {
 
         let saved = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first { $0.role == "assistant" })
         #expect(saved.inferenceMode == InferenceMode.api.rawValue)
+    }
+
+    @Test("persistChatCompletion stores assistant thinking checkpoints")
+    func persistChatCompletionStoresAssistantThinkingCheckpoints() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let coordinator = makeCoordinator(container: container)
+
+        let assistantMessage = ChatMessage(
+            id: "assistant-thinking-checkpoint",
+            chatId: "chat-thinking-checkpoint",
+            role: .assistant,
+            content: "Partial checkpoint",
+            mode: .api,
+            thinkingTrace: "Compare the causal chain before writing the final answer.",
+            thinkingDurationSeconds: 2.4
+        )
+
+        coordinator.persistChatCompletion(
+            chatId: "chat-thinking-checkpoint",
+            query: "Use your reasoning so far.",
+            answer: assistantMessage.content,
+            mode: .api,
+            assistantMessage: assistantMessage
+        )
+
+        let saved = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first { $0.role == "assistant" })
+        #expect(saved.thinkingTrace == "Compare the causal chain before writing the final answer.")
+        #expect(saved.thinkingDurationSeconds == 2.4)
+
+        let savedChat = try #require(try context.fetch(FetchDescriptor<SDChat>()).first)
+        let restoredAssistant = try #require(savedChat.loadedMessages.first { $0.role == .assistant })
+        #expect(restoredAssistant.thinkingTrace == "Compare the causal chain before writing the final answer.")
+        #expect(restoredAssistant.thinkingDurationSeconds == 2.4)
     }
 
     @Test("persistChatCompletion preserves user message ordering when chat reloads")
@@ -2117,8 +2750,8 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.thinkingEndedAt != nil)
     }
 
-    @Test("main chat keeps late reasoning deltas in the thinking trace after the answer has started")
-    func chatStatePreservesLateReasoningAfterAnswerStarts() {
+    @Test("main chat suppresses late reasoning deltas after the answer has started")
+    func chatStateSuppressesLateReasoningAfterAnswerStarts() {
         let chatState = ChatState()
         chatState.submitQuery("ask")
         chatState.startStreaming()
@@ -2128,10 +2761,7 @@ struct ChatStateContextAttachmentTests {
         chatState.appendStreamingThinking(" trailing scratchpad")
 
         #expect(!chatState.isThinkingActive)
-        #expect(
-            chatState.streamingThinking
-                == "thought\n\nAfter-answer thought:\n trailing scratchpad"
-        )
+        #expect(chatState.streamingThinking == "thought")
         #expect(chatState.thinkingEndedAt != nil)
     }
 
@@ -2340,11 +2970,76 @@ struct ChatStateContextAttachmentTests {
         #expect(chatState.loadedNoteIds.isEmpty)
         #expect(chatState.loadedNoteTitles.isEmpty)
     }
+
+    @Test("loading messages recomputes context window usage from persisted transcript")
+    func loadMessagesRecomputesContextWindowUsageFromPersistedTranscript() {
+        let chatState = ChatState()
+        chatState.maxContextTokens = 200_000
+
+        let noteAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "note-usage",
+            title: "All Things Must Go",
+            subtitle: "Essays"
+        )
+
+        chatState.loadMessages([
+            ChatMessage(
+                chatId: "chat-usage",
+                role: .user,
+                content: String(repeating: "A", count: 4_000)
+            ),
+            ChatMessage(
+                chatId: "chat-usage",
+                role: .assistant,
+                content: "Here is the summary.",
+                loadedNoteTitles: ["All Things Must Go"],
+                contextAttachments: [noteAttachment]
+            ),
+        ])
+
+        #expect(chatState.estimatedContextTokens > 2_000)
+        #expect(chatState.contextUsageFraction > 0.01)
+    }
 }
 
 @Suite("ChatState Local Messages")
 @MainActor
 struct ChatStateLocalMessageTests {
+    @Test("primed composer drafts survive a fused handoff until the main chat consumes them")
+    func primedComposerDraftPersistsUntilConsumed() {
+        let chatState = ChatState()
+
+        chatState.primeComposerDraft("Plan a multi-step refactor")
+
+        #expect(chatState.pendingComposerDraft == "Plan a multi-step refactor")
+        #expect(chatState.pendingComposerDraftRevision == 1)
+        #expect(chatState.consumePendingComposerDraft() == "Plan a multi-step refactor")
+        #expect(chatState.pendingComposerDraft == nil)
+        #expect(chatState.consumePendingComposerDraft() == nil)
+
+        chatState.primeComposerDraft("Plan a multi-step refactor")
+        #expect(chatState.pendingComposerDraftRevision == 2)
+    }
+
+    @Test("primed graph chat requests survive until the fused main chat consumes them")
+    func primedGraphChatRequestPersistsUntilConsumed() {
+        let chatState = ChatState()
+        let request = GraphChatRequest(
+            graphNodeId: "node-1",
+            sourceId: "page-1",
+            nodeType: "note",
+            nodeLabel: "Design Review",
+            route: .canvas
+        )
+
+        chatState.primeGraphChatRequest(request)
+
+        #expect(chatState.pendingGraphChatRequest == request)
+        #expect(chatState.consumePendingGraphChatRequest() == request)
+        #expect(chatState.pendingGraphChatRequest == nil)
+    }
+
     @Test("append local message creates an in-memory chat turn without streaming")
     func appendLocalMessageCreatesSessionAndMessage() {
         let chatState = ChatState()
@@ -2508,6 +3203,50 @@ struct ChatStateLocalMessageTests {
         #expect(chatState.messages.count == 2)
         #expect(chatState.messages.last?.content == "Partial but usable answer.")
         #expect(chatState.messages.last?.thinkingTrace?.contains("Thinking Process") == true)
+    }
+
+    @Test("conversation history carries interrupted reasoning checkpoints into the follow-up turn")
+    func conversationHistoryCarriesInterruptedReasoningCheckpoints() {
+        let chatState = ChatState()
+        chatState.loadMessages([
+            ChatMessage(
+                id: "user-before-stop",
+                chatId: "chat-interrupted-history",
+                role: .user,
+                content: "Work through the essay."
+            ),
+            ChatMessage(
+                id: "assistant-stopped",
+                chatId: "chat-interrupted-history",
+                role: .assistant,
+                content: "The model finished its thinking trace but never produced a final answer. Try Fast mode, a lower thinking level, or another model.",
+                thinkingTrace: "First compare the author’s veto account with the desert objection."
+            ),
+            ChatMessage(
+                id: "user-follow-up",
+                chatId: "chat-interrupted-history",
+                role: .user,
+                content: "Write the answer from your current reasoning."
+            )
+        ])
+
+        let history = chatState.serializedConversationHistory(
+            maxCharacters: 4_000,
+            maxMessages: 10
+        )
+
+        let unwrappedHistory = try? #require(history)
+        #expect(unwrappedHistory?.contains("Assistant reasoning checkpoint: First compare the author’s veto account with the desert objection.") == true)
+        #expect(unwrappedHistory?.contains("User: Write the answer from your current reasoning.") == false)
+    }
+
+    @Test("policy denied errors use human copy instead of the raw contract token")
+    func policyDeniedErrorsUseHumanCopy() {
+        let message = UserFacingChatError.message(from: BackendRuntimeContractError.policyDenied)
+
+        #expect(message != "policy_denied")
+        #expect(message.contains("blocked"))
+        #expect(message.contains("Tools/Agent mode"))
     }
 
     @Test("starting a new chat clears pending attachments and transient context")

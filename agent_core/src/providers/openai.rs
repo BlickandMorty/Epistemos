@@ -16,6 +16,7 @@ use tracing::{debug, warn};
 use crate::agent_loop::{AgentConfig, AgentError};
 use crate::error::{with_retry, RetryConfig};
 use crate::provider::{AgentProvider, MessageStream, ProviderCapabilities, StreamEvent};
+use crate::providers::schema::normalized_strict_tool_parameters;
 use crate::types::{
     ContentBlock, Message, StopReason, TokenUsage, ToolResultContent, ToolSchema, UserContent,
 };
@@ -906,22 +907,24 @@ fn build_codex_input(messages: &[Message]) -> Vec<Value> {
 }
 
 fn tool_schema_to_openai_json(tool: &ToolSchema) -> Value {
+    let parameters = normalized_strict_tool_parameters(&tool.parameters);
     json!({
         "type": "function",
         "function": {
             "name": tool.name,
             "description": tool.description,
-            "parameters": tool.parameters,
+            "parameters": parameters,
         },
     })
 }
 
 fn tool_schema_to_codex_json(tool: &ToolSchema) -> Value {
+    let parameters = normalized_strict_tool_parameters(&tool.parameters);
     json!({
         "type": "function",
         "name": tool.name,
         "description": tool.description,
-        "parameters": tool.parameters,
+        "parameters": parameters,
         "strict": true,
     })
 }
@@ -1014,7 +1017,8 @@ fn codex_reasoning_effort(config: &AgentConfig) -> &'static str {
     match config.effort {
         crate::agent_loop::Effort::Low => "low",
         crate::agent_loop::Effort::Medium => "medium",
-        crate::agent_loop::Effort::High | crate::agent_loop::Effort::Max => "high",
+        crate::agent_loop::Effort::High => "high",
+        crate::agent_loop::Effort::Max => "xhigh",
     }
 }
 
@@ -1186,6 +1190,17 @@ mod tests {
         assert_eq!(tool_json["function"]["name"], "read_file");
         assert_eq!(tool_json["function"]["description"], "Read a file");
         assert!(tool_json["function"]["parameters"]["properties"]["path"].is_object());
+    }
+
+    #[test]
+    fn codex_reasoning_effort_uses_xhigh_for_max() {
+        let config = AgentConfig {
+            enable_thinking: true,
+            effort: crate::agent_loop::Effort::Max,
+            ..AgentConfig::default()
+        };
+
+        assert_eq!(codex_reasoning_effort(&config), "xhigh");
     }
 
     // -- SSE chunk parsing tests --
@@ -1527,6 +1542,61 @@ mod tests {
     }
 
     #[test]
+    fn codex_tool_schema_closes_object_parameters_recursively_for_strict_mode() {
+        let schema = ToolSchema {
+            name: "write_file".to_string(),
+            description: "Write a file".to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string" },
+                    "options": {
+                        "type": "object",
+                        "properties": {
+                            "overwrite": { "type": "boolean" }
+                        }
+                    }
+                },
+                "required": ["path"]
+            }),
+        };
+
+        let tool_json = tool_schema_to_codex_json(&schema);
+        assert_eq!(tool_json["strict"], true);
+        assert_eq!(tool_json["parameters"]["additionalProperties"], false);
+        assert_eq!(
+            tool_json["parameters"]["properties"]["options"]["additionalProperties"],
+            false
+        );
+    }
+
+    #[test]
+    fn codex_tool_schema_requires_every_property_and_keeps_optional_inputs_nullable() {
+        let tool_json = tool_schema_to_codex_json(&crate::tools::filesystem::read_file_schema());
+        let mut required_names: Vec<&str> = tool_json["parameters"]["required"]
+            .as_array()
+            .expect("required array")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        required_names.sort_unstable();
+
+        assert_eq!(required_names, vec!["limit", "offset", "path"]);
+        assert_eq!(
+            tool_json["parameters"]["properties"]["path"]["type"],
+            json!("string")
+        );
+        assert_eq!(
+            tool_json["parameters"]["properties"]["offset"]["type"],
+            json!(["integer", "null"])
+        );
+        assert_eq!(
+            tool_json["parameters"]["properties"]["limit"]["type"],
+            json!(["integer", "null"])
+        );
+    }
+
+    #[test]
     fn codex_request_body_enables_auto_parallel_tool_calls_when_tools_exist() {
         let config = AgentConfig {
             system_prompt: Some("You are Hermes.".to_string()),
@@ -1558,5 +1628,83 @@ mod tests {
         assert_eq!(body["tools"][0]["type"], "function");
         assert_eq!(body["tools"][0]["name"], "terminal");
         assert!(body["tools"][0]["function"].is_null());
+    }
+
+    #[test]
+    fn registered_agent_tools_emit_codex_safe_object_schemas() {
+        use crate::storage::vault::VaultStore;
+        use crate::tools::registry::{ToolRegistry, ToolTier};
+        use std::sync::Arc;
+
+        let vault = tempfile::tempdir().unwrap();
+        let vault_path = vault.path().to_string_lossy().to_string();
+        let store = VaultStore::open(&vault_path).expect("open temp vault");
+        let registry = ToolRegistry::with_tier(
+            Arc::new(store),
+            true,
+            Some(vault.path().to_path_buf()),
+            ToolTier::Full,
+        );
+
+        for tool in registry.get_definitions() {
+            let tool_json = tool_schema_to_codex_json(&tool);
+            assert_closed_object_schemas(
+                &tool_json["parameters"],
+                true,
+                &format!("tool `{}`", tool.name),
+            );
+        }
+    }
+
+    fn assert_closed_object_schemas(value: &Value, is_root: bool, context: &str) {
+        if let Some(object) = value.as_object() {
+            let is_object_schema = object.get("type").and_then(Value::as_str) == Some("object");
+            let has_properties = matches!(object.get("properties"), Some(Value::Object(_)));
+            if is_object_schema && (is_root || has_properties) {
+                assert_eq!(
+                    object.get("additionalProperties").and_then(Value::as_bool),
+                    Some(false),
+                    "{context} should set additionalProperties=false"
+                );
+            }
+
+            if let Some(Value::Object(properties)) = object.get("properties") {
+                for (name, nested) in properties {
+                    assert_closed_object_schemas(
+                        nested,
+                        false,
+                        &format!("{context} property `{name}`"),
+                    );
+                }
+            }
+
+            if let Some(items) = object.get("items") {
+                assert_closed_object_schemas(items, false, &format!("{context} items"));
+            }
+
+            for key in ["anyOf", "oneOf", "allOf", "prefixItems"] {
+                if let Some(Value::Array(values)) = object.get(key) {
+                    for (index, nested) in values.iter().enumerate() {
+                        assert_closed_object_schemas(
+                            nested,
+                            false,
+                            &format!("{context} {key}[{index}]"),
+                        );
+                    }
+                }
+            }
+
+            for key in ["$defs", "definitions"] {
+                if let Some(Value::Object(values)) = object.get(key) {
+                    for (name, nested) in values {
+                        assert_closed_object_schemas(
+                            nested,
+                            false,
+                            &format!("{context} {key}.{name}"),
+                        );
+                    }
+                }
+            }
+        }
     }
 }

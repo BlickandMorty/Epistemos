@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::agent_loop::{run_agent_loop, AgentConfig, AgentError, Effort, PermissionConfig};
@@ -17,8 +18,9 @@ use crate::storage::contradiction_detector;
 use crate::storage::memory_classifier::{classify_memory_operation, MemoryOperation, VaultFact};
 use crate::storage::memory_decay::{batch_decay, collect_garbage, Importance, NodeStrength};
 use crate::storage::session_store::{self, SessionFolder};
-use crate::storage::vault::VaultStore;
+use crate::storage::vault::{SearchResult, VaultBackend, VaultError, VaultStore};
 use crate::tools::registry::ToolRegistry;
+use async_trait::async_trait;
 
 // MARK: - FFI Safety Boundary
 //
@@ -1057,6 +1059,140 @@ pub fn shm_total_segment_count() -> u32 {
 
 // MARK: - Context Loader FFI
 
+struct FilesystemPreviewVault {
+    vault_root: PathBuf,
+}
+
+impl FilesystemPreviewVault {
+    fn new(vault_root: PathBuf) -> Self {
+        Self { vault_root }
+    }
+
+    fn resolve_path(&self, relative: &str) -> Result<PathBuf, VaultError> {
+        let sanitized = relative.trim_start_matches('/').replace("..", "");
+        let absolute = self.vault_root.join(&sanitized);
+        if !absolute.starts_with(&self.vault_root) {
+            return Err(VaultError::PathTraversal(relative.to_string()));
+        }
+        Ok(absolute)
+    }
+}
+
+#[async_trait]
+impl VaultBackend for FilesystemPreviewVault {
+    async fn hybrid_search(
+        &self,
+        _query: &str,
+        _limit: usize,
+        _tag_filter: &[String],
+    ) -> Result<Vec<SearchResult>, VaultError> {
+        Ok(Vec::new())
+    }
+
+    async fn read(&self, path: &str) -> Result<String, VaultError> {
+        let absolute = self.resolve_path(path)?;
+        if !absolute.exists() {
+            return Err(VaultError::NotFound(path.to_string()));
+        }
+        Ok(std::fs::read_to_string(absolute)?)
+    }
+
+    async fn write(
+        &self,
+        _path: &str,
+        _content: &str,
+        _tags: Option<&[String]>,
+        _append: bool,
+    ) -> Result<(), VaultError> {
+        Err(VaultError::DatabaseError(
+            "preview vault is read-only".to_string(),
+        ))
+    }
+
+    async fn list(&self, path_prefix: &str) -> Result<Vec<String>, VaultError> {
+        let root = self.resolve_path(path_prefix)?;
+        if !root.exists() {
+            return Ok(Vec::new());
+        }
+
+        let mut entries = Vec::new();
+        for entry in std::fs::read_dir(root)? {
+            let entry = entry?;
+            let entry_path = entry.path();
+            let Ok(relative) = entry_path.strip_prefix(&self.vault_root) else {
+                continue;
+            };
+            entries.push(relative.to_string_lossy().replace('\\', "/"));
+        }
+        entries.sort();
+        Ok(entries)
+    }
+
+    async fn exists(&self, path: &str) -> Result<bool, VaultError> {
+        Ok(self.resolve_path(path)?.exists())
+    }
+
+    async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+        Err(VaultError::DatabaseError(
+            "preview vault is read-only".to_string(),
+        ))
+    }
+}
+
+fn should_fallback_to_filesystem_preview(error: &VaultError, vault_root: &Path) -> bool {
+    if !vault_root.is_dir() {
+        return false;
+    }
+
+    match error {
+        VaultError::IndexError(message) => {
+            let normalized = message.to_ascii_lowercase();
+            normalized.contains("lockbusy")
+                || normalized.contains("failed to acquire lockfile")
+                || normalized.contains("failed to acquire index lock")
+                || normalized.contains("indexwriter")
+        }
+        _ => false,
+    }
+}
+
+async fn build_preview_session_context_with_opener<F>(
+    vault_path: &Path,
+    objective: &str,
+    max_tokens: usize,
+    open_vault: F,
+) -> Result<String, AgentErrorFFI>
+where
+    F: FnOnce(&str) -> Result<VaultStore, VaultError>,
+{
+    let vault_path_string = vault_path.to_string_lossy().into_owned();
+
+    match open_vault(vault_path_string.as_str()) {
+        Ok(vault) => {
+            let ctx = crate::context_loader::load_session_context(
+                &vault, vault_path, objective, max_tokens,
+            )
+            .await;
+            Ok(ctx.to_xml())
+        }
+        Err(error) if should_fallback_to_filesystem_preview(&error, vault_path) => {
+            tracing::warn!(
+                "[ffi] preview_session_context falling back to filesystem reads: {}",
+                error
+            );
+            let vault = FilesystemPreviewVault::new(vault_path.to_path_buf());
+            let ctx = crate::context_loader::load_session_context(
+                &vault, vault_path, objective, max_tokens,
+            )
+            .await;
+            Ok(ctx.to_xml())
+        }
+        Err(error) => Err(AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        }),
+    }
+}
+
 /// Preview the 5-tier session context that would be injected for a given objective.
 /// Returns the XML-formatted context string.
 ///
@@ -1069,18 +1205,14 @@ pub async fn preview_session_context(
     max_tokens: u32,
 ) -> Result<String, AgentErrorFFI> {
     let handle = tokio::task::spawn(async move {
-        let vault = VaultStore::open(&vault_path).map_err(|e| AgentErrorFFI::AgentError {
-            message: format!("Failed to open vault: {e}"),
-        })?;
-        let vault_root = std::path::Path::new(&vault_path);
-        let ctx = crate::context_loader::load_session_context(
-            &vault,
-            vault_root,
+        let vault_root = PathBuf::from(vault_path);
+        build_preview_session_context_with_opener(
+            &vault_root,
             &objective,
             max_tokens as usize,
+            VaultStore::open_read_only,
         )
-        .await;
-        Ok::<String, AgentErrorFFI>(ctx.to_xml())
+        .await
     });
 
     match handle.await {
@@ -1688,9 +1820,10 @@ pub fn list_tools_for_tier(
     tier: String,
 ) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let vault = VaultStore::open(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
-            message: format!("Failed to open vault: {error}"),
-        })?;
+        let vault =
+            VaultStore::open_read_only(&vault_path).map_err(|error| AgentErrorFFI::AgentError {
+                message: format!("Failed to open vault: {error}"),
+            })?;
         let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(&tier);
         let registry = ToolRegistry::with_tier(
             Arc::new(vault),
@@ -1845,9 +1978,10 @@ fn build_registry_for_tool_tier(
     tier: &str,
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<ToolRegistry, AgentErrorFFI> {
-    let vault = VaultStore::open(vault_path).map_err(|error| AgentErrorFFI::AgentError {
-        message: format!("Failed to open vault: {error}"),
-    })?;
+    let vault =
+        VaultStore::open_read_only(vault_path).map_err(|error| AgentErrorFFI::AgentError {
+            message: format!("Failed to open vault: {error}"),
+        })?;
     let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(tier);
     let mut registry = ToolRegistry::with_tier(
         Arc::new(vault),
@@ -1863,8 +1997,10 @@ fn build_registry_for_tool_tier(
 
 #[cfg(test)]
 mod tests {
+    use super::build_preview_session_context_with_opener;
     use super::list_tools_for_tier;
     use super::resolve_provider_selection_preview;
+    use crate::storage::vault::VaultError;
 
     #[test]
     fn explicit_provider_override_stays_forced() {
@@ -1914,5 +2050,31 @@ mod tests {
         .expect("tool list");
 
         assert!(!tools.iter().any(|tool| tool.name == "image_generate"));
+    }
+
+    #[tokio::test]
+    async fn preview_session_context_falls_back_when_index_lock_is_busy() {
+        let vault = tempfile::tempdir().unwrap();
+        std::fs::write(
+            vault.path().join("SOUL.md"),
+            "You are resuming a useful session.",
+        )
+        .unwrap();
+
+        let preview = build_preview_session_context_with_opener(
+            vault.path(),
+            "summarize the current note",
+            8_000,
+            |_| {
+                Err(VaultError::IndexError(
+                    "Failed to acquire Lockfile: LockBusy".to_string(),
+                ))
+            },
+        )
+        .await
+        .expect("preview should fall back to filesystem reads");
+
+        assert!(preview.contains("<session-context>"));
+        assert!(preview.contains("You are resuming a useful session."));
     }
 }

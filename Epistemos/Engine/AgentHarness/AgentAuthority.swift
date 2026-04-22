@@ -124,6 +124,60 @@ nonisolated enum AgentAuthorityDefaults {
     }
 }
 
+nonisolated enum AgentAuthorityQuickSetupPreset: String, CaseIterable, Identifiable, Sendable {
+    case recommended = "Recommended"
+    case lessInterruptions = "Less Interruptions"
+    case cautious = "Review More"
+
+    var id: String { rawValue }
+
+    var description: String {
+        switch self {
+        case .recommended:
+            "Use the default trust boundaries Epistemos ships with."
+        case .lessInterruptions:
+            "Auto-allow normal vault, workspace, network, and git work, while still asking before installs, app control, or destructive actions."
+        case .cautious:
+            "Keep normal reads flowing, but ask before most writes or external actions."
+        }
+    }
+
+    var decisions: [AgentAuthorityCategory: AuthorityDecision] {
+        switch self {
+        case .recommended:
+            return AgentAuthorityDefaults.defaultPolicy()
+        case .lessInterruptions:
+            return [
+                .vaultRead: .autoAllow,
+                .vaultWrite: .autoAllow,
+                .outOfVaultFileAccess: .autoAllow,
+                .networkFetch: .autoAllow,
+                .downloadArtifact: .autoAllow,
+                .gitOperation: .autoAllow,
+                .packageInstall: .askFirst,
+                .runDownloadedScript: .askFirst,
+                .externalAppAutomation: .askFirst,
+                .destructiveFileOp: .askFirst,
+                .systemProtected: .neverAllow,
+            ]
+        case .cautious:
+            return [
+                .vaultRead: .autoAllow,
+                .vaultWrite: .askFirst,
+                .outOfVaultFileAccess: .askFirst,
+                .networkFetch: .autoAllow,
+                .downloadArtifact: .askFirst,
+                .gitOperation: .askFirst,
+                .packageInstall: .askFirst,
+                .runDownloadedScript: .askFirst,
+                .externalAppAutomation: .askFirst,
+                .destructiveFileOp: .askFirst,
+                .systemProtected: .neverAllow,
+            ]
+        }
+    }
+}
+
 /// Workspace-scoped snapshot of the authority policy. Codable so we can
 /// round-trip it through vault JSON, the same way the existing
 /// AgentApprovalPolicyStore persists allow/block pattern lists.
@@ -139,6 +193,28 @@ nonisolated struct AgentAuthorityPolicySnapshot: Codable, Equatable, Sendable {
     func decision(for category: AgentAuthorityCategory) -> AuthorityDecision {
         decisions[category] ?? AgentAuthorityDefaults.decision(for: category)
     }
+
+    func normalized() -> AgentAuthorityPolicySnapshot {
+        var normalizedDecisions = AgentAuthorityDefaults.defaultPolicy()
+        for category in AgentAuthorityCategory.allCases {
+            let proposed = decisions[category] ?? normalizedDecisions[category] ?? .askFirst
+            normalizedDecisions[category] = Self.normalizedDecision(proposed, for: category)
+        }
+        return AgentAuthorityPolicySnapshot(
+            decisions: normalizedDecisions,
+            lastModified: lastModified
+        )
+    }
+
+    fileprivate static func normalizedDecision(
+        _ decision: AuthorityDecision,
+        for category: AgentAuthorityCategory
+    ) -> AuthorityDecision {
+        if category == .systemProtected, decision == .autoAllow {
+            return .neverAllow
+        }
+        return decision
+    }
 }
 
 /// Observable store that UI can bind to. Persistence is pluggable so tests
@@ -152,20 +228,33 @@ final class AgentAuthorityStore {
 
     init(persistence: AgentAuthorityPersistence = InMemoryAgentAuthorityPersistence()) {
         self.persistence = persistence
-        self.snapshot = persistence.load() ?? .default
+        self.snapshot = persistence.load()?.normalized() ?? .default
     }
 
     func setDecision(_ decision: AuthorityDecision, for category: AgentAuthorityCategory) {
         var updated = snapshot
-        updated.decisions[category] = decision
+        updated.decisions[category] = AgentAuthorityPolicySnapshot.normalizedDecision(
+            decision,
+            for: category
+        )
         updated.lastModified = Date()
-        snapshot = updated
-        persistence.save(updated)
+        snapshot = updated.normalized()
+        persistence.save(snapshot)
+    }
+
+    func applyPreset(_ decisions: [AgentAuthorityCategory: AuthorityDecision]) {
+        var updated = snapshot
+        for (category, decision) in decisions {
+            updated.decisions[category] = decision
+        }
+        updated.lastModified = Date()
+        snapshot = updated.normalized()
+        persistence.save(snapshot)
     }
 
     func reset(to defaults: AgentAuthorityPolicySnapshot = .default) {
-        snapshot = defaults
-        persistence.save(defaults)
+        snapshot = defaults.normalized()
+        persistence.save(snapshot)
     }
 }
 
@@ -188,7 +277,7 @@ final class InMemoryAgentAuthorityPersistence: AgentAuthorityPersistence, @unche
     func load() -> AgentAuthorityPolicySnapshot? { snapshot }
 
     func save(_ snapshot: AgentAuthorityPolicySnapshot) {
-        self.snapshot = snapshot
+        self.snapshot = snapshot.normalized()
     }
 }
 
@@ -224,7 +313,7 @@ final class FileBackedAgentAuthorityPersistence: AgentAuthorityPersistence, @unc
             let data = try Data(contentsOf: storageURL)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            return try decoder.decode(AgentAuthorityPolicySnapshot.self, from: data)
+            return try decoder.decode(AgentAuthorityPolicySnapshot.self, from: data).normalized()
         } catch {
             log.error(
                 "Failed to decode agent_authority.json; falling back to defaults: \(error.localizedDescription, privacy: .public)"
@@ -238,12 +327,162 @@ final class FileBackedAgentAuthorityPersistence: AgentAuthorityPersistence, @unc
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         do {
-            let data = try encoder.encode(snapshot)
+            let data = try encoder.encode(snapshot.normalized())
             try data.write(to: storageURL, options: [.atomic])
         } catch {
             log.error(
                 "Failed to write agent_authority.json: \(error.localizedDescription, privacy: .public)"
             )
         }
+    }
+}
+
+extension AgentPermissionRequest {
+    nonisolated private static let networkFetchTools: Set<String> = [
+        "browser",
+        "browser_open",
+        "browser_snapshot",
+        "fetch_url",
+        "github_search",
+        "http_fetch",
+        "search_web",
+        "tavily_search",
+        "web_fetch",
+        "web_search",
+    ]
+
+    nonisolated private static let gitOperationTools: Set<String> = [
+        "git",
+        "git_clone",
+        "git_pull",
+        "git_push",
+    ]
+
+    nonisolated private static let downloadArtifactTools: Set<String> = [
+        "download",
+        "download_artifact",
+        "download_file",
+        "install_model",
+        "model_download",
+        "plugin_install",
+    ]
+
+    nonisolated private static let externalAutomationTools: Set<String> = [
+        "apple_script",
+        "applescript",
+        "computer",
+        "computer_use",
+        "ui_automation",
+    ]
+
+    nonisolated func authorityCategory(vaultPath: String?) -> AgentAuthorityCategory {
+        if riskLevel == .destructive {
+            return .destructiveFileOp
+        }
+
+        let normalizedToolName = Self.trimmed(toolName).lowercased()
+        if Self.networkFetchTools.contains(normalizedToolName) {
+            return .networkFetch
+        }
+        if Self.gitOperationTools.contains(normalizedToolName) {
+            return .gitOperation
+        }
+        if Self.downloadArtifactTools.contains(normalizedToolName) {
+            return .downloadArtifact
+        }
+        if Self.externalAutomationTools.contains(normalizedToolName) {
+            return .externalAppAutomation
+        }
+
+        if let command = normalizedCommand {
+            if Self.isPackageInstallCommand(command) {
+                return .packageInstall
+            }
+            if Self.isDownloadedScriptCommand(command) {
+                return .runDownloadedScript
+            }
+        }
+
+        switch permissionCategory {
+        case .localDataRead:
+            return targetsOutOfVaultPath(vaultPath: vaultPath) ? .outOfVaultFileAccess : .vaultRead
+        case .localDataWrite:
+            return targetsOutOfVaultPath(vaultPath: vaultPath) ? .outOfVaultFileAccess : .vaultWrite
+        case .genericRead:
+            return .networkFetch
+        case .modification:
+            return .externalAppAutomation
+        case .destructive:
+            return .destructiveFileOp
+        }
+    }
+
+    nonisolated private var normalizedCommand: String? {
+        guard let command = authorityJSONObject?["command"] as? String else {
+            return nil
+        }
+        let trimmed = Self.trimmed(command).lowercased()
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    nonisolated private func targetsOutOfVaultPath(vaultPath: String?) -> Bool {
+        let normalizedToolName = Self.trimmed(toolName).lowercased()
+        if normalizedToolName.hasPrefix("vault_") {
+            return false
+        }
+
+        guard let rawPath = (authorityJSONObject?["path"] as? String).map(Self.trimmed),
+              !rawPath.isEmpty else {
+            return false
+        }
+
+        // Relative note titles and workspace-relative paths should stay in the
+        // vault/workspace approval bucket so remembered approvals apply to the
+        // common note-read/write flows.
+        guard rawPath.hasPrefix("/") else {
+            return false
+        }
+
+        guard let vaultPath,
+              !Self.trimmed(vaultPath).isEmpty else {
+            return true
+        }
+
+        let standardizedPath = URL(fileURLWithPath: rawPath).standardizedFileURL.path
+        let standardizedVaultPath = URL(fileURLWithPath: vaultPath).standardizedFileURL.path
+        if standardizedPath == standardizedVaultPath {
+            return false
+        }
+        return !standardizedPath.hasPrefix(standardizedVaultPath + "/")
+    }
+
+    nonisolated private static func isPackageInstallCommand(_ command: String) -> Bool {
+        [
+            "brew ",
+            "pip ",
+            "pip3 ",
+            "python -m pip ",
+            "uv pip ",
+            "cargo install ",
+            "npm install ",
+            "pnpm add ",
+            "yarn add ",
+        ].contains { command.hasPrefix($0) }
+    }
+
+    nonisolated private static func isDownloadedScriptCommand(_ command: String) -> Bool {
+        command.hasPrefix("bash ") || command.hasPrefix("sh ") || command.hasPrefix("zsh ")
+    }
+
+    nonisolated private static func trimmed(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    nonisolated private var authorityJSONObject: [String: Any]? {
+        guard let data = inputJson.data(using: .utf8),
+              let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        return value
     }
 }

@@ -10,6 +10,7 @@ struct VaultManifestTests {
             VaultManifest.ManifestEntry(
                 pageId: "p1",
                 title: "Quantum Notes",
+                relativePath: "Research/Quantum Notes.md",
                 tags: ["physics", "math"],
                 folderName: "Research",
                 wordCount: 420,
@@ -20,6 +21,7 @@ struct VaultManifestTests {
             VaultManifest.ManifestEntry(
                 pageId: "p2",
                 title: "Daily Journal",
+                relativePath: "Daily Journal.md",
                 tags: [],
                 folderName: nil,
                 wordCount: 120,
@@ -30,8 +32,18 @@ struct VaultManifestTests {
         ]
 
         let recentBodies = [
-            VaultManifest.NoteBody(pageId: "p1", title: "Quantum Notes", body: "Full body A"),
-            VaultManifest.NoteBody(pageId: "p2", title: "Daily Journal", body: "Full body B"),
+            VaultManifest.NoteBody(
+                pageId: "p1",
+                title: "Quantum Notes",
+                relativePath: "Research/Quantum Notes.md",
+                body: "Full body A"
+            ),
+            VaultManifest.NoteBody(
+                pageId: "p2",
+                title: "Daily Journal",
+                relativePath: "Daily Journal.md",
+                body: "Full body B"
+            ),
         ]
 
         return VaultManifest(
@@ -72,6 +84,7 @@ struct VaultManifestTests {
         #expect(context.contains("Renormalization and field operators"))
         #expect(context.contains("## Recent Notes (full content)"))
         #expect(context.contains("### Quantum Notes"))
+        #expect(context.contains("Canonical vault-relative path (use this with `vault_read`): Research/Quantum Notes.md"))
         #expect(context.contains("Full body B"))
     }
 
@@ -108,7 +121,12 @@ struct VaultManifestTests {
             manifest: manifest,
             includeManifest: true,
             referencedNotes: [
-                VaultManifest.NoteBody(pageId: "p1", title: "Quantum Notes", body: "Referenced body A"),
+                VaultManifest.NoteBody(
+                    pageId: "p1",
+                    title: "Quantum Notes",
+                    relativePath: "Research/Quantum Notes.md",
+                    body: "Referenced body A"
+                ),
             ],
             matchedVaultNotes: [],
             cleanedQuery: "Compare Quantum Notes"
@@ -122,6 +140,7 @@ struct VaultManifestTests {
         #expect(manifestRange.location != NSNotFound)
         #expect(referencedRange.location != NSNotFound)
         #expect(manifestRange.location < referencedRange.location)
+        #expect(rendered.contains("Canonical vault-relative path (use this with `vault_read`): Research/Quantum Notes.md"))
         #expect(!rendered.contains("### Previously Referenced:"))
         #expect(pack.cleanedQuery == "Compare Quantum Notes")
     }

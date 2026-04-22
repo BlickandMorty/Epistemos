@@ -834,7 +834,7 @@ struct AuditHardeningRegressionTests {
         #expect(notesSidebar.contains(".accessibilityLabel(\"Clear search\")"))
 
         #expect(landing.contains(".accessibilityLabel(\"Send prompt\")"))
-        #expect(landing.contains("landingPromptSurface: LandingPromptSurface = .chat"))
+        #expect(!landing.contains("landingPromptSurface: LandingPromptSurface = .chat"))
         #expect(!landing.contains("label: \"Command Center\""))
         #expect(!landing.contains(".accessibilityLabel(\"Local Model\")"))
         #expect(landing.contains("ProgressView()"))

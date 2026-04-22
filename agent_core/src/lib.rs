@@ -30,6 +30,7 @@ pub mod providers {
     pub mod openai;
     pub mod openai_compatible;
     pub mod perplexity;
+    pub mod schema;
 }
 
 pub mod storage {
@@ -62,6 +63,7 @@ pub mod tools {
     pub mod clarify;
     pub mod communication;
     pub mod computer_use;
+    pub mod custom_tools;
     pub mod delegate_task;
     pub mod discovery;
     pub mod file_ops;

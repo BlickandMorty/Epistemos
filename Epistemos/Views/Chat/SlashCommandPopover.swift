@@ -13,6 +13,7 @@
 import SwiftUI
 
 struct SlashCommandPopover: View {
+    let commands: [ACCSlashCommand]
     let filter: String
     let onSelect: (ACCSlashCommand) -> Void
 
@@ -21,10 +22,9 @@ struct SlashCommandPopover: View {
     private var theme: EpistemosTheme { ui.theme }
 
     private var filteredCommands: [ACCSlashCommand] {
-        let allCommands = ACCSlashCommand.allCases
         let query = filter.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !query.isEmpty else { return allCommands }
-        return allCommands.filter { command in
+        guard !query.isEmpty else { return commands }
+        return commands.filter { command in
             command.rawValue.lowercased().contains(query)
                 || command.displayName.lowercased().contains(query)
         }
@@ -64,12 +64,12 @@ struct SlashCommandPopover: View {
             Image(systemName: "command")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
-            Text("Slash commands")
+            Text("Commands")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.secondary)
             Spacer()
             if !filter.isEmpty {
-                Text("Filter: \(filter)")
+                Text(filter)
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -94,7 +94,7 @@ struct SlashCommandPopover: View {
 
     private var footer: some View {
         HStack {
-            Text("Type to filter · Esc to dismiss")
+            Text("Type to filter")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
             Spacer()

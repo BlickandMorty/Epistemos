@@ -2,6 +2,17 @@ import Foundation
 import Observation
 import os
 
+nonisolated enum ChatResponseStyleGuide {
+    static let mainChatSystemInstruction = """
+    Prefer flowing prose over outlines and bullet lists unless the user asks for structure or the material truly needs it.
+    Aim for a conversational, reflective voice that feels like thinking with the user, not lecturing at them.
+    When the topic is philosophical or introspective, go deeper instead of defaulting to a list.
+    Keep provenance explicit: attached notes/files/chats are not the same thing as vault material you had to go find.
+    If the user asks you to find, open, summarize, copy, or edit a vault note, only say you found or read it after the vault lookup actually succeeded.
+    If a required tool lookup is blocked, denied, or unreadable, say that plainly and stop instead of pretending the lookup succeeded.
+    """
+}
+
 // MARK: - Notes Operation
 
 /// Classifies each notes AI operation with a base complexity score.
@@ -622,7 +633,9 @@ nonisolated struct InferencePolicyEngine {
                 preferredOrder = [
                     .hermes43_36B4Bit, .hermes43_36B3Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3Coder30BA3B4Bit, .deepseekR1Distill7B,
+                    .qwen3_8B4Bit,
+                    .qwen3Coder30BA3B4Bit, .qwen3CoderNext4Bit,
+                    .deepseekR1Distill7B,
                 ]
             }
         case .pro:
@@ -636,7 +649,9 @@ nonisolated struct InferencePolicyEngine {
             default:
                 preferredOrder = [
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen3_8B4Bit,
                     .deepseekR1Distill7B, .hermes43_36B4Bit,
+                    .gemma3_27BQAT4Bit, .gemma3_4BQAT4Bit,
                     .qwen3_4B4Bit,
                 ]
             }
@@ -647,12 +662,14 @@ nonisolated struct InferencePolicyEngine {
                     .qwqFlagship32B4Bit, .deepseekR1Distill7B,
                     .qwen3Coder30BA3B4Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+                    .qwen3_8B4Bit, .qwen3_4BThinking25074Bit,
                 ]
             default:
                 preferredOrder = [
                     // QwQ 32B leads thinking mode — comparable reasoning
                     // quality to DeepSeek R1 at 32B on harder prompts.
                     .qwqFlagship32B4Bit, .deepseekR1Distill7B,
+                    .qwen3_4BThinking25074Bit, .qwen3_8B4Bit,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     .qwen3_4B4Bit,
                 ]
@@ -662,27 +679,29 @@ nonisolated struct InferencePolicyEngine {
             case .coding, .debugging:
                 preferredOrder = [
                     .qwen3CoderNext4Bit, .qwen3Coder30BA3B4Bit,
-                    .deepseekR1Distill7B,
+                    .qwen3_8B4Bit, .deepseekR1Distill7B,
                     .qwen3_4B4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
                 ]
             case .comparison, .synthesis, .noteAnalysis, .graphAnalysis:
                 preferredOrder = [
-                    .deepseekR1Distill7B,
+                    .qwen3_8B4Bit, .deepseekR1Distill7B,
                     .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                    .qwen3_4B4Bit, .qwen3CoderNext4Bit,
+                    .gemma3_4BQAT4Bit, .qwen3_4B4Bit, .qwen3CoderNext4Bit,
                     .bonsai8B2Bit, .bonsai4B2Bit,
                 ]
             case .rewrite, .summarize, .simpleAsk, .brainstorm:
                 if oversizedContext || heavyWork {
                     preferredOrder = [
+                        .qwen3_8B4Bit,
                         .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
-                        .deepseekR1Distill7B, .qwen3_4B4Bit,
-                        .bonsai8B2Bit, .bonsai4B2Bit,
+                        .deepseekR1Distill7B, .gemma3_4BQAT4Bit, .qwen3_4B4Bit,
+                        .llama32_3BInstruct4Bit, .bonsai8B2Bit, .bonsai4B2Bit,
                     ]
                 } else {
                     preferredOrder = [
-                        .qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit,
-                        .deepseekR1Distill7B,
+                        .qwen3_4B4Bit, .llama32_3BInstruct4Bit, .gemma3_4BQAT4Bit,
+                        .bonsai4B2Bit, .bonsai8B2Bit,
+                        .qwen3_8B4Bit, .deepseekR1Distill7B,
                         .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
                     ]
                 }
@@ -913,7 +932,8 @@ nonisolated enum CloudRoutingError: LocalizedError {
 final class TriageService {
     private static let localMLXBaselineSystemPrompt = """
     You are Epistemos' local on-device assistant.
-    Answer directly and concisely.
+    Answer directly and clearly.
+    \(ChatResponseStyleGuide.mainChatSystemInstruction)
     Do not narrate tool plans, function calls, or internal reasoning in the visible answer.
     Do not claim to have browsing, external tool use, research mode, or hidden capabilities you do not actually have.
     Do not claim to be a different model.
@@ -925,12 +945,14 @@ final class TriageService {
     /// No refusal-coaching lines that conflict with the model's fine-tuning.
     private static let localAbliteratedBaselineSystemPrompt = """
     You are Epistemos' local on-device assistant.
-    Answer directly and concisely.
+    Answer directly and clearly.
+    \(ChatResponseStyleGuide.mainChatSystemInstruction)
     """
 
     private static let cloudBaselineSystemPrompt = """
     You are a helpful assistant inside Epistemos, a personal knowledge management app.
-    Answer directly and concisely.
+    Answer directly and clearly.
+    \(ChatResponseStyleGuide.mainChatSystemInstruction)
     Use polished spelling and grammar.
     You have access to the user's knowledge graph context when provided.
     If the answer is uncertain, say so plainly instead of fabricating confidence.
@@ -2271,12 +2293,62 @@ final class TriageService {
         if reasoningMode == .fast {
             parts.append("If your template supports it, treat this turn as /no_think and return only the final answer.")
         }
+        if let modelSpecificPrompt = localModelSpecificSystemPrompt(
+            modelID: modelID,
+            reasoningMode: reasoningMode
+        ) {
+            parts.append(modelSpecificPrompt)
+        }
         guard let systemPrompt,
               !systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return parts.joined(separator: "\n\n")
         }
         parts.append(systemPrompt)
         return parts.joined(separator: "\n\n")
+    }
+
+    private static func localModelSpecificSystemPrompt(
+        modelID: String?,
+        reasoningMode: LocalReasoningMode
+    ) -> String? {
+        guard let modelID,
+              let model = LocalTextModelID(rawValue: modelID) else {
+            return nil
+        }
+
+        var parts: [String] = []
+
+        switch model.primaryUseCase {
+        case .routing:
+            parts.append("Favor concise, decisive answers and lightweight classification over long digressions.")
+        case .reasoning:
+            parts.append("Use deeper reasoning when it materially helps, then present a clean final answer without exposing raw chain-of-thought.")
+        case .coding:
+            parts.append("Prioritize concrete, runnable code, minimal diffs, exact commands, and precise debugging steps.")
+        case .multimodal:
+            parts.append("If image attachments are present, use them as first-class evidence instead of ignoring them.")
+        case .general:
+            break
+        }
+
+        if model.supportsNativeToolCalling {
+            parts.append("When tools are actually available through this runtime, prefer structured tool use over narrating imaginary tool plans.")
+        }
+
+        if model.supportsVision,
+           !parts.contains(where: { $0.contains("If image attachments are present") }) {
+            parts.append("If image attachments are present, ground claims in the visible content and say when the evidence is ambiguous.")
+        }
+
+        if reasoningMode == .thinking, model.supportsThinkingMode {
+            parts.append("Keep the visible answer polished and concise even when the model reasons more deeply internally.")
+            parts.append("When Thinking mode is enabled, emit that reasoning inside <think>...</think> tags so the UI can show it in the separate thinking panel.")
+            parts.append("Put the final user-facing answer only after </think>.")
+            parts.append("Never place raw reasoning, self-talk, or analysis notes outside <think>...</think>.")
+        }
+
+        guard !parts.isEmpty else { return nil }
+        return parts.joined(separator: "\n")
     }
 
     private func userFacingStream(

@@ -64,6 +64,15 @@ struct MetalGraphViewBootstrapTests {
         )
     }
 
+    @Test("global default camera paths share the padded fit helper")
+    func globalDefaultCameraPathsShareHelper() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
+
+        #expect(source.contains("applyDefaultGlobalCameraFrame(animated: false)"))
+        #expect(source.contains("applyDefaultGlobalCameraFrame(animated: true)"))
+        #expect(source.contains("GraphOverlayPhysicsPolicy.defaultGlobalCameraMagnification"))
+    }
+
     @MainActor
     @Test("initial commit syncs mode and graph data versions")
     func initialCommitSyncsTrackedVersions() {

@@ -106,7 +106,13 @@ final class AgentChatState {
     private var thinkTagRouter = ThinkTagStreamRouter()
 
     @ObservationIgnored
+    private var userFacingStreamRouter = UserFacingStreamRouter()
+
+    @ObservationIgnored
     private var hasStartedVisibleAnswer = false
+
+    @ObservationIgnored
+    private var hasExplicitThinkingTrace = false
 
     // MARK: - Init
 
@@ -176,24 +182,27 @@ final class AgentChatState {
     func appendStreamingText(_ text: String) {
         let emit = thinkTagRouter.ingest(text)
         if !emit.thinking.isEmpty {
-            appendStreamingThinking(emit.thinking)
+            appendStreamingThinking(emit.thinking, explicit: true)
         }
-
-        if !emit.visible.isEmpty {
-            hasStartedVisibleAnswer = true
-            if isThinkingActive {
-                isThinkingActive = false
-                thinkingEndedAt = Date()
-            }
-            streamBuffer.append(emit.visible, scheduleFlush: true)
+        if hasExplicitThinkingTrace, !hasStartedVisibleAnswer {
+            routeVisibleStreamingText(emit.visible, scheduleFlush: true)
+            return
         }
+        let visibleEmit = userFacingStreamRouter.ingest(emit.visible)
+        if !visibleEmit.thinking.isEmpty {
+            appendStreamingThinking(visibleEmit.thinking)
+        }
+        routeVisibleStreamingText(visibleEmit.visible, scheduleFlush: true)
     }
 
     /// Accumulate a live thinking delta for the streaming agent turn.
     /// The first delta starts the popover (isThinkingActive = true +
     /// thinkingStartedAt); subsequent deltas append to streamingThinking so
     /// the UI can render the reasoning live instead of a blank spinner.
-    func appendStreamingThinking(_ text: String) {
+    func appendStreamingThinking(_ text: String, explicit: Bool = false) {
+        if explicit {
+            hasExplicitThinkingTrace = true
+        }
         if !hasStartedVisibleAnswer, !isThinkingActive {
             isThinkingActive = true
         }
@@ -223,6 +232,8 @@ final class AgentChatState {
         thinkingStartedAt = nil
         thinkingEndedAt = nil
         hasStartedVisibleAnswer = false
+        hasExplicitThinkingTrace = false
+        userFacingStreamRouter.reset()
     }
 
     func stopStreaming() {
@@ -238,16 +249,29 @@ final class AgentChatState {
     private func flushThinkTagRouter() {
         let emit = thinkTagRouter.flush()
         if !emit.thinking.isEmpty {
-            appendStreamingThinking(emit.thinking)
+            appendStreamingThinking(emit.thinking, explicit: true)
         }
-        if !emit.visible.isEmpty {
-            hasStartedVisibleAnswer = true
-            if isThinkingActive {
-                isThinkingActive = false
-                thinkingEndedAt = Date()
-            }
-            streamBuffer.append(emit.visible, scheduleFlush: false)
+        if hasExplicitThinkingTrace, !hasStartedVisibleAnswer {
+            routeVisibleStreamingText(emit.visible, scheduleFlush: false)
+            routeVisibleStreamingText(userFacingStreamRouter.flush().visible, scheduleFlush: false)
+            return
         }
+        let visibleEmit = userFacingStreamRouter.ingest(emit.visible)
+        if !visibleEmit.thinking.isEmpty {
+            appendStreamingThinking(visibleEmit.thinking)
+        }
+        routeVisibleStreamingText(visibleEmit.visible, scheduleFlush: false)
+        routeVisibleStreamingText(userFacingStreamRouter.flush().visible, scheduleFlush: false)
+    }
+
+    private func routeVisibleStreamingText(_ text: String, scheduleFlush: Bool) {
+        guard !text.isEmpty else { return }
+        hasStartedVisibleAnswer = true
+        if isThinkingActive {
+            isThinkingActive = false
+            thinkingEndedAt = Date()
+        }
+        streamBuffer.append(text, scheduleFlush: scheduleFlush)
     }
 
     // MARK: - Tool Tracking
@@ -334,7 +358,7 @@ final class AgentChatState {
             activeToolInputJson = nil
             isAgentExecuting = false
             addErrorMessage(
-                "No response received. The agent returned an empty stream — try again or switch models."
+                "No response received. The tools run returned an empty stream — try again or switch models."
             )
             return
         }

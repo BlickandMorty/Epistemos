@@ -43,7 +43,7 @@ nonisolated enum HermesPromptBuilder {
         <tool_call>
         {"name": <function-name>, "arguments": <args-dict>}
         </tool_call>
-        Use <scratch_pad></scratch_pad> for your reasoning before calling functions.
+        Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.
         """
 
         if tools.isEmpty {

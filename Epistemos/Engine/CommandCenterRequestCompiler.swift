@@ -35,7 +35,7 @@ import agent_coreFFI
 //
 // `CompiledCommandCenterRequest` and all its nested Codable types stay
 // authoritative as the Swift-facing contract — downstream consumers
-// (ChatCoordinator, InspectorPanelView, CommandCenterDiagnostics) keep
+// (ChatCoordinator and CommandCenterDiagnostics) keep
 // binding the same shapes. The Rust side encodes the same JSON shape, and
 // the existing Codable parity tests are the golden contract for both sides.
 
@@ -197,7 +197,7 @@ struct CommandCenterRequestCompiler {
             maxToolCalls: 0,
             maxOutputTokens: 4_096,
             expertAllowlist: ["general"],
-            summary: "Agent: compile failed — \(reason)"
+            summary: "Tools: compile failed — \(reason)"
         )
         return CompiledCommandCenterRequest(
             contractVersion: Self.contractVersion,

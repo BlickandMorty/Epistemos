@@ -902,7 +902,7 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             executionPolicyRef: nil,
             steeringHintsJSON: request.steeringHintsJSON,
             priority: 0,
-            timeoutMS: 60_000,
+            timeoutMS: BackendRuntimeTimeouts.localGenerationMS,
             streamOptions: BackendGenerationStreamOptions()
         )
     }
@@ -1415,7 +1415,7 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     func unload() async {
-        performUnload()
+        await performUnload()
     }
 
     func updateRuntimeConditions(_ conditions: LocalRuntimeConditions) async {
@@ -1428,7 +1428,7 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
         guard activeRequestCount == 0, container != nil else { return }
         if conditions.thermalState == .critical {
-            performUnload()
+            await performUnload()
         } else if conditions.appActive {
             cancelScheduledUnload()
         } else {
@@ -1436,13 +1436,19 @@ actor MLXInferenceService: LocalMLXRuntime {
         }
     }
 
-    private func performUnload() {
+    private func performUnload() async {
         cancelScheduledUnload()
         container = nil
         loadedModelID = nil
         persistentSSMSession = nil
         persistentSSMModelID = nil
         persistentSSMSessionID = nil
+        let runtimeManager = metalRuntimeManager
+        metalRuntimeManager = nil
+        preparedCustomSSMRuntimeKey = nil
+        await MainActor.run {
+            runtimeManager?.releaseWorkingSet()
+        }
         Memory.cacheLimit = 0
         Memory.clearCache()
         let policy = currentRuntimePolicy()

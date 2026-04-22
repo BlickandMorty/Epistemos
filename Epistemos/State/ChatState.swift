@@ -97,8 +97,52 @@ struct ChatBrainSnapshot: Sendable, Equatable {
     }
 }
 
+struct CapturedModelInput: Sendable, Equatable {
+    let capturedAt: Date
+    let runtimeLabel: String
+    let systemPrompt: String?
+    let userPrompt: String
+    let messageHistory: String?
+    let toolDefinitionsJSON: String?
+
+    init(
+        capturedAt: Date = Date(),
+        runtimeLabel: String,
+        systemPrompt: String?,
+        userPrompt: String,
+        messageHistory: String?,
+        toolDefinitionsJSON: String?
+    ) {
+        self.capturedAt = capturedAt
+        self.runtimeLabel = runtimeLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let trimmedSystemPrompt = systemPrompt?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.systemPrompt = trimmedSystemPrompt?.isEmpty == true ? nil : trimmedSystemPrompt
+
+        self.userPrompt = userPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let trimmedHistory = messageHistory?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.messageHistory = trimmedHistory?.isEmpty == true ? nil : trimmedHistory
+
+        let trimmedToolDefinitions = toolDefinitionsJSON?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.toolDefinitionsJSON = trimmedToolDefinitions?.isEmpty == true ? nil : trimmedToolDefinitions
+    }
+}
+
 enum StreamingReasoningTraceBuffer {
     static let postAnswerDisplaySeparator = "After-answer thought:\n"
+
+    private static func deltaToAppend(current: String, incoming: String) -> String {
+        guard !incoming.isEmpty else { return "" }
+        guard !current.isEmpty else { return incoming }
+        if incoming == current || current.hasSuffix(incoming) {
+            return ""
+        }
+        if incoming.hasPrefix(current) {
+            return String(incoming.dropFirst(current.count))
+        }
+        return incoming
+    }
 
     static func append(
         _ text: String,
@@ -118,6 +162,9 @@ enum StreamingReasoningTraceBuffer {
             postAnswerThinking.removeAll(keepingCapacity: true)
         }
 
+        let textToAppend = deltaToAppend(current: streamingThinking, incoming: text)
+        guard !textToAppend.isEmpty else { return }
+
         if hasStartedVisibleAnswer {
             if isThinkingActive {
                 isThinkingActive = false
@@ -128,13 +175,13 @@ enum StreamingReasoningTraceBuffer {
                 }
                 streamingThinking.append(postAnswerDisplaySeparator)
             }
-            postAnswerThinking.append(text)
+            postAnswerThinking.append(textToAppend)
             thinkingEndedAt = .now
         } else {
             thinkingEndedAt = nil
         }
 
-        streamingThinking.append(text)
+        streamingThinking.append(textToAppend)
     }
 
     static func append(
@@ -154,6 +201,9 @@ enum StreamingReasoningTraceBuffer {
             postAnswerThinking.removeAll(keepingCapacity: true)
         }
 
+        let textToAppend = deltaToAppend(current: streamingThinking, incoming: text)
+        guard !textToAppend.isEmpty else { return }
+
         if hasStartedVisibleAnswer {
             if postAnswerThinking.isEmpty {
                 if !streamingThinking.isEmpty {
@@ -161,13 +211,13 @@ enum StreamingReasoningTraceBuffer {
                 }
                 streamingThinking.append(postAnswerDisplaySeparator)
             }
-            postAnswerThinking.append(text)
+            postAnswerThinking.append(textToAppend)
             thinkingEndedAt = .now
         } else {
             thinkingEndedAt = nil
         }
 
-        streamingThinking.append(text)
+        streamingThinking.append(textToAppend)
     }
 }
 
@@ -177,6 +227,7 @@ enum StreamingReasoningTraceBuffer {
 
 @MainActor @Observable
 final class ChatState {
+    private static let reasoningFirstAnswerHold: Duration = .milliseconds(450)
     private let log = Logger(subsystem: "com.epistemos", category: "ChatState")
     // MARK: - Streaming
 
@@ -198,6 +249,10 @@ final class ChatState {
     var thinkingStartedAt: Date?
     /// Timestamp when thinking ended this turn (first text delta).
     var thinkingEndedAt: Date?
+    /// Timestamp when the first visible answer token arrived this turn.
+    /// Used to hold the initial answer very briefly after a real thinking
+    /// phase so the UI shows "thinking, then answer" instead of both at once.
+    var visibleAnswerStartedAt: Date?
     /// Cache-hit fraction captured from the most recent turn's
     /// provider-reported usage. Populated by `recordUsageSnapshot` and
     /// consumed at `completeProcessing` when building the assistant
@@ -205,9 +260,14 @@ final class ChatState {
     /// badge. Nil when the provider didn't report cache tokens.
     var lastTurnCacheHitPercent: Double?
     var activeChatId: String?
+    private var interruptedAssistantMessageIDs: Set<String> = []
     var chatTitle: String?
     var pendingAttachments: [FileAttachment] = []
     var pendingContextAttachments: [ContextAttachment] = []
+    var pendingComposerDraft: String?
+    private(set) var pendingComposerDraftRevision: UInt = 0
+    var pendingGraphChatRequest: GraphChatRequest?
+    private var pendingSlashCommand: ACCSlashCommand?
 
     // MARK: - In-memory messages (current session)
     var messages: [ChatMessage] = []
@@ -221,6 +281,13 @@ final class ChatState {
     var contextUsageFraction: Double {
         guard maxContextTokens > 0 else { return 0 }
         return min(1.0, Double(estimatedContextTokens) / Double(maxContextTokens))
+    }
+
+    func syncContextWindowMetrics(maxTokens: Int? = nil) {
+        if let maxTokens {
+            self.maxContextTokens = max(1, maxTokens)
+        }
+        recalculateContextEstimate()
     }
 
     func recalculateContextEstimate() {
@@ -344,6 +411,19 @@ final class ChatState {
     /// who leaves a thread open for a week.
     private static let maxBrainSnapshotsPerChat = 50
 
+    /// Per-chat history of the final, fully assembled model inputs the
+    /// pipeline actually sent to the runtime. Kept alongside the higher-level
+    /// brain snapshots so the transparency pane can show both the planning
+    /// view and the post-assembly truth.
+    private(set) var capturedModelInputsByChat: [String: [CapturedModelInput]] = [:]
+
+    var latestCapturedModelInput: CapturedModelInput? {
+        guard let chatId = activeChatId else { return nil }
+        return capturedModelInputsByChat[chatId]?.last
+    }
+
+    private static let maxCapturedModelInputsPerChat = 50
+
     /// Transient flag — true when the current streaming response is a vault briefing.
     /// Set by AppBootstrap, read by finalizeStreaming to stamp the ChatMessage.
     var isCurrentVaultBriefing = false
@@ -355,6 +435,61 @@ final class ChatState {
     // MARK: - Init
 
     init() {}
+
+    func primeComposerDraft(_ draft: String) {
+        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        pendingComposerDraft = trimmed
+        pendingComposerDraftRevision &+= 1
+    }
+
+    func consumePendingComposerDraft() -> String? {
+        let trimmed = pendingComposerDraft?.trimmingCharacters(in: .whitespacesAndNewlines)
+        pendingComposerDraft = nil
+        return trimmed?.isEmpty == true ? nil : trimmed
+    }
+
+    func primeGraphChatRequest(_ request: GraphChatRequest) {
+        pendingGraphChatRequest = request
+    }
+
+    func consumePendingGraphChatRequest() -> GraphChatRequest? {
+        let request = pendingGraphChatRequest
+        pendingGraphChatRequest = nil
+        return request
+    }
+
+    func serializedConversationHistory(
+        maxCharacters: Int,
+        maxMessages: Int
+    ) -> String? {
+        guard maxCharacters > 0, maxMessages > 0 else { return nil }
+
+        let priorMessages = messages.dropLast()
+        guard !priorMessages.isEmpty else { return nil }
+
+        let recentMessages = Array(priorMessages.suffix(maxMessages))
+        let perMessageBudget = max(160, min(2_000, maxCharacters / max(1, recentMessages.count)))
+        var blocks: [String] = []
+        var usedCharacters = 0
+
+        for message in recentMessages.reversed() {
+            let block = serializedConversationHistoryBlock(
+                for: message,
+                maxCharacters: perMessageBudget
+            )
+            guard !block.isEmpty else { continue }
+
+            let separatorCost = blocks.isEmpty ? 0 : 2
+            guard usedCharacters + separatorCost + block.count <= maxCharacters else { break }
+            usedCharacters += separatorCost + block.count
+            blocks.insert(block, at: 0)
+        }
+
+        guard !blocks.isEmpty else { return nil }
+        return blocks.joined(separator: "\n\n")
+    }
 
     private func markTranscriptChanged() {
         transcriptRevision &+= 1
@@ -408,6 +543,8 @@ final class ChatState {
         loadedNoteIds = []
         loadedNoteTitles = []
         pendingContextAttachments = []
+        pendingGraphChatRequest = nil
+        pendingSlashCommand = nil
         // startNewChat nils the activeChatId and lets the next
         // submitQuery assign a fresh one. The brain-snapshot dict is
         // keyed by chatId so any old chat's history stays put; when
@@ -419,6 +556,8 @@ final class ChatState {
         activeToolInputJson = nil
         currentTodos = nil
         isAgentExecuting = false
+        interruptedAssistantMessageIDs = []
+        syncContextWindowMetrics()
     }
 
     /// Maximum user query length (chars). Local context windows are large enough,
@@ -456,6 +595,7 @@ final class ChatState {
         hasMessages = true
 
         pendingAttachments = []
+        syncContextWindowMetrics()
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
         isStreaming = false
@@ -467,6 +607,15 @@ final class ChatState {
                 operatingMode: operatingMode
             )
         )
+    }
+
+    func queuePendingSlashCommand(_ command: ACCSlashCommand?) {
+        pendingSlashCommand = command
+    }
+
+    func consumePendingSlashCommand() -> ACCSlashCommand? {
+        defer { pendingSlashCommand = nil }
+        return pendingSlashCommand
     }
 
     func appendLocalMessage(
@@ -499,6 +648,7 @@ final class ChatState {
         )
         markTranscriptChanged()
         hasMessages = true
+        syncContextWindowMetrics()
     }
 
     func completeProcessing(
@@ -607,7 +757,9 @@ final class ChatState {
         lastTurnCacheHitPercent = nil
         log.info("[complete] Appending assistant message \(assistantMessage.id)")
         messages.append(assistantMessage)
+        interruptedAssistantMessageIDs.remove(assistantMessage.id)
         markTranscriptChanged()
+        syncContextWindowMetrics()
 
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
@@ -688,7 +840,9 @@ final class ChatState {
             cacheHitPercent: lastTurnCacheHitPercent
         )
         messages.append(assistantMessage)
+        interruptedAssistantMessageIDs.insert(assistantMessage.id)
         markTranscriptChanged()
+        syncContextWindowMetrics()
         return true
     }
 
@@ -697,6 +851,7 @@ final class ChatState {
         guard !messages.isEmpty else { return }
         messages[messages.count - 1].content = newContent
         markTranscriptChanged()
+        syncContextWindowMetrics()
     }
 
     // MARK: - Error Messages
@@ -713,6 +868,7 @@ final class ChatState {
         )
         messages.append(errorMessage)
         markTranscriptChanged()
+        syncContextWindowMetrics()
         streamBuffer.reset(releaseCapacity: true)
         releaseStreamingTextStorage()
         isStreaming = false
@@ -742,12 +898,27 @@ final class ChatState {
     private var thinkTagRouter = ThinkTagStreamRouter()
 
     @ObservationIgnored
+    private var userFacingStreamRouter = UserFacingStreamRouter()
+
+    @ObservationIgnored
     private var hasStartedVisibleAnswer = false
+
+    @ObservationIgnored
+    private var hasExplicitThinkingTrace = false
 
     @ObservationIgnored
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in
         self?.streamingText += delta
     }
+
+    @ObservationIgnored
+    private var deferredVisibleAnswerBuffer = ""
+
+    @ObservationIgnored
+    private var deferredVisibleAnswerTask: Task<Void, Never>?
+
+    @ObservationIgnored
+    private var deferredVisibleAnswerRevision: UInt = 0
 
     func startStreaming() {
         isStreaming = true
@@ -792,16 +963,10 @@ final class ChatState {
     func flushThinkTagRouter() {
         let emit = thinkTagRouter.flush()
         if !emit.thinking.isEmpty {
-            appendStreamingThinking(emit.thinking)
+            appendStreamingThinking(emit.thinking, explicit: true)
         }
-        if !emit.visible.isEmpty {
-            hasStartedVisibleAnswer = true
-            if isThinkingActive {
-                isThinkingActive = false
-                thinkingEndedAt = Date()
-            }
-            streamBuffer.append(emit.visible, scheduleFlush: true)
-        }
+        routeVisibleStreamingText(emit.visible, scheduleFlush: true)
+        routeVisibleStreamingText(userFacingStreamRouter.flush().visible, scheduleFlush: true)
     }
 
     /// Accumulates streaming tokens off-screen while the response is generating.
@@ -817,27 +982,39 @@ final class ChatState {
         // thinking popover. State flips on opening / closing tags.
         let emit = thinkTagRouter.ingest(text)
         if !emit.thinking.isEmpty {
-            appendStreamingThinking(emit.thinking)
+            appendStreamingThinking(emit.thinking, explicit: true)
         }
-
-        // If the router is still mid-`<think>` we haven't received any
-        // actual answer text yet. Don't close the thinking phase on a
-        // zero-length visible emission.
-        if !emit.visible.isEmpty {
-            hasStartedVisibleAnswer = true
-            if isThinkingActive {
-                isThinkingActive = false
-                thinkingEndedAt = Date()
-            }
-            streamBuffer.append(emit.visible, scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText)
+        if hasExplicitThinkingTrace, !hasStartedVisibleAnswer {
+            routeVisibleStreamingText(
+                emit.visible,
+                scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText
+            )
+            return
         }
+        let visibleEmit = userFacingStreamRouter.ingest(emit.visible)
+        if !visibleEmit.thinking.isEmpty {
+            appendStreamingThinking(visibleEmit.thinking)
+        }
+        routeVisibleStreamingText(
+            visibleEmit.visible,
+            scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText
+        )
     }
 
     /// Accumulate a live thinking delta for the currently streaming turn.
     /// The first thinking delta starts the popover (isThinkingActive = true
     /// + thinkingStartedAt). Subsequent deltas append to streamingThinking
     /// so the popover UI can render the in-flight reasoning live.
-    func appendStreamingThinking(_ text: String) {
+    func appendStreamingThinking(_ text: String, explicit: Bool = false) {
+        if hasStartedVisibleAnswer {
+            if thinkingEndedAt == nil {
+                thinkingEndedAt = visibleAnswerStartedAt ?? Date()
+            }
+            return
+        }
+        if explicit {
+            hasExplicitThinkingTrace = true
+        }
         if !hasStartedVisibleAnswer, !isThinkingActive {
             isThinkingActive = true
         }
@@ -860,11 +1037,89 @@ final class ChatState {
         isThinkingActive = false
         thinkingStartedAt = nil
         thinkingEndedAt = nil
+        visibleAnswerStartedAt = nil
         hasStartedVisibleAnswer = false
+        hasExplicitThinkingTrace = false
+        userFacingStreamRouter.reset()
+        deferredVisibleAnswerTask?.cancel()
+        deferredVisibleAnswerTask = nil
+        deferredVisibleAnswerBuffer.removeAll(keepingCapacity: false)
+    }
+
+    private func routeVisibleStreamingText(_ text: String, scheduleFlush: Bool) {
+        guard !text.isEmpty else { return }
+        let shouldHoldFirstAnswer = thinkingStartedAt != nil && !hasStartedVisibleAnswer
+        if shouldHoldFirstAnswer || !deferredVisibleAnswerBuffer.isEmpty {
+            if visibleAnswerStartedAt == nil {
+                visibleAnswerStartedAt = Date()
+            }
+            hasStartedVisibleAnswer = true
+            if isThinkingActive {
+                isThinkingActive = false
+                thinkingEndedAt = visibleAnswerStartedAt
+            } else if thinkingEndedAt == nil {
+                thinkingEndedAt = visibleAnswerStartedAt
+            }
+            deferredVisibleAnswerBuffer.append(text)
+            scheduleDeferredVisibleAnswerFlush(scheduleFlush: scheduleFlush)
+            return
+        }
+        hasStartedVisibleAnswer = true
+        if visibleAnswerStartedAt == nil {
+            visibleAnswerStartedAt = Date()
+        }
+        if isThinkingActive {
+            isThinkingActive = false
+            thinkingEndedAt = visibleAnswerStartedAt
+        }
+        streamBuffer.append(text, scheduleFlush: scheduleFlush)
     }
 
     private func flushStreamingTokens() {
+        flushDeferredVisibleAnswerBuffer(scheduleFlush: false)
         streamBuffer.flushNow()
+    }
+
+    func overrideStreamingAnswerForCompletion(_ text: String) {
+        deferredVisibleAnswerTask?.cancel()
+        deferredVisibleAnswerTask = nil
+        deferredVisibleAnswerBuffer.removeAll(keepingCapacity: false)
+        streamBuffer.reset()
+        streamingText = text
+        hasStartedVisibleAnswer = true
+        if visibleAnswerStartedAt == nil {
+            visibleAnswerStartedAt = Date()
+        }
+        if isThinkingActive {
+            isThinkingActive = false
+            thinkingEndedAt = visibleAnswerStartedAt
+        } else if thinkingEndedAt == nil {
+            thinkingEndedAt = visibleAnswerStartedAt
+        }
+    }
+
+    private func scheduleDeferredVisibleAnswerFlush(scheduleFlush: Bool) {
+        deferredVisibleAnswerRevision &+= 1
+        let revision = deferredVisibleAnswerRevision
+        deferredVisibleAnswerTask?.cancel()
+        deferredVisibleAnswerTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.reasoningFirstAnswerHold)
+            } catch {
+                return
+            }
+            guard let self, self.deferredVisibleAnswerRevision == revision else { return }
+            self.flushDeferredVisibleAnswerBuffer(scheduleFlush: scheduleFlush)
+        }
+    }
+
+    private func flushDeferredVisibleAnswerBuffer(scheduleFlush: Bool) {
+        deferredVisibleAnswerTask?.cancel()
+        deferredVisibleAnswerTask = nil
+        guard !deferredVisibleAnswerBuffer.isEmpty else { return }
+        let buffered = deferredVisibleAnswerBuffer
+        deferredVisibleAnswerBuffer.removeAll(keepingCapacity: true)
+        streamBuffer.append(buffered, scheduleFlush: scheduleFlush)
     }
 
     func recordToolUse(id: String, name: String, inputJson: String) {
@@ -938,22 +1193,22 @@ final class ChatState {
         // Prevent duplicate attachments — match by file URI
         guard !pendingAttachments.contains(where: { $0.uri == file.uri }) else { return }
         pendingAttachments.append(file)
-        recalculateContextEstimate()
+        syncContextWindowMetrics()
     }
     func removeAttachment(_ id: String) {
         pendingAttachments.removeAll { $0.id == id }
-        recalculateContextEstimate()
+        syncContextWindowMetrics()
     }
 
     func addContextAttachment(_ attachment: ContextAttachment) {
         guard !pendingContextAttachments.contains(attachment) else { return }
         pendingContextAttachments.append(attachment)
-        recalculateContextEstimate()
+        syncContextWindowMetrics()
     }
 
     func removeContextAttachment(_ id: String) {
         pendingContextAttachments.removeAll { $0.id == id }
-        recalculateContextEstimate()
+        syncContextWindowMetrics()
     }
 
     func captureBrainSnapshot(_ snapshot: ChatBrainSnapshot) {
@@ -979,12 +1234,26 @@ final class ChatState {
         brainSnapshotsByChat[chatId] = history
     }
 
+    func captureModelInput(_ input: CapturedModelInput) {
+        guard let chatId = activeChatId else { return }
+        var history = capturedModelInputsByChat[chatId] ?? []
+        history.append(input)
+        if history.count > Self.maxCapturedModelInputsPerChat {
+            history.removeFirst(history.count - Self.maxCapturedModelInputsPerChat)
+        }
+        capturedModelInputsByChat[chatId] = history
+    }
+
     /// Clear the snapshot history for a given chat. Called when the
     /// chat is deleted OR when the user explicitly resets it; switching
     /// chats MUST NOT trigger this (the whole point of the per-chat
     /// dictionary is persistence across switches).
     func clearBrainSnapshotHistory(for chatId: String) {
         brainSnapshotsByChat[chatId] = nil
+    }
+
+    func clearCapturedModelInputHistory(for chatId: String) {
+        capturedModelInputsByChat[chatId] = nil
     }
 
     // MARK: - Load / Clear
@@ -995,6 +1264,9 @@ final class ChatState {
         hasMessages = !msgs.isEmpty
         showLanding = msgs.isEmpty
         pendingAttachments = []
+        interruptedAssistantMessageIDs = Set(
+            msgs.filter(Self.looksLikeInterruptedCheckpoint).map(\.id)
+        )
         restoreConversationContext(from: msgs)
         // Brain-snapshot history is keyed by chatId and persisted
         // across chat switches. Do NOT nil it here — that was the old
@@ -1004,6 +1276,7 @@ final class ChatState {
         activeToolName = nil
         activeToolInputJson = nil
         isAgentExecuting = false
+        syncContextWindowMetrics()
     }
 
     func clearMessages() {
@@ -1024,7 +1297,10 @@ final class ChatState {
         // Explicit user action to clear this chat → discard the
         // matching brain-snapshot history. Other chats' snapshots are
         // untouched because the dictionary is keyed by chatId.
-        if let chatId { clearBrainSnapshotHistory(for: chatId) }
+        if let chatId {
+            clearBrainSnapshotHistory(for: chatId)
+            clearCapturedModelInputHistory(for: chatId)
+        }
         vaultBriefingManifest = nil
         pendingContentBlocks = []
         activeToolName = nil
@@ -1032,6 +1308,8 @@ final class ChatState {
         isAgentExecuting = false
         activeChatId = nil
         chatTitle = nil
+        interruptedAssistantMessageIDs = []
+        syncContextWindowMetrics()
 
         if let chatId {
             eventBus?.emit(.chatCleared(chatId: ChatId(chatId)))
@@ -1063,6 +1341,43 @@ final class ChatState {
             restoredTitles.append(attachment.title)
         }
         loadedNoteTitles = restoredTitles
+    }
+
+    private func serializedConversationHistoryBlock(
+        for message: ChatMessage,
+        maxCharacters: Int
+    ) -> String {
+        let roleLabel = message.role == .user ? "User" : "Assistant"
+        var lines = ["\(roleLabel): \(Self.truncatedHistoryText(message.content, limit: maxCharacters))"]
+
+        if isInterruptedReasoningCheckpoint(message),
+           let trace = message.thinkingTrace?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !trace.isEmpty {
+            lines.append(
+                "Assistant reasoning checkpoint: \(Self.truncatedHistoryText(trace, limit: maxCharacters))"
+            )
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func isInterruptedReasoningCheckpoint(_ message: ChatMessage) -> Bool {
+        interruptedAssistantMessageIDs.contains(message.id) || Self.looksLikeInterruptedCheckpoint(message)
+    }
+
+    private static func looksLikeInterruptedCheckpoint(_ message: ChatMessage) -> Bool {
+        guard message.role == .assistant,
+              let trace = message.thinkingTrace?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trace.isEmpty else {
+            return false
+        }
+
+        return message.content.localizedCaseInsensitiveContains("never produced a final answer")
+    }
+
+    private static func truncatedHistoryText(_ text: String, limit: Int) -> String {
+        guard limit > 0, text.count > limit else { return text }
+        return String(text.prefix(limit)) + "…"
     }
 }
 

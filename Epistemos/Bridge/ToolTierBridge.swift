@@ -96,6 +96,12 @@ final class ToolTierBridge {
     private let allowedToolNames: Set<String>?
     private let logger = Logger(subsystem: "com.epistemos", category: "ToolTierBridge")
 
+    private var resolvedVaultPath: String {
+        FoundationSafety.managedToolRuntimeVaultDirectory(
+            preferredVaultPath: vaultPath
+        ).path
+    }
+
     init(
         vaultPath: String,
         tier: ChatToolTier,
@@ -110,24 +116,24 @@ final class ToolTierBridge {
     /// `HermesPromptBuilder` can inject them into the local model's system
     /// prompt. Returns an empty array when:
     /// - The Rust bindings are unavailable
-    /// - The vault path is empty
     /// - The tier is `.none`
     func loadTools() -> [OmegaToolDefinition] {
-        guard !vaultPath.isEmpty, tier != .none else {
+        guard tier != .none else {
             return []
         }
+        let resolvedVaultPath = self.resolvedVaultPath
 
         #if canImport(agent_coreFFI)
         do {
             let schemas: [ToolSchemaFfi]
             if let allowedToolNames {
                 schemas = try listToolsForTierFiltered(
-                    vaultPath: vaultPath,
+                    vaultPath: resolvedVaultPath,
                     tier: tier.rawValue,
                     allowedToolNames: Array(allowedToolNames).sorted()
                 )
             } else {
-                schemas = try listToolsForTier(vaultPath: vaultPath, tier: tier.rawValue)
+                schemas = try listToolsForTier(vaultPath: resolvedVaultPath, tier: tier.rawValue)
             }
             let tools = schemas.map { schema in
                 OmegaToolDefinition(
@@ -154,7 +160,7 @@ final class ToolTierBridge {
     /// The closure forwards to the Rust `execute_tool_call` FFI and
     /// wraps the result as a `LocalToolResult`.
     func toolExecutor() -> LocalAgentToolExecutor {
-        let path = self.vaultPath
+        let path = self.resolvedVaultPath
         let tierRaw = self.tier.rawValue
         let allowlist = self.allowedToolNames.map { Array($0).sorted() }
         return { @Sendable name, argumentsJson in

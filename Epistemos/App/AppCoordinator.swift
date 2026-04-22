@@ -79,6 +79,19 @@ final class AppCoordinator {
         }
     }
 
+    func handleMiniChatQuery(
+        _ query: String,
+        chatState: ChatState,
+        operatingMode: EpistemosOperatingMode
+    ) {
+        chatCoordinator.handleQuery(
+            query,
+            pipeline: pipelineService,
+            chatState: chatState,
+            operatingMode: operatingMode
+        )
+    }
+
     private func wireToastEvents() {
         eventBus.subscribe(id: "toast") { [weak self] event in
             guard let self else { return }

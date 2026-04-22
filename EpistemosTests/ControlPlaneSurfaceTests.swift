@@ -435,6 +435,75 @@ struct ControlPlaneSurfaceTests {
         #expect(entries.first(where: { $0.identifier == "checks" })?.category == "testing")
         #expect(entries.first(where: { $0.identifier == "release-audit" })?.tags == ["release", "audit"])
     }
+
+    @Test("skill authoring draft builds managed create payload with normalized metadata")
+    func skillAuthoringDraftBuildsManagedCreatePayloadWithNormalizedMetadata() throws {
+        let draft = SkillAuthoringDraft(
+            title: "Release Audit",
+            description: "Audit the app before release.",
+            category: "Quality / Release",
+            tagsText: "release, audit, release",
+            instructionSheet: """
+            Use this skill when the user asks for a ship/no-ship call.
+
+            1. Check logs first.
+            2. Run the focused verification slice before making claims.
+            """
+        )
+
+        #expect(draft.identifier == "release-audit")
+        #expect(draft.normalizedCategory == "quality-release")
+        #expect(draft.tags == ["release", "audit"])
+
+        let payload = try draft.createPayload()
+        #expect(payload["action"] as? String == "create")
+        #expect(payload["name"] as? String == "release-audit")
+
+        let content = try #require(payload["content"] as? String)
+        #expect(content.contains("name: \"release-audit\""))
+        #expect(content.contains("description: \"Audit the app before release.\""))
+        #expect(content.contains("category: \"quality-release\""))
+        #expect(content.contains("tags: [\"release\", \"audit\"]"))
+        #expect(content.contains("## Instruction Sheet"))
+    }
+
+    @Test("skill authoring draft emits discovery-compatible skill markdown")
+    func skillAuthoringDraftEmitsDiscoveryCompatibleSkillMarkdown() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let draft = SkillAuthoringDraft(
+            title: "Source Synthesizer",
+            description: "Merge notes into one research memo.",
+            category: "Research",
+            tagsText: "research, synthesis",
+            instructionSheet: """
+            Keep the output concise and source-grounded.
+            """
+        )
+
+        let skillURL = root
+            .appendingPathComponent("skills", isDirectory: true)
+            .appendingPathComponent(draft.identifier, isDirectory: true)
+            .appendingPathComponent("SKILL.md")
+        try fileManager.createDirectory(at: skillURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try draft.skillMarkdown().write(to: skillURL, atomically: true, encoding: .utf8)
+
+        let entries = SkillDiscoveryCatalog.discoverSkillEntries(
+            inRoots: [
+                SkillDiscoveryRoot(
+                    url: root.appendingPathComponent("skills", isDirectory: true),
+                    source: .bundled
+                ),
+            ],
+            fileManager: fileManager
+        )
+
+        #expect(entries.count == 1)
+        #expect(entries.first?.identifier == "source-synthesizer")
+        #expect(entries.first?.category == "research")
+        #expect(entries.first?.tags == ["research", "synthesis"])
+        #expect(entries.first?.description == "Merge notes into one research memo.")
+    }
 }
 
 private func jsonObject(from jsonString: String) -> [String: Any]? {

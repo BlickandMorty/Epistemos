@@ -8,6 +8,11 @@ struct AgentControlDetailView: View {
     @State private var sessionResults: [SessionBrowser.SessionInfo] = []
     @State private var sessionQuery: String = ""
     @State private var approvalStore = AgentApprovalPolicyStore()
+    @State private var customTools: [CustomToolRecord] = []
+    @State private var customToolDraftJSON: String = CustomToolRecord.exampleJSON
+    @State private var customToolStatusMessage: String?
+    @State private var customToolStatusIsError = false
+    @State private var isMutatingCustomTools = false
     @State private var allowlistDraft: String = ""
     @State private var blocklistDraft: String = ""
 
@@ -18,6 +23,7 @@ struct AgentControlDetailView: View {
             VStack(alignment: .leading, spacing: 18) {
                 headerCard
                 toolInventoryCard
+                customToolsCard
                 approvalPolicyCard
                 recentExecutionsCard
                 sessionsCard
@@ -32,6 +38,7 @@ struct AgentControlDetailView: View {
         .task(id: vaultSync.vaultURL?.path) {
             refreshSessions()
             refreshApprovalPolicy()
+            await refreshCustomTools()
         }
         .task(id: sessionQuery) {
             refreshSessions()
@@ -174,6 +181,122 @@ struct AgentControlDetailView: View {
                     Label(lastError, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
                         .foregroundStyle(.orange)
+                }
+            }
+        }
+    }
+
+    private var customToolsCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("Custom Tools")
+                        .font(.headline)
+                    Spacer()
+                    if isMutatingCustomTools {
+                        ProgressView()
+                            .controlSize(.small)
+                    }
+                    Button("Refresh") {
+                        Task { await refreshCustomTools() }
+                    }
+                }
+
+                if let vaultPath = vaultSync.vaultURL?.path {
+                    Text("Paste a tool spec JSON and save it. Saved tools become real runtime tools the model can call, with their own schema, tier, risk level, and shell-backed execution template.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Text("Tool Spec JSON")
+                        .font(.subheadline.weight(.semibold))
+
+                    TextEditor(text: $customToolDraftJSON)
+                        .font(.caption.monospaced())
+                        .frame(minHeight: 240)
+                        .padding(8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(.thinMaterial)
+                        )
+
+                    HStack(spacing: 10) {
+                        Button("Save Tool") {
+                            Task { await saveCustomTool(vaultPath: vaultPath) }
+                        }
+                        .disabled(customToolDraftJSON.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
+                        Button("Reset Example") {
+                            customToolDraftJSON = CustomToolRecord.exampleJSON
+                        }
+
+                        Text("Use `{{input_name}}` placeholders inside `command_template` and optional `workdir`.")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    if let customToolStatusMessage {
+                        Label(
+                            customToolStatusMessage,
+                            systemImage: customToolStatusIsError ? "exclamationmark.triangle.fill" : "checkmark.circle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(customToolStatusIsError ? .orange : .green)
+                    }
+
+                    Divider()
+
+                    if customTools.isEmpty {
+                        Text("No custom tools saved yet.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        ForEach(customTools) { tool in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(tool.name)
+                                            .font(.subheadline.weight(.semibold))
+                                        Text(tool.description)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Spacer()
+                                    ChannelStatusPill(title: tool.tierLabel, tint: .blue)
+                                    ChannelStatusPill(title: tool.riskLabel, tint: tool.riskTint)
+                                }
+
+                                if let guidance = tool.guidance, !guidance.isEmpty {
+                                    Text(guidance)
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+
+                                HStack(spacing: 12) {
+                                    Button("Load") {
+                                        customToolDraftJSON = tool.jsonText
+                                    }
+                                    Button("Delete") {
+                                        Task { await deleteCustomTool(named: tool.name, vaultPath: vaultPath) }
+                                    }
+                                    .foregroundStyle(.orange)
+                                    Text(tool.commandTemplate)
+                                        .font(.caption.monospaced())
+                                        .foregroundStyle(.tertiary)
+                                        .lineLimit(1)
+                                }
+                            }
+
+                            if tool.id != customTools.last?.id {
+                                Divider()
+                            }
+                        }
+                    }
+                } else {
+                    Text("Attach a vault to create and persist custom tools.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -337,6 +460,29 @@ struct AgentControlDetailView: View {
         recentExecutions = MCPExecutionEntry.parse(from: mcpBridge.recentExecutionsJson(limit: 12))
     }
 
+    private func refreshCustomTools() async {
+        guard let vaultPath = vaultSync.vaultURL?.path else {
+            customTools = []
+            customToolStatusMessage = nil
+            customToolStatusIsError = false
+            return
+        }
+
+        isMutatingCustomTools = true
+        defer { isMutatingCustomTools = false }
+
+        do {
+            let response = try await callCustomToolManager(
+                payload: ["action": "list"],
+                vaultPath: vaultPath
+            )
+            customTools = CustomToolRecord.parseList(from: response)
+        } catch {
+            customToolStatusMessage = error.localizedDescription
+            customToolStatusIsError = true
+        }
+    }
+
     private func refreshSessions() {
         guard let vaultPath = vaultSync.vaultURL?.path else {
             sessionResults = []
@@ -423,6 +569,76 @@ struct AgentControlDetailView: View {
             .components(separatedBy: .newlines)
             .first(where: { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.hasPrefix("#") })
     }
+
+    private func saveCustomTool(vaultPath: String) async {
+        isMutatingCustomTools = true
+        defer { isMutatingCustomTools = false }
+
+        do {
+            let spec = try CustomToolRecord.parseDraftObject(from: customToolDraftJSON)
+            let name = try CustomToolRecord.toolName(from: spec)
+            let action = customTools.contains(where: { $0.name == name }) ? "edit" : "create"
+            let response = try await callCustomToolManager(
+                payload: [
+                    "action": action,
+                    "spec": spec,
+                ],
+                vaultPath: vaultPath
+            )
+            customToolStatusMessage = CustomToolRecord.statusMessage(from: response, fallback: "\(action == "edit" ? "Updated" : "Created") \(name).")
+            customToolStatusIsError = false
+            await refreshCustomTools()
+        } catch {
+            customToolStatusMessage = error.localizedDescription
+            customToolStatusIsError = true
+        }
+    }
+
+    private func deleteCustomTool(named name: String, vaultPath: String) async {
+        isMutatingCustomTools = true
+        defer { isMutatingCustomTools = false }
+
+        do {
+            let response = try await callCustomToolManager(
+                payload: [
+                    "action": "delete",
+                    "name": name,
+                ],
+                vaultPath: vaultPath
+            )
+            customToolStatusMessage = CustomToolRecord.statusMessage(from: response, fallback: "Deleted \(name).")
+            customToolStatusIsError = false
+            await refreshCustomTools()
+        } catch {
+            customToolStatusMessage = error.localizedDescription
+            customToolStatusIsError = true
+        }
+    }
+
+    private func callCustomToolManager(
+        payload: [String: Any],
+        vaultPath: String
+    ) async throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        let inputJSON = String(data: data, encoding: .utf8) ?? "{}"
+        #if canImport(agent_coreFFI)
+        let result = try await executeToolCall(
+            vaultPath: vaultPath,
+            tier: "agent",
+            toolName: "tool_manage",
+            inputJson: inputJSON
+        )
+        if let error = result.error, !error.isEmpty {
+            throw CustomToolSettingsError.toolError(error)
+        }
+        if !result.success {
+            throw CustomToolSettingsError.toolError("Custom tool manager failed.")
+        }
+        return result.outputJson
+        #else
+        throw CustomToolSettingsError.bindingsUnavailable
+        #endif
+    }
 }
 
 private struct ToolInventoryGroup: Identifiable {
@@ -481,6 +697,136 @@ private struct MCPExecutionEntry: Identifiable {
                 success: success,
                 argumentsPreview: argumentsPreview
             )
+        }
+    }
+}
+
+private struct CustomToolRecord: Identifiable {
+    let name: String
+    let description: String
+    let guidance: String?
+    let tier: String
+    let riskLevel: String
+    let commandTemplate: String
+    let jsonText: String
+
+    static let exampleJSON = """
+    {
+      "name": "echo-name",
+      "description": "Echo the provided name through the shell-backed runtime.",
+      "guidance": "Use this for simple command wrappers instead of falling back to raw terminal calls.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name to print."
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "command_template": "printf %s {{name}}",
+      "timeout_secs": 30,
+      "risk_level": "read_only",
+      "tier": "chat_lite"
+    }
+    """
+
+    var id: String { name }
+
+    var tierLabel: String {
+        tier.replacingOccurrences(of: "_", with: " ").uppercased()
+    }
+
+    var riskLabel: String {
+        riskLevel.replacingOccurrences(of: "_", with: " ").capitalized
+    }
+
+    var riskTint: Color {
+        switch riskLevel {
+        case "destructive":
+            .orange
+        case "read_only":
+            .green
+        default:
+            .blue
+        }
+    }
+
+    static func parseList(from jsonString: String) -> [CustomToolRecord] {
+        guard let data = jsonString.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rows = root["tools"] as? [[String: Any]] else {
+            return []
+        }
+
+        return rows.compactMap { row in
+            guard let name = row["name"] as? String,
+                  let description = row["description"] as? String,
+                  let commandTemplate = row["command_template"] as? String else {
+                return nil
+            }
+            let prettyData = try? JSONSerialization.data(withJSONObject: row, options: [.prettyPrinted, .sortedKeys])
+            let jsonText = prettyData.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+            return CustomToolRecord(
+                name: name,
+                description: description,
+                guidance: row["guidance"] as? String,
+                tier: row["tier"] as? String ?? "agent",
+                riskLevel: row["risk_level"] as? String ?? "modification",
+                commandTemplate: commandTemplate,
+                jsonText: jsonText
+            )
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    static func parseDraftObject(from jsonString: String) throws -> [String: Any] {
+        guard let data = jsonString.data(using: .utf8),
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw CustomToolSettingsError.invalidDraft("Tool JSON must decode to a top-level object.")
+        }
+        return object
+    }
+
+    static func toolName(from object: [String: Any]) throws -> String {
+        guard let name = object["name"] as? String else {
+            throw CustomToolSettingsError.invalidDraft("Tool JSON must include a string 'name'.")
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            throw CustomToolSettingsError.invalidDraft("Tool name cannot be empty.")
+        }
+        return trimmed
+    }
+
+    static func statusMessage(from responseJSON: String, fallback: String) -> String {
+        guard let data = responseJSON.data(using: .utf8),
+              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return fallback
+        }
+        if let error = root["error"] as? String, !error.isEmpty {
+            return error
+        }
+        return fallback
+    }
+}
+
+private enum CustomToolSettingsError: LocalizedError {
+    case bindingsUnavailable
+    case invalidDraft(String)
+    case toolError(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .bindingsUnavailable:
+            "agent_core bindings unavailable"
+        case .invalidDraft(let message):
+            message
+        case .toolError(let message):
+            message
         }
     }
 }
