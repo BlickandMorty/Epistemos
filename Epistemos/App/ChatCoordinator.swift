@@ -4371,6 +4371,16 @@ final class ChatCoordinator {
       try context.save()
       Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
 
+      // Pass 9 — write a live-updating markdown transcript of this
+      // chat into the user's vault so it shows up in the Notes
+      // sidebar and CANNOT be silently lost ("thought never dies").
+      // Non-blocking: failures are logged inside the helper and never
+      // propagate to the SwiftData save path.
+      ChatTranscriptVaultWriter.writeTranscript(
+        for: chat,
+        vaultURL: vaultSync.vaultURL
+      )
+
       // Generate meaning anchor if chat has enough exchanges
       let messageCount = chat.messages?.count ?? 0
       if messageCount >= 3, let anchorService = AppBootstrap.shared?.meaningAnchorService {

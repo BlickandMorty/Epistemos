@@ -673,6 +673,16 @@ struct NotesSidebar: View {
             )
             searchBar
             fileTree(folderItemById: fById, onAction: onAct)
+            // Pass 10 — per-model vaults + involvement view. Collapsed
+            // by default (@AppStorage-backed) so it never disrupts the
+            // sidebar's default layout, and never loads the model-vault
+            // directory until the user expands it. Kept here rather
+            // than inside `fileTree` because it's a parallel top-level
+            // surface, not part of the vault's note hierarchy.
+            Divider().opacity(0.15)
+            ModelVaultsSidebarSection()
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
             Divider().opacity(0.2)
             bottomBar
         }
