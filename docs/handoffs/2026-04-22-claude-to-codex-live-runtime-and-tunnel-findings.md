@@ -572,7 +572,27 @@ This is the first shipped piece of the capability-tunnel the user asked
 for. They can drop a config file at `~/.config/mcp/url_servers.json`,
 and on the next Agent turn the model gets the tools. No recompile.
 
-### 11.4 What did NOT land (flagged for the next session)
+### 11.4 Tunnel C — now shipped
+
+- **Pass 7 — Tunnel C, Claude Code + Codex CLI passthrough.** New
+  module `agent_core/src/tools/cli_passthrough.rs` with two tool
+  handlers. Registered at `ToolTier::Agent` (same tier as bash) via
+  `register_claude_code_passthrough` and `register_codex_passthrough`
+  in the tool registry. Each:
+  - Discovers the CLI binary: PATH first, then well-known install
+    paths (`~/.local/bin/claude`, `/Applications/Codex.app/Contents/Resources/codex`, etc.).
+  - Spawns in non-interactive mode: `claude -p --permission-mode
+    bypassPermissions <task>` or `codex exec <task>` (or `codex sandbox`
+    if requested).
+  - Streams combined stdout/stderr back, 5-min default timeout, 30-min
+    hard cap.
+  - Returns a structured install-hint if the binary isn't found, so the
+    in-chat agent can recover by installing the CLI via `bash_execute`.
+  - 5 new cargo tests green. Full agent_core suite now 549 passed.
+- Documented in `docs/capability-tunnels.md` alongside the other
+  tunnels so the user has a single reference.
+
+### 11.5 What did NOT land (flagged for the next session)
 
 - **Pass 6 — brain-snapshot disk persistence.** `brainSnapshotsByChat`
   (the per-chat context-envelope history backing the right panel's
@@ -588,10 +608,7 @@ and on the next Agent turn the model gets the tools. No recompile.
   lands, local MCP processes (filesystem, git, fetch, sequential-
   thinking, etc.) will auto-register their tools into the agent loop
   with the same approval flow as native tools.
-- **Tunnel C — Claude Code / Codex CLI passthrough via the shell tool.**
-  Works out of the box once a user runs `npm i -g @anthropic-ai/claude-code`
-  and asks the agent to shell out. Nothing to build.
-- **Worker Session chat kind** (§6.4 W2) — deferred.
+- **Worker Session chat kind** — deferred.
 - **App-managed diff / history** + **model authorship memory** (§12 /
   §14 / §15 of Codex's April 22 handoff) — deferred; requires design
   review from the user.
