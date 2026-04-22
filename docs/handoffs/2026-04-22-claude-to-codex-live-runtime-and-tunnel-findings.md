@@ -592,26 +592,102 @@ and on the next Agent turn the model gets the tools. No recompile.
 - Documented in `docs/capability-tunnels.md` alongside the other
   tunnels so the user has a single reference.
 
-### 11.5 What did NOT land (flagged for the next session)
+### 11.5 Pass 8 (now shipped) — the last four deferred items
 
-- **Pass 6 — brain-snapshot disk persistence.** `brainSnapshotsByChat`
-  (the per-chat context-envelope history backing the right panel's
-  content) lives in `@Observable` memory only. App relaunch wipes it.
-  The in-session persistence across chat switches already works via
-  the per-chat dict keyed by `activeChatId`. Disk persistence would
-  require a throttled async writer + a catalog-directory layout under
-  the vault and was too big to scope-creep into this pass.
-- **Tunnel B.2 — stdio MCP registry wiring.** `McpClient::discover_servers`
-  exists at `agent_core/src/mcp/client.rs:111` and reads
-  `~/.config/mcp/servers.json` (the `{ name, command, args, env }`
-  shape). Not yet wired into `ToolRegistry` construction. When this
-  lands, local MCP processes (filesystem, git, fetch, sequential-
-  thinking, etc.) will auto-register their tools into the agent loop
-  with the same approval flow as native tools.
-- **Worker Session chat kind** — deferred.
-- **App-managed diff / history** + **model authorship memory** (§12 /
-  §14 / §15 of Codex's April 22 handoff) — deferred; requires design
-  review from the user.
+After §11.4 the user asked to "finish these last four things" with an
+emphasis on wiring everything through so a later Codex prune pass
+cannot orphan-remove the work. All four landed in commit Pass 8 (this
+section):
+
+**(a) Tunnel B.2 — stdio MCP registry wiring.** New module
+`agent_core/src/tools/stdio_mcp.rs` adds a `StdioMcpToolHandler` plus
+an async `register_discovered_stdio_mcp_tools(&mut ToolRegistry)`
+entry point. Calls `McpClient::discover_servers` (already in tree at
+`agent_core/src/mcp/client.rs:111`), spawns each server, runs the
+`initialize` + `tools/list` handshake, and registers each advertised
+tool into the registry at `ToolTier::Agent` with a handler that
+forwards calls over the shared stdio connection. The shared
+`Arc<tokio::sync::Mutex<McpClient>>` keeps server processes alive for
+the lifetime of the registry; when the registry drops the Mutex drops,
+the client drops, and tokio reaps the children. Per-server errors are
+logged and skipped — a single bad entry in `~/.config/mcp/servers.json`
+cannot block the rest of the registry from coming up. Wired into the
+agent-loop bootstrap at `agent_core/src/bridge.rs:~623` right before
+the allowlist install. `ToolRegistry::contains_tool` added so late-
+bound registration never clobbers a built-in handler.
+
+**(b) Pass 6 — brain-snapshot disk persistence.** `ChatState` now
+calls `loadPersistedBrainSnapshotsFromDisk()` from its initializer
+and `scheduleBrainSnapshotPersistence()` after every mutation to
+`brainSnapshotsByChat` (capture / update-section / clear). The writer
+is a detached 2-second-debounced task that JSON-encodes the dict and
+atomically writes `~/Library/Application Support/Epistemos/brain_snapshots.json`.
+`ChatBrainSnapshot` + `ChatBrainSection` now conform to `Codable`. The
+right-side context panel's content now survives app relaunch; in-session
+persistence across chat switches was already working via the per-chat
+dict keyed by `activeChatId`.
+
+**(c) Worker Session chat kind.** `SDChat.chatType` already carried a
+free-form discriminator string. Pass 8 adds `"worker"` to the
+authoritative list `SDChat.chatTypeValues`, exposes the computed
+`SDChat.isWorkerSession: Bool`, and adds the imperative
+`markAsWorkerSession()` helper. No new tables, no migrations. UI hasn't
+yet wired a "convert to worker" affordance — that's a trivial
+follow-up — but the schema is ready and any code path that creates an
+`SDChat(chatType: "worker")` now honestly registers as a worker
+session.
+
+**(d) Per-model authorship memory.** Two new optional fields on
+`SDMessage`:
+
+  - `authoredByProviderID: String?` — stable provider id
+    (`"openai"`, `"anthropic"`, `"google"`, `"local"`,
+    `"appleIntelligence"`) from `CloudModelProvider.rawValue` /
+    `InferenceMode`.
+  - `authoredByModelID: String?` — stable model id, e.g.
+    `"claude-opus-4-7"`, `"Qwen/Qwen3-4B-MLX-4bit"`.
+
+Legacy messages remain `nil` in both fields — code reading them MUST
+treat `nil` as "unknown" rather than any default. Populated via the
+new `ChatCoordinator.inferAuthorship(...)` helper in
+`persistChatCompletion` right after `inferenceMode` is set. SwiftData
+handles the schema change via lightweight migration; legacy SQLite
+stores adopted through `AppBootstrap.preparePersistentModelStoreIfNeeded`
+get the columns added via the `legacyMessageColumns` array
+(new entries: `ZAUTHOREDBYPROVIDERID`, `ZAUTHOREDBYMODELID`).
+
+**Wiring proof (so nothing gets pruned later):**
+
+  - `agent_core/src/lib.rs` declares `pub mod stdio_mcp`. Module used
+    from `bridge.rs` — any pruning pass that deletes it breaks the
+    bridge's `AgentConfig::from_ffi` call chain.
+  - `ToolRegistry::contains_tool` added as a public method. Used by
+    `stdio_mcp.rs`. Pruning either side breaks the other.
+  - `ChatState.scheduleBrainSnapshotPersistence` called from three
+    mutation sites (`captureBrainSnapshot`,
+    `updateBrainSnapshotSection`, `clearBrainSnapshotHistory`).
+    Pruning the helper breaks all three.
+  - `ChatCoordinator.inferAuthorship` called from `persistChatCompletion`.
+    Pruning the helper deletes per-message authorship.
+  - `SDChat.chatTypeValues` and `SDMessage.authoredBy*` referenced
+    from schema + `AppBootstrap.legacyMessageColumns`. Pruning any one
+    leaves the migration path incomplete.
+
+**Verification:** `cargo test --lib` on `agent_core` → `550 passed`
+(+1 from stdio_mcp tests, +5 from cli_passthrough in Pass 7, +3 from
+url_servers in Pass 5, on top of the pre-checkpoint 541). Swift
+`xcodebuild` BUILD SUCCEEDED on Pass 6 + Tunnel B.2 combined. Pass 8
+full combined build is in flight at the time this addendum was
+written.
+
+### 11.6 Still open for a future session (smaller now)
+
+- UI surface for per-model "involvement" view — the schema stores it;
+  a future pass surfaces the query UI.
+- "Convert this chat to a Worker Session" composer affordance — the
+  schema accepts it; a future pass adds the toggle.
+- MCP URL-server auth-header support in `mcp_url_servers.json`.
+- OpenAI Responses API equivalent of `mcp_servers` passthrough.
 
 ### 11.5 Runtime-validation matrix (§8) still open
 

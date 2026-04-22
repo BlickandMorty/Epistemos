@@ -613,6 +613,13 @@ async fn run_agent_session_inner(
         Some(std::path::PathBuf::from(&tool_config.vault_path)),
         tier,
     );
+    // Tunnel B.2 — connect to every stdio MCP server the user has
+    // configured under ~/.config/mcp/servers.json (or .epistemos/mcp.json)
+    // and register their advertised tools. Errors are logged and the
+    // remaining servers still register, so a single bad entry can't
+    // block the agent from coming up.
+    let _ = crate::tools::stdio_mcp::register_discovered_stdio_mcp_tools(&mut tool_registry).await;
+
     // Install the caller-provided per-tool allowlist (Phase 5 authority
     // boundary: Agent Command Center tool toggles become authoritative on
     // the runtime path here).

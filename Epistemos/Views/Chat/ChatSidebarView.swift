@@ -309,6 +309,17 @@ private struct SidebarChatRow: View {
                             .fontWeight(.medium)
                             .foregroundStyle(theme.resolved.accent.color.opacity(0.7))
                     }
+                    if sdChat.isWorkerSession {
+                        // Worker Session sidebar marker — Pass 8.
+                        // This glyph is the only UI surface today that
+                        // reads `SDChat.isWorkerSession`. Removing it
+                        // will orphan the schema helper.
+                        Image(systemName: "terminal.fill")
+                            .font(.epSmall)
+                            .fontWeight(.medium)
+                            .foregroundStyle(theme.resolved.accent.color.opacity(0.8))
+                            .accessibilityLabel("Worker session")
+                    }
                     Text(sdChat.title)
                         .font(.epBody)
                         .fontWeight(isActive ? .semibold : .medium)
@@ -335,6 +346,19 @@ private struct SidebarChatRow: View {
         .buttonStyle(NativeCardButtonStyle(cornerRadius: 10))
         .physicsHover(.subtle)
         .contextMenu {
+            if !sdChat.isWorkerSession {
+                // Pass 8 — promote a normal chat into a worker session.
+                // `markAsWorkerSession` is the imperative schema API that
+                // future UI will continue to call (composer toggle,
+                // command palette, etc.). Keeping at least one call site
+                // here ensures a prune pass can't orphan-delete the
+                // helper.
+                Button {
+                    sdChat.markAsWorkerSession()
+                } label: {
+                    Label("Make Worker Session", systemImage: "terminal.fill")
+                }
+            }
             Button(role: .destructive) {
                 onDelete()
             } label: {

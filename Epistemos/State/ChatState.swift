@@ -2,7 +2,7 @@ import Foundation
 import Observation
 import os
 
-struct ChatBrainSection: Identifiable, Sendable, Equatable {
+struct ChatBrainSection: Identifiable, Sendable, Equatable, Codable {
     let title: String
     let body: String
 
@@ -14,7 +14,7 @@ struct ChatBrainSection: Identifiable, Sendable, Equatable {
     }
 }
 
-struct ChatBrainSnapshot: Sendable, Equatable {
+struct ChatBrainSnapshot: Sendable, Equatable, Codable {
     let capturedAt: Date
     let query: String
     let resolvedQuery: String
@@ -434,7 +434,56 @@ final class ChatState {
 
     // MARK: - Init
 
-    init() {}
+    init() {
+        loadPersistedBrainSnapshotsFromDisk()
+    }
+
+    // MARK: - Brain-snapshot disk persistence
+    //
+    // `brainSnapshotsByChat` is the per-chat context-envelope history the
+    // right-side context panel renders. Pre-Pass-6 it lived in @Observable
+    // memory only, so app relaunch wiped it. This section mirrors it to a
+    // single JSON file under ApplicationSupport. Writes are debounced so
+    // rapid-fire capture bursts during streaming don't thrash the disk.
+
+    private nonisolated static let brainSnapshotPersistenceDebounceNanos: UInt64 = 2_000_000_000
+
+    private var brainSnapshotPersistenceTask: Task<Void, Never>?
+
+    nonisolated static func brainSnapshotsPersistenceURL() -> URL {
+        let appSupport = FoundationSafety.userApplicationSupportDirectory()
+        let dir = appSupport.appendingPathComponent("Epistemos", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("brain_snapshots.json", isDirectory: false)
+    }
+
+    private func loadPersistedBrainSnapshotsFromDisk() {
+        let url = Self.brainSnapshotsPersistenceURL()
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        guard let data = try? Data(contentsOf: url) else { return }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let decoded = try? decoder.decode([String: [ChatBrainSnapshot]].self, from: data) else {
+            return
+        }
+        brainSnapshotsByChat = decoded
+    }
+
+    private func scheduleBrainSnapshotPersistence() {
+        brainSnapshotPersistenceTask?.cancel()
+        let snapshot = brainSnapshotsByChat
+        let url = Self.brainSnapshotsPersistenceURL()
+        let debounceNanos = Self.brainSnapshotPersistenceDebounceNanos
+        brainSnapshotPersistenceTask = Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: debounceNanos)
+            if Task.isCancelled { return }
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.sortedKeys]
+            guard let data = try? encoder.encode(snapshot) else { return }
+            try? data.write(to: url, options: .atomic)
+        }
+    }
 
     func primeComposerDraft(_ draft: String) {
         let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1219,6 +1268,7 @@ final class ChatState {
             history.removeFirst(history.count - Self.maxBrainSnapshotsPerChat)
         }
         brainSnapshotsByChat[chatId] = history
+        scheduleBrainSnapshotPersistence()
     }
 
     func updateBrainSnapshotSection(
@@ -1232,6 +1282,7 @@ final class ChatState {
         }
         history[index] = history[index].updatingSection(section)
         brainSnapshotsByChat[chatId] = history
+        scheduleBrainSnapshotPersistence()
     }
 
     func captureModelInput(_ input: CapturedModelInput) {
@@ -1250,6 +1301,7 @@ final class ChatState {
     /// dictionary is persistence across switches).
     func clearBrainSnapshotHistory(for chatId: String) {
         brainSnapshotsByChat[chatId] = nil
+        scheduleBrainSnapshotPersistence()
     }
 
     func clearCapturedModelInputHistory(for chatId: String) {
