@@ -302,7 +302,7 @@ mod tests {
     use crate::resources::{
         Capability, GrantScope, PermissionGrant, PermissionService, ResourceContent,
         ResourceError, ResourceHit, ResourceId, ResourceSelector, ResourceService,
-        SearchScope, SqlitePermissionService, WriteResult,
+        ResourceSearchScope, SqlitePermissionService, WriteResult,
     };
 
     struct MockResourceService {
@@ -332,7 +332,7 @@ mod tests {
         async fn search(
             &self,
             _query: String,
-            _scope: SearchScope,
+            _scope: ResourceSearchScope,
         ) -> Result<Vec<ResourceHit>, ResourceError> {
             Ok(Vec::new())
         }

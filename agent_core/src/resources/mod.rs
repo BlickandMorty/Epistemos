@@ -18,5 +18,5 @@ pub use permissions::{
 pub use service::{
     create_note_adapter, delete_note_adapter, find_note_adapter, read_note_adapter,
     write_note_adapter, DeleteMode, ResourceContent, ResourceError, ResourceHit,
-    ResourceKind, ResourceService, SearchScope, VaultResourceService, WriteResult,
+    ResourceKind, ResourceService, ResourceSearchScope, VaultResourceService, WriteResult,
 };

@@ -10,25 +10,25 @@ use crate::storage::vault::VaultBackend;
 
 use super::{AliasRegistry, ResourceId};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SearchScope {
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+pub enum ResourceSearchScope {
     ActiveVault,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum ResourceKind {
     Note { name: String },
     Folder { name: String },
     File { name: String },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
 pub enum DeleteMode {
     Trash,
     Hard,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct ResourceContent {
     pub id: ResourceId,
     pub bytes: Vec<u8>,
@@ -37,14 +37,14 @@ pub struct ResourceContent {
     pub media_type: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct WriteResult {
     pub id: ResourceId,
     pub new_version: String,
     pub post_checksum: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
 pub struct ResourceHit {
     pub id: ResourceId,
     pub title: String,
@@ -53,7 +53,7 @@ pub struct ResourceHit {
     pub score: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, uniffi::Error)]
 pub enum ResourceError {
     #[error("resource not found: {0}")]
     NotFound(String),
@@ -86,7 +86,7 @@ pub trait ResourceService: Send + Sync {
     async fn search(
         &self,
         query: String,
-        scope: SearchScope,
+        scope: ResourceSearchScope,
     ) -> Result<Vec<ResourceHit>, ResourceError>;
     async fn read(&self, id: ResourceId) -> Result<ResourceContent, ResourceError>;
     async fn write(
@@ -342,9 +342,9 @@ impl ResourceService for VaultResourceService {
     async fn search(
         &self,
         query: String,
-        scope: SearchScope,
+        scope: ResourceSearchScope,
     ) -> Result<Vec<ResourceHit>, ResourceError> {
-        let SearchScope::ActiveVault = scope;
+        let ResourceSearchScope::ActiveVault = scope;
         self.ensure_vault_aliases_loaded()?;
         let results = self
             .vault
@@ -582,7 +582,7 @@ pub async fn find_note_adapter(
     service: &dyn ResourceService,
     query: &str,
 ) -> Result<Vec<ResourceHit>, ResourceError> {
-    service.search(query.to_string(), SearchScope::ActiveVault).await
+    service.search(query.to_string(), ResourceSearchScope::ActiveVault).await
 }
 
 pub async fn create_note_adapter(
@@ -676,7 +676,7 @@ mod tests {
 
     use super::{
         create_note_adapter, delete_note_adapter, find_note_adapter, read_note_adapter,
-        write_note_adapter, DeleteMode, ResourceService, SearchScope, VaultResourceService,
+        write_note_adapter, DeleteMode, ResourceService, ResourceSearchScope, VaultResourceService,
     };
     use crate::resources::ResourceId;
     use crate::storage::vault::VaultStore;
@@ -793,7 +793,7 @@ mod tests {
         let service = VaultResourceService::new(vault, temp.path(), "main");
 
         let hits = service
-            .search("beta".into(), SearchScope::ActiveVault)
+            .search("beta".into(), ResourceSearchScope::ActiveVault)
             .await
             .unwrap();
         assert_eq!(hits.len(), 1);
