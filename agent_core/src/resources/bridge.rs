@@ -34,9 +34,17 @@ use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 use super::{
-    AttachedResource, AttachmentMode, Capability, GrantScope, PermissionGrant, PermissionService,
-    ResourceId, ResourceSelector, SqlitePermissionService,
+    AttachedResource, Capability, GrantScope, PermissionGrant, PermissionService, ResourceId,
+    ResourceSelector, SqlitePermissionService,
 };
+
+// `AttachmentMode` is only referenced inside tests; the production
+// factories take a `ResourceId` + `String` and return an
+// `AttachedResource` whose mode is set by the underlying constructor.
+// Pull it in when compiling the tests module to keep those assertions
+// ergonomic.
+#[cfg(test)]
+use super::AttachmentMode;
 
 // ---------------------------------------------------------------------
 // FFI record types
