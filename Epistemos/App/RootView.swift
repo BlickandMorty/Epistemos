@@ -1859,7 +1859,8 @@ struct SetupView: View {
 
                 if i <= 2 { delay += 100 }
 
-                try? await Task.sleep(for: .milliseconds(Int(delay)))
+                let safeDelay = delay.isFinite ? max(0, delay) : 0
+                try? await Task.sleep(for: .milliseconds(Int(safeDelay)))
             }
 
             // Typing done — fade in the button

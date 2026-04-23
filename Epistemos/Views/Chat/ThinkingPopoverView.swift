@@ -133,17 +133,19 @@ struct ThinkingPopoverView: View {
     }
 
     private func formatSeconds(_ seconds: Double) -> String {
-        if seconds < 1 {
-            return String(format: "%.0fms", seconds * 1000)
+        guard seconds.isFinite else { return "0ms" }
+        let safeSeconds = max(0, seconds)
+        if safeSeconds < 1 {
+            return String(format: "%.0fms", safeSeconds * 1000)
         }
-        if seconds < 10 {
-            return String(format: "%.1fs", seconds)
+        if safeSeconds < 10 {
+            return String(format: "%.1fs", safeSeconds)
         }
-        if seconds < 60 {
-            return String(format: "%.0fs", seconds)
+        if safeSeconds < 60 {
+            return String(format: "%.0fs", safeSeconds)
         }
-        let minutes = Int(seconds / 60)
-        let remainder = Int(seconds.truncatingRemainder(dividingBy: 60))
+        let minutes = Int(safeSeconds / 60)
+        let remainder = Int(safeSeconds.truncatingRemainder(dividingBy: 60))
         return "\(minutes)m \(remainder)s"
     }
 
