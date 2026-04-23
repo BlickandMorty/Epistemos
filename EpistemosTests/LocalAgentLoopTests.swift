@@ -962,6 +962,77 @@ struct LocalAgentLoopTests {
         #expect(answer == "tool smoke ok")
     }
 
+    @Test("reflex mode synthesizes create-path writes that specify exact content in a trailing block")
+    @MainActor
+    func reflexModeSynthesizesCreatePathWritesWithTrailingExactContentBlock() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [],
+            [],
+        ])
+        let fallbackResponses = ResponseQueue(outputs: [
+            "```xml\n",
+            "```xml\n",
+        ])
+        let toolCalls = ToolCallRecorder()
+
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await fallbackResponses.nextOutput()
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    let task = Task {
+                        for chunk in chunks {
+                            guard !Task.isCancelled else {
+                                continuation.finish()
+                                return
+                            }
+                            continuation.yield(chunk)
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            },
+            toolExecutor: { name, argumentsJson in
+                await toolCalls.record(name, argumentsJson)
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: name == "read_file"
+                        ? #"{"content":"1\tmini inside roundtrip ok","path":"/private/tmp/epistemos_smoke_vault/mini_inside_roundtrip_20260422.txt","showing":{"from":1,"to":1},"total_lines":1}"#
+                        : #"{"name":"write_file","success":true}"#,
+                    isError: false
+                )
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: """
+            Use write_file to create /private/tmp/epistemos_smoke_vault/mini_inside_roundtrip_20260422.txt with exactly this content and nothing else:
+            mini inside roundtrip ok
+            Then use read_file on that same path and reply with only the file contents.
+            """,
+            tools: [writeTool(), readTool()],
+            maxTurns: 3,
+            reflexMode: true,
+            onToken: { _ in }
+        )
+
+        let executedCalls = await toolCalls.snapshot()
+        #expect(executedCalls.map(\.name) == ["write_file", "read_file"])
+        if executedCalls.count == 2 {
+            let normalizedWriteArguments = executedCalls[0].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            let normalizedReadArguments = executedCalls[1].argumentsJson
+                .replacingOccurrences(of: "\\/", with: "/")
+            #expect(normalizedWriteArguments.contains("\"path\":\"/private/tmp/epistemos_smoke_vault/mini_inside_roundtrip_20260422.txt\""))
+            #expect(normalizedWriteArguments.contains("\"content\":\"mini inside roundtrip ok\""))
+            #expect(normalizedReadArguments.contains("\"path\":\"/private/tmp/epistemos_smoke_vault/mini_inside_roundtrip_20260422.txt\""))
+        }
+        #expect(answer == "mini inside roundtrip ok")
+    }
+
     @Test("explicit file round-trip strips numbered read_file content from the final answer")
     @MainActor
     func explicitFileRoundTripStripsNumberedReadFileContentFromFinalAnswer() async throws {

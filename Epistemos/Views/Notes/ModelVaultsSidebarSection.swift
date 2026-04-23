@@ -18,49 +18,70 @@ import SwiftData
 /// - The involvement sheet uses a one-shot `@Query` scoped to the
 ///   model id, so SwiftData only returns the matching messages.
 struct ModelVaultsSidebarSection: View {
+    private static let maxExpandedListHeight: CGFloat = 320
+    private static let estimatedRowHeight: CGFloat = 44
+
+    @Environment(InferenceState.self) private var inference
     @AppStorage("notesSidebar.modelVaultsExpanded") private var isExpanded = false
     @State private var modelVaults: [ModelVaultEntry] = []
     @State private var selectedModel: SelectedModel?
 
+    private var visibleModelVaults: [ModelVaultEntry] {
+        let visibleModelIDs = inference.visibleModelVaultModelIDs
+        guard !visibleModelIDs.isEmpty else { return modelVaults }
+        return modelVaults.filter { visibleModelIDs.contains($0.id) }
+    }
+
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            if modelVaults.isEmpty {
-                Text("No model vaults yet")
+            if visibleModelVaults.isEmpty {
+                Text("No visible model vaults yet")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
             } else {
-                ForEach(modelVaults) { entry in
-                    Button {
-                        selectedModel = SelectedModel(id: entry.id)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: entry.systemImage)
-                                .foregroundStyle(.secondary)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(entry.displayName)
-                                    .font(.callout)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
-                                Text(entry.subtitle)
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                    .lineLimit(1)
+                ScrollView(.vertical) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(visibleModelVaults) { entry in
+                            Button {
+                                selectedModel = SelectedModel(id: entry.id)
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: entry.systemImage)
+                                        .foregroundStyle(.secondary)
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text(entry.displayName)
+                                            .font(.callout)
+                                            .foregroundStyle(.primary)
+                                            .lineLimit(1)
+                                        Text(entry.subtitle)
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                            .lineLimit(1)
+                                    }
+                                    Spacer(minLength: 0)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .contentShape(Rectangle())
                             }
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .contextMenu {
-                        Button("Reveal Vault in Finder") {
-                            ModelVaultsSidebarSection.revealInFinder(entry)
+                            .buttonStyle(.plain)
+                            .contextMenu {
+                                Button("Reveal Vault in Finder") {
+                                    ModelVaultsSidebarSection.revealInFinder(entry)
+                                }
+                            }
                         }
                     }
                 }
+                .frame(
+                    maxHeight: min(
+                        CGFloat(visibleModelVaults.count) * Self.estimatedRowHeight,
+                        Self.maxExpandedListHeight
+                    )
+                )
             }
         } label: {
             HStack(spacing: 6) {
@@ -70,8 +91,8 @@ struct ModelVaultsSidebarSection: View {
                     .font(.callout)
                     .fontWeight(.medium)
                 Spacer(minLength: 0)
-                if !modelVaults.isEmpty {
-                    Text("\(modelVaults.count)")
+                if !visibleModelVaults.isEmpty {
+                    Text("\(visibleModelVaults.count)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -85,6 +106,11 @@ struct ModelVaultsSidebarSection: View {
         }
         .onChange(of: isExpanded) { _, nowExpanded in
             if nowExpanded {
+                refreshModelVaults()
+            }
+        }
+        .onChange(of: inference.visibleModelVaultModelIDs) { _, _ in
+            if isExpanded {
                 refreshModelVaults()
             }
         }
@@ -107,7 +133,11 @@ struct ModelVaultsSidebarSection: View {
     }
 
     static func loadModelVaults() -> [ModelVaultEntry] {
-        let root = modelVaultsRootURL()
+        loadModelVaults(rootURL: modelVaultsRootURL())
+    }
+
+    static func loadModelVaults(rootURL: URL) -> [ModelVaultEntry] {
+        let root = rootURL
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: root,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -128,54 +158,156 @@ struct ModelVaultsSidebarSection: View {
 }
 
 struct ModelVaultEntry: Identifiable, Hashable {
-    let id: String        // directory name (also the model id we match on)
+    let id: String        // canonical model id used by authoredByModelID
     let url: URL
     let displayName: String
     let subtitle: String
     let sortKey: String
     let systemImage: String
+    let directoryName: String
 
     init(url: URL) {
         self.url = url
-        self.id = url.lastPathComponent
-        let name = url.lastPathComponent
-        self.sortKey = name.lowercased()
+        self.directoryName = url.lastPathComponent
 
-        let lower = name.lowercased()
-        if lower.contains("opus-4-7") {
-            self.displayName = "Claude Opus 4.7"
-            self.systemImage = "c.circle"
-        } else if lower.contains("sonnet-4-6") {
-            self.displayName = "Claude Sonnet 4.6"
-            self.systemImage = "c.circle"
-        } else if lower.contains("gpt-5.4-mini") || lower.contains("gpt-5-4-mini") {
-            self.displayName = "GPT-5.4 Mini"
-            self.systemImage = "o.circle"
-        } else if lower.contains("gpt-5.4") || lower.contains("gpt-5-4") {
-            self.displayName = "GPT-5.4"
-            self.systemImage = "o.circle"
-        } else if lower.contains("gemini-3.1-pro") || lower.contains("gemini-3-pro") {
-            self.displayName = "Gemini 3.1 Pro"
-            self.systemImage = "g.circle"
-        } else if lower.contains("gemini-3-flash") {
-            self.displayName = "Gemini 3 Flash"
-            self.systemImage = "g.circle"
-        } else if lower.contains("apple-intelligence") {
-            self.displayName = "Apple Intelligence"
-            self.systemImage = "apple.logo"
-        } else if lower.contains("qwen") {
-            self.displayName = name
-                .replacingOccurrences(of: "-", with: " ")
-                .replacingOccurrences(of: "_", with: " ")
-            self.systemImage = "q.circle"
+        let metadata = Self.metadata(for: url)
+        let canonicalModelID = metadata?.modelID
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedModelID: String
+        if let canonicalModelID, !canonicalModelID.isEmpty {
+            resolvedModelID = canonicalModelID
         } else {
-            self.displayName = name
-                .replacingOccurrences(of: "-", with: " ")
-                .replacingOccurrences(of: "_", with: " ")
-            self.systemImage = "cpu"
+            resolvedModelID = Self.canonicalModelID(forDirectoryName: directoryName)
+        }
+        self.id = resolvedModelID
+
+        let presentation = Self.presentation(
+            for: resolvedModelID,
+            fallbackDisplayName: metadata?.displayName
+        )
+        self.displayName = presentation.displayName
+        self.systemImage = presentation.systemImage
+        self.sortKey = presentation.displayName.lowercased()
+        self.subtitle = resolvedModelID
+    }
+
+    static func presentation(
+        for modelID: String,
+        fallbackDisplayName: String? = nil
+    ) -> (displayName: String, systemImage: String) {
+        let explicitDisplayName = fallbackDisplayName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let explicitDisplayName, !explicitDisplayName.isEmpty {
+            return (explicitDisplayName, systemImage(for: modelID))
         }
 
-        self.subtitle = name
+        if let localModel = LocalTextModelID.allCases.first(where: { $0.rawValue == modelID }) {
+            return (localModel.displayName, systemImage(for: modelID))
+        }
+        if let cloudModel = CloudTextModelID.allCases.first(where: {
+            $0.rawValue == modelID || $0.vendorModelID == modelID
+        }) {
+            return (cloudModel.displayName, systemImage(for: modelID))
+        }
+
+        let lower = modelID.lowercased()
+        if lower.contains("opus-4-7") {
+            return ("Claude Opus 4.7", "c.circle")
+        }
+        if lower.contains("sonnet-4-6") {
+            return ("Claude Sonnet 4.6", "c.circle")
+        }
+        if lower.contains("gpt-5.4-mini") || lower.contains("gpt-5-4-mini") {
+            return ("GPT-5.4 Mini", "o.circle")
+        }
+        if lower.contains("gpt-5.4") || lower.contains("gpt-5-4") {
+            return ("GPT-5.4", "o.circle")
+        }
+        if lower.contains("gemini-3.1-pro") || lower.contains("gemini-3-pro") {
+            return ("Gemini 3.1 Pro", "g.circle")
+        }
+        if lower.contains("gemini-3-flash") {
+            return ("Gemini 3 Flash", "g.circle")
+        }
+        if lower.contains("apple-intelligence") {
+            return ("Apple Intelligence", "apple.logo")
+        }
+        if lower.contains("qwen") {
+            return (
+                modelID
+                    .replacingOccurrences(of: "-", with: " ")
+                    .replacingOccurrences(of: "_", with: " "),
+                "q.circle"
+            )
+        }
+        return (
+            modelID
+                .replacingOccurrences(of: "-", with: " ")
+                .replacingOccurrences(of: "/", with: " ")
+                .replacingOccurrences(of: "_", with: " "),
+            "cpu"
+        )
+    }
+
+    private static func canonicalModelID(forDirectoryName directoryName: String) -> String {
+        let trimmed = directoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return directoryName
+        }
+        if let localMatch = LocalTextModelID.allCases.first(where: {
+            safePathComponent($0.rawValue) == trimmed || $0.rawValue == trimmed
+        }) {
+            return localMatch.rawValue
+        }
+        if let cloudMatch = CloudTextModelID.allCases.first(where: {
+            safePathComponent($0.rawValue) == trimmed
+                || safePathComponent($0.vendorModelID) == trimmed
+                || $0.vendorModelID == trimmed
+                || $0.rawValue == trimmed
+        }) {
+            return cloudMatch.rawValue
+        }
+        return directoryName
+    }
+
+    private static func metadata(for directoryURL: URL) -> ModelVaultMetadata? {
+        let metadataURL = directoryURL.appendingPathComponent("meta.json", isDirectory: false)
+        guard let data = try? Data(contentsOf: metadataURL) else {
+            return nil
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(ModelVaultMetadata.self, from: data)
+    }
+
+    private static func safePathComponent(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "unknown-model" }
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._"))
+        let scalars = trimmed.unicodeScalars.map { scalar -> Character in
+            allowed.contains(scalar) ? Character(scalar) : "-"
+        }
+        return String(scalars)
+    }
+
+    private static func systemImage(for modelID: String) -> String {
+        let lower = modelID.lowercased()
+        if lower.contains("opus") || lower.contains("sonnet") || lower.contains("claude") {
+            return "c.circle"
+        }
+        if lower.contains("gpt") || lower.contains("openai") {
+            return "o.circle"
+        }
+        if lower.contains("gemini") || lower.contains("google") {
+            return "g.circle"
+        }
+        if lower.contains("apple-intelligence") {
+            return "apple.logo"
+        }
+        if lower.contains("qwen") {
+            return "q.circle"
+        }
+        return "cpu"
     }
 }
 

@@ -18,24 +18,20 @@ struct ModelInvolvementSheet: View {
     let modelID: String
 
     @Environment(\.dismiss) private var dismiss
-    @Query(
-        sort: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
-    )
-    private var allMessages: [SDMessage]
 
-    /// Filtered on the Swift side to keep the `@Query` predicate free
-    /// of the `modelID` capture (SwiftData `#Predicate` captures string
-    /// constants but not view-state at initializer time without some
-    /// ceremony). Message counts are small enough that a simple
-    /// `filter(_:)` is not a perf concern in a sheet.
-    private var contributions: [SDMessage] {
-        allMessages.filter { $0.authoredByModelID == modelID }
+    @Query private var contributions: [SDMessage]
+
+    @MainActor
+    init(modelID: String) {
+        self.modelID = modelID
+        _contributions = Query(
+            filter: #Predicate<SDMessage> { $0.authoredByModelID == modelID },
+            sort: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
+        )
     }
 
     private var prettyModelName: String {
-        // Reuse the same mapping logic the sidebar entry uses so the
-        // sheet title matches the row the user clicked.
-        ModelVaultEntry(url: URL(fileURLWithPath: "/tmp/\(modelID)")).displayName
+        ModelVaultEntry.presentation(for: modelID).displayName
     }
 
     var body: some View {

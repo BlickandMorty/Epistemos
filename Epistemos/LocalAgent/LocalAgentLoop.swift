@@ -1481,11 +1481,46 @@ actor LocalAgentLoop {
         guard let match = regex.firstMatch(in: request, options: [], range: range),
               match.numberOfRanges > 1,
               let contentRange = Range(match.range(at: 1), in: request) else {
-            return nil
+            return trailingExactWriteContent(in: request, requestedPath: requestedPath)
         }
 
-        let captured = String(request[contentRange])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalizedExplicitWriteContent(String(request[contentRange]))
+    }
+
+    private nonisolated static func trailingExactWriteContent(
+        in request: String,
+        requestedPath: String
+    ) -> String? {
+        let escapedPath = NSRegularExpression.escapedPattern(for: requestedPath)
+        let patterns = [
+            #"(?is)\b(?:use\s+)?write_file\s+to\s+create\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
+            #"(?is)\bcreate\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
+            #"(?is)\bwrite\s+\#(escapedPath)\b\s+with\s+exactly\s+this\s+content(?:\s+and\s+nothing\s+else)?\s*:?"#,
+        ]
+
+        for pattern in patterns {
+            guard let regex = FoundationSafety.regularExpression(
+                pattern,
+                options: [.caseInsensitive]
+            ) else {
+                continue
+            }
+            let range = NSRange(request.startIndex..<request.endIndex, in: request)
+            guard let match = regex.firstMatch(in: request, options: [], range: range),
+                  let markerRange = Range(match.range, in: request) else {
+                continue
+            }
+            let trailing = String(request[markerRange.upperBound...])
+            if let content = normalizedTrailingExactWriteContent(trailing) {
+                return content
+            }
+        }
+
+        return nil
+    }
+
+    private nonisolated static func normalizedExplicitWriteContent(_ raw: String) -> String? {
+        let captured = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !captured.isEmpty else {
             return nil
         }
@@ -1496,6 +1531,62 @@ actor LocalAgentLoop {
             return String(captured.dropFirst().dropLast())
         }
         return captured
+    }
+
+    private nonisolated static func normalizedTrailingExactWriteContent(
+        _ raw: String
+    ) -> String? {
+        let trimmed = raw
+            .trimmingCharacters(in: CharacterSet(charactersIn: " \t\r\n:"))
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+
+        let lines = trimmed.components(separatedBy: .newlines)
+        var capturedLines: [String] = []
+        capturedLines.reserveCapacity(lines.count)
+
+        for line in lines {
+            let normalizedLine = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !capturedLines.isEmpty && looksLikeFollowUpInstructionLine(normalizedLine) {
+                break
+            }
+            if capturedLines.isEmpty && normalizedLine.isEmpty {
+                continue
+            }
+            capturedLines.append(line)
+        }
+
+        let captured = capturedLines
+            .joined(separator: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return normalizedExplicitWriteContent(captured)
+    }
+
+    private nonisolated static func looksLikeFollowUpInstructionLine(_ line: String) -> Bool {
+        let normalized = line.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else {
+            return false
+        }
+
+        let prefixes = [
+            "then ",
+            "then use ",
+            "then call ",
+            "and then ",
+            "after that ",
+            "next ",
+            "finally ",
+            "reply with ",
+        ]
+        guard prefixes.contains(where: normalized.hasPrefix) else {
+            return false
+        }
+
+        return normalized.contains("read_file")
+            || normalized.contains("reply")
+            || normalized.contains("same path")
+            || normalized.contains("tool")
     }
 
     private nonisolated static func toolArgumentsJSONString(

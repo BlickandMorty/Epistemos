@@ -141,6 +141,8 @@ struct MiniChatView: View {
                         role: restoredMessage.role,
                         content: restoredMessage.content,
                         contentBlocks: restoredMessage.contentBlocks,
+                        authoredByProviderID: restoredMessage.authoredByProviderID,
+                        authoredByModelID: restoredMessage.authoredByModelID,
                         thinkingTrace: restoredMessage.thinkingTrace,
                         thinkingDurationSeconds: restoredMessage.thinkingDurationSeconds,
                         loadedNoteTitles: restoredMessage.loadedNoteTitles,
@@ -1271,6 +1273,8 @@ private struct MiniChatInputBar: View {
                                     AssistantMessage(
                                         role: message.role == "user" ? .user : .assistant,
                                         content: message.content,
+                                        authoredByProviderID: message.authoredByProviderID,
+                                        authoredByModelID: message.authoredByModelID,
                                         createdAt: message.createdAt
                                     )
                                 }
@@ -1467,6 +1471,8 @@ private struct MiniChatInputBar: View {
                 loadedNoteTitles: message.loadedNoteTitles,
                 contextAttachments: message.contextAttachments,
                 contentBlocks: message.contentBlocks,
+                authoredByProviderID: message.authoredByProviderID,
+                authoredByModelID: message.authoredByModelID,
                 thinkingTrace: message.thinkingTrace,
                 thinkingDurationSeconds: message.thinkingDurationSeconds
             )
@@ -1534,6 +1540,8 @@ private struct MiniChatInputBar: View {
             role: .assistant,
             content: finalContent,
             contentBlocks: assistant.contentBlocks,
+            authoredByProviderID: assistant.authoredByProviderID,
+            authoredByModelID: assistant.authoredByModelID,
             thinkingTrace: assistant.thinkingTrace,
             thinkingDurationSeconds: assistant.thinkingDurationSeconds,
             loadedNoteTitles: assistant.loadedNoteTitles ?? bridgeState.loadedNoteTitles,
@@ -1699,6 +1707,8 @@ private struct MiniChatInputBar: View {
             let stored = SDMessage(role: message.role.rawValue, content: message.content)
             stored.id = message.id
             stored.createdAt = message.createdAt
+            stored.authoredByProviderID = message.authoredByProviderID
+            stored.authoredByModelID = message.authoredByModelID
             stored.thinkingTrace = message.thinkingTrace
             stored.thinkingDurationSeconds = message.thinkingDurationSeconds
             stored.setContentBlocks(message.contentBlocks)

@@ -1837,7 +1837,7 @@ struct ChatCoordinatorPersistenceTests {
         return try ModelContainer(for: schema, configurations: [config])
     }
 
-    private func makeCoordinator(container: ModelContainer) -> ChatCoordinator {
+    private func makeCoordinator(container: ModelContainer, vaultURL: URL? = nil) -> ChatCoordinator {
         let bootstrap = AppBootstrap.shared ?? AppBootstrap()
         let chatState = ChatState()
         let pipelineState = PipelineState()
@@ -1854,11 +1854,14 @@ struct ChatCoordinatorPersistenceTests {
             eventBus: eventBus
         )
 
+        let vaultSync = VaultSyncService(modelContainer: container)
+        vaultSync.setVaultURLForTesting(vaultURL)
+
         return ChatCoordinator(
             bootstrap: bootstrap,
             chatState: chatState,
             inferenceState: inference,
-            vaultSync: VaultSyncService(modelContainer: container),
+            vaultSync: vaultSync,
             modelContainer: container,
             eventBus: eventBus,
             llmService: llmService,
@@ -2547,6 +2550,154 @@ struct ChatCoordinatorPersistenceTests {
         let restoredAssistant = try #require(savedChat.loadedMessages.first { $0.role == .assistant })
         #expect(restoredAssistant.thinkingTrace == "Compare the causal chain before writing the final answer.")
         #expect(restoredAssistant.thinkingDurationSeconds == 2.4)
+    }
+
+    @Test("persistChatCompletion stores local authorship from the preferred local selection")
+    func persistChatCompletionStoresLocalAuthorship() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let coordinator = makeCoordinator(container: container)
+
+        let assistantMessage = ChatMessage(
+            id: "assistant-authorship",
+            chatId: "chat-authorship",
+            role: .assistant,
+            content: "Local answer",
+            mode: .local
+        )
+
+        coordinator.persistChatCompletion(
+            chatId: "chat-authorship",
+            query: "Which local model answered?",
+            answer: assistantMessage.content,
+            mode: .local,
+            assistantMessage: assistantMessage
+        )
+
+        let saved = try #require(try context.fetch(FetchDescriptor<SDMessage>()).first { $0.role == "assistant" })
+        #expect(saved.authoredByProviderID == "local")
+        #expect(saved.authoredByModelID == LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
+
+        let savedChat = try #require(try context.fetch(FetchDescriptor<SDChat>()).first)
+        let restoredAssistant = try #require(savedChat.loadedMessages.first { $0.role == .assistant })
+        #expect(restoredAssistant.authoredByProviderID == "local")
+        #expect(restoredAssistant.authoredByModelID == LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue)
+    }
+
+    @Test("inferAuthorship respects the actual operating mode for auto-routed cloud turns")
+    func inferAuthorshipRespectsOperatingModeForAutoRoutedCloudTurns() {
+        let inference = InferenceState()
+        inference.appleIntelligenceAvailable = false
+        inference.chatAutoRouteToCloud = true
+        inference.preferredChatModelSelection = .appleIntelligence
+        inference.activeAIProvider = .openAI
+        #expect(inference.setAPIKey("test-openai-key", for: .openAI))
+        defer { _ = inference.setAPIKey("", for: .openAI) }
+
+        let fastAuthorship = ChatCoordinator.inferAuthorship(
+            inferenceMode: .api,
+            inference: inference,
+            assistantMessage: nil,
+            operatingMode: .fast
+        )
+        let agentAuthorship = ChatCoordinator.inferAuthorship(
+            inferenceMode: .api,
+            inference: inference,
+            assistantMessage: nil,
+            operatingMode: .agent
+        )
+
+        #expect(fastAuthorship.providerID == CloudModelProvider.openAI.rawValue)
+        #expect(fastAuthorship.modelID == CloudTextModelID.openAIGPT54Mini.rawValue)
+        #expect(agentAuthorship.providerID == CloudModelProvider.openAI.rawValue)
+        #expect(agentAuthorship.modelID == CloudTextModelID.openAIGPT54.rawValue)
+    }
+
+    @Test("persistChatCompletion exports a vault transcript from the persisted chat state")
+    func persistChatCompletionExportsVaultTranscript() throws {
+        let container = try makeContainer()
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pipeline-transcript-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let coordinator = makeCoordinator(container: container, vaultURL: vaultURL)
+        let assistantMessage = ChatMessage(
+            id: "assistant-transcript",
+            chatId: "chat-transcript",
+            role: .assistant,
+            content: "Transcript body",
+            mode: .local,
+            resolvedModelLabel: "Qwen 3 4B"
+        )
+
+        coordinator.persistChatCompletion(
+            chatId: "chat-transcript",
+            query: "Write a vault transcript",
+            answer: assistantMessage.content,
+            mode: .local,
+            assistantMessage: assistantMessage
+        )
+
+        let transcriptDirectory = vaultURL.appendingPathComponent(
+            ChatTranscriptVaultWriter.vaultSubdirectory,
+            isDirectory: true
+        )
+        let transcriptFiles = try FileManager.default.contentsOfDirectory(
+            at: transcriptDirectory,
+            includingPropertiesForKeys: nil
+        )
+        let transcriptURL = try #require(transcriptFiles.first)
+        let transcript = try String(contentsOf: transcriptURL, encoding: .utf8)
+
+        #expect(transcript.contains("# Write a vault transcript"))
+        #expect(transcript.contains("Write a vault transcript"))
+        #expect(transcript.contains("Transcript body"))
+        #expect(transcript.contains("authored by: local"))
+    }
+
+    @Test("chat transcript writer reuses the existing id-anchored filename across chat renames")
+    func chatTranscriptWriterReusesExistingIDAnchoredFilenameAcrossChatRenames() throws {
+        let vaultURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pipeline-transcript-rename-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let chat = SDChat(title: "First Title")
+        chat.id = "chat-transcript-rename"
+
+        let user = SDMessage(role: "user", content: "Hello")
+        let assistant = SDMessage(role: "assistant", content: "First answer")
+        user.chat = chat
+        assistant.chat = chat
+        chat.messages = [user, assistant]
+
+        ChatTranscriptVaultWriter.writeTranscript(for: chat, vaultURL: vaultURL)
+
+        let transcriptDirectory = vaultURL.appendingPathComponent(
+            ChatTranscriptVaultWriter.vaultSubdirectory,
+            isDirectory: true
+        )
+        let firstFile = try #require(
+            FileManager.default.contentsOfDirectory(
+                at: transcriptDirectory,
+                includingPropertiesForKeys: nil
+            ).first
+        )
+
+        chat.title = "Renamed Title"
+        ChatTranscriptVaultWriter.writeTranscript(for: chat, vaultURL: vaultURL)
+
+        let transcriptFiles = try FileManager.default.contentsOfDirectory(
+            at: transcriptDirectory,
+            includingPropertiesForKeys: nil
+        )
+        #expect(transcriptFiles.count == 1)
+        let transcriptURL = try #require(transcriptFiles.first)
+        #expect(transcriptURL.lastPathComponent == firstFile.lastPathComponent)
+
+        let transcript = try String(contentsOf: transcriptURL, encoding: .utf8)
+        #expect(transcript.contains("# Renamed Title"))
     }
 
     @Test("persistChatCompletion preserves user message ordering when chat reloads")

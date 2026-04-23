@@ -1453,7 +1453,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let systemPrompt, !systemPrompt.isEmpty {
             body["system"] = systemPrompt
         }
-        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+        if let thinking = anthropicThinkingConfiguration() {
             body["thinking"] = thinking
         }
         // Define a tool whose input_schema = the desired output schema
@@ -1531,7 +1531,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         if let systemPrompt, !systemPrompt.isEmpty {
             body["system"] = systemPrompt
         }
-        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+        if let thinking = anthropicThinkingConfiguration() {
             body["thinking"] = thinking
         }
         let serverTools = anthropicServerSideTools(provider: provider)
@@ -1613,7 +1613,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                 body["system"] = systemPrompt
             }
         }
-        if let thinking = anthropicThinkingConfiguration(maxTokens: resolvedMaxTokens) {
+        if let thinking = anthropicThinkingConfiguration() {
             body["thinking"] = thinking
         }
         let serverTools = anthropicServerSideTools(provider: provider)
@@ -2731,16 +2731,18 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         case .off:
             return baseTokens
         case .low:
-            guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
+            guard inference.anthropicAdaptiveThinkingEnabled else { return baseTokens }
             return max(baseTokens, 2_048 + 512)
         case .medium:
-            guard inference.anthropicExtendedThinkingEnabled else { return baseTokens }
-            return max(baseTokens, inference.anthropicThinkingBudgetTokens + 512)
+            guard inference.anthropicAdaptiveThinkingEnabled else { return baseTokens }
+            return max(baseTokens, 8_192 + 512)
         case .high:
+            guard inference.anthropicAdaptiveThinkingEnabled else { return baseTokens }
             return max(baseTokens, 16_000 + 512)
         case .heavy:
-            // Heavy tier pushes the budget to 32k so Claude's deepest
-            // thinking passes have room to breathe.
+            guard inference.anthropicAdaptiveThinkingEnabled else { return baseTokens }
+            // Max effort still needs enough room for both the adaptive
+            // thinking pass and the final visible answer.
             return max(baseTokens, 32_000 + 512)
         }
     }
@@ -2814,45 +2816,31 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         body["generationConfig"] = generationConfig
     }
 
-    private func anthropicThinkingConfiguration(maxTokens: Int) -> [String: Any]? {
-        // Tier-driven thinking config. Each tier maps to an explicit
-        // `budget_tokens` for Anthropic's `thinking.type = "enabled"`:
-        //   off     → nil (no thinking block)
-        //   low     → 2_048 (quick pass, cheap)
-        //   medium  → user's Settings budget (or 1_024 default)
-        //   high    → 16_000
-        //   heavy   → 32_000 (matches the heavy tier on Gemini 2.5)
-        // Budgets clamp to `maxTokens - 128` so the reply has headroom.
+    private func anthropicThinkingConfiguration() -> [String: Any]? {
+        guard inference.anthropicAdaptiveThinkingEnabled else { return nil }
         let tier = inference.chatReasoningTier
-        let cap = max(1_024, maxTokens - 128)
         switch tier {
         case .off:
             return nil
         case .low:
-            guard inference.anthropicExtendedThinkingEnabled else { return nil }
             return [
-                "type": "enabled",
-                "budget_tokens": min(2_048, cap),
+                "type": "adaptive",
+                "effort": "low",
             ]
         case .medium:
-            guard inference.anthropicExtendedThinkingEnabled else { return nil }
-            let budget = min(
-                inference.anthropicThinkingBudgetTokens,
-                cap
-            )
             return [
-                "type": "enabled",
-                "budget_tokens": budget,
+                "type": "adaptive",
+                "effort": "medium",
             ]
         case .high:
             return [
-                "type": "enabled",
-                "budget_tokens": min(16_000, cap),
+                "type": "adaptive",
+                "effort": "high",
             ]
         case .heavy:
             return [
-                "type": "enabled",
-                "budget_tokens": min(32_000, cap),
+                "type": "adaptive",
+                "effort": "max",
             ]
         }
     }

@@ -57,10 +57,7 @@ enum ChatTranscriptVaultWriter {
             return
         }
 
-        let fileURL = directory.appendingPathComponent(
-            transcriptFileName(for: chat),
-            isDirectory: false
-        )
+        let fileURL = transcriptFileURL(for: chat, in: directory)
         let body = renderMarkdown(for: chat, messages: messages)
         do {
             try body.write(to: fileURL, atomically: true, encoding: .utf8)
@@ -77,6 +74,16 @@ enum ChatTranscriptVaultWriter {
         let slug = titleSlug(chat.title)
         let idSuffix = String(chat.id.prefix(8))
         return "\(slug)--\(idSuffix).md"
+    }
+
+    static func transcriptFileURL(for chat: SDChat, in directory: URL) -> URL {
+        if let existing = existingTranscriptFileURL(for: chat, in: directory) {
+            return existing
+        }
+        return directory.appendingPathComponent(
+            transcriptFileName(for: chat),
+            isDirectory: false
+        )
     }
 
     static func titleSlug(_ raw: String) -> String {
@@ -97,6 +104,18 @@ enum ChatTranscriptVaultWriter {
             return collapsed
         }
         return String(collapsed.prefix(maxTitleSlugLength))
+    }
+
+    private static func existingTranscriptFileURL(for chat: SDChat, in directory: URL) -> URL? {
+        let idSuffix = "--\(String(chat.id.prefix(8))).md"
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+        return files.first { $0.lastPathComponent.hasSuffix(idSuffix) }
     }
 
     // MARK: - Rendering

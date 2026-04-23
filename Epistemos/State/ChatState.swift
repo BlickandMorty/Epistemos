@@ -640,6 +640,7 @@ final class ChatState {
             contextAttachments: pendingContextAttachments.isEmpty ? nil : pendingContextAttachments
         )
         messages.append(userMessage)
+        lastAssistantOperatingMode = operatingMode
         markTranscriptChanged()
         hasMessages = true
 
@@ -786,6 +787,23 @@ final class ChatState {
             let interval = end.timeIntervalSince(start)
             return interval > 0 ? interval : nil
         }()
+        let authorship: (providerID: String?, modelID: String?) = {
+            guard let inference = AppBootstrap.shared?.inferenceState else {
+                return (nil, nil)
+            }
+            let draftAssistantMessage = ChatMessage(
+                chatId: chatId,
+                role: .assistant,
+                content: answerText,
+                resolvedModelLabel: resolvedModelLabel
+            )
+            return ChatCoordinator.inferAuthorship(
+                inferenceMode: mode,
+                inference: inference,
+                assistantMessage: draftAssistantMessage,
+                operatingMode: lastAssistantOperatingMode
+            )
+        }()
 
         let assistantMessage = ChatMessage(
             id: messageId,
@@ -798,6 +816,8 @@ final class ChatState {
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
             contentBlocks: completedContentBlocks,
+            authoredByProviderID: authorship.providerID,
+            authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: thinkingTraceForMessage,
             thinkingDurationSeconds: thinkingDuration,
@@ -871,6 +891,23 @@ final class ChatState {
         }
 
         guard let chatId = activeChatId, hasVisibleContent else { return false }
+        let authorship: (providerID: String?, modelID: String?) = {
+            guard let inference = AppBootstrap.shared?.inferenceState else {
+                return (nil, nil)
+            }
+            let draftAssistantMessage = ChatMessage(
+                chatId: chatId,
+                role: .assistant,
+                content: answerText,
+                resolvedModelLabel: resolvedModelLabel
+            )
+            return ChatCoordinator.inferAuthorship(
+                inferenceMode: mode,
+                inference: inference,
+                assistantMessage: draftAssistantMessage,
+                operatingMode: lastAssistantOperatingMode
+            )
+        }()
 
         let assistantMessage = ChatMessage(
             id: messageId,
@@ -883,6 +920,8 @@ final class ChatState {
             contextAttachments: metadata.contextAttachments,
             artifacts: artifacts,
             contentBlocks: completedContentBlocks,
+            authoredByProviderID: authorship.providerID,
+            authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDuration,
@@ -954,6 +993,9 @@ final class ChatState {
 
     @ObservationIgnored
     private var hasExplicitThinkingTrace = false
+
+    @ObservationIgnored
+    private var lastAssistantOperatingMode: EpistemosOperatingMode = .fast
 
     @ObservationIgnored
     private lazy var streamBuffer = DisplayPacedTextBuffer { [weak self] delta in

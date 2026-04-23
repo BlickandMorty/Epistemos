@@ -1394,7 +1394,13 @@ final class AppBootstrap {
         self.noteInsightService = NoteInsightService(modelContainer: container)
 
         // Cloud Knowledge Distillation — compiles per-model vault documents from local notes
-        self.cloudKnowledgeDistillationService = CloudKnowledgeDistillationService(modelContainer: container)
+        let initialModelVaultTargets = inference.modelVaultTargets()
+        self.cloudKnowledgeDistillationService = CloudKnowledgeDistillationService(
+            modelContainer: container,
+            targetsProvider: {
+                initialModelVaultTargets
+            }
+        )
 
         // Meaning Anchor Service — generates structured chat snapshots for graph intelligence
         self.meaningAnchorService = MeaningAnchorService(

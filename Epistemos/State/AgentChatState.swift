@@ -390,6 +390,23 @@ final class AgentChatState {
         }
 
         let artifacts = ArtifactExtractor.extract(from: answerText)
+        let authorship: (providerID: String?, modelID: String?) = {
+            guard let inference = AppBootstrap.shared?.inferenceState else {
+                return (nil, nil)
+            }
+            let draftAssistantMessage = ChatMessage(
+                chatId: sessionId,
+                role: .assistant,
+                content: answerText,
+                resolvedModelLabel: resolvedModelLabel
+            )
+            return ChatCoordinator.inferAuthorship(
+                inferenceMode: mode,
+                inference: inference,
+                assistantMessage: draftAssistantMessage,
+                operatingMode: .agent
+            )
+        }()
 
         // Silent-empty-reply guard: a turn with no text, no tool-use blocks,
         // and no artifacts has nothing for the user to see. Surface a
@@ -421,6 +438,8 @@ final class AgentChatState {
             mode: mode,
             artifacts: artifacts,
             contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
+            authoredByProviderID: authorship.providerID,
+            authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDurationSeconds
@@ -482,6 +501,23 @@ final class AgentChatState {
         }
 
         let artifacts = ArtifactExtractor.extract(from: answerText)
+        let authorship: (providerID: String?, modelID: String?) = {
+            guard let inference = AppBootstrap.shared?.inferenceState else {
+                return (nil, nil)
+            }
+            let draftAssistantMessage = ChatMessage(
+                chatId: sessionId,
+                role: .assistant,
+                content: answerText,
+                resolvedModelLabel: resolvedModelLabel
+            )
+            return ChatCoordinator.inferAuthorship(
+                inferenceMode: mode,
+                inference: inference,
+                assistantMessage: draftAssistantMessage,
+                operatingMode: .agent
+            )
+        }()
         let trimmedAnswer = answerText.trimmingCharacters(in: .whitespacesAndNewlines)
         let hasVisibleContent = !trimmedAnswer.isEmpty
             || !completedBlocks.isEmpty
@@ -509,6 +545,8 @@ final class AgentChatState {
             mode: mode,
             artifacts: artifacts,
             contentBlocks: completedBlocks.isEmpty ? nil : completedBlocks,
+            authoredByProviderID: authorship.providerID,
+            authoredByModelID: authorship.modelID,
             resolvedModelLabel: resolvedModelLabel,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDurationSeconds

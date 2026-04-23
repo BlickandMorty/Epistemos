@@ -97,4 +97,18 @@ struct SDMessageTests {
         #expect(message.evidenceGrade == EvidenceGrade.d.rawValue)
         #expect(message.inferenceMode == InferenceMode.api.rawValue)
     }
+
+    @MainActor
+    @Test("chatMessage preserves authored involvement metadata")
+    func chatMessagePreservesAuthoredInvolvementMetadata() {
+        let message = SDMessage(role: "assistant", content: "hi")
+        message.id = "assistant-1"
+        message.authoredByProviderID = "local"
+        message.authoredByModelID = "Qwen/Qwen3-4B-MLX-4bit"
+
+        let restored = message.chatMessage(chatId: "chat-1")
+
+        #expect(restored.authoredByProviderID == "local")
+        #expect(restored.authoredByModelID == "Qwen/Qwen3-4B-MLX-4bit")
+    }
 }

@@ -1099,15 +1099,15 @@ struct LocalModelToolbarMenu: View {
             VStack(alignment: .leading, spacing: 10) {
                 if model.supportsNativeReasoningEffortControl {
                     SettingsDescriptionText(
-                        text: "Use the Effort button for Low, Medium, High, or Max reasoning. Extended Thinking still matters for non-agent cloud turns."
+                        text: "Use the Effort button for Low, Medium, High, or Max adaptive thinking effort. Adaptive Thinking can still be disabled entirely for Anthropic chat turns."
                     )
                 }
                 if !model.nativeReasoningModes.isEmpty {
                     Toggle(
-                        "Enable Extended Thinking",
+                        "Enable Adaptive Thinking",
                         isOn: Binding(
-                            get: { inference.anthropicExtendedThinkingEnabled },
-                            set: { inference.setAnthropicExtendedThinkingEnabled($0) }
+                            get: { inference.anthropicAdaptiveThinkingEnabled },
+                            set: { inference.setAnthropicAdaptiveThinkingEnabled($0) }
                         )
                     )
                 }
