@@ -19,6 +19,27 @@ struct ModelInvolvementSheet: View {
 
     @Environment(\.dismiss) private var dismiss
 
+    private var prettyModelName: String {
+        ModelVaultEntry.presentation(for: modelID).displayName
+    }
+
+    var body: some View {
+        NavigationStack {
+            ModelInvolvementContent(modelID: modelID)
+            .navigationTitle(prettyModelName)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+        .frame(minWidth: 480, minHeight: 520)
+    }
+}
+
+struct ModelInvolvementContent: View {
+    let modelID: String
+
     @Query private var contributions: [SDMessage]
 
     @MainActor
@@ -35,43 +56,34 @@ struct ModelInvolvementSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if contributions.isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "tray")
-                            .font(.largeTitle)
-                            .foregroundStyle(.tertiary)
-                        Text("No contributions yet from \(prettyModelName).")
-                            .font(.headline)
-                        Text("Turns this model authors will show up here automatically.")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        Section {
-                            ForEach(contributions, id: \.id) { message in
-                                ModelInvolvementRow(message: message)
-                            }
-                        } header: {
-                            Text("\(contributions.count) contribution\(contributions.count == 1 ? "" : "s")")
+        Group {
+            if contributions.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "tray")
+                        .font(.largeTitle)
+                        .foregroundStyle(.tertiary)
+                    Text("No contributions yet from \(prettyModelName).")
+                        .font(.headline)
+                    Text("Turns this model authors will show up here automatically.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    Section {
+                        ForEach(contributions, id: \.id) { message in
+                            ModelInvolvementRow(message: message)
                         }
+                    } header: {
+                        Text("\(contributions.count) contribution\(contributions.count == 1 ? "" : "s")")
                     }
-                    .listStyle(.plain)
                 }
-            }
-            .navigationTitle(prettyModelName)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
+                .listStyle(.plain)
             }
         }
-        .frame(minWidth: 480, minHeight: 520)
     }
 }
 

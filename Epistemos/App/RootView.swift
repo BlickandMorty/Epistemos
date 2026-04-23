@@ -359,7 +359,6 @@ struct LocalModelToolbarMenu: View {
     @State private var isPresented = false
     @State private var activeSplitPopover: SplitToolbarPopover?
     @State private var showsLocalModels = true
-    @State private var showsCloudModels = true
     @State private var showsCloudProviderOptions = false
     @State private var showsActiveCloudModelOptions = false
     @State private var aboutSelection: ChatModelSelection?
@@ -881,88 +880,9 @@ struct LocalModelToolbarMenu: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     popoverSectionTitle("Models")
-
-                    DisclosureGroup(
-                        isExpanded: $showsLocalModels,
-                        content: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                if inference.appleIntelligenceAvailable {
-                                    selectionRow(
-                                        title: "Apple Intelligence",
-                                        subtitle: "Optional Apple on-device runtime for simple fallback work.",
-                                        systemImage: "apple.intelligence",
-                                        isSelected: selectedMenuItem == .appleIntelligence
-                                    ) {
-                                        inference.setPreferredChatModelSelection(.appleIntelligence)
-                                        activeSplitPopover = nil
-                                    }
-                                }
-
-                                if installedSelectableModels.isEmpty {
-                                    Text(noLocalModelsText)
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(theme.textTertiary)
-                                        .padding(.leading, 4)
-                                        .padding(.top, 2)
-                                } else {
-                                    ForEach(installedSelectableModels, id: \.id) { model in
-                                        HStack(spacing: 0) {
-                                            selectionRow(
-                                                title: inference.localModelPickerDisplayName(for: model.id),
-                                                subtitle: localModelSubtitle(for: model),
-                                                systemImage: "memorychip",
-                                                isSelected: selectedMenuItem == .inProcess(model)
-                                            ) {
-                                                inference.setPreferredChatModelSelection(.localMLX(model.id))
-                                                activeSplitPopover = nil
-                                            }
-
-                                            Button {
-                                                aboutSelection = .localMLX(model.id)
-                                            } label: {
-                                                Image(systemName: "info.circle")
-                                                    .font(.system(size: 11))
-                                                    .foregroundStyle(.secondary)
-                                                    .frame(width: 24, height: 24)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .help("Model details")
-                                        }
-                                    }
-                                }
-
-                                if !installableSelectableModels.isEmpty {
-                                    Divider()
-                                        .padding(.vertical, 4)
-
-                                    ForEach(installableSelectableModels, id: \.id) { model in
-                                        selectionRow(
-                                            title: inference.localModelPickerDisplayName(for: model.id),
-                                            subtitle: "Available to install • \(localModelSubtitle(for: model))",
-                                            systemImage: "arrow.down.circle",
-                                            isSelected: false
-                                        ) {
-                                            openSettings()
-                                            activeSplitPopover = nil
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        label: {
-                            disclosureTitle(
-                                title: "Local Models",
-                                subtitle: {
-                                    if installableSelectableModels.isEmpty {
-                                        return installedSelectableModels.isEmpty
-                                            ? "On-device"
-                                            : "\(installedSelectableModels.count) installed"
-                                    }
-                                    return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
-                                }()
-                            )
-                        }
-                    )
+                    localModelsDisclosure(closeAction: {
+                        activeSplitPopover = nil
+                    })
 
                     pickerCloudSection
                 }
@@ -1216,88 +1136,9 @@ struct LocalModelToolbarMenu: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     popoverSectionTitle("Models")
-
-                    DisclosureGroup(
-                        isExpanded: $showsLocalModels,
-                        content: {
-                            VStack(alignment: .leading, spacing: 6) {
-                                if inference.appleIntelligenceAvailable {
-                                    selectionRow(
-                                        title: "Apple Intelligence",
-                                        subtitle: "Optional Apple on-device runtime for simple fallback work.",
-                                        systemImage: "apple.intelligence",
-                                        isSelected: selectedMenuItem == .appleIntelligence
-                                    ) {
-                                        inference.setPreferredChatModelSelection(.appleIntelligence)
-                                        isPresented = false
-                                    }
-                                }
-
-                                if installedSelectableModels.isEmpty {
-                                    Text(noLocalModelsText)
-                                        .font(.system(size: 11))
-                                        .foregroundStyle(theme.textTertiary)
-                                        .padding(.leading, 4)
-                                        .padding(.top, 2)
-                                } else {
-                                    ForEach(installedSelectableModels, id: \.id) { model in
-                                        HStack(spacing: 0) {
-                                            selectionRow(
-                                                title: inference.localModelPickerDisplayName(for: model.id),
-                                                subtitle: localModelSubtitle(for: model),
-                                                systemImage: "memorychip",
-                                                isSelected: selectedMenuItem == .inProcess(model)
-                                            ) {
-                                                inference.setPreferredChatModelSelection(.localMLX(model.id))
-                                                isPresented = false
-                                            }
-
-                                            Button {
-                                                aboutSelection = .localMLX(model.id)
-                                            } label: {
-                                                Image(systemName: "info.circle")
-                                                    .font(.system(size: 11))
-                                                    .foregroundStyle(.secondary)
-                                                    .frame(width: 24, height: 24)
-                                            }
-                                            .buttonStyle(.plain)
-                                            .help("Model details")
-                                        }
-                                    }
-                                }
-
-                                if !installableSelectableModels.isEmpty {
-                                    Divider()
-                                        .padding(.vertical, 4)
-
-                                    ForEach(installableSelectableModels, id: \.id) { model in
-                                        selectionRow(
-                                            title: inference.localModelPickerDisplayName(for: model.id),
-                                            subtitle: "Available to install • \(localModelSubtitle(for: model))",
-                                            systemImage: "arrow.down.circle",
-                                            isSelected: false
-                                        ) {
-                                            openSettings()
-                                            isPresented = false
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        label: {
-                            disclosureTitle(
-                                title: "Local Models",
-                                subtitle: {
-                                    if installableSelectableModels.isEmpty {
-                                        return installedSelectableModels.isEmpty
-                                            ? "On-device"
-                                            : "\(installedSelectableModels.count) installed"
-                                    }
-                                    return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
-                                }()
-                            )
-                        }
-                    )
+                    localModelsDisclosure(closeAction: {
+                        isPresented = false
+                    })
 
                     // Cloud section — drastically simplified. Picker shows
                     // ONE cloud row (the user's preferred cloud model),
@@ -1359,6 +1200,102 @@ struct LocalModelToolbarMenu: View {
             Text(subtitle)
                 .font(.system(size: 10))
                 .foregroundStyle(theme.textTertiary)
+        }
+    }
+
+    private var localModelsDisclosureSubtitle: String {
+        if installableSelectableModels.isEmpty {
+            return installedSelectableModels.isEmpty
+                ? "On-device"
+                : "\(installedSelectableModels.count) installed"
+        }
+        return "\(installedSelectableModels.count) installed • \(installableSelectableModels.count) available"
+    }
+
+    @ViewBuilder
+    private func localModelsDisclosure(
+        closeAction: @escaping () -> Void
+    ) -> some View {
+        DisclosureGroup(
+            isExpanded: $showsLocalModels,
+            content: {
+                VStack(alignment: .leading, spacing: 6) {
+                    localModelRows(closeAction: closeAction)
+                }
+            },
+            label: {
+                disclosureTitle(
+                    title: "Local Models",
+                    subtitle: localModelsDisclosureSubtitle
+                )
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func localModelRows(
+        closeAction: @escaping () -> Void
+    ) -> some View {
+        if inference.appleIntelligenceAvailable {
+            selectionRow(
+                title: "Apple Intelligence",
+                subtitle: "Optional Apple on-device runtime for simple fallback work.",
+                systemImage: "apple.intelligence",
+                isSelected: selectedMenuItem == .appleIntelligence
+            ) {
+                inference.setPreferredChatModelSelection(.appleIntelligence)
+                closeAction()
+            }
+        }
+
+        if installedSelectableModels.isEmpty {
+            Text(noLocalModelsText)
+                .font(.system(size: 11))
+                .foregroundStyle(theme.textTertiary)
+                .padding(.leading, 4)
+                .padding(.top, 2)
+        } else {
+            ForEach(installedSelectableModels, id: \.id) { model in
+                HStack(spacing: 0) {
+                    selectionRow(
+                        title: inference.localModelPickerDisplayName(for: model.id),
+                        subtitle: localModelSubtitle(for: model),
+                        systemImage: "memorychip",
+                        isSelected: selectedMenuItem == .inProcess(model)
+                    ) {
+                        inference.setPreferredChatModelSelection(.localMLX(model.id))
+                        closeAction()
+                    }
+
+                    Button {
+                        aboutSelection = .localMLX(model.id)
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 24, height: 24)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Model details")
+                }
+            }
+        }
+
+        if !installableSelectableModels.isEmpty {
+            Divider()
+                .padding(.vertical, 4)
+
+            ForEach(installableSelectableModels, id: \.id) { model in
+                selectionRow(
+                    title: inference.localModelPickerDisplayName(for: model.id),
+                    subtitle: "Available to install • \(localModelSubtitle(for: model))",
+                    systemImage: "arrow.down.circle",
+                    isSelected: false
+                ) {
+                    openSettings()
+                    closeAction()
+                }
+            }
         }
     }
 

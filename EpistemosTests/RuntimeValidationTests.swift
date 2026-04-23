@@ -5054,6 +5054,47 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("inference.setPreferredCloudModel(model)"))
     }
 
+    @Test("toolbar popovers share one local model disclosure implementation")
+    func toolbarPopoversShareOneLocalModelDisclosureImplementation() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("private func localModelsDisclosure("))
+        #expect(source.contains("private func localModelRows("))
+        #expect(!source.contains("@State private var showsCloudModels = true"))
+        #expect(source.contains("localModelsDisclosure(closeAction: {"))
+    }
+
+    @Test("inference settings keep cloud credential drafts scoped to the curated provider set")
+    func inferenceSettingsKeepCloudCredentialDraftsScopedToCuratedProviderSet() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("@State private var cloudAPIKeyDrafts: [CloudModelProvider: String] = [:]"))
+        #expect(source.contains("private func cloudAPIKeyDraftBinding(for provider: CloudModelProvider) -> Binding<String>"))
+        #expect(source.contains("for provider in CloudModelProvider.preferredOrder"))
+        #expect(!source.contains("@State private var openAIKey = \"\""))
+        #expect(!source.contains("@State private var zaiKey = \"\""))
+        #expect(!source.contains("zaiKey = inference.apiKey(for: .zai) ?? \"\""))
+        #expect(!source.contains("case .zai:"))
+    }
+
+    @Test("local model picker uses curated display names outside the unified qwen row")
+    func localModelPickerUsesCuratedDisplayNamesOutsideUnifiedQwenRow() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("return \"Qwen 3\""))
+        #expect(source.contains("return LocalTextModelID(rawValue: modelID)?.displayName ?? modelID"))
+        #expect(!source.contains("return LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID"))
+    }
+
     @MainActor
     @Test("clearing the active cloud provider key sanitizes the selected chat model")
     func clearingActiveCloudProviderKeySanitizesSelectedChatModel() throws {
@@ -5850,6 +5891,16 @@ struct InferenceCloudSelectionTests {
         )
         #expect(source.contains("_contributions = Query("))
         #expect(source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
+    }
+
+    @Test("model vault sidebar opens a browser sheet instead of a narrow involvement-only panel")
+    func modelVaultSidebarOpensBrowserSheet() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+            testsFilePath: #filePath
+        )
+        #expect(source.contains("@State private var selectedModel: ModelVaultEntry?"))
+        #expect(source.contains("ModelVaultBrowserSheet(entry: selection)"))
     }
 
     @Test("model vault sidebar keeps long vault lists inside a bounded scroll region")
