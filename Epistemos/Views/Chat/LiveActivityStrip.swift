@@ -27,53 +27,27 @@ struct LiveActivityStrip: View {
     private var theme: EpistemosTheme { ui.theme }
 
     var body: some View {
-        HStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .fill(theme.muted.opacity(theme.isDark ? 0.68 : 0.5))
-                icon
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(tint)
-            }
-            .frame(width: 26, height: 26)
+        VStack(alignment: .leading, spacing: 6) {
+            ProcessDisclosureHeader(title: statusBadgeTitle, tone: tone) {
+                phraseLabel
+            } trailing: {
+                HStack(spacing: 8) {
+                    if showsTimer, let start = thinkingStartedAt {
+                        TimelineView(.periodic(from: start, by: 1)) { context in
+                            Text(duration(start, now: context.date))
+                                .font(ClaudeAppTypography.monoFont(size: 11))
+                                .foregroundStyle(theme.textSecondary)
+                        }
+                    }
 
-            phraseLabel
-
-            if showsTimer, let start = thinkingStartedAt {
-                TimelineView(.periodic(from: start, by: 1)) { context in
-                    Text(duration(start, now: context.date))
-                        .font(ClaudeAppTypography.monoFont(size: 11))
-                        .foregroundStyle(theme.textSecondary)
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(tint)
                 }
             }
 
-            Spacer()
-
-            HStack(spacing: 7) {
-                Text(statusBadgeTitle)
-                    .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
-                    .foregroundStyle(theme.textSecondary)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(
-                        Capsule()
-                            .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.52))
-                    )
-
-                ProgressView()
-                    .controlSize(.mini)
-                    .tint(tint)
-            }
+            ProcessDisclosureDivider()
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: true)
-        .shadow(
-            color: .black.opacity(theme.isDark ? 0.16 : 0.06),
-            radius: 14,
-            x: 0,
-            y: 6
-        )
     }
 
     // MARK: - Derived
@@ -107,20 +81,16 @@ struct LiveActivityStrip: View {
         return "Writing reply…"
     }
 
-    private var icon: Image {
-        if toolName != nil {
-            return Image(systemName: "wrench.and.screwdriver")
-        }
-        if isThinkingActive {
-            return Image(systemName: "brain")
-        }
-        return Image(systemName: "pencil.line")
-    }
-
     private var statusBadgeTitle: String {
         if toolName != nil { return "TOOL" }
         if isThinkingActive { return "THINK" }
         return "WRITE"
+    }
+
+    private var tone: ProcessDisclosureTone {
+        if toolName != nil { return .tool }
+        if isThinkingActive { return .thinking }
+        return .write
     }
 
     private var tint: Color {

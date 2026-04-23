@@ -1,19 +1,18 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
+
+enum ModelInvolvementContentVariant: Equatable {
+    case sheet
+    case inline(maxRows: Int?)
+}
 
 /// Pass 11 — Per-model "involvement" view.
 ///
-/// Given a `modelID`, shows every substantive `SDMessage` whose
-/// `authoredByModelID` matches — i.e. the full contribution history
-/// of that specific model across every chat, worker session, and
-/// note in this vault. Fulfils the user's
-/// "each involvement an AI has should be saved" ask: a permanent
-/// memory of everything that model has authored.
-///
-/// Kept intentionally lightweight: the `@Query` with `#Predicate` is
-/// the whole retrieval; no in-memory crawl of chats, no per-row disk
-/// scans, no observers. The list shows the most-recent contributions
-/// first.
+/// Given a `modelID`, shows every substantive `SDMessage` this model
+/// authored across chats, worker sessions, and note flows. Cloud
+/// models accept both the current vendor model id (`gpt-5.4`) and the
+/// legacy provider-qualified id (`openai:gpt-5.4`) so older histories
+/// still surface after the curated provider simplification.
 struct ModelInvolvementSheet: View {
     let modelID: String
 
@@ -26,12 +25,12 @@ struct ModelInvolvementSheet: View {
     var body: some View {
         NavigationStack {
             ModelInvolvementContent(modelID: modelID)
-            .navigationTitle(prettyModelName)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
+                .navigationTitle(prettyModelName)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
-            }
         }
         .frame(minWidth: 480, minHeight: 520)
     }
@@ -39,56 +38,128 @@ struct ModelInvolvementSheet: View {
 
 struct ModelInvolvementContent: View {
     let modelID: String
+    let acceptedModelIDs: Set<String>
+    let variant: ModelInvolvementContentVariant
 
-    @Query private var contributions: [SDMessage]
+    @Environment(\.modelContext) private var modelContext
+    @State private var contributions: [SDMessage] = []
 
-    @MainActor
-    init(modelID: String) {
+    init(
+        modelID: String,
+        acceptedModelIDs: Set<String>? = nil,
+        variant: ModelInvolvementContentVariant = .sheet
+    ) {
         self.modelID = modelID
-        _contributions = Query(
-            filter: #Predicate<SDMessage> { $0.authoredByModelID == modelID },
-            sort: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
-        )
+        self.acceptedModelIDs = acceptedModelIDs ?? ModelVaultEntry.acceptedModelIDs(for: modelID)
+        self.variant = variant
     }
 
     private var prettyModelName: String {
         ModelVaultEntry.presentation(for: modelID).displayName
     }
 
+    private var acceptedModelIDsKey: String {
+        acceptedModelIDs.sorted().joined(separator: "|")
+    }
+
     var body: some View {
         Group {
             if contributions.isEmpty {
-                VStack(spacing: 12) {
-                    Image(systemName: "tray")
-                        .font(.largeTitle)
-                        .foregroundStyle(.tertiary)
-                    Text("No contributions yet from \(prettyModelName).")
-                        .font(.headline)
-                    Text("Turns this model authors will show up here automatically.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 24)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                emptyState
             } else {
-                List {
-                    Section {
-                        ForEach(contributions, id: \.id) { message in
-                            ModelInvolvementRow(message: message)
+                switch variant {
+                case .sheet:
+                    List {
+                        Section {
+                            ForEach(contributions, id: \.id) { message in
+                                ModelInvolvementRow(message: message)
+                            }
+                        } header: {
+                            Text("\(contributions.count) contribution\(contributions.count == 1 ? "" : "s")")
                         }
-                    } header: {
-                        Text("\(contributions.count) contribution\(contributions.count == 1 ? "" : "s")")
+                    }
+                    .listStyle(.plain)
+
+                case .inline(let maxRows):
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        let visibleContributions = maxRows.map { Array(contributions.prefix($0)) } ?? contributions
+                        ForEach(Array(visibleContributions.enumerated()), id: \.element.id) { index, message in
+                            ModelInvolvementRow(message: message, compact: true)
+                            if index < visibleContributions.count - 1 {
+                                Divider()
+                                    .padding(.leading, 28)
+                            }
+                        }
+                        if let maxRows, contributions.count > maxRows {
+                            Text("+\(contributions.count - maxRows) more")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 6)
+                                .padding(.leading, 28)
+                        }
                     }
                 }
-                .listStyle(.plain)
             }
+        }
+        .task(id: acceptedModelIDsKey) {
+            reload()
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "tray")
+                .font(.largeTitle)
+                .foregroundStyle(.tertiary)
+            Text("No contributions yet from \(prettyModelName).")
+                .font(.headline)
+            Text("Turns this model authors will show up here automatically.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 24)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func reload() {
+        contributions = Self.loadContributions(
+            modelIDs: acceptedModelIDs,
+            in: modelContext
+        )
+    }
+
+    @MainActor
+    static func loadContributions(
+        modelIDs: Set<String>,
+        in modelContext: ModelContext
+    ) -> [SDMessage] {
+        guard !modelIDs.isEmpty else { return [] }
+
+        var mergedByID: [String: SDMessage] = [:]
+        for modelID in modelIDs {
+            let descriptor = FetchDescriptor<SDMessage>(
+                predicate: #Predicate<SDMessage> { $0.authoredByModelID == modelID },
+                sortBy: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
+            )
+            guard let fetched = try? modelContext.fetch(descriptor) else { continue }
+            for message in fetched where message.role == "assistant" {
+                mergedByID[message.id] = message
+            }
+        }
+
+        return mergedByID.values.sorted { lhs, rhs in
+            if lhs.createdAt == rhs.createdAt {
+                return lhs.id < rhs.id
+            }
+            return lhs.createdAt > rhs.createdAt
         }
     }
 }
 
 private struct ModelInvolvementRow: View {
     let message: SDMessage
+    var compact = false
 
     private var chatTitle: String {
         message.chat?.title ?? "Untitled chat"
@@ -110,10 +181,10 @@ private struct ModelInvolvementRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: compact ? 3 : 4) {
             HStack(spacing: 8) {
                 Text(chatTitle)
-                    .font(.subheadline)
+                    .font(compact ? .caption : .subheadline)
                     .fontWeight(.semibold)
                     .lineLimit(1)
                 Spacer(minLength: 0)
@@ -122,9 +193,9 @@ private struct ModelInvolvementRow: View {
                     .foregroundStyle(.secondary)
             }
             Text(preview)
-                .font(.body)
+                .font(compact ? .caption : .body)
                 .foregroundStyle(.primary)
-                .lineLimit(6)
+                .lineLimit(compact ? 4 : 6)
             HStack(spacing: 6) {
                 Text(roleLabel)
                     .font(.caption2)
@@ -140,6 +211,6 @@ private struct ModelInvolvementRow: View {
                 }
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, compact ? 6 : 4)
     }
 }

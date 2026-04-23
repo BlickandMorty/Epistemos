@@ -639,24 +639,6 @@ private struct ToolExecutionPreviewCard: View {
         self._isExpanded = State(initialValue: isActivelyRunning)
     }
 
-    private var iconName: String {
-        if preview.name.localizedCaseInsensitiveContains("bash")
-            || preview.name.localizedCaseInsensitiveContains("shell")
-            || preview.name.localizedCaseInsensitiveContains("command") {
-            return "terminal"
-        }
-        if preview.name.localizedCaseInsensitiveContains("file")
-            || preview.name.localizedCaseInsensitiveContains("patch")
-            || preview.name.localizedCaseInsensitiveContains("write") {
-            return "doc.text"
-        }
-        if preview.name.localizedCaseInsensitiveContains("search")
-            || preview.name.localizedCaseInsensitiveContains("find") {
-            return "magnifyingglass"
-        }
-        return "wrench.and.screwdriver"
-    }
-
     private var statusLabel: String {
         if preview.isError { return "Error" }
         if preview.result != nil { return "Finished" }
@@ -707,112 +689,62 @@ private struct ToolExecutionPreviewCard: View {
         return String(result.prefix(400))
     }
 
-    private var cardIsEmphasized: Bool {
-        preview.isError || (isStreaming && preview.result == nil)
+    private var detailTone: ProcessDisclosureTone {
+        if preview.isError { return .error }
+        if preview.result != nil { return .success }
+        if isStreaming { return .warning }
+        return .tool
+    }
+
+    private var headerTitle: String {
+        preview.name.replacingOccurrences(of: "_", with: " ")
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.snappy(duration: 0.18)) {
-                    isExpanded.toggle()
-                    userManuallyToggled = true
+        VStack(alignment: .leading, spacing: 8) {
+            ProcessDisclosureHeader(
+                title: headerTitle,
+                tone: detailTone,
+                isExpanded: isExpanded,
+                action: {
+                    withAnimation(.snappy(duration: 0.18)) {
+                        isExpanded.toggle()
+                        userManuallyToggled = true
+                    }
                 }
-            } label: {
+            ) {
+                Text(planSummary ?? statusLabel)
+                    .font(ClaudeAppTypography.monoFont(size: 11))
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+            } trailing: {
                 HStack(spacing: 8) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.48))
-                        Image(systemName: iconName)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(statusColor)
-                    }
-                    .frame(width: 26, height: 26)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(preview.name.replacingOccurrences(of: "_", with: " ").capitalized)
-                            .font(ClaudeAppTypography.monoFont(size: 12, weight: .semibold))
-                            .foregroundStyle(theme.resolved.foreground.color)
-
-                        if let planSummary, !planSummary.isEmpty {
-                            Text(planSummary)
-                                .font(ClaudeAppTypography.monoFont(size: 11))
-                                .foregroundStyle(theme.textSecondary)
-                                .lineLimit(1)
-                        }
-                    }
-
-                    Spacer()
-
-                    Text(statusLabel)
+                    Text(statusLabel.uppercased())
                         .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
                         .foregroundStyle(statusColor)
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 4)
-                        .background(
-                            Capsule()
-                                .fill(theme.muted.opacity(theme.isDark ? 0.72 : 0.48))
-                        )
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(theme.textTertiary)
+                    if isStreaming && preview.result == nil {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(statusColor)
+                    }
                 }
-                .contentShape(Rectangle())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
             }
-            .buttonStyle(.plain)
 
             if isExpanded {
-                Divider()
-                    .overlay(theme.glassBorder.opacity(0.44))
+                ProcessDisclosureDivider()
 
                 VStack(alignment: .leading, spacing: 10) {
                     if let planDetail, !planDetail.isEmpty {
-                        toolSection(title: "Input", content: planDetail)
+                        ProcessDisclosureDetailBlock(title: "INPUT", content: planDetail, tone: detailTone)
                     }
 
                     if let resultDetail, !resultDetail.isEmpty {
-                        toolSection(title: "Result", content: resultDetail)
+                        ProcessDisclosureDetailBlock(title: "RESULT", content: resultDetail, tone: detailTone)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
+                .padding(.top, 2)
             }
-        }
-        .assistantInsetChrome(theme: theme, cornerRadius: 14, isEmphasized: cardIsEmphasized)
-        .shadow(
-            color: .black.opacity(theme.isDark ? 0.14 : 0.05),
-            radius: 12,
-            x: 0,
-            y: 5
-        )
-    }
-
-    private func toolSection(title: String, content: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title)
-                .font(ClaudeAppTypography.monoFont(size: 10, weight: .semibold))
-                .foregroundStyle(theme.textSecondary)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                Text(content)
-                    .font(ClaudeAppTypography.monoFont(size: 11))
-                    .foregroundStyle(theme.resolved.foreground.color)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(theme.muted.opacity(theme.isDark ? 0.62 : 0.40))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(theme.glassBorder.opacity(0.4), lineWidth: 0.55)
-                    }
-            )
         }
     }
 

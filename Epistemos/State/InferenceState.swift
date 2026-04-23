@@ -2992,9 +2992,9 @@ final class InferenceState {
         LocalHardwareCapabilitySnapshot.current.recommendedLocalTextModelID.rawValue
     )
     var activeAIProvider: AIProviderSelection = .openAI
-    private let keychainLoad: (String) -> String?
-    private let keychainSave: (String, String) -> Bool
-    private let keychainDelete: (String) -> Void
+    private let keychainLoad: @Sendable (String) -> String?
+    private let keychainSave: @Sendable (String, String) -> Bool
+    private let keychainDelete: @Sendable (String) -> Void
     private let authService: CloudProviderAuthService
     private var isBootstrappingCloudCredentials = false
     private(set) var cachedCloudAPIKeys: [CloudModelProvider: String] = [:]
@@ -3084,9 +3084,9 @@ final class InferenceState {
 
     init(
         hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
-        keychainLoad: @escaping (String) -> String? = InferenceState.defaultKeychainLoad,
-        keychainSave: @escaping (String, String) -> Bool = InferenceState.defaultKeychainSave,
-        keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete,
+        keychainLoad: @escaping @Sendable (String) -> String? = InferenceState.defaultKeychainLoad,
+        keychainSave: @escaping @Sendable (String, String) -> Bool = InferenceState.defaultKeychainSave,
+        keychainDelete: @escaping @Sendable (String) -> Void = InferenceState.defaultKeychainDelete,
         deferCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldDeferCloudCredentialBootstrapOnLaunch(),
         skipCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch()
     ) {
@@ -3257,20 +3257,18 @@ final class InferenceState {
 
     private func startDeferredCloudCredentialBootstrap() {
         guard isBootstrappingCloudCredentials else { return }
-        let keychainAccess = KeychainAccess(
-            load: keychainLoad,
-            save: keychainSave,
-            delete: keychainDelete
-        )
+        let load = keychainLoad
+        let save = keychainSave
+        let delete = keychainDelete
 
         DispatchQueue.global(qos: .utility).async {
             Self.migrateLegacyCloudAPIKeysIfNeeded(
-                keychainLoad: keychainAccess.load,
-                keychainSave: keychainAccess.save,
-                keychainDelete: keychainAccess.delete
+                keychainLoad: load,
+                keychainSave: save,
+                keychainDelete: delete
             )
-            let snapshot = Self.loadCloudCredentialSnapshot(keychainLoad: keychainAccess.load)
-            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: keychainAccess.load)
+            let snapshot = Self.loadCloudCredentialSnapshot(keychainLoad: load)
+            AppBootstrap.populateAgentCoreEnvironment(keychainLoad: load)
 
             Task { @MainActor in
                 self.applyCloudCredentialSnapshot(snapshot)
@@ -3350,12 +3348,6 @@ final class InferenceState {
             oauthCredentials: oauthCredentials,
             missingOAuthProviders: missingOAuthProviders
         )
-    }
-
-    private struct KeychainAccess: @unchecked Sendable {
-        let load: (String) -> String?
-        let save: (String, String) -> Bool
-        let delete: (String) -> Void
     }
 
     private struct CloudCredentialSnapshot: Sendable {

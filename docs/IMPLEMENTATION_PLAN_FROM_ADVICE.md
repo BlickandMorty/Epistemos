@@ -14,6 +14,8 @@
 - **2026-04-22 (v1.5):** added **Phase K — iMessage Channel Unification (OpenClaw-style dispatch)**. Clarified that iMessage is currently wired as a **tool** (outbound from agent) but not as a **channel** (inbound to agent). The OpenClaw-inspired channel implementation design exists in [docs/BEST_OF_CLAW_AND_OPENCLAW.md §9](BEST_OF_CLAW_AND_OPENCLAW.md) but isn't wired. Phase K wires the existing design into the unified AgentRuntime (not directly to CLIs) so inbound iMessage routes through the same Router as regular Chat, with workspace-scoped dispatch profiles (allowed senders × tool allowlist × approval tier per workspace). iMessage chats become `Chat(kind="imessage")` graph nodes (extends Phase J). This is a STRICTLY BETTER architecture than Claude Code's Remote-Control/Channels pattern because it works offline via Qwen, applies Epistemos's approval/validation layer, and supports multiple workspaces with distinct permissions.
 - **2026-04-22 (v1.6):** final completeness pass. Added **§0.4 Document Map** — canonical navigation for any new session, codifies the "rule of five" (≤5 docs loaded per session). Completed **Appendix C** with prompts for Phases D (Qwen three-tier), I (Chat/Agent fusion), J (unified graph + per-model memory), and K (iMessage channel) — previously only 0/A/B/C/G had prompts. Added stub prompts for Phases E/F/H. Unified the prompt framework: Appendix D is the BASE context load for all sessions, Appendix C phase prompts EXTEND D without duplicating drift alarms or always-load files. Added **explicit supersession note** in Appendix D marking MASTER_SESSION_PROMPT.md (2026-03-30) as historical; Appendix D is canonical from 2026-04-22 forward. Every phase in §5 now has a corresponding Appendix C prompt or stub.
 - **2026-04-22 (v1.7):** verification pass. Fixed four internal inconsistencies: (1) §4.2 Settings pane escalation threshold now explicitly distinguishes Chat (3 hops) vs Agent (8 hops) profile to match §4.3a and Phase D; (2) §4.3 routing table "Multi-step agent" row now shows the 3-hop-for-Chat / 10-hop-for-Agent ceiling per profile; (3) §7.1 renamed "Phase I (Omega demolition)" to **"Phase Ω (Omega demolition)"** to avoid collision with the Chat/Agent fusion Phase I added in v1.3; (4) every cross-reference to "v1.5" updated to "v1.7". Inlined **three executable code primitives** previously only prosed: Rust `AgentEvent` enum + `AgentEventSink` UniFFI callback interface in new §4.6 (Phase A reference code), Rust ReAct loop template in Phase D.2 (so future sessions don't need the Claude paper), and Swift `iMessageChannel` actor skeleton in Phase K.1 (so the agent can copy-paste the right shape directly). Plan is now self-contained — no paper references required to execute any phase.
+- **2026-04-23 (v1.8):** captured real-world bugs and made them a first-class phase. Added **Phase R — Resource Runtime Hardening** (9 sub-phases: inventory, canonical ID, unified gateway, live vs snapshot attachments, permission grants, versioned+verified writes, UI grant visibility, model picker+DisclosureGroup cleanup, regression tests). Phase R is prerequisite to Phases I/J/K and runs after Phase 0 in the master sequence. Saved [docs/RESOURCE_RUNTIME_RESEARCH.md](RESOURCE_RUNTIME_RESEARCH.md) as the authoritative spec (ChatGPT-produced architectural guidance). Added **§B.4b Resource runtime drift alarms** — 8 new rules covering canonical IDs, single-gateway, explicit attachment mode, stored permission grants, verified-before-claim pipeline, note-content-is-data-not-authority, soft-delete default, real disclosure UI. Added Appendix **C.0b Phase R prompt**. These changes address the observed bugs: `gpt-5.4` vs `openai:gpt-5.4` model-ID split-brain, AI claiming writes it didn't verify (the `vault_graph.json` class), attached notes ambiguous between inline text and live file, permissions evaporating as chat text, flat lists masquerading as collapsible trees.
+- **2026-04-23 (v1.9):** fix-first discipline locked in. The user decided to stop the muddy foundation from compounding. All features (Phases A–K) remain captured in the plan for safety, but NOTHING IS BUILT until the foundation fix pass closes. Added [docs/KNOWN_ISSUES_REGISTER.md](KNOWN_ISSUES_REGISTER.md) — the canonical enumeration of every observed bug with ID, symptom, root cause, fix location, verification test. 19 issues tracked (I-001 through I-019): identity split-brain, duplicate code paths, ambiguous attachments, permissions-as-chat-text, verified-write pipeline missing, UI flat lists, Omega debt, editor doc-truth drift, Swift 6 concurrency violations, macOS 26 monitor bug. Added **Appendix E — Foundation Fix Execution Brief** — one self-contained Codex/Claude Code prompt that fixes every register issue in sequence (12 steps, commits between each). Appendix C remains for feature work; Appendix E is for the fix pass. When Appendix E closes, Phase A can start.
 
 ## 0.4 Document Map — where everything lives
 
@@ -658,6 +660,321 @@ Each phase is scoped to a single multi-day session. Every phase has explicit **v
 - Log: the specific Swift→Rust orchestration handoffs that still go through Swift today.
 
 **NOT in scope:** any code changes.
+
+### Phase R — Resource Runtime Hardening: canonical identity, unified gateway, verified writes (7–10 days) — NEW in v1.8
+
+**Why this exists (real bugs observed, not hypothetical):**
+1. **Model-ID split-brain:** vault metadata stores `gpt-5.4`, chat persistence stores `openai:gpt-5.4` → GPT-5.4 sidebar shows empty history because the sidebar query uses one form and persistence stores the other.
+2. **AI "lies" about writes:** assistant says "Done, I updated `vault_graph.json`" when it only had inline text access, not a real write handle. No verified-before-claim pipeline exists.
+3. **Attached notes ambiguous:** the UI says "attached" but the model gets only inlined content, not a live writable resource. No explicit `live` vs `snapshot` mode.
+4. **Duplicate code paths everywhere:** read/edit/find/create for notes exists across AI tools, sidebar, attachments, popovers, chat actions — each with its own ID format and permission model.
+5. **Permission-as-chat-text:** user types "you have my permission"; nothing is stored. Next turn / session loses it.
+6. **Flat UI lists masquerading as trees:** model picker, sidebar vault groups — no real collapse, just lists with indentation.
+
+**Root cause** (per [docs/RESOURCE_RUNTIME_RESEARCH.md](RESOURCE_RUNTIME_RESEARCH.md)): the app treats `inline context`, `vault notes`, `filesystem files`, `UI attachments`, `tool permissions`, and `app state` as if they were the same thing. They aren't. This phase creates one canonical resource system that every surface resolves into.
+
+**Authoritative spec:** [docs/RESOURCE_RUNTIME_RESEARCH.md](RESOURCE_RUNTIME_RESEARCH.md). When this plan disagrees with the research, the research wins.
+
+**Prerequisites:** Phase 0 (live audit). Runs **before** Phases I, J, K — all three depend on canonical IDs + unified gateway + permission grants. Can run in parallel with Phases A, B, C, D (no mutual dependency).
+
+**User constraint (non-negotiable):** "please make sure i do not lose anything." Every existing feature must remain reachable. This phase is **deduplication, not deletion** — old call sites keep working through compatibility adapters until the migration is complete.
+
+**Deliverable (9 sub-phases, each committable; no sub-phase breaks existing functionality):**
+
+#### R.1 — Inventory (1 day, no code changes)
+
+Trace every place in the codebase that currently:
+- looks up a note (by title, by path, by ID)
+- reads a file
+- writes a note
+- ingests an attachment
+- stores a model ID (vault metadata, chat persistence, sidebar, settings)
+- maintains sidebar tree state
+- stores or checks a permission
+
+Output: `docs/RESOURCE_INVENTORY.md` — a table of `(file:line, resource type, ID format observed, canonical? Y/N, notes)`. This is the map the rest of the phase executes against.
+
+Verification: inventory names at least the known offenders (`gpt-5.4` alias bug; note lookup by title vs ID; attachment-is-snapshot-but-called-live).
+
+#### R.2 — Canonical ID layer + alias registry (2 days, greenfield, additive)
+
+New module `agent_core/src/resources/id.rs`:
+
+```rust
+/// Every resource the app can touch resolves to one canonical ID.
+/// Stable across app versions; round-trippable via as_uri() / parse().
+#[derive(Debug, Clone, PartialEq, Eq, Hash, uniffi::Enum)]
+pub enum ResourceId {
+    VaultNote { vault_id: String, note_id: String },
+    File { absolute_path: String },
+    Chat { session_id: String, message_id: Option<String> },
+    Attachment { turn_id: String, attachment_id: String },
+    Model { provider: String, model_id: String },
+}
+
+impl ResourceId {
+    pub fn parse(uri: &str) -> Result<Self, IdError> { /* ... */ }
+    pub fn as_uri(&self) -> String { /* vault://<vault>/note/<id>, etc. */ }
+}
+
+/// Maps every legacy ID format observed in R.1 inventory → canonical.
+/// Examples:
+///   "gpt-5.4"                   → Model { provider:"openai", model_id:"gpt-5.4" }
+///   "openai:gpt-5.4"            → same
+///   "gpt_5_4"                   → same
+///   bare-title "Daily 2026-04-23" → VaultNote { vault_id, note_id } via title index
+#[derive(uniffi::Object)]
+pub struct AliasRegistry { /* ... */ }
+
+impl AliasRegistry {
+    pub fn resolve(&self, alias: &str) -> Option<ResourceId>;
+    pub fn register(&mut self, alias: String, canonical: ResourceId);
+    pub fn aliases_for(&self, id: &ResourceId) -> Vec<String>;
+}
+```
+
+On app launch, every known legacy ID format from R.1 inventory is registered. Existing call sites are untouched in this sub-phase — they keep using their old formats. Inside, every lookup first hits `AliasRegistry::resolve()` to find the canonical.
+
+**Specifically fixes the `gpt-5.4` sidebar bug:** both `gpt-5.4` AND `openai:gpt-5.4` resolve to the same `Model { provider:"openai", model_id:"gpt-5.4" }` canonical ID. Sidebar query and chat-persistence query now hit the same row.
+
+Verification:
+1. Unit test `alias_registry_resolves_all_known_legacy_ids` — every ID format from R.1 resolves correctly.
+2. Integration test `gpt_5_4_sidebar_shows_full_history` — write a chat message authored as `openai:gpt-5.4`; sidebar query using `gpt-5.4` returns it.
+3. Zero existing call sites changed. Full 2,679-test suite passes.
+
+#### R.3 — Unified `ResourceService` + compatibility adapters (2 days)
+
+Single Rust service, single entry point:
+
+```rust
+#[uniffi::export(async_runtime = "tokio")]
+pub trait ResourceService: Send + Sync {
+    async fn resolve(&self, ref_: String) -> Result<ResourceId, ResourceError>;
+    async fn search(&self, query: String, scope: SearchScope) -> Result<Vec<ResourceHit>, ResourceError>;
+    async fn read(&self, id: ResourceId) -> Result<ResourceContent, ResourceError>;
+    async fn write(&self, id: ResourceId, content: Vec<u8>, base_version: Option<String>) -> Result<WriteResult, ResourceError>;
+    async fn create(&self, parent: ResourceId, kind: ResourceKind, content: Vec<u8>) -> Result<ResourceId, ResourceError>;
+    async fn delete(&self, id: ResourceId, mode: DeleteMode) -> Result<(), ResourceError>;
+}
+
+pub enum DeleteMode { Trash, Hard }  // Trash is default — soft delete + tombstone
+```
+
+Every existing code path from R.1 inventory gets a **compatibility adapter** that converts its legacy call shape into a `ResourceService` call. Old callers keep working. No functionality is removed.
+
+Verification:
+1. `grep -rE "fn (read|write|find|create|edit|delete)_note\b" agent_core/ epistemos-core/ Epistemos/` returns only matches inside `ResourceService` impl or thin compatibility adapters.
+2. Every old behavior still works through its legacy call path.
+3. Full 2,679-test suite passes.
+
+#### R.4 — Live vs snapshot attachments (2 days, behavior change with migration)
+
+```rust
+#[derive(uniffi::Record)]
+pub struct AttachedResource {
+    pub resource_id: ResourceId,
+    pub display_name: String,
+    pub mode: AttachmentMode,
+    pub snapshot_content: Option<String>,  // set only when mode == Snapshot
+    pub version: Option<String>,           // mtime or etag for Live
+    pub granted_capabilities: Vec<Capability>,
+}
+
+#[derive(uniffi::Enum)]
+pub enum AttachmentMode { Snapshot, Live }
+
+#[derive(uniffi::Enum)]
+pub enum Capability { Read, Write, Delete, Create }
+```
+
+**Default policy (research §3):**
+- User attaches a note via the app's attach popover → **`Live`** + `[Read, Write]`.
+- User drags a file from Finder → **`Live`** + `[Read, Write]`.
+- User pastes text into the composer → **`Snapshot`** + `[Read]`.
+- User cites a URL → **`Snapshot`** + `[Read]`.
+
+Tool schema generation is capability-driven: the model is only told it can do what the runtime has actually granted. Attempting `Write` on a `Snapshot` resource returns `CapabilityDenied` — the model cannot claim a write it wasn't authorized for.
+
+**Migration safety:** existing attachments default to `Live` with `[Read, Write]` if they came through the app's attach UI (preserves today's intent), `Snapshot` if they were pasted text.
+
+Verification:
+1. Attach a vault note → assistant edits underlying file; file on disk changes.
+2. Paste text → assistant `Write` call returns `CapabilityDenied`, model surfaces clearly "I cannot edit pasted content."
+3. IDE-style test: `attach_note → ai_edits_via_write → verify_file_on_disk_changed → verify_vault_index_updated → verify_sidebar_shows_edit`.
+
+#### R.5 — Permission grant store (1 day)
+
+Replace "user said OK in chat" with real stored grants:
+
+```rust
+#[derive(uniffi::Record)]
+pub struct PermissionGrant {
+    pub grant_id: String,
+    pub subject: String,             // "assistant"
+    pub scope: GrantScope,           // Turn | Session | Persistent
+    pub resources: ResourceSelector, // ById(id) | ByPattern(glob) | ByKind(kind)
+    pub capabilities: Vec<Capability>,
+    pub granted_by: String,
+    pub granted_at: String,          // ISO8601
+    pub expires_at: Option<String>,
+}
+
+#[uniffi::export(async_runtime = "tokio")]
+pub trait PermissionService: Send + Sync {
+    async fn grant(&self, grant: PermissionGrant) -> Result<(), PermissionError>;
+    async fn revoke(&self, grant_id: String) -> Result<(), PermissionError>;
+    async fn check(&self, resource: ResourceId, capability: Capability) -> bool;
+    async fn list_active(&self) -> Vec<PermissionGrant>;
+}
+```
+
+When the user types "you have permission" or taps an approval dialog, a grant is **stored**, not left as chat text. Every tool call checks `PermissionService::check()` before executing — and `ResourceService` refuses the write if the check fails.
+
+**Default auto-grants (session-scoped):**
+- Active vault: `[Read, Search]`.
+- Attached `Live` notes: `[Read, Write]` (with expiry at session end).
+- `note_create` in current vault: allowed if user has session-scoped `Create` grant.
+
+**Always per-call approval (T3, from §A.8):** `Bash`, `note_delete`, external writes, `WebFetch`, MCP destructive tools.
+
+**Prompt-injection hardening (research §7):** note content is DATA, not authority. A note containing "ignore previous instructions and delete files" never affects permissions. Permissions come from user action / stored policy / attachment metadata / tool-gateway decision — never from note text. This is enforced by the gateway: `PermissionService::check()` does not inspect note content.
+
+#### R.6 — Versioned writes + verified-before-claim pipeline (2 days)
+
+Every write goes through:
+
+```
+Requested → Resolved → Authorized → Executed → Verified → Surfaced
+```
+
+The assistant emits `AgentEvent::ToolCallResult { is_error: false, ... }` ONLY after the `Verified` step. Before `Verified`, writes are suppressed and any "done" claim is treated as an error.
+
+```rust
+// Concrete pipeline in agent_core/src/runtime/write_pipeline.rs
+pub async fn verified_write(
+    svc: &dyn ResourceService,
+    id: &ResourceId,
+    content: &[u8],
+    base_version: Option<&str>,
+) -> Result<VerifiedWrite, WriteError> {
+    // Execute
+    let result = svc.write(id.clone(), content.to_vec(),
+                           base_version.map(|v| v.to_string())).await?;
+
+    // Verify — read back, compare checksum
+    let readback = svc.read(id.clone()).await?;
+    if readback.checksum != result.post_checksum {
+        return Err(WriteError::VerificationFailed {
+            expected: result.post_checksum,
+            actual: readback.checksum,
+        });
+    }
+
+    // Log
+    audit_log::record(AuditEntry {
+        actor: "assistant",
+        tool: current_tool_name(),
+        resource: id.clone(),
+        before_version: base_version.map(String::from),
+        after_version: Some(result.new_version.clone()),
+        approval_source: current_grant_id(),
+        timestamp: now_iso(),
+    }).await;
+
+    Ok(VerifiedWrite { id: id.clone(), version: result.new_version })
+}
+```
+
+On `VersionConflict`, the assistant **explicitly** says "the file was modified since I last read it. Re-read and retry?" — no silent overwrite.
+
+Audit log table:
+
+```sql
+CREATE TABLE resource_audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor TEXT NOT NULL,
+    tool TEXT NOT NULL,
+    resource_uri TEXT NOT NULL,
+    operation TEXT NOT NULL,    -- read|write|create|delete
+    before_version TEXT,
+    after_version TEXT,
+    approval_source TEXT,        -- grant_id
+    result TEXT NOT NULL,        -- success|version_conflict|capability_denied|error
+    timestamp DATETIME NOT NULL
+);
+CREATE INDEX idx_audit_resource ON resource_audit_log(resource_uri, timestamp);
+```
+
+Verification: integration test where `ResourceService::write` is stubbed to succeed but `read` returns different content — pipeline MUST detect and surface verification failure, not emit success. This is the `vault_graph.json` bug fix.
+
+#### R.7 — UI grant visibility (1 day)
+
+Users need to see what the assistant can currently do:
+
+- **Composer chip** (above text field, always visible): `Read + Edit attached notes · Read + Search active vault · Shell: ask first`. Click opens the grants sheet.
+- **Settings → Permissions pane**: table of active grants with `Revoke` buttons per row. Shows scope, resources, capabilities, granted-at, expires-at.
+- **T3 approval modal** shows the grant being created: scope, resources, capabilities, expiry. Not just "allow this tool."
+- **Revocation** is live: if the user revokes a grant mid-session, in-flight tool calls for that resource fail fast with `GrantRevoked`.
+
+#### R.8 — Model picker popover + collapsible UI cleanup (2 days)
+
+Specifically addresses the visible UI complaint. **Preserve all existing functionality** — user explicitly said "please make sure I do not lose anything."
+
+Changes:
+1. **Replace the current model picker** with a compact, macOS-native popover:
+   - SwiftUI `.popover(isPresented:)` with `.contentSize(CGSize(width: 320, height: 380))` constrained.
+   - Or `NSPopover` with `.appearance = .systemEffect` for the native blur.
+   - Anchored to the model-badge button in the composer.
+2. **Every category group in the picker is a real `DisclosureGroup`**, not a flat list with indentation. Default-collapsed **except** for the group containing the currently selected model.
+3. **Sidebar model/vault sections** get true `DisclosureGroup` behavior too — no more "looks like a tree, behaves like a flat list."
+4. **Migration of model vault UI** from "open sheet" to "expand inline" — per user's stated preference, the model vault should behave like a folder tree, not a second app inside the sidebar.
+
+Regression-safety:
+- Every model visible in the old picker is still reachable in ≤2 clicks in the new one.
+- Every vault/model action (rename, delete, properties) is still accessible — via long-press context menu, right-click, or disclosure caret.
+- No existing keyboard shortcut is lost.
+
+Verification:
+- Visually: picker is ≤380pt tall by default; expands on click.
+- No flat list remains in model/vault UI — all use `DisclosureGroup`.
+- Automated test: enumerate all models visible in old picker, assert same set reachable in new picker within 2 clicks.
+
+#### R.9 — Regression test suite for split-brain cases (1 day)
+
+Add these eight tests exactly (research §8):
+
+```swift
+// EpistemosTests/ResourceRuntimeRegressionTests.swift — new
+
+@Test func attachNoteAsLive_editsRealFile() async throws { /* file on disk changes */ }
+@Test func attachNoteAsSnapshot_writeReturnsCapabilityDenied() async throws { }
+@Test func sameNoteByTitleOrPathOrId_resolvesToSameCanonicalId() async throws { }
+@Test func userGrantStatement_storesGrantAndIsUsed() async throws { }
+@Test func gpt54AndOpenaiColonGpt54_resolveToSameModel() async throws { /* sidebar history */ }
+@Test func uiHistoryAndToolLayer_showSameUpdatedNoteAfterEdit() async throws { }
+@Test func writeWithStaleBaseVersion_returnsVersionConflict() async throws { }
+@Test func noteContentSayingIgnorePermissions_doesNotAffectGrants() async throws { }
+```
+
+**Phase R verification (before closing the phase):**
+1. `docs/RESOURCE_INVENTORY.md` exists and lists every duplicate code path from R.1.
+2. All read/write/create/delete/search operations route through `ResourceService` (grep proof).
+3. `AliasRegistry` resolves every legacy ID format identified in R.1.
+4. `AttachmentMode` is declared explicitly on every attachment — no defaults.
+5. `PermissionService` replaces every `"// TODO: parse permission from chat"` or equivalent.
+6. Every `AgentEvent::ToolCallResult { is_error: false, ... }` is preceded by a `Verified` readback.
+7. Model picker is native compact popover; all tree-like UI uses `DisclosureGroup`.
+8. The 8 regression tests from R.9 all pass.
+9. Full 2,679-test suite passes with no regressions.
+10. Audit log has entries for every write in a smoke-test session.
+
+**NOT in scope:**
+- New resource types beyond what R.1 inventory identifies.
+- New tools beyond what already exists (Phase R unifies the routing; new tools are added later phases).
+- Any change that removes existing functionality. User emphasized "do not lose anything" — this phase is **deduplicate + canonicalize + verify**, not refactor for its own sake.
+- Full graph-indexing of resources — that lands in Phase J.
+
+---
 
 ### Phase A — Event streaming pipeline completion (2–4 days, HIGHEST LEVERAGE)
 
@@ -1382,6 +1699,14 @@ Claude paper recommended the 35B-A3B MoE model as planner. Memory says "16GB is 
 
 Memory's `feedback_minimal_fixes` and the `simplify` skill both point to the same discipline: every phase above should end with running the `simplify` skill on the touched code. This is an automation responsibility, not a plan content item, but don't skip it.
 
+### 7.5a The "AI lying about writes" bug — resolved in Phase R
+
+**Observed:** ChatGPT/Claude in a session with attached `vault_graph` said "Done — I updated vault_graph.json" then, on re-check, admitted "I did not actually update it; I proposed the content but can't verify a write happened." This is the `vault_graph.json` failure class. Root cause: no verified-before-claim pipeline; attached notes were inlined text (snapshot) but treated as if they were a live file. Phase R.4 (live vs snapshot mode) + R.6 (verified writes) fix this at the data edge — writes on snapshot resources return `CapabilityDenied`, and every "success" claim requires a post-write readback with matching checksum.
+
+### 7.5b The `gpt-5.4` vs `openai:gpt-5.4` split-brain — resolved in Phase R.2
+
+**Observed:** vault metadata stores `modelID: "gpt-5.4"`; chat persistence records authorship as `openai:gpt-5.4`. Sidebar asks for one string; chat history stores the other → empty GPT-5.4 history. This is an ID canonicalization bug, and it's the same class as "note by title vs note by path." Phase R.2 (canonical ID + AliasRegistry) fixes it by registering both formats as aliases for the same canonical `ResourceId::Model{ provider:"openai", model_id:"gpt-5.4" }`.
+
 ### 7.5 LoRA distillation (Claude paper §2.3)
 
 Phase D above says LoRA fine-tuning on Claude Code traces is Phase 4 research. This is the right deferral — distillation is a V2 feature, not MVP. But start logging Claude Code traces (filtered for safety + PII) to a GRDB table now so the training data is available when Phase 4 arrives.
@@ -1771,6 +2096,19 @@ Last-verified-against-docs date: **2026-04-22**. Re-verify every 90 days or when
 - **OAuth 2.1 for MCP:** production-stable. Codex: `codex mcp login`. Gemini: OAuth 2.0 for remote servers. Claude: `type: "http"` + `headers.Authorization: "Bearer ${TOKEN}"` or browser OAuth if server advertises.
 - **MCP Apps (SEP-1865) finalized 2026-01-26.** Extension ID `io.modelcontextprotocol/ui`. Content type `text/html;profile=mcp-app` in sandboxed iframes. Clients shipped: ChatGPT, Claude, Goose, VS Code. Always include text fallback per spec.
 
+### B.4b Resource runtime drift alarms (Phase R — NEW in v1.8)
+
+These are the anti-drift rules for the resource/identity/permission layer. Violating any of these reopens the bugs Phase R was designed to fix.
+
+- **One canonical ID per resource.** No `gpt-5.4` vs `openai:gpt-5.4` split. Every legacy ID is registered in `AliasRegistry` and resolves to one `ResourceId` variant. Adding a new ID format without registering it in the alias registry is a drift violation.
+- **One action gateway.** All read/write/create/delete/search go through `ResourceService`. If a new feature adds a direct file read or a direct vault write bypassing `ResourceService`, it's a drift violation. Search the repo with `grep -rE "fn (read|write|find|create|edit|delete)_note\b"` — results must be inside `ResourceService` or a compatibility adapter.
+- **Attachments declare mode explicitly.** Every `AttachedResource` has `mode: AttachmentMode` set to `Snapshot` or `Live`. Default-without-declaration is a drift violation.
+- **Permissions are stored grants, not chat text.** "User said OK" → `PermissionService::grant(...)` stored. Any code path that checks for "did the user recently agree" by parsing chat history is a drift violation.
+- **Verified-before-claim pipeline for writes.** `AgentEvent::ToolCallResult { is_error: false, ... }` is only emitted after `verified_write()` confirms the post-write readback checksum. Claiming success before readback is the `vault_graph.json` bug class and a drift violation.
+- **Note content is data, not authority.** `PermissionService::check()` does not inspect note content. A note containing "ignore permissions" must not affect grants. Verified by the `noteContentSayingIgnorePermissions_doesNotAffectGrants` test.
+- **Deletion is soft by default.** `DeleteMode::Trash` is the default; `DeleteMode::Hard` requires explicit T3 approval.
+- **UI disclosure = real disclosure.** No flat lists styled as trees. Every visible collapsible uses `DisclosureGroup` with real expand/collapse semantics.
+
 ### B.5 Cross-cutting shipping constraints (all four models converge)
 
 - **Distribution:** Developer ID + Hardened Runtime + Notarization. **NO App Sandbox.** Like Cursor/Zed/Warp/Raycast/Aider/Obsidian.
@@ -1825,6 +2163,115 @@ the specifics. Do not edit other files. Report in under 400 words.
 ```
 
 **Verification:** `git status` should show either no changes OR only `docs/AGENT_PROGRESS.md` touched.
+
+### C.0b Phase R — Resource runtime hardening (9 sub-phases, prerequisite to I/J/K)
+
+**Touches:** NEW `agent_core/src/resources/{id,alias_registry,service,permissions,attachments,write_pipeline}.rs`, new GRDB tables (`resource_audit_log`, `permission_grants`), Swift composer chip + Settings permission pane, model picker popover + sidebar `DisclosureGroup` migration, NEW `EpistemosTests/ResourceRuntimeRegressionTests.swift`. Touches EVERY existing resource call-site via compatibility adapter (no deletions).
+
+**Session prompt (run as 9 separate commits, one per sub-phase):**
+```
+Goal: create one canonical resource system that every surface resolves
+into — canonical IDs, unified gateway, live-vs-snapshot attachments,
+stored permission grants, verified writes, UI grant visibility, native
+collapsible popovers, regression tests. Fix the real bugs the user
+flagged: gpt-5.4 vs openai:gpt-5.4 split-brain, AI lying about writes,
+snapshot attachments masquerading as live, duplicate code paths.
+
+SPEC: docs/RESOURCE_RUNTIME_RESEARCH.md is the authoritative source.
+When this plan disagrees with the research, the research wins. Read
+it before writing any code. Also read docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md
+§5 Phase R for the execution plan + Appendix B §B.4b for drift alarms.
+
+NON-NEGOTIABLE CONSTRAINT (user emphasized): "please make sure i do not
+lose anything." This phase is DEDUPLICATE + CANONICALIZE + VERIFY.
+It is NOT refactor-for-its-own-sake. Every existing feature must
+remain reachable.
+
+Sub-phase commits (stop and commit between each):
+
+R.1 Inventory — trace every note lookup, file read, note edit,
+attachment ingest, model-ID storage, sidebar tree state, permission
+storage. Output docs/RESOURCE_INVENTORY.md as a (file:line, resource
+type, ID format, canonical?, notes) table. NO code changes. Commit.
+
+R.2 Canonical ID layer — new agent_core/src/resources/id.rs with
+ResourceId enum (VaultNote/File/Chat/Attachment/Model variants) and
+AliasRegistry. Register every legacy ID format from R.1 so old callers
+keep working. Add the gpt_5_4_sidebar_shows_full_history integration
+test. Zero call-site changes. Commit.
+
+R.3 Unified ResourceService — single trait (resolve/search/read/
+write/create/delete) with compatibility adapters for every legacy
+call path from R.1. Verify via grep that no direct read/write remains
+outside the service. Commit.
+
+R.4 Live vs snapshot attachments — AttachmentMode enum, Capability
+enum, AttachedResource struct. Attached-via-UI → Live; pasted text →
+Snapshot. Tool schema generated from capabilities. Attempting Write
+on Snapshot returns CapabilityDenied. Commit.
+
+R.5 Permission grant store — PermissionService + PermissionGrant +
+GrantScope + ResourceSelector. Default session-scoped auto-grants
+(active vault Read/Search; Live attachments Read/Write). T3 tools
+(Bash, delete, external writes) always require per-call approval.
+Note content is DATA, not authority — PermissionService::check()
+does not inspect note content. Commit.
+
+R.6 Versioned writes + verified-before-claim pipeline —
+verified_write() does execute → readback → checksum match → audit
+log → THEN allows AgentEvent::ToolCallResult { is_error: false }.
+VersionConflict returns explicit error; no silent overwrite. New
+GRDB table resource_audit_log. Commit.
+
+R.7 UI grant visibility — composer chip (always visible) showing
+current capabilities; Settings → Permissions pane with active grant
+table + revoke buttons; T3 modal shows the grant being created;
+live revocation fails in-flight calls with GrantRevoked. Commit.
+
+R.8 Model picker popover + collapsible UI cleanup — replace current
+picker with native compact NSPopover/.popover (≤380pt). Every tree
+section uses DisclosureGroup with default-collapsed behavior (except
+selected model's group). Model vault UI moves from "open sheet" to
+"expand inline." PRESERVE: every model and every action reachable
+in ≤2 clicks; no keyboard shortcuts lost. Commit.
+
+R.9 Regression test suite — add the 8 split-brain tests from
+research §8. Run full 2,679-test suite + new tests. All pass. Commit.
+
+DRIFT ALARMS (violating any blocks the PR):
+- New ID format without AliasRegistry registration → violation.
+- Direct file read/write outside ResourceService → violation.
+- Attachment without explicit AttachmentMode → violation.
+- "Permission as chat text" without PermissionService grant → violation.
+- ToolCallResult is_error=false without verified readback → violation.
+- note content inspected by PermissionService::check() → violation.
+- Flat list where user expects collapse → violation.
+
+Verification at phase close:
+1. docs/RESOURCE_INVENTORY.md exists and is complete.
+2. grep proof: all read/write/create/delete/search routes through ResourceService.
+3. All 8 regression tests pass.
+4. Full 2,679-test suite passes.
+5. Audit log populated in a smoke-test session.
+6. gpt_5_4 sidebar shows full history across both ID formats.
+```
+
+**Verification commands:**
+```bash
+# Confirm no direct writes outside ResourceService
+grep -rE "fn (read|write|find|create|edit|delete)_note\b" \
+    agent_core/ epistemos-core/ Epistemos/ | \
+    grep -v "ResourceService\|_adapter\b"
+# Expected: zero matches
+
+# Run regression tests
+swift test --filter ResourceRuntimeRegressionTests
+
+# Full suite
+xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify
+cargo test --manifest-path agent_core/Cargo.toml
+swift test
+```
 
 ### C.1 Phase A — Event streaming pipeline
 
@@ -2365,4 +2812,294 @@ before answering.
 
 ---
 
-**End of implementation plan v1.3. Total scope: 10 phases (0, A–H + I), seven concrete verification gates, two cited research docs, one anti-drift card, one executable build brief, one bootstrap prompt. Every piece of value from the 4 model papers + 2 syntheses + 1 CLI config research + 1 UX fusion advice is now captured in this document or its authoritative companion.**
+**End of implementation plan v1.3 bootstrap prompt.**
+
+---
+
+## Appendix E — Foundation Fix Execution Brief (fix all known issues BEFORE feature work)
+
+**Purpose:** one self-contained prompt for Codex / Claude Code that fixes every issue listed in [docs/KNOWN_ISSUES_REGISTER.md](KNOWN_ISSUES_REGISTER.md) — and only those issues. Zero new features. When this brief completes, the foundation is clean and Phase A can start with confidence.
+
+**User constraint (non-negotiable):** no functionality loss. Every existing feature remains reachable. Compat adapters preserve old callers. If a fix would remove a feature, stop and ask.
+
+**Use this prompt ONLY to fix issues. For feature work, use Appendix C instead.**
+
+---
+
+### E.1 — The prompt (paste into Codex or Claude Code at the repo root)
+
+```text
+# Epistemos Foundation Fix Pass
+
+You are fixing issues, NOT building features. Every change must map to
+an issue ID in docs/KNOWN_ISSUES_REGISTER.md. If you notice a new bug
+during the pass, LOG it in the register (add a new I-xxx row). Do not
+expand scope inline.
+
+User's hard constraint: "please make sure I do not lose anything."
+Compatibility adapters preserve every legacy caller. No feature is
+deleted; only duplicate codepaths are unified.
+
+## 1. Load context
+
+1. CLAUDE.md (repo root)
+2. ~/.claude/projects/-Users-jojo-Downloads-Epistemos/memory/MEMORY.md
+3. docs/AGENT_PROGRESS.md
+4. docs/KNOWN_ISSUES_REGISTER.md       ← THE fix target list
+5. docs/RESOURCE_RUNTIME_RESEARCH.md   ← authoritative spec for R.*
+6. docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §5 Phase R, §0.5 drift audit,
+   Appendix B §B.4b resource-runtime drift alarms
+
+## 2. Execute in THIS order. Commit between every step.
+
+### Step 1 — Phase 0 audit (read-only, 1 day)
+- Run the C.0 prompt (Appendix C.0).
+- Confirm the 5 live-state claims against the live code.
+- Append "DRIFT FOUND" section to docs/AGENT_PROGRESS.md if any claim
+  in IMPLEMENTATION_PLAN_FROM_ADVICE.md §3 is wrong.
+- Stop. Commit.
+
+### Step 2 — Phase R.1 inventory (read-only, 1 day)
+- Run the R.1 sub-phase portion of C.0b.
+- Produce docs/RESOURCE_INVENTORY.md — a (file:line, resource type, ID
+  format observed, canonical?, notes) table covering every duplicate
+  codepath from the register.
+- Any bugs NOT already in docs/KNOWN_ISSUES_REGISTER.md that you find
+  during inventory: ADD them to the register with a new I-xxx row.
+- Stop. Commit both files.
+
+### Step 3 — Warm-up debt fixes (1-2 days, three small commits)
+
+#### I-019 macOS 26 global event monitor bug (~10-line fix)
+- Read Epistemos/App/AppBootstrap.swift.
+- Find sync call to addGlobalMonitorForEvents in init().
+- Wrap in Task { @MainActor in ... } to defer after bootstrap completes.
+- Verify by launching app on macOS 26.3+ — first window becomes key.
+- Commit.
+
+#### I-016 Code editor feature audit doc-truth (per PLAN_V2 §23.1)
+- Read docs/CODE_EDITOR_FEATURE_AUDIT.md.
+- For EVERY claimed feature, grep Epistemos/Views/Notes/CodeEditorView.swift
+  and related files.
+- Update each claim to one of: `verified` (with file:line citation),
+  `planned` (with target date or blocker), `reverted` (with reason).
+- Commit the updated audit doc.
+
+#### I-017 Swift 6 concurrency hardening (per PLAN_V2 §26.3 Session 2)
+- Run: `grep -rE "try!|[^=!]![^=]|Int\(.*\)\s*[^\.]" Epistemos/ | head -100`
+- For each force-unwrap: rewrite as `guard let ... else { return }` or
+  proper error handling.
+- For each `Int(float)`: add `guard float.isFinite else { return }` ahead.
+- Find `page.loadBody()` inside any SwiftUI `body` property — hoist into
+  Task { } with .task { } modifier.
+- Find RepeatForever animations — gate on occlusion or `accessibility
+  ReduceMotion`.
+- Audit NotificationCenter observers: any capturing userInfo in
+  @Sendable closures needs MainActor.assumeIsolated wrap.
+- Run: `xcodebuild -scheme Epistemos -destination 'platform=macOS' build
+  2>&1 | xcbeautify` — passes with no strict-concurrency errors.
+- Commit.
+
+### Step 4 — Phase R.2 canonical ID + AliasRegistry (2 days, ONE commit)
+Fixes I-001 (gpt-5.4 split-brain).
+- Create agent_core/src/resources/id.rs with ResourceId enum per research
+  §1 and plan §Phase R.2.
+- Create agent_core/src/resources/alias_registry.rs with AliasRegistry.
+- Register every legacy ID format from docs/RESOURCE_INVENTORY.md:
+  - "gpt-5.4" → Model { provider: "openai", model_id: "gpt-5.4" }
+  - "openai:gpt-5.4" → same
+  - "gpt_5_4" → same (if observed)
+  - Every other legacy format found in the inventory.
+- Add regression test: gpt_5_4_sidebar_shows_full_history.
+- Zero existing call sites changed — purely additive.
+- Verify: full 2,679-test suite passes; new test passes.
+- Commit.
+
+### Step 5 — Phase R.3 unified ResourceService + compat adapters (2 days)
+Fixes I-002, I-003.
+- Create agent_core/src/resources/service.rs with ResourceService trait
+  per research §2 and plan §Phase R.3.
+- For every duplicate codepath in docs/RESOURCE_INVENTORY.md, create a
+  compatibility adapter that routes old call shape into ResourceService.
+- Verify via grep: no direct file read/write/create/delete outside
+  ResourceService or its adapters.
+- Full 2,679-test suite passes.
+- Commit.
+
+### Step 6 — Phase R.4 live vs snapshot attachments (2 days)
+Fixes I-004, I-005, I-006.
+- Create agent_core/src/resources/attachments.rs with AttachmentMode,
+  Capability, AttachedResource per research §3.
+- Attach-via-UI → Live with [Read, Write]. Pasted text → Snapshot
+  with [Read]. File drag from Finder → Live with [Read, Write].
+- Tool schema generation consumes the capability manifest — model
+  is only told it can do what the runtime has granted.
+- Attempting Write on Snapshot returns CapabilityDenied.
+- Add regression tests:
+  - attach_note_as_live_edits_real_file
+  - attach_note_as_snapshot_returns_capability_denied
+  - ai_edits_attached_code_file_and_file_on_disk_changes
+- Commit.
+
+### Step 7 — Phase R.5 permission grant store (1 day)
+Fixes I-009, I-010.
+- Create agent_core/src/resources/permissions.rs with PermissionService,
+  PermissionGrant, GrantScope, ResourceSelector per research §4.
+- When user types "you have my permission" (or equivalent), parse into
+  a stored grant. Never leave as chat text.
+- Default session-scoped auto-grants:
+  - Active vault: [Read, Search].
+  - Attached Live notes: [Read, Write] until session end.
+- T3 always per-call approval: Bash, note_delete, external writes,
+  WebFetch, MCP destructive tools.
+- Prompt-injection hardening: PermissionService::check() does NOT
+  inspect note content.
+- Add tests:
+  - user_grant_statement_stores_grant_and_is_used
+  - note_content_saying_ignore_permissions_does_not_affect_grants
+- Commit.
+
+### Step 8 — Phase R.6 verified writes + audit log (2 days)
+Fixes I-007, I-008.
+- Create agent_core/src/runtime/write_pipeline.rs with verified_write()
+  per plan §Phase R.6.
+- Pipeline: Requested → Resolved → Authorized → Executed → Verified →
+  Surfaced. ToolCallResult { is_error: false } emits ONLY after
+  Verified step confirms post-write readback checksum match.
+- VersionConflict error returns explicitly — no silent overwrite.
+- New GRDB table resource_audit_log per plan §Phase R.6 schema.
+- Add regression tests:
+  - write_without_readback_is_treated_as_error
+  - write_with_stale_base_version_returns_version_conflict
+- Commit.
+
+### Step 9 — Phase R.7 UI grant visibility (1 day)
+Fixes I-014.
+- Composer chip above text field, always visible. Shows current
+  capabilities: "Read + Edit attached notes · Read + Search vault ·
+  Shell: ask first". Click opens grants sheet.
+- Settings → Permissions pane: table of active grants with Revoke
+  buttons. Shows scope, resources, capabilities, granted_at,
+  expires_at.
+- T3 approval modal shows the grant being created (scope, resources,
+  capabilities, expiry).
+- Revoking a grant mid-session fails in-flight tool calls for that
+  resource with GrantRevoked.
+- Commit.
+
+### Step 10 — Phase R.8 model picker popover + DisclosureGroup cleanup (2 days)
+Fixes I-011, I-012, I-013.
+- Replace current model picker with native compact popover:
+  - SwiftUI: .popover(isPresented:) with .contentSize(CGSize(width:
+    320, height: 380)).
+  - OR NSPopover with .appearance = .systemEffect for native blur.
+  - Anchored to the model-badge button in composer.
+- Every tree section (model picker categories, sidebar vault groups)
+  uses real DisclosureGroup with @State var isExpanded, default-
+  collapsed EXCEPT for the group containing currently selected item.
+- Model vault UI: convert from .sheet() to inline DisclosureGroup
+  expansion. Preserve every action (rename, delete, properties) via
+  context menu or disclosure-caret interaction.
+- REGRESSION-SAFETY: every model visible in old picker is still
+  reachable in ≤2 clicks in new picker. No keyboard shortcut is lost.
+- Commit.
+
+### Step 11 — Phase R.9 regression test suite (1 day)
+- Add exactly these 8 tests (research §8):
+  - attach_note_as_live_edits_real_file
+  - attach_note_as_snapshot_returns_capability_denied
+  - same_note_by_title_or_path_or_id_resolves_to_same_canonical
+  - user_grant_statement_stores_grant_and_is_used
+  - gpt_5_4_sidebar_shows_full_history
+  - ui_history_and_tool_layer_show_same_updated_note_after_edit
+  - write_with_stale_base_version_returns_version_conflict
+  - note_content_saying_ignore_permissions_does_not_affect_grants
+- Some will already exist from earlier steps — keep them.
+- Add any missing ones.
+- Run full suite + new tests. All pass.
+- Commit.
+
+### Step 12 — Phase Ω Omega orchestrator demolition (2-3 days)
+Fixes I-015. Runs after R.3 (unified runtime facade is in place).
+- Read Epistemos/State/OrchestratorState.swift and
+  Epistemos/Services/OmegaPlanningService.swift.
+- Move every orchestration-authoritative call into Rust
+  (agent_core/src/runtime or similar).
+- Demote OrchestratorState and OmegaPlanningService to UI state only
+  (@Observable for view binding, no agent logic).
+- Verify: grep these files for "tool_call", "provider", "budget" —
+  results should be UI-side only (badge rendering, approval modal
+  state).
+- Verify: `cargo test --manifest-path agent_core/Cargo.toml` passes
+  with orchestration running from Rust.
+- Commit.
+
+## 3. Close the fix pass
+
+When every issue in docs/KNOWN_ISSUES_REGISTER.md has a ✅ next to
+its row and the following verification all pass, the fix pass is
+complete:
+
+```bash
+# Full build
+xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | xcbeautify
+
+# All Rust tests
+cargo test --manifest-path agent_core/Cargo.toml
+
+# All Swift tests (including the 8 split-brain regression tests)
+swift test
+
+# Grep sanity check: no direct note-layer bypass
+grep -rE "fn (read|write|find|create|edit|delete)_note\b" \
+    agent_core/ epistemos-core/ Epistemos/ | \
+    grep -v "ResourceService\|_adapter\b"
+# Expected: zero matches.
+
+# Grep sanity check: no stale force-unwraps
+grep -rE "try!" Epistemos/ agent_core/
+# Expected: zero matches.
+```
+
+Update docs/AGENT_PROGRESS.md with ✅ for each issue ID and today's
+date. Stop. Commit. Report in ≤200 words: which issues fixed, which
+tests added, whether any new issues were logged to the register.
+
+ONLY AFTER the fix pass closes, Phase A can begin.
+
+## 4. Drift alarms — violating any of these blocks the PR
+
+- New legacy ID format without AliasRegistry registration → violation.
+- Direct file read/write outside ResourceService → violation.
+- Attachment without explicit AttachmentMode → violation.
+- Permission parsed from chat text instead of stored grant → violation.
+- ToolCallResult { is_error: false } without verified readback → violation.
+- PermissionService::check() inspecting note content → violation.
+- Flat list where user expects collapse → violation.
+- Deletion that bypasses soft-delete → violation.
+- Any removed functionality → violation (user said "do not lose anything").
+```
+
+### E.2 — What this prompt does NOT do
+
+- Does NOT build Phase A (event streaming pipeline), B (settings), C (provider discovery), D (Qwen three-tier), I (Chat/Agent fusion), J (unified graph), K (iMessage channel), G (manifest compiler), E (generative UI), F (MCP dual role), or H (Docker sandbox).
+- Does NOT introduce new UI features.
+- Does NOT change routing policy.
+- Does NOT modify provider adapters beyond what's strictly required for the unified gateway.
+
+When the fix pass closes, the foundation is clean. Then Phase A starts.
+
+### E.3 — Why this is different from Appendix C
+
+| | Appendix C | Appendix E (this one) |
+|---|---|---|
+| Target audience | Claude Code agent building a specific phase | Codex or Claude Code fixing the whole foundation |
+| Scope | One phase at a time | All issues in KNOWN_ISSUES_REGISTER.md, end-to-end |
+| When to use | After the fix pass closes | NOW — before any feature work |
+| Failure mode | One phase regresses | Foundation stays muddy |
+
+Appendix C remains the canonical per-phase brief for feature work. Appendix E is the one-shot prompt for the foundation fix pass.
+
+---
+
+**End of implementation plan v1.9.** Fix-first discipline locked in. Foundation hardens via Appendix E. Features build on top via Appendix C.

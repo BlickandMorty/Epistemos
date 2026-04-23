@@ -44,52 +44,41 @@ struct ThinkingPopoverView: View {
     }
 
     private var panel: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.18)) {
-                    isExpanded.toggle()
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: isThinkingActive ? "brain" : "brain.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(theme.resolved.accent.color.opacity(isThinkingActive ? 0.95 : 0.72))
-                    Text(label)
-                        .font(ClaudeAppTypography.monoFont(size: 11, weight: .medium))
-                        .foregroundStyle(theme.textSecondary)
-                    if isThinkingActive {
-                        ProgressView()
-                            .controlSize(.mini)
-                            .tint(theme.resolved.accent.color.opacity(0.7))
+        VStack(alignment: .leading, spacing: 8) {
+            ProcessDisclosureHeader(
+                title: "Think",
+                tone: .thinking,
+                isExpanded: isExpanded,
+                action: {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        isExpanded.toggle()
                     }
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(theme.textTertiary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .contentShape(Rectangle())
+            ) {
+                Text(label)
+                    .font(ClaudeAppTypography.monoFont(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+            } trailing: {
+                if isThinkingActive {
+                    ProgressView()
+                        .controlSize(.mini)
+                        .tint(ProcessDisclosureTone.thinking.tint(theme: theme).opacity(0.82))
+                }
             }
-            .buttonStyle(.plain)
             .help(helpText)
             .accessibilityLabel(accessibilityLabel)
 
             if isExpanded {
-                Divider()
-                    .overlay(theme.glassBorder.opacity(0.44))
+                ProcessDisclosureDivider()
 
                 ScrollView {
                     ScrollViewReader { proxy in
-                        Text(displayedThinkingContent)
-                            .font(ClaudeAppTypography.monoFont(size: 12))
-                            .foregroundStyle(theme.textSecondary)
-                            .lineSpacing(4)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
+                        ProcessDisclosureTextBlock(
+                            content: displayedThinkingContent,
+                            tone: .thinking
+                        )
+                            .padding(.top, 4)
                             .id("thinkingBottom")
                             .onChange(of: thinkingContent) { _, _ in
                                 guard isThinkingActive else { return }
@@ -103,14 +92,6 @@ struct ThinkingPopoverView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .assistantInsetChrome(theme: theme, cornerRadius: 12, isEmphasized: isThinkingActive)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .shadow(
-            color: .black.opacity(theme.isDark ? 0.16 : 0.06),
-            radius: 12,
-            x: 0,
-            y: 5
-        )
         .modifier(ThinkingPulse(active: isThinkingActive))
     }
 
