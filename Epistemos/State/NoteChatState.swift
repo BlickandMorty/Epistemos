@@ -135,6 +135,8 @@ final class NoteChatState {
     @ObservationIgnored private var thinkingEndedAt: Date?
     @ObservationIgnored private var thinkTagRouter = ThinkTagStreamRouter()
     @ObservationIgnored private var hasStartedVisibleAnswer = false
+    @ObservationIgnored private var lastAssistantInferenceMode: InferenceMode = .local
+    @ObservationIgnored private var lastAssistantOperatingMode: EpistemosOperatingMode = .fast
 
     init(pageId: String) {
         self.pageId = pageId
@@ -190,12 +192,54 @@ final class NoteChatState {
             let endedAt = thinkingEndedAt ?? .now
             return max(0, endedAt.timeIntervalSince(startedAt))
         }()
+        let authorship: (providerID: String?, modelID: String?) = {
+            guard let inference = AppBootstrap.shared?.inferenceState else {
+                return (nil, nil)
+            }
+            let draftAssistantMessage = ChatMessage(
+                role: .assistant,
+                content: content,
+                resolvedModelLabel: inference.effectiveModelLabel(for: lastAssistantOperatingMode)
+            )
+            return ChatCoordinator.inferAuthorship(
+                inferenceMode: lastAssistantInferenceMode,
+                inference: inference,
+                assistantMessage: draftAssistantMessage,
+                operatingMode: lastAssistantOperatingMode
+            )
+        }()
         return AssistantMessage(
             role: .assistant,
             content: content,
+            authoredByProviderID: authorship.providerID,
+            authoredByModelID: authorship.modelID,
             thinkingTrace: capturedThinking.isEmpty ? nil : capturedThinking,
             thinkingDurationSeconds: thinkingDurationSeconds
         )
+    }
+
+    private static func inferenceMode(
+        for decision: TriageDecision?,
+        inference: InferenceState?,
+        operatingMode: EpistemosOperatingMode
+    ) -> InferenceMode {
+        if let decision {
+            switch decision {
+            case .appleIntelligence: return .appleIntelligence
+            case .localMLX: return .local
+            case .cloud: return .api
+            }
+        }
+
+        guard let inference else { return .local }
+        switch inference.effectiveChatSurfaceSelection(for: operatingMode) {
+        case .cloud:
+            return .api
+        case .localMLX:
+            return .local
+        case .appleIntelligence:
+            return .appleIntelligence
+        }
     }
 
     private func resetStreamBuffer(releaseCapacity: Bool = false) {
@@ -384,6 +428,11 @@ final class NoteChatState {
                 operatingMode: operatingMode
             )
             log.info("Note chat: reasoning loop enabled")
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: nil,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
@@ -396,7 +445,13 @@ final class NoteChatState {
                 }
             )
             log.info("Note chat: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: triageService.lastDecision,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         }
+        lastAssistantOperatingMode = operatingMode
 
         let taskToken = UUID()
         streamingTaskToken = taskToken
@@ -441,6 +496,11 @@ final class NoteChatState {
                 operatingMode: operatingMode
             )
             log.info("Note chat toolbar: reasoning loop enabled")
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: nil,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
@@ -453,7 +513,13 @@ final class NoteChatState {
                 }
             )
             log.info("Note chat toolbar: shared routing (\(triageService.lastDecision?.label ?? "pending"))")
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: triageService.lastDecision,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         }
+        lastAssistantOperatingMode = operatingMode
 
         let taskToken = UUID()
         streamingTaskToken = taskToken
@@ -493,6 +559,11 @@ final class NoteChatState {
                 query: trimmed,
                 operatingMode: operatingMode
             )
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: nil,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         } else {
             stream = triageService.stream(
                 prompt: fullPrompt, systemPrompt: nil,
@@ -504,7 +575,13 @@ final class NoteChatState {
                     self?.appendStreamingThinking(delta)
                 }
             )
+            lastAssistantInferenceMode = Self.inferenceMode(
+                for: triageService.lastDecision,
+                inference: AppBootstrap.shared?.inferenceState,
+                operatingMode: operatingMode
+            )
         }
+        lastAssistantOperatingMode = operatingMode
 
         let taskToken = UUID()
         streamingTaskToken = taskToken
@@ -772,6 +849,8 @@ final class NoteChatState {
                 id: $0.id,
                 role: $0.role == "user" ? .user : .assistant,
                 content: $0.content,
+                authoredByProviderID: $0.authoredByProviderID,
+                authoredByModelID: $0.authoredByModelID,
                 thinkingTrace: $0.thinkingTrace,
                 thinkingDurationSeconds: $0.thinkingDurationSeconds,
                 createdAt: $0.createdAt
@@ -832,6 +911,8 @@ final class NoteChatState {
             let sdMsg = SDMessage(role: msg.role == .user ? "user" : "assistant", content: msg.content)
             sdMsg.id = msg.id
             sdMsg.createdAt = msg.createdAt
+            sdMsg.authoredByProviderID = msg.authoredByProviderID
+            sdMsg.authoredByModelID = msg.authoredByModelID
             sdMsg.thinkingTrace = msg.thinkingTrace
             sdMsg.thinkingDurationSeconds = msg.thinkingDurationSeconds
             sdMsg.chat = sdChat

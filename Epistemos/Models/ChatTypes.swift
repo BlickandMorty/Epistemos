@@ -153,6 +153,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
     var artifacts: [Artifact]
     /// Multi-part content blocks (tool calls, thinking, images). When non-empty, `content` is a computed join of `.text` blocks.
     var contentBlocks: [MessageContentBlock]?
+    var authoredByProviderID: String?
+    var authoredByModelID: String?
     /// Human-readable label of the model that actually produced this
     /// assistant reply (e.g. "Qwen 3 4B", "Claude Sonnet 4.6", "Apple
     /// Intelligence"). Populated at turn completion from InferenceState.
@@ -210,6 +212,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         contextAttachments: [ContextAttachment]? = nil,
         artifacts: [Artifact] = [],
         contentBlocks: [MessageContentBlock]? = nil,
+        authoredByProviderID: String? = nil,
+        authoredByModelID: String? = nil,
         resolvedModelLabel: String? = nil,
         errorKind: UserFacingChatErrorKind? = nil,
         thinkingTrace: String? = nil,
@@ -233,6 +237,8 @@ struct ChatMessage: Identifiable, Codable, Sendable {
         self.contextAttachments = contextAttachments
         self.artifacts = artifacts
         self.contentBlocks = contentBlocks
+        self.authoredByProviderID = authoredByProviderID
+        self.authoredByModelID = authoredByModelID
         self.resolvedModelLabel = resolvedModelLabel
         self.errorKind = errorKind
         self.thinkingTrace = thinkingTrace
@@ -248,7 +254,7 @@ struct ChatMessage: Identifiable, Codable, Sendable {
 
 /// User-visible reasoning/thinking tier, mapped per-provider in LLMService
 /// (OpenAI `reasoning.effort` + `text.verbosity`, Anthropic
-/// `thinking.type`/`effort`/`budget_tokens`, Google `thinkingLevel` /
+/// `thinking.type`/`effort`, Google `thinkingLevel` /
 /// `thinkingBudget`). A single app-level taxonomy keeps the settings
 /// control consistent across providers; `LLMService` is responsible for
 /// silently dropping the control for models that don't support it.
@@ -263,7 +269,7 @@ public nonisolated enum ChatReasoningTier: String, Codable, Sendable, CaseIterab
     /// Disable reasoning/thinking. Fastest + cheapest per turn.
     case off
     /// Low effort. Maps to `reasoning.effort: "low"` on OpenAI,
-    /// minimal budget on Anthropic, low thinkingLevel on Gemini 3.x.
+    /// adaptive/low on Anthropic, low thinkingLevel on Gemini 3.x.
     case low
     /// Balanced reasoning. Maps to `reasoning.effort: "medium"` on
     /// OpenAI, adaptive/medium on Anthropic Opus 4.7+, medium
@@ -275,8 +281,8 @@ public nonisolated enum ChatReasoningTier: String, Codable, Sendable, CaseIterab
     case high
     /// Maximum effort the model family supports. Maps to
     /// `reasoning.effort: "xhigh"` on the OpenAI models that accept
-    /// it (falls back to "high" otherwise), 32k thinkingBudget on
-    /// Gemini 2.5, longest context on Anthropic. Displayed as "Heavy".
+    /// it (falls back to "high" otherwise), max adaptive thinking on
+    /// Anthropic, 32k thinkingBudget on Gemini 2.5. Displayed as "Heavy".
     case heavy
 
     /// Pre-migration aliases so old UserDefaults values keep working.
@@ -364,6 +370,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
     var role: MessageRole
     var content: String
     var contentBlocks: [MessageContentBlock]?
+    var authoredByProviderID: String?
+    var authoredByModelID: String?
     var thinkingTrace: String?
     var thinkingDurationSeconds: Double?
     var loadedNoteTitles: [String]?
@@ -375,6 +383,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         role: MessageRole,
         content: String,
         contentBlocks: [MessageContentBlock]? = nil,
+        authoredByProviderID: String? = nil,
+        authoredByModelID: String? = nil,
         thinkingTrace: String? = nil,
         thinkingDurationSeconds: Double? = nil,
         loadedNoteTitles: [String]? = nil,
@@ -385,6 +395,8 @@ struct AssistantMessage: Identifiable, Codable, Sendable {
         self.role = role
         self.content = content
         self.contentBlocks = contentBlocks
+        self.authoredByProviderID = authoredByProviderID
+        self.authoredByModelID = authoredByModelID
         self.thinkingTrace = thinkingTrace
         self.thinkingDurationSeconds = thinkingDurationSeconds
         self.loadedNoteTitles = loadedNoteTitles

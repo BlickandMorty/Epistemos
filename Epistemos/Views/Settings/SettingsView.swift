@@ -989,7 +989,7 @@ private struct InferenceDetailView: View {
 
             Section {
                 SettingsDescriptionText(
-                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic extended thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting. Provider-native runtimes can expose a fuller ladder in Pro / Tools too, like Codex Extra High or Claude Code Max."
+                    text: "Sets how much reasoning / thinking the model does per turn. Applies to OpenAI reasoning models, Anthropic adaptive thinking, and Gemini 2.5 / 3.x thinking modes. Non-reasoning models ignore this setting. Provider-native runtimes can expose a fuller ladder in Pro / Tools too, like Codex Extra High or Claude Code Max."
                 )
                 Picker(
                     selection: Binding(
@@ -1842,10 +1842,10 @@ private struct InferenceDetailView: View {
                     .font(.body.weight(.semibold))
                 providerReasoningEffortControls(
                     for: model,
-                    description: "Anthropic's Claude models can map the shared effort dial to Low, Medium, High, and Max on thinking-capable modes, including Claude Code-backed tools work."
+                    description: "Anthropic's Claude models use adaptive thinking with provider-native Low, Medium, High, and Max effort levels on supported modes, including Claude Code-backed tools work."
                 )
                 SettingsDescriptionText(
-                    text: "Extended thinking uses Anthropic's thinking configuration. Server-side tools (web search, web fetch, code execution) run inside Anthropic's sandbox and are billed per use."
+                    text: "Adaptive Thinking uses Anthropic's native thinking configuration. Server-side tools (web search, web fetch, code execution) run inside Anthropic's sandbox and are billed per use."
                 )
                 Toggle(
                     "Enable Web Search",
@@ -1869,31 +1869,12 @@ private struct InferenceDetailView: View {
                     )
                 )
                 Toggle(
-                    "Enable Extended Thinking",
+                    "Enable Adaptive Thinking",
                     isOn: Binding(
-                        get: { inference.anthropicExtendedThinkingEnabled },
-                        set: { inference.setAnthropicExtendedThinkingEnabled($0) }
+                        get: { inference.anthropicAdaptiveThinkingEnabled },
+                        set: { inference.setAnthropicAdaptiveThinkingEnabled($0) }
                     )
                 )
-                if inference.anthropicExtendedThinkingEnabled {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text("Thinking Budget")
-                            Spacer()
-                            Text("\(inference.anthropicThinkingBudgetTokens) tokens")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Slider(
-                            value: Binding(
-                                get: { Double(inference.anthropicThinkingBudgetTokens) },
-                                set: { inference.setAnthropicThinkingBudgetTokens(Int($0.rounded())) }
-                            ),
-                            in: 1_024...32_000,
-                            step: 1_024
-                        )
-                    }
-                }
             }
             .padding(.vertical, 4)
 

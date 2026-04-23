@@ -145,8 +145,17 @@ final class ChatCoordinator {
   static func inferAuthorship(
     inferenceMode: InferenceMode,
     inference: InferenceState,
-    assistantMessage: ChatMessage?
+    assistantMessage: ChatMessage?,
+    operatingMode: EpistemosOperatingMode? = nil
   ) -> (providerID: String?, modelID: String?) {
+    if let assistantMessage,
+       assistantMessage.authoredByProviderID != nil || assistantMessage.authoredByModelID != nil {
+      return (
+        assistantMessage.authoredByProviderID,
+        assistantMessage.authoredByModelID
+      )
+    }
+
     // If the assistant message already carries an explicit model
     // label (populated by the runtime on turn completion), prefer it.
     let trimmedLabel = assistantMessage?.resolvedModelLabel?
@@ -157,18 +166,79 @@ final class ChatCoordinator {
     case .appleIntelligence:
       return ("appleIntelligence", explicitModelLabel ?? "apple_intelligence")
     case .local:
-      let fallback = inference.activeLocalTextModelID
-      return ("local", explicitModelLabel ?? fallback)
-    case .api:
-      let providerID = inference.activeAIProvider.cloudProvider?.rawValue
-      let fallback: String?
-      switch inference.preferredChatModelSelection {
-      case .cloud(let model): fallback = model.rawValue
-      case .localMLX(let id): fallback = id
-      case .appleIntelligence: fallback = "apple_intelligence"
+      if let explicitModelLabel,
+         let mappedModelID = localModelID(matchingResolvedLabel: explicitModelLabel) {
+        return ("local", mappedModelID)
       }
-      return (providerID, explicitModelLabel ?? fallback)
+      if let operatingMode,
+         case .localMLX(let requestedModelID) = inference.effectiveChatSurfaceSelection(for: operatingMode) {
+        return ("local", requestedModelID)
+      }
+      if case .localMLX(let requestedModelID) = inference.preferredChatModelSelection {
+        return ("local", requestedModelID)
+      }
+      let fallback = inference.activeLocalTextModelID
+      return ("local", fallback ?? explicitModelLabel)
+    case .api:
+      if let explicitModelLabel,
+         let mappedModel = cloudModel(matchingResolvedLabel: explicitModelLabel) {
+        return (mappedModel.provider.rawValue, mappedModel.rawValue)
+      }
+      let fallbackSelection = inference.effectiveChatSurfaceSelection(for: operatingMode ?? .agent)
+      switch fallbackSelection {
+      case .cloud(let model):
+        return (model.provider.rawValue, model.rawValue)
+      case .localMLX(let id):
+        return ("local", id)
+      case .appleIntelligence:
+        return ("appleIntelligence", "apple_intelligence")
+      }
     }
+  }
+
+  private static func normalizedAuthorshipLabel(_ value: String) -> String {
+    let folded = value
+      .trimmingCharacters(in: .whitespacesAndNewlines)
+      .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+      .lowercased()
+    return String(folded.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) })
+  }
+
+  private static func localModelID(matchingResolvedLabel label: String) -> String? {
+    let normalizedLabel = normalizedAuthorshipLabel(label)
+    for model in LocalTextModelID.allCases {
+      let candidates = [
+        model.rawValue,
+        model.displayName,
+        model.compactDisplayName,
+      ]
+      if candidates.contains(where: { normalizedAuthorshipLabel($0) == normalizedLabel }) {
+        return model.rawValue
+      }
+    }
+    return nil
+  }
+
+  private static func cloudModel(matchingResolvedLabel label: String) -> CloudTextModelID? {
+    let normalizedLabel = normalizedAuthorshipLabel(label)
+    for model in CloudTextModelID.allCases {
+      let displayName = normalizedAuthorshipLabel(model.displayName)
+      let compactDisplayName = normalizedAuthorshipLabel(model.compactDisplayName)
+      let candidates = [
+        model.rawValue,
+        model.vendorModelID,
+        model.displayName,
+        model.compactDisplayName,
+        "\(model.provider.displayName) \(model.displayName)",
+        "\(model.provider.displayName) \(model.compactDisplayName)",
+      ]
+      if candidates.contains(where: { normalizedAuthorshipLabel($0) == normalizedLabel })
+        || normalizedLabel.hasSuffix(displayName)
+        || normalizedLabel.hasSuffix(compactDisplayName) {
+        return model
+      }
+    }
+    return nil
   }
 
   // MARK: - Agent Command Center Submission
@@ -4371,18 +4441,25 @@ final class ChatCoordinator {
       try context.save()
       Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
 
+      let transcriptContext = ModelContext(modelContainer)
+      let persistedChatForVault = Self.fetchFirst(
+        descriptor,
+        in: transcriptContext,
+        label: "chat transcript export"
+      ) ?? chat
+
       // Pass 9 — write a live-updating markdown transcript of this
       // chat into the user's vault so it shows up in the Notes
       // sidebar and CANNOT be silently lost ("thought never dies").
       // Non-blocking: failures are logged inside the helper and never
       // propagate to the SwiftData save path.
       ChatTranscriptVaultWriter.writeTranscript(
-        for: chat,
+        for: persistedChatForVault,
         vaultURL: vaultSync.vaultURL
       )
 
       // Generate meaning anchor if chat has enough exchanges
-      let messageCount = chat.messages?.count ?? 0
+      let messageCount = persistedChatForVault.sortedMessages.count
       if messageCount >= 3, let anchorService = AppBootstrap.shared?.meaningAnchorService {
         Task { await anchorService.generateAnchor(for: chatId) }
       }

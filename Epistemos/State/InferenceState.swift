@@ -2931,8 +2931,7 @@ final class InferenceState {
     private nonisolated static let lastNonLocalAIProviderDefaultsKey = "epistemos.lastNonLocalAIProvider"
     private nonisolated static let openAIWebSearchDefaultsKey = "epistemos.openAIWebSearchEnabled"
     private nonisolated static let openAICodeInterpreterDefaultsKey = "epistemos.openAICodeInterpreterEnabled"
-    private nonisolated static let anthropicExtendedThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
-    private nonisolated static let anthropicThinkingBudgetDefaultsKey = "epistemos.anthropicThinkingBudgetTokens"
+    private nonisolated static let anthropicAdaptiveThinkingDefaultsKey = "epistemos.anthropicExtendedThinkingEnabled"
     private nonisolated static let anthropicWebSearchDefaultsKey = "epistemos.anthropicWebSearchEnabled"
     private nonisolated static let anthropicWebFetchDefaultsKey = "epistemos.anthropicWebFetchEnabled"
     private nonisolated static let anthropicCodeExecutionDefaultsKey = "epistemos.anthropicCodeExecutionEnabled"
@@ -3019,8 +3018,7 @@ final class InferenceState {
     var chatOutputTokens: Int = 0
     var openAIWebSearchEnabled = false
     var openAICodeInterpreterEnabled = false
-    var anthropicExtendedThinkingEnabled = false
-    var anthropicThinkingBudgetTokens = 8_000
+    var anthropicAdaptiveThinkingEnabled = false
     /// Whether Anthropic's hosted web-search tool is enabled on chat
     /// turns going through the `/v1/messages` endpoint. When true we
     /// attach the `web_search_20250305` server-side tool + required
@@ -3051,7 +3049,7 @@ final class InferenceState {
     /// The user's current reasoning/thinking tier. Providers that
     /// support native reasoning map this to their own controls:
     /// OpenAI `reasoning.effort` + `text.verbosity`,
-    /// Anthropic `thinking.type`/`effort`/`budget_tokens`,
+    /// Anthropic `thinking.type`/`effort`,
     /// Google `thinkingConfig.thinkingLevel`/`thinkingBudget`.
     var chatReasoningTier: ChatReasoningTier = .medium
     var googleGroundingEnabled = false
@@ -3179,7 +3177,7 @@ final class InferenceState {
             defaultIfUnset: true
         )
         self.openAICodeInterpreterEnabled = defaults.bool(forKey: Self.openAICodeInterpreterDefaultsKey)
-        self.anthropicExtendedThinkingEnabled = defaults.bool(forKey: Self.anthropicExtendedThinkingDefaultsKey)
+        self.anthropicAdaptiveThinkingEnabled = defaults.bool(forKey: Self.anthropicAdaptiveThinkingDefaultsKey)
         self.anthropicWebSearchEnabled = Self.boolPreference(
             defaults: defaults,
             key: Self.anthropicWebSearchDefaultsKey,
@@ -3204,10 +3202,6 @@ final class InferenceState {
            let tier = ChatReasoningTier(migrating: savedTier) {
             self.chatReasoningTier = tier
         }
-        let savedBudget = defaults.integer(forKey: Self.anthropicThinkingBudgetDefaultsKey)
-        self.anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(
-            savedBudget > 0 ? savedBudget : 8_000
-        )
         self.googleGroundingEnabled = Self.boolPreference(
             defaults: defaults,
             key: Self.googleGroundingDefaultsKey,
@@ -3218,10 +3212,6 @@ final class InferenceState {
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
         Self.purgeLegacyRemoteConfiguration(defaults: defaults)
-    }
-
-    private nonisolated static func clampedAnthropicThinkingBudget(_ tokens: Int) -> Int {
-        min(max(tokens, 1_024), 32_000)
     }
 
     private nonisolated static func boolPreference(
@@ -4270,6 +4260,61 @@ final class InferenceState {
         }
     }
 
+    var visibleModelVaultModelIDs: Set<String> {
+        var modelIDs: Set<String> = ["apple-intelligence"]
+        for provider in configuredCloudProviders {
+            modelIDs.formUnion(cloudModels(for: provider).map(\.vendorModelID))
+        }
+        modelIDs.formUnion(releaseSelectableInstalledLocalTextModelIDs)
+        return modelIDs
+    }
+
+    func modelVaultTargets() -> [ModelVaultTarget] {
+        var targets: [ModelVaultTarget] = [
+            ModelVaultTarget(
+                modelID: "apple-intelligence",
+                displayName: "Apple Intelligence",
+                conceptLimit: 12,
+                activeWindowDays: 7
+            )
+        ]
+
+        for provider in configuredCloudProviders {
+            targets.append(
+                contentsOf: cloudModels(for: provider).map {
+                    ModelVaultTarget(
+                        modelID: $0.vendorModelID,
+                        displayName: $0.displayName,
+                        conceptLimit: 60,
+                        activeWindowDays: 7
+                    )
+                }
+            )
+        }
+
+        targets.append(
+            contentsOf: LocalModelCatalog.allDescriptors
+                .filter { descriptor in
+                    guard releaseSelectableInstalledLocalTextModelIDs.contains(descriptor.id),
+                          let model = LocalTextModelID(rawValue: descriptor.id) else {
+                        return false
+                    }
+                    return model.isReleaseValidatedForInteractiveChat
+                }
+                .map {
+                    ModelVaultTarget(
+                        modelID: $0.id,
+                        displayName: $0.displayName,
+                        conceptLimit: 24,
+                        activeWindowDays: 7
+                    )
+                }
+        )
+
+        var seen = Set<String>()
+        return targets.filter { seen.insert($0.modelID).inserted }
+    }
+
     var hasConfiguredCloudModels: Bool {
         !configuredCloudProviders.isEmpty
     }
@@ -4679,9 +4724,9 @@ final class InferenceState {
         UserDefaults.standard.set(isEnabled, forKey: Self.openAICodeInterpreterDefaultsKey)
     }
 
-    func setAnthropicExtendedThinkingEnabled(_ isEnabled: Bool) {
-        anthropicExtendedThinkingEnabled = isEnabled
-        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicExtendedThinkingDefaultsKey)
+    func setAnthropicAdaptiveThinkingEnabled(_ isEnabled: Bool) {
+        anthropicAdaptiveThinkingEnabled = isEnabled
+        UserDefaults.standard.set(isEnabled, forKey: Self.anthropicAdaptiveThinkingDefaultsKey)
     }
 
     func setAnthropicWebSearchEnabled(_ isEnabled: Bool) {
@@ -4702,14 +4747,6 @@ final class InferenceState {
     func setStructuredJSONOutputEnabled(_ isEnabled: Bool) {
         structuredJSONOutputEnabled = isEnabled
         UserDefaults.standard.set(isEnabled, forKey: Self.structuredJSONOutputDefaultsKey)
-    }
-
-    func setAnthropicThinkingBudgetTokens(_ tokens: Int) {
-        anthropicThinkingBudgetTokens = Self.clampedAnthropicThinkingBudget(tokens)
-        UserDefaults.standard.set(
-            anthropicThinkingBudgetTokens,
-            forKey: Self.anthropicThinkingBudgetDefaultsKey
-        )
     }
 
     func setGoogleGroundingEnabled(_ isEnabled: Bool) {

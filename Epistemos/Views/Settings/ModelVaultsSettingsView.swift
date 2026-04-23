@@ -240,51 +240,7 @@ struct ModelVaultsSettingsView: View {
     }
 
     private func configuredTargets() -> [ModelVaultTarget] {
-        let configuredCloudProviders = Set(inference.configuredCloudProviders)
-        let installedLocalTextModelIDs = Set(inference.releaseSelectableInstalledLocalTextModelIDs)
-        var targets: [ModelVaultTarget] = [
-            ModelVaultTarget(
-                modelID: "apple-intelligence",
-                displayName: "Apple Intelligence",
-                conceptLimit: 12,
-                activeWindowDays: 7
-            )
-        ]
-
-        targets.append(
-            contentsOf: CloudTextModelID.allCases
-                .filter { configuredCloudProviders.contains($0.provider) }
-                .map {
-                    ModelVaultTarget(
-                        modelID: $0.vendorModelID,
-                        displayName: $0.displayName,
-                        conceptLimit: 60,
-                        activeWindowDays: 7
-                    )
-                }
-        )
-
-        targets.append(
-            contentsOf: LocalModelCatalog.allDescriptors
-                .filter { descriptor in
-                    guard installedLocalTextModelIDs.contains(descriptor.id),
-                          let model = LocalTextModelID(rawValue: descriptor.id) else {
-                        return false
-                    }
-                    return model.isReleaseValidatedForInteractiveChat
-                }
-                .map {
-                    ModelVaultTarget(
-                        modelID: $0.id,
-                        displayName: $0.displayName,
-                        conceptLimit: 24,
-                        activeWindowDays: 7
-                    )
-                }
-        )
-
-        var seen = Set<String>()
-        return targets.filter { seen.insert($0.modelID).inserted }
+        inference.modelVaultTargets()
     }
 }
 

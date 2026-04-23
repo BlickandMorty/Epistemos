@@ -270,6 +270,8 @@ final class SDMessage {
             contextAttachments: decodedContextAttachments(),
             artifacts: decodedArtifacts(),
             contentBlocks: decodedContentBlocks(),
+            authoredByProviderID: authoredByProviderID,
+            authoredByModelID: authoredByModelID,
             thinkingTrace: thinkingTrace,
             thinkingDurationSeconds: thinkingDurationSeconds
         )

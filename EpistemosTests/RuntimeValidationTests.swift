@@ -114,7 +114,6 @@ struct RuntimeValidationTests {
         "epistemos.anthropicWebSearchEnabled",
         "epistemos.anthropicWebFetchEnabled",
         "epistemos.anthropicCodeExecutionEnabled",
-        "epistemos.anthropicThinkingBudgetTokens",
         "epistemos.googleGroundingEnabled",
         "epistemos.cloudSetupHintShown",
         "epistemos.preferredCloudModel.openAI",
@@ -327,7 +326,7 @@ struct RuntimeValidationTests {
         #expect(source.contains("migrateLegacyCloudSelection(defaults: defaults)"))
         #expect(source.contains("\"gpt-5.3\": .openAIGPT54"))
         #expect(source.contains("\"claude-sonnet-4-6\": .anthropicClaudeSonnet4"))
-        #expect(source.contains("\"gemini-1.5-pro\": .googleGemini25Pro"))
+        #expect(source.contains("\"gemini-1.5-pro\": .googleGemini31ProPreview"))
         #expect(source.contains("case zai"))
         #expect(source.contains("case kimi"))
         #expect(source.contains("case minimax"))
@@ -387,7 +386,7 @@ struct RuntimeValidationTests {
         #expect(settings.contains("providerNativeReasoningModes(for:"))
         #expect(settings.contains("providerNativeControls(for: provider)"))
         #expect(settings.contains("if hasConfiguredAccess {"))
-        #expect(settings.contains("Enable Extended Thinking"))
+        #expect(settings.contains("Enable Adaptive Thinking"))
         #expect(settings.contains("Enable Grounding with Google Search"))
         #expect(settings.contains("Enable Web Search"))
     }
@@ -1453,7 +1452,7 @@ struct RuntimeValidationTests {
             )
         )
         #expect(
-            InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch(
+            !InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch(
                 processInfoEnvironment: skipRestoreEnvironment
             )
         )
@@ -3736,6 +3735,8 @@ struct RuntimeValidationTests {
         #expect(persistMiniChatSession.contains("for message in newMessages"))
         #expect(persistMiniChatSession.contains("modelContext.insert(message)"))
         #expect(persistMiniChatSession.contains("message.chat = chat"))
+        #expect(persistMiniChatSession.contains("stored.authoredByProviderID = message.authoredByProviderID"))
+        #expect(persistMiniChatSession.contains("stored.authoredByModelID = message.authoredByModelID"))
         #expect(persistMiniChatSession.contains("modelContext.delete(chat)"))
         #expect(persistMiniChatSession.contains("MiniChatWindowController.shared.updateWindowTitle(chatID: chatID, title: originalTitle)"))
 
@@ -4382,7 +4383,6 @@ struct InferenceCloudSelectionTests {
         "epistemos.anthropicWebSearchEnabled",
         "epistemos.anthropicWebFetchEnabled",
         "epistemos.anthropicCodeExecutionEnabled",
-        "epistemos.anthropicThinkingBudgetTokens",
         "epistemos.googleGroundingEnabled",
         "epistemos.cloudSetupHintShown",
         "epistemos.preferredCloudModel.openAI",
@@ -4572,36 +4572,33 @@ struct InferenceCloudSelectionTests {
 
             #expect(inference.openAIWebSearchEnabled)
             #expect(!inference.openAICodeInterpreterEnabled)
-            #expect(!inference.anthropicExtendedThinkingEnabled)
+            #expect(!inference.anthropicAdaptiveThinkingEnabled)
             #expect(inference.anthropicWebSearchEnabled)
             #expect(inference.anthropicWebFetchEnabled)
             #expect(inference.anthropicCodeExecutionEnabled)
-            #expect(inference.anthropicThinkingBudgetTokens == 8_000)
             #expect(inference.googleGroundingEnabled)
             #expect(inference.firecrawlAPIKey() == nil)
 
             inference.setOpenAIWebSearchEnabled(false)
             inference.setOpenAIWebSearchEnabled(true)
             inference.setOpenAICodeInterpreterEnabled(true)
-            inference.setAnthropicExtendedThinkingEnabled(true)
+            inference.setAnthropicAdaptiveThinkingEnabled(true)
             inference.setAnthropicWebSearchEnabled(false)
             inference.setAnthropicWebSearchEnabled(true)
             inference.setAnthropicWebFetchEnabled(false)
             inference.setAnthropicWebFetchEnabled(true)
             inference.setAnthropicCodeExecutionEnabled(false)
             inference.setAnthropicCodeExecutionEnabled(true)
-            inference.setAnthropicThinkingBudgetTokens(12_288)
             inference.setGoogleGroundingEnabled(false)
             inference.setGoogleGroundingEnabled(true)
             _ = inference.setFirecrawlAPIKey("fc-test-key")
 
             #expect(inference.openAIWebSearchEnabled)
             #expect(inference.openAICodeInterpreterEnabled)
-            #expect(inference.anthropicExtendedThinkingEnabled)
+            #expect(inference.anthropicAdaptiveThinkingEnabled)
             #expect(inference.anthropicWebSearchEnabled)
             #expect(inference.anthropicWebFetchEnabled)
             #expect(inference.anthropicCodeExecutionEnabled)
-            #expect(inference.anthropicThinkingBudgetTokens == 12_288)
             #expect(inference.googleGroundingEnabled)
             #expect(inference.firecrawlAPIKey() == "fc-test-key")
 
@@ -4720,6 +4717,59 @@ struct InferenceCloudSelectionTests {
         #expect(authService.contains("URLQueryItem(name: \"client_version\""))
         #expect(llmService.contains("OpenAICodexRuntimeMetadata.url(appendingClientVersionTo:"))
         #expect(llmService.contains("/backend-api/codex"))
+    }
+
+    @Test("Anthropic adaptive thinking stays aligned across runtime and settings")
+    func anthropicAdaptiveThinkingStaysAlignedAcrossRuntimeAndSettings() throws {
+        let llmService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/LLMService.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let rootView = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(llmService.contains("\"type\": \"adaptive\""))
+        #expect(llmService.contains("\"effort\":"))
+        #expect(!llmService.contains("\"budget_tokens\""))
+        #expect(settings.contains("Enable Adaptive Thinking"))
+        #expect(!settings.contains("Enable Extended Thinking"))
+        #expect(!settings.contains("Thinking Budget"))
+        #expect(rootView.contains("Enable Adaptive Thinking"))
+        #expect(!rootView.contains("Enable Extended Thinking"))
+    }
+
+    @Test("Anthropic adaptive thinking naming stays consistent in inference state and UI call sites")
+    func anthropicAdaptiveThinkingNamingStaysConsistentAcrossSymbols() throws {
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/SettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let rootView = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/RootView.swift",
+            testsFilePath: #filePath
+        )
+        let llmService = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/LLMService.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(inference.contains("anthropicAdaptiveThinkingEnabled"))
+        #expect(inference.contains("setAnthropicAdaptiveThinkingEnabled"))
+        #expect(!inference.contains("var anthropicExtendedThinkingEnabled"))
+        #expect(!inference.contains("func setAnthropicExtendedThinkingEnabled"))
+        #expect(settings.contains("anthropicAdaptiveThinkingEnabled"))
+        #expect(rootView.contains("anthropicAdaptiveThinkingEnabled"))
+        #expect(llmService.contains("anthropicAdaptiveThinkingEnabled"))
     }
 
     @Test("OpenAI OAuth shows the device code directly in the app")
@@ -5736,6 +5786,110 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("inference.configuredCloudProviders"))
         #expect(source.contains("inference.releaseSelectableInstalledLocalTextModelIDs"))
         #expect(source.contains("private func configuredTargets() -> [ModelVaultTarget]"))
+    }
+
+    @Test("model vault sidebar resolves authored model ids from vault metadata instead of sanitized directory names")
+    func modelVaultSidebarResolvesAuthoredModelIDsFromVaultMetadata() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("model-vault-sidebar-\(UUID().uuidString)", isDirectory: true)
+        let directory = root.appendingPathComponent("Qwen-Qwen3-4B-MLX-4bit", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let metadata = ModelVaultMetadata(
+            modelID: "Qwen/Qwen3-4B-MLX-4bit",
+            displayName: "Qwen 3 4B",
+            compiledAt: Date(timeIntervalSince1970: 0),
+            noteCount: 1,
+            conceptCount: 1,
+            activeNoteCount: 1,
+            tokenEstimate: 42
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let metadataData = try encoder.encode(metadata)
+        try metadataData.write(to: directory.appendingPathComponent("meta.json"), options: .atomic)
+
+        let entries = ModelVaultsSidebarSection.loadModelVaults(rootURL: root)
+        let entry = try #require(entries.first)
+
+        #expect(entry.id == "Qwen/Qwen3-4B-MLX-4bit")
+        #expect(entry.displayName == "Qwen 3 4B")
+        #expect(entry.subtitle == "Qwen/Qwen3-4B-MLX-4bit")
+    }
+
+    @Test("model vault sidebar falls back to canonical model ids when metadata is missing")
+    func modelVaultSidebarCanonicalizesKnownDirectoryNamesWithoutMetadata() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("model-vault-sidebar-fallback-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let localDirectory = root.appendingPathComponent("Qwen-Qwen3-4B-MLX-4bit", isDirectory: true)
+        let cloudDirectory = root.appendingPathComponent("gpt-5.4", isDirectory: true)
+        try FileManager.default.createDirectory(at: localDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: cloudDirectory, withIntermediateDirectories: true)
+
+        let entries = ModelVaultsSidebarSection.loadModelVaults(rootURL: root)
+        #expect(entries.count == 2)
+
+        let byDirectory = Dictionary(uniqueKeysWithValues: entries.map { ($0.directoryName, $0) })
+        let localEntry = try #require(byDirectory["Qwen-Qwen3-4B-MLX-4bit"])
+        #expect(localEntry.id == "Qwen/Qwen3-4B-MLX-4bit")
+        #expect(localEntry.displayName == "Qwen 3 4B")
+
+        let cloudEntry = try #require(byDirectory["gpt-5.4"])
+        #expect(cloudEntry.id == CloudTextModelID.openAIGPT54.rawValue)
+        #expect(cloudEntry.displayName == "GPT-5.4")
+    }
+
+    @Test("model involvement sheet queries the selected model id directly")
+    func modelInvolvementSheetQueriesSelectedModelIDDirectly() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelInvolvementSheet.swift",
+            testsFilePath: #filePath
+        )
+        #expect(source.contains("_contributions = Query("))
+        #expect(source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
+    }
+
+    @Test("model vault sidebar keeps long vault lists inside a bounded scroll region")
+    func modelVaultSidebarBoundsExpandedListHeight() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+            testsFilePath: #filePath
+        )
+        #expect(source.contains("private static let maxExpandedListHeight: CGFloat = 320"))
+        #expect(source.contains("ScrollView(.vertical)"))
+        #expect(source.contains("LazyVStack(spacing: 0)"))
+        #expect(source.contains("estimatedRowHeight"))
+    }
+
+    @Test("model vault surfaces stay aligned with the curated visible model set")
+    func modelVaultSurfacesStayAlignedWithCuratedVisibleModelSet() throws {
+        let inference = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/State/InferenceState.swift",
+            testsFilePath: #filePath
+        )
+        let settings = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Settings/ModelVaultsSettingsView.swift",
+            testsFilePath: #filePath
+        )
+        let sidebar = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+            testsFilePath: #filePath
+        )
+        let bootstrap = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/App/AppBootstrap.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(inference.contains("var visibleModelVaultModelIDs: Set<String>"))
+        #expect(inference.contains("func modelVaultTargets() -> [ModelVaultTarget]"))
+        #expect(settings.contains("inference.modelVaultTargets()"))
+        #expect(sidebar.contains("@Environment(InferenceState.self)"))
+        #expect(sidebar.contains("visibleModelVaults"))
+        #expect(bootstrap.contains("targetsProvider:"))
+        #expect(bootstrap.contains("inference.modelVaultTargets()"))
     }
 
     @Test("mlx ssm reuse stays scoped to the active chat session")
