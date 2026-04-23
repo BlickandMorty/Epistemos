@@ -1,5 +1,6 @@
 pub mod attachments;
 pub mod alias_registry;
+pub mod bridge;
 pub mod id;
 pub mod permissions;
 pub mod service;

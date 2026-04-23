@@ -24,6 +24,13 @@ struct AgentControlDetailView: View {
     @State private var isMutatingCustomTools = false
     @State private var allowlistDraft: String = ""
     @State private var blocklistDraft: String = ""
+    // Phase R.5 — Rust-backed permission grants (I-009/I-010). Populated
+    // from `permissionStoreListActive()` in `agent_core`. Surfaced in the
+    // Active Grants section alongside the derived, session-local rows so
+    // the user can see + revoke durable grants stored in Rust. Fresh
+    // launch is empty until the first user-grant phrasing lands.
+    @State private var rustBackedGrants: [PermissionGrantSummary] = []
+    @State private var isRevokingGrantId: String?
 
     private let browser = SessionBrowser.shared
 
@@ -43,6 +50,7 @@ struct AgentControlDetailView: View {
         .task {
             refreshExecutions()
             refreshSessions()
+            await refreshRustBackedGrants()
         }
         .task(id: vaultSync.vaultURL?.path) {
             refreshSessions()
@@ -202,7 +210,7 @@ struct AgentControlDetailView: View {
             Text("Active Grants")
                 .font(.subheadline.weight(.semibold))
 
-            if activeGrantRows.isEmpty {
+            if activeGrantRows.isEmpty && rustBackedGrants.isEmpty {
                 Text("No active grants in this chat right now.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -243,8 +251,96 @@ struct AgentControlDetailView: View {
                 }
             }
 
+            // Phase R.5 — Rust-backed persisted grants (I-009/I-010).
+            // These are grants the user explicitly stated in chat ("you
+            // have my permission") that were parsed + stored in the Rust
+            // PermissionService, as distinct from the transient
+            // attachment-derived rows above.
+            if !rustBackedGrants.isEmpty {
+                Divider()
+                Text("Stored session grants")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 4)
+                ForEach(rustBackedGrants, id: \.grantId) { grant in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: "lock.shield")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.purple)
+                            .frame(width: 16, alignment: .center)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(rustGrantTitle(for: grant))
+                                .font(.subheadline.weight(.semibold))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Text(rustGrantDetail(for: grant))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button(isRevokingGrantId == grant.grantId ? "Revoking…" : "Revoke") {
+                            revokeRustBackedGrant(grant.grantId)
+                        }
+                        .buttonStyle(.borderless)
+                        .font(.caption.weight(.semibold))
+                        .disabled(isRevokingGrantId == grant.grantId)
+                    }
+
+                    if grant.grantId != rustBackedGrants.last?.grantId {
+                        Divider()
+                    }
+                }
+            }
+
             Divider()
         }
+    }
+
+    // MARK: - Phase R.5 — Rust permission-store helpers
+
+    /// Pull the latest active grants from the Rust PermissionService and
+    /// publish them to the view. Safe to call from any `.task { ... }`
+    /// context; the Rust side drives its own tokio runtime.
+    private func refreshRustBackedGrants() async {
+        let fetched = await permissionStoreListActive()
+        // Use MainActor.run to update @State on the main actor; UniFFI
+        // delivers off-main by default.
+        await MainActor.run {
+            self.rustBackedGrants = fetched
+        }
+    }
+
+    /// Revoke a Rust-stored grant by ID. Optimistically toggles a busy
+    /// flag so the button disables during the round-trip; on success,
+    /// re-fetches the authoritative list.
+    private func revokeRustBackedGrant(_ grantId: String) {
+        isRevokingGrantId = grantId
+        Task {
+            _ = await permissionStoreRevoke(grantId: grantId)
+            await refreshRustBackedGrants()
+            await MainActor.run {
+                if self.isRevokingGrantId == grantId {
+                    self.isRevokingGrantId = nil
+                }
+            }
+        }
+    }
+
+    private func rustGrantTitle(for grant: PermissionGrantSummary) -> String {
+        // Selector format is "resource:<uri>" / "prefix:<pfx>" /
+        // "vault:<id>" / "kind:<Kind>". Use the user-friendly tail.
+        if let uri = grant.selector.split(separator: ":", maxSplits: 1).last {
+            return String(uri)
+        }
+        return grant.selector
+    }
+
+    private func rustGrantDetail(for grant: PermissionGrantSummary) -> String {
+        let caps = grant.capabilities.joined(separator: " + ")
+        return "\(caps) · \(grant.scope) · granted by \(grant.grantedBy)"
     }
 
     private var customToolsCard: some View {
