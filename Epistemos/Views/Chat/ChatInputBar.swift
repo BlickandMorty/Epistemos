@@ -10,6 +10,14 @@ enum MainChatComposerLayout {
     static let controlRowTopPadding: CGFloat = 6
 }
 
+private struct ComposerPermissionGrantRow: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let systemImage: String
+    let isRevocable: Bool
+}
+
 
 struct ComposerControlStrip<Content: View>: View {
     let spacing: CGFloat
@@ -77,6 +85,7 @@ struct ChatInputBar: View {
     @State private var mentionPickerAutofocus = false
     @State private var referencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var referenceSearch = ComposerReferenceSearchState()
+    @State private var showPermissionGrantPopover = false
 
     /// Slash-command menu. Surfaces the ACCSlashCommand catalog — plan,
     /// notes, code, debug, research, etc. — the moment the user types
@@ -367,6 +376,70 @@ struct ChatInputBar: View {
     private var composerTextAreaHeight: CGFloat {
         max(ChatComposerInputMetrics.minHeight, composerHeight)
     }
+    private var permissionGrantRows: [ComposerPermissionGrantRow] {
+        var rows: [ComposerPermissionGrantRow] = []
+
+        if let vaultURL = vaultSync.vaultURL {
+            rows.append(
+                ComposerPermissionGrantRow(
+                    id: "vault:\(vaultURL.path)",
+                    title: vaultURL.lastPathComponent,
+                    detail: "Read + Search active vault",
+                    systemImage: "books.vertical",
+                    isRevocable: false
+                )
+            )
+        }
+
+        rows.append(
+            contentsOf: chat.pendingContextAttachments.map { attachment in
+                ComposerPermissionGrantRow(
+                    id: "context:\(attachment.id)",
+                    title: attachment.title,
+                    detail: grantDetail(for: attachment),
+                    systemImage: attachment.systemImageName,
+                    isRevocable: true
+                )
+            }
+        )
+
+        rows.append(
+            contentsOf: chat.pendingAttachments.map { attachment in
+                ComposerPermissionGrantRow(
+                    id: "file:\(attachment.id)",
+                    title: attachment.name,
+                    detail: "Read attached file",
+                    systemImage: iconForType(attachment.type),
+                    isRevocable: true
+                )
+            }
+        )
+
+        rows.append(
+            ComposerPermissionGrantRow(
+                id: "shell-approval",
+                title: "Shell / external tools",
+                detail: "Ask first for destructive or external work",
+                systemImage: "terminal",
+                isRevocable: false
+            )
+        )
+
+        return rows
+    }
+    private var permissionSummaryText: String {
+        var segments: [String] = []
+        if chat.pendingContextAttachments.contains(where: { $0.kind == .note || $0.kind == .folder }) {
+            segments.append("Read + Edit attached notes")
+        } else if !chat.pendingAttachments.isEmpty {
+            segments.append("Read attached files")
+        }
+        if vaultSync.vaultURL != nil {
+            segments.append("Read + Search vault")
+        }
+        segments.append("Shell: ask first")
+        return segments.joined(separator: " · ")
+    }
     var body: some View {
         VStack(spacing: 0) {
             // Sticky plan card (rendered when the agent has published a
@@ -478,6 +551,10 @@ struct ChatInputBar: View {
                 .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
                 .padding(.bottom, 4)
             }
+
+            permissionVisibilityChip
+                .padding(.horizontal, MainChatComposerLayout.horizontalPadding)
+                .padding(.bottom, 4)
 
             VStack(alignment: .leading, spacing: 0) {
                 if chat.isIncognito {
@@ -599,6 +676,85 @@ struct ChatInputBar: View {
         .onChange(of: chat.pendingComposerDraftRevision) { _, _ in
             applyPendingComposerDraftIfNeeded()
         }
+    }
+
+    private var permissionVisibilityChip: some View {
+        Button {
+            showPermissionGrantPopover.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "lock.shield")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(theme.resolved.accent.color)
+                Text(permissionSummaryText)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(theme.textTertiary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(theme.mutedForeground.opacity(0.08))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(theme.border.opacity(0.45), lineWidth: 0.7)
+            )
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPermissionGrantPopover, arrowEdge: .top) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Current Access")
+                    .font(.headline)
+
+                Text("Removing an attachment revokes the corresponding attached-resource access immediately for this composer.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(permissionGrantRows) { row in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: row.systemImage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(theme.resolved.accent.color)
+                                .frame(width: 16, alignment: .center)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text(row.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer(minLength: 8)
+
+                            if row.isRevocable {
+                                Button("Revoke") {
+                                    revokePermissionGrant(row.id)
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption.weight(.semibold))
+                            }
+                        }
+
+                        if row.id != permissionGrantRows.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+            .padding(14)
+            .frame(width: 360, alignment: .leading)
+        }
+        .accessibilityLabel("Current assistant access")
+        .accessibilityHint("Shows attached-resource, vault, and shell approval access for this chat.")
     }
 
     private var composerTextArea: some View {
@@ -789,6 +945,29 @@ struct ChatInputBar: View {
         case .csv: return "tablecells"
         case .text: return "doc.text"
         case .other: return "paperclip"
+        }
+    }
+
+    private func grantDetail(for attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note:
+            return "Read + Edit attached note"
+        case .chat:
+            return "Read attached chat context"
+        case .allNotes:
+            return "Read + Search attached vault context"
+        case .folder:
+            return "Read + Edit attached folder notes"
+        }
+    }
+
+    private func revokePermissionGrant(_ id: String) {
+        if id.hasPrefix("context:"), let contextID = id.split(separator: ":", maxSplits: 1).last {
+            chat.removeContextAttachment(String(contextID))
+            return
+        }
+        if id.hasPrefix("file:"), let fileID = id.split(separator: ":", maxSplits: 1).last {
+            chat.removeAttachment(String(fileID))
         }
     }
 
