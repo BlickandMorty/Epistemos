@@ -28,14 +28,18 @@
 //! `docs/RESOURCE_RUNTIME_RESEARCH.md` §4, `docs/KNOWN_ISSUES_REGISTER.md`
 //! I-009 (stored grant) and I-010 (prompt-injection hardening).
 
-use std::sync::OnceLock;
+use std::path::PathBuf;
+use std::sync::{Arc, OnceLock};
 
 use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
+use crate::storage::vault::VaultStore;
+
 use super::{
-    AttachedResource, Capability, GrantScope, PermissionGrant, PermissionService, ResourceId,
-    ResourceSelector, SqlitePermissionService,
+    AttachedResource, Capability, DeleteMode, GrantScope, PermissionGrant, PermissionService,
+    ResourceContent, ResourceError, ResourceHit, ResourceId, ResourceKind, ResourceSelector,
+    ResourceService, ResourceSearchScope, SqlitePermissionService, VaultResourceService, WriteResult,
 };
 
 // `AttachmentMode` is only referenced inside tests; the production
@@ -327,6 +331,153 @@ pub fn attached_resource_allows(
 }
 
 // ---------------------------------------------------------------------
+// Phase R.3 — ResourceService bridge (the canonical gateway)
+// ---------------------------------------------------------------------
+//
+// Exposes a process-local `VaultResourceService` (constructed from a
+// Swift-supplied vault root + vault id) via UniFFI. This is the
+// canonical note read/write/create/delete/resolve/search gateway that
+// the plan calls out as Phase R.3's goal.
+//
+// Scope for this commit (HONEST labeling per Codex 2026-04-23 review):
+//   ✅ FFI primitives exposed; Rust + Swift tests exercise the round-trip.
+//   ✅ App-Sandbox safe — pure UniFFI call, no subprocess, no stdio MCP.
+//   ❌ Production Swift call sites (`NoteFileStorage`, `VaultIndexActor`,
+//      `NotesSidebar`, etc.) are NOT yet routed through the gateway.
+//      This is **scaffolding, not bug closure** — I-002/I-003 remain
+//      OPEN until those call sites migrate.
+//
+// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.3,
+// docs/RESOURCE_RUNTIME_RESEARCH.md §2 (one action gateway),
+// docs/KNOWN_ISSUES_REGISTER.md I-002 / I-003.
+
+/// Process-local active `VaultResourceService`. Initialized explicitly
+/// from Swift via [`resource_service_init`] once a vault is open. A
+/// re-init replaces the prior service (idempotent for vault switches).
+fn resource_service_slot() -> &'static std::sync::Mutex<Option<Arc<VaultResourceService>>> {
+    static SLOT: OnceLock<std::sync::Mutex<Option<Arc<VaultResourceService>>>> = OnceLock::new();
+    SLOT.get_or_init(|| std::sync::Mutex::new(None))
+}
+
+/// Return the currently active service, or a Backend error if the
+/// caller forgot to invoke `resource_service_init`. Swift callers
+/// should never see `NotInitialized` in normal operation since app
+/// boot always sets the vault before any resource op runs; but we
+/// prefer an explicit error over a panic across FFI.
+fn active_service() -> Result<Arc<VaultResourceService>, ResourceError> {
+    let guard = resource_service_slot()
+        .lock()
+        .map_err(|_| ResourceError::Backend("resource service slot poisoned".into()))?;
+    guard
+        .clone()
+        .ok_or_else(|| ResourceError::Backend("resource service not initialized".into()))
+}
+
+/// Initialize (or re-initialize) the process-local
+/// `VaultResourceService` for the given vault path + stable vault id.
+///
+/// Called by Swift at app launch (or on vault switch) with the user-
+/// selected vault URL and a stable identifier. Returns an error if
+/// the vault root doesn't open — Swift should surface this in the
+/// UI rather than fall back to legacy note I/O silently.
+#[uniffi::export]
+pub fn resource_service_init(vault_root: String, vault_id: String) -> Result<(), ResourceError> {
+    let path = PathBuf::from(&vault_root);
+    if !path.exists() {
+        return Err(ResourceError::Backend(format!(
+            "vault root does not exist: {vault_root}"
+        )));
+    }
+    // VaultStore::open expects a &str path.
+    let vault = VaultStore::open(&vault_root)
+        .map_err(|error| ResourceError::Backend(error.to_string()))?;
+    let service = Arc::new(VaultResourceService::new(Arc::new(vault), path, vault_id));
+    let mut guard = resource_service_slot()
+        .lock()
+        .map_err(|_| ResourceError::Backend("resource service slot poisoned".into()))?;
+    *guard = Some(service);
+    Ok(())
+}
+
+/// Is the process-local resource service currently initialized? Swift
+/// guard for rendering loading states vs falling back to legacy paths.
+#[uniffi::export]
+pub fn resource_service_is_ready() -> bool {
+    resource_service_slot()
+        .lock()
+        .map(|guard| guard.is_some())
+        .unwrap_or(false)
+}
+
+/// Resolve a user-facing reference (title, path, alias, URI) to a
+/// canonical `ResourceId`. This is the single point every Swift
+/// surface should funnel through so a reference typed/clicked in one
+/// UI resolves identically in every other UI.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_resolve(reference: String) -> Result<ResourceId, ResourceError> {
+    let service = active_service()?;
+    service.resolve(reference).await
+}
+
+/// Full-text + semantic search over the active vault. Returns a list
+/// of `ResourceHit`s sorted by relevance (hybrid search scoring).
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_search(
+    query: String,
+    scope: ResourceSearchScope,
+) -> Result<Vec<ResourceHit>, ResourceError> {
+    let service = active_service()?;
+    service.search(query, scope).await
+}
+
+/// Read the current bytes + version + checksum for a canonical
+/// `ResourceId`. Used by every surface that needs the exact truth of
+/// what's on disk right now (sidebar body preview, AI tool calls,
+/// diff sheets, etc.).
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_read(id: ResourceId) -> Result<ResourceContent, ResourceError> {
+    let service = active_service()?;
+    service.read(id).await
+}
+
+/// Version-checked write. `base_version` is the version Swift read
+/// previously; if the on-disk version changed in the meantime, the
+/// write is rejected with `VersionConflict` so the caller can re-read
+/// and retry. This is the prerequisite for R.6 verified writes —
+/// without it, "AI says done but file didn't change" can sneak in.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_write(
+    id: ResourceId,
+    content: Vec<u8>,
+    base_version: Option<String>,
+) -> Result<WriteResult, ResourceError> {
+    let service = active_service()?;
+    service.write(id, content, base_version).await
+}
+
+/// Create a new resource under `parent` with kind + initial content.
+/// Returns the canonical ID of the new resource so the caller can
+/// immediately link/surface it.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_create(
+    parent: ResourceId,
+    kind: ResourceKind,
+    content: Vec<u8>,
+) -> Result<ResourceId, ResourceError> {
+    let service = active_service()?;
+    service.create(parent, kind, content).await
+}
+
+/// Delete a resource. `Trash` is soft-delete (move to `.epistemos/
+/// archive/` with tombstone); `Hard` is unrecoverable. Per plan
+/// defaults, most UI paths should pass `Trash`.
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_delete(id: ResourceId, mode: DeleteMode) -> Result<(), ResourceError> {
+    let service = active_service()?;
+    service.delete(id, mode).await
+}
+
+// ---------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------
 
@@ -541,5 +692,178 @@ mod tests {
             attached_resource_from_ui(uri, "live".into(), None).expect("live attachment");
         assert!(attached_resource_allows(live.clone(), Capability::Read));
         assert!(attached_resource_allows(live, Capability::Write));
+    }
+
+    // --- Phase R.3 ResourceService bridge tests ------------------------
+    //
+    // The service bridge is process-local: `resource_service_init` swaps
+    // a single `OnceLock<Mutex<Option<Arc<VaultResourceService>>>>`. If
+    // two `#[tokio::test]`s run concurrently, they race the slot and
+    // silently invalidate each other's ResourceIds. Serialize all R.3
+    // tests behind a dedicated mutex so each one owns the active
+    // service for its full duration.
+    static R3_TEST_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Lock the R.3 gate. Returns an RAII guard; drop it at test end.
+    /// Recovers from poisoning so a single panicky test doesn't
+    /// permanently block the rest.
+    fn r3_gate() -> std::sync::MutexGuard<'static, ()> {
+        R3_TEST_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Build a clean scratch vault for the duration of one test.
+    /// `resource_service_init` swaps the process-local service, so tests
+    /// that run in the same process MUST re-init to their own vault
+    /// before asserting AND hold `r3_gate()` for their full duration.
+    fn make_scratch_vault(label: &str) -> (tempfile::TempDir, String) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path().to_string_lossy().to_string();
+        let vault_id = format!("r3-bridge-{}-{}", label, uuid::Uuid::new_v4());
+        // Seed a couple of notes so resolve / read have something to hit.
+        std::fs::create_dir_all(tmp.path().join("Inbox")).unwrap();
+        std::fs::write(
+            tmp.path().join("Inbox").join("R3Alpha.md"),
+            "# R3 Alpha\nalpha body line\n",
+        )
+        .unwrap();
+        std::fs::write(
+            tmp.path().join("Inbox").join("R3Beta.md"),
+            "# R3 Beta\nbeta body line\n",
+        )
+        .unwrap();
+        resource_service_init(root.clone(), vault_id.clone()).expect("init should succeed");
+        (tmp, vault_id)
+    }
+
+    #[test]
+    fn resource_service_init_rejects_missing_vault_root() {
+        let _gate = r3_gate();
+        let err = resource_service_init(
+            "/this/path/definitely/does/not/exist/at/all".into(),
+            "r3-missing".into(),
+        )
+        .expect_err("missing dir must error");
+        assert!(matches!(err, ResourceError::Backend(_)));
+    }
+
+    #[test]
+    fn resource_service_is_ready_after_init() {
+        let _gate = r3_gate();
+        let (_tmp, _vault) = make_scratch_vault("ready");
+        assert!(resource_service_is_ready());
+    }
+
+    #[tokio::test]
+    async fn resource_resolve_returns_canonical_id_for_title() {
+        let _gate = r3_gate();
+        let (_tmp, vault_id) = make_scratch_vault("resolve-title");
+
+        let id = resource_resolve("R3Alpha".into())
+            .await
+            .expect("resolve should find the seeded note");
+        match id {
+            ResourceId::VaultNote {
+                vault_id: got_vault,
+                note_id,
+            } => {
+                assert_eq!(got_vault, vault_id);
+                assert_eq!(note_id, "Inbox/R3Alpha.md");
+            }
+            other => panic!("expected VaultNote variant, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn resource_resolve_rejects_unknown_reference() {
+        let _gate = r3_gate();
+        let (_tmp, _vault_id) = make_scratch_vault("resolve-unknown");
+        let err = resource_resolve("NotARealNote".into())
+            .await
+            .expect_err("unknown reference must error");
+        assert!(matches!(err, ResourceError::UnsupportedReference(_)));
+    }
+
+    #[tokio::test]
+    async fn resource_read_returns_bytes_and_checksum() {
+        let _gate = r3_gate();
+        let (_tmp, _vault_id) = make_scratch_vault("read-roundtrip");
+
+        let id = resource_resolve("R3Beta".into()).await.unwrap();
+        let content = resource_read(id.clone()).await.unwrap();
+
+        assert_eq!(content.id, id);
+        assert!(content
+            .bytes
+            .windows("beta body line".len())
+            .any(|w| w == b"beta body line"));
+        assert!(!content.version.is_empty());
+        assert_eq!(content.checksum.len(), 64); // sha256 hex
+    }
+
+    #[tokio::test]
+    async fn resource_write_round_trip_with_version_check() {
+        let _gate = r3_gate();
+        let (_tmp, _vault_id) = make_scratch_vault("write-roundtrip");
+
+        let id = resource_resolve("R3Alpha".into()).await.unwrap();
+        let initial = resource_read(id.clone()).await.unwrap();
+
+        let updated_bytes = b"# R3 Alpha\nalpha UPDATED line\n".to_vec();
+        let write_result = resource_write(
+            id.clone(),
+            updated_bytes.clone(),
+            Some(initial.version.clone()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(write_result.id, id);
+        assert_ne!(write_result.new_version, initial.version);
+        assert_eq!(write_result.post_checksum.len(), 64);
+
+        let reread = resource_read(id).await.unwrap();
+        assert_eq!(reread.bytes, updated_bytes);
+    }
+
+    #[tokio::test]
+    async fn resource_write_with_stale_base_version_returns_version_conflict() {
+        let _gate = r3_gate();
+        let (_tmp, _vault_id) = make_scratch_vault("write-conflict");
+
+        let id = resource_resolve("R3Alpha".into()).await.unwrap();
+        // Base version "stale-v0" deliberately does not match.
+        let err = resource_write(
+            id,
+            b"should not land".to_vec(),
+            Some("stale-v0".into()),
+        )
+        .await
+        .expect_err("stale base_version must error");
+        assert!(matches!(err, ResourceError::VersionConflict { .. }));
+    }
+
+    #[tokio::test]
+    async fn resource_service_not_initialized_returns_explicit_backend_error() {
+        let _gate = r3_gate();
+        // Drop the currently-active service so we exercise the
+        // not-initialized path without racing other tests.
+        {
+            let mut guard = resource_service_slot().lock().unwrap();
+            *guard = None;
+        }
+        let err = resource_resolve("anything".into())
+            .await
+            .expect_err("uninitialized service must error");
+        match err {
+            ResourceError::Backend(message) => {
+                assert!(
+                    message.contains("not initialized"),
+                    "message should mention init: {message}"
+                );
+            }
+            other => panic!("expected Backend error, got {other:?}"),
+        }
     }
 }
