@@ -1012,7 +1012,20 @@ struct ChatInputBar: View {
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
-        chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))
+        // Phase R.4 — pass the active vault's stable ID so the
+        // ContextAttachment gets populated with a canonical
+        // `vault://{vaultId}/note/{relativePath}` URI at pick time.
+        // The URI powers the R.5 grant parser and (future) tool-check
+        // gate. `lastPathComponent` mirrors the convention used by
+        // `AppBootstrap.initializeRustResourceServiceIfReady` so both
+        // ends agree on the vault identity.
+        let vaultId = vaultSync.vaultURL?.lastPathComponent
+        chat.addContextAttachment(
+            ComposerReferenceHelpers.contextAttachment(
+                for: choice,
+                vaultId: vaultId
+            )
+        )
         text = ComposerReferenceHelpers.removingTrailingMention(from: text)
         showMentionDropdown = false
         referencePopoverStyle = .mention

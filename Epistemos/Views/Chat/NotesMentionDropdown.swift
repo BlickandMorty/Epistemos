@@ -54,19 +54,75 @@ enum ComposerReferenceHelpers {
         )
     }
 
-    static func contextAttachment(for choice: ComposerReferenceChoice) -> ContextAttachment {
+    /// Capabilities a freshly-attached Live note offers by default. Kept
+    /// in sync with `agent_core::resources::attachments::AttachedResource::
+    /// attach_via_ui` — the Rust-side Live mode grants Read + Write.
+    static let defaultLiveAttachmentCapabilities: [String] = ["Read", "Write"]
+
+    /// Build the `vault://{vaultId}/note/{relativePath}` URI that maps
+    /// to `ResourceId::VaultNote` on the Rust side. Returns `nil` if
+    /// the caller can't supply both halves — without them we can't
+    /// round-trip to a canonical ResourceId, so we fall back to the
+    /// legacy no-URI attachment instead of fabricating a bad URI.
+    ///
+    /// The `vaultId` convention mirrors what `AppBootstrap` feeds into
+    /// `resourceServiceInit`: the vault directory's last path
+    /// component (e.g. "main", "Personal"). Keeping both sides in
+    /// sync means a URI minted by the dropdown resolves through the
+    /// same gateway the R.3 migrations target.
+    static func vaultNoteResourceURI(vaultId: String?, relativePath: String?) -> String? {
+        guard let vaultId = vaultId?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !vaultId.isEmpty else { return nil }
+        guard let relativePath = relativePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !relativePath.isEmpty else { return nil }
+        return "vault://\(vaultId)/note/\(relativePath)"
+    }
+
+    /// Construct a `ContextAttachment` for a dropdown pick. When
+    /// `vaultId` is provided AND the selected entry has a known
+    /// `relativePath`, the attachment is populated with the Phase R.4
+    /// manifest (`resourceURI` / `resourceMode` = `.live` / Read+Write
+    /// capabilities) so downstream Swift code — the R.5 grant parser
+    /// and the future tool-check wiring — can consult the canonical
+    /// `ResourceId` instead of the legacy `pageId`.
+    ///
+    /// When `vaultId` is `nil` (legacy callers that haven't been
+    /// migrated yet) or the entry has no `relativePath` (a rare edge,
+    /// e.g. a pre-vault or transient entry) we fall back to the
+    /// pre-R.4 no-manifest form. Both variants remain fully
+    /// functional for the chat stream; the manifest is an additive
+    /// enhancement, not a requirement.
+    static func contextAttachment(
+        for choice: ComposerReferenceChoice,
+        vaultId: String? = nil
+    ) -> ContextAttachment {
         switch choice {
         case .note(let noteChoice):
             switch noteChoice {
             case .allNotes:
                 allNotesAttachment
             case .entry(let entry):
-                ContextAttachment(
-                    kind: .note,
-                    targetId: entry.pageId,
-                    title: entry.title,
-                    subtitle: entry.folderName
-                )
+                if let resourceURI = vaultNoteResourceURI(
+                    vaultId: vaultId,
+                    relativePath: entry.relativePath
+                ) {
+                    ContextAttachment(
+                        kind: .note,
+                        targetId: entry.pageId,
+                        title: entry.title,
+                        subtitle: entry.folderName,
+                        resourceURI: resourceURI,
+                        resourceMode: .live,
+                        resourceCapabilities: defaultLiveAttachmentCapabilities
+                    )
+                } else {
+                    ContextAttachment(
+                        kind: .note,
+                        targetId: entry.pageId,
+                        title: entry.title,
+                        subtitle: entry.folderName
+                    )
+                }
             }
         case .chat(let result):
             result.attachment

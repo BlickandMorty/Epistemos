@@ -68,7 +68,17 @@ struct MiniChatViewAuditTests {
         #expect(miniChatSource.contains("ComposerReferenceHelpers.contextAttachment(for: choice)"))
 
         #expect(chatInputSource.contains("return ChatCoordinator.searchReferenceResults("))
-        #expect(chatInputSource.contains("chat.addContextAttachment(ComposerReferenceHelpers.contextAttachment(for: choice))"))
+        // Phase R.4 backfill: ChatInputBar now passes the active vault
+        // ID so the attachment carries a canonical `vault://{...}/note/{...}`
+        // URI. We match the new signature (with vaultId) to pin the
+        // wiring in place; the older no-vaultId form is still live in
+        // MiniChat and Landing until those sites migrate.
+        #expect(chatInputSource.contains(
+            "ComposerReferenceHelpers.contextAttachment(\n"
+            + "                for: choice,\n"
+            + "                vaultId: vaultId\n"
+            + "            )"
+        ))
 
         #expect(mentionSource.contains("case .allNotes:"))
         #expect(mentionSource.contains("static var allNotesAttachment: ContextAttachment"))
