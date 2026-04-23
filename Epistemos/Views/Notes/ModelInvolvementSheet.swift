@@ -774,8 +774,18 @@ struct ModelInvolvementContent: View {
     ) -> [SDMessage] {
         guard !modelIDs.isEmpty else { return [] }
 
+        // Phase R.2 / I-001 fix: before filtering, expand each incoming
+        // model ID through the Rust `AliasRegistry` so legacy records
+        // written with one alias form (e.g. `openai:gpt-5.4`) still match
+        // queries that arrive in another form (`gpt-5.4`). Without this
+        // step the sidebar shows empty history for any model whose
+        // on-disk `authoredByModelID` format differs from the selected
+        // `modelIDs` set. See docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md
+        // §Phase R.2 and docs/KNOWN_ISSUES_REGISTER.md I-001.
+        let effectiveIDs = expandModelIDsForFetch(modelIDs: modelIDs)
+
         var mergedByID: [String: SDMessage] = [:]
-        for acceptedModelID in modelIDs {
+        for acceptedModelID in effectiveIDs {
             let descriptor = FetchDescriptor<SDMessage>(
                 predicate: #Predicate<SDMessage> { $0.authoredByModelID == acceptedModelID },
                 sortBy: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
@@ -792,6 +802,24 @@ struct ModelInvolvementContent: View {
             }
             return lhs.createdAt > rhs.createdAt
         }
+    }
+
+    /// Expand a set of model IDs through the Rust-side `AliasRegistry`
+    /// so the fetch predicate covers every known equivalent form of the
+    /// same underlying model. Input is preserved verbatim so unknown
+    /// aliases still match their own exact stored string.
+    ///
+    /// Exposed as `internal` (not `private`) so `PhaseRResourceRegressionTests`
+    /// can dogfood it directly without needing an in-memory `ModelContext`.
+    static func expandModelIDsForFetch(modelIDs: Set<String>) -> Set<String> {
+        var expanded = Set<String>()
+        for id in modelIDs {
+            // `expandModelAliases` always includes the input (even for
+            // unknown aliases) so this is a safe no-op expansion for any
+            // modelID not in the registry's seed set.
+            expanded.formUnion(expandModelAliases(alias: id))
+        }
+        return expanded
     }
 }
 

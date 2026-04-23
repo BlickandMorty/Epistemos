@@ -8,7 +8,7 @@ pub use attachments::{
     read_attached_resource, write_attached_resource, AttachedResource, AttachmentMode,
     Capability,
 };
-pub use alias_registry::AliasRegistry;
+pub use alias_registry::{canonical_model_id, expand_model_aliases, AliasRegistry};
 pub use id::{IdError, ResourceId};
 pub use permissions::{
     always_requires_per_call_approval, GrantScope, PermissionError, PermissionGrant,
