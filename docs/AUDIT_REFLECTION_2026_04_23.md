@@ -234,4 +234,54 @@ To balance the critique: several plan choices survived audit unchanged:
 
 ---
 
+## 10. Build-pass log — 2026-04-23 evening (async cascade + other wins)
+
+User directive: *"please do this as well - cascade async to simplify and upgrade things across the board. and continue doing the rest of the other wins as well"* — follow-up to the Codex critique that tightened the scaffold/fix labeling discipline.
+
+Four App-Store-scope commits landed, each honest-labeled and test-backed:
+
+### 10.1 `8d6a8dbd` — scaffold(R.3 async)
+- Added `SDPage.loadBodyAsync(mapped:fast:) async -> String` as a strangler-fig alongside `loadBody`. Goes through `resourceResolve(reference:)` + `resourceRead(id:)`; falls back to legacy `NoteFileStorage.readBody` whenever the gateway isn't ready, so production call sites can migrate one at a time without risk.
+- Added `SDPage.r3Reference(for:)` helper choosing the best reference the gateway can resolve (absolute file path when known, else legacy page ID).
+- New suite `PhaseR3BodyReadParityTests.swift` — 5 tests proving byte-for-byte parity between `resourceRead` and `FileManager.contentsOf` across file:// URIs, vault-note URIs, resolve-then-read round-trips, multibyte UTF-8, and CryptoKit-sha256 vs Rust-emitted checksum. This is the migration safety net for every subsequent call-site swap.
+- Verification: BUILD SUCCEEDED; 5/5 new tests pass in 0.136s; Rust suite unchanged at 597/597.
+
+### 10.2 `49906b61` — scaffold(R.3 reactive)
+- `AppBootstrap.initializeRustResourceServiceIfReady()` is now idempotent via a new `lastR3InitializedVaultPath: String?` instance var. It short-circuits when the vault path is unchanged AND `resourceServiceIsReady()` is true, so the noisy `.vaultChanged` event (which fires on every page save / trash / move) does not cascade N concurrent re-inits.
+- `wireR3VaultSwitchObserver()` subscribes to `EventBus.vaultChanged` once at bootstrap. This closes the startup gap where the initial R.3 init at line 1608 runs before bookmark restore completes; the gateway now tracks vault switches post-launch.
+- Verification: BUILD SUCCEEDED; R.3 parity suite still 5/5; no Rust changes.
+
+### 10.3 `1209d968` — scaffold(R.5 chat)
+- `ChatCoordinator.handleQuery` now runs a fire-and-forget R.5 parser hook on every user turn: walk `pendingContextAttachments`, extract the grant-eligible URIs via the new pure-static `r5ResourceURIsForGrant(from:)`, and call `permissionStoreRecordUserGrantFromStatement` per URI with the full Capability candidate set (`Read`, `Write`, `Create`, `Delete`, `Search`) and `Session` scope. Non-grant phrasing returns `nil` at the Rust side and nothing persists.
+- This is the READ-SIDE of I-009. The WRITE-SIDE (tool-execution gate) is explicitly deferred — grants now land in the store but don't yet gate any tool call.
+- New suite `PhaseR5ChatGrantWiringTests.swift` — 7 tests: URI filter (4) + capability/scope constants in lock-step with the Rust enum (2) + smoke that the filter output is accepted by the grant FFI (1).
+- Verification: BUILD SUCCEEDED; 28/28 across R.3/R.4/R.5 bridge suites + new wiring suite pass in 0.166s.
+
+### 10.4 `f6f62816` — scaffold(R.4 dropdown)
+- `ComposerReferenceHelpers.contextAttachment(for:vaultId:)` gained an optional `vaultId` parameter (defaults nil for back-compat). When vaultId and the entry's `relativePath` are both non-empty, the returned `ContextAttachment` gets the Phase R.4 manifest: canonical `vault://{vaultId}/note/{relativePath}` URI + Live mode + Read/Write capabilities. Otherwise falls back to the pre-R.4 no-manifest form.
+- `ChatInputBar.attachMentionReference` now reads `vaultSync.vaultURL?.lastPathComponent` and threads it through the builder — the vaultId convention matches `AppBootstrap.initializeRustResourceServiceIfReady`, so both sides of the FFI agree on vault identity.
+- `MiniChatViewAuditTests.swift` updated to match the new call signature.
+- Scope guard: MiniChat + Landing dropdowns deliberately left on the legacy no-manifest path; their migration is a separate commit.
+- New suite `PhaseR4DropdownBackfillTests.swift` — 11 tests: URI-construction helper (5), entry-path backfill semantics (3), all-notes / chat paths unchanged (1), R.4→R.5 handoff proof (1), legacy caller still compiles (1).
+- Verification: BUILD SUCCEEDED; 72/72 across all 7 affected suites pass in 0.300s.
+
+### 10.5 Label discipline
+
+All four commits use the `scaffold(R.x component)` prefix — none of them claim a user-visible I-xxx fix. The corresponding `docs/KNOWN_ISSUES_REGISTER.md` entries were updated to show:
+- I-002 / I-003: OPEN — scaffolding + parity net landed, migrations pending.
+- I-004 / I-005 / I-006: OPEN — dropdown manifest landed, tool-dispatch enforcement pending.
+- I-009: PARTIAL (was OPEN) — read-side parser landed, tool-check gate pending.
+
+No "FIXED" labels added. This is the Codex critique's instruction translated into label-level truth.
+
+### 10.6 What the next working session should take on
+
+In priority order:
+1. **R.5 write-side** — `LocalAgentLoop` tool-dispatch gate that calls `permissionStoreCheck` before Write/Delete/Create. This is the first commit that flips I-009 from PARTIAL to FIXED. Modest scope; tests should mock a grant-bearing turn and assert tool ALLOW vs DENY.
+2. **R.3 production read-site migration** — switch `NoteFileStorage.readBody` / `VaultIndexActor` / `NotesSidebar` consumers from `loadBody` to `loadBodyAsync`. Parity tests already cover the byte-level contract; we just need to flip the call sites and add a migration-level integration test.
+3. **R.4 MiniChat + Landing dropdown backfill** — mirror `f6f62816` into the two other composers. Small, mechanical, high-value because it closes all three chat surfaces at once for grant eligibility.
+4. **R.6 verified write** — Rust already has `verified_write`; Swift integration is the gating work for flipping I-007 / I-008 from OPEN.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
