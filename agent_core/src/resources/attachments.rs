@@ -5,13 +5,13 @@ use super::{
     ResourceContent, ResourceError, ResourceId, ResourceService, WriteResult,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, uniffi::Enum)]
 pub enum AttachmentMode {
     Snapshot,
     Live,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, uniffi::Enum)]
 pub enum Capability {
     Read,
     Write,
@@ -20,7 +20,7 @@ pub enum Capability {
     Search,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
 pub struct AttachedResource {
     pub resource_id: ResourceId,
     pub display_name: String,

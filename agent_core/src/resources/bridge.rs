@@ -34,8 +34,8 @@ use tokio::runtime::Runtime;
 use tokio::sync::Mutex;
 
 use super::{
-    Capability, GrantScope, PermissionGrant, PermissionService, ResourceId, ResourceSelector,
-    SqlitePermissionService,
+    AttachedResource, AttachmentMode, Capability, GrantScope, PermissionGrant, PermissionService,
+    ResourceId, ResourceSelector, SqlitePermissionService,
 };
 
 // ---------------------------------------------------------------------
@@ -232,6 +232,93 @@ pub fn permission_store_list_active_blocking() -> Vec<PermissionGrantSummary> {
 }
 
 // ---------------------------------------------------------------------
+// Phase R.4 — AttachmentMode / Capability / AttachedResource bridge
+// ---------------------------------------------------------------------
+//
+// Exposes the three attachment-model primitives via UniFFI factory
+// functions so Swift can construct `AttachedResource`s with explicit
+// `AttachmentMode` and `Capability` lists matching the Rust resource
+// runtime. Closes the Swift side of I-004/I-005/I-006 (ambiguous
+// snapshot-vs-live attachments) by giving Swift first-class access to
+// the typed primitives.
+//
+// This commit's scope is the FFI primitives and factory functions. A
+// follow-up will migrate `ContextAttachment` / `FileAttachment` in
+// `ChatState.swift` to carry an `AttachedResource` alongside the
+// existing presentation struct so tool-call sites can consult the mode
+// + capability manifest before acting.
+
+/// Construct a Live (read + write) attachment from the app's native
+/// attach UI (drag, popover picker, Finder drop). Mirrors the default
+/// in `AttachedResource::attach_via_ui`.
+#[uniffi::export]
+pub fn attached_resource_from_ui(
+    resource_uri: String,
+    display_name: String,
+    version: Option<String>,
+) -> Option<AttachedResource> {
+    let Ok(resource_id) = ResourceId::parse(&resource_uri) else {
+        return None;
+    };
+    Some(AttachedResource::attach_via_ui(
+        resource_id,
+        display_name,
+        version,
+    ))
+}
+
+/// Construct a Live attachment from a Finder-sourced file reference.
+/// Functionally identical to `attached_resource_from_ui` today but
+/// kept as its own factory so future Finder-specific policies (e.g.
+/// security-scoped bookmark tracking) can attach here.
+#[uniffi::export]
+pub fn attached_resource_from_finder(
+    resource_uri: String,
+    display_name: String,
+    version: Option<String>,
+) -> Option<AttachedResource> {
+    let Ok(resource_id) = ResourceId::parse(&resource_uri) else {
+        return None;
+    };
+    Some(AttachedResource::finder_file(
+        resource_id,
+        display_name,
+        version,
+    ))
+}
+
+/// Construct a Snapshot (read-only) attachment from pasted text. The
+/// resulting `AttachedResource` will fail any `Write` capability check
+/// and will read back from the inlined `snapshot_content` — never from
+/// the underlying resource path.
+#[uniffi::export]
+pub fn attached_resource_from_paste(
+    resource_uri: String,
+    display_name: String,
+    snapshot_content: String,
+) -> Option<AttachedResource> {
+    let Ok(resource_id) = ResourceId::parse(&resource_uri) else {
+        return None;
+    };
+    Some(AttachedResource::pasted_text(
+        resource_id,
+        display_name,
+        snapshot_content,
+    ))
+}
+
+/// Ask whether an `AttachedResource` currently allows the given
+/// capability. Mirrors `AttachedResource::allows` so Swift can gate
+/// tool suggestions without hand-parsing the capability list.
+#[uniffi::export]
+pub fn attached_resource_allows(
+    attachment: AttachedResource,
+    capability: Capability,
+) -> bool {
+    attachment.allows(capability)
+}
+
+// ---------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------
 
@@ -355,5 +442,96 @@ mod tests {
         // it drives the tokio runtime internally without needing an
         // outer runtime.
         let _ = permission_store_list_active_blocking();
+    }
+
+    // --- Phase R.4 attachment-mode bridge tests --------------------------
+
+    #[test]
+    fn attached_resource_from_ui_is_live_with_read_write() {
+        let uri = ResourceId::VaultNote {
+            vault_id: "r4-ui".into(),
+            note_id: "Inbox/UI.md".into(),
+        }
+        .as_uri();
+        let attachment = attached_resource_from_ui(uri, "UI attachment".into(), None)
+            .expect("valid uri should yield attachment");
+        assert_eq!(attachment.mode, AttachmentMode::Live);
+        assert!(attachment.allows(Capability::Read));
+        assert!(attachment.allows(Capability::Write));
+        assert!(!attachment.allows(Capability::Delete));
+    }
+
+    #[test]
+    fn attached_resource_from_finder_mirrors_ui_defaults() {
+        let uri = "file:///tmp/r4-finder-test.swift".to_string();
+        let attachment =
+            attached_resource_from_finder(uri, "Example.swift".into(), Some("v1".into()))
+                .expect("file uri should yield attachment");
+        assert_eq!(attachment.mode, AttachmentMode::Live);
+        assert!(attachment.allows(Capability::Read));
+        assert!(attachment.allows(Capability::Write));
+        assert_eq!(attachment.version.as_deref(), Some("v1"));
+    }
+
+    #[test]
+    fn attached_resource_from_paste_is_snapshot_read_only() {
+        let uri = ResourceId::VaultNote {
+            vault_id: "r4-paste".into(),
+            note_id: "Inbox/Paste.md".into(),
+        }
+        .as_uri();
+        let attachment = attached_resource_from_paste(
+            uri,
+            "Pasted".into(),
+            "# Hello\nsome pasted content".into(),
+        )
+        .expect("valid uri should yield attachment");
+        assert_eq!(attachment.mode, AttachmentMode::Snapshot);
+        assert!(attachment.allows(Capability::Read));
+        assert!(!attachment.allows(Capability::Write));
+        assert_eq!(
+            attachment.snapshot_content.as_deref(),
+            Some("# Hello\nsome pasted content")
+        );
+    }
+
+    #[test]
+    fn attached_resource_factories_reject_unparseable_uris() {
+        assert!(attached_resource_from_ui(
+            "nonsense".into(),
+            "x".into(),
+            None
+        )
+        .is_none());
+        assert!(attached_resource_from_finder(
+            "nonsense".into(),
+            "x".into(),
+            None
+        )
+        .is_none());
+        assert!(attached_resource_from_paste(
+            "nonsense".into(),
+            "x".into(),
+            "body".into()
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn attached_resource_allows_forwards_capability_check() {
+        let uri = ResourceId::VaultNote {
+            vault_id: "r4-allows".into(),
+            note_id: "Inbox/Allows.md".into(),
+        }
+        .as_uri();
+        let snapshot = attached_resource_from_paste(uri.clone(), "snap".into(), "body".into())
+            .expect("snapshot attachment");
+        assert!(attached_resource_allows(snapshot.clone(), Capability::Read));
+        assert!(!attached_resource_allows(snapshot, Capability::Write));
+
+        let live =
+            attached_resource_from_ui(uri, "live".into(), None).expect("live attachment");
+        assert!(attached_resource_allows(live.clone(), Capability::Read));
+        assert!(attached_resource_allows(live, Capability::Write));
     }
 }
