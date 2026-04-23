@@ -174,11 +174,14 @@ final class ChatCoordinator {
          case .localMLX(let requestedModelID) = inference.effectiveChatSurfaceSelection(for: operatingMode) {
         return ("local", requestedModelID)
       }
+      if operatingMode == nil {
+        return ("local", inference.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
+      }
       if case .localMLX(let requestedModelID) = inference.preferredChatModelSelection {
         return ("local", requestedModelID)
       }
       let fallback = inference.activeLocalTextModelID
-      return ("local", fallback ?? explicitModelLabel)
+      return ("local", fallback ?? explicitModelLabel ?? inference.hardwareCapabilitySnapshot.recommendedLocalTextModelID.rawValue)
     case .api:
       if let explicitModelLabel,
          let mappedModel = cloudModel(matchingResolvedLabel: explicitModelLabel) {
@@ -3169,7 +3172,7 @@ final class ChatCoordinator {
         ? wrapRequiredContextSection(
           title: "Requested Note Context",
           instruction:
-            "These notes were resolved from the vault for the current request. Use them whenever they are relevant, answer from them directly, and do not describe them as attached files or uploads.",
+            "These notes were resolved from the vault for the current request. Use them whenever they are relevant, answer from them directly, and Do not describe them as attached files or uploads.",
           body: context
         )
         : wrapSupplementalContextSection(
@@ -3918,7 +3921,7 @@ final class ChatCoordinator {
     return wrapRequiredContextSection(
       title: "Required File Attachments",
       instruction:
-        "These files were explicitly attached by the user to this message, and any extracted `Content:` below is already available for you to use directly. Treat the attached file as the primary subject of the request unless the user clearly says otherwise. Refer to it by name instead of treating it as optional background. Do not ask the user to locate, reattach, or restate it. Only broaden beyond it if the user asks or the attached file is clearly insufficient.",
+        "These files were explicitly attached by the user to this message, and any extracted `Content:` below is already available for you to use directly. Treat them as the primary subject of the request unless the user clearly says otherwise. Refer to each attached file by name instead of treating it as optional background. Do not ask the user to locate, reattach, or restate it. Only broaden beyond them if the user asks or the attached material is clearly insufficient.",
       body: sections.joined(separator: "\n\n")
     )
   }

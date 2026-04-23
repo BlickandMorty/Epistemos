@@ -1088,7 +1088,7 @@ enum ACCBrainSelection: Hashable, Identifiable {
                 } else if supportsThinking {
                     modes.append(.thinking)
                 }
-                if model.canRunLocalAgentLoop || supportsTools {
+                if model.supportsAgentMode || supportsTools {
                     modes.append(.agent)
                 }
                 return modes.isEmpty ? [.fast] : modes

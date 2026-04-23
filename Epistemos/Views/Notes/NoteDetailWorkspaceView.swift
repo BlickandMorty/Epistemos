@@ -1693,6 +1693,9 @@ struct NoteDetailWorkspaceView: View {
                         .labelStyle(.iconOnly)
                 }
                 .buttonStyle(.plain)
+                .accessibilityAction(named: Text("Send to Main Chat")) {
+                    routeToolbarAskToMainChat()
+                }
                 .disabled(
                     noteChatState.isStreaming
                         || noteChatState.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -1733,7 +1736,8 @@ struct NoteDetailWorkspaceView: View {
 
         noteChatState.inputText = ""
         bootstrap.chatState.startNewChat()
-        if let attachment = noteChatContextAttachment {
+        if let noteChatContextAttachment {
+            let attachment = noteChatContextAttachment
             bootstrap.chatState.addContextAttachment(attachment)
         }
         ui.setActivePanel(.home)

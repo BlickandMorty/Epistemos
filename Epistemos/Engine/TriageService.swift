@@ -494,10 +494,31 @@ nonisolated struct InferencePolicyEngine {
         contextTier: InferenceContextTier,
         reasonCodes: inout Set<InferenceDecisionReasonCode>
     ) -> Bool {
-        // Auto-routing disabled: user has full control over model selection.
-        // The routing decision respects the user's explicit model pick
-        // without silently promoting to cloud.
-        return false
+        guard context.cloudAutoRouteEnabled,
+              context.hasConfiguredCloudModels else {
+            return false
+        }
+
+        if contextTier == .large || contextTier == .oversized {
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
+        }
+
+        switch profile.operatingMode {
+        case .pro, .agent:
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
+        case .thinking:
+            reasonCodes.insert(.cloudAutoRoute)
+            return true
+        case .fast:
+            if localSelection == nil && !context.appleIntelligenceAvailable {
+                reasonCodes.insert(.cloudAutoRoute)
+                return true
+            }
+            _ = complexityTier
+            return false
+        }
     }
 
     private func prefersDedicatedLocalChatRouting(
@@ -736,7 +757,7 @@ nonisolated struct InferencePolicyEngine {
         if let shippedInstalled = triageReadyCandidates.first(where: \.isEpistemosShippedLocalModel) {
             return shippedInstalled
         }
-        return triageReadyCandidates.first ?? effectiveCandidateModels.first
+        return triageReadyCandidates.first
     }
 
     private func complexityTier(for profile: InferenceRequestProfile) -> InferenceComplexityTier {

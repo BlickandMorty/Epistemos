@@ -498,6 +498,14 @@ struct NotesSidebar: View {
     }
     private var currentSelectedPageId: String? { selectedPageId ?? notesUI.activePageId }
 
+    nonisolated static func shouldDisplayInPrimaryTree(
+        _ page: SDPage,
+        modelVaultRootURL: URL = ModelVaultsSidebarSection.modelVaultsRootURL()
+    ) -> Bool {
+        guard let filePath = page.filePath else { return true }
+        return !ModelVaultBrowserStore.isModelVaultPath(filePath, rootURL: modelVaultRootURL)
+    }
+
 
     /// Coalesces multiple `setNeedsRebuild()` calls into a single `rebuildCache()`
     /// on the next run loop tick. Prevents 13+ redundant rebuilds per event cycle.
@@ -509,10 +517,14 @@ struct NotesSidebar: View {
     }
 
     private func rebuildCache() {
+        let primaryPages = allPages.filter { page in
+            Self.shouldDisplayInPrimaryTree(page)
+        }
+
         // Early exit: if sidebar-relevant properties haven't changed, skip the
         // expensive rebuild. This prevents the 5s prose editor save cycle from
         // triggering full cache reconstruction when only body/updatedAt changed.
-        let newItems = allPages.map { SidebarPageItem($0) }
+        let newItems = primaryPages.map { SidebarPageItem($0) }
         if newItems == cachedPageItems && allFolders.count == cachedFolderItems.count {
             return
         }
@@ -611,7 +623,7 @@ struct NotesSidebar: View {
 
         // Collect ideas from all pages (JSON-decoded once per rebuild, not per render)
         var ideaItems: [SidebarIdeaItem] = []
-        for page in allPages {
+        for page in primaryPages {
             for idea in page.ideas {
                 ideaItems.append(
                     SidebarIdeaItem(
@@ -680,7 +692,7 @@ struct NotesSidebar: View {
             // than inside `fileTree` because it's a parallel top-level
             // surface, not part of the vault's note hierarchy.
             Divider().opacity(0.15)
-            ModelVaultsSidebarSection()
+            ModelVaultsSidebarSection(onSelectPage: onSelectPage)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
             Divider().opacity(0.2)

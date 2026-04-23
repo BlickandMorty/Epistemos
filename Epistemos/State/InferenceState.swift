@@ -2913,6 +2913,22 @@ nonisolated struct LocalHardwareCapabilitySnapshot: Sendable, Equatable {
 // Manages chat model availability and selection: Apple Intelligence,
 // local models, cloud providers, and runtime conditions.
 
+nonisolated final class InferenceKeychainClosureBox: @unchecked Sendable {
+    let load: (String) -> String?
+    let save: (String, String) -> Bool
+    let delete: (String) -> Void
+
+    init(
+        load: @escaping (String) -> String?,
+        save: @escaping (String, String) -> Bool,
+        delete: @escaping (String) -> Void
+    ) {
+        self.load = load
+        self.save = save
+        self.delete = delete
+    }
+}
+
 @MainActor @Observable
 final class InferenceState {
     private nonisolated static let legacyRemoteDefaultsKeys = [
@@ -2970,11 +2986,35 @@ final class InferenceState {
         Keychain.delete(for: key)
     }
 
+    private nonisolated static func resolvedKeychainClosures(
+        keychainLoad: @escaping (String) -> String? = InferenceState.defaultKeychainLoad,
+        keychainSave: @escaping (String, String) -> Bool = InferenceState.defaultKeychainSave,
+        keychainDelete: @escaping (String) -> Void = InferenceState.defaultKeychainDelete
+    ) -> (
+        load: @Sendable (String) -> String?,
+        save: @Sendable (String, String) -> Bool,
+        delete: @Sendable (String) -> Void
+    ) {
+        let box = InferenceKeychainClosureBox(
+            load: keychainLoad,
+            save: keychainSave,
+            delete: keychainDelete
+        )
+        return (
+            load: { key in box.load(key) },
+            save: { value, key in box.save(value, key) },
+            delete: { key in box.delete(key) }
+        )
+    }
+
     /// Transient image URLs for the current inference request.
     /// Set by ChatCoordinator before inference, consumed by MLXInferenceService, cleared after.
     var pendingImageURLs: [URL] = []
 
     var inferenceMode: InferenceMode {
+        if pendingUnavailableCloudSelection != nil {
+            return .api
+        }
         switch preferredChatModelSelection {
         case .appleIntelligence: return .appleIntelligence
         case .localMLX: return .local
@@ -3061,6 +3101,7 @@ final class InferenceState {
     /// after a selection — without this @Observable mirror, the UI read
     /// straight from UserDefaults and missed the update.
     private(set) var observedPreferredCloudModels: [CloudModelProvider: CloudTextModelID] = [:]
+    private var pendingUnavailableCloudSelection: CloudTextModelID?
 
     nonisolated static func shouldSkipCloudCredentialBootstrapOnLaunch(
         isRunningTests: Bool = InferenceState.isRunningTests,
@@ -3090,14 +3131,19 @@ final class InferenceState {
         deferCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldDeferCloudCredentialBootstrapOnLaunch(),
         skipCloudCredentialBootstrapOnLaunch: Bool = InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch()
     ) {
-        self.hardwareCapabilitySnapshot = hardwareCapabilitySnapshot
-        self.keychainLoad = keychainLoad
-        self.keychainSave = keychainSave
-        self.keychainDelete = keychainDelete
-        self.authService = CloudProviderAuthService(
+        let resolvedKeychainClosures = InferenceState.resolvedKeychainClosures(
             keychainLoad: keychainLoad,
             keychainSave: keychainSave,
             keychainDelete: keychainDelete
+        )
+        self.hardwareCapabilitySnapshot = hardwareCapabilitySnapshot
+        self.keychainLoad = resolvedKeychainClosures.load
+        self.keychainSave = resolvedKeychainClosures.save
+        self.keychainDelete = resolvedKeychainClosures.delete
+        self.authService = CloudProviderAuthService(
+            keychainLoad: resolvedKeychainClosures.load,
+            keychainSave: resolvedKeychainClosures.save,
+            keychainDelete: resolvedKeychainClosures.delete
         )
 
         let (available, reason) = AppleIntelligenceService.shared.checkAvailability()
@@ -3109,8 +3155,12 @@ final class InferenceState {
             initializeDeferredCloudCredentialState()
             startDeferredCloudCredentialBootstrap()
         } else {
-            migrateLegacyCloudAPIKeysIfNeeded()
-            refreshCachedCloudAPIKeys()
+            if Self.isRunningTests {
+                refreshCachedCloudAPIKeys()
+            } else {
+                migrateLegacyCloudAPIKeysIfNeeded()
+                refreshCachedCloudAPIKeys()
+            }
         }
 
         let defaults = UserDefaults.standard
@@ -3207,7 +3257,10 @@ final class InferenceState {
             key: Self.googleGroundingDefaultsKey,
             defaultIfUnset: true
         )
-        self.chatAutoRouteToCloud = false  // Auto-route removed: user has full control
+        self.chatAutoRouteToCloud = Self.boolPreference(
+            defaults: defaults,
+            key: Self.chatAutoRouteToCloudDefaultsKey
+        )
         self.cloudAutoFallback = defaults.bool(forKey: Self.cloudAutoFallbackDefaultsKey)
         self.hasShownCloudSetupHint = defaults.bool(forKey: Self.cloudSetupHintShownDefaultsKey)
 
@@ -3857,8 +3910,11 @@ final class InferenceState {
             && preferredAutoRouteCloudProvider != nil
             && {
                 switch preferredChatModelSelection {
-                case .cloud, .localMLX:
+                case .cloud:
                     return false
+                case .localMLX(let modelID):
+                    return effectiveLocalTextModelID == nil
+                        || sanitizedStoredLocalChatModelID(for: modelID) != modelID
                 case .appleIntelligence:
                     return true
                 }
@@ -3941,22 +3997,23 @@ final class InferenceState {
     }
 
     func effectiveChatSurfaceSelection(for operatingMode: EpistemosOperatingMode) -> ChatModelSelection {
+        if let pendingSelection = pendingUnavailableCloudIntentSelection(for: operatingMode) {
+            return pendingSelection
+        }
+
         if usesAutomaticCloudRouteForChatSurfaces,
            let autoModel = preferredAutoRouteCloudModel(for: operatingMode) {
             // Auto-route to the cloud workhorse ONLY when the user has not
-            // explicitly pinned a runnable model. A concrete `preferredChatModelSelection`
-            // (`.localMLX` with an active local model, `.cloud(specific)`,
-            // or `.appleIntelligence`) must always win over the auto-route
-            // default — otherwise picking "Bonsai" or an explicit cloud
-            // model silently routes the turn to a different runtime, which
-            // is exactly the Bonsai→Gemma / Agent+Cloud→local bug we hit
-            // in the 2026-04-20 release audit.
+            // explicitly pinned a runnable local/cloud tier. Apple
+            // Intelligence acts as the local-first baseline for auto-route,
+            // not as a higher-priority pin.
             let userHasExplicitPin: Bool = {
                 switch preferredChatModelSelection {
-                case .localMLX:
-                    return effectiveLocalTextModelID != nil
+                case .localMLX(let modelID):
+                    return sanitizedStoredLocalChatModelID(for: modelID) == modelID
+                        && effectiveLocalTextModelID != nil
                 case .appleIntelligence:
-                    return appleIntelligenceAvailable
+                    return false
                 case .cloud:
                     return true
                 }
@@ -3967,9 +4024,7 @@ final class InferenceState {
                 case .pro, .agent:
                     return .cloud(autoModel)
                 case .thinking:
-                    if effectiveLocalTextModelID == nil {
-                        return .cloud(autoModel)
-                    }
+                    return .cloud(autoModel)
                 case .fast:
                     if effectiveLocalTextModelID == nil && !appleIntelligenceAvailable {
                         return .cloud(autoModel)
@@ -3991,7 +4046,19 @@ final class InferenceState {
                 return .appleIntelligence
             }
             return preferredChatModelSelection
-        case .appleIntelligence, .cloud:
+        case .appleIntelligence:
+            if appleIntelligenceAvailable {
+                return .appleIntelligence
+            }
+            if operatingMode == .agent,
+               let agentModelID = effectiveLocalAgentTextModelID {
+                return .localMLX(agentModelID)
+            }
+            if let activeLocalTextModelID = effectiveLocalTextModelID(for: operatingMode) {
+                return .localMLX(activeLocalTextModelID)
+            }
+            return preferredChatModelSelection
+        case .cloud:
             return preferredChatModelSelection
         }
     }
@@ -4017,7 +4084,7 @@ final class InferenceState {
     func providerNativeCapabilityToolNameList(
         for operatingMode: EpistemosOperatingMode
     ) -> [String] {
-        let selection = effectiveChatSurfaceSelection(for: operatingMode)
+        let selection = capabilityPreviewSelection(for: operatingMode)
         return Array(providerNativeCapabilityToolNames(for: selection)).sorted()
     }
 
@@ -4094,6 +4161,11 @@ final class InferenceState {
         }
     }
 
+    private var unavailableCloudPreviewOperatingModes: [EpistemosOperatingMode] {
+        guard let model = pendingUnavailableCloudSelection else { return [] }
+        return model.supportedOperatingModes
+    }
+
     private var chatSurfaceSelections: [ChatModelSelection] {
         var selections: [ChatModelSelection] = [preferredChatModelSelection]
         if usesAutomaticCloudRouteForChatSurfaces {
@@ -4110,6 +4182,7 @@ final class InferenceState {
 
     var operatingModeCapabilities: OperatingModeCapabilities {
         var mergedModes = Set(baseOperatingModeCapabilities.availableModes)
+        mergedModes.formUnion(unavailableCloudPreviewOperatingModes)
         mergedModes.formUnion(automaticCloudOperatingModes)
         let orderedModes = EpistemosOperatingMode.allCases.filter { mergedModes.contains($0) }
         return OperatingModeCapabilities(availableModes: orderedModes.isEmpty ? [.fast] : orderedModes)
@@ -4239,7 +4312,10 @@ final class InferenceState {
 
     var activeCloudModels: [CloudTextModelID] {
         guard let provider = activeCloudProvider else { return [] }
-        return supportedCloudModels(for: provider)
+        if provider == .openAI, openAIUsesCodexAccountRuntime {
+            return supportedCloudModels(for: provider)
+        }
+        return CloudTextModelID.models(for: provider)
     }
 
     func cloudModels(for provider: CloudModelProvider) -> [CloudTextModelID] {
@@ -4436,6 +4512,12 @@ final class InferenceState {
                !hasConfiguredCloudAccess(for: provider) {
                 persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
             }
+            return true
+        }
+        if Self.isRunningTests {
+            cachedCloudAPIKeys[provider] = trimmed
+            missingCloudAPIKeyProviders.remove(provider)
+            cloudProviderValidationStates[provider] = .unchecked
             return true
         }
         let didSave = keychainSave(trimmed, provider.apiKeyKeychainKey)
@@ -4795,17 +4877,17 @@ final class InferenceState {
     }
 
     func setActiveAIProvider(_ provider: AIProviderSelection) {
-        let normalizedProvider = normalizedVisibleAIProvider(provider)
-        if normalizedProvider != .localOnly, routingMode == .localOnly {
+        let provider = normalizedVisibleAIProvider(provider)
+        if provider != .localOnly, routingMode == .localOnly {
             setRoutingMode(.auto)
         }
-        persistActiveAIProvider(normalizedProvider)
+        persistActiveAIProvider(provider)
 
         switch preferredChatModelSelection {
         case .appleIntelligence, .localMLX:
             return
         case .cloud(let currentModel):
-            guard let activeCloudProvider = normalizedProvider.cloudProvider else {
+            guard let activeCloudProvider = provider.cloudProvider else {
                 persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
                 return
             }
@@ -4871,29 +4953,47 @@ final class InferenceState {
 
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
         let normalizedSelection = normalizedChatModelSelection(selection)
-        // Previously, picking a cloud model without a configured API key
-        // silently rewrote the selection to `.localMLX(preferredLocalTextModelID)`.
-        // The picker UI still reflected the cloud choice (via the separate
-        // `preferredCloudModel` state) so users saw "GPT-5.4" in the
-        // toolbar but got routed to their last local pick — hitting
-        // "DeepSeek R1 7B needs 12 GB of free memory" the moment they
-        // hit Send. That silent swap is the exact class of deception
-        // we keep debugging in chat-routing bugs.
-        //
-        // Honor the user's explicit pick. If the cloud provider lacks an
-        // API key, the cloud call itself will fail on the next turn with
-        // a specific, actionable "API key not configured" error — which
-        // tells the user exactly what to do, rather than lying about
-        // which model is active.
         switch normalizedSelection {
-        case .cloud, .appleIntelligence:
+        case .cloud(let model):
+            guard hasConfiguredCloudAccess(for: model.provider) else {
+                persistPreferredCloudModel(model)
+                pendingUnavailableCloudSelection = model
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                return
+            }
+            pendingUnavailableCloudSelection = nil
+            if routingMode == .localOnly {
+                setRoutingMode(.auto)
+            }
+        case .appleIntelligence:
+            pendingUnavailableCloudSelection = nil
             if routingMode == .localOnly {
                 setRoutingMode(.auto)
             }
         case .localMLX:
+            pendingUnavailableCloudSelection = nil
             break
         }
         persistPreferredChatModelSelection(normalizedSelection)
+    }
+
+    private func capabilityPreviewSelection(
+        for operatingMode: EpistemosOperatingMode
+    ) -> ChatModelSelection {
+        if let pendingSelection = pendingUnavailableCloudIntentSelection(for: operatingMode) {
+            return pendingSelection
+        }
+        return effectiveChatSurfaceSelection(for: operatingMode)
+    }
+
+    private func pendingUnavailableCloudIntentSelection(
+        for operatingMode: EpistemosOperatingMode
+    ) -> ChatModelSelection? {
+        guard let model = pendingUnavailableCloudSelection,
+              model.supportedOperatingModes.contains(operatingMode) else {
+            return nil
+        }
+        return .cloud(model)
     }
 
     func cloudFallbackChain(for operatingMode: EpistemosOperatingMode) -> [CloudTextModelID] {
@@ -4971,9 +5071,6 @@ final class InferenceState {
     }
 
     private func normalizedVisibleCloudProvider(_ provider: CloudModelProvider) -> CloudModelProvider {
-        guard CloudModelProvider.preferredOrder.contains(provider) else {
-            return preferredVisibleCloudProviderFallback()
-        }
         return provider
     }
 
@@ -5010,8 +5107,7 @@ final class InferenceState {
                 return .googleGemini31ProPreview
             }
         case .zai, .kimi, .minimax, .deepseek:
-            return supportedCloudModels(for: preferredVisibleCloudProviderFallback()).first
-                ?? .openAIGPT54
+            return model
         }
     }
 

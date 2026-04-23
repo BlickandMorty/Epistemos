@@ -14,7 +14,7 @@ nonisolated enum ToolCallParser {
         var argumentsJson: String {
             guard let data = try? JSONSerialization.data(withJSONObject: arguments),
                   let str = String(data: data, encoding: .utf8) else { return "{}" }
-            return str
+            return str.replacingOccurrences(of: "\\/", with: "/")
         }
     }
 
@@ -53,6 +53,12 @@ nonisolated enum ToolCallParser {
 
         // Strategy 5: Extract JSON from inline markdown code spans
         if let calls = parseFromInlineCode(text) {
+            return calls
+        }
+
+        // Strategy 6: Recover valid JSON tool calls embedded inside
+        // reasoning tags or surrounding prose.
+        if let calls = parseEmbeddedJsonFragments(text) {
             return calls
         }
 
@@ -390,6 +396,101 @@ nonisolated enum ToolCallParser {
             if let calls = parseJsonArrayToolCalls(content) {
                 return calls
             }
+        }
+
+        return nil
+    }
+
+    private static func parseEmbeddedJsonFragments(_ text: String) -> [ParsedToolCall]? {
+        let fragments = embeddedJsonFragments(in: text)
+        guard !fragments.isEmpty else { return nil }
+
+        for fragment in fragments {
+            if let call = parseJsonToolCall(fragment) {
+                return [call]
+            }
+
+            if let calls = parseJsonArrayToolCalls(fragment) {
+                return calls
+            }
+        }
+
+        return nil
+    }
+
+    private static func embeddedJsonFragments(in text: String) -> [String] {
+        let characters = Array(text)
+        guard !characters.isEmpty else { return [] }
+
+        var fragments: [String] = []
+        var index = 0
+        while index < characters.count {
+            let character = characters[index]
+            guard character == "{" || character == "[" else {
+                index += 1
+                continue
+            }
+
+            guard let endIndex = matchingJsonEnd(in: characters, startingAt: index) else {
+                index += 1
+                continue
+            }
+
+            let fragment = String(characters[index...endIndex])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !fragment.isEmpty {
+                fragments.append(fragment)
+            }
+            index = endIndex + 1
+        }
+
+        return fragments
+    }
+
+    private static func matchingJsonEnd(
+        in characters: [Character],
+        startingAt startIndex: Int
+    ) -> Int? {
+        var stack: [Character] = [characters[startIndex]]
+        var isInsideString = false
+        var isEscaped = false
+        var index = startIndex + 1
+
+        while index < characters.count {
+            let character = characters[index]
+            if isInsideString {
+                if isEscaped {
+                    isEscaped = false
+                } else if character == "\\" {
+                    isEscaped = true
+                } else if character == "\"" {
+                    isInsideString = false
+                }
+                index += 1
+                continue
+            }
+
+            switch character {
+            case "\"":
+                isInsideString = true
+            case "{", "[":
+                stack.append(character)
+            case "}":
+                guard stack.last == "{" else { return nil }
+                stack.removeLast()
+                if stack.isEmpty {
+                    return index
+                }
+            case "]":
+                guard stack.last == "[" else { return nil }
+                stack.removeLast()
+                if stack.isEmpty {
+                    return index
+                }
+            default:
+                break
+            }
+            index += 1
         }
 
         return nil

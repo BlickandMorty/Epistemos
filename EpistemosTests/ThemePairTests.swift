@@ -1163,9 +1163,26 @@ struct ThemePairTests {
     @Test("Project retains Rust bridge header wiring")
     func projectRetainsRustBridgeWiring() throws {
         let pbxproj = try loadProjectFile()
+        let hasStringOtherLDFlags = pbxproj.contains(
+            #"OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core";"#
+        )
+        let hasArrayOtherLDFlags = pbxproj.contains(
+            #"""
+OTHER_LDFLAGS = (
+					"-L$(PROJECT_DIR)/build-rust",
+					"-lgraph_engine",
+					"-lsyntax_core",
+					"-lomega_mcp",
+					"-lomega_ax",
+					"-lepistemos_core",
+					"-lagent_core",
+				);
+"""#
+        )
+
         #expect(pbxproj.contains("SWIFT_OBJC_BRIDGING_HEADER = \"Epistemos-Bridging-Header.h\";"))
         #expect(pbxproj.contains("SWIFT_INCLUDE_PATHS = \"$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI"))
-        #expect(pbxproj.contains("OTHER_LDFLAGS = \"-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core\";"))
+        #expect(hasStringOtherLDFlags || hasArrayOtherLDFlags)
         #expect(pbxproj.contains("\"@executable_path\","))
         #expect(pbxproj.contains("\"@loader_path/../Frameworks\","))
         #expect(pbxproj.contains(#"""

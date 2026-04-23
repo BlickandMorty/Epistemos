@@ -859,6 +859,28 @@ struct VaultIndexActorTests {
         #expect(trackedPages.first(where: { $0.id == page.id })?.filePath == fileURL.path)
     }
 
+    @Test("empty scan with tracked vault pages is treated as transient")
+    func emptyScanWithTrackedVaultPagesSkipsReconciliation() async throws {
+        let container = try makeContainer()
+        let actor = VaultIndexActor(modelContainer: container)
+        let context = container.mainContext
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        let trackedPath = vaultURL.appendingPathComponent("Tracked.md").path
+        let page = insertPage(in: context, title: "Tracked", body: "Existing body")
+        page.filePath = trackedPath
+        try context.save()
+
+        try await actor.importVault(from: vaultURL)
+
+        let verifyContext = ModelContext(container)
+        let trackedPages = try verifyContext.fetch(FetchDescriptor<SDPage>())
+        #expect(trackedPages.contains { $0.id == page.id })
+        #expect(trackedPages.first(where: { $0.id == page.id })?.filePath == trackedPath)
+        #expect(trackedPages.first(where: { $0.id == page.id })?.loadBody() == "Existing body")
+    }
+
     @Test("exportPage refreshes search index so graph queries see saved body text")
     func exportPageRefreshesSearchIndexForGraphQueries() async throws {
         let container = try makeContainer()

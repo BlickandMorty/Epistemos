@@ -62,7 +62,7 @@ struct AuthoritySettingsView: View {
                         applyPreset(preset)
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(preset.rawValue)
+                            Text(quickSetupTitle(for: preset))
                                 .font(.subheadline.weight(.semibold))
                             Text(preset.description)
                                 .font(.caption)
@@ -146,6 +146,17 @@ struct AuthoritySettingsView: View {
             store.applyPreset(preset.decisions)
         }
         onResetConfirmed?()
+    }
+
+    private func quickSetupTitle(for preset: AgentAuthorityQuickSetupPreset) -> String {
+        switch preset {
+        case .recommended:
+            return "Recommended"
+        case .lessInterruptions:
+            return "Less Interruptions"
+        case .cautious:
+            return "Review More"
+        }
     }
 }
 

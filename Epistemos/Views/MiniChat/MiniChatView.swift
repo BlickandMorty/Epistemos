@@ -16,7 +16,7 @@ struct MiniChatView: View {
     @Environment(ThreadState.self) private var threadState
     @Environment(\.modelContext) private var modelContext
     @Query(SDChat.recentChatsDescriptor) private var recentChats: [SDChat]
-    @AppStorage("miniChat.showRecentChats") private var showRecentChats = false
+    @State private var showRecentChats = false
     @State private var appliedInitialContextAttachment = false
 
     let chatID: String

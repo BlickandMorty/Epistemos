@@ -316,6 +316,11 @@ struct RuntimeValidationTests {
     @Test("inference migrates legacy secure cloud keys and selections forward")
     func inferenceMigratesLegacyCloudConfigurationForward() throws {
         let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+        let normalized = source.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
 
         #expect(source.contains("migrateLegacyCloudAPIKeysIfNeeded()"))
         #expect(source.contains("func availableOperatingModes("))
@@ -325,7 +330,13 @@ struct RuntimeValidationTests {
         #expect(source.contains("epistemos.apiKey.google"))
         #expect(source.contains("migrateLegacyCloudSelection(defaults: defaults)"))
         #expect(source.contains("\"gpt-5.3\": .openAIGPT54"))
-        #expect(source.contains("\"claude-sonnet-4-6\": .anthropicClaudeSonnet4"))
+        #expect(
+            normalized.range(
+                of: #""claude-sonnet-4-6": \.anthropicClaudeSonnet46"#,
+                options: .regularExpression
+            ) != nil
+        )
+        #expect(!source.contains("// \"claude-sonnet-4-6\": .anthropicClaudeSonnet4"))
         #expect(source.contains("\"gemini-1.5-pro\": .googleGemini31ProPreview"))
         #expect(source.contains("case zai"))
         #expect(source.contains("case kimi"))
@@ -979,7 +990,7 @@ struct RuntimeValidationTests {
         #expect(llmService.contains("openAIRequestURL(path: \"/models\", credential: credential)"))
         #expect(llmService.contains("https://api.anthropic.com/v1/models"))
         #expect(llmService.contains("generativelanguage.googleapis.com/v1beta/models"))
-        #expect(inference.contains("case .anthropic:\n            .anthropicClaudeSonnet4"))
+        #expect(inference.contains("case .anthropic:\n            .anthropicClaudeSonnet46"))
     }
 
     @Test("inference settings surface exposes key validation and provider guidance")
@@ -1410,6 +1421,23 @@ struct RuntimeValidationTests {
         #expect(!bootstrap.contains("// in-process Rust agent_core providers can read them via std::env::var.\n        Self.populateAgentCoreEnvironment()"))
     }
 
+    @Test("launch bootstrap skips app shortcut refresh while tests are running")
+    func launchBootstrapSkipsAppShortcutRefreshWhileTestsAreRunning() throws {
+        let bootstrap = try loadRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let normalized = bootstrap.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+
+        #expect(
+            normalized.range(
+                of: #"if !Self\.isRunningTests \{ EpistemosShortcutsProvider\.updateAppShortcutParameters\(\) \}"#,
+                options: .regularExpression
+            ) != nil
+        )
+    }
+
     @Test("launch agent env hydration skips duplicate work while deferred cloud bootstrap is active")
     func launchAgentEnvHydrationSkipsDuplicateWorkWhileDeferredCloudBootstrapIsActive() {
         #expect(
@@ -1476,6 +1504,23 @@ struct RuntimeValidationTests {
             !InferenceState.shouldSkipCloudCredentialBootstrapOnLaunch(
                 processInfoEnvironment: [:]
             )
+        )
+    }
+
+    @Test("test inference bootstrap skips legacy key migration but still refreshes cached credentials")
+    func testInferenceBootstrapSkipsLegacyKeyMigrationButStillRefreshesCachedCredentials() throws {
+        let source = try loadRepoTextFile("Epistemos/State/InferenceState.swift")
+        let normalized = source.replacingOccurrences(
+            of: #"\s+"#,
+            with: " ",
+            options: .regularExpression
+        )
+
+        #expect(
+            normalized.range(
+                of: #"if Self\.isRunningTests \{ refreshCachedCloudAPIKeys\(\) \} else \{ migrateLegacyCloudAPIKeysIfNeeded\(\) refreshCachedCloudAPIKeys\(\) \}"#,
+                options: .regularExpression
+            ) != nil
         )
     }
 
@@ -2164,9 +2209,15 @@ struct RuntimeValidationTests {
     @Test("landing greeting rechecks window occlusion after appear so typewriter can start once the home window is key")
     func landingGreetingRechecksWindowOcclusionAfterAppear() throws {
         let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let landingView = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
         let liquidGreeting = try loadRepoTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
 
-        #expect(liquidGreeting.contains("ui.activePanel == .home && !ui.windowOccluded && ui.landingGreetingTypewriterEnabled"))
+        #expect(liquidGreeting.contains("!ui.windowOccluded && ui.landingGreetingTypewriterEnabled"))
+        #expect(!liquidGreeting.contains("ui.activePanel == .home &&"))
+        #expect(landingView.contains("LandingViewStateSync"))
+        #expect(landingView.contains("LandingViewStateSync.reassertHomeSurface(ui)"))
+        #expect(rootView.contains("HomeWindowIdentity.apply(to: window)"))
+        #expect(rootView.contains(".background(HomeWindowIdentityObserver())"))
         #expect(rootView.contains(".onAppear {"))
         #expect(rootView.contains("updateWindowOcclusion()"))
         #expect(rootView.contains("try await Task.sleep(for: .milliseconds(150))"))
@@ -4451,35 +4502,60 @@ struct InferenceCloudSelectionTests {
     }
 
     @MainActor
-    private func withSavedAPIKey(
-        for provider: CloudModelProvider,
-        _ body: () async throws -> Void
-    ) async rethrows {
-        let originalValue = Keychain.load(for: provider.apiKeyKeychainKey)
-        defer {
-            if let originalValue {
-                _ = Keychain.save(originalValue, for: provider.apiKeyKeychainKey)
-            } else {
-                Keychain.delete(for: provider.apiKeyKeychainKey)
-            }
+    @Test("unconfigured cloud selection keeps a visible cloud intent while preserving the local fallback")
+    func unconfiguredCloudSelectionKeepsVisibleCloudIntentWhilePreservingLocalFallback() async {
+        await withResetInferenceDefaults {
+            let store = TestKeychainStore()
+            let inference = InferenceState(
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
+            )
+            let fallback = ChatModelSelection.localMLX(inference.preferredLocalTextModelID)
+
+            inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+
+            #expect(inference.preferredChatModelSelection == fallback)
+            #expect(inference.inferenceMode == .api)
+            #expect(inference.effectiveChatSurfaceSelection(for: .pro) == .cloud(.openAIGPT54))
         }
-        try await body()
     }
 
     @MainActor
-    @Test("unconfigured cloud selection falls back to local qwen")
-    func unconfiguredCloudSelectionFallsBackToLocalQwen() async {
-        await withSavedAPIKey(for: .openAI) {
-            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
+    @Test("curated provider cloud preferences normalize hidden models back to visible picker models")
+    func curatedProviderCloudPreferencesNormalizeHiddenModelsBackToVisiblePickerModels() async {
+        await withResetInferenceDefaults {
+            let defaults = UserDefaults.standard
+            defaults.set(
+                CloudTextModelID.openAIO3.rawValue,
+                forKey: "epistemos.preferredCloudModel.openAI"
+            )
+            defaults.set(
+                CloudTextModelID.anthropicClaudeSonnet4.rawValue,
+                forKey: "epistemos.preferredCloudModel.anthropic"
+            )
+            defaults.set(
+                CloudTextModelID.googleGemini25Flash.rawValue,
+                forKey: "epistemos.preferredCloudModel.google"
+            )
 
-            await withResetInferenceDefaults {
-                let inference = InferenceState()
-                let fallback = ChatModelSelection.localMLX(inference.preferredLocalTextModelID)
+            let store = TestKeychainStore(values: [
+                CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
+                CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
+                CloudModelProvider.google.apiKeyKeychainKey: "google-test-key",
+            ])
+            let inference = InferenceState(
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
+            )
 
-                inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
-
-                #expect(inference.preferredChatModelSelection == fallback)
-            }
+            #expect(inference.preferredCloudModel(for: .openAI) == .openAIGPT54)
+            #expect(inference.preferredCloudModel(for: .anthropic) == .anthropicClaudeSonnet46)
+            #expect(inference.preferredCloudModel(for: .google) == .googleGemini3FlashPreview)
+            #expect(inference.cloudModels(for: .openAI).contains(inference.preferredCloudModel(for: .openAI)))
+            #expect(inference.cloudModels(for: .anthropic).contains(inference.preferredCloudModel(for: .anthropic)))
+            #expect(inference.cloudModels(for: .google).contains(inference.preferredCloudModel(for: .google)))
         }
     }
 
@@ -4511,19 +4587,19 @@ struct InferenceCloudSelectionTests {
             #expect(inference.activeAIProvider == .anthropic)
             #expect(inference.activeCloudProvider == .anthropic)
             #expect(inference.activeCloudModels == CloudTextModelID.models(for: .anthropic))
-            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeSonnet4))
+            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeSonnet46))
 
-            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeOpus47))
             inference.setActiveAIProvider(.localOnly)
             #expect(inference.preferredChatModelSelection == .localMLX(inference.preferredLocalTextModelID))
 
             inference.setActiveAIProvider(.anthropic)
             #expect(inference.preferredChatModelSelection == .localMLX(inference.preferredLocalTextModelID))
 
-            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeHaiku35))
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeOpus47))
             inference.setActiveAIProvider(.openAI)
             inference.setActiveAIProvider(.anthropic)
-            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeHaiku35))
+            #expect(inference.preferredChatModelSelection == .cloud(.anthropicClaudeOpus47))
 
             inference.setActiveAIProvider(.deepseek)
             #expect(inference.activeCloudProvider == .deepseek)
@@ -4546,7 +4622,7 @@ struct InferenceCloudSelectionTests {
             )
 
             #expect(inference.activeAIProvider == .openAI)
-            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeSonnet4))
+            inference.setPreferredChatModelSelection(.cloud(.anthropicClaudeSonnet46))
             inference.setActiveAIProvider(.anthropic)
             #expect(inference.activeAIProvider == .anthropic)
 
@@ -5913,6 +5989,27 @@ struct InferenceCloudSelectionTests {
         #expect(source.contains("acceptedModelIDs"))
         #expect(source.contains("loadContributions("))
         #expect(!source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
+    }
+
+    @Test("model involvement sidebar renders a grouped contribution timeline with summary and filters")
+    func modelInvolvementSidebarRendersGroupedContributionTimelineWithSummaryAndFilters() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelInvolvementSheet.swift",
+            testsFilePath: #filePath
+        )
+        let sidebar = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("enum ModelInvolvementFilter"))
+        #expect(source.contains("ModelInvolvementContributionSummary"))
+        #expect(source.contains("groupedContributions("))
+        #expect(source.contains("case tools"))
+        #expect(source.contains("toolingCount"))
+        #expect(source.contains("Contribution Timeline"))
+        #expect(sidebar.contains("Contribution Timeline"))
+        #expect(sidebar.contains("Everything this model authored here"))
     }
 
     @Test("model vault sidebar expands inline instead of opening a browser sheet")

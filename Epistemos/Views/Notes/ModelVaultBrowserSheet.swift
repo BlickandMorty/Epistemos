@@ -1,17 +1,31 @@
 import Foundation
+import SwiftData
 
 struct ModelVaultDocumentEntry: Identifiable, Hashable {
+    enum Kind: Hashable {
+        case file
+        case directory
+    }
+
+    let kind: Kind
     let url: URL
     let relativePath: String
     let isHidden: Bool
 
     var id: String { relativePath }
 
+    var isDirectory: Bool {
+        kind == .directory
+    }
+
     var displayName: String {
         URL(fileURLWithPath: relativePath).lastPathComponent
     }
 
     var systemImage: String {
+        if isDirectory {
+            return "folder"
+        }
         switch relativePath.lowercased() {
         case "instructions.md":
             return "slider.horizontal.3"
@@ -34,6 +48,10 @@ struct ModelVaultDocumentEntry: Identifiable, Hashable {
                 return "doc"
             }
         }
+    }
+
+    var sortRank: Int {
+        ModelVaultBrowserStore.sortRank(for: self)
     }
 }
 
@@ -61,20 +79,29 @@ enum ModelVaultBrowserStore {
 
         for case let url as URL in enumerator {
             let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isDirectoryKey])
-            if values?.isDirectory == true, !includeHidden, isInternalPath(relativePath(for: url, rootPrefix: rootPrefix)) {
-                enumerator.skipDescendants()
+            let relativePath = relativePath(for: url, rootPrefix: rootPrefix)
+            let isHidden = isInternalPath(relativePath)
+            if values?.isDirectory == true {
+                if isHidden && !includeHidden {
+                    enumerator.skipDescendants()
+                    continue
+                }
+                entries.append(
+                    ModelVaultDocumentEntry(
+                        kind: .directory,
+                        url: url,
+                        relativePath: relativePath,
+                        isHidden: isHidden
+                    )
+                )
                 continue
             }
             guard values?.isRegularFile == true else { continue }
-
-            let relativePath = relativePath(for: url, rootPrefix: rootPrefix)
-            let isHidden = isInternalPath(relativePath)
-            if isHidden && !includeHidden {
-                continue
-            }
+            if isHidden && !includeHidden { continue }
 
             entries.append(
                 ModelVaultDocumentEntry(
+                    kind: .file,
                     url: url,
                     relativePath: relativePath,
                     isHidden: isHidden
@@ -98,6 +125,118 @@ enum ModelVaultBrowserStore {
             return true
         }
         return url.lastPathComponent.hasPrefix(".")
+    }
+
+    nonisolated static func isModelVaultPath(
+        _ filePath: String,
+        rootURL: URL = ModelVaultsSidebarSection.modelVaultsRootURL()
+    ) -> Bool {
+        let trimmed = filePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return false }
+
+        let normalizedRoot = rootURL.standardizedFileURL.path
+        let normalizedPath = URL(fileURLWithPath: trimmed).standardizedFileURL.path
+        let prefix = normalizedRoot.hasSuffix("/") ? normalizedRoot : normalizedRoot + "/"
+        return normalizedPath.hasPrefix(prefix)
+    }
+
+    @MainActor
+    static func ensureWorkspacePage(
+        for document: ModelVaultDocumentEntry,
+        modelContext: ModelContext
+    ) -> String? {
+        guard !document.isDirectory else { return nil }
+
+        let normalizedPath = document.url.standardizedFileURL.path
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate<SDPage> { $0.filePath == normalizedPath }
+        )
+
+        if let existing = try? modelContext.fetch(descriptor).first {
+            refreshWorkspacePageFromDiskIfSafe(existing, sourceURL: document.url, modelContext: modelContext)
+            return existing.id
+        }
+
+        let page = SDPage(title: document.displayName)
+        page.filePath = normalizedPath
+        syncWorkspacePageFromDisk(page, sourceURL: document.url)
+        modelContext.insert(page)
+
+        do {
+            try modelContext.save()
+            return page.id
+        } catch {
+            NoteFileStorage.deleteBody(pageId: page.id)
+            modelContext.delete(page)
+            return nil
+        }
+    }
+
+    @MainActor
+    static func removeWorkspacePages(
+        backingDeletedItemAt deletedURL: URL,
+        modelContext: ModelContext
+    ) -> [String] {
+        let normalizedDeletedPath = deletedURL.standardizedFileURL.path
+        let descendantPrefix = normalizedDeletedPath.hasSuffix("/")
+            ? normalizedDeletedPath
+            : normalizedDeletedPath + "/"
+
+        let allPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []
+        let matchingPages = allPages.filter { page in
+            guard let filePath = page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !filePath.isEmpty else {
+                return false
+            }
+            let normalizedPagePath = URL(fileURLWithPath: filePath).standardizedFileURL.path
+            return normalizedPagePath == normalizedDeletedPath
+                || normalizedPagePath.hasPrefix(descendantPrefix)
+        }
+
+        guard !matchingPages.isEmpty else { return [] }
+
+        struct RemovedWorkspacePage {
+            let page: SDPage
+            let insight: SDNoteInsight?
+        }
+
+        var removedPages: [RemovedWorkspacePage] = []
+        removedPages.reserveCapacity(matchingPages.count)
+
+        for page in matchingPages {
+            let pageId = page.id
+            let insightDescriptor = FetchDescriptor<SDNoteInsight>(
+                predicate: #Predicate { $0.pageId == pageId }
+            )
+            let insight = try? modelContext.fetch(insightDescriptor).first
+            if let insight {
+                modelContext.delete(insight)
+            }
+            modelContext.delete(page)
+            removedPages.append(RemovedWorkspacePage(page: page, insight: insight))
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            for removed in removedPages {
+                if let insight = removed.insight {
+                    modelContext.insert(insight)
+                }
+                modelContext.insert(removed.page)
+            }
+            return []
+        }
+
+        let removedPageIDs = removedPages.map(\.page.id)
+        for pageId in removedPageIDs {
+            SpotlightIndexer.deindex(pageId)
+            Task { @MainActor in
+                AppBootstrap.shared?.instantRecallService.removeNote(noteId: pageId)
+            }
+            NoteFileStorage.deleteBody(pageId: pageId)
+        }
+        return removedPageIDs
     }
 
     static func readText(at url: URL) throws -> String {
@@ -132,6 +271,7 @@ enum ModelVaultBrowserStore {
 
         let rootPrefix = normalizedRootPrefix(for: rootURL)
         return ModelVaultDocumentEntry(
+            kind: .file,
             url: fileURL,
             relativePath: relativePath(for: fileURL, rootPrefix: rootPrefix),
             isHidden: isInternalPath(relativePath(for: fileURL, rootPrefix: rootPrefix))
@@ -228,11 +368,61 @@ enum ModelVaultBrowserStore {
         return preferredURL
     }
 
-    private static func sortRank(for entry: ModelVaultDocumentEntry) -> Int {
+    fileprivate static func sortRank(for entry: ModelVaultDocumentEntry) -> Int {
+        if entry.isDirectory {
+            return preferredFiles.count
+        }
         let lowercasedPath = entry.relativePath.lowercased()
         if let index = preferredFiles.firstIndex(of: lowercasedPath) {
             return index
         }
         return entry.isHidden ? preferredFiles.count + 1 : preferredFiles.count
+    }
+
+    @MainActor
+    private static func refreshWorkspacePageFromDiskIfSafe(
+        _ page: SDPage,
+        sourceURL: URL,
+        modelContext: ModelContext
+    ) {
+        guard !page.needsVaultSync else { return }
+        guard let diskBody = synchronizedBody(for: sourceURL) else { return }
+
+        let diskHash = SDPage.bodyHash(diskBody)
+        guard page.lastSyncedBodyHash != diskHash || !NoteFileStorage.bodyExists(pageId: page.id) else {
+            return
+        }
+
+        syncWorkspacePageFromDisk(page, sourceURL: sourceURL, bodyOverride: diskBody, bodyHashOverride: diskHash)
+        try? modelContext.save()
+    }
+
+    @MainActor
+    private static func syncWorkspacePageFromDisk(
+        _ page: SDPage,
+        sourceURL: URL,
+        bodyOverride: String? = nil,
+        bodyHashOverride: String? = nil
+    ) {
+        guard let body = bodyOverride ?? synchronizedBody(for: sourceURL) else { return }
+        page.saveBody(body)
+        page.lastSyncedBodyHash = bodyHashOverride ?? SDPage.bodyHash(body)
+        page.lastSyncedAt = contentModificationDate(at: sourceURL) ?? .now
+        page.needsVaultSync = false
+    }
+
+    private static func synchronizedBody(for sourceURL: URL) -> String? {
+        if let decoded = VaultIndexActor.decodedBodyFromReadableVaultFile(at: sourceURL) {
+            return decoded
+        }
+        return try? readText(at: sourceURL)
+    }
+
+    private static func contentModificationDate(at sourceURL: URL) -> Date? {
+        do {
+            return try sourceURL.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+        } catch {
+            return nil
+        }
     }
 }

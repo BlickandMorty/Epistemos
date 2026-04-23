@@ -183,14 +183,31 @@ nonisolated enum SkillDiscoveryCatalog {
 
     private static func normalizedIdentifier(_ rawValue: String) -> String {
         let lowered = rawValue.lowercased()
-        let filtered = lowered.map { character -> Character in
+        var normalized: [Character] = []
+        normalized.reserveCapacity(lowered.count)
+
+        for character in lowered {
+            let nextCharacter: Character
             if character.isASCII,
                character.isLetter || character.isNumber || character == "-" || character == "_" || character == "." {
-                return character
+                nextCharacter = character
+            } else {
+                nextCharacter = "-"
             }
-            return "-"
+
+            if let previous = normalized.last,
+               isIdentifierSeparator(previous),
+               isIdentifierSeparator(nextCharacter) {
+                continue
+            }
+            normalized.append(nextCharacter)
         }
-        return String(filtered).trimmingCharacters(in: CharacterSet(charactersIn: "-_."))
+
+        return String(normalized).trimmingCharacters(in: CharacterSet(charactersIn: "-_."))
+    }
+
+    private static func isIdentifierSeparator(_ character: Character) -> Bool {
+        character == "-" || character == "_" || character == "."
     }
 
     private static func parseFrontmatter(_ content: String) -> [String: String] {
@@ -208,10 +225,23 @@ nonisolated enum SkillDiscoveryCatalog {
                 continue
             }
             let key = String(line[..<separator]).trimmingCharacters(in: .whitespacesAndNewlines)
-            let value = String(line[line.index(after: separator)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = unquotedFrontmatterValue(
+                String(line[line.index(after: separator)...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            )
             values[key] = value
         }
         return values
+    }
+
+    private static func unquotedFrontmatterValue(_ value: String) -> String {
+        guard value.count >= 2,
+              let first = value.first,
+              let last = value.last,
+              (first == "\"" || first == "'"),
+              first == last else {
+            return value
+        }
+        return String(value.dropFirst().dropLast())
     }
 
     private static func parseTags(_ rawValue: String?) -> [String] {

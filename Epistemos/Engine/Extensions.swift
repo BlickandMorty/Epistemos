@@ -55,6 +55,16 @@ nonisolated enum FoundationSafety {
         runtimeApplicationSupportDirectory(fileManager: fileManager)
     }
 
+    static func modelVaultsDirectory(
+        fileManager: FileManager = .default
+    ) -> URL {
+        let directory = userApplicationSupportDirectory(fileManager: fileManager)
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("model_vaults", isDirectory: true)
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.standardizedFileURL
+    }
+
     static func managedToolRuntimeVaultDirectory(
         preferredVaultPath: String?,
         fileManager: FileManager = .default
