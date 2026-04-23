@@ -668,6 +668,10 @@ struct LocalModelToolbarMenu: View {
             showsLocalModels = false
             showsCloudProviderOptions = true
             showsActiveCloudModelOptions = true
+        case nil:
+            showsLocalModels = false
+            showsCloudProviderOptions = false
+            showsActiveCloudModelOptions = false
         }
     }
 
