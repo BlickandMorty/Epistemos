@@ -1377,6 +1377,16 @@ final class ChatCoordinator {
     chatState.isCurrentVaultBriefing = isVaultBriefing
     chatState.startStreaming()
 
+    // Phase R.5 parser hook — detect and persist consent phrases in
+    // this user turn against any attached resource URI. Fire-and-forget
+    // so the chat stream is never blocked by the FFI call. Grants
+    // landed here will be consulted by the tool-check wiring that
+    // ships in a follow-up commit (I-009 / §Phase R.5 §tool gate).
+    recordResourceGrantsFromUserTurn(
+      statement: query,
+      attachments: chatState.pendingContextAttachments
+    )
+
     // Wire the reasoning side-channel so direct-cloud streams
     // (Fast / Thinking mode — not the Rust-agent path) route
     // reasoning deltas to the thinking popover instead of
@@ -1861,6 +1871,84 @@ final class ChatCoordinator {
         }
       }
       inferenceState.pendingImageURLs = []
+    }
+  }
+
+  // MARK: - R.5 Permission Grant Parser
+
+  /// Candidate capabilities passed to the Rust grant parser. The
+  /// parser filters this set by the statement semantics — e.g., "you
+  /// may edit" promotes Write but not Delete, "you can read" promotes
+  /// Read only. Passing the full set makes the caller statement-agnostic
+  /// while keeping the decision in one place (Rust).
+  static let r5GrantCandidateCapabilities: [String] =
+    ["Read", "Write", "Create", "Delete", "Search"]
+
+  /// Scope label passed to the Rust permission store. "Session" is the
+  /// default user-session grant scope for chat-typed consent — survives
+  /// in-session but not app relaunch. Long-lived scopes are a separate
+  /// UI affordance (Settings pane).
+  static let r5GrantScope = "Session"
+
+  /// Extract the non-empty resource URIs from a batch of pending
+  /// context attachments. Static and pure so tests can exercise the
+  /// filter independently of the Rust FFI and of `ChatCoordinator`'s
+  /// heavy dependencies.
+  ///
+  /// Filtering rules:
+  ///   - skip attachments with no `resourceURI` set (legacy path)
+  ///   - skip attachments whose `resourceURI` is empty or whitespace
+  ///   - preserve order of the input (callers may rely on turn order)
+  ///   - duplicates are preserved (the bridge is idempotent per grant)
+  static func r5ResourceURIsForGrant(from attachments: [ContextAttachment]) -> [String] {
+    attachments.compactMap { attachment in
+      guard let uri = attachment.resourceURI,
+            !uri.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      else { return nil }
+      return uri
+    }
+  }
+
+  /// Phase R.5 — scan a user turn for consent phrasing ("you have my
+  /// permission to edit this note", etc.) and record any matching grant
+  /// in the Rust permission store, one per attached resource URI.
+  ///
+  /// Runs fire-and-forget on a detached task so the chat stream is
+  /// never blocked on the FFI round trip. The bridge's grant parser is
+  /// the single source of truth: non-grant phrasing returns `nil` and
+  /// no grant is persisted. Attachments without a Phase R.4 resource
+  /// URI are skipped (they have no canonical identity for the grant to
+  /// apply to — legacy code-path compatibility).
+  ///
+  /// This is the READ-SIDE of I-009. The WRITE-SIDE (tool-execution
+  /// gate) ships in a follow-up commit and will consult grants landed
+  /// here via `permissionStoreCheck`. Until that lands, persisted
+  /// grants are visible in Settings but don't yet gate tool behavior.
+  private func recordResourceGrantsFromUserTurn(
+    statement: String,
+    attachments: [ContextAttachment]
+  ) {
+    let resourceURIs = Self.r5ResourceURIsForGrant(from: attachments)
+    guard !resourceURIs.isEmpty else { return }
+
+    let statementCopy = statement
+    let candidateCaps = Self.r5GrantCandidateCapabilities
+    let scope = Self.r5GrantScope
+
+    Task.detached(priority: .userInitiated) {
+      for uri in resourceURIs {
+        let grantID = await permissionStoreRecordUserGrantFromStatement(
+          statement: statementCopy,
+          resourceUri: uri,
+          capabilityNames: candidateCaps,
+          scopeName: scope
+        )
+        if let grantID, !grantID.isEmpty {
+          Log.pipeline.info(
+            "R.5 parser: recorded grant \(grantID, privacy: .public) for \(uri, privacy: .public)"
+          )
+        }
+      }
     }
   }
 
