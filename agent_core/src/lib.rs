@@ -18,6 +18,7 @@ pub mod provider;
 pub mod pty;
 pub mod reasoning_metrics;
 pub mod resources;
+pub mod runtime;
 pub mod routing;
 pub mod security;
 pub mod session;
