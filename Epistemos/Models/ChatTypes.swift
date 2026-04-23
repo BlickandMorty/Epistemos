@@ -116,20 +116,97 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     }
 }
 
+// Phase R.4 — explicit live-vs-snapshot capability manifest for an
+// attachment. When an attachment carries this, the AI runtime can
+// consult the Rust-side AttachedResource to gate tool calls (e.g.
+// refuse `write` on a Snapshot). Persisted as a string for forward-
+// compatibility with future mode additions and for Codable stability
+// across app versions.
+enum ContextAttachmentResourceMode: String, Codable, Sendable, Hashable {
+    /// Read-only inline snapshot. The AI sees the content but cannot
+    /// call `write` / `delete`. Matches Rust `AttachmentMode::Snapshot`.
+    case snapshot = "Snapshot"
+    /// Live resource handle. The AI may call `read` / `write` against
+    /// the underlying resource. Matches Rust `AttachmentMode::Live`.
+    case live = "Live"
+}
+
 struct ContextAttachment: Identifiable, Codable, Sendable, Hashable {
     var kind: ContextAttachmentKind
     var targetId: String
     var title: String
     var subtitle: String?
 
+    // Phase R.4 optional capability manifest. All three fields are
+    // `nil` on legacy persisted messages and continue to be `nil` at
+    // creation sites that haven't been migrated yet; in that case the
+    // attachment is treated as the pre-R.4 behaviour (inline snapshot
+    // text without a durable resource handle — matches I-004/5/6
+    // symptoms that are still open).
+    var resourceURI: String?
+    var resourceMode: ContextAttachmentResourceMode?
+    var resourceCapabilities: [String]?
+
     var id: String { "\(kind.rawValue):\(targetId)" }
     var systemImageName: String { kind.systemImageName }
 
-    init(kind: ContextAttachmentKind, targetId: String, title: String, subtitle: String? = nil) {
+    init(
+        kind: ContextAttachmentKind,
+        targetId: String,
+        title: String,
+        subtitle: String? = nil,
+        resourceURI: String? = nil,
+        resourceMode: ContextAttachmentResourceMode? = nil,
+        resourceCapabilities: [String]? = nil
+    ) {
         self.kind = kind
         self.targetId = targetId
         self.title = title
         self.subtitle = subtitle
+        self.resourceURI = resourceURI
+        self.resourceMode = resourceMode
+        self.resourceCapabilities = resourceCapabilities
+    }
+}
+
+extension ContextAttachment {
+    /// Whether this attachment carries enough Phase R.4 metadata to
+    /// resolve to a Rust-side `AttachedResource`. `false` on legacy or
+    /// under-specified attachments; `true` once the creation site
+    /// populates `resourceURI` + `resourceMode`.
+    var hasResourceManifest: Bool {
+        resourceURI != nil && resourceMode != nil
+    }
+
+    /// Convert this attachment into a Rust `AttachedResource` suitable
+    /// for passing to agent tool-call sites. Returns `nil` when the
+    /// attachment does not yet carry Phase R.4 metadata (see
+    /// `hasResourceManifest`) — caller must then fall back to the
+    /// legacy inline-text path until the creation site migrates.
+    ///
+    /// Uses the R.4 bridge factories:
+    ///   - `.live`     → `attachedResourceFromUi`
+    ///   - `.snapshot` → `attachedResourceFromPaste` (snapshot body
+    ///     comes from `subtitle`, or empty string if missing)
+    func toAttachedResource() -> AttachedResource? {
+        guard let uri = resourceURI, let mode = resourceMode else {
+            return nil
+        }
+        switch mode {
+        case .live:
+            return attachedResourceFromUi(
+                resourceUri: uri,
+                displayName: title,
+                version: nil
+            )
+        case .snapshot:
+            let snapshotBody = subtitle ?? ""
+            return attachedResourceFromPaste(
+                resourceUri: uri,
+                displayName: title,
+                snapshotContent: snapshotBody
+            )
+        }
     }
 }
 
