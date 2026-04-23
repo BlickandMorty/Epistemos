@@ -167,9 +167,9 @@ struct ModelVaultBrowserTests {
         #expect(!FileManager.default.fileExists(atPath: created.url.path))
     }
 
-    @Test("model involvement loads both current and legacy GPT-5.4 contribution ids")
+    @Test("gpt_5_4_sidebar_shows_full_history")
     @MainActor
-    func modelInvolvementLoadsCurrentAndLegacyGPT54ContributionIDs() throws {
+    func gpt_5_4_sidebar_shows_full_history() throws {
         let schema = Schema([SDChat.self, SDMessage.self])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         let container = try ModelContainer(for: schema, configurations: [config])
