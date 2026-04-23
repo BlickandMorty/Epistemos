@@ -843,13 +843,7 @@ private struct InferenceDetailView: View {
     @State private var showLocalModelManager = false
     @State private var tokenCapEnabled = false
     @State private var tokenCapDraft: Int = 2000
-    @State private var openAIKey = ""
-    @State private var anthropicKey = ""
-    @State private var googleKey = ""
-    @State private var zaiKey = ""
-    @State private var kimiKey = ""
-    @State private var minimaxKey = ""
-    @State private var deepseekKey = ""
+    @State private var cloudAPIKeyDrafts: [CloudModelProvider: String] = [:]
     @State private var firecrawlKey = ""
     @State private var showCloudSetupHint = false
     @State private var googleOAuthProjectID = ""
@@ -1219,13 +1213,7 @@ private struct InferenceDetailView: View {
                 let saved = inference.chatOutputTokens
                 tokenCapEnabled = saved > 0
                 if saved > 0 { tokenCapDraft = saved }
-                openAIKey = inference.apiKey(for: .openAI) ?? ""
-                anthropicKey = inference.apiKey(for: .anthropic) ?? ""
-                googleKey = inference.apiKey(for: .google) ?? ""
-                zaiKey = inference.apiKey(for: .zai) ?? ""
-                kimiKey = inference.apiKey(for: .kimi) ?? ""
-                minimaxKey = inference.apiKey(for: .minimax) ?? ""
-                deepseekKey = inference.apiKey(for: .deepseek) ?? ""
+                loadCloudAPIKeyDrafts()
                 googleOAuthClientConfigData = CloudProviderSetupAutomation.loadGoogleOAuthClientConfigData()
                 googleOAuthClientFilename = CloudProviderSetupAutomation.loadGoogleOAuthClientFilename()
                 googleOAuthProjectID = inference.oauthCredential(for: .google)?.projectID
@@ -1379,7 +1367,7 @@ private struct InferenceDetailView: View {
     private func cloudProviderAccessRow(
         provider: CloudModelProvider
     ) -> some View {
-        let text = cloudProviderDraftBinding(for: provider)
+        let text = cloudAPIKeyDraftBinding(for: provider)
         let validationState = inference.cloudValidationState(for: provider)
         let oauthCredential = inference.oauthCredential(for: provider)
         let hasOAuthSession = oauthCredential != nil
@@ -2250,23 +2238,21 @@ private struct InferenceDetailView: View {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    private func cloudProviderDraftBinding(for provider: CloudModelProvider) -> Binding<String> {
-        switch provider {
-        case .openAI:
-            $openAIKey
-        case .anthropic:
-            $anthropicKey
-        case .google:
-            $googleKey
-        case .zai:
-            $zaiKey
-        case .kimi:
-            $kimiKey
-        case .minimax:
-            $minimaxKey
-        case .deepseek:
-            $deepseekKey
+    private func loadCloudAPIKeyDrafts() {
+        for provider in CloudModelProvider.preferredOrder {
+            cloudAPIKeyDrafts[provider] = inference.apiKey(for: provider) ?? ""
         }
+    }
+
+    private func cloudAPIKeyDraftBinding(for provider: CloudModelProvider) -> Binding<String> {
+        Binding(
+            get: {
+                cloudAPIKeyDrafts[provider] ?? inference.apiKey(for: provider) ?? ""
+            },
+            set: { newValue in
+                cloudAPIKeyDrafts[provider] = newValue
+            }
+        )
     }
 }
 

@@ -1,13 +1,13 @@
 import SwiftUI
 import SwiftData
 
-/// Pass 10 — Per-model "involvement" surface in the Notes sidebar.
+/// Pass 10 — Per-model vault surface in the Notes sidebar.
 ///
 /// Renders a collapsible DisclosureGroup under the Notes sidebar that
 /// lists every directory inside
 /// `~/Library/Application Support/Epistemos/model_vaults/`. Clicking a
-/// model opens a sheet with that model's involvement list —
-/// every SDMessage whose `authoredByModelID` matches (from Pass 8).
+/// model opens a dedicated browser for that vault's compiled files and
+/// contribution history.
 ///
 /// Perf notes (NotesSidebar is performance-sensitive — see the
 /// "denormalized for performance" warning in the April 22 handoff):
@@ -15,8 +15,8 @@ import SwiftData
 ///   never on every body evaluation.
 /// - The cached list is a plain `@State [ModelVaultEntry]`, a value
 ///   type, so SwiftUI's diffing stays cheap.
-/// - The involvement sheet uses a one-shot `@Query` scoped to the
-///   model id, so SwiftData only returns the matching messages.
+/// - The browser sheet lazily loads files only when opened, so the
+///   sidebar itself stays lightweight.
 struct ModelVaultsSidebarSection: View {
     private static let maxExpandedListHeight: CGFloat = 320
     private static let estimatedRowHeight: CGFloat = 44
@@ -24,7 +24,7 @@ struct ModelVaultsSidebarSection: View {
     @Environment(InferenceState.self) private var inference
     @AppStorage("notesSidebar.modelVaultsExpanded") private var isExpanded = false
     @State private var modelVaults: [ModelVaultEntry] = []
-    @State private var selectedModel: SelectedModel?
+    @State private var selectedModel: ModelVaultEntry?
 
     private var visibleModelVaults: [ModelVaultEntry] {
         let visibleModelIDs = inference.visibleModelVaultModelIDs
@@ -45,7 +45,7 @@ struct ModelVaultsSidebarSection: View {
                     LazyVStack(spacing: 0) {
                         ForEach(visibleModelVaults) { entry in
                             Button {
-                                selectedModel = SelectedModel(id: entry.id)
+                                selectedModel = entry
                             } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: entry.systemImage)
@@ -69,6 +69,9 @@ struct ModelVaultsSidebarSection: View {
                             }
                             .buttonStyle(.plain)
                             .contextMenu {
+                                Button("Open Vault Browser") {
+                                    selectedModel = entry
+                                }
                                 Button("Reveal Vault in Finder") {
                                     ModelVaultsSidebarSection.revealInFinder(entry)
                                 }
@@ -115,7 +118,7 @@ struct ModelVaultsSidebarSection: View {
             }
         }
         .sheet(item: $selectedModel) { selection in
-            ModelInvolvementSheet(modelID: selection.id)
+            ModelVaultBrowserSheet(entry: selection)
         }
     }
 
@@ -195,19 +198,25 @@ struct ModelVaultEntry: Identifiable, Hashable {
         for modelID: String,
         fallbackDisplayName: String? = nil
     ) -> (displayName: String, systemImage: String) {
-        let explicitDisplayName = fallbackDisplayName?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if let explicitDisplayName, !explicitDisplayName.isEmpty {
-            return (explicitDisplayName, systemImage(for: modelID))
-        }
-
         if let localModel = LocalTextModelID.allCases.first(where: { $0.rawValue == modelID }) {
             return (localModel.displayName, systemImage(for: modelID))
         }
         if let cloudModel = CloudTextModelID.allCases.first(where: {
             $0.rawValue == modelID || $0.vendorModelID == modelID
         }) {
-            return (cloudModel.displayName, systemImage(for: modelID))
+            let displayName = switch cloudModel.provider {
+            case .google:
+                cloudModel.compactDisplayName
+            default:
+                cloudModel.displayName
+            }
+            return (displayName, systemImage(for: modelID))
+        }
+
+        let explicitDisplayName = fallbackDisplayName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let explicitDisplayName, !explicitDisplayName.isEmpty {
+            return (explicitDisplayName, systemImage(for: modelID))
         }
 
         let lower = modelID.lowercased()
@@ -309,8 +318,4 @@ struct ModelVaultEntry: Identifiable, Hashable {
         }
         return "cpu"
     }
-}
-
-struct SelectedModel: Identifiable, Hashable {
-    let id: String
 }

@@ -3760,7 +3760,7 @@ final class InferenceState {
            model == .qwen3_4B4Bit || model == .qwen3_4BThinking25074Bit {
             return "Qwen 3"
         }
-        return LocalTextModelID(rawValue: modelID)?.compactDisplayName ?? modelID
+        return LocalTextModelID(rawValue: modelID)?.displayName ?? modelID
     }
 
     var effectiveLocalAgentTextModelID: String? {
