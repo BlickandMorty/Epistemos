@@ -129,10 +129,12 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 - **Fix evidence:** `Epistemos/Omega/Orchestrator/OrchestratorState.swift` L4 comment reads: *"The full Omega orchestrator has been retired in favor of the Rust agent_core. This stub preserves the public API surface that other files reference."* `submitTask()` is a no-op. Agent routing flows through `ChatCoordinator` → Rust `runAgentSession` (via `agent_coreFFI`). `cargo test` passes 577/577 with Rust orchestration.
 
 ### I-016: Code editor feature audit doc-truth drift
-- **Symptom:** `docs/CODE_EDITOR_FEATURE_AUDIT.md` claims features (minimap, search bar, go-to-line, semantic sidebar, indentation guides, persisted prefs) that cannot be confirmed as active in `Epistemos/Views/Notes/CodeEditorView.swift`. Architecture work gets sloppy when docs describe a ghost editor.
-- **Root cause:** docs drifted; no doc-truth reconciliation in CI.
-- **Fix:** Phase 0 prep (already in the plan) + explicit reconciliation pass per PLAN_V2 §23.1. Update `CODE_EDITOR_FEATURE_AUDIT.md` — every claimed feature marked `verified`, `planned`, or `reverted`.
-- **Verification:** every claim in the audit doc has a live-code citation (file:line) or a `PLANNED`/`REVERTED` tag.
+- **Status:** ✅ **CONFIRMED-CLEAN 2026-04-23** (the stale doc no longer exists; live-grounded replacement is canonical).
+- **Symptom (historical):** An older `docs/CODE_EDITOR_FEATURE_AUDIT.md` claimed features (minimap, search bar, go-to-line, semantic sidebar, indentation guides, persisted prefs) that couldn't be confirmed in `Epistemos/Views/Notes/CodeEditorView.swift`. Architecture work gets sloppy when docs describe a ghost editor.
+- **Fix evidence:** `find docs -iname "code_editor*"` no longer returns `CODE_EDITOR_FEATURE_AUDIT.md`. The canonical reference is now `docs/CODE_EDITOR_POLISH_SCOPE.md` (written 2026-04-23), which has direct file:line citations against live code for every claim:
+  - ✅ Renders: syntax highlighting (CodeEditSourceEditor 0.15.2), go-to-line (L1272), search bar (L1273), outline navigator (L1278-1279), indentation guides (L304 comment: "VS Code-style").
+  - ❌ Does NOT render: line numbers (absent despite gutter colors in theme), minimap (L1262: "Minimap removed — outline navigator replaces it"), semantic sidebar (L302: `CodeEditorReleasePolicy.semanticSidebarEnabled = false`).
+- **Ongoing guard:** the 4-item polish scope in `CODE_EDITOR_POLISH_SCOPE.md` (theme-aware gutter, Binding debouncing, outline cache, viewport highlighting) carries its own cite-the-code discipline. Future editor audits should pattern-match on that format to avoid re-drift.
 
 ### I-017: Swift 6 concurrency violations
 - **Status:** ✅ **CONFIRMED-CLEAN (partial verification) 2026-04-23.** Formal `-strict-concurrency=complete` sweep deferred but all enumerated patterns verified absent.
