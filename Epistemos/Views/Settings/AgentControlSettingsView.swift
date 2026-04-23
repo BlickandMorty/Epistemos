@@ -1,8 +1,17 @@
 import SwiftUI
 
+private struct ActiveGrantSettingsRow: Identifiable {
+    let id: String
+    let title: String
+    let detail: String
+    let systemImage: String
+    let isRevocable: Bool
+}
+
 struct AgentControlDetailView: View {
     @Environment(MCPBridge.self) private var mcpBridge
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(ChatState.self) private var chat
 
     @State private var recentExecutions: [MCPExecutionEntry] = []
     @State private var sessionResults: [SessionBrowser.SessionInfo] = []
@@ -68,6 +77,8 @@ struct AgentControlDetailView: View {
                         refreshApprovalPolicy()
                     }
                 }
+
+                activeGrantsSection
 
                 if vaultSync.vaultURL == nil {
                     Text("Attach a vault to inspect or edit the persistent approval policy.")
@@ -183,6 +194,56 @@ struct AgentControlDetailView: View {
                         .foregroundStyle(.orange)
                 }
             }
+        }
+    }
+
+    private var activeGrantsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Active Grants")
+                .font(.subheadline.weight(.semibold))
+
+            if activeGrantRows.isEmpty {
+                Text("No active grants in this chat right now.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(activeGrantRows) { row in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: row.systemImage)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.blue)
+                                .frame(width: 16, alignment: .center)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(row.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            if row.isRevocable {
+                                Button("Revoke") {
+                                    revokeActiveGrant(row.id)
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption.weight(.semibold))
+                            } else {
+                                ChannelStatusPill(title: "Automatic", tint: .secondary)
+                            }
+                        }
+
+                        if row.id != activeGrantRows.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+            }
+
+            Divider()
         }
     }
 
@@ -557,6 +618,96 @@ struct AgentControlDetailView: View {
             try approvalStore.remove(pattern: pattern, from: kind, vaultPath: vaultPath)
         } catch {
             approvalStore.lastError = error.localizedDescription
+        }
+    }
+
+    private var activeGrantRows: [ActiveGrantSettingsRow] {
+        var rows: [ActiveGrantSettingsRow] = []
+
+        if let vaultURL = vaultSync.vaultURL {
+            rows.append(
+                ActiveGrantSettingsRow(
+                    id: "vault:\(vaultURL.path)",
+                    title: vaultURL.lastPathComponent,
+                    detail: "Read + Search active vault",
+                    systemImage: "books.vertical",
+                    isRevocable: false
+                )
+            )
+        }
+
+        rows.append(
+            contentsOf: chat.pendingContextAttachments.map { attachment in
+                ActiveGrantSettingsRow(
+                    id: "context:\(attachment.id)",
+                    title: attachment.title,
+                    detail: grantDetail(for: attachment),
+                    systemImage: attachment.systemImageName,
+                    isRevocable: true
+                )
+            }
+        )
+
+        rows.append(
+            contentsOf: chat.pendingAttachments.map { attachment in
+                ActiveGrantSettingsRow(
+                    id: "file:\(attachment.id)",
+                    title: attachment.name,
+                    detail: "Read attached file",
+                    systemImage: fileAttachmentIcon(for: attachment.type),
+                    isRevocable: true
+                )
+            }
+        )
+
+        rows.append(
+            ActiveGrantSettingsRow(
+                id: "shell-approval",
+                title: "Shell / external tools",
+                detail: "Ask first for destructive or external work",
+                systemImage: "terminal",
+                isRevocable: false
+            )
+        )
+
+        return rows
+    }
+
+    private func revokeActiveGrant(_ id: String) {
+        if id.hasPrefix("context:"), let contextID = id.split(separator: ":", maxSplits: 1).last {
+            chat.removeContextAttachment(String(contextID))
+            return
+        }
+        if id.hasPrefix("file:"), let fileID = id.split(separator: ":", maxSplits: 1).last {
+            chat.removeAttachment(String(fileID))
+        }
+    }
+
+    private func grantDetail(for attachment: ContextAttachment) -> String {
+        switch attachment.kind {
+        case .note:
+            return "Read + Edit attached note"
+        case .chat:
+            return "Read attached chat context"
+        case .allNotes:
+            return "Read + Search attached vault context"
+        case .folder:
+            return "Read + Edit attached folder notes"
+        }
+    }
+
+    private func fileAttachmentIcon(for type: AttachmentType) -> String {
+        switch type {
+        case .image:
+            return "photo"
+        case .pdf:
+            return "doc.richtext"
+        case .csv:
+            return "tablecells"
+        case .text:
+            return "doc.text"
+        case .other:
+            return "paperclip"
         }
     }
 
