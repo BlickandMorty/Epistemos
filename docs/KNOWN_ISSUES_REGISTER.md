@@ -24,12 +24,18 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## B. Action gateway (Phase R.3)
 
 ### I-002: Multiple codepaths for note lookup
+- **Status:** 🟡 **OPEN — R.3 gateway scaffolding in place; first Swift migration path landed (read path); full lookup convergence deferred.**
 - **Symptom:** Notes lookup by title, by path, and by ID each have their own codepath. Edits made through one path don't reliably surface through another.
 - **Root cause:** no single resource-service abstraction.
-- **Fix:** Phase R.3 — `ResourceService::resolve() / read() / write() / create() / delete() / search()` is the single entry point. Compat adapters wrap old callers.
-- **Verification:** `grep -rE "fn (read|write|find|create|edit|delete)_note\b" agent_core/ epistemos-core/ Epistemos/ | grep -v "ResourceService\|_adapter\b"` returns zero matches.
+- **Scaffolding landed (2026-04-23 session):**
+  - `a00f1c1f` — `resourceServiceInit(vaultRoot:vaultId:)` called at boot.
+  - `49906b61` — re-init fires on `.vaultChanged` with an idempotent path guard so vault switches / bookmark restores are tracked post-launch.
+  - `8d6a8dbd` — `SDPage.loadBodyAsync(mapped:fast:)` added as a strangler-fig alongside `loadBody`. Goes through `resourceResolve` + `resourceRead`; falls back to legacy `NoteFileStorage.readBody` when the gateway isn't ready. 5 byte-equal parity tests (`PhaseR3BodyReadParityTests.swift`) prove the gateway returns FileManager-identical bytes across file://, vault:// and resolve-then-read entry points + multibyte UTF-8 + sha256 checksum.
+- **Fix (remaining):** Phase R.3 — migrate production read sites (VaultIndexActor, NotesSidebar, NoteFileStorage) from `loadBody` to `loadBodyAsync`. Write/create/delete migrations to follow.
+- **Verification:** parity tests + `grep -rE "fn (read|write|find|create|edit|delete)_note\b" agent_core/ epistemos-core/ Epistemos/ | grep -v "ResourceService\|_adapter\b"` returns zero matches once migrations complete.
 
 ### I-003: Duplicate read/edit/find across AI tools, sidebar, attachments, popovers, chat actions
+- **Status:** 🟡 **OPEN — same scaffolding as I-002; production call-site migrations still pending.**
 - **Symptom:** Edit a note from sidebar → appears updated. AI edits via tool → file changes but sidebar doesn't refresh. Or vice versa. Split-brain bugs.
 - **Root cause:** same as I-002.
 - **Fix:** Phase R.3 — every UI surface and every tool routes through `ResourceService`. Observer pattern propagates changes to all viewers.
@@ -40,34 +46,42 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## C. Attachments (Phase R.4)
 
 ### I-004: Attached notes ambiguous between snapshot (inline text) and live (writable file)
-- **Status:** 🟡 **OPEN — scaffolding bridge landed 2026-04-23 commit `6a2c1de6`.** User-visible symptom **not yet fixed.**
-- **Scaffolding (landed):** Phase R.4 — `AttachmentMode::{Snapshot, Live}` + `Capability::{Read, Write, Delete, Create, Search}` + `AttachedResource` now cross FFI as `uniffi::Enum` / `uniffi::Record`. Four factory functions in `bridge.rs`: `attachedResourceFromUi` (Live + Read/Write), `attachedResourceFromFinder` (Live + Read/Write, code-file-friendly), `attachedResourceFromPaste` (Snapshot + Read-only), `attachedResourceAllows` (capability predicate).
-- **Why NOT fixed:** Swift `ContextAttachment` / `FileAttachment` / `pendingContextAttachments` still use legacy inline-text structs. Zero Swift call sites invoke the new factories in production code. The AI still receives inline text and the "AI claims edit but file doesn't change" bug **remains reproducible**.
-- **Remaining work (R.4 Swift leg):** migrate `ContextAttachment` to carry an `AttachedResource` alongside its presentation fields; have every tool-call site read the capability manifest before dispatching; wire `attachedResourceFromUi` at the popover attachment creation site.
-- **Verification today:** FFI-level — 8 Swift tests in `PhaseRAttachmentBridgeTests.swift` green (Live mode + capability defaults, invalid-URI rejection, ResourceId variant round-trips). **Not** end-to-end — no test confirms "user attaches a note in popover → AI edits it → file on disk changes."
+- **Status:** 🟡 **OPEN — bridge + ContextAttachment manifest + dropdown backfill landed 2026-04-23. Tool-dispatch enforcement still the gap.**
+- **Scaffolding (landed):**
+  - `6a2c1de6` — FFI primitives: `AttachmentMode::{Snapshot, Live}` + `Capability::{Read, Write, Delete, Create, Search}` + `AttachedResource` crossing FFI as `uniffi::Enum` / `uniffi::Record`. Four factory functions: `attachedResourceFromUi` (Live + Read/Write), `attachedResourceFromFinder` (Live + Read/Write, code-file-friendly), `attachedResourceFromPaste` (Snapshot + Read-only), `attachedResourceAllows` (capability predicate).
+  - `34fb53cf` — `ContextAttachment` carries optional `resourceURI` / `resourceMode` / `resourceCapabilities` manifest + `toAttachedResource()` converter.
+  - `f6f62816` — `ChatInputBar` `@`-mention dropdown now populates the manifest at pick time. Every note picked from the dropdown gets a canonical `vault://{vaultId}/note/{relativePath}` URI + Live mode + Read/Write. Vault ID convention matches `AppBootstrap.initializeRustResourceServiceIfReady` so both sides of the FFI agree on identity. 11 tests in `PhaseR4DropdownBackfillTests.swift` green.
+- **Why still OPEN:** tool-execution dispatch still uses legacy attachment fields — no tool call consults `resource.grantedCapabilities` or `attachedResourceAllows(.write)` before performing a write. MiniChat + Landing pickers also still emit no-manifest attachments (deliberate scope guard on the dropdown commit). "AI claims edit but file doesn't change" remains reproducible until tool-dispatch wiring lands.
+- **Remaining work (R.4 Swift leg):** (a) migrate `LocalAgentLoop` + `ChatCoordinator` Rust-agent tool dispatch to call `attachedResourceAllows` before Write/Delete; (b) backfill the same vaultId parameter on MiniChat + Landing pickers.
+- **Verification today:** 19 Swift tests across `PhaseRAttachmentBridgeTests.swift` (FFI factories + ResourceId round-trip) + `PhaseR4DropdownBackfillTests.swift` (URI construction + backfill semantics + R.5 handoff) green. **Not** end-to-end — no test confirms "user attaches a note in popover → AI edits it → file on disk changes."
 
 ### I-005: Attached files from popover are not "under user's control" — AI cannot truly edit
-- **Status:** 🟡 **OPEN — same scaffolding as I-004; user-visible symptom not fixed.**
-- **Scaffolding (landed):** `attachedResourceFromUi` can mint Live + Read/Write attachments.
-- **Why NOT fixed:** popover attachment creation still produces a Swift-side `ContextAttachment` with inline snapshot content. No tool-call path uses the new factory.
-- **Remaining work:** same as I-004 — wire popover → `attachedResourceFromUi` → carry through tool dispatch → gate writes on `attachedResourceAllows(.write)`.
+- **Status:** 🟡 **OPEN — dropdown side now mints Live manifest; tool-dispatch gate still absent.**
+- **Scaffolding (landed):**
+  - Same FFI primitives as I-004.
+  - `f6f62816` — dropdown picks produce manifest-bearing Live attachments (the input side of the authorization fence).
+- **Why still OPEN:** no tool-call path checks the manifest before writing. The Live manifest is present but ignored.
+- **Remaining work:** wire `attachedResourceAllows(.write)` into `LocalAgentLoop` tool dispatch + `ChatCoordinator.runRustAgentPath` tool-call boundary.
 
 ### I-006: AI can't code / edit code files the app supports
-- **Status:** 🟡 **OPEN — scaffolding via R.4 bridge; R.6 verified-write Swift integration also required.**
+- **Status:** 🟡 **OPEN — Finder factory available; attachment sites for Finder drops still legacy.**
 - **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`.
-- **Why NOT fixed:** (a) no Swift attachment site creates `AttachedResource` for Finder drops yet; (b) even if it did, Swift tool execution doesn't route through `write_attached_resource` — it uses `NoteFileStorage.writeBody` / raw file I/O; (c) R.6 verified-write pipeline isn't wired from Swift, so "AI says done" can still precede a durable commit.
-- **Remaining work:** R.3 Swift `ResourceService` gateway + R.4 Swift attachment migration + R.6 Swift verified-write.
+- **Why NOT fixed:** (a) no Swift attachment site creates `AttachedResource` for Finder drops yet (the dropdown backfill only covers vault-note mentions); (b) Swift tool execution doesn't route through `write_attached_resource` — it uses `NoteFileStorage.writeBody` / raw file I/O; (c) R.6 verified-write pipeline isn't wired from Swift, so "AI says done" can still precede a durable commit.
+- **Remaining work:** R.3 Swift `ResourceService` write migration + R.4 Finder-drop attachment migration + R.6 Swift verified-write.
 
 ---
 
 ## D. Permissions (Phase R.5)
 
 ### I-009: "You have my permission" evaporates as chat text
-- **Status:** 🟡 **OPEN — scaffolding bridge + Settings UI landed 2026-04-23 commit `6c5d5ecb`.** User-visible symptom **not yet fixed** — chat input still doesn't create grants.
-- **Scaffolding (landed):** 5 UniFFI helpers wrap `SqlitePermissionService`: `permissionStoreListActive`, `permissionStoreListActiveBlocking`, `permissionStoreCheck`, `permissionStoreRecordUserGrantFromStatement`, `permissionStoreRevoke`. `AgentControlSettingsView.activeGrantsSection` renders a "Stored session grants" subsection backed by the Rust store with working Revoke buttons.
-- **Why NOT fixed:** no Swift chat handler calls `permissionStoreRecordUserGrantFromStatement` during a user turn — so typing "you have my permission" in chat still creates zero grants in production. No tool-execution path calls `permissionStoreCheck` either — so even if grants existed, they would not gate anything. In live use, the Settings pane will always show an empty "Stored session grants" list because nothing populates the store. And the in-memory store disappears on app quit.
-- **Remaining work:** (1) wire `ChatCoordinator` user-message pipeline to call `permissionStoreRecordUserGrantFromStatement` with the message text + any attached `ResourceId`; (2) wire tool-execution dispatch in `LocalAgentLoop` and `ChatCoordinator`'s Rust-backed path to call `permissionStoreCheck` before Write/Delete/Create ops; (3) migrate to on-disk persistence at a container-safe path.
-- **Verification today:** FFI-level — 9 Swift tests in `PhaseRPermissionBridgeTests.swift` + 7 Rust bridge tests green. **Not** end-to-end — no test confirms "user says 'you have my permission' in live chat → grant appears in Settings pane."
+- **Status:** 🟡 **PARTIAL — read-side parser hook landed 2026-04-23 commit `1209d968`. Write-side tool-check gate still the gap.**
+- **Scaffolding (landed):**
+  - `6c5d5ecb` — 5 UniFFI helpers wrap `SqlitePermissionService`: `permissionStoreListActive`, `permissionStoreListActiveBlocking`, `permissionStoreCheck`, `permissionStoreRecordUserGrantFromStatement`, `permissionStoreRevoke`. `AgentControlSettingsView.activeGrantsSection` renders a "Stored session grants" subsection backed by the Rust store with working Revoke buttons.
+  - `1209d968` — `ChatCoordinator.handleQuery` now walks `pendingContextAttachments`, filters to manifest-bearing URIs via `r5ResourceURIsForGrant(from:)`, and fires `permissionStoreRecordUserGrantFromStatement` per URI (fire-and-forget, full Capability enum as candidate set, Session scope). 7 tests in `PhaseR5ChatGrantWiringTests.swift` green — filter semantics + FFI contract round-trip.
+  - `f6f62816` — complementary R.4 dropdown backfill gives this hook real URIs to grant against on live user turns.
+- **Why still PARTIAL:** no tool-execution path calls `permissionStoreCheck` before Write/Delete/Create, so grants land in the store but don't gate anything yet. The Settings pane will populate when a user types consent against an `@`-mentioned note, but the AI can still attempt writes regardless. And the in-memory store disappears on app quit (persistence is a separate follow-up).
+- **Remaining work:** (1) wire tool-execution dispatch in `LocalAgentLoop` and `ChatCoordinator.runRustAgentPath` to call `permissionStoreCheck` before Write/Delete/Create ops; (2) migrate to on-disk persistence at a container-safe path; (3) backfill the same parser hook + tool-check on MiniChat/Landing composer paths.
+- **Verification today:** 16 Swift tests (`PhaseRPermissionBridgeTests.swift` 9 + `PhaseR5ChatGrantWiringTests.swift` 7) + 7 Rust bridge tests green. **Not** end-to-end — no test confirms "user says 'you have my permission' in live chat → AI tool call is denied/allowed accordingly."
 
 ### I-010: Note content could affect permissions (prompt injection vulnerability)
 - **Status:** 🟡 **CONFIRMED-CLEAN-AT-BRIDGE (design property) — protection not in effect in live code yet.**
