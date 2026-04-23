@@ -1,19 +1,4 @@
-import AppKit
-import SwiftUI
-
-private enum ModelVaultBrowserSurface: String, CaseIterable, Identifiable {
-    case files
-    case contributions
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .files: "Vault Files"
-        case .contributions: "Contributions"
-        }
-    }
-}
+import Foundation
 
 struct ModelVaultDocumentEntry: Identifiable, Hashable {
     let url: URL
@@ -129,6 +114,55 @@ enum ModelVaultBrowserStore {
         NoteFileStorage.writeTextAtomically(content, to: url, itemLabel: url.lastPathComponent)
     }
 
+    static func createTextFile(
+        named rawName: String,
+        rootURL: URL,
+        relativeDirectory: String? = nil
+    ) -> ModelVaultDocumentEntry? {
+        let directoryURL = resolvedDirectoryURL(rootURL: rootURL, relativeDirectory: relativeDirectory)
+        do {
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+        } catch {
+            return nil
+        }
+
+        let preferredName = preferredFileName(from: rawName)
+        let fileURL = uniqueChildURL(in: directoryURL, preferredName: preferredName)
+        guard writeText("", to: fileURL) else { return nil }
+
+        let rootPrefix = normalizedRootPrefix(for: rootURL)
+        return ModelVaultDocumentEntry(
+            url: fileURL,
+            relativePath: relativePath(for: fileURL, rootPrefix: rootPrefix),
+            isHidden: isInternalPath(relativePath(for: fileURL, rootPrefix: rootPrefix))
+        )
+    }
+
+    static func createDirectory(
+        named rawName: String,
+        rootURL: URL,
+        relativeParentDirectory: String? = nil
+    ) -> URL? {
+        let parentURL = resolvedDirectoryURL(rootURL: rootURL, relativeDirectory: relativeParentDirectory)
+        let preferredName = preferredDirectoryName(from: rawName)
+        let directoryURL = uniqueChildURL(in: parentURL, preferredName: preferredName)
+        do {
+            try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
+            return directoryURL
+        } catch {
+            return nil
+        }
+    }
+
+    static func deleteItem(at url: URL) -> Bool {
+        do {
+            try FileManager.default.removeItem(at: url)
+            return true
+        } catch {
+            return false
+        }
+    }
+
     private static func relativePath(for url: URL, rootPrefix: String) -> String {
         let path = url.standardizedFileURL.path
         if path.hasPrefix(rootPrefix) {
@@ -141,343 +175,64 @@ enum ModelVaultBrowserStore {
         relativePath.split(separator: "/").contains { $0.hasPrefix(".") }
     }
 
+    private static func normalizedRootPrefix(for rootURL: URL) -> String {
+        let normalizedRootPath = rootURL.standardizedFileURL.path
+        return normalizedRootPath.hasSuffix("/") ? normalizedRootPath : normalizedRootPath + "/"
+    }
+
+    private static func resolvedDirectoryURL(rootURL: URL, relativeDirectory: String?) -> URL {
+        guard let relativeDirectory,
+              !relativeDirectory.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return rootURL
+        }
+        return rootURL.appendingPathComponent(relativeDirectory, isDirectory: true)
+    }
+
+    private static func preferredFileName(from rawName: String) -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = trimmed.isEmpty ? "untitled.md" : trimmed
+        let normalized = fallback
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+        return normalized.contains(".") ? normalized : normalized + ".md"
+    }
+
+    private static func preferredDirectoryName(from rawName: String) -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fallback = trimmed.isEmpty ? "untitled-folder" : trimmed
+        return fallback
+            .replacingOccurrences(of: "/", with: "-")
+            .replacingOccurrences(of: ":", with: "-")
+    }
+
+    private static func uniqueChildURL(in directoryURL: URL, preferredName: String) -> URL {
+        let preferredURL = directoryURL.appendingPathComponent(preferredName)
+        guard !FileManager.default.fileExists(atPath: preferredURL.path) else {
+            let ext = preferredURL.pathExtension
+            let stem = preferredURL.deletingPathExtension().lastPathComponent
+            var counter = 2
+            while true {
+                let candidateName: String
+                if ext.isEmpty {
+                    candidateName = "\(stem)-\(counter)"
+                } else {
+                    candidateName = "\(stem)-\(counter).\(ext)"
+                }
+                let candidateURL = directoryURL.appendingPathComponent(candidateName)
+                if !FileManager.default.fileExists(atPath: candidateURL.path) {
+                    return candidateURL
+                }
+                counter += 1
+            }
+        }
+        return preferredURL
+    }
+
     private static func sortRank(for entry: ModelVaultDocumentEntry) -> Int {
         let lowercasedPath = entry.relativePath.lowercased()
         if let index = preferredFiles.firstIndex(of: lowercasedPath) {
             return index
         }
         return entry.isHidden ? preferredFiles.count + 1 : preferredFiles.count
-    }
-}
-
-struct ModelVaultBrowserSheet: View {
-    let entry: ModelVaultEntry
-
-    @Environment(\.dismiss) private var dismiss
-    @AppStorage("notesSidebar.modelVaultBrowser.showInternalFiles") private var showInternalFiles = false
-
-    @State private var surface: ModelVaultBrowserSurface = .files
-    @State private var fileEntries: [ModelVaultDocumentEntry] = []
-    @State private var selectedRelativePath: String?
-    @State private var loadedText = ""
-    @State private var draftText = ""
-    @State private var loadError: String?
-    @State private var saveError: String?
-    @State private var saveStatus: String?
-
-    private var selectedFile: ModelVaultDocumentEntry? {
-        guard let selectedRelativePath else { return nil }
-        return fileEntries.first { $0.relativePath == selectedRelativePath }
-    }
-
-    private var hasUnsavedChanges: Bool {
-        draftText != loadedText
-    }
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                header
-                Divider()
-
-                Picker("Model Vault Surface", selection: $surface) {
-                    ForEach(ModelVaultBrowserSurface.allCases) { surface in
-                        Text(surface.title).tag(surface)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
-
-                Group {
-                    switch surface {
-                    case .files:
-                        filesSurface
-                    case .contributions:
-                        ModelInvolvementContent(modelID: entry.id)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            .navigationTitle(entry.displayName)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .frame(minWidth: 920, minHeight: 600)
-        .onAppear {
-            refreshFiles(preservingSelection: false)
-        }
-        .onChange(of: showInternalFiles) { _, _ in
-            if !showInternalFiles,
-               selectedFile?.isHidden == true,
-               hasUnsavedChanges {
-                showInternalFiles = true
-                saveError = "Save or revert your changes before hiding this internal file."
-                return
-            }
-            refreshFiles(preservingSelection: true)
-        }
-        .onChange(of: draftText) { _, newValue in
-            if newValue != loadedText {
-                saveStatus = nil
-                if saveError == "Save or revert your changes before switching files." {
-                    saveError = nil
-                }
-            }
-        }
-    }
-
-    private var header: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: entry.systemImage)
-                .font(.title2)
-                .foregroundStyle(.secondary)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.displayName)
-                    .font(.headline)
-                Text(entry.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                Text("Inspect the compiled vault, edit its live text files, and review everything this model has authored.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-            }
-
-            Spacer(minLength: 12)
-
-            VStack(alignment: .trailing, spacing: 10) {
-                Toggle("Show Internal Files", isOn: $showInternalFiles)
-                    .toggleStyle(.switch)
-                    .font(.caption)
-
-                HStack(spacing: 8) {
-                    Button("Reveal Vault") {
-                        NSWorkspace.shared.activateFileViewerSelecting([entry.url])
-                    }
-                    .buttonStyle(.bordered)
-
-                    if let selectedFile {
-                        Button("Reveal File") {
-                            NSWorkspace.shared.activateFileViewerSelecting([selectedFile.url])
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 18)
-        .padding(.bottom, 14)
-    }
-
-    private var filesSurface: some View {
-        HSplitView {
-            VStack(spacing: 0) {
-                if fileEntries.isEmpty {
-                    ContentUnavailableView(
-                        "No vault files yet",
-                        systemImage: "tray",
-                        description: Text("Rebuild this model vault to generate its compiled files.")
-                    )
-                } else {
-                    List {
-                        ForEach(fileEntries) { file in
-                            Button {
-                                selectFile(file.relativePath)
-                            } label: {
-                                HStack(spacing: 10) {
-                                    Image(systemName: file.systemImage)
-                                        .foregroundStyle(file.isHidden ? .tertiary : .secondary)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(file.displayName)
-                                            .foregroundStyle(.primary)
-                                            .lineLimit(1)
-                                        Text(file.relativePath)
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                            .lineLimit(1)
-                                    }
-                                    Spacer(minLength: 0)
-                                }
-                                .padding(.vertical, 2)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain)
-                            .listRowBackground(
-                                selectedRelativePath == file.relativePath
-                                    ? Color.accentColor.opacity(0.12)
-                                    : Color.clear
-                            )
-                        }
-                    }
-                    .listStyle(.sidebar)
-                }
-            }
-            .frame(minWidth: 250, idealWidth: 280, maxWidth: 320)
-
-            fileDetailPane
-        }
-    }
-
-    private var fileDetailPane: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let selectedFile {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(selectedFile.displayName)
-                            .font(.headline)
-                        Text(selectedFile.relativePath)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .textSelection(.enabled)
-                    }
-
-                    Spacer(minLength: 12)
-
-                    if let saveStatus {
-                        Text(saveStatus)
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-
-                    Button("Revert") {
-                        draftText = loadedText
-                        saveError = nil
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!hasUnsavedChanges)
-
-                    Button("Save") {
-                        saveSelectedFile()
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!hasUnsavedChanges || !ModelVaultBrowserStore.isEditableTextFile(selectedFile.url))
-                }
-
-                if let loadError {
-                    Text(loadError)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else if let saveError {
-                    Text(saveError)
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                } else if hasUnsavedChanges {
-                    Text("Save or revert before switching files.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                if ModelVaultBrowserStore.isEditableTextFile(selectedFile.url) {
-                    TextEditor(text: $draftText)
-                        .font(.system(.body, design: .monospaced))
-                        .scrollContentBackground(.hidden)
-                        .padding(10)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                } else {
-                    ContentUnavailableView(
-                        "Preview unavailable",
-                        systemImage: "doc",
-                        description: Text("This file type is not editable inline yet. Reveal it in Finder to inspect it with another app.")
-                    )
-                }
-            } else {
-                ContentUnavailableView(
-                    "Select a vault file",
-                    systemImage: "doc.text.magnifyingglass",
-                    description: Text("Instructions, distilled knowledge, active context, metadata, and any internal files for this model appear here.")
-                )
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color(nsColor: .windowBackgroundColor))
-    }
-
-    private func refreshFiles(preservingSelection: Bool) {
-        let nextEntries = ModelVaultBrowserStore.loadEntries(
-            rootURL: entry.url,
-            includeHidden: showInternalFiles
-        )
-        fileEntries = nextEntries
-
-        let nextSelection: String?
-        if preservingSelection,
-           let selectedRelativePath,
-           nextEntries.contains(where: { $0.relativePath == selectedRelativePath }) {
-            nextSelection = selectedRelativePath
-        } else {
-            nextSelection = nextEntries.first?.relativePath
-        }
-
-        if selectedRelativePath != nextSelection {
-            selectedRelativePath = nextSelection
-            loadSelectedFile()
-        } else if nextSelection == nil {
-            loadedText = ""
-            draftText = ""
-            loadError = nil
-            saveError = nil
-            saveStatus = nil
-        }
-    }
-
-    private func selectFile(_ relativePath: String) {
-        guard selectedRelativePath != relativePath else { return }
-        guard !hasUnsavedChanges else {
-            saveError = "Save or revert your changes before switching files."
-            return
-        }
-        selectedRelativePath = relativePath
-        loadSelectedFile()
-    }
-
-    private func loadSelectedFile() {
-        guard let selectedFile else {
-            loadedText = ""
-            draftText = ""
-            loadError = nil
-            saveError = nil
-            saveStatus = nil
-            return
-        }
-
-        do {
-            let text = try ModelVaultBrowserStore.readText(at: selectedFile.url)
-            loadedText = text
-            draftText = text
-            loadError = nil
-            saveError = nil
-            saveStatus = nil
-        } catch {
-            loadedText = ""
-            draftText = ""
-            loadError = "This file could not be decoded as plain text: \(error.localizedDescription)"
-            saveError = nil
-            saveStatus = nil
-        }
-    }
-
-    private func saveSelectedFile() {
-        guard let selectedFile else { return }
-        guard ModelVaultBrowserStore.isEditableTextFile(selectedFile.url) else { return }
-
-        if ModelVaultBrowserStore.writeText(draftText, to: selectedFile.url) {
-            loadedText = draftText
-            loadError = nil
-            saveError = nil
-            saveStatus = "Saved just now"
-        } else {
-            saveError = "Epistemos couldn't write this file."
-            saveStatus = nil
-        }
     }
 }

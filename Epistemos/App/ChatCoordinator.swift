@@ -182,12 +182,12 @@ final class ChatCoordinator {
     case .api:
       if let explicitModelLabel,
          let mappedModel = cloudModel(matchingResolvedLabel: explicitModelLabel) {
-        return (mappedModel.provider.rawValue, mappedModel.rawValue)
+        return (mappedModel.provider.rawValue, mappedModel.vendorModelID)
       }
       let fallbackSelection = inference.effectiveChatSurfaceSelection(for: operatingMode ?? .agent)
       switch fallbackSelection {
       case .cloud(let model):
-        return (model.provider.rawValue, model.rawValue)
+        return (model.provider.rawValue, model.vendorModelID)
       case .localMLX(let id):
         return ("local", id)
       case .appleIntelligence:
@@ -1790,7 +1790,7 @@ final class ChatCoordinator {
                 resolvedModelLabel: self.inferenceState
                   .effectiveModelLabel(for: effectiveOperatingMode)
               )
-              await persistCompletedMainChatTurn()
+              persistCompletedMainChatTurn()
 
             case .error(let msg):
               if chatState.completeCancelledProcessing(
@@ -1799,7 +1799,7 @@ final class ChatCoordinator {
                 resolvedModelLabel: self.inferenceState
                   .effectiveModelLabel(for: effectiveOperatingMode)
               ) {
-                await persistCompletedMainChatTurn()
+                persistCompletedMainChatTurn()
               } else {
                 chatState.addErrorMessage(
                   UserFacingChatError.message(

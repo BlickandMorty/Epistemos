@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+@MainActor
+private func makeInferenceState(keychainValues: [String: String] = [:]) -> InferenceState {
+    let store = TestKeychainStore(values: keychainValues)
+    return InferenceState(
+        keychainLoad: store.load(_:),
+        keychainSave: store.save(_:_:),
+        keychainDelete: store.delete(_:)
+    )
+}
+
 @Suite("Cloud Provider Auth Service")
 struct CloudProviderAuthServiceTests {
     @Test("Google desktop client secret JSON parses installed credentials")
@@ -77,18 +87,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
 
         #expect(inference.configuredCloudProviders.contains(.openAI))
         #expect(inference.hasConfiguredCloudModels)
@@ -129,11 +130,11 @@ struct CloudProviderAuthServiceTests {
             return (response, data)
         }
 
-        var didPersistCredential = false
+        let didPersistCredential = LockedFlag()
         let service = CloudProviderAuthService(
             keychainLoad: { _ in nil },
             keychainSave: { _, _ in
-                didPersistCredential = true
+                didPersistCredential.setTrue()
                 return true
             },
             keychainDelete: { _ in },
@@ -155,7 +156,7 @@ struct CloudProviderAuthServiceTests {
             Issue.record("Expected CloudProviderAuthError.openAIDeviceCodeTimedOut, got \(error).")
         }
 
-        #expect(!didPersistCredential)
+        #expect(!didPersistCredential.isSet)
     }
 
     @MainActor
@@ -176,18 +177,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         let session = makeURLSession { request in
             let url = try #require(request.url)
             #expect(url.path == "/backend-api/codex/models")
@@ -266,18 +258,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         let session = makeURLSession { request in
             let url = try #require(request.url)
             #expect(url.path == "/backend-api/codex/responses")
@@ -320,18 +303,9 @@ struct CloudProviderAuthServiceTests {
     @MainActor
     @Test("OpenAI API requests carry native GPT-5.4 controls for pro work")
     func openAIAPIRequestsCarryNativeGPT54ControlsForProWork() async throws {
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         inference.setChatReasoningTier(.off)
         let session = makeURLSession { request in
             let url = try #require(request.url)
@@ -372,18 +346,9 @@ struct CloudProviderAuthServiceTests {
     @MainActor
     @Test("OpenAI API pro mode ignores a saved off tier and still requests the higher reasoning route")
     func openAIAPIProModeStillRequestsHighReasoningWhenSavedTierIsOff() async throws {
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         inference.setChatReasoningTier(.off)
         let session = makeURLSession { request in
             let bodyData = try self.requestBodyData(from: request)
@@ -420,18 +385,9 @@ struct CloudProviderAuthServiceTests {
     @MainActor
     @Test("OpenAI API thinking route keeps GPT-5.4 instead of silently swapping to o3")
     func openAIAPIThinkingRouteKeepsGPT54() async throws {
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         let session = makeURLSession { request in
             let url = try #require(request.url)
             let bodyData = try self.requestBodyData(from: request)
@@ -468,18 +424,9 @@ struct CloudProviderAuthServiceTests {
     @MainActor
     @Test("OpenAI API requests omit json_object mode when web search is enabled")
     func openAIAPIRequestsOmitJSONModeWhenWebSearchIsEnabled() async throws {
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         inference.setChatReasoningTier(.off)
         inference.setStructuredJSONOutputEnabled(true)
         inference.setOpenAIWebSearchEnabled(true)
@@ -525,18 +472,9 @@ struct CloudProviderAuthServiceTests {
     @MainActor
     @Test("OpenAI structured generation drops web search when JSON schema is required")
     func openAIStructuredGenerationDropsWebSearchWhenJSONSchemaIsRequired() async throws {
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         inference.setOpenAIWebSearchEnabled(true)
 
         let session = makeURLSession { request in
@@ -606,18 +544,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         let session = makeURLSession { request in
             let url = try #require(request.url)
             #expect(url.path == "/backend-api/codex/responses")
@@ -674,18 +603,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         inference.setActiveAIProvider(.openAI)
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
         inference.setChatReasoningTier(.low, for: .agent)
@@ -746,18 +666,9 @@ struct CloudProviderAuthServiceTests {
         let encoded = try JSONEncoder().encode(credential)
         let encodedString = try #require(String(data: encoded, encoding: .utf8))
 
-        var keychainValues: [String: String] = [
+        let inference = makeInferenceState(keychainValues: [
             CloudModelProvider.openAI.oauthKeychainKey: encodedString
-        ]
-
-        let inference = InferenceState(
-            keychainLoad: { keychainValues[$0] },
-            keychainSave: { value, key in
-                keychainValues[key] = value
-                return true
-            },
-            keychainDelete: { keychainValues.removeValue(forKey: $0) }
-        )
+        ])
         let session = makeURLSession { request in
             let url = try #require(request.url)
             #expect(url.path == "/backend-api/codex/responses")
@@ -1319,7 +1230,7 @@ struct CloudProviderAgentEnvironmentTests {
         let clock = ContinuousClock()
         let start = clock.now
         let inference = InferenceState(
-            keychainLoad: { probe.load($0) },
+            keychainLoad: probe.load(_:),
             keychainSave: { _, _ in true },
             keychainDelete: { _ in },
             deferCloudCredentialBootstrapOnLaunch: true
@@ -1357,18 +1268,18 @@ struct CloudProviderAgentEnvironmentTests {
         }
     }
 
-    private final class DeferredKeychainProbe {
+    private final class DeferredKeychainProbe: @unchecked Sendable {
         private let lock = NSLock()
         private let values: [String: String]
         private let initialDelay: TimeInterval
-        private var didSleep = false
+        nonisolated(unsafe) private var didSleep = false
 
         init(values: [String: String], initialDelay: TimeInterval) {
             self.values = values
             self.initialDelay = initialDelay
         }
 
-        func load(_ key: String) -> String? {
+        nonisolated func load(_ key: String) -> String? {
             let shouldSleep: Bool
             lock.lock()
             shouldSleep = !didSleep

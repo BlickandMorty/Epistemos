@@ -589,6 +589,7 @@ struct TaggedMarkdownTextView: View {
                 .font(bodyFont)
                 .lineSpacing(bodyLineSpacing)
                 .foregroundStyle(bodyForeground)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.vertical, paragraphVerticalPadding)
                 .asciiRippleOverlay(
                     text: MarkdownRippleTextExtractor.displayText(from: text),
@@ -617,6 +618,7 @@ struct TaggedMarkdownTextView: View {
                     .lineSpacing(bodyLineSpacing)
                     .italic()
                     .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 12)
                     .asciiRippleOverlay(
                         text: MarkdownRippleTextExtractor.displayText(from: text),
@@ -642,6 +644,7 @@ struct TaggedMarkdownTextView: View {
                         ? Color.white.opacity(0.75)
                         : Color(red: 0.2, green: 0.2, blue: 0.2))
                     .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 12)
                     .padding(.vertical, language.isEmpty ? 10 : 4)
                     .padding(.bottom, language.isEmpty ? 0 : 6)
@@ -727,6 +730,7 @@ struct TaggedMarkdownTextView: View {
         .lineSpacing(bodyLineSpacing)
         .foregroundStyle(foreground)
         .strikethrough(strikethrough)
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .asciiRippleOverlay(
             text: MarkdownRippleTextExtractor.displayText(from: text),

@@ -2608,9 +2608,9 @@ struct ChatCoordinatorPersistenceTests {
         )
 
         #expect(fastAuthorship.providerID == CloudModelProvider.openAI.rawValue)
-        #expect(fastAuthorship.modelID == CloudTextModelID.openAIGPT54Mini.rawValue)
+        #expect(fastAuthorship.modelID == CloudTextModelID.openAIGPT54Mini.vendorModelID)
         #expect(agentAuthorship.providerID == CloudModelProvider.openAI.rawValue)
-        #expect(agentAuthorship.modelID == CloudTextModelID.openAIGPT54.rawValue)
+        #expect(agentAuthorship.modelID == CloudTextModelID.openAIGPT54.vendorModelID)
     }
 
     @Test("persistChatCompletion exports a vault transcript from the persisted chat state")

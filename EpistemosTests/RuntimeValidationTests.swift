@@ -2161,6 +2161,18 @@ struct RuntimeValidationTests {
         #expect(uiState.contains("\"epistemos.landingCursorAnimationEnabled\""))
     }
 
+    @Test("landing greeting rechecks window occlusion after appear so typewriter can start once the home window is key")
+    func landingGreetingRechecksWindowOcclusionAfterAppear() throws {
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let liquidGreeting = try loadRepoTextFile("Epistemos/Views/Landing/LiquidGreeting.swift")
+
+        #expect(liquidGreeting.contains("ui.activePanel == .home && !ui.windowOccluded && ui.landingGreetingTypewriterEnabled"))
+        #expect(rootView.contains(".onAppear {"))
+        #expect(rootView.contains("updateWindowOcclusion()"))
+        #expect(rootView.contains("try await Task.sleep(for: .milliseconds(150))"))
+        #expect(rootView.contains("updateWindowOcclusion()"))
+    }
+
     @Test("command palette source files are removed from the app")
     func commandPaletteSourceFilesAreRemoved() throws {
         let repoRoot = try sourceMirrorRootURL()
@@ -4452,21 +4464,18 @@ struct InferenceCloudSelectionTests {
     @Test("active AI provider scopes cloud models and remembers the last model per provider")
     func activeAIProviderScopesCloudModelsAndRemembersProviderModels() async {
         await withResetInferenceDefaults {
-            var keychainValues: [String: String] = [
+            let store = TestKeychainStore(values: [
                 CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
                 CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
                 CloudModelProvider.zai.apiKeyKeychainKey: "zai-test-key",
                 CloudModelProvider.kimi.apiKeyKeychainKey: "kimi-test-key",
                 CloudModelProvider.minimax.apiKeyKeychainKey: "minimax-test-key",
                 CloudModelProvider.deepseek.apiKeyKeychainKey: "deepseek-test-key",
-            ]
+            ])
             let inference = InferenceState(
-                keychainLoad: { keychainValues[$0] },
-                keychainSave: { value, key in
-                    keychainValues[key] = value
-                    return true
-                },
-                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
             )
 
             #expect(inference.activeAIProvider == .openAI)
@@ -4503,17 +4512,14 @@ struct InferenceCloudSelectionTests {
     @Test("cloud mode toggle keeps local-only routing explicit and restores the last cloud provider")
     func cloudModeToggleKeepsLocalOnlyRoutingExplicit() async {
         await withResetInferenceDefaults {
-            var keychainValues: [String: String] = [
+            let store = TestKeychainStore(values: [
                 CloudModelProvider.openAI.apiKeyKeychainKey: "openai-test-key",
                 CloudModelProvider.anthropic.apiKeyKeychainKey: "anthropic-test-key",
-            ]
+            ])
             let inference = InferenceState(
-                keychainLoad: { keychainValues[$0] },
-                keychainSave: { value, key in
-                    keychainValues[key] = value
-                    return true
-                },
-                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
             )
 
             #expect(inference.activeAIProvider == .openAI)
@@ -4560,14 +4566,11 @@ struct InferenceCloudSelectionTests {
     @Test("provider runtime controls and Firecrawl key persist through inference state")
     func providerRuntimeControlsAndFirecrawlKeyPersistThroughInferenceState() async {
         await withResetInferenceDefaults {
-            var keychainValues: [String: String] = [:]
+            let store = TestKeychainStore()
             let inference = InferenceState(
-                keychainLoad: { keychainValues[$0] },
-                keychainSave: { value, key in
-                    keychainValues[key] = value
-                    return true
-                },
-                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
             )
 
             #expect(inference.openAIWebSearchEnabled)
@@ -4611,14 +4614,11 @@ struct InferenceCloudSelectionTests {
     @Test("cloud setup hint shows once and stays dismissed after first-use guidance")
     func cloudSetupHintShowsOnceAndPersistsDismissal() async {
         await withResetInferenceDefaults {
-            var keychainValues: [String: String] = [:]
+            let store = TestKeychainStore()
             let inference = InferenceState(
-                keychainLoad: { keychainValues[$0] },
-                keychainSave: { value, key in
-                    keychainValues[key] = value
-                    return true
-                },
-                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
             )
 
             #expect(inference.shouldShowCloudSetupHint)
@@ -4626,12 +4626,9 @@ struct InferenceCloudSelectionTests {
             #expect(!inference.shouldShowCloudSetupHint)
 
             let reloaded = InferenceState(
-                keychainLoad: { keychainValues[$0] },
-                keychainSave: { value, key in
-                    keychainValues[key] = value
-                    return true
-                },
-                keychainDelete: { keychainValues.removeValue(forKey: $0) }
+                keychainLoad: store.load(_:),
+                keychainSave: store.save(_:_:),
+                keychainDelete: store.delete(_:)
             )
             #expect(!reloaded.shouldShowCloudSetupHint)
         }
@@ -5879,28 +5876,37 @@ struct InferenceCloudSelectionTests {
         #expect(localEntry.displayName == "Qwen 3 4B")
 
         let cloudEntry = try #require(byDirectory["gpt-5.4"])
-        #expect(cloudEntry.id == CloudTextModelID.openAIGPT54.rawValue)
+        #expect(cloudEntry.id == CloudTextModelID.openAIGPT54.vendorModelID)
         #expect(cloudEntry.displayName == "GPT-5.4")
+        #expect(cloudEntry.acceptedAuthoredModelIDs.contains(CloudTextModelID.openAIGPT54.rawValue))
     }
 
-    @Test("model involvement sheet queries the selected model id directly")
-    func modelInvolvementSheetQueriesSelectedModelIDDirectly() throws {
+    @Test("model involvement sheet accepts both current and legacy model id aliases")
+    func modelInvolvementSheetAcceptsCurrentAndLegacyModelIDAliases() throws {
         let source = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Notes/ModelInvolvementSheet.swift",
             testsFilePath: #filePath
         )
-        #expect(source.contains("_contributions = Query("))
-        #expect(source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
+        #expect(source.contains("acceptedModelIDs"))
+        #expect(source.contains("loadContributions("))
+        #expect(!source.contains("#Predicate<SDMessage> { $0.authoredByModelID == modelID }"))
     }
 
-    @Test("model vault sidebar opens a browser sheet instead of a narrow involvement-only panel")
-    func modelVaultSidebarOpensBrowserSheet() throws {
+    @Test("model vault sidebar expands inline instead of opening a browser sheet")
+    func modelVaultSidebarExpandsInline() throws {
         let source = try loadRepoTextFileWithRetry(
             relativePath: "Epistemos/Views/Notes/ModelVaultsSidebarSection.swift",
             testsFilePath: #filePath
         )
-        #expect(source.contains("@State private var selectedModel: ModelVaultEntry?"))
-        #expect(source.contains("ModelVaultBrowserSheet(entry: selection)"))
+        let browserSource = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Views/Notes/ModelVaultBrowserSheet.swift",
+            testsFilePath: #filePath
+        )
+        #expect(source.contains("@State private var expandedModelIDs: Set<String> = []"))
+        #expect(source.contains("ModelVaultSidebarRow("))
+        #expect(!source.contains("ModelVaultBrowserSheet(entry: selection)"))
+        #expect(!source.contains(".sheet(item: $selectedModel)"))
+        #expect(!browserSource.contains("struct ModelVaultBrowserSheet"))
     }
 
     @Test("model vault sidebar keeps long vault lists inside a bounded scroll region")
@@ -5911,8 +5917,8 @@ struct InferenceCloudSelectionTests {
         )
         #expect(source.contains("private static let maxExpandedListHeight: CGFloat = 320"))
         #expect(source.contains("ScrollView(.vertical)"))
-        #expect(source.contains("LazyVStack(spacing: 0)"))
-        #expect(source.contains("estimatedRowHeight"))
+        #expect(source.contains("LazyVStack(alignment: .leading, spacing: 0)"))
+        #expect(source.contains(".frame(maxHeight: Self.maxExpandedListHeight)"))
     }
 
     @Test("model vault surfaces stay aligned with the curated visible model set")

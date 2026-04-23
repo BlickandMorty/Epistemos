@@ -1879,6 +1879,14 @@ private struct RootWindowLifecycle: ViewModifier {
         content
             .onAppear {
                 updateWindowOcclusion()
+                Task { @MainActor in
+                    do {
+                        try await Task.sleep(for: .milliseconds(150))
+                    } catch {
+                        return
+                    }
+                    updateWindowOcclusion()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didMiniaturizeNotification)) { note in
                 if let w = note.object as? NSWindow, HomeWindowIdentity.matches(w) {

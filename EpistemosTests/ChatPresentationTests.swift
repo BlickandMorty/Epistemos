@@ -240,6 +240,22 @@ struct ChatPresentationTests {
     #expect(!source.contains("\"Anthropic Sans\""))
   }
 
+  @Test("process disclosure detail blocks preserve multiline tool and thinking content")
+  func processDisclosureDetailBlocksPreserveMultilineContent() throws {
+    let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ProcessDisclosureViews.swift")
+
+    #expect(!source.contains("ScrollView(.horizontal"))
+    #expect(source.contains(".fixedSize(horizontal: false, vertical: true)"))
+  }
+
+  @Test("chat markdown keeps paragraphs, lists, quotes, and code blocks vertically expanded")
+  func chatMarkdownKeepsBlocksVerticallyExpanded() throws {
+    let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/TaggedMarkdownTextView.swift")
+
+    #expect(source.contains(".fixedSize(horizontal: false, vertical: true)"))
+    #expect(source.contains("Text(code)"))
+  }
+
   @Test("main chat prompt style prefers reflective prose over outline-heavy answers")
   func mainChatPromptStylePrefersReflectiveProseOverOutlineHeavyAnswers() throws {
     let triageSource = try loadMirroredSourceTextFile("Epistemos/Engine/TriageService.swift")
@@ -529,8 +545,11 @@ struct ChatPresentationTests {
       chatViewSource.contains(
         "Text(\"After you send, this shows the notes, files, tools, and routing for that turn. Use @ or attachments to preview context first.\")"
       ))
-    #expect(bubbleSource.contains("toolSection(title: \"Input\", content: planDetail)"))
+    #expect(
+      bubbleSource.contains(
+        "ProcessDisclosureDetailBlock(title: \"INPUT\", content: planDetail, tone: detailTone)"))
     #expect(!bubbleSource.contains("toolSection(title: \"Planned Action\", content: planDetail)"))
+    #expect(!bubbleSource.contains("toolSection(title: \"Input\", content: planDetail)"))
   }
 
   @Test("chat coordinator captures final model input for direct and managed tool turns")
@@ -625,11 +644,29 @@ struct ChatPresentationTests {
     #expect(thinkingSource.contains(".frame(maxHeight: 300)"))
   }
 
+  @Test("thinking and tool surfaces share the minimal disclosure chrome")
+  func thinkingAndToolSurfacesShareTheMinimalDisclosureChrome() throws {
+    let streamingThinkingSource = try loadMirroredSourceTextFile(
+      "Epistemos/Views/Chat/ThinkingPopoverView.swift")
+    let persistedThinkingSource = try loadMirroredSourceTextFile(
+      "Epistemos/Views/Chat/ThinkingTrailView.swift")
+    let bubbleSource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/MessageBubble.swift")
+    let activitySource = try loadMirroredSourceTextFile("Epistemos/Views/Chat/LiveActivityStrip.swift")
+
+    #expect(streamingThinkingSource.contains("ProcessDisclosureHeader("))
+    #expect(!streamingThinkingSource.contains(".assistantInsetChrome("))
+    #expect(persistedThinkingSource.contains("ProcessDisclosureHeader("))
+    #expect(!persistedThinkingSource.contains(".background(.ultraThinMaterial"))
+    #expect(bubbleSource.contains("ProcessDisclosureHeader("))
+    #expect(bubbleSource.contains("ProcessDisclosureDetailBlock("))
+    #expect(activitySource.contains("ProcessDisclosureHeader("))
+  }
+
   @Test("main chat exposes a toggleable context side panel for transparency")
   func mainChatExposesAToggleableBrainSidePanelForContextTransparency() throws {
     let source = try loadMirroredSourceTextFile("Epistemos/Views/Chat/ChatView.swift")
 
-    #expect(source.contains("@State private var showBrainPanel = false"))
+    #expect(source.contains("@AppStorage(\"mainChat.showBrainPanel\") private var showBrainPanel = false"))
     #expect(source.contains("ChatBrainPanelView("))
     #expect(source.contains("chat.latestBrainSnapshot"))
     // Toolbar label uses "Context" (clear) rather than the opaque

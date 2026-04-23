@@ -11,6 +11,8 @@
 import SwiftUI
 
 struct ThinkingTrailView: View {
+    @Environment(UIState.self) private var ui
+
     let content: String
     let durationSeconds: Double?
 
@@ -21,61 +23,44 @@ struct ThinkingTrailView: View {
 
     @State private var isExpanded = false
 
+    private var theme: EpistemosTheme { ui.theme }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Header — always visible
-            Button {
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    isExpanded.toggle()
+        VStack(alignment: .leading, spacing: 8) {
+            ProcessDisclosureHeader(
+                title: "Think",
+                tone: .thinking,
+                isExpanded: isExpanded,
+                action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        isExpanded.toggle()
+                    }
                 }
-            } label: {
+            ) {
                 HStack(spacing: 6) {
-                    Image(systemName: "brain")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.purple.opacity(0.7))
-
                     Text(headerLabel)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-
+                        .font(ClaudeAppTypography.monoFont(size: 11, weight: .medium))
+                        .foregroundStyle(theme.textSecondary)
                     Text("\(wordCount) words")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.tertiary)
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .font(ClaudeAppTypography.monoFont(size: 10))
+                        .foregroundStyle(theme.textTertiary)
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
             }
-            .buttonStyle(.plain)
 
-            // Content — collapsible
             if isExpanded {
-                Divider().opacity(0.15)
+                ProcessDisclosureDivider()
 
                 ScrollView {
-                    Text(content)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(4)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
+                    ProcessDisclosureTextBlock(
+                        content: content,
+                        tone: .thinking
+                    )
+                        .padding(.top, 4)
                 }
                 .frame(maxHeight: 300)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(.purple.opacity(0.12), lineWidth: 1)
-        )
     }
 
     private var wordCount: Int {

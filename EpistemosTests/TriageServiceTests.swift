@@ -29,11 +29,11 @@ private let ggufCapableTestHardwareSnapshot = LocalHardwareCapabilitySnapshot(
 @MainActor
 private func makeIsolatedInferenceState(
     hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
-    keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
-    keychainSave: @escaping (String, String) -> Bool = { value, key in
+    keychainLoad: @escaping @Sendable (String) -> String? = { Keychain.load(for: $0) },
+    keychainSave: @escaping @Sendable (String, String) -> Bool = { value, key in
         Keychain.save(value, for: key)
     },
-    keychainDelete: @escaping (String) -> Void = { Keychain.delete(for: $0) }
+    keychainDelete: @escaping @Sendable (String) -> Void = { Keychain.delete(for: $0) }
 ) -> InferenceState {
     let defaults = UserDefaults.standard
     let savedValues = isolatedInferenceDefaultsKeys.reduce(into: [String: Any?]()) { partialResult, key in
@@ -2494,19 +2494,14 @@ struct TriageServiceIntegrationTests {
 
     @Test("cloud fallback chain starts with the active provider route and then configured backups")
     @MainActor func cloudFallbackChainOrdersConfiguredBackups() {
-        var storedValues: [String: String] = [
+        let store = TestKeychainStore(values: [
             CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
             CloudModelProvider.anthropic.apiKeyKeychainKey: "test-anthropic-key",
-        ]
+        ])
         let inference = makeIsolatedInferenceState(
-            keychainLoad: { storedValues[$0] },
-            keychainSave: { value, key in
-                storedValues[key] = value
-                return true
-            },
-            keychainDelete: { key in
-                storedValues.removeValue(forKey: key)
-            }
+            keychainLoad: store.load(_:),
+            keychainSave: store.save(_:_:),
+            keychainDelete: store.delete(_:)
         )
 
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
@@ -2654,34 +2649,29 @@ struct TriageServiceIntegrationTests {
 
     @Test("missing cloud provider keys are cached after the initial miss")
     @MainActor func missingCloudProviderKeysAreCachedAfterTheInitialMiss() {
-        var loadCounts: [String: Int] = [:]
-        var storedValues: [String: String] = [:]
+        let loadCounts = LockedStringIntMap()
+        let store = TestKeychainStore()
         let provider = CloudModelProvider.openAI
 
         let inference = makeIsolatedInferenceState(
             keychainLoad: { key in
-                loadCounts[key, default: 0] += 1
-                return storedValues[key]
+                loadCounts.increment(key)
+                return store.load(key)
             },
-            keychainSave: { value, key in
-                storedValues[key] = value
-                return true
-            },
-            keychainDelete: { key in
-                storedValues.removeValue(forKey: key)
-            }
+            keychainSave: store.save(_:_:),
+            keychainDelete: store.delete(_:)
         )
 
-        let startupLoads = loadCounts[provider.apiKeyKeychainKey, default: 0]
+        let startupLoads = loadCounts.value(for: provider.apiKeyKeychainKey)
         #expect(startupLoads >= 1)
         #expect(inference.apiKey(for: provider) == nil)
         #expect(inference.apiKey(for: provider) == nil)
-        #expect(loadCounts[provider.apiKeyKeychainKey, default: 0] == startupLoads)
+        #expect(loadCounts.value(for: provider.apiKeyKeychainKey) == startupLoads)
 
         #expect(inference.setAPIKey("test-openai-key", for: provider))
-        let loadsAfterSave = loadCounts[provider.apiKeyKeychainKey, default: 0]
+        let loadsAfterSave = loadCounts.value(for: provider.apiKeyKeychainKey)
         #expect(inference.apiKey(for: provider) == "test-openai-key")
-        #expect(loadCounts[provider.apiKeyKeychainKey, default: 0] == loadsAfterSave)
+        #expect(loadCounts.value(for: provider.apiKeyKeychainKey) == loadsAfterSave)
     }
 
     @Test("refusal detection is case-insensitive and prefix-bounded")

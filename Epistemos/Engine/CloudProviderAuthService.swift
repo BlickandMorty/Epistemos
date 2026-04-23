@@ -260,19 +260,19 @@ final class CloudProviderAuthService {
 
     private static let log = Logger(subsystem: "com.epistemos.auth", category: "CloudProviderAuth")
 
-    private let keychainLoad: (String) -> String?
-    private let keychainSave: (String, String) -> Bool
-    private let keychainDelete: (String) -> Void
+    private let keychainLoad: @Sendable (String) -> String?
+    private let keychainSave: @Sendable (String, String) -> Bool
+    private let keychainDelete: @Sendable (String) -> Void
     private let urlSession: URLSession
     private let openAISignInTimeout: Duration
     private let googleSignInTimeout: Duration
 
     init(
-        keychainLoad: @escaping (String) -> String? = { Keychain.load(for: $0) },
-        keychainSave: @escaping (String, String) -> Bool = { value, key in
+        keychainLoad: @escaping @Sendable (String) -> String? = { Keychain.load(for: $0) },
+        keychainSave: @escaping @Sendable (String, String) -> Bool = { value, key in
             Keychain.save(value, for: key)
         },
-        keychainDelete: @escaping (String) -> Void = { Keychain.delete(for: $0) },
+        keychainDelete: @escaping @Sendable (String) -> Void = { Keychain.delete(for: $0) },
         urlSession: URLSession = .shared,
         openAISignInTimeout: Duration = .seconds(90),
         googleSignInTimeout: Duration = .seconds(90)
