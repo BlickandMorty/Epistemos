@@ -358,7 +358,7 @@ struct LocalModelToolbarMenu: View {
     @Environment(LocalModelManager.self) private var localModelManager
     @State private var isPresented = false
     @State private var activeSplitPopover: SplitToolbarPopover?
-    @State private var showsLocalModels = true
+    @State private var showsLocalModels = false
     @State private var showsCloudProviderOptions = false
     @State private var showsActiveCloudModelOptions = false
     @State private var aboutSelection: ChatModelSelection?
@@ -657,6 +657,20 @@ struct LocalModelToolbarMenu: View {
         inference.setChatReasoningTier(sanitized, for: currentOperatingMode)
     }
 
+    @MainActor
+    private func syncModelPickerDisclosureState() {
+        switch selectedMenuItem {
+        case .appleIntelligence, .inProcess:
+            showsLocalModels = true
+            showsCloudProviderOptions = false
+            showsActiveCloudModelOptions = false
+        case .cloud:
+            showsLocalModels = false
+            showsCloudProviderOptions = true
+            showsActiveCloudModelOptions = true
+        }
+    }
+
     private var displayedOperatingModes: [EpistemosOperatingMode] {
         let modes = availableOperatingModes ?? inference.availableOperatingModes
         return modes.isEmpty ? [.fast] : modes
@@ -718,9 +732,14 @@ struct LocalModelToolbarMenu: View {
         }
         .task(id: inference.preferredChatModelSelection.rawValue) {
             sanitizeReleaseLocalSelectionIfNeeded()
+            syncModelPickerDisclosureState()
         }
         .task(id: currentOperatingMode?.rawValue ?? "none") {
             syncReasoningTierToDisplayedModeIfNeeded()
+        }
+        .task(id: activeSplitPopover == .model) {
+            guard activeSplitPopover == .model else { return }
+            syncModelPickerDisclosureState()
         }
     }
 
@@ -889,6 +908,7 @@ struct LocalModelToolbarMenu: View {
 
             }
         }
+        .frame(width: 320, height: 380, alignment: .topLeading)
         .popover(item: $aboutSelection) { selection in
             ModelAboutSheet(selection: selection)
         }
