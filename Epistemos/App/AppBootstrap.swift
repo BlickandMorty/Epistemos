@@ -1592,6 +1592,21 @@ final class AppBootstrap {
         // Give VaultSyncService access to EventBus for change notifications
         vaultSync.setEventBus(eventBus)
 
+        // Phase R.3 — initialize the canonical Rust `VaultResourceService`
+        // (in `agent_core::resources::bridge::resource_service_init`) as
+        // soon as we know the vault URL. This is scaffolding for the
+        // planned R.3 migrations (NoteFileStorage / VaultIndexActor /
+        // NotesSidebar read paths → unified gateway). Until those call
+        // sites migrate, this init is a no-op at the user level — but
+        // `resourceServiceIsReady()` now flips to true, which is the
+        // prerequisite for every subsequent R.3 work.
+        //
+        // Errors are logged and swallowed: we do NOT want the gateway
+        // init to crash app launch in the unlikely case of a
+        // SQLite/filesystem failure. The legacy note I/O paths
+        // continue to work regardless.
+        initializeRustResourceServiceIfReady()
+
         // Register Omega specialist agents and wire LLM planning
         orchestratorState.registerAgents(
             vaultURL: vaultSync.vaultURL,
@@ -2505,6 +2520,44 @@ final class AppBootstrap {
         inferenceState.setLocalRuntimeConditions(conditions)
         Task(priority: .utility) { [localInferenceService] in
             await localInferenceService.updateRuntimeConditions(conditions)
+        }
+    }
+
+    /// Phase R.3 boot activation — initialize the Rust
+    /// `VaultResourceService` so the canonical gateway FFI surface is
+    /// ready to be called from Swift production code. Safe to call
+    /// multiple times: a subsequent init replaces the prior service
+    /// (handy for vault-switch flows added in a later commit).
+    ///
+    /// Runs off-main via `Task.detached` because `resource_service_init`
+    /// opens SQLite synchronously (blocking I/O). Errors are logged
+    /// but never propagated — legacy note I/O paths continue to work
+    /// whether or not the gateway is ready.
+    private func initializeRustResourceServiceIfReady() {
+        guard let vaultURL = vaultSync.vaultURL else {
+            Log.app.info(
+                "R.3 gateway: skipping init — no active vault URL yet"
+            )
+            return
+        }
+        // Use a stable, filesystem-friendly vault identifier so it
+        // survives path changes from security-scoped-bookmark
+        // remapping. `lastPathComponent` is usually the vault name
+        // ("main", "Personal", etc.); fallback to "default" if empty.
+        let rawName = vaultURL.lastPathComponent
+        let vaultID = rawName.isEmpty ? "default" : rawName
+        let vaultPath = vaultURL.path
+        Task.detached(priority: .userInitiated) {
+            do {
+                try resourceServiceInit(vaultRoot: vaultPath, vaultId: vaultID)
+                Log.app.info(
+                    "R.3 gateway: ready for vault=\(vaultID, privacy: .public)"
+                )
+            } catch {
+                Log.app.error(
+                    "R.3 gateway: init failed for vault=\(vaultID, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                )
+            }
         }
     }
 
