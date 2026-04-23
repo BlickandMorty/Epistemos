@@ -1,10 +1,16 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-19 | Chat transparency sprint (Batches A-J) landed on `codex/runtime-input-audit` — routing UX, Codex cloud-quality fix, agent thinking-delta wiring, empty-stream guard, QwQ-32B flagship reasoner, effective-model badge (data + UI).
+Last updated: 2026-04-23 | Foundation fix pass Step 1 audit recorded plan drift against live runtime state.
 
 Canonical release-hardening plan:
 - `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md` is the authoritative release-focused plan that reconciles later research, blocker handoffs, and verification requirements.
 - `docs/handoffs/2026-04-20-codex-to-claude-full-thread-handoff.md` is the full-thread Claude audit handoff covering the user pain points, landed commit chain, research conclusions, verification trail, and remaining dirty state on `codex/runtime-input-audit`.
+
+## 2026-04-23 DRIFT FOUND
+- `agent_core/src/agent_loop.rs:135` runs a real multi-turn loop; the §3 "scaffold" label in `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` is stale.
+- `Epistemos/Omega/Orchestrator/OrchestratorState.swift:3` is already a UI-compatibility stub, and `submitTask` is a no-op at `Epistemos/Omega/Orchestrator/OrchestratorState.swift:37`; the §3 note that Swift `OrchestratorState` still owns orchestration is stale.
+- `agent_core/src/tools/cli_passthrough.rs:187` spawns `claude -p` with optional `--permission-mode` / `--model`, but does not pass `--bare` or `--output-format stream-json`; any plan text claiming that exact invocation is incorrect.
+- `Epistemos/Views/Chat/MessageBubble.swift:281` and `Epistemos/Views/Chat/ThinkingTrailView.swift:13` show that chat already renders `ThinkingTrailView`; the §3 event-pipeline note should be narrowed to missing live `ToolCallCard` / terminal-output UI, not reasoning disclosure as a whole.
 
 ## 2026-04-19 Reasoning Trace Continuation ✅
 - [x] `3c17ac95` — note chat now persists `thinkingTrace` / `thinkingDurationSeconds` through its SwiftData round-trip; reloading a note no longer drops the assistant's collapsible thought trail
