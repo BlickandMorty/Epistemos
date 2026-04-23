@@ -16,6 +16,9 @@
 - **2026-04-22 (v1.7):** verification pass. Fixed four internal inconsistencies: (1) §4.2 Settings pane escalation threshold now explicitly distinguishes Chat (3 hops) vs Agent (8 hops) profile to match §4.3a and Phase D; (2) §4.3 routing table "Multi-step agent" row now shows the 3-hop-for-Chat / 10-hop-for-Agent ceiling per profile; (3) §7.1 renamed "Phase I (Omega demolition)" to **"Phase Ω (Omega demolition)"** to avoid collision with the Chat/Agent fusion Phase I added in v1.3; (4) every cross-reference to "v1.5" updated to "v1.7". Inlined **three executable code primitives** previously only prosed: Rust `AgentEvent` enum + `AgentEventSink` UniFFI callback interface in new §4.6 (Phase A reference code), Rust ReAct loop template in Phase D.2 (so future sessions don't need the Claude paper), and Swift `iMessageChannel` actor skeleton in Phase K.1 (so the agent can copy-paste the right shape directly). Plan is now self-contained — no paper references required to execute any phase.
 - **2026-04-23 (v1.8):** captured real-world bugs and made them a first-class phase. Added **Phase R — Resource Runtime Hardening** (9 sub-phases: inventory, canonical ID, unified gateway, live vs snapshot attachments, permission grants, versioned+verified writes, UI grant visibility, model picker+DisclosureGroup cleanup, regression tests). Phase R is prerequisite to Phases I/J/K and runs after Phase 0 in the master sequence. Saved [docs/RESOURCE_RUNTIME_RESEARCH.md](RESOURCE_RUNTIME_RESEARCH.md) as the authoritative spec (ChatGPT-produced architectural guidance). Added **§B.4b Resource runtime drift alarms** — 8 new rules covering canonical IDs, single-gateway, explicit attachment mode, stored permission grants, verified-before-claim pipeline, note-content-is-data-not-authority, soft-delete default, real disclosure UI. Added Appendix **C.0b Phase R prompt**. These changes address the observed bugs: `gpt-5.4` vs `openai:gpt-5.4` model-ID split-brain, AI claiming writes it didn't verify (the `vault_graph.json` class), attached notes ambiguous between inline text and live file, permissions evaporating as chat text, flat lists masquerading as collapsible trees.
 - **2026-04-23 (v1.9):** fix-first discipline locked in. The user decided to stop the muddy foundation from compounding. All features (Phases A–K) remain captured in the plan for safety, but NOTHING IS BUILT until the foundation fix pass closes. Added [docs/KNOWN_ISSUES_REGISTER.md](KNOWN_ISSUES_REGISTER.md) — the canonical enumeration of every observed bug with ID, symptom, root cause, fix location, verification test. 19 issues tracked (I-001 through I-019): identity split-brain, duplicate code paths, ambiguous attachments, permissions-as-chat-text, verified-write pipeline missing, UI flat lists, Omega debt, editor doc-truth drift, Swift 6 concurrency violations, macOS 26 monitor bug. Added **Appendix E — Foundation Fix Execution Brief** — one self-contained Codex/Claude Code prompt that fixes every register issue in sequence (12 steps, commits between each). Appendix C remains for feature work; Appendix E is for the fix pass. When Appendix E closes, Phase A can start.
+- **2026-04-23 (v2.0):** deployment profile doctrine elevated to first-class governing rule per user's emphasis. §1.6 rewritten with the correct framing — **bounded vs unbounded execution**, NOT "Lite vs full" — and renamed the secondary build from "Epistemos Lite" to **"Epistemos (App Store edition)"** with an explicit identity as the *Bounded Intelligence OS*; Pro is the *Full Autonomy OS*. Added comprehensive **Appendix F — Deployment Profiles (App Store vs Pro)** with 8 sub-sections: F.1 axis framing (bounded vs unbounded), F.2 App Store capability spec (what it KEEPS — agent mode, tool calling, local + cloud models, generative UI, bounded multi-step, user-approved writes), F.3 Pro capability spec (what it ADDS — shell, Docker, CLI reuse, broad MCP, long-horizon, iMessage channel), F.4 shared-core architecture (one runtime, two `PolicyProfile` enum values), F.5 packaging strategy (Approach A recommended: two Xcode targets in one project with shared sources + different entitlements), F.6 mandatory profile-impact declaration on every PR, F.7 deployment-profile-specific drift alarms, F.8 shipping pitch for both builds. This turns "release = two builds" from a one-line verdict into a governing architecture doctrine that every phase must respect.
+- **2026-04-23 (v2.1):** App Store first, harden infinitely. User's sequencing call: MAS build is hardened *infinitely* before any Pro-only work begins. Added **§1.7 — APP STORE FIRST governing rule** explaining why (Apple is a binary gate; MAS audience is bigger and less forgiving; Pro additivity requires a solid base). Added **Phase S — App Store Readiness** to §5 with 9 sub-phases (UX polish, review-guideline audit, accessibility/localization, test expansion, performance tuning, privacy manifest, ASC setup, TestFlight beta, submit+review-response) and 6 hard exit criteria. Pro-only work explicitly **DEFERRED** until Phase S exits: Phase K (iMessage channel), Phase H (Docker), Phase D+ (Power Mode CLI subprocess activation), Phase G+ (Claude/Codex/Gemini CLI config compiler), Pro tools (Bash/MultiEdit/WebFetch). Drift alarm added: any PR building a Pro-only feature before App Store has shipped is a drift violation. "Infinite" is literal — take as long as needed. Move to Pro only when App Store is shipped, stable, and receiving positive user signal.
+- **2026-04-23 (v2.2):** live-code audit completed + two-plan doctrine instituted. Investigation ran 3 Explore agents + cargo tests (577/577 pass) + xcodebuild (BUILD SUCCEEDED) + targeted code reads. Wrote 4 new companion docs in `docs/`: (1) `AUDIT_REFLECTION_2026_04_23.md` — the live-code reconciliation with verified issue statuses + drift corrections; (2) `DEAD_CODE_CLEANUP_ANALYSIS.md` — ARCHIVE/DELETE/KEEP decision table + executable cleanup script; (3) `BUILD_TEST_GREEN_BASELINE.md` — verified green baseline snapshot; (4) `CODE_EDITOR_POLISH_SCOPE.md` — Phase S editor polish scope (4 items, ~2 days). Updated **Appendix D bootstrap prompt** to require BOTH plans on every session: PRIMARY = this file (architectural target), SECONDARY = `AUDIT_REFLECTION_2026_04_23.md` (live-code state). Updated **§0.4 Document Map** with the new companion docs. Key verified facts: I-015 (Omega orchestrator debt) ALREADY FIXED — `OrchestratorState.swift` L4 comment explicitly says "retired in favor of Rust agent_core"; agent_coreFFI IS linked (Codex audit was wrong on this); cloud agent is production via `runAgentSession`; 1,854 lines of `agent_core/src/resources/` exist but have zero Swift callers (Phase R.2+ is UniFFI-export work, not greenfield).
 
 ## 0.4 Document Map — where everything lives
 
@@ -27,8 +30,14 @@ Any session (human, Claude Code, Codex, ChatGPT) should be able to navigate this
 |---|---|---|
 | `CLAUDE.md` (repo root) | Non-negotiable project rules, stack map, hard NO's | Always, first |
 | `~/.claude/projects/-Users-jojo-Downloads-Epistemos/memory/MEMORY.md` | Auto-memory index (user profile, pinned feedback, accumulated context) | Always, second (auto-loaded by Claude Code) |
-| `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` (THIS DOC) | v1.7 synthesized plan — 12 phases, 4 appendices, drift-proof, code-snippet-inlined | Any agent/runtime/settings/chat/graph/memory/iMessage work |
+| `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` (THIS DOC) | v2.2 synthesized plan — PRIMARY canonical. 12 phases, 6 appendices, drift-proof, code-snippet-inlined | Any agent/runtime/settings/chat/graph/memory/iMessage work |
+| **`docs/AUDIT_REFLECTION_2026_04_23.md`** | **SECONDARY must-also-read.** Live-code reconciliation of this plan; verified issue statuses; 3-part execution restructuring | Always, alongside this plan |
 | `docs/AGENT_PROGRESS.md` | Live state: what's done, what's in progress | Always, third |
+| `docs/KNOWN_ISSUES_REGISTER.md` | 19+ bugs with fix locations; cross-referenced by AUDIT_REFLECTION §2 | Before Phase R or any bug-fix PR |
+| `docs/RESOURCE_INVENTORY.md` | Phase R.1 line-level map of every note-lookup / write / attachment / permission codepath | Before Phase R.2+ execution |
+| `docs/BUILD_TEST_GREEN_BASELINE.md` | Cargo 577/577, xcodebuild SUCCEEDED baseline as of 2026-04-23 | When verifying regression |
+| `docs/CODE_EDITOR_POLISH_SCOPE.md` | Phase S editor polish scope (gutter, debounce, outline cache, viewport) | Phase S editor work |
+| `docs/DEAD_CODE_CLEANUP_ANALYSIS.md` | ARCHIVE/DELETE/KEEP decision table + executable cleanup script | Repo cleanup pass |
 
 ### Research docs (read when touching the referenced surface)
 
@@ -178,6 +187,128 @@ Implement this by always spawning `claude -p` with the `--bare` flag so Epistemo
 Ship Epistemos as Developer ID notarized, no App Sandbox. Optionally ship Epistemos Lite on MAS for trial acquisition. Do not fight Apple's rules — the industry converged on this posture because it is the only one that works.
 
 **Consensus note:** Claude paper called this first. GPT paper touched it briefly. Perplexity paper didn't address it. Gemini paper v1 hand-waved; **Gemini paper v2 explicitly agrees: "you must abandon the Mac App Store … You will sign with your Apple Developer ID and use Apple Notarization with the Hardened Runtime. This is the exact path taken by Cursor, VS Code, and Obsidian."** All four models now converge.
+
+### 1.7 Sequencing — APP STORE FIRST, HARDEN INFINITELY, THEN PRO (governing rule)
+
+**User decision 2026-04-23:** the App Store build is hardened **first**, **infinitely**, **before any Pro-only feature work begins.** This rule supersedes any prior ordering implications. It is the single most important sequencing constraint in this plan.
+
+**Why this ordering:**
+
+1. **App Store approval is a binary gate.** Apple either accepts or rejects. Any single uncaught bug, unclear UX path, mis-worded permission prompt, or review-guideline edge case can block release for weeks. Pro has no gatekeeper — it ships when you decide it ships.
+2. **App Store users are less forgiving and more diverse.** Pro's target audience is power users who tolerate rough edges; App Store's audience includes casual users, privacy-conscious users, and reviewers who stress-test unusual flows. Every UX wart affects a bigger audience.
+3. **App Store is your foundation brand.** The first impression Apple users have of Epistemos is the MAS build. A polished App Store release sets the product identity for the whole ecosystem; a rushed one taints it.
+4. **Pro-only features are additive on top of a rock-solid App Store base.** If Phase K (iMessage channel) or Phase H (Docker) had shipped first, and the App Store foundation later showed resource-runtime bugs, you'd have to re-harden twice. Starting App-Store-first means every hardening dollar lands in the build that needs it most — and Pro inherits the hardening for free when it's built on top.
+5. **"Infinite" is literal, not hyperbole.** Take as long as needed. Polish every UX detail, test every edge case, bulletproof every error path, clear every App Store review language check, run TestFlight cycles until real users report "feels solid." Do not move to Pro-only features because you're bored with hardening. Move when App Store is **shipped, stable, and receiving positive user feedback.**
+
+**What this changes about execution order:**
+
+The master sequence now has an explicit App Store Release milestone between feature phases and Pro-only work:
+
+```
+Phase 0 — Live audit (read-only)
+Phase R — Resource runtime hardening (Appendix E — fixes 19 bugs)
+Phase A — Event streaming pipeline   ┐
+Phase B — Intelligence settings       │
+Phase C — Provider discovery          │  Feature phases — all compile in
+Phase D — Qwen three-tier (local)     │  App Store build. Pro-only pieces
+Phase I — Chat/Agent mode fusion      │  of Phase D (Power Mode CLI
+Phase J — Unified graph + memory      │  subprocess) deferred until after
+Phase E — Schema-driven generative UI │  App Store ships.
+Phase F — MCP dual role (HTTP only)   │
+Phase G — Project manifest (App       │
+          Store subset: vault +       │
+          internal MCP only)          ┘
+Phase S — APP STORE READINESS ← NEW, intensive, open-ended duration
+├─ S.1 Polish pass (every UX edge case, every error path, every approval
+│        modal, every empty state, every permission prompt)
+├─ S.2 Review-guideline compliance audit (App Sandbox entitlements,
+│        no-downloaded-code verification, Apple privacy manifests,
+│        sensitive-permission prompts all correctly worded)
+├─ S.3 Accessibility + localization pass (VoiceOver, Dynamic Type,
+│        right-to-left, first-tier locales)
+├─ S.4 Test breadth expansion (beyond 2,679 — add App Store-specific
+│        bounded-agent integration tests, sandbox-container filesystem
+│        tests, security-scoped bookmark round-trips)
+├─ S.5 Performance + memory tuning (launch time, 10-minute-session
+│        memory watermark, MLX model load/swap under memory pressure)
+├─ S.6 Privacy posture (App Privacy details in App Store Connect,
+│        data-collection disclosures, network-usage reasoning)
+├─ S.7 App Store Connect setup (screenshots, description, keywords,
+│        support URL, privacy policy URL, metadata localization)
+├─ S.8 TestFlight beta (external testers, feedback-response cycles
+│        until "feels solid" is unanimous, fix all reported issues)
+└─ S.9 Submit + review response (handle Apple review feedback with
+       short turnaround; defer Pro-only work until accepted)
+
+🏁 App Store Release ← MILESTONE — MAS build ships, receives positive signal
+
+Phase Ω   — Omega demolition (if not completed earlier)
+Phase D+  — Power Mode activation (CLI subprocess piggyback, Pro only)
+Phase H   — Optional Docker sandbox (Pro only)
+Phase K   — iMessage channel + workspace dispatch (Pro only)
+Phase G+  — Full CLI config compiler (Claude/Codex/Gemini CLI, Pro only)
+Pro tools — Bash (destructive), MultiEdit, WebFetch, long-horizon agents
+
+🏁 Pro Release ← second milestone
+```
+
+**The Pro-only deferred list (DO NOT build until App Store ships):**
+
+- Phase K (iMessage channel) — requires AppleScript + SQLite polling of user's `chat.db` — incompatible with App Sandbox.
+- Phase H (Docker sandbox) — requires Docker binary subprocess invocation — incompatible with App Sandbox.
+- Phase D's Power Mode CLI subprocess piggyback — requires spawning `claude -p`, `codex exec`, `gemini -p` — incompatible.
+- Phase G's full CLI config compiler — only the App-Store-relevant subset (Epistemos's own MCP + vault config) lands first; `.claude/config.toml`, `.codex/config.toml`, `.gemini/settings.json` emission deferred to Phase G+.
+- Pro-only tools: `Bash` (destructive mode), `MultiEdit`, `WebFetch`, long-horizon background agents, stdio MCP servers.
+- Workspace-scoped dispatch profiles (the OpenClaw pattern) — deferred until Phase K arrives.
+
+**What survives into App Store:** everything App Store can keep per §F.2 — chat + bounded agent mode, tool calling (curated allowlist), local + cloud models (API keys only, no CLI), generative UI, planner/scratchpad/todo, graph + vault + note ops, internal MCP-style tools, user-approved destructive actions, schema-driven UI, session persistence, checkpoint/resume within bounded runs.
+
+**Drift alarm (added to Appendix B §B.4c):** any PR that builds a Pro-only feature **before App Store has shipped** is a drift violation. The PR gets rejected with: "App Store hardening incomplete. Return to Phase S sub-phases."
+
+**This is not a time-box.** Phase S runs until the following exit criteria are met:
+
+1. ✅ All 19 issues in `docs/KNOWN_ISSUES_REGISTER.md` resolved (from Phase R).
+2. ✅ Full 2,679-test suite passes + all S.4 App-Store-specific tests added.
+3. ✅ MAS build archives cleanly with `codesign -d --entitlements - <app>` showing App Sandbox YES, no `com.apple.security.cs.allow-unsigned-executable-memory`.
+4. ✅ TestFlight beta has ≥10 external testers, ≥2 full TestFlight cycles, zero critical open bugs.
+5. ✅ App Store Connect submission passes automated review + manual review, app is live on MAS.
+6. ✅ First 48 hours post-launch: no crash spike, no critical user-reported bug, App Store rating ≥4.5 stars (or equivalent signal).
+
+Only when all 6 are ✅ does Pro work begin.
+
+### 1.6 Release strategy — ONE CODEBASE, TWO BUILDS, TWO POLICY PROFILES (governing rule)
+
+**This is first-class architectural doctrine** — elevated because the user flagged it as defining how the codebase is organized and how every subsequent decision gets made.
+
+**The correct framing (not "Lite vs full"):** the split is **bounded execution vs unbounded execution**, not features-vs-fewer-features. The App Store build is a **real product** — not a marketing shell — with its own identity as a bounded, review-safe AI workspace. The Pro build is the full-autonomy execution environment (the Claude-Code / Codex competitor).
+
+**Two named builds from one source tree:**
+
+| Build | Name | Distribution | Cargo / entitlement | Product identity |
+|---|---|---|---|---|
+| **App Store** | `Epistemos` (MAS) | Mac App Store, App Sandbox, Notarized | `--features mas-sandbox` + `com.apple.security.app-sandbox` | **Bounded Intelligence OS** — a polished native AI research + PKM workspace that can think, plan, and act safely within its domain |
+| **Pro** | `Epistemos Pro` (direct download) | Developer ID + Hardened Runtime + Notarization, direct download | default features + no App Sandbox | **Full Autonomy OS** — a superpowered Claude-Code/Codex-class agent workspace with shell, Docker, CLI reuse, broad MCP, long-horizon workflows |
+
+**One runtime. Two policy profiles. Same brain, different permissions.**
+
+Full deployment-profile spec lives in [Appendix F — Deployment Profiles](#appendix-f--deployment-profiles-app-store-vs-pro). What follows here is the governing rule; §F is the detailed capability matrix.
+
+**Governing rules for every feature:**
+
+1. **Build on one runtime, gate capabilities by profile.** No forking. No parallel implementations. Every Rust module and Swift file compiles in BOTH builds. Capability differences enforced via `#[cfg(feature = "mas-sandbox")]` compile-time gating AND runtime `PolicyProfile` checks.
+2. **Every PR must declare its profile impact.** One line in the PR description: `App Store: [same | reduced to X | excluded]`. PR without this line fails review.
+3. **App Store is never "crippled."** Agent mode stays. Tool calling stays. Local + cloud models stay. Generative UI stays. Planner / scratchpad / todo UIs stay. The App Store user gets a real, useful, bounded AI workspace — not a chat-only demo.
+4. **Pro is never held back for App Store's sake.** Pro gets shell, Docker, CLI reuse, broad MCP, long-horizon autonomy, background agents, repo-wide workflows — full power. No App Store constraint slows Pro's feature velocity.
+5. **CI tests both builds.** Build matrix runs `cargo build --features mas-sandbox` AND default. Any PR that breaks either blocks merge.
+6. **Hard Apple constraints for App Store (non-negotiable):** no arbitrary shell, no Docker dependency, no spawning external/npm-installed CLIs, no downloaded code execution that changes app functionality, no dynamic plugin installation, no system-wide silent filesystem access. These are Apple review-guideline hard limits — not design choices.
+
+**Analogous release pattern:** **Obsidian**. One codebase; App Store build with restricted features; direct-download build with full features. Same product identity; different capability envelopes. **Epistemos is architecturally most like Obsidian's pattern.** Cursor / Zed / Warp ship direct-only (no MAS); Epistemos explicitly chooses the Obsidian pattern to capture both audiences.
+
+**Drift alarm (added to Appendix B §B.4c):** any feature that lands without an explicit profile-gate and without CI coverage for both builds is a drift violation.
+
+**When the split is physical (release packaging):** addressed in §F.5 — one repo, one shared core, deploy via either (a) two targets in the same Xcode project with different bundle IDs + entitlements, (b) separate Xcode projects sharing the Rust core via Swift Package Manager, or (c) one project with a scheme-per-build. Decision deferred until post-Phase G; research captured in §F.5.
+
+**This is NOT something you build now as a phase.** It's a doctrine that shapes every phase in §5. The actual build-matrix split lands as part of **release prep** (after Phase G, before public launch). Until then, every feature is designed with the profile-gate question asked and answered in its PR description.
 
 ---
 
@@ -1625,7 +1756,115 @@ Materialization targets on session boot (per research §6.4 regeneration policy)
 
 **NOT in scope:** MCP Apps UI resources (SEP-1865) — tool-level text fallback ships in v1; iframe UI resources deferred to v2.
 
-### Phase H — Optional Docker sandbox (2–3 days, gated behind user toggle)
+### Phase S — App Store Readiness (open-ended, 2026-04-23 onward) — NEW in v2.1
+
+**This is the most important phase in the plan after the fix pass.** Per §1.7 governing rule, no Pro-only feature is built until Phase S completes and the App Store build is **shipped, stable, and receiving positive signal.** Take as long as needed.
+
+**Prerequisite:** all feature phases that survive into App Store (A, B, C, D-local-tier-only, I, J-App-Store-compatible, E, F-HTTP-only, G-App-Store-subset) complete. Then Phase S begins.
+
+**Sub-phases (S.1 through S.9 — sequential, each with its own verification gate):**
+
+#### S.1 — UX polish pass (1–2 weeks)
+Walk every user-facing surface and polish edge cases. Empty states, error states, loading states, permission prompts, approval modals, settings panes, onboarding flow, first-run experience. Every button reachable in ≤2 clicks. Every error message actionable. Every setting has a tooltip or inline explanation.
+
+Verification: dogfooding checklist — spend 2 hours/day using the app as a real user for 2 weeks. Log every friction point. Close every logged item.
+
+#### S.2 — App Store review-guideline compliance audit (3–5 days)
+Apple's review guidelines checklist per [developer.apple.com/app-store/review/guidelines](https://developer.apple.com/app-store/review/guidelines/):
+- App Sandbox entitlements verified (`codesign -d --entitlements -`).
+- No downloaded executable code (skills that ship `scripts/` shell commands disabled in App Store build).
+- `NSPrivacyCollectedDataTypes` manifest entries correct in App Privacy section.
+- Sensitive-permission prompts (microphone, contacts, file access) use plain-language reasoning strings.
+- Crash-reporting + analytics opt-in.
+- Account deletion path (if any user account exists).
+- In-app purchase compliance (if you add one later — not in MVP).
+
+Verification: full guideline checklist annotated with live evidence (entitlements file, screenshot of permission prompt, etc.). Zero open concerns.
+
+#### S.3 — Accessibility + localization pass (1 week)
+- VoiceOver: every UI element has `accessibilityLabel` + `accessibilityHint` + `accessibilityValue` where applicable. Test with VoiceOver enabled end-to-end.
+- Dynamic Type: UI scales from `xSmall` to `accessibility5`. No clipped text.
+- Keyboard navigation: every interactive element reachable via Tab.
+- Reduce Motion: honor `UIAccessibility.isReduceMotionEnabled` (no RepeatForever animations without check).
+- Right-to-left: layout mirrors correctly in Arabic/Hebrew locales.
+- First-tier locales: English, Spanish, French, German, Japanese, Simplified Chinese localized (even if just navigation + error messages — defer full content localization to post-launch).
+
+Verification: accessibility audit via Xcode Accessibility Inspector — zero warnings.
+
+#### S.4 — App Store-specific test expansion (1–2 weeks)
+Beyond the 2,679 test suite, add:
+- Bounded-agent integration tests: agent loop terminates at 6/10/max step ceiling, never exceeds.
+- Sandbox-container filesystem tests: all file I/O stays within container or user-granted security-scoped bookmarks. Attempting write outside returns `FileAccessDenied`.
+- Security-scoped bookmark round-trip tests: attach vault, close app, reopen, verify access still works. Sandbox renewal patterns hold.
+- Profile-gate compile-time tests: `cargo build --features mas-sandbox` compiles. Every `Capability::{ArbitraryShell, DockerExec, ...}` returns `false` from `PolicyProfile::AppStore.allows()`.
+- Review-workflow end-to-end: launch-to-first-chat-with-local-model flow completes in <15s on M2 baseline, with no network access.
+
+Verification: expanded suite runs in CI; all pass.
+
+#### S.5 — Performance + memory tuning (1 week)
+- App launch time: <2s on M2 baseline (cold); <500ms warm.
+- 10-minute chat session with local Qwen: memory watermark <4GB total app RSS.
+- MLX model load/swap under memory pressure: low-memory handler kicks in, app stays responsive.
+- Scroll FPS: 60fps in large vaults (10K+ notes) on M2 baseline; 120fps on ProMotion.
+- First-paint time after note open: <150ms for 10KB notes, <500ms for 100KB notes.
+
+Verification: Instruments profile per metric. All targets met.
+
+#### S.6 — Privacy posture + App Privacy manifest (3–5 days)
+App Store Connect requires `NSPrivacyCollectedDataTypes` (or Privacy Manifest file per [Apple's 2024 requirement](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files)):
+- Declare every data type collected (none by default — all data stays local except API calls).
+- Justify network usage per API endpoint (Claude / OpenAI / Gemini / Perplexity endpoints each get a reason).
+- No tracking identifiers (zero ad SDK, zero analytics that persist beyond session).
+- On-device-only models clearly stated in description + privacy policy.
+- Explicit "what leaves your Mac" summary in Settings → Privacy pane.
+
+Verification: App Privacy section in App Store Connect filled in; privacy policy URL live; Settings → Privacy pane matches.
+
+#### S.7 — App Store Connect setup (2–3 days)
+- Bundle ID registered: `com.epistemos.Epistemos` (MAS) and `com.epistemos.Epistemos.Pro` reserved.
+- App icon + launch screen finalized (native macOS look).
+- Screenshots captured for every required size (Intel Mac, Apple Silicon Mac, multiple resolutions).
+- Description + keywords written (per §F.8 shipping pitch).
+- Support URL, privacy policy URL, marketing URL all live.
+- First-release version number + build number set.
+- TestFlight groups configured.
+
+Verification: ASC submission preview passes all required-field checks.
+
+#### S.8 — TestFlight beta (4–8 weeks, OPEN-ENDED)
+External testers (minimum 10, target 25–50) get the build via TestFlight. Feedback cycles:
+- Every reported issue categorized (critical / major / minor / enhancement).
+- Every critical + major issue fixed before moving to next beta round.
+- Minimum 2 full TestFlight rounds with zero critical open bugs in the final round.
+- Beta-tester feedback form with NPS-style "would you recommend" + open-comment field.
+- Apple device matrix: Intel Mac (x86_64), Apple Silicon M1/M2/M3/M4, macOS versions 14, 15, 26 (current stable).
+
+**Do not advance to S.9 until tester consensus is "feels solid."**
+
+Verification: TestFlight analytics + feedback log + issue tracker — all critical/major issues closed.
+
+#### S.9 — Submit + review response (1–4 weeks, depends on Apple)
+- Submit build to App Store review.
+- Respond to any Apple review feedback within 24 hours.
+- If rejected: immediately log the rejection reason as a new `I-xxx` in `KNOWN_ISSUES_REGISTER.md`, fix, resubmit.
+- Repeat until accepted.
+
+Verification: app is live on Mac App Store. First 48 hours post-launch tracked: crash rate, rating, reviews, bug reports.
+
+**Phase S EXIT CRITERIA (all 6 must be ✅ before Pro work begins):**
+
+1. All 19 issues in `docs/KNOWN_ISSUES_REGISTER.md` resolved.
+2. Full test suite (2,679 + S.4 additions) passes in CI.
+3. MAS entitlements verified via `codesign -d --entitlements -`.
+4. TestFlight ≥10 external testers, ≥2 full cycles, zero critical open bugs.
+5. App Store Connect submission accepted, app is live.
+6. First 48 hours post-launch: no crash spike, no critical user bug, rating signal positive.
+
+**When all 6 are ✅, and not before, Pro-only work (Phase Ω, Phase D+, Phase H, Phase K, Phase G+, Pro tools) begins.**
+
+---
+
+### Phase H — Optional Docker sandbox (2–3 days, gated behind user toggle, **PRO-ONLY, DEFERRED per §1.7**)
 
 **Deliverable:**
 1. `bollard` + the Gemini paper's container posture (`readonly_rootfs`, `--network=none` after init, ephemeral containers per session).
@@ -2721,11 +2960,18 @@ If Claude Code produces output that violates Appendix B's pinned facts (e.g., pu
 
 ---
 
-## Appendix D — New Session Bootstrap Prompt (canonical as of 2026-04-22)
+## Appendix D — New Session Bootstrap Prompt (canonical as of 2026-04-22, amended 2026-04-23)
 
 Copy the prompt below verbatim into any new Claude Code / Codex / Claude web / ChatGPT session working on Epistemos. It is intentionally short so a smaller model (Qwen3-4B, Haiku, Gemini Flash) can also execute it. It loads only the docs that matter for the current task.
 
-**Supersession note:** this prompt supersedes [docs/MASTER_SESSION_PROMPT.md](MASTER_SESSION_PROMPT.md) (dated 2026-03-30). MASTER_SESSION_PROMPT remains useful as historical record of what was built before 2026-04-22 (OpenClaw safety work, FFI hardening, MCP bridge, etc.) — consult it only when you need to confirm "was X already built before 2026-04-22?" For all new work, Appendix D + the relevant phase prompt from Appendix C is the canonical entry point.
+**Two-plan doctrine (added 2026-04-23):** every session reads BOTH planning documents:
+
+1. **PRIMARY / canonical:** this file — `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`. It is the architectural source of truth, the research-backed spec, the phased roadmap, the drift alarms, the executable phase prompts.
+2. **SECONDARY / second-opinion (MUST ALSO READ):** `docs/AUDIT_REFLECTION_2026_04_23.md`. It is the live-code reconciliation of this plan against the actual Epistemos codebase on 2026-04-23. It corrects prior audit claims, marks issue statuses with code evidence, identifies confirmed-open vs confirmed-fixed bugs, and restructures execution around the user's 3-part vision (Fixes/Hardening → App Store polish → Pro).
+
+Neither doc alone is sufficient. The primary plan tells you what SHOULD be; the secondary tells you what IS. Treat contradictions as evidence the primary plan needs an amendment — not as a license to ignore the primary's architecture.
+
+**Supersession note:** this prompt supersedes [docs/MASTER_SESSION_PROMPT.md](MASTER_SESSION_PROMPT.md) (dated 2026-03-30). MASTER_SESSION_PROMPT remains useful as historical record of what was built before 2026-04-22.
 
 **Interaction with Appendix C:** Appendix D defines the BASE context load for any session. Appendix C defines PHASE-SPECIFIC extensions. When executing a phase, run Appendix D's prompt first, then append the relevant Appendix C phase prompt. Do not duplicate the always-load files or the drift alarms across the two.
 
@@ -2748,17 +2994,37 @@ work.
    only if the task is in that memory's scope.
 3. Read docs/AGENT_PROGRESS.md — what's done, what's next. Treat this as
    ground truth over planning docs.
+4. **TWO-PLAN REQUIREMENT — read BOTH before any work:**
+   - **PRIMARY:** docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md — the canonical
+     research-backed spec (this file). Architectural source of truth.
+   - **SECONDARY (must-also-read):** docs/AUDIT_REFLECTION_2026_04_23.md —
+     live-code reconciliation of the primary plan. Second-opinion status
+     for every issue, drift corrections, user's 3-part execution vision.
+   If they disagree: the PRIMARY defines the architectural TARGET, the
+   SECONDARY tells you what the code looks like RIGHT NOW. Contradictions
+   mean the primary needs an amendment, not that you ignore it.
 
 ## 2. Task-scoped (read only what applies)
 
 - Agent runtime / routing / providers / settings work →
   docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §4-5 + Appendix B (anti-drift)
   + Appendix C (executable build brief for your phase).
+- Resource identity / gateway / permissions / verified writes (Phase R) →
+  docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R + Appendix E (fix
+  brief) + docs/AUDIT_REFLECTION_2026_04_23.md §2 (issue statuses) +
+  docs/RESOURCE_INVENTORY.md (line-level codepath map).
 - CLI config compilation (CLAUDE.md / .claude / .codex / .gemini / .mcp.json) →
   docs/CLI_CONFIG_COMPILATION_RESEARCH.md (authoritative spec).
 - Chat/Agent mode UX fusion →
   docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §4.3a + Phase I.
-- Code editor / syntax / BoltFFI / graph → docs/PLAN_V2.md §22-25.
+- Code editor / syntax / BoltFFI / graph → docs/PLAN_V2.md §22-25 AND
+  docs/CODE_EDITOR_POLISH_SCOPE.md (Phase S polish scope for App Store).
+- Cleanup / dead-code decisions →
+  docs/DEAD_CODE_CLEANUP_ANALYSIS.md (decision table + reversible script).
+- Known bugs register → docs/KNOWN_ISSUES_REGISTER.md +
+  docs/AUDIT_REFLECTION_2026_04_23.md §2 (verified statuses with code
+  evidence).
+- Build / test baseline → docs/BUILD_TEST_GREEN_BASELINE.md.
 - Sprint-specific work → docs/sprint-sessions/<current-sprint>.md.
 
 ## 3. Vendor docs (ONLY if §1+§2 don't answer a specific question)
@@ -3102,4 +3368,270 @@ Appendix C remains the canonical per-phase brief for feature work. Appendix E is
 
 ---
 
-**End of implementation plan v1.9.** Fix-first discipline locked in. Foundation hardens via Appendix E. Features build on top via Appendix C.
+**End of implementation plan v1.9 fix execution brief.**
+
+---
+
+## Appendix F — Deployment Profiles (App Store vs Pro)
+
+**Added in v2.0 (2026-04-23).** Authoritative capability matrix for the two builds. Every Rust module and Swift file in the codebase compiles in BOTH builds; differences are enforced at compile-time (Cargo features + `#if` in Swift) AND at runtime (`PolicyProfile` active policy).
+
+### F.1 — The axis: bounded vs unbounded execution
+
+**Not "features vs fewer features." Not "chat vs agent." Not "basic vs advanced."**
+
+The axis is **bounded vs unbounded execution**: what the runtime can touch and with what autonomy.
+
+| | App Store (bounded) | Pro (unbounded) |
+|---|---|---|
+| Identity | Bounded Intelligence OS | Full Autonomy OS |
+| Agent mode | Yes, bounded (≤6–10 steps) | Yes, unrestricted |
+| Tool calling (local + cloud) | Yes, curated allowlist | Yes, full catalog + user-defined |
+| Local models (MLX/Qwen) | Yes | Yes |
+| Cloud models (API) | Yes | Yes |
+| Generative UI (A2UI schema) | Yes, full | Yes, full |
+| Graph + vault + note ops | Yes | Yes |
+| Scratchpad / todo / planner | Yes | Yes |
+| Arbitrary shell (Bash tool) | **No** | Yes |
+| Docker / devcontainer | **No** | Yes, opt-in |
+| External CLI reuse (claude/codex/gemini CLI) | **No** | Yes (Power Mode) |
+| stdio MCP servers | **No** (HTTP/SSE only) | Yes |
+| Full-system filesystem | **No** (container + user-picked) | Yes (with user permission) |
+| Long-horizon background agents | **No** | Yes |
+| Dynamic plugin / tool install | **No** | Yes |
+| iMessage channel (Phase K) | **No** | Yes |
+| Downloaded code execution | **Never** | Never (Apple rule or not, this stays false) |
+
+**The App Store build is not a gutted demo.** Read the "Yes" column — it's a real, capable product. The "No" column is only the unbounded-execution surface.
+
+### F.2 — App Store profile — the Bounded Intelligence OS
+
+**What it keeps (the full list — this is the selling pitch):**
+- Chat mode + Agent mode (bounded, max 6–10 steps, approval-gated destructive actions).
+- Task classification + router + provider matrix (local vs cloud routing).
+- Local MLX-based models (Qwen 3.5 4B, Apple Foundation Models on macOS 26+).
+- Cloud models via API (Claude, OpenAI, Gemini — user-provided API keys).
+- Structured tool calling with typed schemas.
+- Internal tool registry: read_note, write_note, search_vault, edit_document, graph_query, summarize_selection, rewrite_selection, link_notes, task_create, task_update, daily_note, backlinks/frontlinks, embed_search.
+- Generative UI (A2UI-compatible SwiftUI palette).
+- Knowledge graph + unified chat indexing (Phase J applies with sandbox-compatible storage).
+- Vault memory system + per-model native memory folders (Phase J.2 — App Store version uses sandbox container for `~/.epistemos/memory/`).
+- Permission grant system with UI visibility (Phase R.5 + R.7).
+- Session persistence, checkpoint/resume.
+- Workbench (Phase I.4) — exposed in dev builds only via `EPISTEMOS_SHOW_WORKBENCH=1`.
+
+**What it cannot have (Apple review-guideline hard limits, from §1.1 + App Sandbox spec):**
+- Arbitrary shell execution (no `Bash` tool in destructive mode; allowed: read-only `git status`/`git diff`/`git log` via a constrained `GitReadOnly` tool variant).
+- Docker or container orchestration.
+- External CLI subprocess (no `claude -p`, no `codex exec`, no `gemini -p` spawn).
+- npm / Homebrew / pip / cargo CLI invocation.
+- stdio MCP servers (sandboxed subprocess with stdio IPC breaks App Sandbox).
+- Dynamic code download + execution (downloaded skills that install tool code at runtime — blocked).
+- System-wide silent filesystem access (only app container + explicitly user-selected folders via NSOpenPanel).
+- Long-running background daemons outside app lifecycle.
+
+**File access pattern:**
+- Default scope: app container (`~/Library/Containers/com.epistemos.Epistemos/Data/`).
+- User-selected vaults: via `NSOpenPanel` with security-scoped bookmarks (persisted across app launches per Apple's sandboxed file-access docs).
+- Code files: user attaches via Finder drag or file-picker; the attached file becomes a `Live` resource with `[Read, Write]` capabilities (Phase R.4) within its security-scoped bookmark.
+
+**Agent loop constraints (enforced by `PolicyProfile::AppStore`):**
+- `max_steps: 6` (configurable up to 10 by user in Settings, never higher).
+- No background execution (turn completes before user leaves the chat, or checkpoints and asks on return).
+- Every destructive tool call gates on user approval (T3 tier from §A.8).
+- Validator failure escalates to "please confirm" modal, never retries silently.
+- Budget cap enforced as hard stop, not soft.
+
+**Provider list (App Store profile):**
+- Local: Qwen 3.5 4B MLX (bundled), Apple Foundation Models (macOS 26+ native, zero install).
+- Cloud: Claude API (user key), OpenAI API (user key), Gemini API (user key), Perplexity API (user key).
+- MCP: HTTP/SSE only (remote MCP servers or local HTTP servers user explicitly configures — not stdio subprocess-spawned).
+
+**The App Store user gets a real assistant that can:**
+- Read and search their vault.
+- Create, edit, and link notes.
+- Summarize content, extract action items, tag automatically.
+- Run bounded multi-step research over their vault + web.
+- Render interactive planner / todo / graph views.
+- Use cloud models for reasoning-heavy tasks, local for privacy-sensitive ones.
+
+**That's not a "Lite" product. That's Obsidian-plus-AI — and it competes on its own merit.**
+
+### F.3 — Pro profile — the Full Autonomy OS
+
+**What Pro adds on top of App Store's capabilities:**
+- Arbitrary `Bash` tool (gated by T3 approval per §A.8).
+- `MultiEdit` tool — multi-file edit in one transaction.
+- `WebFetch` tool — fetch and ingest arbitrary URLs.
+- Docker / `bollard` integration for ephemeral execution sandboxes (Phase H — opt-in default-off).
+- External CLI reuse ("Power Mode"): `claude -p --bare`, `codex exec --json`, `gemini -p --output-format json` (via `cli_passthrough.rs`).
+- stdio MCP servers (local trusted; user's existing `~/.claude/mcp.json` + `~/.codex/config.toml` configs auto-imported).
+- Full project / repo filesystem access (scoped to user-selected root + its descendants).
+- Long-horizon agent runs with checkpoint/resume across app restarts.
+- Background agent tasks (long-running workflows user explicitly starts).
+- Repo scaffolding: `npm install`, `pnpm init`, `cargo new`, `pip install`, etc. via Bash + Docker.
+- Build/test/lint workflows (`cargo test`, `swift test`, `pytest`, `jest`, etc. via Bash + Docker).
+- iMessage channel (Phase K) — inbound iMessage dispatches into AgentRuntime with workspace-scoped policy.
+- User-defined tools (skills directory; arbitrary `SKILL.md` with `scripts/` that invoke shell).
+- Provider-native config discovery (detect and reuse existing CLI/Desktop configs).
+
+**Agent loop constraints (Pro profile):**
+- `max_steps: 50+` (configurable by user, no ceiling).
+- Background execution allowed (long-horizon runs continue past chat focus).
+- Approval model configurable: strict / workspace-write / full-auto / Paranoid.
+- Validator failure can escalate to cloud model automatically (with routing trace visible).
+- Budget cap configurable as soft (warn) or hard (stop).
+
+**Pro's target feel:** the Claude-Code / Codex / Cursor competitor. A user opens Pro, gives it a repo, and says "investigate this failing test and fix it" — Pro plans, reads files, runs tests, edits, re-runs, commits, reports. That's the target.
+
+### F.4 — Shared core (identical across builds)
+
+Both builds share this Rust + Swift surface 1:1:
+
+- Rust agent runtime (`agent_core`) — session engine, ReAct loop, event streaming.
+- Rust resource runtime (`ResourceService`, `AliasRegistry`, `PermissionService`, `verified_write()` from Phase R).
+- Rust router + task classifier + provider matrix.
+- Rust tool abstraction layer (`Tool` trait + registry).
+- Rust policy engine (`PolicyProfile` enum with runtime-selected capabilities).
+- Rust persistence (`GRDB`-backed session ledger, memory, graph).
+- Rust telemetry + audit log (`resource_audit_log` table).
+- Swift UI shell (chat, sidebar, composer, settings).
+- Swift MLX inference bridge.
+- Swift UniFFI event router + AgentEventSink implementation.
+- Swift schema-driven generative UI renderer (palette from §A.5).
+
+The **only** thing that differs between builds is which policy profile is loaded at startup and which Cargo features are compiled in.
+
+```rust
+// agent_core/src/policy/profile.rs — loaded at startup
+pub enum PolicyProfile {
+    AppStore,  // compiled with --features mas-sandbox
+    Pro,       // compiled with default features
+}
+
+impl PolicyProfile {
+    pub fn current() -> Self {
+        #[cfg(feature = "mas-sandbox")] { PolicyProfile::AppStore }
+        #[cfg(not(feature = "mas-sandbox"))] { PolicyProfile::Pro }
+    }
+
+    pub fn allows(&self, cap: Capability) -> bool {
+        match (self, cap) {
+            (Self::AppStore, Capability::ArbitraryShell) => false,
+            (Self::AppStore, Capability::DockerExec) => false,
+            (Self::AppStore, Capability::ExternalCliSubprocess) => false,
+            (Self::AppStore, Capability::StdioMcpServer) => false,
+            (Self::AppStore, Capability::UnboundedFilesystem) => false,
+            (Self::AppStore, Capability::BackgroundAgent) => false,
+            (Self::AppStore, Capability::ArbitraryCodeDownload) => false,
+            _ => true,  // Pro allows everything App Store allows + the above
+        }
+    }
+
+    pub fn max_agent_steps(&self) -> u32 {
+        match self { Self::AppStore => 6, Self::Pro => 50 }
+    }
+}
+```
+
+Every tool invocation, every feature gate, every settings toggle consults `PolicyProfile::current().allows(capability)` before proceeding. No parallel code, no dual-brain architecture.
+
+### F.5 — Packaging strategy (how to actually ship both builds)
+
+**User's stated question: "how to split the apps so that I can develop two different apps."**
+
+**Answer: don't fork. Pick one of three packaging approaches, all from one repo.**
+
+| Approach | Description | Pros | Cons |
+|---|---|---|---|
+| **A. Two Xcode targets, one project** | Single `.xcodeproj` with `Epistemos-MAS` target + `Epistemos-Pro` target. Shared Swift sources + shared Rust xcframework. Different bundle IDs, different entitlements.plist, different `Info.plist`. | Cleanest single-repo story; shared scheme; one `cargo build` produces both Rust libraries. | Xcode target management + build matrix complexity. |
+| **B. Two Xcode projects, shared SPM core** | `Epistemos-App-Store.xcodeproj` + `Epistemos-Pro.xcodeproj`, both importing a shared `EpistemosCore` SPM package that wraps the Rust binary + shared Swift code. | Each project is clean; easy to reason about per-build dependencies. | Duplicated UI assets; harder to keep UI changes in sync. |
+| **C. One Xcode scheme per build** | Single target with compile-time `#if MAS_SANDBOX` Swift conditionals + `--features mas-sandbox` Cargo flag. User selects scheme in Xcode. | Simplest file tree; every change is in one file. | Every source file has `#if` blocks; codebase readability suffers. |
+
+**Recommendation:** **Approach A** — two Xcode targets in one project.
+- Xcode targets: `Epistemos-MAS` + `Epistemos-Pro`.
+- Shared source folder: both targets reference the same Swift files.
+- `#if EPISTEMOS_MAS` / `#if !EPISTEMOS_MAS` in Swift files where capability gating requires it (minimize — most gating should be runtime via `PolicyProfile`).
+- Two entitlement files: `Epistemos-MAS.entitlements` (App Sandbox: YES) and `Epistemos-Pro.entitlements` (App Sandbox: NO, Hardened Runtime: YES).
+- Two `Info.plist`: different bundle IDs (`com.epistemos.Epistemos.MAS` vs `com.epistemos.Epistemos.Pro`), different `CFBundleName`, different app icons.
+- Rust crate: `agent_core/Cargo.toml` has a `mas-sandbox` feature flag; `xcodegen` produces both xcframework variants from one source.
+- CI matrix: `xcodebuild -scheme Epistemos-MAS` + `xcodebuild -scheme Epistemos-Pro` both pass before merge.
+
+**Code sign + distribution:**
+- App Store build: archive → upload via Transporter → App Store Connect → TestFlight → review.
+- Pro build: archive → Developer ID sign + notarize via `xcrun notarytool` → host on your download page.
+
+**What lands in release-prep phase (after Phase G, before public launch):**
+- Set up the two Xcode targets per Approach A.
+- Write the two entitlement files.
+- Wire `PolicyProfile::current()` to the Cargo feature.
+- Add CI matrix.
+- Test both builds against the full 2,679-test suite + regression tests + App Store simulator flow.
+- Submit MAS build for review; sign + notarize Pro build; launch.
+
+### F.6 — What every feature phase must declare
+
+**Every PR in Phases A–K includes this in its description:**
+
+```
+## Profile impact
+- App Store: [same | reduced to <what> | excluded]
+- Pro: [same | enhanced to <what>]
+- Policy gate: <PolicyProfile capability name used>
+- CI: passes `cargo build --features mas-sandbox` AND default
+```
+
+**Examples:**
+
+```
+## Profile impact (Phase A — event streaming)
+- App Store: same — AgentEvent enum + AgentEventSink are shared
+- Pro: same
+- Policy gate: none (feature is cross-profile)
+- CI: passes both builds
+```
+
+```
+## Profile impact (Phase K — iMessage channel)
+- App Store: excluded — iMessage subprocess + AppleScript invocation
+  requires network/automation entitlements incompatible with App Sandbox.
+  UI for iMessage dispatch is compiled out.
+- Pro: new feature — full iMessage channel with workspace-scoped dispatch
+- Policy gate: Capability::ExternalCliSubprocess + Capability::AppleScriptExec
+- CI: compile-flag EPISTEMOS_IMESSAGE_CHANNEL defaults ON in Pro, OFF in MAS
+```
+
+```
+## Profile impact (Phase H — Docker sandbox)
+- App Store: excluded — Docker binary invocation requires shell subprocess
+- Pro: opt-in default-off (Docker Desktop detection)
+- Policy gate: Capability::DockerExec
+- CI: compile-flag EPISTEMOS_DOCKER defaults ON in Pro, OFF in MAS
+```
+
+### F.7 — Drift alarms specific to deployment profiles (added to Appendix B §B.4c)
+
+1. **Feature without profile declaration = drift violation.** No PR without the four-line profile impact block.
+2. **Parallel implementations = drift violation.** If App Store and Pro have different code for the same concept (e.g., two different note-edit paths), it's a violation. Use one implementation + policy gate.
+3. **`PolicyProfile::AppStore.allows()` returning `true` for a capability in the Apple hard-limit list = drift violation.**
+4. **Missing CI coverage for either build = drift violation.** Both must pass before merge.
+5. **App Store runtime gaining unbounded execution via any path = drift violation.** Includes: dynamic tool install from downloaded SKILL.md, subprocess execution via hidden `NSTask`, arbitrary script execution from note content.
+6. **Pro profile artificially constrained for App Store parity = drift violation.** Pro gets full power; App Store gets hardened bounded power. Never hold back Pro.
+
+### F.8 — The shipping pitch for each build
+
+**App Store tagline candidates:**
+- "A native AI workspace that thinks before it acts."
+- "Bounded intelligence. Native Mac. Private by default."
+- "The PKM app that can actually use its tools."
+
+**Pro tagline candidates:**
+- "The agent workspace Claude Code wishes it was."
+- "Full-autonomy AI for the Mac. Your repos, your tools, your rules."
+- "Agentic coding and knowledge work in one native app."
+
+Both builds are legitimate products. Neither is a demo. Both are built on the same runtime. That's the whole doctrine.
+
+---
+
+**End of Appendix F. End of implementation plan v2.0.** Deployment-profile doctrine locked in. Fix-first pass remains the gating work (Appendix E); after it closes, feature phases build on top with profile-gate declarations per §F.6.
