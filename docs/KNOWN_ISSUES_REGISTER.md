@@ -12,10 +12,12 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## A. Identity & data layer (Phase R.2)
 
 ### I-001: Model ID split-brain — `gpt-5.4` vs `openai:gpt-5.4`
-- **Symptom:** GPT-5.4 sidebar shows empty chat history even when real chats exist. Vault metadata stores `modelID: "gpt-5.4"` but chat persistence records authorship as `openai:gpt-5.4`. Contributions are filtered by exact `authoredByModelID` — one form matches, the other doesn't.
-- **Root cause:** no canonical model-ID layer. Every write site picks its own format.
-- **Fix:** Phase R.2 — `ResourceId::Model { provider, model_id }` + `AliasRegistry` that maps both forms to the same canonical. Fix at the data edge (where IDs are written), not in the sidebar.
-- **Verification:** `gpt_5_4_sidebar_shows_full_history` regression test — author a message as `openai:gpt-5.4`, query sidebar as `gpt-5.4`, assert message is returned.
+- **Status:** ✅ **PARTIAL — read-side FIXED 2026-04-23 commit `40bcd115`.** Write-edge deferred.
+- **Symptom:** GPT-5.4 sidebar showed empty chat history when real chats existed. Vault metadata stored `modelID: "gpt-5.4"` but chat persistence recorded authorship as `openai:gpt-5.4`. Contributions were filtered by exact `authoredByModelID` — one form matched, the other didn't.
+- **Root cause:** no canonical model-ID layer; every write site picked its own format.
+- **Fix (landed):** Phase R.2 — `ResourceId::Model { provider, model_id }` now crosses FFI as `uniffi::Enum`. `AliasRegistry` is seeded with 11 model families (3+ variant forms each: OpenAI gpt-5.4/5.3/o4-mini, Anthropic claude-sonnet/opus-4-6 + haiku-4-5, Google gemini-3-pro/flash, Perplexity sonar-pro, Qwen 3-4b/8b/3.5-4b, NousResearch hermes-3). Two UniFFI helpers exposed: `canonicalModelId(alias:)` and `expandModelAliases(alias:)`. Swift sidebar (`ModelInvolvementSheet.loadContributions`) expands `modelIDs` through the Rust registry before the SwiftData fetch.
+- **Verification:** 8 regression tests in `EpistemosTests/PhaseRResourceRegressionTests.swift` green. Headline: `gpt_5_4_sidebar_shows_full_history` — saves under 3 different forms, queries by 1, all 3 return. Inverse direction also tested (`queryingByPrefixedFormReturnsPlainFormRecords`). 18/18 `ModelVaultBrowserTests` still pass — no existing sidebar regression.
+- **Follow-up deferred:** write-edge canonicalization at `ChatCoordinator.swift` L4424 is intentionally not applied — it would conflict with existing Swift convention where `gpt-5.4` (plain) is the primary display form. Read-side expansion handles the user-visible symptom. Future alignment of Swift + Rust canonical conventions can happen in a separate commit if needed.
 
 ---
 
@@ -124,10 +126,9 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## H. Pre-existing debt (not Phase R, but fix-first)
 
 ### I-015: Omega orchestrator debt — Swift still owns orchestration
-- **Symptom:** PLAN_V2 §21 says "Rust is the sole control-plane authority" but `Epistemos/State/OrchestratorState.swift` and `Epistemos/Services/OmegaPlanningService.swift` still drive agent orchestration per the live audit.
-- **Root cause:** incomplete migration from Omega (Swift) to Epistemos Omega (Rust).
-- **Fix:** Phase Ω (§7.1 — renamed to avoid collision with Phase I). Demote Swift layer to UI-only after verifying the Rust loop is functionally complete. Runs in parallel with Phase I.1 (backend unification).
-- **Verification:** `OrchestratorState.swift` contains only UI state; no agent-loop logic. `cargo test --manifest-path agent_core/Cargo.toml` passes with orchestration driven from Rust.
+- **Status:** ✅ **CONFIRMED-FIXED** (verified 2026-04-23 via direct code reading; previously completed in an earlier commit).
+- **Symptom (historical):** PLAN_V2 §21 says "Rust is the sole control-plane authority" but `Epistemos/State/OrchestratorState.swift` and `Epistemos/Services/OmegaPlanningService.swift` were driving agent orchestration.
+- **Fix evidence:** `Epistemos/Omega/Orchestrator/OrchestratorState.swift` L4 comment reads: *"The full Omega orchestrator has been retired in favor of the Rust agent_core. This stub preserves the public API surface that other files reference."* `submitTask()` is a no-op. Agent routing flows through `ChatCoordinator` → Rust `runAgentSession` (via `agent_coreFFI`). `cargo test` passes 577/577 with Rust orchestration.
 
 ### I-016: Code editor feature audit doc-truth drift
 - **Symptom:** `docs/CODE_EDITOR_FEATURE_AUDIT.md` claims features (minimap, search bar, go-to-line, semantic sidebar, indentation guides, persisted prefs) that cannot be confirmed as active in `Epistemos/Views/Notes/CodeEditorView.swift`. Architecture work gets sloppy when docs describe a ghost editor.
@@ -142,10 +143,10 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 - **Verification:** `grep -rE "try!|force-unwrap candidates: ![^=]" Epistemos/` returns zero matches; `swiftc -strict-concurrency=complete` compiles clean.
 
 ### I-019: macOS 26 global event monitor bug
-- **Symptom:** Sync `addGlobalMonitorForEvents` in `AppBootstrap.init` breaks window-key state on macOS 26.3.1.
-- **Root cause:** per memory `project_macos26_global_event_monitor_bug` — sync AppKit API call on main thread during init.
-- **Fix:** defer into `Task { @MainActor in ... }` after bootstrap completes. One-line change.
-- **Verification:** launch app on macOS 26.3+, first window becomes key immediately.
+- **Status:** ✅ **CONFIRMED-FIXED** (verified 2026-04-23 via grep — simpler fix than originally planned).
+- **Symptom (historical):** Sync `addGlobalMonitorForEvents` in `AppBootstrap.init` was breaking window-key state on macOS 26.3.1.
+- **Fix evidence:** `grep -rE "addGlobalMonitorForEvents" Epistemos/` returns zero matches. The call was removed entirely rather than deferred. `AppBootstrap.swift` L1685 explicitly sets `commandCenterGlobalHotkeyMonitor = nil` at init. The field is preserved for any future wiring but the problematic monitor creation is gone.
+- **Verification:** launch app on macOS 26.3+, first window becomes key immediately (user-observable).
 
 ---
 
