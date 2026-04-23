@@ -250,6 +250,53 @@ final class SDPage {
         return ""
     }
 
+    /// Async variant of ``loadBody(mapped:fast:)`` that routes through the
+    /// Phase R.3 unified `VaultResourceService` gateway when it is ready,
+    /// and falls back to the legacy `NoteFileStorage.readBody` path when
+    /// it is not (pre-boot, between-vault-switch, or FFI not yet linked).
+    ///
+    /// The gateway path produces byte-identical output to ``loadBody``
+    /// for notes that resolve to a `ResourceId::VaultNote` — verified in
+    /// `PhaseR3BodyReadParityTests`. Callers in async contexts should
+    /// prefer this entry point; once the strangler-fig migration
+    /// completes, the sync `loadBody` will become a shim around this.
+    ///
+    /// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.3,
+    /// docs/AUDIT_REFLECTION_2026_04_23.md §2 (I-002 / I-003 OPEN).
+    func loadBodyAsync(mapped: Bool = false, fast: Bool = false) async -> String {
+        if resourceServiceIsReady() {
+            // Use the same vault-id convention AppBootstrap uses for
+            // `resourceServiceInit` (lastPathComponent of the vault URL).
+            // We don't have direct access to the bootstrap state here, so
+            // resolve through the public R.3 resolver which handles any
+            // alias/path/URI form. Resolution falls back to the legacy
+            // path on any error — never throws to the caller.
+            do {
+                let reference = Self.r3Reference(for: self)
+                let resourceId = try await resourceResolve(reference: reference)
+                let content = try await resourceRead(id: resourceId)
+                if let decoded = String(data: content.bytes, encoding: .utf8) {
+                    return decoded
+                }
+            } catch {
+                // Expected during vault-switch races or when a page is
+                // inline-body-only (legacy migration). Fall through.
+            }
+        }
+        return loadBody(mapped: mapped, fast: fast)
+    }
+
+    /// Build the canonical R.3 reference string for a page. Strategy:
+    /// 1. Absolute `filePath` if present (most specific).
+    /// 2. Page `id` otherwise (the resolver falls back to alias lookup).
+    static func r3Reference(for page: SDPage) -> String {
+        if let absolute = page.filePath,
+           !absolute.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return absolute
+        }
+        return page.id
+    }
+
     func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {
         guard limit > 0 else { return "" }
         return String(loadBody(mapped: mapped).prefix(limit))
