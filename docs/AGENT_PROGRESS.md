@@ -1,6 +1,6 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-23 | Foundation fix pass Step 1 audit recorded plan drift against live runtime state.
+Last updated: 2026-04-23 | Foundation fix pass through Step 3a recorded live drift and inventory before warm-up fixes.
 
 Canonical release-hardening plan:
 - `docs/architecture/RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md` is the authoritative release-focused plan that reconciles later research, blocker handoffs, and verification requirements.
@@ -11,6 +11,11 @@ Canonical release-hardening plan:
 - `Epistemos/Omega/Orchestrator/OrchestratorState.swift:3` is already a UI-compatibility stub, and `submitTask` is a no-op at `Epistemos/Omega/Orchestrator/OrchestratorState.swift:37`; the §3 note that Swift `OrchestratorState` still owns orchestration is stale.
 - `agent_core/src/tools/cli_passthrough.rs:187` spawns `claude -p` with optional `--permission-mode` / `--model`, but does not pass `--bare` or `--output-format stream-json`; any plan text claiming that exact invocation is incorrect.
 - `Epistemos/Views/Chat/MessageBubble.swift:281` and `Epistemos/Views/Chat/ThinkingTrailView.swift:13` show that chat already renders `ThinkingTrailView`; the §3 event-pipeline note should be narrowed to missing live `ToolCallCard` / terminal-output UI, not reasoning disclosure as a whole.
+
+## 2026-04-23 Step 3a Drift Check
+- `I-019`'s planned fix target is already absent in the live tree: `Epistemos/App/AppBootstrap.swift` still carries stale monitor slots at `:788-789` and teardown at `:2502-2510`, but there is no live `NSEvent.addGlobalMonitorForEvents(...)` assignment anywhere in `HEAD`.
+- Git history confirms the sync global hotkey monitor existed in `ab9c27fc` (`AppBootstrap.swift:1344` in that revision), then disappeared before the current fix pass.
+- Result: Step 3a is a no-op code fix in the current tree. Keep `I-019` open for final verification, but do not fabricate a code change against a bug site that no longer exists.
 
 ## 2026-04-19 Reasoning Trace Continuation ✅
 - [x] `3c17ac95` — note chat now persists `thinkingTrace` / `thinkingDurationSeconds` through its SwiftData round-trip; reloading a note no longer drops the assistant's collapsible thought trail
