@@ -1,7 +1,12 @@
+pub mod attachments;
 pub mod alias_registry;
 pub mod id;
 pub mod service;
 
+pub use attachments::{
+    read_attached_resource, write_attached_resource, AttachedResource, AttachmentMode,
+    Capability,
+};
 pub use alias_registry::AliasRegistry;
 pub use id::{IdError, ResourceId};
 pub use service::{

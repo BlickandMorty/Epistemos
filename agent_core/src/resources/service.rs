@@ -61,6 +61,11 @@ pub enum ResourceError {
     UnsupportedReference(String),
     #[error("unsupported resource id: {0}")]
     UnsupportedId(String),
+    #[error("capability denied for {resource}: {capability}")]
+    CapabilityDenied {
+        resource: ResourceId,
+        capability: String,
+    },
     #[error("version conflict for {id}: expected {expected}, actual {actual}")]
     VersionConflict {
         id: ResourceId,
