@@ -1466,6 +1466,46 @@ struct LocalAgentLoopTests {
         }
     }
 
+    @Test("local loop stops after repeated invisible repair turns")
+    func localLoopStopsAfterRepeatedInvisibleRepairTurns() async {
+        let promptRecorder = PromptRecorder()
+        let responseQueue = ResponseQueue(outputs: ["", ""])
+        let loop = LocalAgentLoop(
+            generator: { prompt, _, _, _, _, onToken in
+                await promptRecorder.record(prompt)
+                let output = await responseQueue.nextOutput()
+                await onToken(output)
+                return output
+            },
+            toolExecutor: { _, _ in
+                Issue.record("Invisible repair loop should fail before any tool executes.")
+                return LocalToolResult(
+                    toolName: "vault_search",
+                    resultJson: #"{"name":"vault_search","content":[]}"#,
+                    isError: false
+                )
+            }
+        )
+
+        do {
+            _ = try await loop.run(
+                objective: "Answer the question directly.",
+                tools: [sampleTool()],
+                maxTurns: 5,
+                onToken: { _ in }
+            )
+            Issue.record("Expected the invisible repair circuit breaker to fire.")
+        } catch let error as LocalAgentLoopError {
+            #expect(error == .invisibleRepairLoop(2))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        let prompts = await promptRecorder.snapshot()
+        #expect(prompts.count == 2)
+        #expect(prompts[1].contains("You have not produced any user-visible answer yet."))
+    }
+
     @Test("local loop strips an unclosed scratch pad when the final answer follows")
     func localLoopStripsUnclosedScratchPadWhenAnswerFollows() async throws {
         let loop = LocalAgentLoop(
@@ -1599,6 +1639,28 @@ struct LocalAgentLoopTests {
     }
 
     @MainActor
+    @Test("mlx one-shot generator uses direct generation")
+    func mlxOneShotGeneratorUsesDirectGeneration() async throws {
+        let client = RecordingLocalClient(streamChunks: ["hello", " world"])
+        let generator = LocalAgentLoop.mlxOneShotGenerator(using: client)
+        var streamed = ""
+
+        let output = try await generator(
+            "PROMPT",
+            nil,
+            64,
+            .fast,
+            LocalTextModelID.qwen35_4B4Bit.rawValue,
+            { chunk in streamed.append(chunk) }
+        )
+
+        #expect(output == "hello world")
+        #expect(streamed == "hello world")
+        #expect(client.generateCallCount == 1)
+        #expect(client.streamCallCount == 0)
+    }
+
+    @MainActor
     @Test("constrained generator bridge reuses the existing constrained decoding service")
     func constrainedGeneratorBridgeReusesTheExistingConstrainedDecodingService() async throws {
         let constrainedDecoding = ConstrainedDecodingService()
@@ -1720,6 +1782,70 @@ private actor ResponseQueue {
             return "No queued output."
         }
         return outputs.removeFirst()
+    }
+}
+
+@MainActor
+private final class RecordingLocalClient: LocalConfigurableLLMClient {
+    private let streamChunks: [String]
+    private(set) var generateCallCount = 0
+    private(set) var streamCallCount = 0
+
+    init(streamChunks: [String]) {
+        self.streamChunks = streamChunks
+    }
+
+    func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
+        generateCallCount += 1
+        return streamChunks.joined()
+    }
+
+    func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
+        stream(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            reasoningMode: .fast,
+            modelID: nil,
+            steeringHintsJSON: nil
+        )
+    }
+
+    func testConnection() async -> ConnectionTestResult {
+        ConnectionTestResult(success: true, message: "ok")
+    }
+
+    func configSnapshot() -> LLMSnapshot {
+        LLMSnapshot(provider: .localMLX, model: "test", reasoningMode: .fast)
+    }
+
+    func generate(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) async throws -> String {
+        generateCallCount += 1
+        return streamChunks.joined()
+    }
+
+    func stream(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        modelID: String?,
+        steeringHintsJSON: String?
+    ) -> AsyncThrowingStream<String, Error> {
+        streamCallCount += 1
+        return AsyncThrowingStream { continuation in
+            for chunk in streamChunks {
+                continuation.yield(chunk)
+            }
+            continuation.finish()
+        }
     }
 }
 

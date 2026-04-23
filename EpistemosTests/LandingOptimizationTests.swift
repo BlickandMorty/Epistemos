@@ -4,6 +4,35 @@ import Testing
 
 @Suite("Landing Optimization Helpers")
 struct LandingOptimizationTests {
+    @MainActor
+    @Test("home window identity can tag untitled main windows for landing lifecycle checks")
+    func homeWindowIdentityCanTagUntitledMainWindows() {
+        let window = NSWindow()
+        defer { window.close() }
+
+        window.title = ""
+        window.identifier = nil
+
+        #expect(!HomeWindowIdentity.matches(window))
+
+        HomeWindowIdentity.apply(to: window)
+
+        #expect(window.identifier?.rawValue == HomeWindowIdentity.sceneIdentifier)
+        #expect(HomeWindowIdentity.matches(window))
+    }
+
+    @MainActor
+    @Test("landing home appearance reasserts the home panel when state drifted")
+    func landingHomeAppearanceReassertsHomePanelWhenStateDrifted() {
+        let uiState = UIState()
+        uiState.setActivePanel(.settings)
+
+        LandingViewStateSync.reassertHomeSurface(uiState)
+
+        #expect(uiState.activePanel == .home)
+        #expect(uiState.homeTab == .home)
+    }
+
     @Test("session intelligence note lookup extracts deduplicated note candidates")
     func sessionIntelligenceNoteLookupExtractsDeduplicatedCandidates() {
         let candidates = SessionIntelligenceNoteLookup.candidateTitles(in: """

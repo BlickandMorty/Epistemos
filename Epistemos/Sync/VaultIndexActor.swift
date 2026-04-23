@@ -616,6 +616,20 @@ actor VaultIndexActor {
             }
         }
 
+        let existingComparableCounts = Self.comparableVaultPageCounts(
+            pages: existingPages,
+            in: url
+        )
+        if completedScan &&
+            diskPaths.isEmpty &&
+            existingComparableCounts.trackedVaultPageCount > 0
+        {
+            log.warning(
+                "Vault import returned 0 disk files while \(existingComparableCounts.uniqueTrackedVaultPathCount) tracked vault pages already exist — treating the scan as transient and skipping destructive reconciliation"
+            )
+            return
+        }
+
         // ── 3. Delete pages whose files no longer exist on disk ──
         var deleteCount = 0
         if completedScan && deleteMissingFiles {

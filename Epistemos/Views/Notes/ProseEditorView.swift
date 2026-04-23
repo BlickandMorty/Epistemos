@@ -131,8 +131,15 @@ struct ProseEditorView: View {
             )
             return false
         }
-        renamePageFile(page.id, syncedTitle)
+        if shouldRenameBackedFile(for: page) {
+            renamePageFile(page.id, syncedTitle)
+        }
         return true
+    }
+
+    private static func shouldRenameBackedFile(for page: SDPage) -> Bool {
+        guard let filePath = page.filePath else { return true }
+        return !ModelVaultBrowserStore.isModelVaultPath(filePath)
     }
 
     private static func syncedNoteTitle(inLine rawLine: String) -> String? {

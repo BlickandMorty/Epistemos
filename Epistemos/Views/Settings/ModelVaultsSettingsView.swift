@@ -17,6 +17,9 @@ struct ModelVaultsSettingsView: View {
     @State private var loadError: String?
 
     var body: some View {
+        let hasConfiguredCloudProviders = !inference.configuredCloudProviders.isEmpty
+        let hasInstalledLocalModels = !inference.releaseSelectableInstalledLocalTextModelIDs.isEmpty
+
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -108,7 +111,11 @@ struct ModelVaultsSettingsView: View {
 
                 GroupBox("Provider Vaults") {
                     if providerRows.isEmpty {
-                        Text("No provider targets are configured yet.")
+                        Text(
+                            hasConfiguredCloudProviders || hasInstalledLocalModels
+                                ? "Configured providers and installed local models are ready, but no vault rows have been compiled yet."
+                                : "No provider targets are configured yet."
+                        )
                             .foregroundStyle(.secondary)
                             .padding(4)
                     } else {

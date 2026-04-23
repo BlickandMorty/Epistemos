@@ -16,6 +16,12 @@ enum HomeWindowIdentity {
             || window.title == title
     }
 
+    static func apply(to window: NSWindow) {
+        if window.identifier?.rawValue != sceneIdentifier {
+            window.identifier = NSUserInterfaceItemIdentifier(sceneIdentifier)
+        }
+    }
+
     @MainActor
     static func surfaceHomeWindow() {
         NSApp.activate(ignoringOtherApps: true)
@@ -40,6 +46,28 @@ enum HomeWindowIdentity {
             mainWindow.orderFrontRegardless()
             mainWindow.makeKeyAndOrderFront(nil)
         }
+    }
+}
+
+private struct HomeWindowIdentityObserver: NSViewRepresentable {
+    func makeNSView(context: Context) -> HomeWindowIdentityObserverView {
+        HomeWindowIdentityObserverView()
+    }
+
+    func updateNSView(_ nsView: HomeWindowIdentityObserverView, context: Context) {
+        nsView.applyWindowIdentity()
+    }
+}
+
+private final class HomeWindowIdentityObserverView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        applyWindowIdentity()
+    }
+
+    func applyWindowIdentity() {
+        guard let window else { return }
+        HomeWindowIdentity.apply(to: window)
     }
 }
 
@@ -114,6 +142,7 @@ struct RootView: View {
 
             ContentRouter()
         }
+        .background(HomeWindowIdentityObserver())
         .animation(.spring(response: 0.35, dampingFraction: 0.88), value: activeHomeChat)
         .onAppear(perform: handleAppearanceOnAppear)
         .onDisappear {

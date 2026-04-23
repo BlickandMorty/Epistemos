@@ -31,8 +31,7 @@ actor KnowledgeProfileStore {
 
     init(baseDirectory: URL? = nil, fileManager: FileManager = .default) {
         self.fileManager = fileManager
-        self.baseDirectory = (baseDirectory ?? FoundationSafety.userApplicationSupportDirectory())
-            .appendingPathComponent("Epistemos/model_vaults", isDirectory: true)
+        self.baseDirectory = baseDirectory ?? FoundationSafety.modelVaultsDirectory(fileManager: fileManager)
     }
 
     func save(_ vault: CompiledModelVault) throws {

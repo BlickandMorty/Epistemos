@@ -7,26 +7,44 @@ import SwiftUI
 /// Kept intentionally lightweight:
 /// - Directory scans happen only on expand / refresh.
 /// - The section uses plain value types for vault/file metadata.
-/// - File editing stays inline so the sidebar behaves like a real
-///   folder tree instead of launching a second browser surface.
+/// - File clicks open the normal note/code workspace instead of a
+///   bespoke browser surface.
 struct ModelVaultsSidebarSection: View {
     private static let maxExpandedListHeight: CGFloat = 320
+
+    var onSelectPage: ((String) -> Void)? = nil
 
     @Environment(InferenceState.self) private var inference
     @AppStorage("notesSidebar.modelVaultsExpanded") private var isExpanded = false
     @State private var modelVaults: [ModelVaultEntry] = []
     @State private var expandedModelIDs: Set<String> = []
 
+    private var partitionedModelVaults: (
+        visible: [ModelVaultEntry],
+        additional: [ModelVaultEntry]
+    ) {
+        Self.partitionModelVaults(
+            modelVaults,
+            visibleModelIDs: inference.visibleModelVaultModelIDs
+        )
+    }
+
     private var visibleModelVaults: [ModelVaultEntry] {
-        let visibleModelIDs = inference.visibleModelVaultModelIDs
-        guard !visibleModelIDs.isEmpty else { return modelVaults }
-        return modelVaults.filter { $0.matchesVisibleModelIDs(visibleModelIDs) }
+        partitionedModelVaults.visible
+    }
+
+    private var additionalModelVaults: [ModelVaultEntry] {
+        partitionedModelVaults.additional
+    }
+
+    private var displayedModelVaultCount: Int {
+        visibleModelVaults.count + additionalModelVaults.count
     }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
-            if visibleModelVaults.isEmpty {
-                Text("No visible model vaults yet")
+            if displayedModelVaultCount == 0 {
+                Text("No model vaults yet")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
@@ -37,8 +55,30 @@ struct ModelVaultsSidebarSection: View {
                         ForEach(visibleModelVaults) { entry in
                             ModelVaultSidebarRow(
                                 entry: entry,
-                                isExpanded: expansionBinding(for: entry.id)
+                                isExpanded: expansionBinding(for: entry.id),
+                                onSelectPage: onSelectPage
                             )
+                        }
+
+                        if !additionalModelVaults.isEmpty {
+                            if !visibleModelVaults.isEmpty {
+                                Divider()
+                                    .padding(.vertical, 4)
+                            }
+                            Text("Other Storage")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                                .padding(.horizontal, 10)
+                                .padding(.top, visibleModelVaults.isEmpty ? 0 : 4)
+                                .padding(.bottom, 2)
+
+                            ForEach(additionalModelVaults) { entry in
+                                ModelVaultSidebarRow(
+                                    entry: entry,
+                                    isExpanded: expansionBinding(for: entry.id),
+                                    onSelectPage: onSelectPage
+                                )
+                            }
                         }
                     }
                 }
@@ -52,8 +92,8 @@ struct ModelVaultsSidebarSection: View {
                     .font(.callout)
                     .fontWeight(.medium)
                 Spacer(minLength: 0)
-                if !visibleModelVaults.isEmpty {
-                    Text("\(visibleModelVaults.count)")
+                if displayedModelVaultCount > 0 {
+                    Text("\(displayedModelVaultCount)")
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
@@ -95,20 +135,15 @@ struct ModelVaultsSidebarSection: View {
         expandedModelIDs.formIntersection(Set(modelVaults.map(\.id)))
     }
 
-    static func modelVaultsRootURL() -> URL {
-        let base = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
-        return base
-            .appendingPathComponent("Epistemos", isDirectory: true)
-            .appendingPathComponent("model_vaults", isDirectory: true)
+    nonisolated static func modelVaultsRootURL() -> URL {
+        FoundationSafety.modelVaultsDirectory(fileManager: .default)
     }
 
-    static func loadModelVaults() -> [ModelVaultEntry] {
+    nonisolated static func loadModelVaults() -> [ModelVaultEntry] {
         loadModelVaults(rootURL: modelVaultsRootURL())
     }
 
-    static func loadModelVaults(rootURL: URL) -> [ModelVaultEntry] {
+    nonisolated static func loadModelVaults(rootURL: URL) -> [ModelVaultEntry] {
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: rootURL,
             includingPropertiesForKeys: [.isDirectoryKey],
@@ -120,6 +155,19 @@ struct ModelVaultsSidebarSection: View {
             .filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
             .map { ModelVaultEntry(url: $0) }
             .sorted { $0.sortKey < $1.sortKey }
+    }
+
+    nonisolated static func partitionModelVaults(
+        _ modelVaults: [ModelVaultEntry],
+        visibleModelIDs: Set<String>
+    ) -> (visible: [ModelVaultEntry], additional: [ModelVaultEntry]) {
+        guard !visibleModelIDs.isEmpty else {
+            return (modelVaults, [])
+        }
+
+        let visible = modelVaults.filter { $0.matchesVisibleModelIDs(visibleModelIDs) }
+        let additional = modelVaults.filter { !$0.matchesVisibleModelIDs(visibleModelIDs) }
+        return (visible, additional)
     }
 
     static func revealInFinder(_ entry: ModelVaultEntry) {
@@ -134,15 +182,16 @@ struct ModelVaultsSidebarSection: View {
 private struct ModelVaultSidebarRow: View {
     let entry: ModelVaultEntry
     @Binding var isExpanded: Bool
+    let onSelectPage: ((String) -> Void)?
+
+    @Environment(\.modelContext) private var modelContext
+    @Environment(NotesUIState.self) private var notesUI
 
     @State private var showInternalFiles = false
     @State private var fileEntries: [ModelVaultDocumentEntry] = []
     @State private var expandedFolderPaths: Set<String> = []
     @State private var selectedFilePath: String?
-    @State private var loadedTextByPath: [String: String] = [:]
-    @State private var draftTextByPath: [String: String] = [:]
-    @State private var messageByPath: [String: String] = [:]
-    @State private var errorByPath: [String: String] = [:]
+    @State private var pendingCreateRequest: ModelVaultCreateRequest?
     @State private var contributionsExpanded = false
     @State private var pendingDeleteTarget: ModelVaultDeleteTarget?
 
@@ -166,6 +215,11 @@ private struct ModelVaultSidebarRow: View {
                 },
                 secondaryButton: .cancel()
             )
+        }
+        .sheet(item: $pendingCreateRequest) { request in
+            ModelVaultCreateSheet(request: request) { rawName in
+                completeCreation(request, rawName: rawName)
+            }
         }
         .onChange(of: isExpanded) { _, nowExpanded in
             guard nowExpanded else { return }
@@ -211,7 +265,7 @@ private struct ModelVaultSidebarRow: View {
             .buttonStyle(.plain)
 
             Button {
-                createFile(in: nil)
+                requestCreateFile(in: nil)
             } label: {
                 Image(systemName: "doc.badge.plus")
             }
@@ -220,7 +274,7 @@ private struct ModelVaultSidebarRow: View {
             .help("Create file")
 
             Button {
-                createFolder(in: nil)
+                requestCreateFolder(in: nil)
             } label: {
                 Image(systemName: "folder.badge.plus")
             }
@@ -244,10 +298,10 @@ private struct ModelVaultSidebarRow: View {
                 ModelVaultsSidebarSection.revealInFinder(entry)
             }
             Button("Create File") {
-                createFile(in: nil)
+                requestCreateFile(in: nil)
             }
             Button("Create Folder") {
-                createFolder(in: nil)
+                requestCreateFolder(in: nil)
             }
             Button(showInternalFiles ? "Hide Internal Files" : "Show Internal Files") {
                 showInternalFiles.toggle()
@@ -262,7 +316,7 @@ private struct ModelVaultSidebarRow: View {
                     .toggleStyle(.switch)
                     .font(.caption2)
                 Spacer(minLength: 0)
-                Text("\(fileEntries.count) file\(fileEntries.count == 1 ? "" : "s")")
+                Text("\(fileEntries.count) item\(fileEntries.count == 1 ? "" : "s")")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -272,7 +326,7 @@ private struct ModelVaultSidebarRow: View {
             .padding(.bottom, 6)
 
             if nodes.isEmpty {
-                Text("No vault files yet")
+                Text("No vault items yet")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 28)
@@ -284,16 +338,10 @@ private struct ModelVaultSidebarRow: View {
                         indent: 1,
                         expandedFolderPaths: $expandedFolderPaths,
                         selectedFilePath: $selectedFilePath,
-                        loadedTextByPath: $loadedTextByPath,
-                        draftTextByPath: $draftTextByPath,
-                        messageByPath: $messageByPath,
-                        errorByPath: $errorByPath,
                         pendingDeleteTarget: $pendingDeleteTarget,
-                        createFile: createFile,
-                        createFolder: createFolder,
-                        ensureLoaded: ensureLoaded,
-                        saveFile: saveFile,
-                        revertFile: revertFile
+                        createFile: requestCreateFile,
+                        createFolder: requestCreateFolder,
+                        openDocument: openDocumentInWorkspace
                     )
                 }
             }
@@ -312,9 +360,14 @@ private struct ModelVaultSidebarRow: View {
                 HStack(spacing: 8) {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .foregroundStyle(.secondary)
-                    Text("Contributions")
-                        .font(.caption)
-                        .fontWeight(.medium)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Contribution Timeline")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                        Text("Everything this model authored here")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                     Spacer(minLength: 0)
                 }
                 .contentShape(Rectangle())
@@ -340,15 +393,40 @@ private struct ModelVaultSidebarRow: View {
             return
         }
         if let selectedFilePath,
-           fileEntries.contains(where: { $0.relativePath == selectedFilePath }) {
+           fileEntries.contains(where: { !$0.isDirectory && $0.relativePath == selectedFilePath }) {
             return
         }
         self.selectedFilePath = nil
     }
 
-    private func createFile(in relativeDirectory: String?) {
+    private func requestCreateFile(in relativeDirectory: String?) {
+        pendingCreateRequest = ModelVaultCreateRequest(
+            kind: .file,
+            parentRelativePath: relativeDirectory,
+            initialName: "untitled.md"
+        )
+    }
+
+    private func requestCreateFolder(in relativeParentDirectory: String?) {
+        pendingCreateRequest = ModelVaultCreateRequest(
+            kind: .folder,
+            parentRelativePath: relativeParentDirectory,
+            initialName: "context"
+        )
+    }
+
+    private func completeCreation(_ request: ModelVaultCreateRequest, rawName: String) {
+        switch request.kind {
+        case .file:
+            createFile(named: rawName, in: request.parentRelativePath)
+        case .folder:
+            createFolder(named: rawName, in: request.parentRelativePath)
+        }
+    }
+
+    private func createFile(named rawName: String, in relativeDirectory: String?) {
         guard let created = ModelVaultBrowserStore.createTextFile(
-            named: "untitled",
+            named: rawName,
             rootURL: entry.url,
             relativeDirectory: relativeDirectory
         ) else {
@@ -357,12 +435,12 @@ private struct ModelVaultSidebarRow: View {
         expandAncestors(of: created.relativePath)
         refreshFiles(preservingSelection: true)
         selectedFilePath = created.relativePath
-        ensureLoaded(created)
+        openDocumentInWorkspace(created)
     }
 
-    private func createFolder(in relativeParentDirectory: String?) {
+    private func createFolder(named rawName: String, in relativeParentDirectory: String?) {
         guard let createdURL = ModelVaultBrowserStore.createDirectory(
-            named: "context",
+            named: rawName,
             rootURL: entry.url,
             relativeParentDirectory: relativeParentDirectory
         ) else {
@@ -374,60 +452,35 @@ private struct ModelVaultSidebarRow: View {
         refreshFiles(preservingSelection: true)
     }
 
-    private func ensureLoaded(_ document: ModelVaultDocumentEntry) {
-        if loadedTextByPath[document.relativePath] != nil || errorByPath[document.relativePath] != nil {
+    private func openDocumentInWorkspace(_ document: ModelVaultDocumentEntry) {
+        guard let pageID = ModelVaultBrowserStore.ensureWorkspacePage(
+            for: document,
+            modelContext: modelContext
+        ) else {
             return
         }
-        do {
-            let loaded = try ModelVaultBrowserStore.readText(at: document.url)
-            loadedTextByPath[document.relativePath] = loaded
-            draftTextByPath[document.relativePath] = loaded
-            errorByPath[document.relativePath] = nil
-        } catch {
-            loadedTextByPath[document.relativePath] = ""
-            draftTextByPath[document.relativePath] = ""
-            errorByPath[document.relativePath] = "Couldn't decode this file as text."
-        }
-    }
-
-    private func saveFile(_ document: ModelVaultDocumentEntry) {
-        let draft = draftTextByPath[document.relativePath] ?? ""
-        if ModelVaultBrowserStore.writeText(draft, to: document.url) {
-            loadedTextByPath[document.relativePath] = draft
-            draftTextByPath[document.relativePath] = draft
-            errorByPath[document.relativePath] = nil
-            messageByPath[document.relativePath] = "Saved"
-            refreshFiles(preservingSelection: true)
+        selectedFilePath = document.relativePath
+        if let onSelectPage {
+            onSelectPage(pageID)
         } else {
-            errorByPath[document.relativePath] = "Save failed."
+            NoteWindowManager.shared.open(pageId: pageID)
         }
-    }
-
-    private func revertFile(_ document: ModelVaultDocumentEntry) {
-        let loaded = loadedTextByPath[document.relativePath] ?? ""
-        draftTextByPath[document.relativePath] = loaded
-        messageByPath[document.relativePath] = nil
-        errorByPath[document.relativePath] = nil
     }
 
     private func delete(_ target: ModelVaultDeleteTarget) {
         guard ModelVaultBrowserStore.deleteItem(at: target.url) else { return }
+        let removedPageIDs = ModelVaultBrowserStore.removeWorkspacePages(
+            backingDeletedItemAt: target.url,
+            modelContext: modelContext
+        )
+        for pageID in removedPageIDs {
+            notesUI.closeTab(pageID)
+            NoteWindowManager.shared.closeWindowDisplaying(pageId: pageID)
+        }
         if let selectedFilePath,
            selectedFilePath == target.relativePath
                 || selectedFilePath.hasPrefix(target.relativePath + "/") {
             self.selectedFilePath = nil
-        }
-        loadedTextByPath = loadedTextByPath.filter { key, _ in
-            key != target.relativePath && !key.hasPrefix(target.relativePath + "/")
-        }
-        draftTextByPath = draftTextByPath.filter { key, _ in
-            key != target.relativePath && !key.hasPrefix(target.relativePath + "/")
-        }
-        messageByPath = messageByPath.filter { key, _ in
-            key != target.relativePath && !key.hasPrefix(target.relativePath + "/")
-        }
-        errorByPath = errorByPath.filter { key, _ in
-            key != target.relativePath && !key.hasPrefix(target.relativePath + "/")
         }
         refreshFiles(preservingSelection: true)
     }
@@ -458,16 +511,10 @@ private struct ModelVaultTreeRow: View {
     let indent: Int
     @Binding var expandedFolderPaths: Set<String>
     @Binding var selectedFilePath: String?
-    @Binding var loadedTextByPath: [String: String]
-    @Binding var draftTextByPath: [String: String]
-    @Binding var messageByPath: [String: String]
-    @Binding var errorByPath: [String: String]
     @Binding var pendingDeleteTarget: ModelVaultDeleteTarget?
     let createFile: (String?) -> Void
     let createFolder: (String?) -> Void
-    let ensureLoaded: (ModelVaultDocumentEntry) -> Void
-    let saveFile: (ModelVaultDocumentEntry) -> Void
-    let revertFile: (ModelVaultDocumentEntry) -> Void
+    let openDocument: (ModelVaultDocumentEntry) -> Void
 
     private var isFolderExpanded: Bool {
         expandedFolderPaths.contains(node.relativePath)
@@ -527,16 +574,10 @@ private struct ModelVaultTreeRow: View {
                             indent: indent + 1,
                             expandedFolderPaths: $expandedFolderPaths,
                             selectedFilePath: $selectedFilePath,
-                            loadedTextByPath: $loadedTextByPath,
-                            draftTextByPath: $draftTextByPath,
-                            messageByPath: $messageByPath,
-                            errorByPath: $errorByPath,
                             pendingDeleteTarget: $pendingDeleteTarget,
                             createFile: createFile,
                             createFolder: createFolder,
-                            ensureLoaded: ensureLoaded,
-                            saveFile: saveFile,
-                            revertFile: revertFile
+                            openDocument: openDocument
                         )
                     }
                 }
@@ -544,12 +585,8 @@ private struct ModelVaultTreeRow: View {
             case .file:
                 if let document = node.document {
                     Button {
-                        if selectedFilePath == document.relativePath {
-                            selectedFilePath = nil
-                        } else {
-                            selectedFilePath = document.relativePath
-                            ensureLoaded(document)
-                        }
+                        selectedFilePath = document.relativePath
+                        openDocument(document)
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: document.systemImage)
@@ -569,6 +606,11 @@ private struct ModelVaultTreeRow: View {
                     }
                     .buttonStyle(.plain)
                     .contextMenu {
+                        Button("Open") {
+                            selectedFilePath = document.relativePath
+                            openDocument(document)
+                        }
+                        Divider()
                         Button("Reveal in Finder") {
                             ModelVaultsSidebarSection.revealInFinder(document.url)
                         }
@@ -580,24 +622,6 @@ private struct ModelVaultTreeRow: View {
                                 title: document.displayName
                             )
                         }
-                    }
-
-                    if isSelectedFile {
-                        ModelVaultInlineEditor(
-                            document: document,
-                            draftText: Binding(
-                                get: { draftTextByPath[document.relativePath] ?? loadedTextByPath[document.relativePath] ?? "" },
-                                set: {
-                                    draftTextByPath[document.relativePath] = $0
-                                    messageByPath[document.relativePath] = nil
-                                }
-                            ),
-                            loadedText: loadedTextByPath[document.relativePath] ?? "",
-                            statusMessage: messageByPath[document.relativePath],
-                            errorMessage: errorByPath[document.relativePath],
-                            onSave: { saveFile(document) },
-                            onRevert: { revertFile(document) }
-                        )
                     }
                 }
             }
@@ -613,64 +637,83 @@ private struct ModelVaultTreeRow: View {
     }
 }
 
-private struct ModelVaultInlineEditor: View {
-    let document: ModelVaultDocumentEntry
-    @Binding var draftText: String
-    let loadedText: String
-    let statusMessage: String?
-    let errorMessage: String?
-    let onSave: () -> Void
-    let onRevert: () -> Void
-
-    private var hasUnsavedChanges: Bool {
-        draftText != loadedText
+private struct ModelVaultCreateRequest: Identifiable {
+    enum Kind {
+        case file
+        case folder
     }
 
-    private var isEditable: Bool {
-        ModelVaultBrowserStore.isEditableTextFile(document.url)
+    let kind: Kind
+    let parentRelativePath: String?
+    let initialName: String
+
+    var id: String {
+        "\(kind)-\(parentRelativePath ?? "__root__")-\(initialName)"
+    }
+}
+
+private struct ModelVaultCreateSheet: View {
+    let request: ModelVaultCreateRequest
+    let onCreate: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftName: String
+
+    init(request: ModelVaultCreateRequest, onCreate: @escaping (String) -> Void) {
+        self.request = request
+        self.onCreate = onCreate
+        _draftName = State(initialValue: request.initialName)
+    }
+
+    private var title: String {
+        switch request.kind {
+        case .file:
+            return "New File"
+        case .folder:
+            return "New Folder"
+        }
+    }
+
+    private var pathCaption: String? {
+        guard let parentRelativePath = request.parentRelativePath,
+              !parentRelativePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return parentRelativePath
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let errorMessage, !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
-            }
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.headline)
 
-            if isEditable {
-                TextEditor(text: $draftText)
-                    .font(.system(.caption, design: .monospaced))
-                    .frame(minHeight: 120, maxHeight: 180)
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                HStack(spacing: 8) {
-                    Button("Save") { onSave() }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(hasUnsavedChanges ? .primary : .secondary)
-                        .disabled(!hasUnsavedChanges)
-                    Button("Revert") { onRevert() }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(hasUnsavedChanges ? .secondary : .tertiary)
-                        .disabled(!hasUnsavedChanges)
-                    Spacer(minLength: 0)
-                    if let statusMessage, !statusMessage.isEmpty {
-                        Text(statusMessage)
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-            } else {
-                Text("This file isn't editable inline yet.")
-                    .font(.caption2)
+            if let pathCaption {
+                Text(pathCaption)
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            TextField(
+                request.kind == .file ? "notes.md or main.swift" : "Folder name",
+                text: $draftName
+            )
+            .textFieldStyle(.roundedBorder)
+            .onSubmit { create() }
+
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                Button("Cancel") { dismiss() }
+                Button("Create") { create() }
+                    .keyboardShortcut(.defaultAction)
+            }
         }
-        .padding(.leading, 44)
-        .padding(.trailing, 10)
-        .padding(.bottom, 8)
+        .padding(20)
+        .frame(width: 340)
+    }
+
+    private func create() {
+        onCreate(draftName)
+        dismiss()
     }
 }
 
@@ -705,7 +748,7 @@ private struct ModelVaultTreeNode: Identifiable, Hashable {
         final class BuilderNode {
             let name: String
             let relativePath: String
-            let url: URL
+            var url: URL
             var document: ModelVaultDocumentEntry?
             var children: [String: BuilderNode] = [:]
 
@@ -721,6 +764,13 @@ private struct ModelVaultTreeNode: Identifiable, Hashable {
                     .sorted { lhs, rhs in
                         if lhs.kind != rhs.kind {
                             return lhs.kind == .folder
+                        }
+                        if lhs.kind == .file, rhs.kind == .file {
+                            let lhsRank = lhs.document?.sortRank ?? Int.max
+                            let rhsRank = rhs.document?.sortRank ?? Int.max
+                            if lhsRank != rhsRank {
+                                return lhsRank < rhsRank
+                            }
                         }
                         return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
                     }
@@ -754,33 +804,41 @@ private struct ModelVaultTreeNode: Identifiable, Hashable {
 
             var current = root
             var currentComponents: [String] = []
-
-            for component in components.dropLast() {
+            for (index, component) in components.enumerated() {
                 currentComponents.append(component)
                 let relativePath = currentComponents.joined(separator: "/")
-                if let existing = current.children[component] {
-                    current = existing
-                    continue
-                }
-                let folderURL = entry.url.deletingLastPathComponent(
-                    count: components.count - currentComponents.count
-                )
-                let folderNode = BuilderNode(
-                    name: component,
-                    relativePath: relativePath,
-                    url: folderURL
-                )
-                current.children[component] = folderNode
-                current = folderNode
-            }
+                let isLast = index == components.count - 1
 
-            let fileNode = BuilderNode(
-                name: components.last ?? entry.displayName,
-                relativePath: entry.relativePath,
-                url: entry.url
-            )
-            fileNode.document = entry
-            current.children[components.last ?? entry.displayName] = fileNode
+                let nextNode: BuilderNode
+                if let existing = current.children[component] {
+                    nextNode = existing
+                } else {
+                    let nodeURL: URL
+                    if isLast {
+                        nodeURL = entry.url
+                    } else {
+                        nodeURL = entry.url.deletingLastPathComponent(
+                            count: components.count - currentComponents.count
+                        )
+                    }
+                    let created = BuilderNode(
+                        name: component,
+                        relativePath: relativePath,
+                        url: nodeURL
+                    )
+                    current.children[component] = created
+                    nextNode = created
+                }
+
+                if isLast {
+                    nextNode.url = entry.url
+                    if !entry.isDirectory {
+                        nextNode.document = entry
+                    }
+                }
+
+                current = nextNode
+            }
         }
 
         return root.children.values
@@ -788,6 +846,13 @@ private struct ModelVaultTreeNode: Identifiable, Hashable {
             .sorted { lhs, rhs in
                 if lhs.kind != rhs.kind {
                     return lhs.kind == .folder
+                }
+                if lhs.kind == .file, rhs.kind == .file {
+                    let lhsRank = lhs.document?.sortRank ?? Int.max
+                    let rhsRank = rhs.document?.sortRank ?? Int.max
+                    if lhsRank != rhsRank {
+                        return lhsRank < rhsRank
+                    }
                 }
                 return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
             }
@@ -815,7 +880,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
     let directoryName: String
     let acceptedAuthoredModelIDs: Set<String>
 
-    init(url: URL) {
+    nonisolated init(url: URL) {
         self.url = url
         self.directoryName = url.lastPathComponent
 
@@ -840,11 +905,11 @@ struct ModelVaultEntry: Identifiable, Hashable {
         self.subtitle = resolvedModelID
     }
 
-    func matchesVisibleModelIDs(_ visibleModelIDs: Set<String>) -> Bool {
+    nonisolated func matchesVisibleModelIDs(_ visibleModelIDs: Set<String>) -> Bool {
         !acceptedAuthoredModelIDs.isDisjoint(with: visibleModelIDs)
     }
 
-    static func acceptedModelIDs(
+    nonisolated static func acceptedModelIDs(
         for modelID: String,
         additionalAliases: [String?] = []
     ) -> Set<String> {
@@ -874,7 +939,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         return ids
     }
 
-    static func presentation(
+    nonisolated static func presentation(
         for modelID: String,
         fallbackDisplayName: String? = nil
     ) -> (displayName: String, systemImage: String) {
@@ -936,7 +1001,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         )
     }
 
-    private static func canonicalModelID(for value: String) -> String {
+    private nonisolated static func canonicalModelID(for value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return value
@@ -950,7 +1015,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         return trimmed
     }
 
-    private static func localModel(matching value: String) -> LocalTextModelID? {
+    private nonisolated static func localModel(matching value: String) -> LocalTextModelID? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return LocalTextModelID.allCases.first(where: {
@@ -958,7 +1023,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         })
     }
 
-    private static func cloudModel(matching value: String) -> CloudTextModelID? {
+    private nonisolated static func cloudModel(matching value: String) -> CloudTextModelID? {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         return CloudTextModelID.allCases.first(where: {
@@ -969,7 +1034,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         })
     }
 
-    private static func metadata(for directoryURL: URL) -> ModelVaultMetadata? {
+    private nonisolated static func metadata(for directoryURL: URL) -> ModelVaultMetadata? {
         let metadataURL = directoryURL.appendingPathComponent("meta.json", isDirectory: false)
         guard let data = try? Data(contentsOf: metadataURL) else {
             return nil
@@ -979,7 +1044,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         return try? decoder.decode(ModelVaultMetadata.self, from: data)
     }
 
-    private static func safePathComponent(_ value: String) -> String {
+    private nonisolated static func safePathComponent(_ value: String) -> String {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "unknown-model" }
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-._"))
@@ -989,7 +1054,7 @@ struct ModelVaultEntry: Identifiable, Hashable {
         return String(scalars)
     }
 
-    private static func systemImage(for modelID: String) -> String {
+    private nonisolated static func systemImage(for modelID: String) -> String {
         let lower = modelID.lowercased()
         if lower.contains("opus") || lower.contains("sonnet") || lower.contains("claude") {
             return "c.circle"

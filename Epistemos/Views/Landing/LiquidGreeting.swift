@@ -47,7 +47,7 @@ struct LiquidGreeting: View {
     }
 
     private var shouldAnimate: Bool {
-        ui.activePanel == .home && !ui.windowOccluded && ui.landingGreetingTypewriterEnabled
+        !ui.windowOccluded && ui.landingGreetingTypewriterEnabled
     }
 
     private var taskKey: String {

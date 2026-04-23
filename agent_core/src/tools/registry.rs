@@ -542,16 +542,37 @@ impl ToolRegistry {
 
     fn register_phase_eight_trajectory(&mut self) {
         use crate::tools::trajectory::{trajectory_export_schema, TrajectoryExportHandler};
+        if std::env::var_os("DISABLE_TRAJECTORY_EXPORT").is_some() {
+            tracing::warn!(
+                "trajectory_export registration skipped because DISABLE_TRAJECTORY_EXPORT is set"
+            );
+            return;
+        }
         if let Some(root) = self.vault_root_path.clone() {
-            let schema = trajectory_export_schema();
-            self.register(RegisteredTool {
-                name: schema.name,
-                description: schema.description,
-                parameters: schema.parameters,
-                handler: Box::new(TrajectoryExportHandler::new(root)),
-                risk_level: RiskLevel::Modification,
-                tier: ToolTier::Agent,
-            });
+            let registration = std::panic::catch_unwind(AssertUnwindSafe(|| {
+                let schema = trajectory_export_schema();
+                RegisteredTool {
+                    name: schema.name,
+                    description: schema.description,
+                    parameters: schema.parameters,
+                    handler: Box::new(TrajectoryExportHandler::new(root)),
+                    risk_level: RiskLevel::Modification,
+                    tier: ToolTier::Agent,
+                }
+            }));
+            match registration {
+                Ok(tool) => self.register(tool),
+                Err(panic) => {
+                    let message = if let Some(s) = panic.downcast_ref::<&str>() {
+                        (*s).to_string()
+                    } else if let Some(s) = panic.downcast_ref::<String>() {
+                        s.clone()
+                    } else {
+                        "trajectory_export registration panicked".to_string()
+                    };
+                    tracing::error!("trajectory_export registration skipped after panic: {message}");
+                }
+            }
         }
     }
 
@@ -2187,6 +2208,27 @@ mod tier_tests {
         // Agent tier includes the destructive tools Pro hides.
         assert!(agent_names.contains("terminal"));
         assert!(agent_names.contains("send_message"));
+    }
+
+    #[test]
+    fn trajectory_export_disappears_when_registration_is_disabled() {
+        let saved = std::env::var("DISABLE_TRAJECTORY_EXPORT").ok();
+        std::env::set_var("DISABLE_TRAJECTORY_EXPORT", "1");
+
+        let temp = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Agent, temp.path());
+        let names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        match saved {
+            Some(value) => std::env::set_var("DISABLE_TRAJECTORY_EXPORT", value),
+            None => std::env::remove_var("DISABLE_TRAJECTORY_EXPORT"),
+        }
+
+        assert!(!names.contains("trajectory_export"));
     }
 
     #[test]

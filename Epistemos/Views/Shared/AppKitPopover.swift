@@ -43,7 +43,8 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
                 Self.syncContentSize(
                     popover: popover,
                     hostingController: hostingController,
-                    window: nsView.window
+                    window: nsView.window,
+                    coordinator: context.coordinator
                 )
 
                 context.coordinator.popover = popover
@@ -70,7 +71,8 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
                 Self.syncContentSize(
                     popover: popover,
                     hostingController: hostingController,
-                    window: nsView.window
+                    window: nsView.window,
+                    coordinator: context.coordinator
                 )
             }
         } else {
@@ -83,8 +85,12 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
     private static func syncContentSize(
         popover: NSPopover,
         hostingController: NSHostingController<PopoverContent>,
-        window: NSWindow?
+        window: NSWindow?,
+        coordinator: Coordinator
     ) {
+        guard !coordinator.isSynchronizingContentSize else { return }
+        coordinator.isSynchronizingContentSize = true
+        defer { coordinator.isSynchronizingContentSize = false }
         hostingController.view.layoutSubtreeIfNeeded()
         let intrinsic = hostingController.sizeThatFits(in: NSSize(
             width: 640,
@@ -116,6 +122,7 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
         var parent: AppKitPopoverAnchor
         var popover: NSPopover?
         var hostingController: AnyObject?
+        var isSynchronizingContentSize = false
 
         init(parent: AppKitPopoverAnchor) {
             self.parent = parent
@@ -123,11 +130,12 @@ struct AppKitPopoverAnchor<PopoverContent: View>: NSViewRepresentable {
         
         func popoverDidClose(_ notification: Notification) {
             // Dismiss binding when clicking outside
-            DispatchQueue.main.async {
+            Task { @MainActor in
                 self.parent.isPresented = false
             }
             popover = nil
             hostingController = nil
+            isSynchronizingContentSize = false
         }
     }
 }

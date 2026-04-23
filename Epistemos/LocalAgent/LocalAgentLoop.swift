@@ -34,12 +34,15 @@ typealias LocalAgentToolExecutor = @Sendable (
 
 nonisolated enum LocalAgentLoopError: LocalizedError, Equatable {
     case maxTurnsExceeded(Int)
+    case invisibleRepairLoop(Int)
     case unsupportedModel(String)
 
     var errorDescription: String? {
         switch self {
         case .maxTurnsExceeded(let maxTurns):
             return "Local agent exceeded turn limit (\(maxTurns) turns)."
+        case .invisibleRepairLoop(let attempts):
+            return "Local agent stopped after \(attempts) consecutive empty repair turns."
         case .unsupportedModel(let modelID):
             return "\(modelID) is not approved for the local agent loop."
         }
@@ -56,6 +59,8 @@ private final class MainActorLocalModelClientBox: @unchecked Sendable {
 }
 
 actor LocalAgentLoop {
+    private nonisolated static let invisibleRepairLoopLimit = 2
+
     nonisolated struct ParsedToolCall: Sendable, Equatable {
         let name: String
         let argumentsJson: String
@@ -116,7 +121,24 @@ actor LocalAgentLoop {
                 output.append(chunk)
                 await onToken(chunk)
             }
-            return output
+            if !output.isEmpty {
+                return output
+            }
+
+            let fallbackOutput = try await Task { @MainActor in
+                try await clientBox.client.generate(
+                    prompt: prompt,
+                    systemPrompt: systemPrompt,
+                    maxTokens: maxTokens,
+                    reasoningMode: reasoningMode,
+                    modelID: modelID,
+                    steeringHintsJSON: steeringHintsJSON
+                )
+            }.value
+            if !fallbackOutput.isEmpty {
+                await onToken(fallbackOutput)
+            }
+            return fallbackOutput
         }
     }
 
@@ -265,6 +287,21 @@ actor LocalAgentLoop {
             requiredToolSequence: requiredNoteToolSequence
         )
         var completedToolNames = Set<String>()
+        var consecutiveInvisibleTurns = 0
+
+        func resetInvisibleTurnStreak() {
+            consecutiveInvisibleTurns = 0
+        }
+
+        func recordInvisibleTurnOrThrow() throws {
+            consecutiveInvisibleTurns += 1
+            guard consecutiveInvisibleTurns < Self.invisibleRepairLoopLimit else {
+                Log.pipeline.error(
+                    "Local agent stopped after \(consecutiveInvisibleTurns, privacy: .public) consecutive invisible repair turns"
+                )
+                throw LocalAgentLoopError.invisibleRepairLoop(consecutiveInvisibleTurns)
+            }
+        }
 
         while turnCount < maxTurns {
             turnCount += 1
@@ -290,6 +327,7 @@ actor LocalAgentLoop {
                     requiredNoteToolSequence: requiredNoteToolSequence,
                     requestedExplicitNoteTitle: requestedExplicitNoteTitle,
                     completedToolNames: &completedToolNames,
+                    consecutiveInvisibleTurns: &consecutiveInvisibleTurns,
                     history: &history,
                     onTreeMutated: onTreeMutated,
                     onToken: onToken
@@ -375,6 +413,7 @@ actor LocalAgentLoop {
                     Log.pipeline.info(
                         "Local agent explicit-file repair (skipped step) — \(repairSummary, privacy: .public)"
                     )
+                    resetInvisibleTurnStreak()
                     history.append(LocalMessage(role: .assistant, content: output))
                     history.append(LocalMessage(role: .user, content: repairPrompt))
                     continue
@@ -385,15 +424,18 @@ actor LocalAgentLoop {
                     completedToolNames: completedToolNames,
                     requestedNoteTitle: requestedExplicitNoteTitle
                 ) {
+                    resetInvisibleTurnStreak()
                     history.append(LocalMessage(role: .assistant, content: output))
                     history.append(LocalMessage(role: .user, content: repairPrompt))
                     continue
                 }
                 let visibleOutput = Self.stripAssistantMeta(from: output)
                 if !visibleOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    resetInvisibleTurnStreak()
                     return visibleOutput
                 }
                 if let salvagedOutput = Self.salvagedHiddenAnswer(from: output) {
+                    resetInvisibleTurnStreak()
                     return salvagedOutput
                 }
                 history.append(LocalMessage(role: .assistant, content: output))
@@ -407,9 +449,11 @@ actor LocalAgentLoop {
                         requestedNoteTitle: requestedExplicitNoteTitle
                     )
                 ))
+                try recordInvisibleTurnOrThrow()
                 continue
             }
 
+            resetInvisibleTurnStreak()
             if let repairPrompt = Self.repairPromptForInvalidExplicitFileToolCall(
                 toolCalls: toolCalls,
                 requiredToolSequence: requiredFileToolSequence,
@@ -474,6 +518,7 @@ actor LocalAgentLoop {
         requiredNoteToolSequence: [String],
         requestedExplicitNoteTitle: String?,
         completedToolNames: inout Set<String>,
+        consecutiveInvisibleTurns: inout Int,
         history: inout [LocalMessage],
         onTreeMutated: (@Sendable () async -> String?)?,
         onToken: @escaping @MainActor (String) -> Void
@@ -540,6 +585,7 @@ actor LocalAgentLoop {
                 Log.pipeline.info(
                     "Local agent explicit-file repair (reflex invalid tool call) — \(repairSummary, privacy: .public)"
                 )
+                consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
@@ -550,10 +596,12 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedNoteTitle: requestedExplicitNoteTitle
             ) {
+                consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
             }
+            consecutiveInvisibleTurns = 0
             history.append(LocalMessage(role: .assistant, content: output))
             let result = await toolExecutor(toolCall.name, toolCall.argumentsJson)
             completedToolNames.insert(toolCall.name.lowercased())
@@ -616,9 +664,11 @@ actor LocalAgentLoop {
             if repairedToolCalls.isEmpty {
                 let repairedVisibleOutput = Self.stripAssistantMeta(from: repairedOutput)
                 if !repairedVisibleOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    consecutiveInvisibleTurns = 0
                     return repairedVisibleOutput
                 }
                 if let salvagedOutput = Self.salvagedHiddenAnswer(from: repairedOutput) {
+                    consecutiveInvisibleTurns = 0
                     return salvagedOutput
                 }
                 if let syntheticToolCall = Self.syntheticExplicitFileToolCall(
@@ -646,9 +696,18 @@ actor LocalAgentLoop {
                         requestedNoteTitle: requestedExplicitNoteTitle
                     )
                 ))
+                consecutiveInvisibleTurns += 1
+                let invisibleTurnCount = consecutiveInvisibleTurns
+                guard invisibleTurnCount < Self.invisibleRepairLoopLimit else {
+                    Log.pipeline.error(
+                        "Local agent stopped after \(invisibleTurnCount, privacy: .public) consecutive invisible repair turns"
+                    )
+                    throw LocalAgentLoopError.invisibleRepairLoop(invisibleTurnCount)
+                }
                 return nil
             }
 
+            consecutiveInvisibleTurns = 0
             history.append(LocalMessage(role: .assistant, content: repairedOutput))
             if let repairPrompt = Self.repairPromptForInvalidExplicitFileToolCall(
                 toolCalls: repairedToolCalls,
@@ -698,6 +757,7 @@ actor LocalAgentLoop {
                 Log.pipeline.info(
                     "Local agent explicit-file repair (reflex skipped step) — \(repairSummary, privacy: .public)"
                 )
+                consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
@@ -708,15 +768,18 @@ actor LocalAgentLoop {
                 completedToolNames: completedToolNames,
                 requestedNoteTitle: requestedExplicitNoteTitle
             ) {
+                consecutiveInvisibleTurns = 0
                 history.append(LocalMessage(role: .assistant, content: output))
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
             }
             let visibleOutput = Self.stripAssistantMeta(from: output)
             if !visibleOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                consecutiveInvisibleTurns = 0
                 return visibleOutput
             }
             if let salvagedOutput = Self.salvagedHiddenAnswer(from: output) {
+                consecutiveInvisibleTurns = 0
                 return salvagedOutput
             }
             history.append(LocalMessage(role: .assistant, content: output))
@@ -730,9 +793,18 @@ actor LocalAgentLoop {
                     requestedNoteTitle: requestedExplicitNoteTitle
                 )
             ))
+            consecutiveInvisibleTurns += 1
+            let invisibleTurnCount = consecutiveInvisibleTurns
+            guard invisibleTurnCount < Self.invisibleRepairLoopLimit else {
+                Log.pipeline.error(
+                    "Local agent stopped after \(invisibleTurnCount, privacy: .public) consecutive invisible repair turns"
+                )
+                throw LocalAgentLoopError.invisibleRepairLoop(invisibleTurnCount)
+            }
             return nil
         }
 
+        consecutiveInvisibleTurns = 0
         history.append(LocalMessage(role: .assistant, content: output))
         if let repairPrompt = Self.repairPromptForInvalidExplicitFileToolCall(
             toolCalls: toolCalls,
@@ -970,7 +1042,10 @@ actor LocalAgentLoop {
             return ParsedToolCall(name: tool.name, argumentsJson: toolCall.argumentsJson)
         }
 
-        return ParsedToolCall(name: tool.name, argumentsJson: normalizedJson)
+        return ParsedToolCall(
+            name: tool.name,
+            argumentsJson: normalizedJson.replacingOccurrences(of: "\\/", with: "/")
+        )
     }
 
     private nonisolated static func canonicalizeArguments(

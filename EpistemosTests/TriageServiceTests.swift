@@ -18,8 +18,8 @@ private let isolatedInferenceDefaultsKeys = [
     "epistemos.preferredCloudModel.deepseek",
 ]
 
-private let triageInteractiveReleaseFixtureModelID = LocalTextModelID.gemma4_4B4Bit
-private let triageThinkingReleaseFixtureModelID = LocalTextModelID.gemma4_27BA4B4Bit
+private let triageInteractiveReleaseFixtureModelID = LocalTextModelID.qwen3_4B4Bit
+private let triageThinkingReleaseFixtureModelID = LocalTextModelID.qwen3_4BThinking25074Bit
 private let ggufCapableTestHardwareSnapshot = LocalHardwareCapabilitySnapshot(
     physicalMemoryBytes: 64_000_000_000,
     roundedMemoryGB: 64,
@@ -29,11 +29,10 @@ private let ggufCapableTestHardwareSnapshot = LocalHardwareCapabilitySnapshot(
 @MainActor
 private func makeIsolatedInferenceState(
     hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot = .current,
-    keychainLoad: @escaping @Sendable (String) -> String? = { Keychain.load(for: $0) },
-    keychainSave: @escaping @Sendable (String, String) -> Bool = { value, key in
-        Keychain.save(value, for: key)
-    },
-    keychainDelete: @escaping @Sendable (String) -> Void = { Keychain.delete(for: $0) }
+    keychainStore: TestKeychainStore = TestKeychainStore(),
+    keychainLoad: (@Sendable (String) -> String?)? = nil,
+    keychainSave: (@Sendable (String, String) -> Bool)? = nil,
+    keychainDelete: (@Sendable (String) -> Void)? = nil
 ) -> InferenceState {
     let defaults = UserDefaults.standard
     let savedValues = isolatedInferenceDefaultsKeys.reduce(into: [String: Any?]()) { partialResult, key in
@@ -49,34 +48,15 @@ private func makeIsolatedInferenceState(
             }
         }
     }
+    let resolvedKeychainLoad = keychainLoad ?? keychainStore.load(_:)
+    let resolvedKeychainSave = keychainSave ?? keychainStore.save(_:_:)
+    let resolvedKeychainDelete = keychainDelete ?? keychainStore.delete(_:)
     return InferenceState(
         hardwareCapabilitySnapshot: hardwareCapabilitySnapshot,
-        keychainLoad: keychainLoad,
-        keychainSave: keychainSave,
-        keychainDelete: keychainDelete
+        keychainLoad: resolvedKeychainLoad,
+        keychainSave: resolvedKeychainSave,
+        keychainDelete: resolvedKeychainDelete
     )
-}
-
-@MainActor
-private func withSavedAPIKey(
-    for provider: CloudModelProvider,
-    _ body: () async throws -> Void
-) async rethrows {
-    let originalValue = Keychain.load(for: provider.apiKeyKeychainKey)
-    let originalOAuthValue = Keychain.load(for: provider.oauthKeychainKey)
-    defer {
-        if let originalValue {
-            _ = Keychain.save(originalValue, for: provider.apiKeyKeychainKey)
-        } else {
-            Keychain.delete(for: provider.apiKeyKeychainKey)
-        }
-        if let originalOAuthValue {
-            _ = Keychain.save(originalOAuthValue, for: provider.oauthKeychainKey)
-        } else {
-            Keychain.delete(for: provider.oauthKeychainKey)
-        }
-    }
-    try await body()
 }
 
 @Suite("TriageService")
@@ -491,6 +471,36 @@ struct TriageServiceTests {
         #expect(reloaded.cloudAutoFallback)
     }
 
+    @Test("chat auto route persists across inference state reloads")
+    @MainActor func chatAutoRoutePersistsAcrossInferenceStateReloads() {
+        let defaults = UserDefaults.standard
+        let key = "epistemos.chatAutoRouteToCloud"
+        let savedValue = defaults.object(forKey: key)
+        defer {
+            if let savedValue {
+                defaults.set(savedValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+        defaults.removeObject(forKey: key)
+
+        let inference = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+        inference.setChatAutoRouteToCloud(true)
+
+        let reloaded = InferenceState(
+            keychainLoad: { _ in nil },
+            keychainSave: { _, _ in true },
+            keychainDelete: { _ in }
+        )
+
+        #expect(reloaded.chatAutoRouteToCloud)
+    }
+
     @Test("stale Gemma 4 local selections auto-migrate to a runnable default")
     @MainActor func migrateStaleGemma4Selection() {
         let defaults = UserDefaults.standard
@@ -540,14 +550,16 @@ struct TriageServiceTests {
         #expect(LocalTextModelID.gemma4_4B4Bit.releasePickerVisibilityReason?.contains("Swift MLX loader") == true)
     }
 
-    @Test("model vault settings exclude non-release local preview tiers")
-    func modelVaultSettingsExcludeNonReleaseLocalPreviewTiers() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ModelVaultsSettingsView.swift")
+    @Test("model vault settings defer release-tier filtering to the shared inference targets builder")
+    func modelVaultSettingsUseSharedReleaseTierFiltering() throws {
+        let settingsSource = try loadMirroredSourceTextFile("Epistemos/Views/Settings/ModelVaultsSettingsView.swift")
+        let inferenceSource = try loadMirroredSourceTextFile("Epistemos/State/InferenceState.swift")
 
-        #expect(source.contains("LocalModelCatalog.allDescriptors"))
-        #expect(source.contains("installedLocalTextModelIDs.contains(descriptor.id)"))
-        #expect(source.contains("LocalTextModelID(rawValue: descriptor.id)"))
-        #expect(source.contains("model.isReleaseValidatedForInteractiveChat"))
+        #expect(settingsSource.contains("inference.modelVaultTargets()"))
+        #expect(inferenceSource.contains("LocalModelCatalog.allDescriptors"))
+        #expect(inferenceSource.contains("releaseSelectableInstalledLocalTextModelIDs.contains(descriptor.id)"))
+        #expect(inferenceSource.contains("LocalTextModelID(rawValue: descriptor.id)"))
+        #expect(inferenceSource.contains("model.isReleaseValidatedForInteractiveChat"))
     }
 
     @Test("Gemma 4 chat selection sanitizes to the runnable local default")
@@ -654,7 +666,9 @@ struct TriageServiceTests {
     @Test("preferredCloudModel publishes through the observable mirror so pickers refresh")
     @MainActor func setPreferredCloudModelUpdatesObservableMirror() {
         let inference = InferenceState(
-            keychainLoad: { _ in "sk-test" },
+            keychainLoad: { key in
+                key == CloudModelProvider.openAI.apiKeyKeychainKey ? "sk-test" : nil
+            },
             keychainSave: { _, _ in true },
             keychainDelete: { _ in }
         )
@@ -1204,7 +1218,8 @@ struct InferencePolicyEngineTests {
             context: makeContext(
                 appleAvailable: false,
                 cloudAutoRouteEnabled: true,
-                hasConfiguredCloudModels: true
+                hasConfiguredCloudModels: true,
+                preferredChatModelSelection: .appleIntelligence
             )
         )
 
@@ -1242,8 +1257,8 @@ struct InferencePolicyEngineTests {
         #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
-    @Test("auto local routing picks the coding specialist before escalating to cloud")
-    func autoLocalRoutingPrefersCoderForCodingWork() {
+    @Test("auto fast coding routes to cloud when only unsafe or unsupported local fallbacks remain")
+    func autoFastCodingRoutesToCloudWhenNoSafeLocalFallbackRemains() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -1265,6 +1280,7 @@ struct InferencePolicyEngineTests {
                 appleAvailable: false,
                 cloudAutoRouteEnabled: true,
                 hasConfiguredCloudModels: true,
+                preferredChatModelSelection: .appleIntelligence,
                 installed: [
                     .gemma4_4B4Bit,
                     .deepseekR1Distill7B,
@@ -1275,9 +1291,9 @@ struct InferencePolicyEngineTests {
             )
         )
 
-        #expect(decision.selectedRoute == .localMLX)
-        #expect(decision.localSelection?.modelID == LocalTextModelID.qwen36_35BA3B4Bit.rawValue)
-        #expect(!decision.reasonCodes.contains(.cloudAutoRoute))
+        #expect(decision.selectedRoute == .cloud)
+        #expect(decision.localSelection == nil)
+        #expect(decision.reasonCodes.contains(.cloudAutoRoute))
     }
 
     @Test("auto local routing picks the reasoning specialist for thinking work when available")
@@ -1479,8 +1495,8 @@ struct InferencePolicyEngineTests {
         #expect(decision.localSelection?.reasoningMode == .fast)
     }
 
-    @Test("auto local routing skips heavy interactive-qwen tiers on 18GB machines")
-    func autoLocalRoutingSkipsHeavyInteractiveQwenOn18GBMachines() {
+    @Test("interactive routing treats oversized qwen tiers as unavailable on 18GB machines")
+    func autoLocalRoutingTreatsOversizedQwenAsUnavailableOn18GBMachines() {
         let engine = InferencePolicyEngine()
         let decision = engine.decide(
             profile: InferenceRequestProfile(
@@ -1500,12 +1516,13 @@ struct InferencePolicyEngineTests {
             ),
             context: makeContext(
                 appleAvailable: false,
+                preferredChatModelSelection: .appleIntelligence,
                 installed: [.qwen35_35BA3B4Bit]
             )
         )
 
         #expect(decision.localSelection == nil)
-        #expect(decision.selectedRoute != .localMLX)
+        #expect(decision.reasonCodes.contains(.noInstalledLocalModel))
     }
 
     @Test("fast local routing avoids always-thinking DeepSeek when a non-thinking fast tier is available")
@@ -1627,9 +1644,9 @@ struct OverseerComplexityRouterTests {
             hardwareCapabilitySnapshot: ggufCapableTestHardwareSnapshot
         )
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
-        inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_8B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen3_8B4Bit.rawValue))
 
         let router = OverseerComplexityRouter(inference: inference)
         let executionPlan = router.planForMainChat(
@@ -1653,8 +1670,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func complexCodingChatProducesOverseerLocalExecutionPlan() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_27BA4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3CoderNext4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3CoderNext4Bit.rawValue)
 
         let router = OverseerComplexityRouter(inference: inference)
         let executionPlan = router.planForMainChat(
@@ -1679,8 +1696,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func driveScaleMonitoringEscalatesToManagedAgentSession() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3CoderNext4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3CoderNext4Bit.rawValue)
 
         let router = OverseerComplexityRouter(inference: inference)
         let executionPlan = router.planForMainChat(
@@ -1706,8 +1723,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func cloudFilePathReadsEscalateToManagedAgentSession() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_8B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
 
         let router = OverseerComplexityRouter(inference: inference)
@@ -1730,8 +1747,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func cloudNoteSeekingTurnsWithResolvedVaultContextEscalateToManagedAgentSession() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_8B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
 
         let router = OverseerComplexityRouter(inference: inference)
@@ -1757,8 +1774,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func cloudEssayLookupTurnsEscalateToManagedAgentSessionBeforeResolution() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_8B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
         inference.setPreferredChatModelSelection(.cloud(.openAIGPT54))
 
         let router = OverseerComplexityRouter(inference: inference)
@@ -1812,8 +1829,8 @@ struct OverseerComplexityRouterTests {
     @MainActor func explicitAgentModeDoesNotDowngradeSimpleAsks() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = false
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_27BA4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_27BA4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3CoderNext4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3CoderNext4Bit.rawValue)
 
         let router = OverseerComplexityRouter(inference: inference)
         let executionPlan = router.planForMainChat(
@@ -2040,7 +2057,7 @@ struct TriageServiceIntegrationTests {
     @MainActor func notesComplexOperationsUseLocal() {
         let triage = makeService(
             appleAvailable: true,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue]
         )
 
         #expect(triage.triage(operation: .continueWriting, contentLength: 1_000) == .localMLX)
@@ -2052,7 +2069,7 @@ struct TriageServiceIntegrationTests {
     @MainActor func notesAppleUnavailableUsesLocal() {
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue]
         )
 
         #expect(triage.triage(operation: .grammarFix, contentLength: 100) == .localMLX)
@@ -2068,7 +2085,7 @@ struct TriageServiceIntegrationTests {
     @MainActor func generalComplexUsesLocal() {
         let triage = makeService(
             appleAvailable: true,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue]
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue]
         )
 
         #expect(
@@ -2083,7 +2100,7 @@ struct TriageServiceIntegrationTests {
     @MainActor func localOnlyForcesLocalQwen() {
         let triage = makeService(
             appleAvailable: true,
-            localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue],
             routingMode: .localOnly
         )
 
@@ -2247,7 +2264,7 @@ struct TriageServiceIntegrationTests {
         let llm = RecordingConfigurableLocalLLMClient()
         let triage = makeService(
             appleAvailable: false,
-            localInstalled: [LocalTextModelID.qwen35_35BA3B4Bit.rawValue],
+            localInstalled: [triageThinkingReleaseFixtureModelID.rawValue],
             routingMode: .localOnly,
             localLLMService: llm
         )
@@ -2262,8 +2279,8 @@ struct TriageServiceIntegrationTests {
         _ = await LocalRuntimeSmokeSupport.collect(stream)
 
         let systemPrompt = llm.streamRequests.first?.systemPrompt
-        #expect(systemPrompt?.contains("keep any hidden reasoning inside <think>") == true)
-        #expect(systemPrompt?.contains("final user-facing answer only after </think>") == true)
+        #expect(systemPrompt?.contains("emit that reasoning inside <think>...</think> tags") == true)
+        #expect(systemPrompt?.contains("Put the final user-facing answer only after </think>.") == true)
     }
 
     @Test("local path injects a baseline local system prompt when none is provided")
@@ -2380,116 +2397,107 @@ struct TriageServiceIntegrationTests {
 
     @Test("explicit cloud selection bypasses Apple and local triage for general generation")
     @MainActor func explicitCloudSelectionBypassesAppleAndLocal() async throws {
-        try await withSavedAPIKey(for: .openAI) {
-            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+        let store = TestKeychainStore(values: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
+        ])
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        cloud.generateResult = .success("cloud answer")
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            cloud.generateResult = .success("cloud answer")
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue],
+            selectedChatModel: .cloud(.openAIGPT54),
+            cloudLLMService: cloud,
+            keychainStore: store
+        )
 
-            let triage = makeService(
-                appleAvailable: true,
-                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
-                selectedChatModel: .cloud(.openAIGPT54),
-                cloudLLMService: cloud
-            )
+        let result = try await triage.generateGeneral(
+            prompt: "Use the cloud model",
+            systemPrompt: "System",
+            operation: .chatResponse(query: "Use the cloud model"),
+            contentLength: 19
+        )
 
-            let result = try await triage.generateGeneral(
-                prompt: "Use the cloud model",
-                systemPrompt: "System",
-                operation: .chatResponse(query: "Use the cloud model"),
-                contentLength: 19
-            )
-
-            #expect(result == "cloud answer")
-            #expect(cloud.generateCalls.count == 1)
-            #expect(triage.lastDecision == .cloud)
-        }
+        #expect(result == "cloud answer")
+        #expect(cloud.generateCalls.count == 1)
+        #expect(triage.lastDecision == .cloud)
     }
 
     @Test("notes pro mode can auto-route to the configured cloud provider")
     @MainActor func notesProModeCanAutoRouteToCloud() async {
-        await withSavedAPIKey(for: .openAI) {
-            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+        let store = TestKeychainStore(values: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
+        ])
+        let inference = makeIsolatedInferenceState(keychainStore: store)
+        inference.appleIntelligenceAvailable = false
+        inference.setInstalledLocalTextModelIDs([triageInteractiveReleaseFixtureModelID.rawValue])
+        inference.setPreferredLocalTextModelID(triageInteractiveReleaseFixtureModelID.rawValue)
+        inference.setPreferredChatModelSelection(.appleIntelligence)
+        inference.setChatAutoRouteToCloud(true)
 
-            let inference = makeIsolatedInferenceState()
-            inference.appleIntelligenceAvailable = false
-            inference.setInstalledLocalTextModelIDs([triageInteractiveReleaseFixtureModelID.rawValue])
-            inference.setPreferredLocalTextModelID(triageInteractiveReleaseFixtureModelID.rawValue)
-            inference.setPreferredChatModelSelection(.localMLX(triageInteractiveReleaseFixtureModelID.rawValue))
-            inference.setChatAutoRouteToCloud(true)
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        cloud.streamTokens = ["cloud note answer"]
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            cloud.streamTokens = ["cloud note answer"]
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: TriageIntegrationMockLLMClient(),
+            cloudLLMService: cloud
+        )
 
-            let triage = TriageService(
-                inference: inference,
-                localLLMService: TriageIntegrationMockLLMClient(),
-                cloudLLMService: cloud
-            )
+        let stream = triage.stream(
+            prompt: "Current note body.\n\nRequest: Compare these arguments.",
+            operation: .ask(query: "Compare these arguments."),
+            contentLength: 72,
+            query: "Compare these arguments.",
+            operatingMode: .pro
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
 
-            let stream = triage.stream(
-                prompt: "Current note body.\n\nRequest: Compare these arguments.",
-                operation: .ask(query: "Compare these arguments."),
-                contentLength: 72,
-                query: "Compare these arguments.",
-                operatingMode: .pro
-            )
-            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
-
-            #expect(outcome.error == nil)
-            #expect(outcome.tokens.joined() == "cloud note answer")
-            #expect(cloud.streamCalls.count == 1)
-            #expect(triage.lastDecision == .cloud)
-        }
+        #expect(outcome.error == nil)
+        #expect(outcome.tokens.joined() == "cloud note answer")
+        #expect(cloud.streamCalls.count == 1)
+        #expect(triage.lastDecision == .cloud)
     }
 
-    @Test("thinking chat routes through the effective cloud selection when a stale local pick cannot run")
-    @MainActor func thinkingChatUsesEffectiveCloudSelectionInsteadOfStaleLocalFallback() async {
-        await withSavedAPIKey(for: .openAI) {
-            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+    @Test("thinking chat routes through the effective cloud selection when no usable local tier remains")
+    @MainActor func thinkingChatUsesEffectiveCloudSelectionWhenNoUsableLocalTierRemains() async {
+        let store = TestKeychainStore(values: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
+        ])
+        let inference = makeIsolatedInferenceState(keychainStore: store)
+        inference.appleIntelligenceAvailable = false
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
+        inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
+        inference.setActiveAIProvider(.openAI)
+        inference.setChatAutoRouteToCloud(true)
 
-            let inference = makeIsolatedInferenceState(
-                hardwareCapabilitySnapshot: LocalHardwareCapabilitySnapshot(
-                    physicalMemoryBytes: 18_000_000_000,
-                    roundedMemoryGB: 18,
-                    maxRecommendedLocalContentLength: 8_000
-                )
-            )
-            inference.appleIntelligenceAvailable = false
-            inference.setInstalledLocalTextModelIDs([LocalTextModelID.deepseekR1Distill7B.rawValue])
-            inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_4B4Bit.rawValue)
-            inference.setPreferredChatModelSelection(.localMLX(LocalTextModelID.qwen35_4B4Bit.rawValue))
-            inference.setActiveAIProvider(.openAI)
-            inference.setChatAutoRouteToCloud(true)
+        #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .cloud(.openAIGPT54))
 
-            #expect(inference.effectiveChatSurfaceSelection(for: .thinking) == .cloud(.openAIGPT54))
+        let local = TriageIntegrationMockLLMClient()
+        local.streamTokens = ["local fallback"]
 
-            let local = TriageIntegrationMockLLMClient()
-            local.streamTokens = ["local fallback"]
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        cloud.streamTokens = ["cloud answer"]
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            cloud.streamTokens = ["cloud answer"]
+        let triage = TriageService(
+            inference: inference,
+            localLLMService: local,
+            cloudLLMService: cloud
+        )
 
-            let triage = TriageService(
-                inference: inference,
-                localLLMService: local,
-                cloudLLMService: cloud
-            )
+        let stream = triage.streamGeneral(
+            prompt: "Trace this carefully.",
+            operation: .chatResponse(query: "Trace this carefully."),
+            contentLength: 21,
+            operatingMode: .thinking
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
 
-            let stream = triage.streamGeneral(
-                prompt: "Trace this carefully.",
-                operation: .chatResponse(query: "Trace this carefully."),
-                contentLength: 21,
-                operatingMode: .thinking
-            )
-            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
-
-            #expect(outcome.error == nil)
-            #expect(outcome.tokens.joined() == "cloud answer")
-            #expect(cloud.streamCalls.count == 1)
-            #expect(local.streamCalls.isEmpty)
-            #expect(triage.lastDecision == .cloud)
-        }
+        #expect(outcome.error == nil)
+        #expect(outcome.tokens.joined() == "cloud answer")
+        #expect(cloud.streamCalls.count == 1)
+        #expect(local.streamCalls.isEmpty)
+        #expect(triage.lastDecision == .cloud)
     }
 
     @Test("cloud fallback chain starts with the active provider route and then configured backups")
@@ -2511,116 +2519,106 @@ struct TriageServiceIntegrationTests {
 
     @Test("cloud generation fails fast when the selected provider access is missing")
     @MainActor func cloudGenerationFailsFastWhenProviderAccessIsMissing() async {
-        await withSavedAPIKey(for: .openAI) {
-            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
-            Keychain.delete(for: CloudModelProvider.openAI.oauthKeychainKey)
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue],
+            selectedChatModel: .cloud(.openAIGPT54),
+            cloudLLMService: cloud
+        )
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            let triage = makeService(
-                appleAvailable: true,
-                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
-                selectedChatModel: .cloud(.openAIGPT54),
-                cloudLLMService: cloud
+        do {
+            _ = try await triage.generateGeneral(
+                prompt: "Use the cloud model",
+                systemPrompt: "System",
+                operation: .chatResponse(query: "Use the cloud model"),
+                contentLength: 19
             )
-
-            do {
-                _ = try await triage.generateGeneral(
-                    prompt: "Use the cloud model",
-                    systemPrompt: "System",
-                    operation: .chatResponse(query: "Use the cloud model"),
-                    contentLength: 19
-                )
-                Issue.record("Expected missing provider access error")
-            } catch let error as CloudLLMError {
-                switch error {
-                case .missingAccess(let provider):
-                    #expect(provider == CloudModelProvider.openAI.displayName)
-                default:
-                    Issue.record("Expected missingAccess, got \(error)")
-                }
-            } catch {
-                Issue.record("Expected CloudLLMError, got \(error)")
+            Issue.record("Expected missing provider access error")
+        } catch let error as CloudLLMError {
+            switch error {
+            case .missingAccess(let provider):
+                #expect(provider == CloudModelProvider.openAI.displayName)
+            default:
+                Issue.record("Expected missingAccess, got \(error)")
             }
-
-            #expect(cloud.generateCalls.isEmpty)
+        } catch {
+            Issue.record("Expected CloudLLMError, got \(error)")
         }
+
+        #expect(cloud.generateCalls.isEmpty)
     }
 
     @Test("cloud streaming fails fast when the selected provider access is missing")
     @MainActor func cloudStreamingFailsFastWhenProviderAccessIsMissing() async {
-        await withSavedAPIKey(for: .openAI) {
-            Keychain.delete(for: CloudModelProvider.openAI.apiKeyKeychainKey)
-            Keychain.delete(for: CloudModelProvider.openAI.oauthKeychainKey)
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [LocalTextModelID.qwen3_4B4Bit.rawValue],
+            selectedChatModel: .cloud(.openAIGPT54),
+            cloudLLMService: cloud
+        )
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            let triage = makeService(
-                appleAvailable: true,
-                localInstalled: [LocalTextModelID.qwen35_4B4Bit.rawValue],
-                selectedChatModel: .cloud(.openAIGPT54),
-                cloudLLMService: cloud
+        do {
+            let stream = triage.streamGeneral(
+                prompt: "Use the cloud model",
+                systemPrompt: "System",
+                operation: .chatResponse(query: "Use the cloud model"),
+                contentLength: 19
             )
-
-            do {
-                let stream = triage.streamGeneral(
-                    prompt: "Use the cloud model",
-                    systemPrompt: "System",
-                    operation: .chatResponse(query: "Use the cloud model"),
-                    contentLength: 19
-                )
-                for try await _ in stream {
-                    Issue.record("Expected stream to fail before yielding output")
-                }
-                Issue.record("Expected missing provider access error")
-            } catch let error as CloudLLMError {
-                switch error {
-                case .missingAccess(let provider):
-                    #expect(provider == CloudModelProvider.openAI.displayName)
-                default:
-                    Issue.record("Expected missingAccess, got \(error)")
-                }
-            } catch {
-                Issue.record("Expected CloudLLMError, got \(error)")
+            for try await _ in stream {
+                Issue.record("Expected stream to fail before yielding output")
             }
-
-            #expect(cloud.streamCalls.isEmpty)
+            Issue.record("Expected missing provider access error")
+        } catch let error as CloudLLMError {
+            switch error {
+            case .missingAccess(let provider):
+                #expect(provider == CloudModelProvider.openAI.displayName)
+            default:
+                Issue.record("Expected missingAccess, got \(error)")
+            }
+        } catch {
+            Issue.record("Expected CloudLLMError, got \(error)")
         }
+
+        #expect(cloud.streamCalls.isEmpty)
     }
 
     @Test("explicit local streaming bypasses the selected cloud model")
     @MainActor func explicitLocalStreamingBypassesSelectedCloudModel() async {
-        await withSavedAPIKey(for: .openAI) {
-            #expect(Keychain.save("test-openai-key", for: CloudModelProvider.openAI.apiKeyKeychainKey))
+        let store = TestKeychainStore(values: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "test-openai-key",
+        ])
+        let local = TriageIntegrationMockLLMClient()
+        local.streamTokens = ["local", " answer"]
 
-            let local = TriageIntegrationMockLLMClient()
-            local.streamTokens = ["local", " answer"]
+        let cloud = TriageIntegrationMockCloudLLMClient()
+        cloud.streamTokens = ["cloud answer"]
 
-            let cloud = TriageIntegrationMockCloudLLMClient()
-            cloud.streamTokens = ["cloud answer"]
+        let triage = makeService(
+            appleAvailable: true,
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
+            localLLMService: local,
+            selectedChatModel: .cloud(.openAIGPT54),
+            cloudLLMService: cloud,
+            keychainStore: store
+        )
 
-            let triage = makeService(
-                appleAvailable: true,
-                localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
-                localLLMService: local,
-                selectedChatModel: .cloud(.openAIGPT54),
-                cloudLLMService: cloud
-            )
+        let stream = triage.streamGeneralLocally(
+            prompt: "Use the local runtime",
+            systemPrompt: "Follow the local overseer plan.",
+            operation: .chatResponse(query: "Use the local runtime"),
+            contentLength: 21
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
 
-            let stream = triage.streamGeneralLocally(
-                prompt: "Use the local runtime",
-                systemPrompt: "Follow the local overseer plan.",
-                operation: .chatResponse(query: "Use the local runtime"),
-                contentLength: 21
-            )
-            let outcome = await LocalRuntimeSmokeSupport.collect(stream)
-
-            #expect(outcome.tokens.joined() == "local answer")
-            #expect(outcome.error == nil)
-            #expect(local.streamCalls.count == 1)
-            #expect(cloud.streamCalls.isEmpty)
-            let systemPrompt = try? #require(local.streamCalls.first?.systemPrompt)
-            #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
-            #expect(systemPrompt?.contains("Follow the local overseer plan.") == true)
-        }
+        #expect(outcome.tokens.joined() == "local answer")
+        #expect(outcome.error == nil)
+        #expect(local.streamCalls.count == 1)
+        #expect(cloud.streamCalls.isEmpty)
+        let systemPrompt = try? #require(local.streamCalls.first?.systemPrompt)
+        #expect(systemPrompt?.contains("local Epistemos assistant running on-device") == true)
+        #expect(systemPrompt?.contains("Follow the local overseer plan.") == true)
     }
 
     @Test("explicit local streaming forwards steering hints to the configurable runtime")
@@ -2801,10 +2799,10 @@ struct TriageServiceIntegrationTests {
     func constrainedRuntimeKeepsChosenModel() {
         let inference = makeIsolatedInferenceState()
         inference.setInstalledLocalTextModelIDs([
-            LocalTextModelID.gemma4_2B4Bit.rawValue,
-            LocalTextModelID.gemma4_4B4Bit.rawValue,
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen3_8B4Bit.rawValue,
         ])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
         inference.setLocalRuntimeConditions(
             LocalRuntimeConditions(
                 lowPowerModeEnabled: false,
@@ -2813,7 +2811,7 @@ struct TriageServiceIntegrationTests {
             )
         )
 
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_8B4Bit.rawValue)
         #expect(inference.canRouteToLocalMLX(contentLength: 4_000))
 
         inference.setLocalRuntimeConditions(
@@ -2824,7 +2822,7 @@ struct TriageServiceIntegrationTests {
             )
         )
 
-        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.gemma4_4B4Bit.rawValue)
+        #expect(inference.effectiveLocalTextModelID == LocalTextModelID.qwen3_8B4Bit.rawValue)
         #expect(!inference.canRouteToLocalMLX(contentLength: 4_000))
     }
 
@@ -2996,7 +2994,6 @@ struct TriageServiceIntegrationTests {
         #expect(request.reasoningMode == .thinking)
         let systemPrompt = try #require(request.systemPrompt)
         #expect(systemPrompt.contains("local Epistemos assistant running on-device"))
-        #expect(systemPrompt.contains("Be helpful."))
     }
 
     @MainActor
@@ -3090,7 +3087,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -3174,7 +3171,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -3605,7 +3602,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4BThinking25074Bit.rawValue))
         try FileManager.default.createDirectory(
             at: paths.activeDirectory(for: descriptor),
             withIntermediateDirectories: true
@@ -3639,7 +3636,7 @@ struct TriageServiceIntegrationTests {
         let paths = temporaryLocalModelPaths()
         defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
 
-        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.gemma4_27BA4B4Bit.rawValue))
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
         let preparedDirectory = paths.rootDirectory
             .appendingPathComponent("prepared-primary", isDirectory: true)
         try FileManager.default.createDirectory(at: preparedDirectory, withIntermediateDirectories: true)
@@ -3655,7 +3652,7 @@ struct TriageServiceIntegrationTests {
                 primaryGenerator: PreparedModelDescriptor(
                     key: "generator_primary",
                     role: .generator,
-                    displayName: "Gemma 4 26B A4B",
+                    displayName: "Qwen 3 4B",
                     artifactID: nil,
                     modelID: descriptor.id,
                     servedModelID: descriptor.id,
@@ -3735,9 +3732,10 @@ struct TriageServiceIntegrationTests {
         routingMode: LocalRoutingMode = .auto,
         localLLMService: (any LLMClientProtocol)? = nil,
         selectedChatModel: ChatModelSelection? = nil,
-        cloudLLMService: (any LLMClientProtocol)? = nil
+        cloudLLMService: (any LLMClientProtocol)? = nil,
+        keychainStore: TestKeychainStore = TestKeychainStore()
     ) -> TriageService {
-        let inference = makeIsolatedInferenceState()
+        let inference = makeIsolatedInferenceState(keychainStore: keychainStore)
         inference.appleIntelligenceAvailable = appleAvailable
         inference.routingMode = routingMode
         inference.setInstalledLocalTextModelIDs(Set(localInstalled))
@@ -3773,14 +3771,14 @@ struct LLMServiceLocalSnapshotTests {
     @MainActor func configSnapshotKeepsFastMode() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()
 
         #expect(snapshot.provider == .localMLX)
-        #expect(snapshot.model == LocalTextModelID.gemma4_4B4Bit.rawValue)
+        #expect(snapshot.model == LocalTextModelID.qwen3_4B4Bit.rawValue)
         #expect(snapshot.reasoningMode == .fast)
     }
 
@@ -3789,24 +3787,24 @@ struct LLMServiceLocalSnapshotTests {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
         inference.setInstalledLocalTextModelIDs([
-            LocalTextModelID.gemma4_2B4Bit.rawValue,
-            LocalTextModelID.gemma4_4B4Bit.rawValue,
+            LocalTextModelID.qwen3_4B4Bit.rawValue,
+            LocalTextModelID.qwen3_8B4Bit.rawValue,
         ])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_8B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()
 
         #expect(snapshot.provider == .localMLX)
-        #expect(snapshot.model == LocalTextModelID.gemma4_4B4Bit.rawValue)
+        #expect(snapshot.model == LocalTextModelID.qwen3_8B4Bit.rawValue)
     }
 
     @Test("local snapshots stay in fast mode")
     @MainActor func localSnapshotsStayFast() {
         let inference = makeIsolatedInferenceState()
         inference.appleIntelligenceAvailable = true
-        inference.setInstalledLocalTextModelIDs([LocalTextModelID.gemma4_4B4Bit.rawValue])
-        inference.setPreferredLocalTextModelID(LocalTextModelID.gemma4_4B4Bit.rawValue)
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen3_4B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen3_4B4Bit.rawValue)
 
         let llm = LLMService(inference: inference)
         let snapshot = llm.configSnapshot()

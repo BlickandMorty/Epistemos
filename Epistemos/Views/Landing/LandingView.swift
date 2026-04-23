@@ -45,6 +45,14 @@ enum LandingCoordinateSpace {
     static let root = "LandingRoot"
 }
 
+enum LandingViewStateSync {
+    @MainActor
+    static func reassertHomeSurface(_ ui: UIState) {
+        ui.setActivePanel(.home)
+        ui.homeTab = .home
+    }
+}
+
 // MARK: - Landing View
 // Clean landing: liquid glass greeting with shortcut hints.
 
@@ -226,6 +234,7 @@ struct LandingView: View {
         .animation(Motion.smooth, value: showWelcomeBack)
         .animation(Motion.smooth, value: showingSearchPopover)
         .onAppear {
+            LandingViewStateSync.reassertHomeSurface(ui)
             sanitizeStoredOperatingMode()
             scheduleWelcomeBackPresentationIfNeeded()
         }

@@ -1736,15 +1736,10 @@ struct CodeEditorView: View {
     // MARK: - Editor Configuration
 
     private var editorConfiguration: SourceEditorConfiguration {
-        // On themes that ride native window blur, the editor surface is
-        // `.clear`; telling CodeEditSourceEditor NOT to paint its own
-        // background lets the surrounding NSVisualEffectView show through
-        // — no rectangle floating on the material.
-        let paintBackground = !ui.theme.followsSystemAppearance
         return SourceEditorConfiguration(
             appearance: .init(
                 theme: editorTheme,
-                useThemeBackground: paintBackground,
+                useThemeBackground: true,
                 font: .monospacedSystemFont(ofSize: fontSize, weight: .regular),
                 lineHeightMultiple: 1.35,
                 wrapLines: wrapLines,
@@ -1772,13 +1767,11 @@ struct CodeEditorView: View {
     @MainActor private var editorTheme: EditorTheme {
         let resolved = ui.theme.resolved
         let accent = resolved.accent.nsColor.rgbSafeForCodeEditorTheme()
-        // Match the prose editor's background rule exactly: on system-
-        // appearance themes (native window blur) the editor surface is
-        // `.clear` so the material shows through; on custom themes it
-        // uses the same solid canvas color prose uses. That stops the
-        // "two themes fighting" seam at the editor edge.
-        let background = ProseTextView2
-            .editorBackgroundColor(for: ui.theme)
+        // Reuse the shared note canvas color so the code editor sits on
+        // the same surface as prose/markdown instead of inventing a
+        // competing background tone.
+        let background = MarkdownPreviewSurfaceStyle
+            .canvasNSColor(for: ui.theme)
             .rgbSafeForCodeEditorTheme()
         let text = resolved.foreground.nsColor.rgbSafeForCodeEditorTheme()
         let subtle = resolved.mutedForeground.nsColor.rgbSafeForCodeEditorTheme()

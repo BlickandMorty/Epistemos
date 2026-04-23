@@ -707,6 +707,12 @@ final class AppBootstrap {
         return discover()
     }
 
+    private nonisolated static func currentStartupAutoDiscoveryReportForTesting() -> StartupAutoDiscoveryReport {
+        Self.startupAutoDiscoveryReportForTesting(
+            isRunningTests: Self.isRunningTests
+        )
+    }
+
     nonisolated static func shouldReadKeychainAtLaunch(
         processInfoEnvironment: [String: String] = ProcessInfo.processInfo.environment
     ) -> Bool {
@@ -1650,8 +1656,11 @@ final class AppBootstrap {
             Log.app.error("PaperclipStateStore init failed: \(error.localizedDescription)")
         }
 
-        // Tell Siri to re-index App Intents on every launch
-        EpistemosShortcutsProvider.updateAppShortcutParameters()
+        // Test hosts can stall on App Shortcut refresh Apple Events; skip that
+        // launch-only side effect when XCTest is driving the app.
+        if !Self.isRunningTests {
+            EpistemosShortcutsProvider.updateAppShortcutParameters()
+        }
 
         // Initialize Agent Command Center state (Phase 5).
         // Tool catalog load calls synchronous Rust FFI (listToolsForTier) which

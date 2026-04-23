@@ -1086,8 +1086,15 @@ final class ChatState {
         if !visibleEmit.thinking.isEmpty {
             appendStreamingThinking(visibleEmit.thinking)
         }
-        routeVisibleStreamingText(
-            visibleEmit.visible,
+        if !visibleEmit.visible.isEmpty {
+            routeVisibleStreamingText(
+                visibleEmit.visible,
+                scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText
+            )
+            return
+        }
+        routeFallbackVisibleChunkIfNeeded(
+            fromRawVisibleChunk: emit.visible,
             scheduleFlush: ChatStreamingDisplayPolicy.showsLiveResponseText
         )
     }
@@ -1164,6 +1171,44 @@ final class ChatState {
             thinkingEndedAt = visibleAnswerStartedAt
         }
         streamBuffer.append(text, scheduleFlush: scheduleFlush)
+    }
+
+    private func routeFallbackVisibleChunkIfNeeded(
+        fromRawVisibleChunk rawVisibleChunk: String,
+        scheduleFlush: Bool
+    ) {
+        guard !hasStartedVisibleAnswer else { return }
+        let trimmedChunk = rawVisibleChunk.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedChunk.isEmpty else { return }
+        guard visibleAnswerFallbackEligible(trimmedChunk) else { return }
+        routeVisibleStreamingText(trimmedChunk, scheduleFlush: scheduleFlush)
+    }
+
+    private func visibleAnswerFallbackEligible(_ chunk: String) -> Bool {
+        guard UserFacingModelOutput.streamingReasoningText(from: chunk).isEmpty else { return false }
+
+        let lowercased = chunk.lowercased()
+        if lowercased.contains("```tool_call") {
+            return false
+        }
+        if chunk.first == "{",
+           chunk.last == "}",
+           chunk.contains("\"name\""),
+           chunk.contains("\"arguments\"") {
+            return false
+        }
+        if chunk.contains("\n") {
+            let multilineAnswerPrefixes = [
+                "in summary",
+                "overall",
+                "therefore",
+                "the answer is",
+                "bottom line",
+                "taken together",
+            ]
+            return multilineAnswerPrefixes.contains(where: lowercased.hasPrefix)
+        }
+        return true
     }
 
     private func flushStreamingTokens() {
