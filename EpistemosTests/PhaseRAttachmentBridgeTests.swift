@@ -176,4 +176,117 @@ struct PhaseRAttachmentBridgeTests {
             Issue.record("expected .file variant, got \(attachment.resourceId)")
         }
     }
+
+    // MARK: - Phase R.4 ContextAttachment converter
+
+    @Test("legacy ContextAttachment (no resource metadata) has no manifest and no AttachedResource")
+    func legacyContextAttachmentHasNoManifest() async throws {
+        let legacy = ContextAttachment(
+            kind: .note,
+            targetId: "page-legacy",
+            title: "Legacy Note"
+        )
+        #expect(!legacy.hasResourceManifest)
+        #expect(legacy.toAttachedResource() == nil)
+    }
+
+    @Test("ContextAttachment with Live manifest converts to a Live AttachedResource")
+    func contextAttachmentLiveManifestConverts() async throws {
+        let uri = "vault://r4-ctx-live/note/Inbox/Live.md"
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-live",
+            title: "Live Note",
+            subtitle: nil,
+            resourceURI: uri,
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+        #expect(attachment.hasResourceManifest)
+        guard let resource = attachment.toAttachedResource() else {
+            Issue.record("live manifest should produce an AttachedResource")
+            return
+        }
+        #expect(resource.mode == .live)
+        #expect(attachedResourceAllows(attachment: resource, capability: .write))
+    }
+
+    @Test("ContextAttachment with Snapshot manifest converts to a Snapshot AttachedResource")
+    func contextAttachmentSnapshotManifestConverts() async throws {
+        let uri = "vault://r4-ctx-snap/note/Inbox/Snap.md"
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-snap",
+            title: "Snapshot Note",
+            subtitle: "inline snapshot body",
+            resourceURI: uri,
+            resourceMode: .snapshot,
+            resourceCapabilities: ["Read"]
+        )
+        #expect(attachment.hasResourceManifest)
+        guard let resource = attachment.toAttachedResource() else {
+            Issue.record("snapshot manifest should produce an AttachedResource")
+            return
+        }
+        #expect(resource.mode == .snapshot)
+        #expect(resource.snapshotContent == "inline snapshot body")
+        #expect(!attachedResourceAllows(attachment: resource, capability: .write))
+    }
+
+    @Test("ContextAttachment with partially-populated manifest is treated as legacy")
+    func partialManifestFallsBackToLegacy() async throws {
+        // URI without mode → insufficient; treat as legacy.
+        let onlyURI = ContextAttachment(
+            kind: .note,
+            targetId: "page-partial-1",
+            title: "Partial",
+            resourceURI: "vault://partial/note/Inbox/P.md"
+        )
+        #expect(!onlyURI.hasResourceManifest)
+        #expect(onlyURI.toAttachedResource() == nil)
+
+        // Mode without URI → insufficient; treat as legacy.
+        let onlyMode = ContextAttachment(
+            kind: .note,
+            targetId: "page-partial-2",
+            title: "Partial Mode",
+            resourceMode: .live
+        )
+        #expect(!onlyMode.hasResourceManifest)
+        #expect(onlyMode.toAttachedResource() == nil)
+    }
+
+    @Test("ContextAttachment round-trips through JSONEncoder/Decoder preserving manifest")
+    func contextAttachmentCodableRoundTrip() async throws {
+        let original = ContextAttachment(
+            kind: .note,
+            targetId: "page-codable",
+            title: "Codable",
+            subtitle: nil,
+            resourceURI: "vault://r4-codable/note/Inbox/C.md",
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+        let encoded = try JSONEncoder().encode(original)
+        let decoded = try JSONDecoder().decode(ContextAttachment.self, from: encoded)
+        #expect(decoded == original)
+        #expect(decoded.resourceURI == original.resourceURI)
+        #expect(decoded.resourceMode == .live)
+        #expect(decoded.resourceCapabilities == ["Read", "Write"])
+    }
+
+    @Test("Legacy-shaped JSON (no resource fields) still decodes without the new keys")
+    func legacyJSONDecodesWithoutResourceFields() async throws {
+        let legacyJSON = #"""
+        {"kind":"note","targetId":"old","title":"Old Note"}
+        """#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(ContextAttachment.self, from: legacyJSON)
+        #expect(decoded.kind == .note)
+        #expect(decoded.targetId == "old")
+        #expect(decoded.title == "Old Note")
+        #expect(decoded.resourceURI == nil)
+        #expect(decoded.resourceMode == nil)
+        #expect(decoded.resourceCapabilities == nil)
+        #expect(!decoded.hasResourceManifest)
+    }
 }
