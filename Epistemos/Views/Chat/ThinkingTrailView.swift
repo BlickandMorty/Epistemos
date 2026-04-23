@@ -72,7 +72,7 @@ struct ThinkingTrailView: View {
     /// thinkingStartedAt → thinkingEndedAt window), or falls back to
     /// plain "Reasoning" for legacy messages that pre-date the field.
     private var headerLabel: String {
-        guard let seconds = durationSeconds, seconds >= 1 else { return "Reasoning" }
+        guard let seconds = durationSeconds, seconds.isFinite, seconds >= 1 else { return "Reasoning" }
         if seconds < 60 {
             return "Thought for \(Int(seconds.rounded()))s"
         }

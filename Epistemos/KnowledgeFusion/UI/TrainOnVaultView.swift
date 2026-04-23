@@ -573,8 +573,10 @@ struct TrainOnVaultView: View {
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {
-        let mins = Int(seconds) / 60
-        let secs = Int(seconds) % 60
+        guard seconds.isFinite else { return "0s" }
+        let safeSeconds = max(0, seconds)
+        let mins = Int(safeSeconds) / 60
+        let secs = Int(safeSeconds) % 60
         if mins > 0 { return "\(mins)m \(secs)s" }
         return "\(secs)s"
     }

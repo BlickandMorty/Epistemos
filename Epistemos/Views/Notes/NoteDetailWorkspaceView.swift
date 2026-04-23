@@ -1605,7 +1605,8 @@ struct NoteDetailWorkspaceView: View {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(50))
             modeSwap()
-            try? await Task.sleep(for: .milliseconds(Int(holdTime * 1000)))
+            let safeHoldTime = holdTime.isFinite ? max(0, holdTime) : 0
+            try? await Task.sleep(for: .milliseconds(Int(safeHoldTime * 1000)))
             withAnimation(.easeOut(duration: 0.35)) {
                 transitionOpacity = 0
             }

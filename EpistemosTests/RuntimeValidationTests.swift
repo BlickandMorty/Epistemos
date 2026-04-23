@@ -4376,6 +4376,29 @@ struct RuntimeValidationTests {
         #expect(ambientCapture.contains("failed to compile secret redaction pattern"))
     }
 
+    @Test("duration formatters guard non-finite doubles before Int conversion")
+    func durationFormattersGuardNonFiniteDoublesBeforeIntConversion() throws {
+        let trainOnVault = try loadRepoTextFile("Epistemos/KnowledgeFusion/UI/TrainOnVaultView.swift")
+        let thinkingTrail = try loadRepoTextFile("Epistemos/Views/Chat/ThinkingTrailView.swift")
+        let thinkingPopover = try loadRepoTextFile("Epistemos/Views/Chat/ThinkingPopoverView.swift")
+
+        #expect(trainOnVault.contains("guard seconds.isFinite"))
+        #expect(thinkingTrail.contains("seconds.isFinite"))
+        #expect(thinkingPopover.contains("guard seconds.isFinite"))
+    }
+
+    @Test("animated delay paths sanitize non-finite timing before milliseconds casts")
+    func animatedDelayPathsSanitizeNonFiniteTimingBeforeMillisecondsCasts() throws {
+        let typewriter = try loadRepoTextFile("Epistemos/Views/Shared/TypewriterASCIIRippleText.swift")
+        let rootView = try loadRepoTextFile("Epistemos/App/RootView.swift")
+        let noteWorkspace = try loadRepoTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(typewriter.contains("let safeInitialDelay = initialDelay.isFinite ? max(0, initialDelay) : 0"))
+        #expect(typewriter.contains("let safeTypingSpeed = typingSpeed.isFinite ? max(0, typingSpeed) : 0"))
+        #expect(rootView.contains("let safeDelay = delay.isFinite ? max(0, delay) : 0"))
+        #expect(noteWorkspace.contains("let safeHoldTime = holdTime.isFinite ? max(0, holdTime) : 0"))
+    }
+
     private func loadRepoTextFile(_ relativePath: String) throws -> String {
         try loadRepoTextFileWithRetry(relativePath: relativePath, testsFilePath: #filePath)
     }

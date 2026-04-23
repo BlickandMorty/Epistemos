@@ -43,7 +43,9 @@ struct TypewriterASCIIRippleText: View {
 
         // Reset and delay
         displayText = ""
-        try? await Task.sleep(for: .milliseconds(Int(initialDelay * 1000)))
+        let safeInitialDelay = initialDelay.isFinite ? max(0, initialDelay) : 0
+        let safeTypingSpeed = typingSpeed.isFinite ? max(0, typingSpeed) : 0
+        try? await Task.sleep(for: .milliseconds(Int(safeInitialDelay * 1000)))
 
         for character in text {
             guard !Task.isCancelled else { return }
@@ -54,7 +56,7 @@ struct TypewriterASCIIRippleText: View {
                 rippleTrigger += 1
             }
             
-            try? await Task.sleep(for: .milliseconds(Int(typingSpeed * 1000)))
+            try? await Task.sleep(for: .milliseconds(Int(safeTypingSpeed * 1000)))
         }
 
         // Final ripple when done
