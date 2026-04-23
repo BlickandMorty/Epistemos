@@ -860,6 +860,16 @@ final class AppBootstrap {
     private var didCompletePrimaryLaunchInitialization = false
     private var didStartDeferredRuntimeServices = false
 
+    /// Last absolute vault path we successfully passed to
+    /// `resourceServiceInit` — used to skip redundant re-initializations
+    /// when `.vaultChanged` fires for a mutation that did NOT switch
+    /// vaults. Nil means the gateway is not (yet) initialized, or the
+    /// last init attempt failed and should be retried.
+    ///
+    /// Lives on the main actor; only mutated in
+    /// `initializeRustResourceServiceIfReady()` and its failure path.
+    private var lastR3InitializedVaultPath: String?
+
     private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
     private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
     private nonisolated static let deferredRuntimeServicesDelay: Duration = .milliseconds(250)
@@ -1606,6 +1616,14 @@ final class AppBootstrap {
         // SQLite/filesystem failure. The legacy note I/O paths
         // continue to work regardless.
         initializeRustResourceServiceIfReady()
+
+        // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
+        // the gateway tracks vault switches (bookmark restore lands
+        // async, user can switch vaults, tests seed new vault URLs).
+        // The handler is idempotent on vault-content mutations thanks
+        // to the path-equality gate inside
+        // `initializeRustResourceServiceIfReady()`.
+        wireR3VaultSwitchObserver()
 
         // Register Omega specialist agents and wire LLM planning
         orchestratorState.registerAgents(
@@ -2547,7 +2565,23 @@ final class AppBootstrap {
         let rawName = vaultURL.lastPathComponent
         let vaultID = rawName.isEmpty ? "default" : rawName
         let vaultPath = vaultURL.path
-        Task.detached(priority: .userInitiated) {
+
+        // Idempotency gate: skip re-init if the active vault path has
+        // not changed AND the gateway is still ready. `.vaultChanged`
+        // fires on every vault mutation (page save, delete, move) —
+        // without this guard we'd reopen the VaultStore SQLite handle
+        // on every note edit, which is wasteful even if harmless.
+        if vaultPath == lastR3InitializedVaultPath, resourceServiceIsReady() {
+            return
+        }
+
+        // Optimistically record the path BEFORE dispatching so a
+        // burst of `.vaultChanged` events while the detached task is
+        // still running does not pile up N concurrent re-inits. If
+        // init fails we clear the path back to nil below so a future
+        // event can retry.
+        lastR3InitializedVaultPath = vaultPath
+        Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 try resourceServiceInit(vaultRoot: vaultPath, vaultId: vaultID)
                 Log.app.info(
@@ -2557,6 +2591,33 @@ final class AppBootstrap {
                 Log.app.error(
                     "R.3 gateway: init failed for vault=\(vaultID, privacy: .public) — \(error.localizedDescription, privacy: .public)"
                 )
+                await MainActor.run {
+                    // Clear so the next `.vaultChanged` can retry; a
+                    // transient SQLite open error should not disable
+                    // the gateway for the entire session.
+                    self?.lastR3InitializedVaultPath = nil
+                }
+            }
+        }
+    }
+
+    /// Subscribe to `.vaultChanged` so the R.3 gateway is re-initialized
+    /// whenever the active vault switches (bookmark-restored at startup,
+    /// user-triggered vault switch, test seeding). The subscription is
+    /// set up ONCE at bootstrap and kept alive for the app lifetime.
+    ///
+    /// `.vaultChanged` also fires on non-switch mutations (page save,
+    /// trash, move). `initializeRustResourceServiceIfReady()`'s
+    /// path-equality gate short-circuits those into a no-op, so the
+    /// noisy channel is safe to subscribe to.
+    private func wireR3VaultSwitchObserver() {
+        eventBus.subscribe(id: "r3-gateway-vault-switch") { [weak self] event in
+            guard let self else { return }
+            switch event {
+            case .vaultChanged:
+                self.initializeRustResourceServiceIfReady()
+            default:
+                break
             }
         }
     }
