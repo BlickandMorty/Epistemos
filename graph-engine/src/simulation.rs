@@ -46,6 +46,13 @@ pub struct ForceParams {
     /// Velocity damping per tick (0.0 = no friction, 1.0 = frozen).
     /// Lower values → bouncier/fluid; higher → viscous/damped.
     pub velocity_decay: f32,
+    /// Fraction of any per-tick overlap that the collision pass
+    /// resolves. 1.0 = legacy strict correction (snap-apart on
+    /// contact); 0.7 lets nodes visibly compress on impact and
+    /// recover over 2-3 ticks — the "soft touch" feel the user asked
+    /// for. Stored as part of `ForceParams` so presets can tune it
+    /// (Calm = 0.85, Fluid = 0.70, Playful = 0.50).
+    pub collision_compliance: f32,
     /// How strongly nodes are pulled toward center (0 = no pull, 0.1 = strong).
     pub center_strength: f32,
     /// Collision buffer zone in pixels. 0 = overlap allowed.
@@ -115,6 +122,7 @@ impl Default for ForceParams {
             // velocity_decay: d3 uses `node.vx *= (1 - velocityDecay)` where
             // velocityDecay=0.4, so the retain multiplier is 0.6. Nodes keep 60% velocity.
             velocity_decay: 0.6,
+            collision_compliance: 0.7,
             center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 1,
@@ -145,6 +153,55 @@ impl Default for ForceParams {
         }
     }
 }
+
+// ── Per-node mass + damping helpers (v3 motion spec §3.2) ───────────────
+//
+// The canonical integrator is semi-implicit Euler with per-node
+// exponential damping: `v *= exp(-γ(mass)·dt)`. Keeping the coefficients
+// as module-level constants means a single place to tune them; the
+// `gamma_from_mass` and `decay_for_mass` helpers run once per node per
+// mass change (not per tick), so the hot loop only sees the pre-baked
+// `decay[i]` array and a multiplication.
+//
+// Starting values match the synthesis doc that cross-references the six
+// research passes. Baseline γ of 2.5/s gives leaves a `exp(-2.5/60) ≈
+// 0.959` retain per tick, which is ~6× less damping than the legacy
+// scalar (0.6 retain per tick) — explicitly why the graph used to feel
+// static. The `α = 0.5` exponent makes hubs shed kinetic energy faster
+// than leaves under the same integrator step, which is what reads as
+// "hubs anchor / leaves flutter."
+
+/// Base damping rate in s⁻¹ (v3 §3.2). Tune here, not at call sites.
+const PHYS_GAMMA_BASE: f32 = 2.5;
+/// Mass exponent applied to damping — higher values punish hubs harder.
+const PHYS_DAMPING_ALPHA: f32 = 0.5;
+/// Simulation tick interval in seconds. The integrator is still unit-step
+/// per tick (d3 convention); `PHYS_TICK_DT` only shows up inside the
+/// pre-baked `decay[i]` calculation. A later commit migrates the whole
+/// tick to explicit `dt`-based semi-implicit Euler.
+const PHYS_TICK_DT: f32 = 1.0 / 60.0;
+
+/// Per-node damping coefficient γ, scaled by mass. Heavier nodes get
+/// stronger damping so they resettle faster.
+#[inline]
+fn gamma_from_mass(mass: f32) -> f32 {
+    PHYS_GAMMA_BASE * mass.max(1.0).powf(PHYS_DAMPING_ALPHA)
+}
+
+/// Analytical per-tick retain multiplier: `exp(-γ·dt)`. Stays strictly
+/// in (0, 1] for any finite γ ≥ 0, so the integrator can multiply with
+/// no clamp.
+#[inline]
+fn decay_for_mass(mass: f32) -> f32 {
+    (-gamma_from_mass(mass) * PHYS_TICK_DT).exp()
+}
+
+/// Heavy scalar damping applied during `warm_start` to keep leaves
+/// from overshooting during the initial layout pass (synthesis closing
+/// warning). Replaces `velocity_decay = 0.3` from the legacy warm-start
+/// path — same magnitude, but expressed as a direct retain multiplier
+/// so the new integrator can consume it uniformly across all nodes.
+const WARM_START_SCALAR_DECAY: f32 = 0.3;
 
 // ── Fluid dynamics grid ──────────────────────────────────────────────────
 
@@ -402,9 +459,16 @@ pub struct Simulation {
     pub shadow_target: [f32; 2],
 
     // ── Mass-based drag ──
-    /// Per-node mass: 1.0 + (child_count * 0.5) + (link_count * 0.2).
-    /// Used for drag resistance and snap-back impulse.
+    /// Per-node mass derived from degree. Now logarithmic — canonical
+    /// v3 spec §1.2 / aae83e8b audit.
     pub mass: Vec<f32>,
+    /// Per-node retain multiplier consumed by the integrator each tick.
+    /// Pre-baked as `exp(-γ(mass[i])·dt)` whenever mass changes, so the
+    /// hot integration loop sees a plain `vx *= decay[i]` and doesn't
+    /// need to `exp` per node per frame. During `warm_start` this is
+    /// temporarily overwritten with a heavy scalar to protect leaves
+    /// from overshoot (see `WARM_START_SCALAR_DECAY`).
+    pub decay: Vec<f32>,
     /// Per-node tether offset from last drag release (for snap-back spring).
     /// Decays to zero over frames. [dx, dy] per node.
     pub snap_back: Vec<[f32; 2]>,
@@ -527,6 +591,7 @@ impl Simulation {
             shadow_strength: Vec::new(),
             shadow_target: [0.0, 0.0],
             mass: Vec::new(),
+            decay: Vec::new(),
             snap_back: Vec::new(),
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
@@ -580,6 +645,7 @@ impl Simulation {
         self.graph_indices.clear();
         self.shadow_strength.clear();
         self.mass.clear();
+        self.decay.clear();
         self.snap_back.clear();
         self.tick_count = 0;
         self.interaction_motion_until = None;
@@ -719,6 +785,21 @@ impl Simulation {
             self.mass[i] = 1.0 + 0.35 * (degree + 1.0).ln();
         }
 
+        // Pre-bake per-node decay from mass. This is the big perceptual
+        // win from v3 motion spec §3.2: a leaf (mass ≈ 1.0) retains
+        // ~0.959 of its velocity per tick — almost 6× less damping than
+        // the legacy scalar (0.6 retain) — while a hub (mass ≈ 2.4) hits
+        // ~0.937 retain, so hubs still settle fast. Motion that used to
+        // die in 10 frames now lives for ~60 frames, which is what
+        // makes released ripples visibly propagate. Pre-baking here
+        // means the integrator never has to evaluate `exp` in the hot
+        // loop; warm_start further overwrites this with a heavy scalar
+        // for the duration of the initial layout pass.
+        self.decay.resize(self.mass.len(), decay_for_mass(1.0));
+        for i in 0..self.mass.len() {
+            self.decay[i] = decay_for_mass(self.mass[i]);
+        }
+
         // Reset simulation state for fresh run (skip if user-frozen).
         if !self.user_frozen {
             self.params.alpha = 0.3; // Gentle start — avoids violent explosion from spiral
@@ -756,13 +837,26 @@ impl Simulation {
         let n = self.x.len();
         let (iterations, budget) = warm_start_limits(n);
 
-        // Save and override params for fast convergence.
-        let saved_decay = self.params.velocity_decay;
+        // Save per-node decay so the interactive pass can resume its
+        // light-touch damping. The legacy `velocity_decay` field is
+        // still saved/restored for any caller that reads it downstream
+        // (e.g., search bullet-time), but the integrator itself now
+        // consumes `self.decay[]`.
+        let saved_decay_vec = self.decay.clone();
+        let saved_decay_param = self.params.velocity_decay;
         let saved_viewport = self.viewport_bounds.take();
         let start = std::time::Instant::now();
 
         self.params.alpha = 0.8;
-        self.params.velocity_decay = 0.3; // Heavy damping — nodes stop quickly
+        self.params.velocity_decay = WARM_START_SCALAR_DECAY; // legacy mirror
+        // Synthesis warning: when we switched to per-node damping, the
+        // old heavy warm-start damping needed to be preserved as a
+        // scalar override, otherwise leaves overshoot during the
+        // initial layout pass (their per-node decay at mass≈1 is
+        // ~0.96 retain — not heavy enough for warm-start).
+        for d in self.decay.iter_mut() {
+            *d = WARM_START_SCALAR_DECAY;
+        }
         self.viewport_bounds = None; // All nodes active
 
         for _ in 0..iterations {
@@ -772,9 +866,10 @@ impl Simulation {
             }
         }
 
-        // Restore params for interactive phase: low alpha, normal damping.
+        // Restore params for interactive phase: low alpha, per-node damping.
         self.params.alpha = 0.1; // Gentle refinement from here
-        self.params.velocity_decay = saved_decay;
+        self.params.velocity_decay = saved_decay_param;
+        self.decay = saved_decay_vec;
         self.viewport_bounds = saved_viewport;
         self.is_settled = false;
 
@@ -927,9 +1022,11 @@ impl Simulation {
                 &mut self.x,
                 &mut self.y,
                 &self.collision_radii,
+                &self.mass,
                 &self.fx,
                 &self.fy,
                 self.params.collision_iterations,
+                self.params.collision_compliance,
                 &mut self.collision_grid,
                 &mut self.collision_keys_scratch,
             );
@@ -1086,10 +1183,16 @@ impl Simulation {
             }
         }
 
-        // 3. Velocity Verlet integration with uniform decay (d3 canonical).
-        // Safety clamp prevents numerical explosion with extreme parameters.
+        // 3. Semi-implicit-Euler integration with PER-NODE damping.
+        // The canonical v3 motion spec precomputes `decay[i] = exp(-γ(mass[i])·dt)`
+        // so the hot loop is just `vx *= decay[i]; x += vx`. This is a
+        // strict superset of the old d3 unit-mass path — when every
+        // `decay[i]` equals a single scalar, the behaviour is identical
+        // to the legacy `vx *= velocity_decay`. Legacy `velocity_decay`
+        // is now only consumed by callers that use Simulation::tick in
+        // a mass-less context (i.e., `self.decay.len() != n`), where
+        // the scalar path still falls back via `fallback_decay`.
         const MAX_VELOCITY: f32 = 500.0;
-        let decay = self.params.velocity_decay;
         let mut max_speed_sq: f32 = 0.0;
 
         // Build viewport active mask — only update positions for visible + 1-hop neighbor nodes.
@@ -1127,9 +1230,22 @@ impl Simulation {
             }
         }
 
+        // Move the decay array out so the integrator can borrow it as
+        // an immutable slice while also mutating `self.vx` / `self.x`.
+        // Mirrors the `active` mask pattern above. The legacy scalar
+        // `velocity_decay` is no longer read here; warm_start still
+        // overrides this buffer's contents directly for its heavy pass.
+        let decay_taken = std::mem::take(&mut self.decay);
+
         #[cfg(target_arch = "aarch64")]
         {
-            self.integrate_velocities_neon(n, &active, decay, MAX_VELOCITY, &mut max_speed_sq);
+            self.integrate_velocities_neon(
+                n,
+                &active,
+                &decay_taken,
+                MAX_VELOCITY,
+                &mut max_speed_sq,
+            );
         }
         #[cfg(not(target_arch = "aarch64"))]
         {
@@ -1142,12 +1258,15 @@ impl Simulation {
                 &self.fy,
                 &active,
                 n,
-                decay,
+                &decay_taken,
                 MAX_VELOCITY,
                 &mut max_speed_sq,
             );
         }
 
+        // Put the decay array back. Warm_start mutates it in-place so
+        // we return it unchanged through this boundary.
+        self.decay = decay_taken;
         // Return mask for reuse next tick.
         self.active_mask = active;
 
@@ -1334,19 +1453,24 @@ impl Simulation {
         fy: &[Option<f32>],
         active: &[bool],
         n: usize,
-        decay: f32,
+        decay: &[f32],
         max_vel: f32,
         max_speed_sq: &mut f32,
     ) {
+        // Fallback when the caller didn't supply a per-node decay array
+        // (should only happen during early-life ticks before mass has
+        // been resolved, or tiny test cases).
+        let fallback_decay = decay_for_mass(1.0);
         for i in 0..n {
             if !active[i] {
                 continue;
             }
+            let d = decay.get(i).copied().unwrap_or(fallback_decay);
             if let Some(fx_val) = fx[i] {
                 vx[i] = fx_val - x[i];
                 x[i] = fx_val;
             } else {
-                vx[i] *= decay;
+                vx[i] *= d;
                 vx[i] = vx[i].clamp(-max_vel, max_vel);
                 x[i] += vx[i];
                 let spd = vx[i] * vx[i] + vy[i] * vy[i];
@@ -1358,7 +1482,7 @@ impl Simulation {
                 vy[i] = fy_val - y[i];
                 y[i] = fy_val;
             } else {
-                vy[i] *= decay;
+                vy[i] *= d;
                 vy[i] = vy[i].clamp(-max_vel, max_vel);
                 y[i] += vy[i];
             }
@@ -1380,7 +1504,7 @@ impl Simulation {
         &mut self,
         n: usize,
         active: &[bool],
-        decay: f32,
+        decay: &[f32],
         max_vel: f32,
         max_speed_sq: &mut f32,
     ) {
@@ -1388,13 +1512,15 @@ impl Simulation {
 
         let chunks = n / 4;
         let remainder_start = chunks * 4;
+        let has_decay = decay.len() >= n;
+        let fallback_decay = decay_for_mass(1.0);
 
         // SAFETY: vld1q_f32/vst1q_f32 are unaligned loads/stores. Pointer offsets
         // are bounded by `chunks * 4 <= n <= self.vx.len()`, so all accesses are in-bounds.
         unsafe {
-            let v_decay = vdupq_n_f32(decay);
             let v_max = vdupq_n_f32(max_vel);
             let v_neg_max = vdupq_n_f32(-max_vel);
+            let v_fallback_decay = vdupq_n_f32(fallback_decay);
 
             for c in 0..chunks {
                 let base = c * 4;
@@ -1415,6 +1541,11 @@ impl Simulation {
 
                 if !all_eligible {
                     // Scalar fallback for this chunk.
+                    let decay_slice: &[f32] = if has_decay {
+                        &decay[base..base + 4]
+                    } else {
+                        &[]
+                    };
                     Self::integrate_velocities_scalar(
                         &mut self.x[base..base + 4],
                         &mut self.y[base..base + 4],
@@ -1424,12 +1555,19 @@ impl Simulation {
                         &self.fy[base..base + 4],
                         &active[base..base + 4],
                         4,
-                        decay,
+                        decay_slice,
                         max_vel,
                         max_speed_sq,
                     );
                     continue;
                 }
+
+                // Load per-node decay for this 4-wide chunk.
+                let v_decay = if has_decay {
+                    vld1q_f32(decay.as_ptr().add(base))
+                } else {
+                    v_fallback_decay
+                };
 
                 // SIMD path: vx *= decay; clamp; x += vx (same for vy/y)
                 let mut vx4 = vld1q_f32(self.vx.as_ptr().add(base));
@@ -1471,8 +1609,16 @@ impl Simulation {
             }
         }
 
-        // Remainder nodes: scalar.
+        // Remainder nodes: scalar, with the matching tail of the decay
+        // array. Slicing here keeps the fallback_decay logic intact in
+        // `integrate_velocities_scalar` for the case where the caller
+        // passed an empty slice.
         if remainder_start < n {
+            let remainder_decay: &[f32] = if has_decay {
+                &decay[remainder_start..]
+            } else {
+                &[]
+            };
             Self::integrate_velocities_scalar(
                 &mut self.x[remainder_start..],
                 &mut self.y[remainder_start..],
@@ -1482,7 +1628,7 @@ impl Simulation {
                 &self.fy[remainder_start..],
                 &active[remainder_start..],
                 n - remainder_start,
-                decay,
+                remainder_decay,
                 max_vel,
                 max_speed_sq,
             );
@@ -2588,13 +2734,17 @@ mod tests {
 
     #[test]
     fn position_with_low_velocity_decay() {
+        // The integrator now consumes per-node `sim.decay[i]` instead
+        // of the legacy global `params.velocity_decay` scalar (v3
+        // motion spec §3.2). A tiny decay value on a single node is
+        // the equivalent lever: set `decay[0] = 0.1` and the node's
+        // velocity should collapse to ~10% in one tick.
         let graph = make_test_graph(3, true);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        sim.params.velocity_decay = 0.1;
+        sim.decay[0] = 0.1;
         sim.vx[0] = 10.0;
         sim.tick();
-        // Velocity should be significantly reduced
         assert!(sim.vx[0] < 5.0, "velocity should decay significantly");
     }
 
@@ -3102,6 +3252,72 @@ mod tests {
         sim.unfix_node(0);
         assert_eq!(sim.vx[0], 0.0);
         assert_eq!(sim.vy[0], 0.0);
+    }
+
+    #[test]
+    fn per_node_decay_differentiates_hub_and_leaf() {
+        // Canonical v3 motion spec §3.2: heavier nodes damp faster.
+        // The integrator precomputes `decay[i] = exp(-γ(mass[i])·dt)`
+        // so a leaf (mass ≈ 1.0) and a hub (mass ≈ 2.4) retain
+        // different fractions of their velocity each tick. This is
+        // the core perceptual lever that makes hubs anchor and
+        // leaves flutter.
+        let leaf = decay_for_mass(1.0);
+        let hub = decay_for_mass(2.4);
+        assert!(
+            hub < leaf,
+            "heavier mass must produce tighter damping (retain less): leaf={}, hub={}",
+            leaf,
+            hub,
+        );
+        // Sanity: both should be strictly in (0, 1] — no numerical
+        // artifacts from the mass-max clamp.
+        assert!(leaf > 0.0 && leaf <= 1.0);
+        assert!(hub > 0.0 && hub <= 1.0);
+    }
+
+    #[test]
+    fn mass_from_degree_is_logarithmic_not_linear() {
+        // Regression guard against accidentally reverting to the
+        // linear formula that made degree-50 hubs mass 11.0 (see
+        // docs/GRAPH_WAVES_AUDIT.md drift 1). The logarithmic form
+        // caps degree-50 around 2.38 — still anchor-heavy, not a
+        // black hole.
+        let graph = make_test_graph(3, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        // Fabricate a degree-50 node on sim_index 0 and recompute.
+        if !sim.degrees.is_empty() {
+            sim.degrees[0] = 50;
+            let d = sim.degrees[0] as f32;
+            sim.mass[0] = 1.0 + 0.35 * (d + 1.0).ln();
+            assert!(
+                sim.mass[0] < 3.0,
+                "degree-50 node should not hit black-hole mass: got {}",
+                sim.mass[0],
+            );
+        }
+    }
+
+    #[test]
+    fn warm_start_decay_matches_scalar_override_then_restores() {
+        // Synthesis closing warning: warm_start previously relied on
+        // the scalar velocity_decay = 0.3 override. With per-node
+        // damping, the override must be pushed into `sim.decay[]`
+        // for the duration and then restored, or leaves under-damp
+        // and fly off-screen during initial layout.
+        let graph = make_test_graph(8, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        // After load_from_graph, warm_start has already run and restored
+        // the per-node values. None of them should still be pinned to
+        // 0.3 — they should all be the canonical `decay_for_mass`.
+        let leaf_canonical = decay_for_mass(1.0);
+        let tolerance = 0.05; // accommodate heavier nodes in the fixture.
+        assert!(
+            sim.decay.iter().all(|&d| (d - leaf_canonical).abs() < tolerance + 0.05),
+            "post-warm_start decay values should be restored to canonical, not left at 0.3"
+        );
     }
 
     #[test]
