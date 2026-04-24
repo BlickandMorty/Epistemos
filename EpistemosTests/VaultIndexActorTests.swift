@@ -666,6 +666,7 @@ struct VaultIndexActorTests {
             if label == "vault import final changes" {
                 throw CocoaError(.validationMultipleErrors)
             }
+            return false
         }
         defer {
             Task {
@@ -747,6 +748,7 @@ struct VaultIndexActorTests {
                 if label == "vault import final changes" {
                     throw CocoaError(.validationMultipleErrors)
                 }
+                return false
             }
             defer {
                 Task {

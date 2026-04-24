@@ -73,8 +73,15 @@ actor VaultIndexActor {
         ".photoslibrary", ".app", ".framework", ".xcodeproj", ".xcworkspace",
     ]
 
+    nonisolated private static func canonicalFilePath(_ path: String) -> String {
+        URL(fileURLWithPath: path)
+            .standardizedFileURL
+            .resolvingSymlinksInPath()
+            .path
+    }
+
     // MARK: - FTS5 Search Index (GRDB)
-    typealias SaveContextOperation = @Sendable (String) throws -> Void
+    typealias SaveContextOperation = @Sendable (String) throws -> Bool
 
     private var searchService: SearchIndexService?
     private var saveContextOverride: SaveContextOperation?
@@ -124,8 +131,10 @@ actor VaultIndexActor {
 
     private func saveContext(_ label: String) throws {
         if let saveContextOverride {
-            try saveContextOverride(label)
-            return
+            let handled = try saveContextOverride(label)
+            if handled {
+                return
+            }
         }
         do {
             try modelContext.save()
@@ -394,36 +403,13 @@ actor VaultIndexActor {
     }
 
     private func discardPendingImportedPages(
-        _ pendingInsertedPages: [SDPage],
+        _ pendingInsertedPageIDs: [String],
         failedSaveLabel: String
     ) {
-        guard !pendingInsertedPages.isEmpty else { return }
+        guard !pendingInsertedPageIDs.isEmpty else { return }
 
-        var seenPageIDs = Set<String>()
-        var uniquePendingPages = [SDPage]()
-        uniquePendingPages.reserveCapacity(pendingInsertedPages.count)
-
-        for page in pendingInsertedPages where seenPageIDs.insert(page.id).inserted {
-            uniquePendingPages.append(page)
-        }
-
-        for page in uniquePendingPages {
-            modelContext.delete(page)
-        }
-
+        let seenPageIDs = Set(pendingInsertedPageIDs)
         for pageID in seenPageIDs {
-            let blockDescriptor = FetchDescriptor<SDBlock>(
-                predicate: #Predicate<SDBlock> { $0.pageId == pageID }
-            )
-            if let blocks = fetchAll(
-                blockDescriptor,
-                label: "pending imported blocks for cleanup \(pageID)"
-            ) {
-                for block in blocks {
-                    modelContext.delete(block)
-                }
-            }
-
             NoteFileStorage.deleteBody(pageId: pageID)
 
             do {
@@ -450,7 +436,31 @@ actor VaultIndexActor {
         var restoredCount = 0
 
         for snapshot in pendingUpdatedPages where restoredPageIDs.insert(snapshot.pageId).inserted {
-            NoteFileStorage.writeBody(pageId: snapshot.pageId, content: snapshot.body)
+            let pageId = snapshot.pageId
+            if let page = fetchFirst(
+                FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId }),
+                label: "updated page rollback \(pageId)"
+            ) {
+                page.filePath = snapshot.filePath
+                page.wordCount = snapshot.wordCount
+                page.emoji = snapshot.emoji
+                page.lastSyncedBodyHash = snapshot.lastSyncedBodyHash
+                page.lastSyncedAt = snapshot.lastSyncedAt
+                page.needsVaultSync = snapshot.needsVaultSync
+                page.updatedAt = snapshot.updatedAt
+                page.title = snapshot.title
+                page.tags = snapshot.tags
+                page.frontMatter = snapshot.frontMatter
+                page.parentPageId = snapshot.parentPageId
+                page.templateId = snapshot.templateId
+                page.subfolder = snapshot.subfolder
+                page.isJournal = snapshot.isJournal
+                page.journalDate = snapshot.journalDate
+                page.saveBody(snapshot.body)
+                BlockMirror.sync(pageId: snapshot.pageId, body: snapshot.body, modelContext: modelContext)
+            } else {
+                NoteFileStorage.writeBody(pageId: snapshot.pageId, content: snapshot.body)
+            }
             upsertSearchIndex(
                 pageId: snapshot.pageId,
                 title: snapshot.title,
@@ -465,6 +475,14 @@ actor VaultIndexActor {
             }
 
             restoredCount += 1
+        }
+
+        do {
+            try saveContext("updated page rollback state")
+        } catch {
+            log.error(
+                "VaultIndex: failed to persist restored updated pages after failed \(failedSaveLabel, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
         }
 
         log.error(
@@ -493,12 +511,14 @@ actor VaultIndexActor {
         let existingDescriptor = FetchDescriptor<SDPage>()
         let existingPages = try modelContext.fetch(existingDescriptor)
         var existingByPath: [String: SDPage] = [:]
+        var allExistingPaths = Set<String>()
         for page in existingPages {
             if let fp = page.filePath {
+                allExistingPaths.insert(fp)
                 existingByPath[fp] = page
+                existingByPath[Self.canonicalFilePath(fp)] = page
             }
         }
-        let allExistingPaths = Set(existingByPath.keys)
 
         // ── 2. Enumerate vault files on disk ──
         let enumerator = fm.enumerator(
@@ -513,6 +533,7 @@ actor VaultIndexActor {
         }
 
         var diskPaths = Set<String>()
+        var diskPathAliases = Set<String>()
         var insertCount = 0
         var updateCount = 0
         var skipCount = 0
@@ -529,9 +550,10 @@ actor VaultIndexActor {
                 pendingInsertedPages.removeAll(keepingCapacity: true)
                 pendingUpdatedPages.removeAll(keepingCapacity: true)
             } catch {
-                discardPendingImportedPages(pendingInsertedPages, failedSaveLabel: label)
+                let pendingInsertedPageIDs = pendingInsertedPages.map(\.id)
                 modelContext.rollback()
                 modelContext.processPendingChanges()
+                discardPendingImportedPages(pendingInsertedPageIDs, failedSaveLabel: label)
                 restorePendingUpdatedPages(pendingUpdatedPages, failedSaveLabel: label)
                 throw error
             }
@@ -561,6 +583,8 @@ actor VaultIndexActor {
 
                 let filePath = fileURL.path
                 diskPaths.insert(filePath)
+                diskPathAliases.insert(filePath)
+                diskPathAliases.insert(Self.canonicalFilePath(filePath))
 
                 // Get file modification date
                 let fileModDate =
@@ -574,7 +598,8 @@ actor VaultIndexActor {
                     continue
                 }
 
-                if let existingPage = existingByPath[filePath] {
+                let existingPage = existingByPath[filePath] ?? existingByPath[Self.canonicalFilePath(filePath)]
+                if let existingPage {
                     let needsLocalBodyRebuild =
                         !NoteFileStorage.bodyExists(pageId: existingPage.id)
                         && NoteFileStorage.readBody(
@@ -586,7 +611,8 @@ actor VaultIndexActor {
                     if fileModDate > existingPage.updatedAt || needsLocalBodyRebuild {
                         // File was modified externally — re-read and update.
                         // Phase R.3: `upsertPage` is now async (body read
-                        // routes through gateway). Dropping the
+                        // preserves managed sidecars before gateway fallback).
+                        // Dropping the
                         // `autoreleasepool` wrapper is safe here — the
                         // outer sync import loop still has its own
                         // scratch context that releases between pages.
@@ -660,7 +686,10 @@ actor VaultIndexActor {
         // ── 3. Delete pages whose files no longer exist on disk ──
         var deleteCount = 0
         if completedScan && deleteMissingFiles {
-            let deletedPaths = allExistingPaths.subtracting(diskPaths)
+            let deletedPaths = allExistingPaths.filter { path in
+                !diskPathAliases.contains(path)
+                    && !diskPathAliases.contains(Self.canonicalFilePath(path))
+            }
             for path in deletedPaths {
                 if let page = existingByPath[path] {
                     SpotlightIndexer.deindex(page.id)
@@ -923,7 +952,7 @@ actor VaultIndexActor {
         // Tracked source files (.swift, .rs, .py, etc.) must round-trip as raw text.
         //
         // Phase R.3: body read routed through the Sendable-primitive
-        // helper so the R.3 gateway is consulted first. Parity
+        // helper so managed sidecars stay authoritative. Parity
         // preserved via `PhaseR3BodyReadParityTests`.
         let body = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
@@ -1108,8 +1137,8 @@ actor VaultIndexActor {
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
             // (from historical DB reset or write failure) should never win over vault content.
-            // Import rollback needs the managed note snapshot, not the incoming
-            // vault file that the R.3 gateway may resolve from `filePath`.
+            // Import rollback needs the managed note snapshot, not the
+            // incoming vault file from `filePath`.
             let currentBody = page.loadBody(mapped: true)
             let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
 
@@ -1475,8 +1504,8 @@ actor VaultIndexActor {
 
     /// All pages formatted for a full FTS5 rebuild.
     ///
-    /// Phase R.3: same gateway-first body read via the primitives
-    /// helper, inside an async for-loop (sync `.map` can't await).
+    /// Phase R.3: same managed-sidecar-first body read via the
+    /// primitives helper, inside an async for-loop (sync `.map` can't await).
     func allPagesForRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)] {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
@@ -1570,7 +1599,7 @@ actor VaultIndexActor {
 
             // Body matches: only for recent pages, and only if title gave partial signal
             // or this is in the body-scan window. Each body match: +1 base + length bonus.
-            // Phase R.3: gateway-first read via the primitives helper.
+            // Phase R.3: managed-sidecar-first read via the primitives helper.
             if bodyScanIds.contains(page.id), score < 8 {
                 let body: String
                 if let cached = cachedBodies[page.id] {
@@ -1692,7 +1721,7 @@ actor VaultIndexActor {
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
     ///
     /// Phase R.3: deep-read body pass uses the Sendable-primitive
-    /// helper so the R.3 gateway is consulted first. The metadata
+    /// helper so managed sidecars stay authoritative. The metadata
     /// `entries` map stays synchronous — no body reads there.
     func buildVaultManifest(vaultTitle: String) async -> VaultManifest? {
         let descriptor = FetchDescriptor<SDPage>(
@@ -1751,8 +1780,8 @@ actor VaultIndexActor {
     /// Fetch full bodies for specific notes by page ID (for @-mention resolution & preWarm).
     ///
     /// Phase R.3: each body read goes through the Sendable-primitive
-    /// helper so the gateway-first path is used when the R.3 service
-    /// is ready.
+    /// helper so managed sidecars stay authoritative before gateway
+    /// fallback.
     func fetchNoteBodies(ids: [String]) async -> [VaultManifest.NoteBody] {
         guard !ids.isEmpty else { return [] }
         // Individual fetches — SwiftData #Predicate can't reliably translate

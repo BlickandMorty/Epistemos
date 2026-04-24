@@ -79,9 +79,10 @@ final class EntityExtractor {
         // Incremental change detection: skip notes whose content hash
         // matches last extraction.
         //
-        // Phase R.3 async cascade: `loadBodyAsync` routes through the
-        // R.3 gateway when ready. Can't use `filter` directly because
-        // the body read is async — fall back to a sequential loop
+        // Phase R.3 async cascade: `loadBodyAsync` preserves the
+        // managed sidecar before using the R.3 gateway fallback.
+        // Can't use `filter` directly because the body read is async —
+        // fall back to a sequential loop
         // over `allPages`. scanVault is already async and the
         // per-note LLM call in the next phase dominates runtime, so
         // losing a tiny bit of filter parallelism is irrelevant.
@@ -130,7 +131,7 @@ final class EntityExtractor {
 
             var batchContent = ""
             for page in batch {
-                // Phase R.3: gateway-first body read via the
+                // Phase R.3: managed-sidecar-first body read via the
                 // Sendable-primitive strangler-fig helper. Parity
                 // with legacy `loadBody` is byte-equal per
                 // `PhaseR3BodyReadParityTests`.
@@ -169,7 +170,7 @@ final class EntityExtractor {
                     processExtractionResult(extraction, sourcePages: batch, context: context)
 
                     // Update hash cache for successfully processed notes.
-                    // Phase R.3: same gateway-first read path as above.
+                    // Phase R.3: same managed-sidecar-first read path as above.
                     for page in batch {
                         let pageId = page.id
                         let filePath = page.filePath

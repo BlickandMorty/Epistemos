@@ -250,10 +250,10 @@ final class SDPage {
         return ""
     }
 
-    /// Async variant of ``loadBody(mapped:fast:)`` that routes through the
-    /// Phase R.3 unified `VaultResourceService` gateway when it is ready,
-    /// and falls back to the legacy `NoteFileStorage.readBody` path when
-    /// it is not (pre-boot, between-vault-switch, or FFI not yet linked).
+    /// Async variant of ``loadBody(mapped:fast:)``. It preserves the same
+    /// source-of-truth order as the synchronous path: managed sidecar body
+    /// first, then the Phase R.3 unified `VaultResourceService` gateway
+    /// when it is ready, then inline/vault-file fallback data.
     ///
     /// The gateway path produces byte-identical output to ``loadBody``
     /// for notes that resolve to a `ResourceId::VaultNote` — verified in
@@ -264,26 +264,13 @@ final class SDPage {
     /// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.3,
     /// docs/AUDIT_REFLECTION_2026_04_23.md §2 (I-002 / I-003 OPEN).
     func loadBodyAsync(mapped: Bool = false, fast: Bool = false) async -> String {
-        if resourceServiceIsReady() {
-            // Use the same vault-id convention AppBootstrap uses for
-            // `resourceServiceInit` (lastPathComponent of the vault URL).
-            // We don't have direct access to the bootstrap state here, so
-            // resolve through the public R.3 resolver which handles any
-            // alias/path/URI form. Resolution falls back to the legacy
-            // path on any error — never throws to the caller.
-            do {
-                let reference = Self.r3Reference(for: self)
-                let resourceId = try await resourceResolve(reference: reference)
-                let content = try await resourceRead(id: resourceId)
-                if let decoded = String(data: content.bytes, encoding: .utf8) {
-                    return decoded
-                }
-            } catch {
-                // Expected during vault-switch races or when a page is
-                // inline-body-only (legacy migration). Fall through.
-            }
-        }
-        return loadBody(mapped: mapped, fast: fast)
+        await Self.loadBodyAsyncFromPrimitives(
+            pageId: id,
+            filePath: filePath,
+            inlineBody: body,
+            mapped: mapped,
+            fast: fast
+        )
     }
 
     /// Build the canonical R.3 reference string for a page. Strategy:
@@ -305,8 +292,9 @@ final class SDPage {
     ///
     /// Behaviour matches ``loadBodyAsync(mapped:fast:)`` and
     /// ``loadBody(mapped:fast:)``:
-    /// 1. R.3 gateway resolve + read when the gateway is ready.
-    /// 2. `NoteFileStorage.readBody` (managed-body sidecar file).
+    /// 1. `NoteFileStorage.readBody` (managed-body sidecar file).
+    ///    An existing managed body, even a blank one, is authoritative.
+    /// 2. R.3 gateway resolve + read when the gateway is ready.
     /// 3. Inline `body` when no managed sidecar exists (pre-migration).
     /// 4. Raw vault file via `VaultIndexActor.decodedBodyFromReadableVaultFile`
     ///    when both managed-body and inline are empty.
@@ -321,6 +309,12 @@ final class SDPage {
         mapped: Bool = false,
         fast: Bool = false
     ) async -> String {
+        let hasManagedBody = NoteFileStorage.bodyExists(pageId: pageId)
+        let diskBody = NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
+        if !diskBody.isEmpty || hasManagedBody {
+            return diskBody
+        }
+
         if resourceServiceIsReady() {
             let trimmedPath = filePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             let reference = trimmedPath.isEmpty ? pageId : trimmedPath
@@ -336,11 +330,6 @@ final class SDPage {
             }
         }
 
-        let hasManagedBody = NoteFileStorage.bodyExists(pageId: pageId)
-        let diskBody = NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
-        if !diskBody.isEmpty || hasManagedBody {
-            return diskBody
-        }
         if !inlineBody.isEmpty {
             return inlineBody
         }

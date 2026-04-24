@@ -78,8 +78,8 @@ final class LiveNoteExecutor {
             return false
         }
 
-        // Phase R.3: gateway-first body read via the
-        // Sendable-primitive helper.
+        // Phase R.3: managed-sidecar-first body read via the
+        // Sendable-primitive helper, with gateway fallback.
         let originalBody = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
             filePath: page.filePath,

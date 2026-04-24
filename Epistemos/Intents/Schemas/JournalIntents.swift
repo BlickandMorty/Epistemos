@@ -140,8 +140,8 @@ struct CreateJournalIntent: AppIntent {
             throw IntentError.creationFailed
         }
 
-        // Phase R.3 async cascade: gateway-first read via the
-        // Sendable-primitive helper.
+        // Phase R.3 async cascade: managed-sidecar-first read via the
+        // Sendable-primitive helper, with gateway fallback.
         let originalBody = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
             filePath: page.filePath,
