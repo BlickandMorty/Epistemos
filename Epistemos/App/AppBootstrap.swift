@@ -1487,14 +1487,19 @@ final class AppBootstrap {
         let reasoning = ReasoningLoopService(triageService: triage)
         reasoning.config.enabled = UserDefaults.standard.bool(forKey: "omega.enableReasoningLoop")
         reasoning.onTracesGenerated = { jsonlLines in
+            #if !EPISTEMOS_APP_STORE
             KnowledgeFusionViewModel.shared.ingestReasoningTraces(jsonlLines)
+            #endif
         }
         self._reasoningLoopService = reasoning
 
+        #if !EPISTEMOS_APP_STORE
         // Configure Knowledge Fusion at boot so the inference bridge is ready.
         // State loading is deferred until after the primary launch path settles.
         KnowledgeFusionViewModel.shared.configure(triageService: triage)
+        #endif
 
+        #if !EPISTEMOS_APP_STORE
         // Initialize iMessage driver (starts disabled — user toggles via Settings).
         // Local-model contacts route through `LocalAgentLoop` via the
         // localModelClientProvider; cloud contacts continue to use
@@ -1525,6 +1530,7 @@ final class AppBootstrap {
            vaultSync.vaultURL != nil {
             self._iMessageDriver?.start()
         }
+        #endif
 
         // Initialize device-action infrastructure. The retired dual-brain
         // router stays archived in source, but the live app keeps only the
@@ -2068,7 +2074,9 @@ final class AppBootstrap {
             self.refreshPreparedRetrievalRuntimeConfigurationIfNeeded()
 
             await self.nightBrain.start()
+            #if !EPISTEMOS_APP_STORE
             KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()
+            #endif
 
             if self.epistemosConfig.captureEnabled {
                 await self.ambientCapture.start()

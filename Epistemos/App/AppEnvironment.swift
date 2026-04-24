@@ -38,7 +38,9 @@ extension View {
             .environment(bootstrap.visualVerifyLoop)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
+            #if !EPISTEMOS_APP_STORE
             .environment(bootstrap.iMessageDriver)
+            #endif
             .environment(bootstrap.agentCommandCenterState)
             .environment(bootstrap.agentChatState)
             .environment(bootstrap.overseerAuditState)

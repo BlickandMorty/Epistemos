@@ -651,6 +651,17 @@ struct ReleasePackagingHardeningTests {
         #expect(stubs.contains("nonisolated func walkAxTreeJson(pid: Int64) -> String"))
     }
 
+    @Test("App Store bootstrap skips Pro-only iMessage and training runtime startup")
+    func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
+        let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
+        let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
+
+        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Configure Knowledge Fusion at boot"))
+        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Initialize iMessage driver"))
+        #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
+        #expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
+    }
+
     @Test("debug and test targets default to local signing without removing real signing support")
     func debugAndTestsDefaultToLocalSigning() throws {
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
