@@ -2193,7 +2193,10 @@ final class TriageService {
                 return try await configurable.generate(
                     prompt: prompt,
                     systemPrompt: effectiveSystemPrompt,
-                    maxTokens: resolvedLocalOutputTokens(for: selection.reasoningMode),
+                    maxTokens: resolvedLocalOutputTokens(
+                        for: selection.reasoningMode,
+                        steeringHintsJSON: steeringHintsJSON
+                    ),
                     reasoningMode: selection.reasoningMode,
                     modelID: selection.modelID,
                     steeringHintsJSON: steeringHintsJSON
@@ -2245,7 +2248,10 @@ final class TriageService {
                         stream = configurable.stream(
                             prompt: prompt,
                             systemPrompt: effectiveSystemPrompt,
-                            maxTokens: self.resolvedLocalOutputTokens(for: selection.reasoningMode),
+                            maxTokens: self.resolvedLocalOutputTokens(
+                                for: selection.reasoningMode,
+                                steeringHintsJSON: steeringHintsJSON
+                            ),
                             reasoningMode: selection.reasoningMode,
                             modelID: selection.modelID,
                             steeringHintsJSON: steeringHintsJSON
@@ -2494,15 +2500,37 @@ final class TriageService {
         }
     }
 
-    private func resolvedLocalOutputTokens(for reasoningMode: LocalReasoningMode) -> Int {
-        if inference.chatOutputTokens > 0 {
-            return inference.chatOutputTokens
+    private func resolvedLocalOutputTokens(
+        for reasoningMode: LocalReasoningMode,
+        steeringHintsJSON: String? = nil
+    ) -> Int {
+        let configuredTokens = inference.chatOutputTokens
+        let defaultTokens: Int
+        if configuredTokens > 0 {
+            defaultTokens = configuredTokens
+        } else {
+            defaultTokens = switch reasoningMode {
+            case .fast:
+                4_096
+            case .thinking:
+                8_192
+            }
         }
-        switch reasoningMode {
-        case .fast:
-            return 4_096
-        case .thinking:
-            return 8_192
+
+        guard let steeringLimit = Self.maxOutputTokens(fromSteeringHintsJSON: steeringHintsJSON) else {
+            return defaultTokens
         }
+        return min(defaultTokens, steeringLimit)
+    }
+
+    nonisolated static func maxOutputTokens(fromSteeringHintsJSON steeringHintsJSON: String?) -> Int? {
+        guard let steeringHintsJSON,
+              let data = steeringHintsJSON.data(using: .utf8),
+              let hints = try? JSONDecoder().decode(BackendSteeringHints.self, from: data),
+              let maxOutputTokens = hints.depthBudget?.maxOutputTokens,
+              maxOutputTokens > 0 else {
+            return nil
+        }
+        return Int(maxOutputTokens)
     }
 }

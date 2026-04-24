@@ -217,6 +217,22 @@ private final class AppStoreFirstWindowPresenter {
         }
     }
 
+    func scheduleAfterLaunch(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        didSchedule = false
+        schedule(bootstrap: bootstrap ?? self.bootstrap)
+    }
+
+    func ensureHomeWindow(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        didSchedule = false
+        surfaceOrCreateHomeWindow()
+    }
+
     private func surfaceOrCreateHomeWindow() {
         if let existingWindow = Self.viableHomeWindow() {
             Self.log.info("App Store first-window fallback surfaced existing window")
@@ -761,8 +777,18 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         #if EPISTEMOS_APP_STORE
             Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
                 .info("App Store applicationDidFinishLaunching reached")
-            AppStoreFirstWindowPresenter.shared.schedule()
+            AppStoreFirstWindowPresenter.shared.scheduleAfterLaunch()
         #endif
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        guard !flag else { return true }
+        #if EPISTEMOS_APP_STORE
+            AppStoreFirstWindowPresenter.shared.ensureHomeWindow()
+        #else
+            HomeWindowIdentity.surfaceHomeWindow()
+        #endif
+        return true
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

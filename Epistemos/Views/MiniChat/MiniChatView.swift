@@ -651,7 +651,11 @@ private struct MiniChatInputBar: View {
     }
 
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isProcessing
+        isProcessing || (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedRuntimeReady)
+    }
+
+    private var selectedRuntimeReady: Bool {
+        inference.isChatSurfaceRuntimeReady(for: selectedOperatingMode)
     }
 
     private var composerIsActive: Bool {
@@ -1211,7 +1215,7 @@ private struct MiniChatInputBar: View {
 
     private func send() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isProcessing else { return }
+        guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady else { return }
 
         threadState.addMiniChatMessage(AssistantMessage(role: .user, content: trimmed), chatID: chatID)
         refreshMiniChatLabel(using: trimmed)

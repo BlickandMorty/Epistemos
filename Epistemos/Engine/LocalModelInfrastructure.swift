@@ -228,6 +228,50 @@ nonisolated struct LocalModelPaths: Sendable, Equatable {
             .appendingPathComponent(descriptor.slug, isDirectory: true)
     }
 
+    func usableHubSnapshotDirectory(
+        for descriptor: LocalModelDescriptor,
+        fileManager: FileManager = .default
+    ) -> URL? {
+        let repoDir = hubDirectory(for: descriptor.kind)
+            .appendingPathComponent("models--\(descriptor.slug)", isDirectory: true)
+        guard fileManager.fileExists(atPath: repoDir.path) else { return nil }
+
+        let snapshotsDir = repoDir.appendingPathComponent("snapshots", isDirectory: true)
+        let pinnedSnapshot = snapshotsDir.appendingPathComponent(descriptor.revision, isDirectory: true)
+        if Self.directoryHasWeightBlobs(at: pinnedSnapshot, fileManager: fileManager) {
+            return pinnedSnapshot
+        }
+
+        if let snapshots = try? fileManager.contentsOfDirectory(
+            at: snapshotsDir,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for snapshot in snapshots.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+                if Self.directoryHasWeightBlobs(at: snapshot, fileManager: fileManager) {
+                    return snapshot
+                }
+            }
+        }
+
+        if Self.directoryHasWeightBlobs(at: repoDir, fileManager: fileManager) {
+            return repoDir
+        }
+        return nil
+    }
+
+    static func directoryHasWeightBlobs(
+        at directory: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        guard let files = try? fileManager.contentsOfDirectory(atPath: directory.path) else {
+            return false
+        }
+        return files.contains {
+            $0.hasSuffix(".safetensors") || $0.hasSuffix(".gguf") || $0.hasSuffix(".npz")
+        }
+    }
+
     func uniqueStagingDirectory(for descriptor: LocalModelDescriptor) -> URL {
         stagingDirectory
             .appendingPathComponent(descriptor.kind.rawValue, isDirectory: true)
@@ -2083,38 +2127,12 @@ final class LocalModelManager {
 
         var result: Set<String> = []
         for descriptor in LocalModelCatalog.textDescriptors {
-            let repoDirName = "models--\(descriptor.id.replacingOccurrences(of: "/", with: "--"))"
-            let repoDir = hubDir.appendingPathComponent(repoDirName, isDirectory: true)
-            guard fileManager.fileExists(atPath: repoDir.path) else { continue }
-            guard Self.hubDirectoryHasWeightBlobs(at: repoDir, fileManager: fileManager) else { continue }
+            guard paths.usableHubSnapshotDirectory(for: descriptor, fileManager: fileManager) != nil else {
+                continue
+            }
             result.insert(descriptor.id)
         }
         return result
-    }
-
-    private static func hubDirectoryHasWeightBlobs(
-        at repoDir: URL,
-        fileManager: FileManager
-    ) -> Bool {
-        let snapshotsDir = repoDir.appendingPathComponent("snapshots", isDirectory: true)
-        if let snapshots = try? fileManager.contentsOfDirectory(
-            at: snapshotsDir,
-            includingPropertiesForKeys: [.isDirectoryKey],
-            options: [.skipsHiddenFiles]
-        ) {
-            for snapshot in snapshots {
-                if let files = try? fileManager.contentsOfDirectory(atPath: snapshot.path),
-                   files.contains(where: { $0.hasSuffix(".safetensors") || $0.hasSuffix(".gguf") || $0.hasSuffix(".npz") }) {
-                    return true
-                }
-            }
-        }
-        // Some non-HF layouts stash blobs at the repo root without a snapshots/ dir.
-        if let files = try? fileManager.contentsOfDirectory(atPath: repoDir.path),
-           files.contains(where: { $0.hasSuffix(".safetensors") || $0.hasSuffix(".gguf") || $0.hasSuffix(".npz") }) {
-            return true
-        }
-        return false
     }
 
     private func adoptInstalledTextModelIfNeeded() {

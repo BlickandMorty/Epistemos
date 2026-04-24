@@ -140,6 +140,11 @@ struct ChatInputBar: View {
         }
     }
 
+    private var selectedRuntimeReady: Bool {
+        guard let selectedMode = operatingMode?.wrappedValue else { return true }
+        return inference.isChatSurfaceRuntimeReady(for: selectedMode)
+    }
+
     /// Live-detail sub-signal shown in the pill while the agent is
     /// mid-tool-call. Turns the raw tool name + JSON input into a human
     /// phrase ("Searching the web for "quantum decoherence"") via
@@ -897,7 +902,7 @@ struct ChatInputBar: View {
     private var sendButton: some View {
         AssistantSendButton(
             theme: theme,
-            isEnabled: !trimmedText.isEmpty || isProcessing,
+            isEnabled: isProcessing || (!trimmedText.isEmpty && selectedRuntimeReady),
             isProcessing: isProcessing,
             metrics: composerMetrics
         ) {
@@ -1007,7 +1012,7 @@ struct ChatInputBar: View {
     }
 
     private func submitCurrentText() {
-        guard !trimmedText.isEmpty, !isProcessing else { return }
+        guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady else { return }
         let predictedCapability = ChatCapability.predictIntent(
             text: trimmedText,
             isCloudProvider: isCloudSelection

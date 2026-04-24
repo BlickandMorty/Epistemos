@@ -475,6 +475,15 @@ struct LocalModelToolbarMenu: View {
         return inference.effectiveChatSurfaceSelection(for: currentOperatingMode)
     }
 
+    private var currentRuntimeNeedsSetup: Bool {
+        guard let currentOperatingMode else { return false }
+        return !inference.isChatSurfaceRuntimeReady(for: currentOperatingMode)
+    }
+
+    private var runtimeSetupSummary: String {
+        "Install a local model, connect a cloud provider, or enable Apple Intelligence before sending."
+    }
+
     private var currentEffectiveCloudModel: CloudTextModelID? {
         guard case .cloud(let model) = currentEffectiveSelection else { return nil }
         return model
@@ -503,6 +512,10 @@ struct LocalModelToolbarMenu: View {
 
     private var labelText: String {
         if let overrideTitle { return overrideTitle }
+        if let operatingMode,
+           !inference.isChatSurfaceRuntimeReady(for: operatingMode.wrappedValue) {
+            return "\(operatingMode.wrappedValue.displayName) · Set Up Model"
+        }
         let selectedModelLabel: String
         if let operatingMode {
             selectedModelLabel = inference.chatSurfaceRouteDescription(
@@ -592,6 +605,9 @@ struct LocalModelToolbarMenu: View {
         if isTemporaryChatEnabled?.wrappedValue == true {
             return "eye.slash.fill"
         }
+        if currentRuntimeNeedsSetup {
+            return "exclamationmark.triangle"
+        }
         if let operatingMode {
             return operatingMode.wrappedValue.systemImage
         }
@@ -609,14 +625,23 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var modelButtonTitle: String {
-        currentRouteDescription?.headline ?? labelText
+        if currentRuntimeNeedsSetup {
+            return "Set Up Model"
+        }
+        return currentRouteDescription?.headline ?? labelText
     }
 
     private var modelButtonSystemImage: String {
-        currentRouteDescription?.systemImage ?? buttonSystemImage
+        if currentRuntimeNeedsSetup {
+            return "exclamationmark.triangle"
+        }
+        return currentRouteDescription?.systemImage ?? buttonSystemImage
     }
 
     private var routeButtonTitle: String {
+        if currentRuntimeNeedsSetup {
+            return "No Model"
+        }
         guard let route = currentRouteDescription else { return "Routing" }
         if route.usesAutomaticRouting {
             return "Auto Route"
@@ -647,6 +672,9 @@ struct LocalModelToolbarMenu: View {
     }
 
     private var selectedModeSummary: String {
+        if currentRuntimeNeedsSetup {
+            return runtimeSetupSummary
+        }
         if let operatingMode {
             return inference.chatSurfaceRouteDescription(for: operatingMode.wrappedValue).summary
         }

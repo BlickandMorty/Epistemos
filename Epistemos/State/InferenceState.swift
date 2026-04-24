@@ -4063,6 +4063,17 @@ final class InferenceState {
         }
     }
 
+    func isChatSurfaceRuntimeReady(for operatingMode: EpistemosOperatingMode) -> Bool {
+        switch effectiveChatSurfaceSelection(for: operatingMode) {
+        case .appleIntelligence:
+            return appleIntelligenceAvailable
+        case .cloud(let model):
+            return hasConfiguredCloudAccess(for: model.provider)
+        case .localMLX:
+            return effectiveLocalTextModelID(for: operatingMode) != nil
+        }
+    }
+
     func capabilityToolNames(
         for operatingMode: EpistemosOperatingMode,
         executionPlan: OverseerComplexityRouter.ExecutionPlan? = nil
