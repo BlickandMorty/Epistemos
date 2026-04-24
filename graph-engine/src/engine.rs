@@ -132,6 +132,10 @@ struct DragState {
     /// Exponentially-smoothed pointer velocity in world-units per second.
     /// Seeded to zero at drag start; updated per `mouse_moved` event.
     smoothed_vel: [f32; 2],
+    /// Timestamp of the last WaveEvent spawned during an active drag
+    /// (v3 motion spec §4.2 — 40 ms cadence). Enables periodic wake
+    /// rings while the user is still dragging, not only on release.
+    last_wake_spawn: Instant,
 }
 
 pub struct Engine {
@@ -1063,6 +1067,7 @@ impl Engine {
                         last_world: [node_x, node_y],
                         last_sample_at: Instant::now(),
                         smoothed_vel: [0.0, 0.0],
+                        last_wake_spawn: Instant::now(),
                     });
                 }
             }
@@ -1140,6 +1145,33 @@ impl Engine {
                 sim.inject_fluid_velocity(wx, wy, dvx, dvy);
             }
             sim.fix_node(sim_index, wx, wy);
+
+            // v3 motion spec §4.2 — emit a WaveEvent every ~40 ms
+            // while a fast drag is underway, not only on release.
+            // This is what turns a sustained drag into a visible
+            // trail of ripples rather than a single pop on mouseUp.
+            // Thresholds mirror the release path: we need `moved`
+            // (drag not click), a minimum speed, and enough time
+            // since the last wake to avoid spamming the 8-event cap.
+            if let Some(drag) = self.drag.as_mut() {
+                const WAKE_MIN_SPEED_SQ: f32 = 10_000.0; // 100 px/s
+                const WAKE_INTERVAL: Duration = Duration::from_millis(40);
+                let speed_sq = drag.smoothed_vel[0] * drag.smoothed_vel[0]
+                    + drag.smoothed_vel[1] * drag.smoothed_vel[1];
+                let now = Instant::now();
+                if drag.moved
+                    && speed_sq >= WAKE_MIN_SPEED_SQ
+                    && now.duration_since(drag.last_wake_spawn) >= WAKE_INTERVAL
+                {
+                    drag.last_wake_spawn = now;
+                    sim.emit_wave_from_release(
+                        wx,
+                        wy,
+                        drag.smoothed_vel[0],
+                        drag.smoothed_vel[1],
+                    );
+                }
+            }
         } else if self.pan_active {
             // Panning camera.
             let zoom = self.renderer.camera_zoom;
@@ -2710,6 +2742,7 @@ mod tests {
             last_world: [0.0, 0.0],
             last_sample_at: Instant::now(),
             smoothed_vel: [0.0, 0.0],
+            last_wake_spawn: Instant::now(),
         });
 
         engine.set_node_visible(&hidden_uuid, false);
