@@ -22,8 +22,13 @@
 use std::ops::{Add, Mul, Sub};
 
 /// Default gap in world-units between the node edge and the start of the
-/// drawn stroke. v3 spec §6 recommends 2.0 px as the starting value.
-pub const DEFAULT_EDGE_GAP_PX: f32 = 2.0;
+/// drawn stroke. v3 spec §6 opened at 2.0 px; 2026-04-24 user asked to
+/// "close the gap as much as possible without having them over the
+/// nodes" — 0.75 px is the tight-but-safe floor. Values below ~0.5 px
+/// risk the anti-aliased edge pixels kissing the node disc outline and
+/// producing the old "stabbing into the circle" look. Values above
+/// ~1.5 px read as visible detachment.
+pub const DEFAULT_EDGE_GAP_PX: f32 = 0.75;
 
 /// Minimum handle length (in world-units) for cubic-Bezier control points
 /// after trimming. Guards against ultra-short handles creating visible
