@@ -236,6 +236,19 @@ fn decay_for_mass(mass: f32) -> f32 {
 /// so the new integrator can consume it uniformly across all nodes.
 const WARM_START_SCALAR_DECAY: f32 = 0.3;
 
+/// Master gate for the "extras" that get jumbled together with the
+/// useful graph forces when a preset naively enables several at once
+/// (user feedback 2026-04-24 — "things are still orbiting, little
+/// nodes are still trying to orbit, want to remove that as well, it's
+/// redundant"). Force-disables torsional springs, orbital motion,
+/// boids cohesion, wind, and semantic-boids blending regardless of
+/// what a preset puts into ForceParams. The underlying force
+/// functions (`forces::force_torsion`, `forces::force_orbital`,
+/// `forces::force_wind`, etc.) are untouched — they simply don't get
+/// called. Flip to `true` only in an isolated developer build if the
+/// feature needs to come back.
+const EXPERIMENTAL_MOTION_FORCES_ENABLED: bool = false;
+
 // ── Fluid dynamics grid ──────────────────────────────────────────────────
 
 const FLUID_GRID_SIZE: usize = 64;
@@ -1007,7 +1020,10 @@ impl Simulation {
 
         if !at_floor {
             // Torsional springs: equalize angular spacing around hub nodes.
-            if self.params.enable_torsional_springs {
+            // Gated by the `EXPERIMENTAL_MOTION_FORCES_ENABLED` master
+            // switch so a preset can't accidentally enable it and add
+            // jitter to hub children — user feedback 2026-04-24.
+            if EXPERIMENTAL_MOTION_FORCES_ENABLED && self.params.enable_torsional_springs {
                 let torsion_strength = self.params.torsion_rigidity * 0.6;
                 forces::force_torsion(
                     &self.x,
@@ -1126,8 +1142,16 @@ impl Simulation {
                 && self.params.semantic_strength > 0.001
                 && !self.semantic_neighbors.is_empty()
             {
-                let boids_eff =
-                    self.params.semantic_strength * (0.5 + self.params.boids_cohesion * 0.5);
+                // Semantic attraction stays — it's the search-path
+                // embedding force. Boids cohesion is a separate
+                // experimental blend that's gated off per user
+                // feedback 2026-04-24.
+                let boids_boost = if EXPERIMENTAL_MOTION_FORCES_ENABLED {
+                    self.params.boids_cohesion * 0.5
+                } else {
+                    0.0
+                };
+                let boids_eff = self.params.semantic_strength * (0.5 + boids_boost);
                 forces::force_semantic(
                     &self.x,
                     &self.y,
@@ -1141,8 +1165,9 @@ impl Simulation {
             }
         }
 
-        // Wind force: mass-weighted directional push.
-        if !at_floor {
+        // Wind force: mass-weighted directional push. Experimental —
+        // force-disabled at the master gate.
+        if !at_floor && EXPERIMENTAL_MOTION_FORCES_ENABLED {
             forces::force_wind(
                 &mut self.vx,
                 &mut self.vy,
@@ -1154,7 +1179,9 @@ impl Simulation {
         }
 
         // Orbital force: tangential velocity for hierarchical edges.
-        if !at_floor && self.params.enable_orbital {
+        // Gated off — user explicitly asked to remove "little nodes
+        // trying to orbit" 2026-04-24.
+        if !at_floor && EXPERIMENTAL_MOTION_FORCES_ENABLED && self.params.enable_orbital {
             forces::force_orbital(
                 &self.x,
                 &self.y,
