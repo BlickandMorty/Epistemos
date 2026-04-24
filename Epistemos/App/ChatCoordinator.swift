@@ -1451,6 +1451,9 @@ final class ChatCoordinator {
           for: operatingMode
         )
         chatState.recalculateContextEstimate()
+        await self.seedLiveAttachmentSessionGrants(
+          from: chatState.pendingContextAttachments
+        )
 
         let hasExplicitContext = Self.queryContainsExplicitContext(
           query,
@@ -1889,6 +1892,34 @@ final class ChatCoordinator {
   /// UI affordance (Settings pane).
   static let r5GrantScope = "Session"
 
+  /// User attaching a Live resource through the app UI is an explicit
+  /// session-scoped grant for that resource's declared capabilities.
+  /// This phrase routes through the existing Rust grant parser so the
+  /// same stored-grant path is used for typed consent and attachment
+  /// consent.
+  static let r4LiveAttachmentDefaultGrantStatement =
+    "You have my permission to edit this attached live resource."
+
+  static func r4LiveAttachmentWriteGrantCandidates(
+    from attachments: [ContextAttachment]
+  ) -> [(resourceURI: String, capabilities: [String])] {
+    attachments.compactMap { attachment in
+      guard attachment.resourceMode == .live,
+            let uri = attachment.resourceURI?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !uri.isEmpty,
+            let attachedResource = attachment.toAttachedResource(),
+            attachedResourceAllows(attachment: attachedResource, capability: .write)
+      else { return nil }
+
+      let declaredCapabilities = attachment.resourceCapabilities ?? ["Read", "Write"]
+      let capabilities = declaredCapabilities.filter { capability in
+        capability == "Read" || capability == "Write"
+      }
+      guard capabilities.contains("Write") else { return nil }
+      return (uri, capabilities)
+    }
+  }
+
   /// Extract the non-empty resource URIs from a batch of pending
   /// context attachments. Static and pure so tests can exercise the
   /// filter independently of the Rust FFI and of `ChatCoordinator`'s
@@ -1946,6 +1977,33 @@ final class ChatCoordinator {
             "R.5 parser: recorded grant \(grantID, privacy: .public) for \(uri, privacy: .public)"
           )
         }
+      }
+    }
+  }
+
+  private func seedLiveAttachmentSessionGrants(
+    from attachments: [ContextAttachment]
+  ) async {
+    let candidates = Self.r4LiveAttachmentWriteGrantCandidates(from: attachments)
+    guard !candidates.isEmpty else { return }
+
+    for candidate in candidates {
+      let alreadyGranted = await permissionStoreCheck(
+        resourceUri: candidate.resourceURI,
+        capability: "Write"
+      )
+      guard !alreadyGranted else { continue }
+
+      let grantID = await permissionStoreRecordUserGrantFromStatement(
+        statement: Self.r4LiveAttachmentDefaultGrantStatement,
+        resourceUri: candidate.resourceURI,
+        capabilityNames: candidate.capabilities,
+        scopeName: Self.r5GrantScope
+      )
+      if let grantID, !grantID.isEmpty {
+        Log.pipeline.info(
+          "R.4 defaults: recorded live attachment grant \(grantID, privacy: .public) for \(candidate.resourceURI, privacy: .public)"
+        )
       }
     }
   }

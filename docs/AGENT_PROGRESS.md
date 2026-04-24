@@ -379,5 +379,6 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] Hugging Face hub snapshots with weight blobs are treated as usable local installs, so prepared local runtimes survive real bundle/cache layouts (`caa3fdbf`)
 - [x] Manual Computer Use smoke on the real App Store Release bundle: `ping` returned `pong`; no restricted-tools warning; shell/Pro affordances absent
 - [x] New canonical tracker: `docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md`
-- [ ] Remaining App Store blockers: attachment write-dispatch gate, Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
+- [x] Live R.4 attachments now seed session Read/Write grants before chat/tool routing; pasted Snapshot attachments remain read-only. Verified by 9/9 R.5 grant tests, 43/43 R.4/R.5 focused tests, and App Store Release BUILD SUCCEEDED.
+- [ ] Remaining App Store blockers: end-to-end attached-file write verification, Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
 - [ ] Pro work remains deferred until App Store lane is accepted or explicitly branched: CLI subprocess Power Mode, Docker, iMessage channel, full CLI config compiler, Bash/MultiEdit/WebFetch, long-horizon agents
