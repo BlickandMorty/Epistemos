@@ -4,6 +4,7 @@ pub mod bridge;
 pub mod id;
 pub mod permissions;
 pub mod service;
+pub mod tool_authz;
 
 pub use attachments::{
     read_attached_resource, write_attached_resource, AttachedResource, AttachmentMode,

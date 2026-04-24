@@ -189,8 +189,35 @@ pub async fn permission_store_check(resource_uri: String, capability: String) ->
     let Some(capability) = parse_capability(&capability) else {
         return false;
     };
+    check_resource_capability(resource, capability).await
+}
+
+/// Rust-internal companion to `permission_store_check`: consults the same
+/// process-local store but takes already-typed `ResourceId` + `Capability`
+/// arguments. Used by the tool-execution gate in `ToolRegistry::execute`
+/// where we already have typed values and would only stringify them just
+/// to parse them back.
+///
+/// Visibility is `pub(crate)` so non-FFI crate code can call it without
+/// enlarging the UniFFI surface. Swift callers must continue to use
+/// `permission_store_check` (the string-typed FFI wrapper above).
+pub(crate) async fn check_resource_capability(
+    resource: ResourceId,
+    capability: Capability,
+) -> bool {
     let guard = store().lock().await;
     guard.check(resource, capability).await
+}
+
+/// Snapshot the current grant count. Used by the R.5 tool-execution
+/// gate to distinguish "the user has configured grants — enforce
+/// them" from "the store is empty — don't block tool calls before
+/// the user has had a chance to opt in". Crate-private; not exposed
+/// via FFI because Swift has `permission_store_list_active` for the
+/// same purpose in UI contexts.
+pub(crate) async fn active_grant_count() -> usize {
+    let guard = store().lock().await;
+    guard.list_active().await.len()
 }
 
 /// Record a user-granted permission parsed from a freeform chat
