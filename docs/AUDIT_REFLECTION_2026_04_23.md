@@ -332,4 +332,32 @@ Codex also noted *"`AUDIT_REFLECTION_2026_04_23.md` now has stale early statemen
 
 ---
 
+## 12. Build-pass log — 2026-04-23 late night (R.5 arm-by-arm expansion)
+
+Continues §11's work list (`§11.3` item (4) "R.5 arm-by-arm expansion"). Finish-the-runway prompt step 1.
+
+### 12.1 `scaffold(R.5 arms)` — tool_authz covers every mutating tool
+
+- Three new arms in `agent_core/src/resources/tool_authz.rs::infer_tool_authz_target`, each producing `ResourceId::File { absolute_path }` + `Capability::Write`:
+  - `write_file` — reads `input["path"]`, runs the same `~/` expansion `WriteFileHandler::resolve_path` uses, so the gate authorizes the file the handler will actually touch (not the pre-expansion string). Creation-via-overwrite rides on the same grant.
+  - `patch` — same shape; handler requires existing file, so the grant semantics are "permission to modify this path".
+  - `trajectory_export` — conditional on `input["output_path"]`. When omitted, the handler returns 20 lines inline (no write) → arm returns `None`. When provided, arm produces a File-Write target.
+- Shared helper `file_target_from_path(value, capability)` centralises trim + `~/` expansion + empty-after-expand guards. Keeps each arm a one-liner and makes future file-targeting arms (e.g. a delete tool) trivial to wire.
+- Catch-all comment now enumerates the 20+ non-ResourceId-mappable mutating tools and explains why each class bypasses R.5: shell passthroughs, messaging, AppleScript apps, UI/device tools, local-state tools, stdio MCP. Tier/allowlist gating in `is_tool_permitted` still holds them.
+- **9 new happy-path + guard tests** for the three arms (absolute path, home-expanded path, missing field, empty/whitespace field, inline-export omission) plus **1 parametric sweep** (`non_resourceable_mutating_tools_return_none`) that hits 20 catch-all tools in a single test body so the list is visible and reviewable as one unit. All 17 `tool_authz::tests` cases now green.
+- Full Rust suite: 618 lib + 2 + 5 binary = 625 tests green (was 609 + 2 + 5 = 616; +9 is the new `tool_authz` coverage plus the parametric sweep counts as 1 test). `xcodebuild -scheme Epistemos` → BUILD SUCCEEDED. Pre-existing SwiftLint failures in `CodeEditSourceEditor` / `CodeEditTextView` remain (third-party, ignored per runway prompt).
+
+### 12.2 Why this is `scaffold(...)` not `fix(...)`
+
+- The arms are *wiring* — they map tool-name strings to resource targets. Default mode is still advisory (`EPISTEMOS_R5_ENFORCE=1` required for deny). No user-visible bug gets flipped until Step 2 changes the default.
+- I-009 stays PARTIAL on this commit. It moves to FIXED only when the flag flips AND the arm coverage is judged complete enough to be safe on by default. Arms are complete for every Some-case the ResourceId enum can describe; non-mappable tools have a test locking in their pass-through.
+
+### 12.3 Carried forward to Step 2
+
+- `r5_enforce_enabled()` default → flip `false` → `true`.
+- New test: `r5_gate_denies_vault_write_when_enforce_defaults_on_with_grants_but_no_match` — same shape as the existing `_grants_exist_but_not_for_this_resource` test, but WITHOUT setting the env flag, to prove the default is now the enforce path.
+- KNOWN_ISSUES_REGISTER I-009 gets the green checkmark + the "user-visible symptom gone" line.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**

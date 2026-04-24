@@ -75,12 +75,84 @@ pub fn infer_tool_authz_target(
                 capability: Capability::Write,
             })
         }
-        // Everything else: currently unrecognized. Returning None
-        // means the gate logs "not gateable" and does not block.
-        // Follow-up commits will extend this match arm by arm so each
-        // expansion is independently reviewable.
+        // Generic filesystem write — absolute (or `~/`-expanded) path.
+        // The handler in `tools::filesystem::WriteFileHandler` creates
+        // the file if missing and overwrites if present; the gate
+        // rides on `Capability::Write` either way (grants carrying
+        // `Write` imply the ability to create at the same location).
+        "write_file" => file_target_from_path(input.get("path")?, Capability::Write),
+        // In-place fuzzy patch — requires the file to already exist,
+        // so this is always a `Write` against an existing resource.
+        "patch" => file_target_from_path(input.get("path")?, Capability::Write),
+        // Training-dataset export. When `output_path` is provided the
+        // handler writes a JSONL file; when omitted it returns the
+        // first 20 lines inline (no write). Only gate the write path.
+        "trajectory_export" => {
+            let output = input.get("output_path")?;
+            file_target_from_path(output, Capability::Write)
+        }
+        // Everything else currently unrecognized. This covers the
+        // mutating tools that don't have a natural `ResourceId`
+        // today:
+        //   * Shell / passthrough: `bash_execute`, `process`,
+        //     `claude_code`, `codex`. They don't target a single
+        //     resource; the command string is the whole thing. Tier
+        //     + allowlist gating in `is_tool_permitted` is what
+        //     holds them.
+        //   * Messaging: `send_message`, `imessage`, `apple_mail`,
+        //     `imessage_contacts`, `channel_contacts`. No URI scheme
+        //     for outbound message destinations exists yet.
+        //   * AppleScript apps: `apple_notes`, `apple_reminders`,
+        //     `apple_calendar`. No URI scheme for cross-app resources.
+        //   * UI / device: `interact`, browser_*. Target is an AX
+        //     element or browser tab, not a stable resource.
+        //   * Local-state tools: `memory`, `skill_manage`,
+        //     `tool_manage`, `cronjob`, `ssm_resume`,
+        //     `nightbrain_trigger`. Each could grow a dedicated
+        //     variant in `ResourceId` later; for now they bypass.
+        //   * Stdio MCP tools: schema is user-supplied; we can't
+        //     infer the target ahead of time.
+        //
+        // Returning `None` means the gate allows + logs — it does
+        // not block. Default enforcement still kicks in for the
+        // three file-targeting arms above.
         _ => None,
     }
+}
+
+/// Shared helper for arms whose input shape is `{ "path": String }`
+/// and whose resource is a generic filesystem `File`. Handles the
+/// same `~/` expansion logic as `tools::filesystem::resolve_path` so
+/// authorization works off the path the handler will actually act
+/// on. Returns `None` when the JSON field is absent, non-string,
+/// empty, or expansion produces an empty buffer.
+fn file_target_from_path(
+    path_value: &Value,
+    capability: Capability,
+) -> Option<ToolAuthzTarget> {
+    let raw = path_value.as_str()?;
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let expanded = if let Some(rest) = trimmed.strip_prefix("~/") {
+        match dirs::home_dir() {
+            Some(home) => home.join(rest),
+            None => return None,
+        }
+    } else if trimmed == "~" {
+        dirs::home_dir()?
+    } else {
+        std::path::PathBuf::from(trimmed)
+    };
+    let absolute_path = expanded.to_string_lossy().to_string();
+    if absolute_path.is_empty() {
+        return None;
+    }
+    Some(ToolAuthzTarget {
+        resource: ResourceId::File { absolute_path },
+        capability,
+    })
 }
 
 /// Derive the stable vault id we use across the FFI from an absolute
@@ -216,5 +288,208 @@ mod tests {
         assert!(
             infer_tool_authz_target("vault_write", &input, &write_risk(), Some(&root)).is_none()
         );
+    }
+
+    // ── write_file arm ────────────────────────────────────────────
+    #[test]
+    fn write_file_absolute_path_emits_file_write() {
+        let input = json!({"path": "/tmp/authz/example.txt", "content": "body"});
+        let target = infer_tool_authz_target("write_file", &input, &write_risk(), None)
+            .expect("write_file with absolute path should yield a target");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::File { absolute_path } => {
+                assert_eq!(absolute_path, "/tmp/authz/example.txt");
+            }
+            other => panic!("expected File variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn write_file_home_expanded_path_resolves_under_home() {
+        let Some(home) = dirs::home_dir() else {
+            return; // can't run the assertion in an env without HOME
+        };
+        let input = json!({"path": "~/scratch/authz.txt", "content": "body"});
+        let target = infer_tool_authz_target("write_file", &input, &write_risk(), None)
+            .expect("~/ prefix should still produce a file target");
+        match target.resource {
+            ResourceId::File { absolute_path } => {
+                let expected = home.join("scratch/authz.txt").to_string_lossy().to_string();
+                assert_eq!(absolute_path, expected);
+            }
+            other => panic!("expected File variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn write_file_missing_path_returns_none() {
+        let input = json!({"content": "body"});
+        assert!(infer_tool_authz_target("write_file", &input, &write_risk(), None).is_none());
+    }
+
+    #[test]
+    fn write_file_empty_path_returns_none() {
+        let input = json!({"path": "   ", "content": "body"});
+        assert!(infer_tool_authz_target("write_file", &input, &write_risk(), None).is_none());
+    }
+
+    // ── patch arm ──────────────────────────────────────────────────
+    #[test]
+    fn patch_absolute_path_emits_file_write() {
+        let input = json!({
+            "path": "/tmp/authz/patch-me.rs",
+            "old_string": "fn old()",
+            "new_string": "fn new()"
+        });
+        let target = infer_tool_authz_target("patch", &input, &write_risk(), None)
+            .expect("patch with path should yield a file target");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::File { absolute_path } => {
+                assert_eq!(absolute_path, "/tmp/authz/patch-me.rs");
+            }
+            other => panic!("expected File variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn patch_missing_path_returns_none() {
+        let input = json!({"old_string": "x", "new_string": "y"});
+        assert!(infer_tool_authz_target("patch", &input, &write_risk(), None).is_none());
+    }
+
+    // ── trajectory_export arm ─────────────────────────────────────
+    #[test]
+    fn trajectory_export_with_output_path_emits_file_write() {
+        let input = json!({
+            "output_path": "/tmp/authz/traj.jsonl",
+            "limit": 10
+        });
+        let target = infer_tool_authz_target("trajectory_export", &input, &write_risk(), None)
+            .expect("trajectory_export with output_path should yield a file target");
+        assert_eq!(target.capability, Capability::Write);
+        match target.resource {
+            ResourceId::File { absolute_path } => {
+                assert_eq!(absolute_path, "/tmp/authz/traj.jsonl");
+            }
+            other => panic!("expected File variant, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn trajectory_export_without_output_path_returns_none() {
+        // Inline (no output_path) is a read-surface return — no file
+        // is written, so the gate has nothing to authorize.
+        let input = json!({"limit": 10});
+        assert!(
+            infer_tool_authz_target("trajectory_export", &input, &write_risk(), None).is_none()
+        );
+    }
+
+    // ── non-resourceable mutating tools ───────────────────────────
+    //
+    // These all fall through the catch-all. The behaviour is load-
+    // bearing: flipping default enforcement on (Step 2) must NOT
+    // block them via the R.5 gate because we can't describe their
+    // targets as ResourceIds. Tier/allowlist gating still applies
+    // upstream in `ToolRegistry::is_tool_permitted`.
+    #[test]
+    fn non_resourceable_mutating_tools_return_none() {
+        let root = PathBuf::from("/tmp/my-vault");
+        let cases: &[(&str, Value, RiskLevel)] = &[
+            ("bash_execute", json!({"command": "ls"}), destructive_risk()),
+            ("process", json!({"action": "list"}), destructive_risk()),
+            ("claude_code", json!({"task": "refactor"}), destructive_risk()),
+            ("codex", json!({"task": "refactor"}), destructive_risk()),
+            (
+                "send_message",
+                json!({"platform": "slack", "message": "hi"}),
+                destructive_risk(),
+            ),
+            (
+                "imessage",
+                json!({"action": "send", "to": "me", "message": "hi"}),
+                destructive_risk(),
+            ),
+            (
+                "apple_mail",
+                json!({"action": "send", "to": "me", "subject": "s", "body": "b"}),
+                destructive_risk(),
+            ),
+            (
+                "apple_notes",
+                json!({"action": "create", "title": "t", "content": "c"}),
+                write_risk(),
+            ),
+            (
+                "apple_reminders",
+                json!({"action": "add", "title": "t"}),
+                write_risk(),
+            ),
+            (
+                "apple_calendar",
+                json!({"action": "create", "title": "t"}),
+                write_risk(),
+            ),
+            (
+                "imessage_contacts",
+                json!({"action": "set", "handle": "h"}),
+                write_risk(),
+            ),
+            (
+                "channel_contacts",
+                json!({"action": "set", "channel_id": "slack", "handle": "h"}),
+                write_risk(),
+            ),
+            (
+                "interact",
+                json!({"app_name": "Safari", "action": "click", "target": "Go"}),
+                write_risk(),
+            ),
+            (
+                "browser_click",
+                json!({"selector": "#go"}),
+                destructive_risk(),
+            ),
+            (
+                "browser_type",
+                json!({"selector": "#i", "text": "hi"}),
+                destructive_risk(),
+            ),
+            ("browser_navigate", json!({"url": "https://x"}), write_risk()),
+            ("memory", json!({"action": "add", "content": "x"}), write_risk()),
+            (
+                "skill_manage",
+                json!({"action": "create", "name": "s", "content": "c"}),
+                write_risk(),
+            ),
+            (
+                "tool_manage",
+                json!({"action": "create", "spec": {}}),
+                write_risk(),
+            ),
+            (
+                "cronjob",
+                json!({"action": "create", "schedule": "* * * * * *", "prompt": "p"}),
+                write_risk(),
+            ),
+            (
+                "ssm_resume",
+                json!({"action": "save", "session_id": "s"}),
+                write_risk(),
+            ),
+            (
+                "nightbrain_trigger",
+                json!({"job": "event_checkpoint"}),
+                write_risk(),
+            ),
+        ];
+        for (name, input, risk) in cases {
+            assert!(
+                infer_tool_authz_target(name, input, risk, Some(&root)).is_none(),
+                "{name} must fall through to None (no ResourceId mapping today)"
+            );
+        }
     }
 }
