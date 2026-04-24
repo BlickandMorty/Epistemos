@@ -582,4 +582,45 @@ advisory behavior.
 - `cargo test --manifest-path agent_core/Cargo.toml verified_write_bridge -- --nocapture` → 2/2 green.
 - `cargo test --manifest-path agent_core/Cargo.toml user_grant_statement_stores_grant_and_is_used -- --nocapture` → 1/1 green.
 
+---
+
+## 18. R.6 tool-write readback hardening — 2026-04-24
+
+### 18.1 Rust registry writes now fail closed on readback mismatch
+
+The Rust tool registry had three direct write surfaces that could previously
+return success immediately after `write()` / `rename()` returned:
+
+- `write_file`
+- `patch`
+- `vault_write`
+
+The 2026-04-24 hardening pass added post-write readback verification to all
+three. `write_file` and `patch` now read the file bytes after the atomic rename
+and compare them to the requested payload. `vault_write` reads the vault note
+after `VaultBackend::write()` and compares it to the expected final content
+(including append mode and tag frontmatter injection).
+
+Success payloads now include `"verified": true`, and readback mismatch returns
+`ToolError::ExecutionFailed("write verification failed...")`.
+
+### 18.2 Regression added for the exact "AI lied" class
+
+A new `LyingVault` test backend returns `Ok(())` from `write()` but returns
+different content from `read()`. `vault_write` now rejects that as a failed
+write instead of surfacing success. This is the `vault_graph.json` bug class in
+miniature.
+
+### 18.3 Honest label
+
+- **I-007 / I-008 remain PARTIAL**, but the Rust registry path is now hardened.
+- Remaining work is Swift-originated write paths: `NoteFileStorage.writeBody`,
+  `SDPage.saveBody`, and any LocalAgentLoop raw file writes that bypass the Rust
+  tool registry / `resource_verified_write`.
+
+### 18.4 Targeted verification
+
+- `cargo test --manifest-path agent_core/Cargo.toml tools::filesystem::tests -- --nocapture` → 17/17 green.
+- `cargo test --manifest-path agent_core/Cargo.toml tools::registry::tier_tests::vault_write -- --nocapture` → 2/2 green.
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
