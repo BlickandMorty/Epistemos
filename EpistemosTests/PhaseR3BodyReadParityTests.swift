@@ -164,6 +164,38 @@ struct PhaseR3BodyReadParityTests {
         #expect(gatewayContent.checksum.lowercased() == expectedHex.lowercased())
     }
 
+    @Test("async SDPage primitive read strips markdown front matter like sync fallback")
+    func asyncPrimitiveReadStripsMarkdownFrontMatter() async throws {
+        let markdown = """
+            ---
+            title: Parity Seed
+            tags: [release]
+            ---
+            # Body
+
+            Actual note body.
+            """
+        let expectedBody = """
+            # Body
+
+            Actual note body.
+            """
+        let (root, noteURL) = try seedVault(label: "front-matter", body: markdown)
+        defer { removeIfExists(root) }
+
+        try resourceServiceInit(
+            vaultRoot: root.path,
+            vaultId: "parity-front-matter-\(UUID().uuidString)"
+        )
+
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: "front-matter-\(UUID().uuidString)",
+            filePath: noteURL.path
+        )
+
+        #expect(body == expectedBody)
+    }
+
     // MARK: - Utilities
 
     /// Independent sha256 reference (CryptoKit) for comparing against

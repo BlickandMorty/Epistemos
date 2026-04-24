@@ -26,7 +26,7 @@ struct AuthoritySettingsView: View {
                 header
                 quickSetupCard
 
-                ForEach(AgentAuthorityCategory.allCases, id: \.self) { category in
+                ForEach(visibleCategories, id: \.self) { category in
                     categoryCard(for: category)
                 }
 
@@ -57,7 +57,7 @@ struct AuthoritySettingsView: View {
                     .font(.callout)
                     .foregroundStyle(.secondary)
 
-                ForEach(AgentAuthorityQuickSetupPreset.allCases) { preset in
+                ForEach(visibleQuickSetupPresets) { preset in
                     Button {
                         applyPreset(preset)
                     } label: {
@@ -98,12 +98,12 @@ struct AuthoritySettingsView: View {
 
     private func authorityPicker(for category: AgentAuthorityCategory) -> some View {
         let binding = Binding<AuthorityDecision>(
-            get: { store.snapshot.decision(for: category) },
-            set: { store.setDecision($0, for: category) }
+            get: { normalizedVisibleDecision(store.snapshot.decision(for: category), for: category) },
+            set: { store.setDecision(normalizedVisibleDecision($0, for: category), for: category) }
         )
 
         return Picker("", selection: binding) {
-            ForEach(AuthorityDecision.allCases, id: \.self) { decision in
+            ForEach(availableDecisions(for: category), id: \.self) { decision in
                 Text(decision.displayName).tag(decision)
             }
         }
@@ -135,15 +135,16 @@ struct AuthoritySettingsView: View {
     }
 
     private func applyPreset(_ preset: AgentAuthorityQuickSetupPreset) {
+        let decisions = visiblePresetDecisions(preset.decisions)
         if preset == .recommended {
             store.reset(
                 to: AgentAuthorityPolicySnapshot(
-                    decisions: preset.decisions,
+                    decisions: decisions,
                     lastModified: Date()
                 )
             )
         } else {
-            store.applyPreset(preset.decisions)
+            store.applyPreset(decisions)
         }
         onResetConfirmed?()
     }
@@ -158,9 +159,107 @@ struct AuthoritySettingsView: View {
             return "Review More"
         }
     }
+
+    private var visibleCategories: [AgentAuthorityCategory] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        AgentAuthorityCategory.allCases.filter(\.isVisibleInAppStoreAuthority)
+        #else
+        AgentAuthorityCategory.allCases
+        #endif
+    }
+
+    private var visibleQuickSetupPresets: [AgentAuthorityQuickSetupPreset] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        AgentAuthorityQuickSetupPreset.allCases.filter { $0 != .lessInterruptions }
+        #else
+        AgentAuthorityQuickSetupPreset.allCases
+        #endif
+    }
+
+    private func availableDecisions(for category: AgentAuthorityCategory) -> [AuthorityDecision] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        category.appStoreAuthorityDecisions
+        #else
+        AuthorityDecision.allCases
+        #endif
+    }
+
+    private func normalizedVisibleDecision(
+        _ decision: AuthorityDecision,
+        for category: AgentAuthorityCategory
+    ) -> AuthorityDecision {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return category.normalizedAppStoreDecision(decision)
+        #else
+        return decision
+        #endif
+    }
+
+    private func visiblePresetDecisions(
+        _ decisions: [AgentAuthorityCategory: AuthorityDecision]
+    ) -> [AgentAuthorityCategory: AuthorityDecision] {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        var filtered: [AgentAuthorityCategory: AuthorityDecision] = [:]
+        for category in visibleCategories {
+            let decision = decisions[category] ?? store.snapshot.decision(for: category)
+            filtered[category] = category.normalizedAppStoreDecision(decision)
+        }
+        return filtered
+        #else
+        return decisions
+        #endif
+    }
 }
 
 #Preview("Authority Settings") {
     AuthoritySettingsView(store: AgentAuthorityStore())
         .frame(width: 680, height: 640)
 }
+
+#if EPISTEMOS_APP_STORE || MAS_SANDBOX
+private extension AgentAuthorityCategory {
+    var isVisibleInAppStoreAuthority: Bool {
+        switch self {
+        case .vaultRead,
+             .vaultWrite,
+             .outOfVaultFileAccess,
+             .networkFetch,
+             .downloadArtifact,
+             .destructiveFileOp,
+             .systemProtected:
+            return true
+        case .gitOperation,
+             .packageInstall,
+             .runDownloadedScript,
+             .externalAppAutomation:
+            return false
+        }
+    }
+
+    var appStoreAuthorityDecisions: [AuthorityDecision] {
+        switch self {
+        case .vaultRead,
+             .vaultWrite,
+             .networkFetch,
+             .downloadArtifact:
+            return AuthorityDecision.allCases
+        case .outOfVaultFileAccess,
+             .destructiveFileOp:
+            return [.askFirst, .neverAllow]
+        case .systemProtected:
+            return [.neverAllow]
+        case .gitOperation,
+             .packageInstall,
+             .runDownloadedScript,
+             .externalAppAutomation:
+            return [.neverAllow]
+        }
+    }
+
+    func normalizedAppStoreDecision(_ decision: AuthorityDecision) -> AuthorityDecision {
+        appStoreAuthorityDecisions.contains(decision)
+            ? decision
+            : appStoreAuthorityDecisions.first ?? .askFirst
+    }
+}
+#endif

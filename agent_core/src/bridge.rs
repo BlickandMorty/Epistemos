@@ -235,6 +235,18 @@ pub struct AgentResultFFI {
     pub trajectory_metrics: ReasoningTrajectoryMetricsFFI,
 }
 
+#[uniffi::export]
+pub fn agent_core_policy_profile() -> String {
+    #[cfg(feature = "mas-sandbox")]
+    {
+        "mas_sandbox".to_string()
+    }
+    #[cfg(not(feature = "mas-sandbox"))]
+    {
+        "direct".to_string()
+    }
+}
+
 #[derive(uniffi::Record)]
 pub struct ReasoningTrajectoryMetricsFFI {
     pub displacement: f64,

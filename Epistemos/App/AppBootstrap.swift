@@ -6,6 +6,9 @@ import os
 import QuartzCore
 import SQLite3
 import SwiftData
+#if canImport(agent_coreFFI)
+import agent_coreFFI
+#endif
 
 // MARK: - Ship Gate
 // Release builds ship the same linked agent dylibs as debug builds, so
@@ -1636,6 +1639,7 @@ final class AppBootstrap {
         // store — not in the in-memory fallback that would be
         // replaced by the subsequent init and thus lose the row.
         initializeRustPermissionStoreIfReady()
+        verifyAgentCorePolicyProfile()
 
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
@@ -2677,6 +2681,26 @@ final class AppBootstrap {
                 )
             }
         }
+    }
+
+    private func verifyAgentCorePolicyProfile() {
+        #if canImport(agent_coreFFI)
+        let profile = agentCorePolicyProfile()
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        guard profile == "mas_sandbox" else {
+            Log.app.fault(
+                "App Store runtime safety check failed: linked agent_core profile is \(profile, privacy: .public)"
+            )
+            fatalError("App Store build linked non-sandboxed agent_core runtime")
+        }
+        #else
+        if profile != "direct" {
+            Log.app.error(
+                "Direct runtime safety check found unexpected agent_core profile \(profile, privacy: .public)"
+            )
+        }
+        #endif
+        #endif
     }
 
     /// Subscribe to `.vaultChanged` so the R.3 gateway is re-initialized

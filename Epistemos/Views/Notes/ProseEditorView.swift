@@ -348,7 +348,10 @@ struct ProseEditorView: View {
             page.applyInteractiveDerivedState(from: newValue)
             // File write FIRST — disk is source of truth. Must complete before
             // modelContext.save() so any @Query cascade reads correct content.
-            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue)
+            guard await NoteFileStorage.writeBodyAsync(pageId: pageId, content: newValue) else {
+                Self.log.error("Failed to persist editor body for \(pageId, privacy: .public); keeping model state unchanged")
+                return
+            }
             scheduleBlockMirrorSync(pageId: pageId, body: newValue)
             lastPersistedBody = newValue
             // Persist dirty flag AFTER file write. This ensures loadBody() returns

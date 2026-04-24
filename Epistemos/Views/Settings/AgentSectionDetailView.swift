@@ -15,7 +15,7 @@ struct AgentSectionDetailView: View {
         var id: String { rawValue }
 
         static var visibleTabs: [AgentTab] {
-            #if EPISTEMOS_APP_STORE
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
             [.authority]
             #else
             allCases

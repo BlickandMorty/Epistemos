@@ -1175,7 +1175,11 @@ actor VaultIndexActor {
                     log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
                     page.needsVaultSync = true
                 } else {
-                    await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)
+                    guard await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body) else {
+                        log.error("Failed to persist imported body for \(page.id, privacy: .public); leaving page dirty")
+                        page.needsVaultSync = true
+                        return .unchanged
+                    }
                     page.updateBodyDerivedState(from: body)
                     BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
                     page.lastSyncedBodyHash = SDPage.bodyHash(body)
@@ -1247,7 +1251,10 @@ actor VaultIndexActor {
                 }
             }
 
-            await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)
+            guard await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body) else {
+                log.error("Failed to persist inserted body for \(page.id, privacy: .public); skipping index upsert")
+                return .unchanged
+            }
             page.updateBodyDerivedState(from: body)
             BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
             page.filePath = filePath
@@ -1387,7 +1394,7 @@ actor VaultIndexActor {
         return lines.joined(separator: "\n")
     }
 
-    private nonisolated static func shouldWriteMarkdownFrontMatter(to fileURL: URL) -> Bool {
+    nonisolated static func shouldWriteMarkdownFrontMatter(to fileURL: URL) -> Bool {
         switch fileURL.pathExtension.lowercased() {
         case "", "md", "markdown":
             return true

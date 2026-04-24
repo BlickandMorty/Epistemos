@@ -322,6 +322,12 @@ final class SDPage {
                 let resourceId = try await resourceResolve(reference: reference)
                 let content = try await resourceRead(id: resourceId)
                 if let decoded = String(data: content.bytes, encoding: .utf8) {
+                    if !trimmedPath.isEmpty {
+                        let fileURL = URL(fileURLWithPath: trimmedPath)
+                        return VaultIndexActor.shouldWriteMarkdownFrontMatter(to: fileURL)
+                            ? VaultIndexActor.parseFrontMatter(decoded).1
+                            : decoded
+                    }
                     return decoded
                 }
             } catch {
