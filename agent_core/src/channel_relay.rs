@@ -8,7 +8,7 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use chrono::Utc;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -90,7 +90,7 @@ impl ChannelRelayStore {
                 let existing_id: Option<String> = conn
                     .query_row(
                         "SELECT id FROM channel_messages WHERE channel_id = ?1 AND message_id = ?2",
-                        params![channel_id, message_id],
+                        rusqlite::params![channel_id, message_id],
                         |row| row.get(0),
                     )
                     .optional()
@@ -112,7 +112,7 @@ impl ChannelRelayStore {
                     (id, channel_id, conversation_id, message_id, sender_id, sender_display, recipient_id,
                      text, unix, from_me, unread, created_at, raw_json)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8, 0, 1, ?9, ?10)",
-                params![
+                rusqlite::params![
                     id,
                     channel_id,
                     conversation_id,
@@ -150,7 +150,7 @@ impl ChannelRelayStore {
                 )
                 .map_err(|e| format!("prepare unread: {e}"))?;
             let rows = stmt
-                .query_map(params![channel_id, limit as i64], |row| {
+                .query_map(rusqlite::params![channel_id, limit as i64], |row| {
                     Ok(RelayMessage {
                         id: row.get("id")?,
                         conversation_id: row.get("conversation_id")?,
@@ -172,7 +172,7 @@ impl ChannelRelayStore {
             for id in ids {
                 conn.execute(
                     "UPDATE channel_messages SET unread = 0, read_at = ?1 WHERE id = ?2",
-                    params![now, id],
+                    rusqlite::params![now, id],
                 )
                 .map_err(|e| format!("mark unread consumed: {e}"))?;
             }
@@ -196,7 +196,7 @@ impl ChannelRelayStore {
                 )
                 .map_err(|e| format!("prepare threads: {e}"))?;
             let rows = stmt
-                .query_map(params![channel_id, limit as i64], |row| {
+                .query_map(rusqlite::params![channel_id, limit as i64], |row| {
                     Ok(json!({
                         "conversation_id": row.get::<_, String>("conversation_id")?,
                         "title": row.get::<_, String>("title")?,
@@ -226,7 +226,7 @@ impl ChannelRelayStore {
                 )
                 .map_err(|e| format!("prepare audit: {e}"))?;
             let rows = stmt
-                .query_map(params![channel_id, limit as i64], |row| {
+                .query_map(rusqlite::params![channel_id, limit as i64], |row| {
                     Ok(RelayMessage {
                         id: row.get("id")?,
                         conversation_id: row.get("conversation_id")?,
@@ -266,7 +266,7 @@ impl ChannelRelayStore {
                 "INSERT INTO channel_outbox
                     (id, channel_id, conversation_id, recipient_id, message, sender_identity, metadata_json, created_at, status)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'pending')",
-                params![
+                rusqlite::params![
                     id,
                     channel_id,
                     conversation_id,
@@ -298,7 +298,7 @@ impl ChannelRelayStore {
                 )
                 .map_err(|e| format!("prepare outbox: {e}"))?;
             let rows = stmt
-                .query_map(params![channel_id, limit as i64], |row| {
+                .query_map(rusqlite::params![channel_id, limit as i64], |row| {
                     Ok(json!({
                         "id": row.get::<_, String>("id")?,
                         "conversation_id": row.get::<_, Option<String>>("conversation_id")?,
@@ -330,7 +330,7 @@ impl ChannelRelayStore {
                     "SELECT conversation_id, recipient_id, message, sender_identity, metadata_json
                      FROM channel_outbox
                      WHERE channel_id = ?1 AND id = ?2",
-                    params![channel_id, outbox_id],
+                    rusqlite::params![channel_id, outbox_id],
                     |row| {
                         Ok((
                             row.get("conversation_id")?,
@@ -357,7 +357,7 @@ impl ChannelRelayStore {
                          error = NULL,
                          processed_at = ?2
                      WHERE channel_id = ?3 AND id = ?4",
-                    params![request.message_id, now, channel_id, outbox_id],
+                    rusqlite::params![request.message_id, now, channel_id, outbox_id],
                 )
                 .map_err(|e| format!("mark outbox delivered: {e}"))?;
 
@@ -407,7 +407,7 @@ impl ChannelRelayStore {
                         (id, channel_id, conversation_id, message_id, sender_id, sender_display, recipient_id,
                          text, unix, from_me, unread, created_at, raw_json)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, 0, ?10, NULL)",
-                    params![
+                    rusqlite::params![
                         audit_id,
                         channel_id,
                         conversation_id,
@@ -428,7 +428,7 @@ impl ChannelRelayStore {
                          error = ?1,
                          processed_at = ?2
                      WHERE channel_id = ?3 AND id = ?4",
-                    params![
+                    rusqlite::params![
                         request.error.unwrap_or_else(|| "unknown relay delivery failure".to_string()),
                         now,
                         channel_id,
@@ -887,7 +887,7 @@ fn upsert_thread(
             last_activity_unix = excluded.last_activity_unix,
             archived = excluded.archived,
             updated_at = excluded.updated_at",
-        params![
+        rusqlite::params![
             channel_id,
             conversation_id,
             title,
