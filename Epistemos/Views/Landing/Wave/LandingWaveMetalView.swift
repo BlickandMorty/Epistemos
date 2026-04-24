@@ -1,7 +1,10 @@
 import AppKit
 import MetalKit
+import OSLog
 import QuartzCore
 import SwiftUI
+
+private let landingWaveLog = Logger(subsystem: "com.epistemos", category: "LandingWave")
 
 /// SwiftUI wrapper around an `MTKView` hosting the landing liquid-wave renderer.
 ///
@@ -61,7 +64,9 @@ struct LandingWaveMetalView: NSViewRepresentable {
         if dropTrigger != coordinator.lastDropTrigger {
             coordinator.lastDropTrigger = dropTrigger
             if let location = clickLocation, !reduceMotion {
-                coordinator.enqueueDrop(
+                // Cache the click; the coordinator tries to fire immediately
+                // and otherwise re-attempts once the view has a non-zero size.
+                coordinator.requestDrop(
                     at: location,
                     viewSize: nsView.bounds.size,
                     cursorDirection: cursorDirection
@@ -85,6 +90,13 @@ struct LandingWaveMetalView: NSViewRepresentable {
         nonisolated(unsafe) private var thermalObserver: NSObjectProtocol?
         var lastDropTrigger: Int = 0
 
+        // Pending click cached until the view has a non-zero size. SwiftUI's
+        // `updateNSView` can fire before the MTKView is laid out; without
+        // this buffer the user's first click fires a drop the renderer
+        // silently rejects (viewSize guard in `scheduleDrop`).
+        private var pendingClickLocation: CGPoint?
+        private var pendingCursorDirection: CGVector = .zero
+
         deinit {
             if let powerObserver {
                 NotificationCenter.default.removeObserver(powerObserver)
@@ -96,7 +108,13 @@ struct LandingWaveMetalView: NSViewRepresentable {
 
         func attach(view: MTKView, device: MTLDevice) {
             self.view = view
-            self.renderer = LandingWaveRenderer(device: device)
+            let renderer = LandingWaveRenderer(device: device)
+            self.renderer = renderer
+            if renderer == nil {
+                landingWaveLog.error(
+                    "LandingWaveRenderer failed to init — check Metal library + PSO build"
+                )
+            }
             self.mtkView(view, drawableSizeWillChange: view.drawableSize)
             registerPowerAndThermalObservers()
         }
@@ -113,12 +131,42 @@ struct LandingWaveMetalView: NSViewRepresentable {
             }
         }
 
-        func enqueueDrop(at location: CGPoint, viewSize: CGSize, cursorDirection: CGVector) {
-            renderer?.scheduleDrop(
-                at: location,
-                viewSize: viewSize,
-                cursorDirection: cursorDirection
+        /// Try to fire the drop immediately if the view already has a valid
+        /// size. Otherwise cache it until the drawable-size delegate callback
+        /// tells us the view has been laid out.
+        func requestDrop(at location: CGPoint, viewSize: CGSize, cursorDirection: CGVector) {
+            if viewSize.width > 0, viewSize.height > 0 {
+                landingWaveLog.debug(
+                    "LandingWave drop fired immediately at \(location.debugDescription, privacy: .public) size=\(viewSize.debugDescription, privacy: .public)"
+                )
+                renderer?.scheduleDrop(
+                    at: location,
+                    viewSize: viewSize,
+                    cursorDirection: cursorDirection
+                )
+                pendingClickLocation = nil
+            } else {
+                landingWaveLog.debug(
+                    "LandingWave drop cached (view not sized yet)"
+                )
+                pendingClickLocation = location
+                pendingCursorDirection = cursorDirection
+            }
+        }
+
+        private func flushPendingDropIfReady(using view: MTKView) {
+            guard let pending = pendingClickLocation else { return }
+            let size = view.bounds.size
+            guard size.width > 0, size.height > 0 else { return }
+            landingWaveLog.debug(
+                "LandingWave flushing cached drop at \(pending.debugDescription, privacy: .public)"
             )
+            renderer?.scheduleDrop(
+                at: pending,
+                viewSize: size,
+                cursorDirection: pendingCursorDirection
+            )
+            pendingClickLocation = nil
         }
 
         private func startDisplayLinkIfNeeded() {
@@ -181,12 +229,20 @@ struct LandingWaveMetalView: NSViewRepresentable {
 
         nonisolated func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
             Task { @MainActor in
-                renderer?.resize(to: view.bounds.size, drawableScale: view.window?.backingScaleFactor ?? 2.0)
+                renderer?.resize(
+                    to: view.bounds.size,
+                    drawableScale: view.window?.backingScaleFactor ?? 2.0
+                )
+                flushPendingDropIfReady(using: view)
             }
         }
 
         nonisolated func draw(in view: MTKView) {
             Task { @MainActor in
+                // Late-arriving sizes: MTKView can present its first valid
+                // drawable without a prior drawableSizeWillChange, so also
+                // retry the cached click here.
+                flushPendingDropIfReady(using: view)
                 renderer?.render(in: view)
             }
         }

@@ -107,11 +107,15 @@ enum LandingWaveDesign {
     // MARK: - Bar emergence (see plan §8.3)
 
     /// Total duration of the bar chrome fade-in + overshoot, seconds.
-    static let barEmergenceDuration: Double = 0.20
+    /// Tightened (2026-04-24) from 0.20s → 0.14s per user feedback that
+    /// earlier timing felt "lack luster." Snappier = stronger snap.
+    static let barEmergenceDuration: Double = 0.14
     /// Initial vertical offset before chrome springs to rest position.
-    static let barEmergenceOffset: CGFloat = 14
-    /// Initial scale before the emergence spring.
-    static let barEmergenceScale: CGFloat = 0.92
+    /// Reduced with duration so the motion still completes cleanly.
+    static let barEmergenceOffset: CGFloat = 16
+    /// Initial scale before the emergence spring. Slightly more compressed
+    /// than before for a more assertive pop-out.
+    static let barEmergenceScale: CGFloat = 0.88
 
     // MARK: - Water trail (see plan §8.4)
 

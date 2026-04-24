@@ -65,10 +65,12 @@ final class LandingWaveRenderer: NSObject {
     private let atlasSampler: MTLSamplerState
     private let atlas: LandingWaveGlyphAtlas.Built
 
-    // Ping-pong height field textures. `prev` and `curr` are inputs; we write
-    // `next`. Each tick the tuple rotates.
+    // Height field textures. FDTD needs three distinct textures — Metal
+    // forbids reading and writing the same texture in a single compute pass,
+    // so two textures are insufficient (prev and next would collide). Rotate
+    // the role of each texture each tick via `heightPhase`.
     private var heightTextures: [MTLTexture] = []
-    private var heightPhase = 0    // index of the OLDEST (prev) texture
+    private var heightPhase = 0    // index of the PREV texture this tick
     private var gridSize: SIMD2<Int32> = .zero
 
     // Triple-buffered uniform buffers so CPU writes never contend with an
@@ -186,7 +188,7 @@ final class LandingWaveRenderer: NSObject {
         descriptor.usage = [.shaderRead, .shaderWrite]
 
         heightTextures.removeAll(keepingCapacity: true)
-        for _ in 0..<2 {
+        for _ in 0..<3 {
             guard let tex = device.makeTexture(descriptor: descriptor) else { continue }
             tex.label = "LandingWaveHeight"
             heightTextures.append(tex)
@@ -248,7 +250,7 @@ final class LandingWaveRenderer: NSObject {
     /// Called by `MTKView` once per vsync. Encodes: one compute pass (wave
     /// step + impulse injection) followed by one render pass (ASCII render).
     func render(in view: MTKView) {
-        guard heightTextures.count == 2,
+        guard heightTextures.count == 3,
               gridSize.x > 0, gridSize.y > 0,
               let drawable = view.currentDrawable,
               let passDescriptor = view.currentRenderPassDescriptor
@@ -260,9 +262,13 @@ final class LandingWaveRenderer: NSObject {
         let now = CACurrentMediaTime() - startTime
         let (drops, count) = dequeueDropsDue(now: now)
 
-        let currIndex = heightPhase
-        let nextIndex = (currIndex + 1) % 2
-        let prevIndex = (currIndex + 1) % 2  // after the rotation this frame
+        // 3-texture rotation. Each tick the three roles advance by one slot:
+        //   phase 0: prev=0, curr=1, next=2
+        //   phase 1: prev=1, curr=2, next=0
+        //   phase 2: prev=2, curr=0, next=1
+        let prevIndex = heightPhase
+        let currIndex = (heightPhase + 1) % 3
+        let nextIndex = (heightPhase + 2) % 3
 
         var uniforms = Uniforms()
         uniforms.time = Float(now)
@@ -324,8 +330,8 @@ final class LandingWaveRenderer: NSObject {
             computeEncoder.endEncoding()
         }
 
-        // Rotate ping-pong so next frame's `curr` == this frame's `next`.
-        heightPhase = nextIndex
+        // Advance phase so next tick's `prev` was this tick's `curr`.
+        heightPhase = currIndex
 
         // ── Render pass: sample height, map to ASCII ──
         if let renderEncoder = cmdBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) {

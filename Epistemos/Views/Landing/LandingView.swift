@@ -197,9 +197,10 @@ struct LandingView: View {
 
             // ── Liquid Wave Overlay ──
             // Replaces the legacy NSPopover path. Renders a Metal ASCII
-            // liquid wave behind a compact flat search bar that emerges at
-            // the click location. Scope is strictly HomeView landing; the
-            // overlay does not touch any other composer or input surface.
+            // liquid wave behind a Material 3-inspired search bar that
+            // emerges at the click location. Scope is strictly HomeView
+            // landing; the overlay does not touch any other composer or
+            // input surface.
             if showingSearchPopover {
                 LandingWaveOverlay(
                     isActive: $showingSearchPopover,
@@ -208,15 +209,11 @@ struct LandingView: View {
                     dropTrigger: landingWaveDropTrigger,
                     onDismiss: { dismissLandingSearch() }
                 ) {
-                    if let bootstrap = AppBootstrap.shared {
-                        landingSearchPopoverContent
-                            .frame(idealWidth: 520, maxWidth: 520)
-                            .withAppEnvironment(bootstrap)
-                            .modelContainer(bootstrap.modelContainer)
-                    } else {
-                        landingSearchPopoverContent
-                            .frame(idealWidth: 520, maxWidth: 520)
-                    }
+                    LandingWaveSearchBar(
+                        text: $landingSearchText,
+                        onSubmit: { _ in submitLandingSearch() },
+                        onDismiss: { dismissLandingSearch() }
+                    )
                 }
                 .onExitCommand { dismissLandingSearch() }
                 .transition(.opacity)
@@ -251,7 +248,10 @@ struct LandingView: View {
         .coordinateSpace(name: LandingCoordinateSpace.root)
         .animation(Motion.smooth, value: showingBrief)
         .animation(Motion.smooth, value: showWelcomeBack)
-        .animation(Motion.smooth, value: showingSearchPopover)
+        // Landing-wave emergence: snappier spring (response 0.18, damping 0.78)
+        // chosen per user feedback that the prior Motion.smooth curve felt
+        // "lack luster." Bar pops out, slight overshoot, quick settle.
+        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: showingSearchPopover)
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
             sanitizeStoredOperatingMode()
