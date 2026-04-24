@@ -48,10 +48,10 @@ struct LandingWaveOverlay<Content: View>: View {
                     .ignoresSafeArea()
                 }
 
-                // ── Flat bar layer ──
+                // ── Bar layer ──
                 let barWidth = resolvedBarWidth(in: proxy.size)
                 let anchor = resolvedBarAnchor(in: proxy.size, barWidth: barWidth)
-                flatBar()
+                content()
                     .frame(width: barWidth, alignment: .center)
                     .offset(x: anchor.x, y: anchor.y)
                     .transition(reduceMotion
@@ -66,30 +66,6 @@ struct LandingWaveOverlay<Content: View>: View {
             }
         }
         .ignoresSafeArea()
-    }
-
-    private func flatBar() -> some View {
-        content()
-            .padding(.horizontal, LandingWaveDesign.barHorizontalPadding)
-            .padding(.top, LandingWaveDesign.barTopPadding)
-            .padding(.bottom, LandingWaveDesign.barBottomPadding)
-            .background {
-                RoundedRectangle(
-                    cornerRadius: LandingWaveDesign.barCornerRadius,
-                    style: .continuous
-                )
-                .fill(ui.theme.chatSurface.opacity(0.98))
-            }
-            .overlay {
-                RoundedRectangle(
-                    cornerRadius: LandingWaveDesign.barCornerRadius,
-                    style: .continuous
-                )
-                .stroke(
-                    ui.theme.fontAccent.opacity(LandingWaveDesign.barStrokeOpacity),
-                    lineWidth: LandingWaveDesign.barStrokeWidth
-                )
-            }
     }
 
     private func resolvedBarWidth(in surface: CGSize) -> CGFloat {
