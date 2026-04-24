@@ -10,6 +10,25 @@ use serde_json::{json, Value};
 use crate::storage::vault::{VaultBackend, VaultError};
 use crate::types::ToolSchema;
 
+/// Phase R.5 — env-flag gate. When set to a truthy value
+/// (`1`, `true`, `yes`) the tool-execution authorization check will
+/// REJECT calls that don't match a stored grant (as long as the
+/// store is non-empty). Default is advisory-only: the check still
+/// fires and emits telemetry but does not block execution, so
+/// production traffic stays unaffected while we gather coverage.
+///
+/// Placed here (rather than a general config module) because the
+/// only consumer is `ToolRegistry::execute` directly below.
+fn r5_enforce_enabled() -> bool {
+    match std::env::var("EPISTEMOS_R5_ENFORCE") {
+        Ok(raw) => matches!(
+            raw.trim().to_ascii_lowercase().as_str(),
+            "1" | "true" | "yes" | "on"
+        ),
+        Err(_) => false,
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RiskLevel {
     ReadOnly,
@@ -408,6 +427,44 @@ impl ToolRegistry {
         if !self.is_tool_permitted(tool) {
             return Err(ToolError::PermissionDenied);
         }
+
+        // Phase R.5 authorization gate. Infers a `(ResourceId, Capability)`
+        // target for mutating tools, consults the process-local
+        // permission store, and — in enforcement mode — denies the
+        // call when no grant covers the target. Advisory (default)
+        // mode only logs; switch behaviour via
+        // `EPISTEMOS_R5_ENFORCE=1`. Telemetry is emitted in both
+        // modes so operators can tune policy against real traffic
+        // before flipping the enforcement switch.
+        if let Some(target) = crate::resources::tool_authz::infer_tool_authz_target(
+            name,
+            input,
+            &tool.risk_level,
+            self.vault_root_path.as_deref(),
+        ) {
+            let granted = crate::resources::bridge::check_resource_capability(
+                target.resource.clone(),
+                target.capability,
+            )
+            .await;
+            let enforce = r5_enforce_enabled();
+            let active_grants = crate::resources::bridge::active_grant_count().await;
+            tracing::info!(
+                tool = name,
+                capability = ?target.capability,
+                granted = granted,
+                enforce = enforce,
+                active_grants = active_grants,
+                "R.5 tool authorization check"
+            );
+            if !granted && enforce && active_grants > 0 {
+                // Strict policy: the user has configured grants and
+                // this call doesn't match one. Reject before the
+                // handler runs so nothing mutates.
+                return Err(ToolError::PermissionDenied);
+            }
+        }
+
         // Panic isolation: wrap the handler future in catch_unwind so a
         // panicking tool (bad unwrap inside a downstream crate, slice OOB
         // in a parse path, etc.) does NOT take down the whole agent
@@ -2422,5 +2479,191 @@ mod tier_tests {
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["success"], serde_json::json!(true));
         assert_eq!(parsed["stdout"], serde_json::json!("Grace Hopper"));
+    }
+
+    // -----------------------------------------------------------------
+    // Phase R.5 — tool-execution authorization gate
+    // -----------------------------------------------------------------
+    //
+    // These tests mutate two pieces of process-local state: the
+    // `EPISTEMOS_R5_ENFORCE` env var (read by `r5_enforce_enabled()`)
+    // and the process-local permission store (inside
+    // `resources::bridge`). Both are shared with other tests in the
+    // crate, so we serialize this group behind a mutex and always
+    // restore the env var before returning. Grant IDs are revoked
+    // in the test body so the store's residue is bounded.
+    //
+    // We can't reliably reach "store completely empty" in a shared
+    // test process — other permission tests may have seeded it — so
+    // the "empty store → allow even when enforce=true" branch is
+    // exercised indirectly by `active_grant_count` + `r5_gate_allows_
+    // vault_write_when_explicit_grant_covers_resource`. A reset-on-
+    // demand hook is deferred; it would require exposing an internal
+    // wipe path that could be misused from non-test code.
+
+    use std::sync::{Mutex as StdMutex, OnceLock};
+
+    fn r5_gate_test_lock() -> std::sync::MutexGuard<'static, ()> {
+        static LOCK: OnceLock<StdMutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| StdMutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    struct ScopedEnforceFlag {
+        previous: Option<String>,
+    }
+
+    impl ScopedEnforceFlag {
+        fn set_on() -> Self {
+            let previous = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
+            std::env::set_var("EPISTEMOS_R5_ENFORCE", "1");
+            Self { previous }
+        }
+
+        fn clear() -> Self {
+            let previous = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
+            std::env::remove_var("EPISTEMOS_R5_ENFORCE");
+            Self { previous }
+        }
+    }
+
+    impl Drop for ScopedEnforceFlag {
+        fn drop(&mut self) {
+            match self.previous.take() {
+                Some(prev) => std::env::set_var("EPISTEMOS_R5_ENFORCE", prev),
+                None => std::env::remove_var("EPISTEMOS_R5_ENFORCE"),
+            }
+        }
+    }
+
+    fn vault_write_input(path: &str) -> serde_json::Value {
+        serde_json::json!({
+            "path": path,
+            "content": "r5 gate test body",
+            "skip_contradiction_check": true
+        })
+    }
+
+    #[tokio::test]
+    async fn r5_gate_allows_vault_write_when_enforce_flag_is_off() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::clear();
+
+        // Even if no grant exists for this resource, the gate is in
+        // advisory mode by default — the call must succeed.
+        let vault_root = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
+        let unique_path = format!(
+            "Inbox/R5Advisory-{}.md",
+            uuid::Uuid::new_v4()
+        );
+        let result = registry
+            .execute("vault_write", &vault_write_input(&unique_path))
+            .await
+            .expect("advisory-mode gate must not block vault_write");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["path"], serde_json::json!(unique_path));
+    }
+
+    #[tokio::test]
+    async fn r5_gate_allows_vault_write_when_explicit_grant_covers_resource() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::set_on();
+
+        let vault_dir_name = format!("r5-allow-{}", uuid::Uuid::new_v4());
+        let parent = tempfile::tempdir().unwrap();
+        let vault_root = parent.path().join(&vault_dir_name);
+        std::fs::create_dir_all(&vault_root).unwrap();
+        let relative_path = format!("Inbox/Granted-{}.md", uuid::Uuid::new_v4());
+        let uri = format!("vault://{vault_dir_name}/note/{relative_path}");
+
+        // Seed the permission store with a Write grant for this
+        // exact resource so the enforcement branch should ALLOW.
+        let grant_id = crate::resources::bridge::permission_store_record_user_grant_from_statement(
+            "You have my permission to edit this note.".into(),
+            uri.clone(),
+            vec!["Write".into()],
+            "Session".into(),
+        )
+        .await
+        .expect("grant must be recorded for the happy-path test");
+
+        let registry = build_registry_with_root(ToolTier::Agent, &vault_root);
+        let result = registry
+            .execute("vault_write", &vault_write_input(&relative_path))
+            .await
+            .expect("granted resource must pass the R.5 gate");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["path"], serde_json::json!(relative_path));
+
+        // Housekeeping: remove the grant so subsequent tests see a
+        // smaller `active_grant_count`.
+        let _ = crate::resources::bridge::permission_store_revoke(grant_id).await;
+    }
+
+    #[tokio::test]
+    async fn r5_gate_denies_vault_write_when_grants_exist_but_not_for_this_resource() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::set_on();
+
+        // Seed ANY grant so `active_grant_count > 0`; the call below
+        // targets a DIFFERENT resource, so enforcement must DENY.
+        let unrelated_uri = format!(
+            "vault://r5-unrelated-{0}/note/Inbox/Unrelated-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let unrelated_grant =
+            crate::resources::bridge::permission_store_record_user_grant_from_statement(
+                "You have my permission to edit this note.".into(),
+                unrelated_uri,
+                vec!["Write".into()],
+                "Session".into(),
+            )
+            .await
+            .expect("seed grant for the enforcement test");
+
+        let vault_dir_name = format!("r5-deny-{}", uuid::Uuid::new_v4());
+        let parent = tempfile::tempdir().unwrap();
+        let vault_root = parent.path().join(&vault_dir_name);
+        std::fs::create_dir_all(&vault_root).unwrap();
+        let relative_path = format!("Inbox/Target-{}.md", uuid::Uuid::new_v4());
+
+        let registry = build_registry_with_root(ToolTier::Agent, &vault_root);
+        let result = registry
+            .execute("vault_write", &vault_write_input(&relative_path))
+            .await;
+        match result {
+            Err(ToolError::PermissionDenied) => {}
+            Err(other) => panic!("expected PermissionDenied, got {other:?}"),
+            Ok(payload) => panic!(
+                "expected PermissionDenied, got success payload: {payload}"
+            ),
+        }
+
+        let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
+    }
+
+    #[tokio::test]
+    async fn r5_gate_skips_read_only_vault_read_even_when_enforce_flag_is_on() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::set_on();
+
+        // vault_read has RiskLevel::ReadOnly — the gate must short-
+        // circuit to None before consulting the store. Even with a
+        // store full of grants that don't cover this resource, the
+        // read call must succeed.
+        let vault_root = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
+        let result = registry
+            .execute(
+                "vault_read",
+                &serde_json::json!({"path": "Inbox/ReadBypass.md"}),
+            )
+            .await;
+        assert!(
+            result.is_ok(),
+            "read-only tools must bypass the R.5 write gate: {result:?}"
+        );
     }
 }
