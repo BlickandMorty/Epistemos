@@ -232,18 +232,31 @@ pub fn force_collide_with_scratch(
     grid: &mut rustc_hash::FxHashMap<(i32, i32), Vec<usize>>,
 ) {
     let mut keys = Vec::new();
-    force_collide_with_full_scratch(x, y, radii, fx, fy, iterations, grid, &mut keys);
+    // Legacy callers (tests, graph_tests) use strict 50/50 collision
+    // with no mass awareness — matches historical behaviour.
+    force_collide_with_full_scratch(
+        x, y, radii, &[], fx, fy, iterations, 1.0, grid, &mut keys,
+    );
 }
 
 /// Like `force_collide_with_scratch` but also reuses the occupied-cell key buffer.
+///
+/// `mass` may be empty — when non-empty and the same length as the
+/// position arrays, pair resolution is weighted by inverse mass so a
+/// heavy hub pushes a light leaf rather than splitting the correction
+/// 50/50. `compliance ∈ (0, 1]` scales the per-tick overlap resolution:
+/// 1.0 is a hard snap, 0.7 lets nodes visibly touch for 2-3 frames
+/// before separating (synthesis §2.1 + user "real flow" ask).
 #[allow(clippy::too_many_arguments)]
 pub fn force_collide_with_full_scratch(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    mass: &[f32],
     fx: &[Option<f32>],
     fy: &[Option<f32>],
     iterations: u32,
+    compliance: f32,
     grid: &mut rustc_hash::FxHashMap<(i32, i32), Vec<usize>>,
     keys: &mut Vec<(i32, i32)>,
 ) {
@@ -254,7 +267,7 @@ pub fn force_collide_with_full_scratch(
 
     // Fall back to brute force for tiny graphs (grid overhead not worth it).
     if n <= 32 {
-        force_collide_brute(x, y, radii, fx, fy, iterations);
+        force_collide_brute(x, y, radii, mass, fx, fy, iterations, compliance);
         return;
     }
 
@@ -301,7 +314,9 @@ pub fn force_collide_with_full_scratch(
             // Intra-cell pairs.
             for a in 0..cell.len() {
                 for b in (a + 1)..cell.len() {
-                    resolve_overlap(x, y, radii, fx, fy, cell[a], cell[b]);
+                    resolve_overlap(
+                        x, y, radii, mass, fx, fy, cell[a], cell[b], compliance,
+                    );
                 }
             }
 
@@ -311,7 +326,7 @@ pub fn force_collide_with_full_scratch(
                 if let Some(neighbor) = grid.get(&nkey) {
                     for &i in cell.iter() {
                         for &j in neighbor.iter() {
-                            resolve_overlap(x, y, radii, fx, fy, i, j);
+                            resolve_overlap(x, y, radii, mass, fx, fy, i, j, compliance);
                         }
                     }
                 }
@@ -321,17 +336,27 @@ pub fn force_collide_with_full_scratch(
 }
 
 /// Resolve overlap between two nodes by pushing them apart.
-/// If one node is fixed (fx/fy set), apply 100% displacement to the other.
-/// If both are fixed, skip entirely (can't resolve).
+///
+/// - `mass.is_empty()` → legacy 50/50 split (back-compat for tests).
+/// - `mass.len() >= i,j` → inverse-mass weighted split (heavy pushes light).
+/// - `compliance ∈ (0, 1]` scales per-tick correction. 1.0 snaps apart
+///   on contact (legacy); 0.7 lets nodes visibly press together for
+///   2-3 frames before fully separating — "soft touch."
+///
+/// If one node is fixed (fx/fy set), 100% of the correction goes to the
+/// other regardless of mass. If both are fixed, skip.
 #[inline(always)]
+#[allow(clippy::too_many_arguments)]
 fn resolve_overlap(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    mass: &[f32],
     fx: &[Option<f32>],
     fy: &[Option<f32>],
     i: usize,
     j: usize,
+    compliance: f32,
 ) {
     let mut dx = x[j] - x[i];
     let mut dy = y[j] - y[i];
@@ -351,44 +376,65 @@ fn resolve_overlap(
         }
 
         let dist = dist_sq.sqrt().max(1e-6);
-        let overlap = (min_dist - dist) / dist;
+        // `compliance.clamp(1e-3, 1.0)` guards against a caller
+        // accidentally driving the correction to zero (which would
+        // freeze nodes in overlap forever) or negative (which would
+        // push them further together).
+        let c = compliance.clamp(1e-3, 1.0);
+        let overlap = (min_dist - dist) / dist * c;
         dx *= overlap;
         dy *= overlap;
 
         if i_fixed {
-            // i is fixed — push j by 100% of displacement
+            // i is fixed — push j by 100% of the scaled correction.
             x[j] += dx;
             y[j] += dy;
         } else if j_fixed {
-            // j is fixed — push i by 100% of displacement
             x[i] -= dx;
             y[i] -= dy;
         } else {
-            // Neither fixed — split 50/50
-            let half_dx = dx * 0.5;
-            let half_dy = dy * 0.5;
-            x[j] += half_dx;
-            y[j] += half_dy;
-            x[i] -= half_dx;
-            y[i] -= half_dy;
+            // Neither fixed — weight by inverse mass when available,
+            // falling back to the historical 50/50 split when `mass`
+            // is empty or out of range. Heavy nodes absorb less of
+            // the correction and effectively push lighter ones.
+            let (w_i, w_j) = if mass.len() > i.max(j) {
+                let inv_i = 1.0 / mass[i].max(1.0);
+                let inv_j = 1.0 / mass[j].max(1.0);
+                let total = inv_i + inv_j;
+                if total > 0.0 {
+                    (inv_i / total, inv_j / total)
+                } else {
+                    (0.5, 0.5)
+                }
+            } else {
+                (0.5, 0.5)
+            };
+            // i absorbs w_i of the correction (away from j); j absorbs w_j.
+            x[j] += dx * w_j;
+            y[j] += dy * w_j;
+            x[i] -= dx * w_i;
+            y[i] -= dy * w_i;
         }
     }
 }
 
 /// Brute-force O(n²) fallback for small graphs where grid overhead isn't worth it.
+#[allow(clippy::too_many_arguments)]
 fn force_collide_brute(
     x: &mut [f32],
     y: &mut [f32],
     radii: &[f32],
+    mass: &[f32],
     fx: &[Option<f32>],
     fy: &[Option<f32>],
     iterations: u32,
+    compliance: f32,
 ) {
     let n = x.len();
     for _ in 0..iterations {
         for i in 0..n {
             for j in (i + 1)..n {
-                resolve_overlap(x, y, radii, fx, fy, i, j);
+                resolve_overlap(x, y, radii, mass, fx, fy, i, j, compliance);
             }
         }
     }
@@ -1749,7 +1795,9 @@ mod tests {
         let mut grid = rustc_hash::FxHashMap::default();
         let mut keys = Vec::new();
 
-        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+        );
 
         // Grid should be reusable
         assert!(grid.is_empty() || grid.values().all(|v| v.is_empty()));
@@ -1765,10 +1813,14 @@ mod tests {
         let mut grid = rustc_hash::FxHashMap::default();
         let mut keys = Vec::new();
 
-        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+        );
         let first_capacity = keys.capacity();
 
-        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+        );
 
         assert!(first_capacity > 0);
         assert_eq!(keys.capacity(), first_capacity);
@@ -2280,10 +2332,14 @@ mod tests {
         let mut grid = rustc_hash::FxHashMap::default();
         let mut keys = Vec::new();
 
-        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+        );
         let first_capacity = keys.capacity();
 
-        force_collide_with_full_scratch(&mut x, &mut y, &radii, &fx, &fy, 2, &mut grid, &mut keys);
+        force_collide_with_full_scratch(
+            &mut x, &mut y, &radii, &[], &fx, &fy, 2, 1.0, &mut grid, &mut keys,
+        );
 
         assert_eq!(keys.capacity(), first_capacity);
     }
