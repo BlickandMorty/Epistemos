@@ -415,6 +415,18 @@ pub struct Simulation {
     /// Timestamp of last tick() completion. Used by render thread to extrapolate
     /// positions between physics ticks for smooth sub-tick motion.
     pub last_tick_instant: std::time::Instant,
+
+    /// Authored-wave motion overlay — task 3 of the v3 motion spec.
+    /// Emits expanding Gaussian rings on drag release and accumulates a
+    /// radial force on each free node once per tick. Capped at 8
+    /// concurrent rings (oldest evicted). See `motion::waves` for the
+    /// force profile.
+    pub active_waves: crate::motion::waves::ActiveWaves,
+    /// Monotonic epoch used to express wave event times in sim-seconds.
+    /// Set at `Simulation::new` and never rewound — events reference
+    /// `(now - t_epoch).as_secs_f64()` for a stable, deterministic clock
+    /// that doesn't drift when the renderer pauses and resumes.
+    t_epoch: std::time::Instant,
 }
 
 impl Default for Simulation {
@@ -518,7 +530,34 @@ impl Simulation {
             snap_back: Vec::new(),
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
+            active_waves: crate::motion::waves::ActiveWaves::new(),
+            t_epoch: std::time::Instant::now(),
         }
+    }
+
+    /// Sim-seconds since this `Simulation` was constructed. Monotonic,
+    /// never rewound. Used by the authored-wave overlay to time-stamp
+    /// `WaveEvent` births independent of wall-clock or tick rate.
+    #[inline]
+    fn now_s(&self) -> f64 {
+        self.t_epoch.elapsed().as_secs_f64()
+    }
+
+    /// Spawn an authored wave ring from a drag release. Callers on the
+    /// engine side pass the node's release position and the smoothed
+    /// pointer velocity; the wave module applies its own min-speed and
+    /// capacity checks. This wrapper just packages the sim-time so the
+    /// caller doesn't need to reach inside the simulation's clock.
+    pub fn emit_wave_from_release(
+        &mut self,
+        center_x: f32,
+        center_y: f32,
+        release_vx: f32,
+        release_vy: f32,
+    ) {
+        let now_s = self.now_s();
+        self.active_waves
+            .emit(center_x, center_y, release_vx, release_vy, now_s);
     }
 
     /// Load graph data into the simulation.
@@ -1002,6 +1041,27 @@ impl Simulation {
                 &mut self.snap_back,
                 &self.mass,
                 self.params.snap_back_strength,
+            );
+        }
+
+        // Authored-wave overlay (v3 motion spec task 3). Expanding
+        // Gaussian rings layer a radial force on every free node —
+        // this is the "delayed propagation" that reads as water. The
+        // retire pass drops events whose temporal envelope has
+        // collapsed below 5% so we don't waste cycles on invisible
+        // residual waves. When the event list is empty the accumulate
+        // call is a no-op.
+        let wave_now_s = self.now_s();
+        self.active_waves.retire_finished(wave_now_s);
+        if !self.active_waves.is_empty() {
+            self.active_waves.accumulate(
+                &mut self.vx,
+                &mut self.vy,
+                &self.x,
+                &self.y,
+                &self.fx,
+                crate::motion::waves::ActiveWaves::DEFAULT_COUPLING,
+                wave_now_s,
             );
         }
 

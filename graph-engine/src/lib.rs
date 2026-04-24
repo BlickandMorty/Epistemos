@@ -14,6 +14,7 @@ pub mod forces;
 pub mod knowledge_core;
 pub mod labels;
 pub mod markdown;
+pub mod motion;
 pub mod quadtree;
 pub mod recovery;
 pub mod renderer;
