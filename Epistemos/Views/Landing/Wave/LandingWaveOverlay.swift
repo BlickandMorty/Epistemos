@@ -73,17 +73,16 @@ struct LandingWaveOverlay<Content: View>: View {
     }
 
     /// Target offset for the bar's top-left corner. Horizontal: centered on
-    /// the click. Vertical: anchored a little above the click so the bar
-    /// appears to rise out of the wave, not drop onto the cursor. Both axes
-    /// clamp to a 24pt inset from the window edges.
+    /// the click. Vertical: the bar's vertical center lands on the click
+    /// point so it reads as emerging from exactly where the user clicked.
+    /// Both axes clamp to a 24pt inset from the window edges.
     private func resolvedBarAnchor(in surface: CGSize, barWidth: CGFloat) -> CGPoint {
         let click = clickLocation ?? CGPoint(x: surface.width / 2, y: surface.height / 2)
-        // Estimate bar height for clamping. Use the design constant as the
-        // lower bound even though content may be taller; the clamping is
-        // about leaving *some* room, not pixel-perfect fit.
-        let estimatedHeight: CGFloat = 260
+        // Approximate intrinsic bar height (single-row: 56pt; two-row: ~104pt).
+        // Use a moderate estimate so the anchor sits close to the click.
+        let estimatedHeight: CGFloat = 104
         let desiredX = click.x - barWidth / 2
-        let desiredY = click.y - estimatedHeight * 0.65
+        let desiredY = click.y - estimatedHeight / 2
         let clampedX = min(max(desiredX, 24), max(24, surface.width - barWidth - 24))
         let clampedY = min(max(desiredY, 24), max(24, surface.height - estimatedHeight - 24))
         return CGPoint(x: clampedX, y: clampedY)

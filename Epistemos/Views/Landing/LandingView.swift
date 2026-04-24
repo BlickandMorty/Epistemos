@@ -211,6 +211,9 @@ struct LandingView: View {
                 ) {
                     LandingWaveSearchBar(
                         text: $landingSearchText,
+                        operatingMode: operatingModeBinding,
+                        isTemporaryChatEnabled: incognitoBinding,
+                        availableOperatingModes: supportedOperatingModes,
                         onSubmit: { _ in submitLandingSearch() },
                         onDismiss: { dismissLandingSearch() }
                     )
