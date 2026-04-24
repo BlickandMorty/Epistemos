@@ -48,14 +48,21 @@ struct SettingsView: View {
         var id: String { rawValue }
 
         /// Display order in the sidebar, top to bottom.
-        static let orderedCases: [SettingsCategory] = [
-            .capture,
-            .models,
-            .graph,
-            .automation,
-            .privacyStore,
-            .advanced,
-        ]
+        static var orderedCases: [SettingsCategory] {
+            var categories: [SettingsCategory] = [
+                .capture,
+                .models,
+                .graph,
+            ]
+            #if !EPISTEMOS_APP_STORE
+            categories.append(.automation)
+            #endif
+            categories += [
+                .privacyStore,
+                .advanced,
+            ]
+            return categories
+        }
     }
 
     enum SettingsSection: String, CaseIterable, Identifiable {
@@ -85,20 +92,35 @@ struct SettingsView: View {
         /// Sidebar-visible sections. The three legacy agent entries
         /// (agentControl, authority, overseer) roll up under .agent and
         /// are hidden from the sidebar to reduce nav clutter.
-        static let visibleSections: [SettingsSection] = [
-            .general,
-            .channels,
-            .cognitive,
-            .inference,
-            .knowledgeFusion,
-            .modelVaults,
-            .iMessageDriver,
-            .skills,
-            .agent,
-            .landing,
-            .appearance,
-            .vault,
-        ]
+        static var visibleSections: [SettingsSection] {
+            var sections: [SettingsSection] = [
+                .general,
+            ]
+            #if !EPISTEMOS_APP_STORE
+            sections.append(.channels)
+            #endif
+            sections += [
+                .cognitive,
+                .inference,
+            ]
+            #if !EPISTEMOS_APP_STORE
+            sections.append(.knowledgeFusion)
+            #endif
+            sections.append(.modelVaults)
+            #if !EPISTEMOS_APP_STORE
+            sections += [
+                .iMessageDriver,
+                .skills,
+            ]
+            #endif
+            sections += [
+                .agent,
+                .landing,
+                .appearance,
+                .vault,
+            ]
+            return sections
+        }
 
         var icon: String {
             switch self {
@@ -211,7 +233,9 @@ struct SettingsView: View {
         .navigationSplitViewStyle(.balanced)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: .showIMessageDriverSettings)) { _ in
+            #if !EPISTEMOS_APP_STORE
             selection = .iMessageDriver
+            #endif
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {

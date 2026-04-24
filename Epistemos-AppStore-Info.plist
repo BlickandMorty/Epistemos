@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ATSApplicationFontsPath</key>
+	<string>Resources/Fonts</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleIconName</key>
+	<string>AppIcon</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Epistemos uses the microphone to dictate quick captures using local models.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Epistemos uses speech recognition to transcribe voice input into your notes and chats.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Epistemos uses document access only for vaults and files you explicitly choose.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Epistemos uses Desktop access only for files you explicitly choose.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Epistemos uses Downloads access only for files you explicitly choose.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>com.epistemos.openNote</string>
+	</array>
+	<key>INIntentsSupported</key>
+	<array>
+		<string>CreateNoteIntent</string>
+		<string>CreateJournalIntent</string>
+		<string>SearchJournalIntent</string>
+		<string>SystemSearchIntent</string>
+		<string>AskAboutNotesIntent</string>
+		<string>DailyBriefingIntent</string>
+		<string>QuickCaptureIntent</string>
+		<string>SummarizeNoteIntent</string>
+		<string>OpenVaultFileIntent</string>
+		<string>MoveNoteToFolderIntent</string>
+		<string>SearchDocumentsIntent</string>
+		<string>OpenPanelIntent</string>
+		<string>OpenMiniChatIntent</string>
+	</array>
+</dict>
+</plist>

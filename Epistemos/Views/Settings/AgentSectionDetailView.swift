@@ -14,6 +14,18 @@ struct AgentSectionDetailView: View {
 
         var id: String { rawValue }
 
+        static var visibleTabs: [AgentTab] {
+            #if EPISTEMOS_APP_STORE
+            [.authority]
+            #else
+            allCases
+            #endif
+        }
+
+        var isVisibleInCurrentBuild: Bool {
+            Self.visibleTabs.contains(self)
+        }
+
         var systemImage: String {
             switch self {
             case .control: "slider.horizontal.3"
@@ -40,7 +52,7 @@ struct AgentSectionDetailView: View {
         initialTab: AgentTab = .control
     ) {
         self.authorityStore = authorityStore
-        self._selectedTab = State(initialValue: initialTab)
+        self._selectedTab = State(initialValue: initialTab.isVisibleInCurrentBuild ? initialTab : .authority)
     }
 
     var body: some View {
@@ -61,7 +73,7 @@ struct AgentSectionDetailView: View {
             }
 
             Picker("Agent detail", selection: $selectedTab) {
-                ForEach(AgentTab.allCases) { tab in
+                ForEach(AgentTab.visibleTabs) { tab in
                     Label(tab.rawValue, systemImage: tab.systemImage)
                         .tag(tab)
                 }
