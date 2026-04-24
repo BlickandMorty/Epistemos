@@ -1617,6 +1617,20 @@ final class AppBootstrap {
         // continue to work regardless.
         initializeRustResourceServiceIfReady()
 
+        // Phase R.5 persistence — migrate the in-memory permission
+        // store to an on-disk SQLite file at a container-safe path.
+        // Without this, R.5 grants disappear on app quit, so the
+        // user has to re-say "you have my permission" every launch.
+        // With this, a grant recorded once survives future launches
+        // until the user explicitly revokes (or until the scope
+        // expires).
+        //
+        // We call this BEFORE any chat UI can take a user turn, so
+        // the very first grant of the session lands in the on-disk
+        // store — not in the in-memory fallback that would be
+        // replaced by the subsequent init and thus lose the row.
+        initializeRustPermissionStoreIfReady()
+
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
         // async, user can switch vaults, tests seed new vault URLs).
@@ -2597,6 +2611,62 @@ final class AppBootstrap {
                     // the gateway for the entire session.
                     self?.lastR3InitializedVaultPath = nil
                 }
+            }
+        }
+    }
+
+    /// Phase R.5 persistence boot activation — migrate the Rust
+    /// permission store from its default in-memory fallback to an
+    /// on-disk SQLite file at a container-safe path. After this call
+    /// succeeds, grants recorded via `permissionStoreRecordUserGrantFromStatement`
+    /// persist across app relaunches until explicitly revoked.
+    ///
+    /// The container-safe path is resolved via
+    /// `FileManager.default.url(for: .applicationSupportDirectory, ...)`
+    /// which honors the App Sandbox container on MAS builds and falls
+    /// back to `~/Library/Application Support/` on unsandboxed builds.
+    /// Both are writable by the app without extra entitlements.
+    ///
+    /// Runs off-main via `Task.detached` because the FFI call opens
+    /// SQLite synchronously. Errors are logged and swallowed — a
+    /// transient filesystem failure on launch should not take down
+    /// the app, and the in-memory fallback keeps the R.5 gate
+    /// working for the current session.
+    private func initializeRustPermissionStoreIfReady() {
+        let supportDir: URL
+        do {
+            supportDir = try FileManager.default.url(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            )
+        } catch {
+            Log.app.error(
+                "R.5 persist: could not resolve Application Support URL — \(error.localizedDescription, privacy: .public)"
+            )
+            return
+        }
+
+        // Bundle-scoped subdirectory so multiple Epistemos builds
+        // don't collide. `bundleIdentifier` fallback mirrors what
+        // other bootstrap paths use when running under xctest.
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.epistemos.Epistemos"
+        let dbURL = supportDir
+            .appendingPathComponent(bundleID, isDirectory: true)
+            .appendingPathComponent("permissions.db", isDirectory: false)
+
+        let dbPath = dbURL.path
+        Task.detached(priority: .userInitiated) {
+            do {
+                try permissionStoreInitAtPath(path: dbPath)
+                Log.app.info(
+                    "R.5 persist: permission store backed at \(dbPath, privacy: .public)"
+                )
+            } catch {
+                Log.app.error(
+                    "R.5 persist: init failed at \(dbPath, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                )
             }
         }
     }
