@@ -1872,7 +1872,8 @@ pub fn list_tools_for_tier_filtered(
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let registry = build_registry_for_tool_tier(&vault_path, &tier, allowed_tool_names)?;
+        let registry =
+            build_registry_for_tool_tier(&vault_path, &tier, "", allowed_tool_names)?;
         let out: Vec<ToolSchemaFFI> = registry
             .get_definitions()
             .into_iter()
@@ -1955,7 +1956,8 @@ pub async fn execute_tool_call_filtered(
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<ToolExecutionResultFFI, AgentErrorFFI> {
     let handle = tokio::task::spawn(async move {
-        let registry = build_registry_for_tool_tier(&vault_path, &tier, allowed_tool_names)?;
+        let registry =
+            build_registry_for_tool_tier(&vault_path, &tier, &tool_name, allowed_tool_names)?;
         let input: serde_json::Value =
             serde_json::from_str(&input_json).map_err(|e| AgentErrorFFI::AgentError {
                 message: format!("invalid input_json: {e}"),
@@ -1992,12 +1994,17 @@ pub async fn execute_tool_call_filtered(
 fn build_registry_for_tool_tier(
     vault_path: &str,
     tier: &str,
+    tool_name: &str,
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<ToolRegistry, AgentErrorFFI> {
-    let vault =
-        VaultStore::open_read_only(vault_path).map_err(|error| AgentErrorFFI::AgentError {
-            message: format!("Failed to open vault: {error}"),
-        })?;
+    let vault = if tool_requires_writable_vault_backend(tool_name) {
+        VaultStore::open(vault_path)
+    } else {
+        VaultStore::open_read_only(vault_path)
+    }
+    .map_err(|error| AgentErrorFFI::AgentError {
+        message: format!("Failed to open vault: {error}"),
+    })?;
     let tier_enum = crate::tools::registry::ToolTier::from_str_lossy(tier);
     let mut registry = ToolRegistry::with_tier(
         Arc::new(vault),
@@ -2011,11 +2018,17 @@ fn build_registry_for_tool_tier(
     Ok(registry)
 }
 
+fn tool_requires_writable_vault_backend(tool_name: &str) -> bool {
+    matches!(tool_name, "vault_write")
+}
+
 #[cfg(test)]
 mod tests {
     use super::build_preview_session_context_with_opener;
+    use super::execute_tool_call_filtered;
     use super::list_tools_for_tier;
     use super::resolve_provider_selection_preview;
+    use serde_json::json;
     use crate::storage::vault::VaultError;
 
     #[test]
@@ -2092,5 +2105,50 @@ mod tests {
 
         assert!(preview.contains("<session-context>"));
         assert!(preview.contains("You are resuming a useful session."));
+    }
+
+    #[test]
+    fn filtered_vault_write_uses_writable_backend() {
+        let _env_guard = crate::test_support::env_lock();
+        let saved_enforce = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
+        std::env::set_var("EPISTEMOS_R5_ENFORCE", "0");
+
+        let vault = tempfile::tempdir().expect("temp vault");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime");
+        let result = runtime
+            .block_on(execute_tool_call_filtered(
+                vault.path().to_string_lossy().to_string(),
+                "agent".to_string(),
+                "vault_write".to_string(),
+                json!({
+                    "path": "Inbox/Filtered.md",
+                    "content": "filtered write ok"
+                })
+                .to_string(),
+                Some(vec!["vault_write".to_string()]),
+            ))
+            .expect("filtered tool call should not throw");
+
+        match saved_enforce {
+            Some(value) => std::env::set_var("EPISTEMOS_R5_ENFORCE", value),
+            None => std::env::remove_var("EPISTEMOS_R5_ENFORCE"),
+        }
+
+        assert!(
+            result.success,
+            "filtered vault_write should succeed with a writable backend, error={:?}",
+            result.error
+        );
+        assert!(
+            result.output_json.contains("\"verified\":true"),
+            "vault_write should report readback verification: {}",
+            result.output_json
+        );
+        let written =
+            std::fs::read_to_string(vault.path().join("Inbox/Filtered.md")).expect("written note");
+        assert_eq!(written, "filtered write ok");
     }
 }

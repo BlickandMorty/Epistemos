@@ -623,4 +623,55 @@ miniature.
 - `cargo test --manifest-path agent_core/Cargo.toml tools::filesystem::tests -- --nocapture` → 17/17 green.
 - `cargo test --manifest-path agent_core/Cargo.toml tools::registry::tier_tests::vault_write -- --nocapture` → 2/2 green.
 
+---
+
+## 19. Local-agent filtered `vault_write` hardening — 2026-04-24
+
+### 19.1 Filtered tool execution now uses a writable vault for `vault_write`
+
+The local-agent Swift path calls `ToolTierBridge.toolExecutor()`, which uses
+`execute_tool_call_filtered` whenever the command compiler supplies an explicit
+allowlist. That is the normal tools-chat / command-center path.
+
+Before this pass, the filtered Rust entry point opened `VaultStore` with
+`open_read_only()` for every tool. That was correct for catalog listing and
+read-only tools, but wrong for `vault_write`: the handler needs the Tantivy
+index writer to complete the durable write + index update + readback
+verification path. This created a realistic "approved local-agent edit did not
+actually land" failure mode.
+
+`execute_tool_call_filtered` now opens a writable vault backend only for
+`vault_write`. All other filtered tools keep the read-only opener, preserving
+the earlier lock-avoidance behavior for read paths.
+
+### 19.2 Regression
+
+New test: `bridge::tests::filtered_vault_write_uses_writable_backend`.
+
+It calls `execute_tool_call_filtered` with:
+
+- `tool_name = "vault_write"`
+- `allowed_tool_names = ["vault_write"]`
+- a temp vault path
+
+and asserts:
+
+- the FFI result succeeds
+- the success payload includes `"verified": true`
+- the file exists on disk with the expected content
+
+### 19.3 Label impact
+
+- **I-007 / I-008 remain PARTIAL**, but the primary local-agent filtered
+  `vault_write` route is now covered by the Rust readback-verifying tool
+  handler instead of being stranded on a read-only vault backend.
+- Remaining Swift-originated direct save paths still need verified-write
+  migration; ordinary user editor saves should be handled separately from
+  AI/tool writes so permission gates do not block normal typing.
+
+### 19.4 Verification
+
+- `cargo test --manifest-path agent_core/Cargo.toml filtered_vault_write_uses_writable_backend -- --nocapture` → 1/1 green.
+- `cargo test --manifest-path agent_core/Cargo.toml bridge::tests -- --nocapture` → 34/34 green.
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
