@@ -584,8 +584,9 @@ struct RuntimeValidationTests {
         #expect(scanner.contains("func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask]"))
         #expect(scanner.contains("let context = ModelContext(modelContainer)"))
         #expect(scanner.contains("Task.detached(priority: .utility)"))
+        #expect(scanner.contains("return await Self.scanTasksAsync(from: candidates)"))
+        #expect(scanner.contains("await SDPage.loadBodyAsyncFromPrimitives("))
         #expect(pageModel.contains("func loadBody(mapped: Bool = false, fast: Bool = false)"))
-        #expect(scanner.contains("NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)"))
         #expect(executor.contains("let tasks = await scanner.scanForLiveNotes(modelContainer: container)"))
         #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
     }

@@ -7,6 +7,13 @@ import SwiftData
 
 @MainActor @Observable
 final class PinnedInspector: Identifiable {
+    private struct BodyReadStage: Sendable {
+        let pageId: String
+        let filePath: String?
+        let inlineBody: String
+        let fallbackSummary: String?
+    }
+
     let id: String
     let nodeId: String
     private var nodeReference: GraphNodeRecord?
@@ -181,27 +188,53 @@ final class PinnedInspector: Identifiable {
         if let liveBody = NoteWindowManager.shared.editorBody(for: sourceId) {
             return liveBody
         }
-        
-        // File I/O off main actor
-        let body = await Task.detached {
-            NoteFileStorage.readBody(pageId: sourceId)
+
+        let stage = stageBodyRead(
+            pageId: sourceId,
+            modelContext: modelContext,
+            logPrefix: "PinnedInspector"
+        )
+
+        // File I/O off main actor. The async helper preserves the
+        // managed-sidecar-first fallback chain before consulting R.3.
+        let body = await Task.detached { () async -> String in
+            await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: stage.pageId,
+                filePath: stage.filePath,
+                inlineBody: stage.inlineBody,
+                mapped: true,
+                fast: true
+            )
         }.value
         if !body.isEmpty { return body }
-        
-        // Fallback to SwiftData
-        let predicate = #Predicate<SDPage> { $0.id == sourceId }
+
+        if let summary = stage.fallbackSummary, !summary.isEmpty { return summary }
+        return node.label
+    }
+
+    private func stageBodyRead(
+        pageId: String,
+        modelContext: ModelContext,
+        logPrefix: String
+    ) -> BodyReadStage {
+        let predicate = #Predicate<SDPage> { $0.id == pageId }
         var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
         descriptor.fetchLimit = 1
         do {
-            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
-                return page.summary
+            if let page = try modelContext.fetch(descriptor).first {
+                return BodyReadStage(
+                    pageId: pageId,
+                    filePath: page.filePath,
+                    inlineBody: page.body,
+                    fallbackSummary: page.summary
+                )
             }
         } catch {
             Log.graph.error(
-                "PinnedInspector: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                "\(logPrefix): failed to fetch page summary for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
         }
-        return node.label
+        return BodyReadStage(pageId: pageId, filePath: nil, inlineBody: "", fallbackSummary: nil)
     }
     
     private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {

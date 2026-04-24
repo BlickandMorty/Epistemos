@@ -136,7 +136,9 @@ struct NonAgentPruningValidationTests {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/NoteBacklinksPanel.swift")
 
         #expect(source.contains("Task.detached(priority: .utility)"))
-        #expect(source.contains("NoteFileStorage.readBody(pageId: candidate.id, mapped: true)"))
+        #expect(source.contains("await SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(source.contains("filePath: candidate.filePath"))
+        #expect(source.contains("inlineBody: candidate.inlineBody"))
         #expect(!source.contains("page.loadBody(mapped: true)"))
     }
 
@@ -156,6 +158,8 @@ struct NonAgentPruningValidationTests {
         #expect(source.contains("private func liveEditorBodies(for pageIds: [String]) -> [String: String]"))
         #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
         #expect(source.contains("if let liveBody = currentEditorBody(for: sourceId)"))
+        #expect(source.contains("await SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(source.contains("private struct BodyReadStage: Sendable"))
     }
 
     @Test("note workspace prefers live editor state when rehydrating persisted bodies")

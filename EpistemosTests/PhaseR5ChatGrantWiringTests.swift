@@ -12,11 +12,11 @@ import Testing
 // resource so consent phrasing lands as a real grant in the Rust
 // permission store instead of evaporating as chat text (I-009).
 //
-// This suite tests the READ-SIDE only: the URI filter that decides
-// which attachments are grant-eligible, and a smoke test that the FFI
-// contract matches the caller's assumptions. The WRITE-SIDE (tool-
-// execution gate) is a follow-up commit and tested separately once it
-// lands.
+// This suite tests the Swift side of the Live-attachment grant path:
+// the URI filter that decides which attachments are grant-eligible,
+// a smoke test that the FFI contract matches caller assumptions, and
+// the Swift -> Rust bridge path where a Live attachment grant allows
+// `vault_write` while a Snapshot attachment stays denied.
 //
 // Scope:
 //   - `ChatCoordinator.r5ResourceURIsForGrant(from:)` — pure filter
@@ -28,6 +28,36 @@ import Testing
 
 @Suite("Phase R.5 — Chat Grant Wiring")
 struct PhaseR5ChatGrantWiringTests {
+
+    // MARK: - Helpers
+
+    private func makeTempVault(id vaultID: String) throws -> URL {
+        let parent = FileManager.default.temporaryDirectory
+            .appendingPathComponent("r5-attached-write-\(UUID().uuidString)", isDirectory: true)
+        let vaultURL = parent.appendingPathComponent(vaultID, isDirectory: true)
+        try FileManager.default.createDirectory(at: vaultURL, withIntermediateDirectories: true)
+        return vaultURL
+    }
+
+    private func vaultWriteInput(path: String, content: String) throws -> String {
+        let payload: [String: Any] = [
+            "path": path,
+            "content": content,
+            "skip_contradiction_check": true,
+        ]
+        let data = try JSONSerialization.data(
+            withJSONObject: payload,
+            options: [.sortedKeys]
+        )
+        return try #require(String(data: data, encoding: .utf8))
+    }
+
+    private func jsonObject(_ value: String) throws -> [String: Any] {
+        let data = try #require(value.data(using: .utf8))
+        return try #require(
+            JSONSerialization.jsonObject(with: data) as? [String: Any]
+        )
+    }
 
     // MARK: - URI filter
 
@@ -226,6 +256,112 @@ struct PhaseR5ChatGrantWiringTests {
         // (other suites enumerate grants).
         if let grantID {
             _ = await permissionStoreRevoke(grantId: grantID)
+        }
+    }
+
+    // MARK: - Bridge execution: attachment grant -> tool write
+
+    @Test("Live attachment default grant allows vault_write through the Swift bridge")
+    func liveAttachmentGrantAllowsVaultWriteThroughSwiftBridge() async throws {
+        let vaultID = "r5-live-write-\(UUID().uuidString)"
+        let vaultURL = try makeTempVault(id: vaultID)
+        defer { try? FileManager.default.removeItem(at: vaultURL.deletingLastPathComponent()) }
+
+        let relativePath = "Inbox/Granted-\(UUID().uuidString).md"
+        let content = "# Granted write\n\nThis came through the Live attachment grant."
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-live-write",
+            title: "Live Write",
+            subtitle: nil,
+            resourceURI: "vault://\(vaultID)/note/\(relativePath)",
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+
+        let candidate = try #require(
+            ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(from: [attachment]).first
+        )
+        let grantID = await permissionStoreRecordUserGrantFromStatement(
+            statement: ChatCoordinator.r4LiveAttachmentDefaultGrantStatement,
+            resourceUri: candidate.resourceURI,
+            capabilityNames: candidate.capabilities,
+            scopeName: ChatCoordinator.r5GrantScope
+        )
+        #expect(grantID != nil)
+
+        let inputJson = try vaultWriteInput(path: relativePath, content: content)
+        let result = try await executeToolCallFiltered(
+            vaultPath: vaultURL.path,
+            tier: ChatToolTier.agent.rawValue,
+            toolName: "vault_write",
+            inputJson: inputJson,
+            allowedToolNames: ["vault_write"]
+        )
+
+        #expect(result.success)
+        let payload = try jsonObject(result.outputJson)
+        #expect(payload["verified"] as? Bool == true)
+        let written = try String(
+            contentsOf: vaultURL.appendingPathComponent(relativePath),
+            encoding: .utf8
+        )
+        #expect(written == content)
+
+        if let grantID {
+            _ = await permissionStoreRevoke(grantId: grantID)
+        }
+    }
+
+    @Test("Snapshot attachment does not grant vault_write through the Swift bridge")
+    func snapshotAttachmentDoesNotGrantVaultWriteThroughSwiftBridge() async throws {
+        let vaultID = "r5-snapshot-deny-\(UUID().uuidString)"
+        let vaultURL = try makeTempVault(id: vaultID)
+        defer { try? FileManager.default.removeItem(at: vaultURL.deletingLastPathComponent()) }
+
+        let relativePath = "Inbox/Snapshot-\(UUID().uuidString).md"
+        let snapshotAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-snapshot",
+            title: "Snapshot",
+            subtitle: nil,
+            resourceURI: "vault://\(vaultID)/note/\(relativePath)",
+            resourceMode: .snapshot,
+            resourceCapabilities: ["Read"]
+        )
+        #expect(ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(
+            from: [snapshotAttachment]
+        ).isEmpty)
+
+        let unrelatedURI = "vault://\(vaultID)/note/Inbox/Unrelated-\(UUID().uuidString).md"
+        let unrelatedGrantID = await permissionStoreRecordUserGrantFromStatement(
+            statement: "You have my permission to edit this note.",
+            resourceUri: unrelatedURI,
+            capabilityNames: ["Write"],
+            scopeName: ChatCoordinator.r5GrantScope
+        )
+        #expect(unrelatedGrantID != nil)
+
+        let inputJson = try vaultWriteInput(
+            path: relativePath,
+            content: "# This should not be written"
+        )
+        let result = try await executeToolCallFiltered(
+            vaultPath: vaultURL.path,
+            tier: ChatToolTier.agent.rawValue,
+            toolName: "vault_write",
+            inputJson: inputJson,
+            allowedToolNames: ["vault_write"]
+        )
+
+        #expect(!result.success)
+        #expect((result.error ?? "").localizedCaseInsensitiveContains("permission"))
+        #expect(!FileManager.default.fileExists(
+            atPath: vaultURL.appendingPathComponent(relativePath).path
+        ))
+
+        if let unrelatedGrantID {
+            _ = await permissionStoreRevoke(grantId: unrelatedGrantID)
         }
     }
 }

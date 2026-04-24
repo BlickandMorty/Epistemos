@@ -9,6 +9,12 @@ import SwiftData
 final class NoteInsightService {
     nonisolated private static let log = Logger(subsystem: "Epistemos", category: "NoteInsightService")
 
+    private struct PageBodyStage: Sendable {
+        let pageId: String
+        let filePath: String?
+        let inlineBody: String
+    }
+
     private(set) var isIndexing = false
     private(set) var indexedCount = 0
     private(set) var totalCount = 0
@@ -45,7 +51,7 @@ final class NoteInsightService {
 
         let container = modelContainer
         reindexTask = Task.detached(priority: .utility) { [weak self] in
-            let result = NoteInsightService.runReindex(container: container)
+            let result = await NoteInsightService.runReindex(container: container)
             await self?.applyReindexResult(result, generation: gen)
         }
     }
@@ -89,7 +95,21 @@ final class NoteInsightService {
         }
     }
 
-    private nonisolated static func runReindex(container: ModelContainer) -> (analyzed: Int, total: Int) {
+    private nonisolated static func pageBodyStage(for page: SDPage) -> PageBodyStage {
+        PageBodyStage(pageId: page.id, filePath: page.filePath, inlineBody: page.body)
+    }
+
+    private nonisolated static func readBody(from stage: PageBodyStage) async -> String {
+        await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: stage.pageId,
+            filePath: stage.filePath,
+            inlineBody: stage.inlineBody,
+            mapped: true,
+            fast: true
+        )
+    }
+
+    private nonisolated static func runReindex(container: ModelContainer) async -> (analyzed: Int, total: Int) {
         let start = CFAbsoluteTimeGetCurrent()
         let context = ModelContext(container)
         context.autosaveEnabled = false
@@ -97,15 +117,16 @@ final class NoteInsightService {
         do {
             let pages = try context.fetch(FetchDescriptor<SDPage>())
             let total = pages.count
+            let stages = pages.map(Self.pageBodyStage(for:))
 
             var analyzed = 0
             var skipped = 0
-            for page in pages {
+            for stage in stages {
                 guard !Task.isCancelled else { break }
-                let body = NoteFileStorage.readBody(pageId: page.id)
+                let body = await Self.readBody(from: stage)
                 let hash = SDNoteInsight.hash(of: body)
 
-                let targetPageId = page.id
+                let targetPageId = stage.pageId
                 let existing = try Self.fetchInsightRecord(
                     pageId: targetPageId,
                     context: context,
@@ -119,7 +140,7 @@ final class NoteInsightService {
                 }
 
                 let signals = ContentPersonalitySignals.analyze(body)
-                let insight = existing ?? SDNoteInsight(pageId: page.id)
+                let insight = existing ?? SDNoteInsight(pageId: stage.pageId)
                 insight.contentHash = hash
                 insight.lastAnalyzedAt = .now
                 insight.sentiment = signals.sentiment
@@ -187,7 +208,23 @@ final class NoteInsightService {
             let context = ModelContext(container)
             context.autosaveEnabled = false
 
-            let body = NoteFileStorage.readBody(pageId: targetId)
+            let stage: PageBodyStage
+            do {
+                var descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == targetId })
+                descriptor.fetchLimit = 1
+                if let page = try context.fetch(descriptor).first {
+                    stage = Self.pageBodyStage(for: page)
+                } else {
+                    stage = PageBodyStage(pageId: targetId, filePath: nil, inlineBody: "")
+                }
+            } catch {
+                Self.log.error(
+                    "Re-analyze page fetch failed for \(String(targetId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                stage = PageBodyStage(pageId: targetId, filePath: nil, inlineBody: "")
+            }
+
+            let body = await Self.readBody(from: stage)
             let hash = SDNoteInsight.hash(of: body)
 
             let existing: SDNoteInsight?
