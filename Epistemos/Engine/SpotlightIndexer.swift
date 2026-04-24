@@ -17,22 +17,64 @@ enum SpotlightIndexer {
 
     nonisolated static let domainID = "com.epistemos.notes"
 
+    private struct PageStage: Sendable {
+        let pageId: String
+        let filePath: String?
+        let title: String
+        let tagsJoined: String
+        let tags: [String]
+        let createdAt: Date
+        let updatedAt: Date
+    }
+
+    private static func stage(_ page: SDPage) -> PageStage {
+        PageStage(
+            pageId: page.id,
+            filePath: page.filePath,
+            title: page.title,
+            tagsJoined: page.tags.joined(separator: ", "),
+            tags: page.tags,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt
+        )
+    }
+
     /// Build a CSSearchableItem for a single page. Centralizes attribute construction
     /// so index(), reindexAll(), and VaultIndexActor all produce identical items.
     nonisolated static func makeItem(for page: SDPage, body: String) -> CSSearchableItem {
+        makeItem(
+            pageId: page.id,
+            title: page.title,
+            tags: page.tags,
+            tagsJoined: page.tags.joined(separator: ", "),
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt,
+            body: body
+        )
+    }
+
+    nonisolated private static func makeItem(
+        pageId: String,
+        title: String,
+        tags: [String],
+        tagsJoined: String,
+        createdAt: Date,
+        updatedAt: Date,
+        body: String
+    ) -> CSSearchableItem {
         let attrs = CSSearchableItemAttributeSet(contentType: .text)
-        attrs.title = page.title
+        attrs.title = title
         attrs.textContent = String(body.prefix(500))
-        attrs.contentDescription = page.tags.isEmpty
-            ? page.title
-            : "Tags: \(page.tags.joined(separator: ", "))"
-        attrs.keywords = page.tags
-        attrs.contentModificationDate = page.updatedAt
-        attrs.contentCreationDate = page.createdAt
-        attrs.relatedUniqueIdentifier = page.id
+        attrs.contentDescription = tags.isEmpty
+            ? title
+            : "Tags: \(tagsJoined)"
+        attrs.keywords = tags
+        attrs.contentModificationDate = updatedAt
+        attrs.contentCreationDate = createdAt
+        attrs.relatedUniqueIdentifier = pageId
 
         let item = CSSearchableItem(
-            uniqueIdentifier: page.id,
+            uniqueIdentifier: pageId,
             domainIdentifier: domainID,
             attributeSet: attrs
         )
@@ -42,26 +84,32 @@ enum SpotlightIndexer {
 
     /// Index a single SDPage in Spotlight.
     ///
-    /// Phase R.3 async cascade: captures Sendable primitives
-    /// (`pageId`, `filePath`, `title`) and dispatches the body read
+    /// Phase R.3 async cascade: captures Sendable primitives and
+    /// dispatches the body read
     /// through `SDPage.loadBodyAsyncFromPrimitives`, which routes to
     /// the R.3 gateway when ready and falls back to
     /// `NoteFileStorage.readBody` otherwise. `SDPage` stays on the
     /// main actor — the Task never captures the model reference.
     static func index(_ page: SDPage) {
-        let title = page.title
-        let pageId = page.id
-        let filePath = page.filePath
+        let stage = stage(page)
         Task { @MainActor in
             let body = await SDPage.loadBodyAsyncFromPrimitives(
-                pageId: pageId,
-                filePath: filePath,
+                pageId: stage.pageId,
+                filePath: stage.filePath,
                 mapped: true
             )
-            let item = makeItem(for: page, body: body)
+            let item = makeItem(
+                pageId: stage.pageId,
+                title: stage.title,
+                tags: stage.tags,
+                tagsJoined: stage.tagsJoined,
+                createdAt: stage.createdAt,
+                updatedAt: stage.updatedAt,
+                body: body
+            )
             CSSearchableIndex.default().indexSearchableItems([item]) { error in
                 if let error {
-                    Log.notes.error("Spotlight index failed for '\(title, privacy: .public)': \(error.localizedDescription, privacy: .private)")
+                    Log.notes.error("Spotlight index failed for '\(stage.title, privacy: .public)': \(error.localizedDescription, privacy: .private)")
                 }
             }
         }
@@ -93,26 +141,7 @@ enum SpotlightIndexer {
         // Stage Sendable primitives for every page up-front so the
         // async work doesn't need to capture the SDPage reference
         // (SwiftData @Model isn't Sendable).
-        struct PageStage: Sendable {
-            let pageId: String
-            let filePath: String?
-            let title: String
-            let tagsJoined: String
-            let tags: [String]
-            let createdAt: Date
-            let updatedAt: Date
-        }
-        let stages: [PageStage] = pages.map { page in
-            PageStage(
-                pageId: page.id,
-                filePath: page.filePath,
-                title: page.title,
-                tagsJoined: page.tags.joined(separator: ", "),
-                tags: page.tags,
-                createdAt: page.createdAt,
-                updatedAt: page.updatedAt
-            )
-        }
+        let stages: [PageStage] = pages.map(stage)
 
         Task { @MainActor in
             for batchStart in stride(from: 0, to: total, by: batchSize) {
@@ -127,22 +156,15 @@ enum SpotlightIndexer {
                         filePath: stage.filePath,
                         mapped: true
                     )
-                    let attrs = CSSearchableItemAttributeSet(contentType: .text)
-                    attrs.title = stage.title
-                    attrs.textContent = String(pageBody.prefix(500))
-                    attrs.contentDescription = stage.tags.isEmpty
-                        ? stage.title
-                        : "Tags: \(stage.tagsJoined)"
-                    attrs.keywords = stage.tags
-                    attrs.contentModificationDate = stage.updatedAt
-                    attrs.contentCreationDate = stage.createdAt
-                    attrs.relatedUniqueIdentifier = stage.pageId
-                    let item = CSSearchableItem(
-                        uniqueIdentifier: stage.pageId,
-                        domainIdentifier: domainID,
-                        attributeSet: attrs
+                    let item = makeItem(
+                        pageId: stage.pageId,
+                        title: stage.title,
+                        tags: stage.tags,
+                        tagsJoined: stage.tagsJoined,
+                        createdAt: stage.createdAt,
+                        updatedAt: stage.updatedAt,
+                        body: pageBody
                     )
-                    item.expirationDate = .distantFuture
                     items.append(item)
                 }
 
