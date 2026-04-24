@@ -816,6 +816,7 @@ mod tests {
 
     #[test]
     fn detect_backend_errors_without_env() {
+        let _env_guard = crate::test_support::env_lock();
         // Temporarily clear env vars so the auto-detection path errors cleanly.
         let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
         let saved_brave = std::env::var("BRAVE_API_KEY").ok();
@@ -840,6 +841,7 @@ mod tests {
 
     #[tokio::test]
     async fn web_search_fails_without_backend() {
+        let _env_guard = crate::test_support::env_lock();
         let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
         let saved_brave = std::env::var("BRAVE_API_KEY").ok();
         let saved_pplx = std::env::var("PERPLEXITY_API_KEY").ok();

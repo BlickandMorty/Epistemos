@@ -440,12 +440,11 @@ impl ToolRegistry {
 
         // Phase R.5 authorization gate. Infers a `(ResourceId, Capability)`
         // target for mutating tools, consults the process-local
-        // permission store, and — in enforcement mode — denies the
-        // call when no grant covers the target. Advisory (default)
-        // mode only logs; switch behaviour via
-        // `EPISTEMOS_R5_ENFORCE=1`. Telemetry is emitted in both
-        // modes so operators can tune policy against real traffic
-        // before flipping the enforcement switch.
+        // permission store, and denies the call when no grant covers the
+        // target. Enforcement is ON by default for App Store hardening;
+        // `EPISTEMOS_R5_ENFORCE=0` is the explicit operator rollback
+        // path. Telemetry is emitted in both modes so operators can tune
+        // policy against real traffic without muting visibility.
         if let Some(target) = crate::resources::tool_authz::infer_tool_authz_target(
             name,
             input,
@@ -467,10 +466,10 @@ impl ToolRegistry {
                 active_grants = active_grants,
                 "R.5 tool authorization check"
             );
-            if !granted && enforce && active_grants > 0 {
-                // Strict policy: the user has configured grants and
-                // this call doesn't match one. Reject before the
-                // handler runs so nothing mutates.
+            if !granted && enforce {
+                // Strict policy: a resource-targeted mutating tool must
+                // have a matching stored grant. Reject before the handler
+                // runs so nothing mutates.
                 return Err(ToolError::PermissionDenied);
             }
         }
@@ -2189,6 +2188,7 @@ mod tier_tests {
         // no provider is configured. Seed a test-only key so the registry
         // builds with the expected lite-tier shape, then restore the prior
         // env value.
+        let _env_guard = crate::test_support::env_lock();
         let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
         std::env::set_var("TAVILY_API_KEY", "test-fixture-key");
 
@@ -2236,8 +2236,18 @@ mod tier_tests {
 
     #[test]
     fn chat_pro_adds_vision_and_tts_over_chat_lite() {
+        let _env_guard = crate::test_support::env_lock();
+        let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
+        std::env::set_var("TAVILY_API_KEY", "test-fixture-key");
+
         let lite = build_registry(ToolTier::ChatLite);
         let pro = build_registry(ToolTier::ChatPro);
+
+        match saved_tavily {
+            Some(v) => std::env::set_var("TAVILY_API_KEY", v),
+            None => std::env::remove_var("TAVILY_API_KEY"),
+        }
+
         let lite_names: std::collections::HashSet<String> =
             lite.get_definitions().into_iter().map(|t| t.name).collect();
         let pro_names: std::collections::HashSet<String> =
@@ -2257,8 +2267,18 @@ mod tier_tests {
 
     #[test]
     fn agent_tier_is_superset_of_chat_pro() {
+        let _env_guard = crate::test_support::env_lock();
+        let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
+        std::env::set_var("TAVILY_API_KEY", "test-fixture-key");
+
         let pro = build_registry(ToolTier::ChatPro);
         let agent = build_registry(ToolTier::Agent);
+
+        match saved_tavily {
+            Some(v) => std::env::set_var("TAVILY_API_KEY", v),
+            None => std::env::remove_var("TAVILY_API_KEY"),
+        }
+
         let pro_names: std::collections::HashSet<String> =
             pro.get_definitions().into_iter().map(|t| t.name).collect();
         let agent_names: std::collections::HashSet<String> = agent
@@ -2503,13 +2523,9 @@ mod tier_tests {
     // restore the env var before returning. Grant IDs are revoked
     // in the test body so the store's residue is bounded.
     //
-    // We can't reliably reach "store completely empty" in a shared
-    // test process — other permission tests may have seeded it — so
-    // the "empty store → allow even when enforce=true" branch is
-    // exercised indirectly by `active_grant_count` + `r5_gate_allows_
-    // vault_write_when_explicit_grant_covers_resource`. A reset-on-
-    // demand hook is deferred; it would require exposing an internal
-    // wipe path that could be misused from non-test code.
+    // The gate is fail-closed in enforcement mode: grant count is only
+    // telemetry. Tests seed unrelated grants to prove that "some grants
+    // exist" is not enough; the grant must cover the exact target.
 
     use std::sync::{Mutex as StdMutex, OnceLock};
 
@@ -2616,9 +2632,9 @@ mod tier_tests {
         // text" symptom stops reproducing in production.
         let _env = ScopedEnforceFlag::clear();
 
-        // Seed ANY grant so `active_grant_count > 0`. The test call
-        // below targets a different resource, so enforcement must
-        // DENY without any env flag being set.
+        // Seed ANY grant to prove that a grant for another target is
+        // not enough. The test call below targets a different resource,
+        // so enforcement must DENY without any env flag being set.
         let unrelated_uri = format!(
             "vault://r5-default-{0}/note/Inbox/Unrelated-{0}.md",
             uuid::Uuid::new_v4()
@@ -2695,8 +2711,8 @@ mod tier_tests {
         let _guard = r5_gate_test_lock();
         let _env = ScopedEnforceFlag::set_on();
 
-        // Seed ANY grant so `active_grant_count > 0`; the call below
-        // targets a DIFFERENT resource, so enforcement must DENY.
+        // Seed ANY grant; the call below targets a DIFFERENT resource,
+        // so enforcement must DENY.
         let unrelated_uri = format!(
             "vault://r5-unrelated-{0}/note/Inbox/Unrelated-{0}.md",
             uuid::Uuid::new_v4()

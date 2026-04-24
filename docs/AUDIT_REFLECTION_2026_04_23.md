@@ -552,4 +552,34 @@ Tests serialize on both `bridge_store_gate()` (permission store) AND `r3_gate()`
 
 ---
 
+## 17. App Store hardening correction — 2026-04-24
+
+### 17.1 R.5 is now fail-closed for ResourceId-targeted writes
+
+The prior R.5 gate still had a compatibility escape inside enforcement mode:
+it denied only when `active_grants > 0`. That meant an empty grant store still
+allowed a ResourceId-targeted mutating tool to run. For App Store hardening,
+that is too loose.
+
+The 2026-04-24 hardening pass changed `ToolRegistry::execute` so enforcement
+mode denies any ResourceId-targeted mutating tool when `PermissionService`
+does not return a matching grant. `active_grants` remains in the telemetry
+event only. `EPISTEMOS_R5_ENFORCE=0` remains the explicit operator rollback to
+advisory behavior.
+
+### 17.2 Label correction
+
+- **I-009 remains FIXED**, but for the stronger reason: default enforcement is
+  ON **and** fail-closed for ResourceId-targeted mutating tools.
+- **I-010 is now FIXED for ResourceId-gated tools** because the live gate
+  consults `PermissionService::check()`, and that check does not inspect note
+  content. Non-resourceable tools remain governed by tier / approval / policy
+  gates and should stay outside App Store scope unless explicitly profile-gated.
+
+### 17.3 Verification
+
+- `cargo test --manifest-path agent_core/Cargo.toml tools::registry::tier_tests::r5_gate -- --nocapture` → 5/5 green.
+- `cargo test --manifest-path agent_core/Cargo.toml verified_write_bridge -- --nocapture` → 2/2 green.
+- `cargo test --manifest-path agent_core/Cargo.toml user_grant_statement_stores_grant_and_is_used -- --nocapture` → 1/1 green.
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
