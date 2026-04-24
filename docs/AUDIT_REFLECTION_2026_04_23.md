@@ -836,3 +836,41 @@ paths.
 - Focused Swift run: `LiveNoteExecutorTests` -> 5/5 green after the fix.
 - `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
   SUCCEEDED after the verified-writer change.
+
+---
+
+## 24. Core note-storage post-write readback verification — 2026-04-24
+
+This hardens the shared `NoteFileStorage` atomic write primitive while keeping
+ordinary user-editor saves separate from agent permission gates.
+
+### 24.1 What changed
+
+- `NoteFileStorage.atomicWriteUTF8` now reads the written bytes back after:
+  temp-file write, temp-file `F_FULLFSYNC`, atomic rename, and parent-directory
+  `F_FULLFSYNC`.
+- Byte mismatch logs `Post-write readback mismatch` and returns `false`.
+- Because `writeBody` / `saveBody` already honor the boolean return path, a
+  mismatched persisted write no longer clears pending body state as though the
+  save had succeeded.
+- A test-only helper (`verifyUTF8ReadbackForTesting`) exercises the mismatch
+  branch without needing to corrupt the filesystem.
+
+### 24.2 Label impact
+
+- **I-007 / I-008 remain PARTIAL but improved**: Rust ResourceId-targeted writes,
+  approved staged vault mutations, and the core note-storage atomic write path
+  are now readback-verified.
+- Remaining release work is the end-to-end user-facing path: Live attachment ->
+  stored grant -> tool write -> verified readback -> visible disk change, plus
+  denial UI for Snapshot / revoked grants.
+
+### 24.3 Verification
+
+- Test-first failure confirmed before implementation:
+  `NoteSavingEdgeCaseTests/noteFileStorageRejectsMismatchedPostWriteReadback`
+  failed because `NoteFileStorage.verifyUTF8ReadbackForTesting` did not exist.
+- Focused Swift run: `NoteSavingEdgeCaseTests` -> 14/14 green after the fix.
+- Companion storage run: `NoteFileStorageTests` -> 25/25 green.
+- `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
+  SUCCEEDED after the core note-storage change.

@@ -102,6 +102,21 @@ struct NoteSavingEdgeCaseTests {
         let readContent = NoteFileStorage.readBody(pageId: pageId)
         #expect(readContent == largeContent)
     }
+
+    @Test("note file storage rejects mismatched post-write readback")
+    func noteFileStorageRejectsMismatchedPostWriteReadback() throws {
+        let expected = Data("expected".utf8)
+        let actual = Data("actual".utf8)
+
+        let accepted = NoteFileStorage.verifyUTF8ReadbackForTesting(
+            expected,
+            from: URL(fileURLWithPath: "/tmp/epistemos-readback-test.md"),
+            itemLabel: "epistemos-readback-test.md",
+            readData: { _ in actual }
+        )
+
+        #expect(!accepted)
+    }
     
     @Test("rapid save toggle doesn't corrupt")
     func rapidSaveToggle() async throws {
