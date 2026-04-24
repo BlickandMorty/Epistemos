@@ -56,6 +56,29 @@ struct ModelVaultDocumentEntry: Identifiable, Hashable {
     }
 }
 
+nonisolated struct ModelVaultSystemPromptSection: Identifiable, Hashable, Sendable {
+    let title: String
+    let relativePath: String
+    let content: String
+
+    var id: String { relativePath }
+
+    func preview(maxCharacters: Int = 900) -> String {
+        guard content.count > maxCharacters else { return content }
+        return String(content.prefix(maxCharacters)).trimmingCharacters(in: .whitespacesAndNewlines) + "..."
+    }
+}
+
+nonisolated struct ModelVaultSystemPromptSnapshot: Equatable, Sendable {
+    let sections: [ModelVaultSystemPromptSection]
+
+    static let empty = ModelVaultSystemPromptSnapshot(sections: [])
+
+    var isEmpty: Bool {
+        sections.isEmpty
+    }
+}
+
 enum ModelVaultBrowserStore {
     private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "ModelVaultBrowser")
 
@@ -65,6 +88,13 @@ enum ModelVaultBrowserStore {
         "concept_index.md",
         "active_context.md",
         "meta.json",
+    ]
+
+    private nonisolated static let systemPromptFiles = [
+        (relativePath: "instructions.md", title: "Instructions"),
+        (relativePath: "knowledge_profile.md", title: "Knowledge Profile"),
+        (relativePath: "concept_index.md", title: "Concept Index"),
+        (relativePath: "active_context.md", title: "Active Context"),
     ]
 
     static func loadEntries(rootURL: URL, includeHidden: Bool = false) -> [ModelVaultDocumentEntry] {
@@ -274,7 +304,7 @@ enum ModelVaultBrowserStore {
         return removedPageIDs
     }
 
-    static func readText(at url: URL) throws -> String {
+    nonisolated static func readText(at url: URL) throws -> String {
         let data = try Data(contentsOf: url)
         for encoding in [String.Encoding.utf8, .utf16, .unicode, .ascii] {
             if let text = String(data: data, encoding: encoding) {
@@ -282,6 +312,24 @@ enum ModelVaultBrowserStore {
             }
         }
         throw CocoaError(.fileReadInapplicableStringEncoding)
+    }
+
+    nonisolated static func loadSystemPromptSnapshot(rootURL: URL) -> ModelVaultSystemPromptSnapshot {
+        let sections = systemPromptFiles.compactMap { spec -> ModelVaultSystemPromptSection? in
+            let url = rootURL.appendingPathComponent(spec.relativePath, isDirectory: false)
+            guard FileManager.default.fileExists(atPath: url.path),
+                  let content = try? readText(at: url)
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !content.isEmpty else {
+                return nil
+            }
+            return ModelVaultSystemPromptSection(
+                title: spec.title,
+                relativePath: spec.relativePath,
+                content: content
+            )
+        }
+        return ModelVaultSystemPromptSnapshot(sections: sections)
     }
 
     static func writeText(_ content: String, to url: URL) -> Bool {

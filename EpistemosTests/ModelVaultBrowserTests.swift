@@ -95,6 +95,49 @@ struct ModelVaultBrowserTests {
         ])
     }
 
+    @Test("system prompt snapshot mirrors non-empty injected model vault documents")
+    func systemPromptSnapshotMirrorsInjectedModelVaultDocuments() throws {
+        let root = try makeTempDirectory("model-vault-system-prompt")
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        try "  # Instructions\n\nUse citations.  ".write(
+            to: root.appendingPathComponent("instructions.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# Profile\n\nDomain memory".write(
+            to: root.appendingPathComponent("knowledge_profile.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "   ".write(
+            to: root.appendingPathComponent("concept_index.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "# Active\n\nRecent context".write(
+            to: root.appendingPathComponent("active_context.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "{}".write(
+            to: root.appendingPathComponent("meta.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let snapshot = ModelVaultBrowserStore.loadSystemPromptSnapshot(rootURL: root)
+
+        #expect(snapshot.sections.map(\.relativePath) == [
+            "instructions.md",
+            "knowledge_profile.md",
+            "active_context.md",
+        ])
+        #expect(snapshot.sections.first?.content == "# Instructions\n\nUse citations.")
+        #expect(!snapshot.sections.map(\.relativePath).contains("concept_index.md"))
+        #expect(!snapshot.sections.map(\.relativePath).contains("meta.json"))
+    }
+
     @Test("browser recognizes text files that can be edited inline")
     func browserRecognizesEditableTextFiles() {
         #expect(ModelVaultBrowserStore.isEditableTextFile(URL(fileURLWithPath: "/tmp/instructions.md")))

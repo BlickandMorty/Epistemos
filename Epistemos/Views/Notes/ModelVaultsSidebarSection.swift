@@ -192,6 +192,8 @@ private struct ModelVaultSidebarRow: View {
     @State private var expandedFolderPaths: Set<String> = []
     @State private var selectedFilePath: String?
     @State private var pendingCreateRequest: ModelVaultCreateRequest?
+    @State private var systemPromptExpanded = false
+    @State private var systemPromptSnapshot = ModelVaultSystemPromptSnapshot.empty
     @State private var contributionsExpanded = false
     @State private var pendingDeleteTarget: ModelVaultDeleteTarget?
 
@@ -226,6 +228,10 @@ private struct ModelVaultSidebarRow: View {
             refreshFiles(preservingSelection: true)
         }
         .onChange(of: showInternalFiles) { _, _ in
+            guard isExpanded else { return }
+            refreshFiles(preservingSelection: true)
+        }
+        .onAppear {
             guard isExpanded else { return }
             refreshFiles(preservingSelection: true)
         }
@@ -346,6 +352,49 @@ private struct ModelVaultSidebarRow: View {
                 }
             }
 
+            if !systemPromptSnapshot.isEmpty {
+                DisclosureGroup(isExpanded: $systemPromptExpanded) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(systemPromptSnapshot.sections) { section in
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(section.title)
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                Text(section.preview())
+                                    .font(.caption2.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                                    .lineLimit(8)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                    .padding(.leading, 28)
+                    .padding(.trailing, 10)
+                    .padding(.top, 6)
+                    .padding(.bottom, 4)
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "text.book.closed")
+                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("System Prompt")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Text("\(systemPromptSnapshot.sections.count) section\(systemPromptSnapshot.sections.count == 1 ? "" : "s")")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .padding(.leading, 28)
+                .padding(.trailing, 10)
+                .padding(.top, 6)
+                .padding(.bottom, 4)
+            }
+
             DisclosureGroup(isExpanded: $contributionsExpanded) {
                 ModelInvolvementContent(
                     modelID: entry.id,
@@ -390,13 +439,25 @@ private struct ModelVaultSidebarRow: View {
         )
         guard preservingSelection else {
             selectedFilePath = nil
+            refreshSystemPromptSnapshot()
             return
         }
+        refreshSystemPromptSnapshot()
         if let selectedFilePath,
            fileEntries.contains(where: { !$0.isDirectory && $0.relativePath == selectedFilePath }) {
             return
         }
         self.selectedFilePath = nil
+    }
+
+    private func refreshSystemPromptSnapshot() {
+        let rootURL = entry.url
+        Task {
+            let snapshot = await Task.detached(priority: .utility) {
+                ModelVaultBrowserStore.loadSystemPromptSnapshot(rootURL: rootURL)
+            }.value
+            systemPromptSnapshot = snapshot
+        }
     }
 
     private func requestCreateFile(in relativeDirectory: String?) {
