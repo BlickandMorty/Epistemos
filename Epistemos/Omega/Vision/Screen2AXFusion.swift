@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import os
 import Vision
@@ -336,3 +337,4 @@ struct NormalizedRect: Sendable {
     let width: Double
     let height: Double
 }
+#endif

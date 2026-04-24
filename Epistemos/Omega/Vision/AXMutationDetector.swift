@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import AppKit
 import Foundation
 
@@ -103,3 +104,4 @@ enum AXMutationDetector {
         return hash
     }
 }
+#endif

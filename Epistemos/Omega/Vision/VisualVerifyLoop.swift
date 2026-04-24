@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import CoreGraphics
 import os
@@ -361,3 +362,4 @@ struct VerifyResult: Sendable {
 
     var passed: Bool { confidence >= 0.8 }
 }
+#endif

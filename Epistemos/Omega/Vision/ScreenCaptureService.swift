@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import AppKit
 import ScreenCaptureKit
@@ -319,3 +320,4 @@ enum ScreenCaptureError: Error, LocalizedError {
         }
     }
 }
+#endif
