@@ -303,17 +303,21 @@ final class SDPage {
     /// indexing off the sync call stack without SwiftData's non-Sendable
     /// `@Model` flowing across the Task boundary).
     ///
-    /// Behaviour matches ``loadBodyAsync(mapped:fast:)``:
-    /// - R.3 gateway path when ready (resolve → read).
-    /// - `NoteFileStorage.readBody` fallback otherwise.
+    /// Behaviour matches ``loadBodyAsync(mapped:fast:)`` and
+    /// ``loadBody(mapped:fast:)``:
+    /// 1. R.3 gateway resolve + read when the gateway is ready.
+    /// 2. `NoteFileStorage.readBody` (managed-body sidecar file).
+    /// 3. Inline `body` when no managed sidecar exists (pre-migration).
+    /// 4. Raw vault file via `VaultIndexActor.decodedBodyFromReadableVaultFile`
+    ///    when both managed-body and inline are empty.
     ///
-    /// Takes only Sendable primitives (`pageId`, optional `filePath`)
-    /// so it can be called freely from detached Tasks. Always returns
-    /// a `String` — never throws; errors fall through to the legacy
-    /// read path.
+    /// Takes only Sendable primitives so it can be called freely from
+    /// detached Tasks. Always returns a `String` — never throws; all
+    /// errors fall through to the next step in the fallback chain.
     static func loadBodyAsyncFromPrimitives(
         pageId: String,
         filePath: String?,
+        inlineBody: String = "",
         mapped: Bool = false,
         fast: Bool = false
     ) async -> String {
@@ -331,7 +335,23 @@ final class SDPage {
                 // is inline-body-only. Fall through to legacy path.
             }
         }
-        return NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
+
+        let hasManagedBody = NoteFileStorage.bodyExists(pageId: pageId)
+        let diskBody = NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
+        if !diskBody.isEmpty || hasManagedBody {
+            return diskBody
+        }
+        if !inlineBody.isEmpty {
+            return inlineBody
+        }
+        if let filePath,
+           !filePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let fileURL = URL(fileURLWithPath: filePath)
+            if let readableVaultBody = VaultIndexActor.decodedBodyFromReadableVaultFile(at: fileURL) {
+                return readableVaultBody
+            }
+        }
+        return ""
     }
 
     func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {

@@ -190,6 +190,31 @@ actor VaultIndexActor {
         excludedDirs.contains(name) || excludedSuffixes.contains(where: { name.hasSuffix($0) })
     }
 
+    /// Iterate a `FileManager.DirectoryEnumerator` synchronously and
+    /// return the list of importable note-file URLs. Exposed as a
+    /// sync nonisolated helper because
+    /// `DirectoryEnumerator.makeIterator()` is unavailable from async
+    /// contexts in Swift 6 — the async `importVault` now drains this
+    /// into an array up-front, then iterates the array with `await`.
+    /// Filter logic matches the former inline iteration:
+    /// `shouldSkipDescendants` → `skipDescendants()`,
+    /// `isImportableNoteFile` gate.
+    nonisolated static func drainEnumerator(
+        _ enumerator: FileManager.DirectoryEnumerator
+    ) -> [URL] {
+        var drained: [URL] = []
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.lastPathComponent
+            if shouldSkipDescendants(for: name) {
+                enumerator.skipDescendants()
+                continue
+            }
+            guard isImportableNoteFile(fileURL) else { continue }
+            drained.append(fileURL)
+        }
+        return drained
+    }
+
     private static let importableExtensions: Set<String> = [
         // Notes
         "md", "markdown", "txt",
@@ -449,7 +474,7 @@ actor VaultIndexActor {
 
     /// Import vault incrementally: only process new, modified, or deleted files.
     /// Compares file modification dates against stored SDPage.updatedAt to skip unchanged files.
-    func importVault(from url: URL, deleteMissingFiles: Bool = true) throws {
+    func importVault(from url: URL, deleteMissingFiles: Bool = true) async throws {
         let fm = FileManager.default
 
         guard fm.fileExists(atPath: url.path) else {
@@ -517,21 +542,22 @@ actor VaultIndexActor {
         }
 
         if completedScan {
-            for case let fileURL as URL in enumerator {
+            // FileManager.DirectoryEnumerator.makeIterator() isn't
+            // available from async contexts (Swift 6). Drain the
+            // enumerator inside a synchronous helper first, then
+            // iterate the resulting array asynchronously.
+            // `skipDescendants` is still called during the sync pass
+            // so the filter is identical to the pre-migration
+            // iteration behaviour.
+            let drained = Self.drainEnumerator(enumerator)
+
+            for fileURL in drained {
                 // Allow cooperative cancellation during large vault imports
                 guard !Task.isCancelled else {
                     completedScan = false
                     log.info("Vault import cancelled — indexed \(insertCount + updateCount) files before cancellation")
                     break
                 }
-                // Skip developer artifact and system directory subtrees entirely
-                let name = fileURL.lastPathComponent
-                if Self.shouldSkipDescendants(for: name) {
-                    enumerator.skipDescendants()
-                    continue
-                }
-
-                guard Self.isImportableNoteFile(fileURL) else { continue }
 
                 let filePath = fileURL.path
                 diskPaths.insert(filePath)
@@ -558,11 +584,14 @@ actor VaultIndexActor {
                         ).isEmpty
                     // File exists in DB — check if it changed
                     if fileModDate > existingPage.updatedAt || needsLocalBodyRebuild {
-                        // File was modified externally — re-read and update
+                        // File was modified externally — re-read and update.
+                        // Phase R.3: `upsertPage` is now async (body read
+                        // routes through gateway). Dropping the
+                        // `autoreleasepool` wrapper is safe here — the
+                        // outer sync import loop still has its own
+                        // scratch context that releases between pages.
                         do {
-                            let result = try autoreleasepool {
-                                try upsertPage(from: fileURL, vaultURL: url)
-                            }
+                            let result = try await upsertPage(from: fileURL, vaultURL: url)
                             switch result {
                             case .updated(let snapshot):
                                 pendingUpdatedPages.append(snapshot)
@@ -585,11 +614,9 @@ actor VaultIndexActor {
                         skipCount += 1
                     }
                 } else {
-                    // New file — insert
+                    // New file — insert. Same Phase R.3 note as above.
                     do {
-                        let result = try autoreleasepool {
-                            try upsertPage(from: fileURL, vaultURL: url)
-                        }
+                        let result = try await upsertPage(from: fileURL, vaultURL: url)
                         switch result {
                         case .inserted(let page):
                             pendingInsertedPages.append(page)
@@ -833,8 +860,8 @@ actor VaultIndexActor {
 
     /// Re-index a single file that changed externally.
     @discardableResult
-    func reindexFile(at url: URL, vaultURL: URL) throws -> Bool {
-        let result = try upsertPage(from: url, vaultURL: vaultURL)
+    func reindexFile(at url: URL, vaultURL: URL) async throws -> Bool {
+        let result = try await upsertPage(from: url, vaultURL: vaultURL)
         let changed: Bool
         switch result {
         case .unchanged:
@@ -852,7 +879,7 @@ actor VaultIndexActor {
     // MARK: - Export to Disk
 
     /// Write a page's body back to its .md file (Source of Truth write-back).
-    func exportPage(pageId: String, to vaultURL: URL) throws -> (path: String, bodyHash: String)? {
+    func exportPage(pageId: String, to vaultURL: URL) async throws -> (path: String, bodyHash: String)? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate { $0.id == pageId }
         )
@@ -894,7 +921,16 @@ actor VaultIndexActor {
 
         // Build content — markdown front-matter only for markdown note files.
         // Tracked source files (.swift, .rs, .py, etc.) must round-trip as raw text.
-        let body = page.loadBody(mapped: true)
+        //
+        // Phase R.3: body read routed through the Sendable-primitive
+        // helper so the R.3 gateway is consulted first. Parity
+        // preserved via `PhaseR3BodyReadParityTests`.
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            mapped: true
+        )
         let bodyHash = SDPage.bodyHash(body)
         let output = Self.shouldWriteMarkdownFrontMatter(to: fileURL)
             ? buildMarkdown(for: page, body: body)
@@ -991,7 +1027,7 @@ actor VaultIndexActor {
     // MARK: - Private Helpers
 
     /// Upsert a page from a .md file URL. Updates if exists (by filePath), creates if new.
-    private func upsertPage(from fileURL: URL, vaultURL: URL) throws -> PageUpsertResult {
+    private func upsertPage(from fileURL: URL, vaultURL: URL) async throws -> PageUpsertResult {
         // Pre-flight check: verify the file is actually readable before attempting I/O.
         // Security-scoped access is process-wide (granted by VaultSyncService), but individual
         // files may be locked, in Trash, symlinked, or otherwise inaccessible.
@@ -1072,7 +1108,13 @@ actor VaultIndexActor {
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
             // (from historical DB reset or write failure) should never win over vault content.
-            let currentBody = page.loadBody(mapped: true)
+            // Phase R.3: gateway-first read via the Sendable-primitive helper.
+            let currentBody = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body,
+                mapped: true
+            )
             let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
@@ -1419,19 +1461,43 @@ actor VaultIndexActor {
     }
 
     /// Full page data for a single page (used by diff sync provider).
-    func fullPageData(for pageId: String) -> (title: String, body: String, tags: String, updatedAt: Date)? {
+    ///
+    /// Phase R.3: body read via the Sendable-primitive helper. The
+    /// method is async because the gateway read is async — callers
+    /// already `await` on actor hops.
+    func fullPageData(for pageId: String) async -> (title: String, body: String, tags: String, updatedAt: Date)? {
         let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
         guard let page = fetchFirst(descriptor, label: "full page data for \(pageId)") else { return nil }
-        return (page.title, page.loadBody(mapped: true), page.tags.joined(separator: " "), page.updatedAt)
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            mapped: true
+        )
+        return (page.title, body, page.tags.joined(separator: " "), page.updatedAt)
     }
 
     /// All pages formatted for a full FTS5 rebuild.
-    func allPagesForRebuild() -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)] {
+    ///
+    /// Phase R.3: same gateway-first body read via the primitives
+    /// helper, inside an async for-loop (sync `.map` can't await).
+    func allPagesForRebuild() async -> [(id: String, title: String, body: String, tags: String, updatedAt: Date)] {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived && $0.templateId == nil }
         )
         guard let pages = fetchAll(descriptor, label: "pages for search index rebuild") else { return [] }
-        return pages.map { ($0.id, $0.title, $0.loadBody(mapped: true), $0.tags.joined(separator: " "), $0.updatedAt) }
+        var out: [(id: String, title: String, body: String, tags: String, updatedAt: Date)] = []
+        out.reserveCapacity(pages.count)
+        for page in pages {
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body,
+                mapped: true
+            )
+            out.append((page.id, page.title, body, page.tags.joined(separator: " "), page.updatedAt))
+        }
+        return out
     }
 
     // MARK: - Vault Context for Chat Pipeline
@@ -1462,7 +1528,7 @@ actor VaultIndexActor {
     /// 2. Queries with < 2 meaningful terms return nil (catches vague follow-ups)
     /// 3. Notes scored by term-match count × term specificity (length)
     /// 4. Minimum score threshold gates injection — no low-relevance leaks
-    func buildVaultContext(for query: String) -> String? {
+    func buildVaultContext(for query: String) async -> String? {
         // ── 1. Extract meaningful search terms ──────────────────────────
         let terms = query.lowercased()
             .components(separatedBy: .alphanumerics.inverted)
@@ -1507,10 +1573,21 @@ actor VaultIndexActor {
             }
 
             // Body matches: only for recent pages, and only if title gave partial signal
-            // or this is in the body-scan window. Each body match: +1 base + length bonus
+            // or this is in the body-scan window. Each body match: +1 base + length bonus.
+            // Phase R.3: gateway-first read via the primitives helper.
             if bodyScanIds.contains(page.id), score < 8 {
-                let body = cachedBodies[page.id] ?? page.loadBody(mapped: true)
-                cachedBodies[page.id] = body
+                let body: String
+                if let cached = cachedBodies[page.id] {
+                    body = cached
+                } else {
+                    body = await SDPage.loadBodyAsyncFromPrimitives(
+                        pageId: page.id,
+                        filePath: page.filePath,
+                        inlineBody: page.body,
+                        mapped: true
+                    )
+                    cachedBodies[page.id] = body
+                }
                 let bodyLower = String(body.prefix(1500)).lowercased()
                 for term in terms where bodyLower.contains(term) {
                     if !titleLower.contains(term) { matchedTerms += 1 }
@@ -1536,10 +1613,28 @@ actor VaultIndexActor {
         guard !relevant.isEmpty else { return nil }
 
         // ── 6. Format matched notes as context ──────────────────────────
-        let notesSection: String = relevant.map { entry -> String in
-            let body = cachedBodies[entry.page.id] ?? entry.page.loadBody(mapped: true)
-            return "### \(entry.page.title)\nTags: [\(entry.page.tags.joined(separator: ", "))]\n\(String(body.prefix(500)))"
-        }.joined(separator: "\n\n")
+        // Phase R.3: sequential for loop to accommodate the async
+        // body read. Prior body reads may already be in `cachedBodies`
+        // from the score loop; only uncached pages incur a fresh read.
+        var notesParts: [String] = []
+        notesParts.reserveCapacity(relevant.count)
+        for entry in relevant {
+            let body: String
+            if let cached = cachedBodies[entry.page.id] {
+                body = cached
+            } else {
+                body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: entry.page.id,
+                    filePath: entry.page.filePath,
+                    inlineBody: entry.page.body,
+                    mapped: true
+                )
+            }
+            notesParts.append(
+                "### \(entry.page.title)\nTags: [\(entry.page.tags.joined(separator: ", "))]\n\(String(body.prefix(500)))"
+            )
+        }
+        let notesSection = notesParts.joined(separator: "\n\n")
 
         // Build folder list for action instructions
         let folderDescriptor = FetchDescriptor<SDFolder>(sortBy: [SortDescriptor(\.sortOrder)])
@@ -1599,7 +1694,11 @@ actor VaultIndexActor {
 
     /// Build a complete vault manifest for vault briefing.
     /// Includes metadata for ALL non-archived notes + full bodies of the 20 most recent.
-    func buildVaultManifest(vaultTitle: String) -> VaultManifest? {
+    ///
+    /// Phase R.3: deep-read body pass uses the Sendable-primitive
+    /// helper so the R.3 gateway is consulted first. The metadata
+    /// `entries` map stays synchronous — no body reads there.
+    func buildVaultManifest(vaultTitle: String) async -> VaultManifest? {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { !$0.isArchived },
             sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
@@ -1625,14 +1724,22 @@ actor VaultIndexActor {
             )
         }
 
-        // Deep-read: full bodies of the 20 most recently edited
-        let recentBodies: [VaultManifest.NoteBody] = pages.prefix(20).map { page in
-            VaultManifest.NoteBody(
+        // Deep-read: full bodies of the 20 most recently edited.
+        var recentBodies: [VaultManifest.NoteBody] = []
+        recentBodies.reserveCapacity(20)
+        for page in pages.prefix(20) {
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body,
+                mapped: true
+            )
+            recentBodies.append(VaultManifest.NoteBody(
                 pageId: page.id,
                 title: page.title,
                 relativePath: page.vaultRelativeNotePath,
-                body: String(page.loadBody(mapped: true).prefix(2000))
-            )
+                body: String(body.prefix(2000))
+            ))
         }
 
         return VaultManifest(
@@ -1646,7 +1753,11 @@ actor VaultIndexActor {
     }
 
     /// Fetch full bodies for specific notes by page ID (for @-mention resolution & preWarm).
-    func fetchNoteBodies(ids: [String]) -> [VaultManifest.NoteBody] {
+    ///
+    /// Phase R.3: each body read goes through the Sendable-primitive
+    /// helper so the gateway-first path is used when the R.3 service
+    /// is ready.
+    func fetchNoteBodies(ids: [String]) async -> [VaultManifest.NoteBody] {
         guard !ids.isEmpty else { return [] }
         // Individual fetches — SwiftData #Predicate can't reliably translate
         // local array .contains() to SQL, causing runtime crashes.
@@ -1657,11 +1768,17 @@ actor VaultIndexActor {
                 predicate: #Predicate<SDPage> { $0.id == id }
             )
             if let page = fetchFirst(descriptor, label: "note body for \(id)") {
+                let body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: page.id,
+                    filePath: page.filePath,
+                    inlineBody: page.body,
+                    mapped: true
+                )
                 results.append(VaultManifest.NoteBody(
                     pageId: page.id,
                     title: page.title,
                     relativePath: page.vaultRelativeNotePath,
-                    body: page.loadBody(mapped: true)
+                    body: body
                 ))
             }
         }
@@ -1722,7 +1839,10 @@ actor VaultIndexActor {
 
     /// Re-index pages into Core Spotlight, skipping pages unchanged since last index.
     /// Only reads .body for pages that actually need reindexing.
-    func spotlightReindexAll() {
+    ///
+    /// Phase R.3: body reads go through the Sendable-primitive
+    /// helper. Sync `.map` replaced by a sequential async for-loop.
+    func spotlightReindexAll() async {
         let snapshot = spotlightReindexSnapshot()
         let lastIndexDate = snapshot.lastIndexDate
 
@@ -1746,11 +1866,18 @@ actor VaultIndexActor {
 
         for batchStart in stride(from: 0, to: total, by: batchSize) {
             let batchEnd = min(batchStart + batchSize, total)
-            let batch = pages[batchStart..<batchEnd]
+            let batch = Array(pages[batchStart..<batchEnd])
 
-            let items = batch.map { page -> CSSearchableItem in
-                let pageBody = page.loadBody(mapped: true)
-                return SpotlightIndexer.makeItem(for: page, body: pageBody)
+            var items: [CSSearchableItem] = []
+            items.reserveCapacity(batch.count)
+            for page in batch {
+                let pageBody = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: page.id,
+                    filePath: page.filePath,
+                    inlineBody: page.body,
+                    mapped: true
+                )
+                items.append(SpotlightIndexer.makeItem(for: page, body: pageBody))
             }
 
             CSSearchableIndex.default().indexSearchableItems(items) { error in
