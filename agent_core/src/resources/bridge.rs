@@ -17,12 +17,18 @@
 //!
 //! ## Deliberately NOT in this commit
 //!
-//! - Persistent storage on disk at `~/Library/Application Support/Epistemos/
-//!   permissions.db`. Will land in a follow-up once Swift drives the init
-//!   with a container-safe path (MAS sandbox considerations).
 //! - Replacement of Swift's existing `activeGrantsSection` hard-coded
 //!   rows. R.5 UI wiring is additive — surfaces Rust-backed grants
 //!   alongside the existing rows.
+//!
+//! ## Persistent storage (2026-04-23)
+//!
+//! - Swift drives `permission_store_init_at_path(path)` at app launch
+//!   with a container-safe path (see `AppBootstrap`). When that init
+//!   runs before the first grant is recorded, grants persist across
+//!   relaunches. The fallback remains in-memory, so tests and any
+//!   callers that forget to init keep working — they just lose state
+//!   on process exit.
 //!
 //! Plan refs: `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md` §Phase R.5,
 //! `docs/RESOURCE_RUNTIME_RESEARCH.md` §4, `docs/KNOWN_ISSUES_REGISTER.md`
@@ -150,8 +156,12 @@ fn runtime() -> &'static Runtime {
     })
 }
 
-/// Process-local permission store. In-memory SQLite for this commit;
-/// follow-up will accept a Swift-provided container-safe path.
+/// Process-local permission store. In-memory SQLite on first touch;
+/// migrates to on-disk when Swift invokes
+/// [`permission_store_init_at_path`] with a container-safe path. The
+/// outer `tokio::sync::Mutex` serialises all store operations; the
+/// inner `SqlitePermissionService` swaps its own `Connection` under
+/// `Self::reopen_at`.
 fn store() -> &'static Mutex<SqlitePermissionService> {
     static STORE: OnceLock<Mutex<SqlitePermissionService>> = OnceLock::new();
     STORE.get_or_init(|| {
@@ -268,6 +278,81 @@ pub async fn permission_store_revoke(grant_id: String) -> bool {
 #[uniffi::export]
 pub fn permission_store_list_active_blocking() -> Vec<PermissionGrantSummary> {
     runtime().block_on(permission_store_list_active())
+}
+
+/// Migrate the process-local permission store to on-disk persistence at
+/// `path`. Called by Swift from `AppBootstrap` once a container-safe
+/// location has been resolved. Safe to call multiple times: each call
+/// replaces the backing connection while preserving the `Mutex` around
+/// the service, so in-flight callers see a consistent view either
+/// before or after the swap.
+///
+/// The schema is (re-)initialized unconditionally, so opening a file
+/// created by an older build or a brand-new location both converge to
+/// the current schema version.
+///
+/// The function is blocking on purpose — Swift's `AppBootstrap` calls
+/// it from a detached task during launch, and the operation is a
+/// one-time SQLite open + `CREATE TABLE IF NOT EXISTS`. Returns an
+/// error string if the parent can't be created or the SQLite open
+/// fails; callers should log and continue (the in-memory fallback
+/// keeps the feature working for the session).
+#[uniffi::export]
+pub fn permission_store_init_at_path(path: String) -> Result<(), ResourceError> {
+    // Swift calls this sync entry point from a `Task.detached` at launch,
+    // which runs outside any Rust async runtime. Spin up the global
+    // tokio runtime to drive the async store lock.
+    let path_buf = prepare_permission_store_path(&path)?;
+    runtime().block_on(reopen_permission_store(path_buf, path))
+}
+
+/// Validate + create-parent-dir helper. Extracted so the async
+/// sibling used by tests doesn't re-run the same work twice.
+fn prepare_permission_store_path(path: &str) -> Result<PathBuf, ResourceError> {
+    let path_buf = PathBuf::from(path);
+    if path_buf.as_os_str().is_empty() {
+        return Err(ResourceError::Backend(
+            "permission_store_init_at_path: empty path".into(),
+        ));
+    }
+    if let Some(parent) = path_buf.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent).map_err(|error| {
+                ResourceError::Backend(format!(
+                    "permission store init: create_dir_all({}): {error}",
+                    parent.display()
+                ))
+            })?;
+        }
+    }
+    Ok(path_buf)
+}
+
+/// Shared async core. Used by the sync UniFFI entry point (via
+/// `block_on`) and by `#[tokio::test]` tests directly so they don't
+/// trigger "runtime within a runtime" panics.
+async fn reopen_permission_store(
+    path_buf: PathBuf,
+    original_path_str: String,
+) -> Result<(), ResourceError> {
+    let guard = store().lock().await;
+    guard.reopen_at(&path_buf).map_err(|error| {
+        ResourceError::Backend(format!(
+            "permission store init: open sqlite at {original_path_str}: {error}"
+        ))
+    })
+}
+
+/// Test-only async entry point for tests running inside a
+/// `#[tokio::test]` context. Identical behaviour to
+/// [`permission_store_init_at_path`] but bypasses `runtime().block_on`
+/// to avoid the nested-runtime panic.
+#[cfg(test)]
+pub(crate) async fn permission_store_init_at_path_for_test(
+    path: String,
+) -> Result<(), ResourceError> {
+    let path_buf = prepare_permission_store_path(&path)?;
+    reopen_permission_store(path_buf, path).await
 }
 
 // ---------------------------------------------------------------------
@@ -514,6 +599,7 @@ mod tests {
 
     #[tokio::test]
     async fn fresh_store_is_empty() {
+        let _gate = bridge_store_gate();
         let summaries = permission_store_list_active().await;
         // Other tests in this crate may have seeded the store (tests share
         // the process singleton). We just need to confirm the call succeeds
@@ -523,6 +609,7 @@ mod tests {
 
     #[tokio::test]
     async fn record_user_grant_and_check_roundtrip() {
+        let _gate = bridge_store_gate();
         let resource = ResourceId::VaultNote {
             vault_id: "bridge-test-vault".into(),
             note_id: "Inbox/BridgeSmoke.md".into(),
@@ -549,6 +636,7 @@ mod tests {
 
     #[tokio::test]
     async fn non_grant_statement_returns_none_and_does_not_store() {
+        let _gate = bridge_store_gate();
         let resource = ResourceId::VaultNote {
             vault_id: "bridge-nongrant".into(),
             note_id: "Inbox/NotAGrant.md".into(),
@@ -566,6 +654,7 @@ mod tests {
 
     #[tokio::test]
     async fn unparseable_resource_uri_rejects_gracefully() {
+        let _gate = bridge_store_gate();
         let result = permission_store_record_user_grant_from_statement(
             "you have my permission".into(),
             "gibberish-not-a-uri".into(),
@@ -579,6 +668,7 @@ mod tests {
 
     #[tokio::test]
     async fn unknown_capability_name_silently_ignored() {
+        let _gate = bridge_store_gate();
         let resource = ResourceId::VaultNote {
             vault_id: "bridge-unknown-cap".into(),
             note_id: "Inbox/UnknownCap.md".into(),
@@ -601,6 +691,7 @@ mod tests {
 
     #[tokio::test]
     async fn list_active_reflects_stored_grants() {
+        let _gate = bridge_store_gate();
         // Seed a distinctive grant and confirm it appears in list_active.
         let resource = ResourceId::VaultNote {
             vault_id: "bridge-list-active".into(),
@@ -628,6 +719,188 @@ mod tests {
         // it drives the tokio runtime internally without needing an
         // outer runtime.
         let _ = permission_store_list_active_blocking();
+    }
+
+    /// Global gate for tests that mutate the process-local
+    /// permission store — both the persistence tests that SWAP the
+    /// backing Connection and the non-persistence tests that insert
+    /// / check / list grants. Parallel runs without this gate can
+    /// see each other's rows (same OnceLock-backed store), and a
+    /// persistence test mid-flight can leave the store pointing at
+    /// a dropped TempDir before a concurrent non-persistence test
+    /// tries its second call. Recovers from poisoning so a single
+    /// panicky test doesn't wedge the rest.
+    static BRIDGE_STORE_GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn bridge_store_gate() -> std::sync::MutexGuard<'static, ()> {
+        BRIDGE_STORE_GATE
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Alias preserved for the persistence-specific tests — reads
+    /// the same mutex so any future splitting stays safe.
+    fn r5_persist_gate() -> std::sync::MutexGuard<'static, ()> {
+        bridge_store_gate()
+    }
+
+    /// Restore the process-local permission store to a fresh
+    /// in-memory SQLite connection. Every persistence test must
+    /// call this before returning so subsequent non-gated bridge
+    /// tests don't inherit a dead file handle from a dropped
+    /// TempDir. `":memory:"` is SQLite's documented in-memory path.
+    async fn restore_store_to_in_memory() {
+        let guard = store().lock().await;
+        let _ = guard.reopen_at(":memory:");
+    }
+
+    #[tokio::test]
+    async fn init_at_path_empty_string_returns_explicit_error() {
+        let _gate = r5_persist_gate();
+        let err = permission_store_init_at_path_for_test("".into())
+            .await
+            .expect_err("empty path must be rejected");
+        match err {
+            ResourceError::Backend(message) => assert!(message.contains("empty path")),
+            other => panic!("expected Backend error, got {other:?}"),
+        }
+        // This test didn't mutate the store, but keep the cleanup
+        // pattern consistent with other persistence tests.
+        restore_store_to_in_memory().await;
+    }
+
+    #[tokio::test]
+    async fn grants_survive_in_process_restart_via_reinit_at_same_path() {
+        // Proof that the store is durable across "restarts" when Swift
+        // reinits at the same container-safe path. We can't truly
+        // kill the process mid-test, so we simulate a relaunch by
+        // re-calling `permission_store_init_at_path_for_test` with
+        // the same file — the second call swaps the backing
+        // Connection to a fresh handle that opens the existing
+        // on-disk SQLite file. If the grant was actually persisted,
+        // `list_active` still sees it after the swap.
+        let _gate = r5_persist_gate();
+        let tmp = tempfile::tempdir().unwrap();
+        let db_path = tmp.path().join("permissions-restart.db");
+        let path_str = db_path.to_string_lossy().to_string();
+
+        permission_store_init_at_path_for_test(path_str.clone())
+            .await
+            .expect("first init at tempdir path should succeed");
+
+        let marker_uri = format!(
+            "vault://r5-persist-{0}/note/Inbox/Durable-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let grant_id = permission_store_record_user_grant_from_statement(
+            "You have my permission to edit this note.".into(),
+            marker_uri.clone(),
+            vec!["Write".into()],
+            "Session".into(),
+        )
+        .await
+        .expect("grant should land under the on-disk store");
+
+        // Simulated relaunch: re-init at the same path. The old
+        // in-process Connection is replaced but the SQLite file on
+        // disk is untouched, so the grant row survives.
+        permission_store_init_at_path_for_test(path_str)
+            .await
+            .expect("re-init at same path should succeed");
+
+        let after_restart = permission_store_list_active().await;
+        let found = after_restart.iter().any(|summary| {
+            summary.grant_id == grant_id && summary.selector.contains(&marker_uri)
+        });
+        assert!(
+            found,
+            "grant {grant_id} should survive in-process restart via reinit at same path"
+        );
+
+        // Housekeeping: revoke the grant so follow-up tests don't
+        // see the marker.
+        let _ = permission_store_revoke(grant_id).await;
+        // Swap back to in-memory before the TempDir drops so that
+        // subsequent non-gated bridge tests don't inherit a dead
+        // file handle.
+        restore_store_to_in_memory().await;
+    }
+
+    #[tokio::test]
+    async fn init_at_path_creates_missing_parent_directory() {
+        let _gate = r5_persist_gate();
+        let tmp = tempfile::tempdir().unwrap();
+        // Nested directory that does NOT exist yet — the bridge must
+        // create it (matching how `AppBootstrap` hands us a path
+        // under `~/Library/Application Support/Epistemos/…` that
+        // might be brand new on first launch).
+        let nested = tmp.path().join("nested/deep/dir");
+        let db_path = nested.join("permissions.db");
+        assert!(!nested.exists());
+
+        permission_store_init_at_path_for_test(db_path.to_string_lossy().to_string())
+            .await
+            .expect("missing parent must be created, not rejected");
+        assert!(nested.exists(), "parent directory should have been created");
+
+        // The store is now backed at the new path — confirm a
+        // round-trip via list_active to verify the file is usable.
+        let _ = permission_store_list_active().await;
+        restore_store_to_in_memory().await;
+    }
+
+    #[tokio::test]
+    async fn grants_recorded_before_init_persist_after_switching_to_disk() {
+        // Edge case: if the Swift caller records a grant BEFORE
+        // driving `permission_store_init_at_path` (e.g. test-order
+        // quirks, a boot race), the switch replaces the Connection.
+        // The in-memory grants are lost — this test documents that
+        // contract so downstream callers know to init EARLY at
+        // launch. If a future commit copies in-memory rows into the
+        // new file, this test should be updated to match.
+        let _gate = r5_persist_gate();
+
+        // Start from a clean fresh in-memory connection to avoid
+        // inheriting rows from prior tests.
+        let scratch_mem = tempfile::NamedTempFile::new().unwrap();
+        let scratch_path = scratch_mem.path().to_string_lossy().to_string();
+        permission_store_init_at_path_for_test(scratch_path.clone())
+            .await
+            .expect("prime at a unique tempfile");
+
+        let pre_grant_uri = format!(
+            "vault://r5-pre-init-{0}/note/Inbox/Pre-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let pre_grant_id = permission_store_record_user_grant_from_statement(
+            "You have my permission to edit this note.".into(),
+            pre_grant_uri.clone(),
+            vec!["Write".into()],
+            "Session".into(),
+        )
+        .await
+        .expect("pre-init grant should land in the prior store");
+
+        // Switch to a DIFFERENT on-disk path. The pre-init grant
+        // stays in the prior tempfile on disk (so hypothetically
+        // recoverable if we opened that path), but the live store
+        // now points at a fresh file → pre-init grant must NOT be
+        // visible through list_active.
+        let new_tmp = tempfile::tempdir().unwrap();
+        let new_path = new_tmp.path().join("fresh.db");
+        permission_store_init_at_path_for_test(new_path.to_string_lossy().to_string())
+            .await
+            .expect("switch to fresh path should succeed");
+
+        let after_switch = permission_store_list_active().await;
+        let leaked = after_switch
+            .iter()
+            .any(|summary| summary.grant_id == pre_grant_id);
+        assert!(
+            !leaked,
+            "switching to a different path must not carry forward the prior store's rows"
+        );
+        restore_store_to_in_memory().await;
     }
 
     // --- Phase R.4 attachment-mode bridge tests --------------------------

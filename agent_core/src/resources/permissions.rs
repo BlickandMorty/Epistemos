@@ -133,6 +133,30 @@ impl SqlitePermissionService {
         })
     }
 
+    /// Replace this service's backing connection with one opened at
+    /// `path`. Used by the bridge to migrate the process-local store
+    /// from an initial in-memory fallback to on-disk persistence once
+    /// Swift has resolved a container-safe path. The schema is
+    /// (re-)initialized so opening a fresh file, an existing file, or
+    /// a file created by an older build all converge to the current
+    /// schema.
+    ///
+    /// Returns `PermissionError::Database` if the file can't be
+    /// opened. Callers should treat this as a soft-failure: the
+    /// in-memory fallback keeps the feature working for the session,
+    /// and the next launch can retry.
+    pub fn reopen_at(&self, path: impl AsRef<Path>) -> Result<(), PermissionError> {
+        let conn = Connection::open(path)
+            .map_err(|error| PermissionError::Database(error.to_string()))?;
+        Self::init_schema(&conn)?;
+        let mut inner = self
+            .conn
+            .lock()
+            .map_err(|_| PermissionError::Database("mutex poisoned".into()))?;
+        *inner = conn;
+        Ok(())
+    }
+
     fn init_schema(conn: &Connection) -> Result<(), PermissionError> {
         conn.execute_batch(
             "

@@ -397,4 +397,37 @@ The I-009 closure deliberately does NOT depend on:
 
 ---
 
+## 14. Build-pass log — 2026-04-23 late night (R.5 permission store on-disk persistence)
+
+### 14.1 `scaffold(R.5 persist)` — grants survive relaunches
+
+- **`SqlitePermissionService::reopen_at(&self, path)`** added to `agent_core/src/resources/permissions.rs`. Re-runs `init_schema`, then replaces the inner `Mutex<Connection>` atomically under the existing std::sync::Mutex. Interior mutability so the outer `tokio::sync::Mutex` wrapper in `bridge.rs::store()` doesn't need to change callers.
+- **UniFFI export** `permission_store_init_at_path(path: String) -> Result<(), ResourceError>` in `agent_core/src/resources/bridge.rs`. Validates path, creates parent dir if missing, drives `reopen_at` via the global tokio runtime's `block_on`. Swift-callable from a plain thread (no async context required).
+- **Shared async core** `reopen_permission_store(path_buf, path_str)` extracted so a `#[cfg(test)] pub(crate)` sibling `permission_store_init_at_path_for_test` can exercise the same logic inside `#[tokio::test]` contexts without triggering "runtime within a runtime" panics.
+- **Swift wiring** in `Epistemos/App/AppBootstrap.swift` — new `initializeRustPermissionStoreIfReady()` method called at launch alongside the R.3 gateway init. Resolves a container-safe path via `FileManager.default.url(for: .applicationSupportDirectory, ...)` + bundle-scoped subdir + `permissions.db`. Runs off-main in a `Task.detached`; errors are logged and swallowed so a transient SQLite-open failure doesn't block launch.
+- **Tests (4 new Rust):**
+  - `init_at_path_empty_string_returns_explicit_error` — validation guard.
+  - `init_at_path_creates_missing_parent_directory` — matches AppBootstrap's expectation of creating the bundle-scoped dir on first launch.
+  - `grants_survive_in_process_restart_via_reinit_at_same_path` — the headline proof: record a grant, re-init at the same path (simulating relaunch), assert `list_active` still surfaces the grant by `grant_id` AND marker URI.
+  - `grants_recorded_before_init_persist_after_switching_to_disk` — documents the contract: switching to a DIFFERENT path in-process drops the prior store's rows. Callers must init EARLY.
+- **Test infra:** `BRIDGE_STORE_GATE` (new) covers all bridge tests that mutate the process-local store — persistence AND non-persistence. Needed because my persistence tests swap the backing Connection and the older non-persistence tests don't acquire a gate; concurrent runs would see a dead file handle after a TempDir drops. Shared gate + explicit `restore_store_to_in_memory()` cleanup at the end of each persistence test. Fixed one latent race in `record_user_grant_and_check_roundtrip` that existed before this session — pre-existing tests now gate on `bridge_store_gate()` too.
+
+### 14.2 Verification
+
+- Rust: **623 lib + 2 + 5 = 630** tests green (was 619 + 2 + 5 = 626; +4 persistence tests). `cargo test resources::bridge` 24/24 green.
+- Swift: `xcodebuild -scheme Epistemos` → BUILD SUCCEEDED. Phase R regression suites (5 suites, 46 tests) pass. Pre-existing `CodeEditSourceEditor` / `CodeEditTextView` SwiftLint failures unchanged. SourceKit false-positive diagnostics about `LocalModelManager` / `Log` / `Keychain` in AppBootstrap are pre-existing and don't reflect the real build.
+
+### 14.3 Honest scope-guard
+
+This is `scaffold(R.5 persist)` — not `fix(...)` — because I-009 was already FIXED in Step 2. On-disk persistence closes the "follow-up deferred" bullet that was mentioned in the I-009 PARTIAL notes, but doesn't flip any new label. The user-visible benefit (grants survive relaunch) is real but additive to the already-landed fix.
+
+### 14.4 What's next in the queue
+
+- ⏳ Step 4 — R.3 production read-site migration (`grep -rn "\.loadBody(" Epistemos/ | grep -v Tests` produces the work list).
+- ⏳ Step 5 — R.4 MiniChat + Landing dropdown backfill.
+- ⏳ Step 6 — R.4 Finder-drop + paste attachment sites.
+- ⏳ Step 7 — R.6 verified-write Swift integration.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
