@@ -22,6 +22,8 @@ struct GraphFloatingControls: View {
         HStack(spacing: 10) {
             physicsToggle
 
+            renderModeButton
+
             forceSettingsButton
 
             minimizeButton
@@ -68,6 +70,29 @@ struct GraphFloatingControls: View {
         if changed {
             graphState.requestFilterSync()
         }
+    }
+
+    // MARK: - Render Mode
+
+    private var renderModeButton: some View {
+        let performance = graphState.performanceModeEnabled
+        return ExpandingModeButton(
+            title: "Water",
+            systemImage: performance ? "speedometer" : "water.waves",
+            isActive: performance,
+            activeTitle: "Fast",
+            variant: .toolbar,
+            helpText: performance
+                ? "Performance mode: simple shading"
+                : "Cinematic mode: water nodes",
+            stableWidth: NativeControlSystem.reservedWidth(
+                for: ["Water", "Fast"],
+                variant: .toolbar
+            )
+        ) {
+            graphState.performanceModeEnabled.toggle()
+        }
+        .accessibilityLabel(performance ? "Switch to cinematic graph mode" : "Switch to performance graph mode")
     }
 
     // MARK: - Physics Toggle

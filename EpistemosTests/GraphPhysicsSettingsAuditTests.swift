@@ -6,6 +6,8 @@ import Foundation
 @MainActor
 struct GraphPhysicsSettingsAuditTests {
     private let performanceModeKey = "epistemos.graph.performanceMode"
+    private let waterNodesEnabledKey = "epistemos.waterNodes.enabled"
+    private let waterNodesWobbleKey = "epistemos.waterNodes.wobble"
     private let visualThemeKey = "graphVisualTheme"
     private let visualThemeMigrationKey = "epistemos.graph.visualTheme.migratedClassicDefault"
     private let physicsKeys: [String] = [
@@ -53,6 +55,8 @@ struct GraphPhysicsSettingsAuditTests {
             defaults.removeObject(forKey: key)
         }
         defaults.removeObject(forKey: performanceModeKey)
+        defaults.removeObject(forKey: waterNodesEnabledKey)
+        defaults.removeObject(forKey: waterNodesWobbleKey)
         defaults.removeObject(forKey: visualThemeKey)
         defaults.removeObject(forKey: visualThemeMigrationKey)
     }
@@ -311,30 +315,51 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(state.semanticClusterVersion == 1)
     }
 
-    @Test("Performance mode defaults to on")
-    func performanceModeDefaultsOn() {
+    @Test("Graph defaults to cinematic water mode")
+    func graphDefaultsToCinematicWaterMode() {
         clearPhysicsDefaults()
 
         let state = GraphState()
+        let powerOverrideForcesPerformance = PowerGuard.shared.shouldDisableBackground
 
-        #expect(state.performanceModeEnabled)
-        #expect(state.qualityLevel == 2)
+        #expect(!state.performanceModeEnabled)
+        #expect(state.qualityLevel == (powerOverrideForcesPerformance ? 2 : 0))
+        #expect(state.waterNodesEnabled)
     }
 
-    @Test("Performance mode persists and restores")
-    func performanceModePersists() {
+    @Test("Performance mode persists, restores, and disables water nodes")
+    func performanceModePersistsAndDisablesWaterNodes() {
         clearPhysicsDefaults()
 
         let state = GraphState()
-        state.performanceModeEnabled = false
         state.performanceModeEnabled = true
 
         #expect(UserDefaults.standard.bool(forKey: performanceModeKey))
         #expect(state.qualityLevel == 2)
+        #expect(!state.waterNodesEnabled)
 
         let restored = GraphState()
         #expect(restored.performanceModeEnabled)
         #expect(restored.qualityLevel == 2)
+        #expect(!restored.waterNodesEnabled)
+
+        restored.performanceModeEnabled = false
+        #expect(restored.waterNodesEnabled)
+    }
+
+    @Test("Graph settings expose section tabs and remove middle water/startup controls")
+    func graphSettingsRemoveMiddleWaterAndStartupControls() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
+        let overlay = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+
+        #expect(settings.contains("GraphForceSettingsSection"))
+        #expect(settings.contains("case physics = \"Physics\""))
+        #expect(!settings.contains("Picker(\"Opens in\""))
+        #expect(!settings.contains("sectionHeader(\"Water Nodes\""))
+        #expect(overlay.contains("static func surfaceTintColor"))
+        #expect(overlay.contains("static func overlayTintColor(for theme: EpistemosTheme) -> NSColor"))
+        #expect(overlay.contains("static func miniTintColor(for theme: EpistemosTheme) -> NSColor"))
+        #expect(overlay.components(separatedBy: "surfaceTintColor(for: theme)").count >= 3)
     }
 
     @Test("Visual theme defaults to classic when unset")

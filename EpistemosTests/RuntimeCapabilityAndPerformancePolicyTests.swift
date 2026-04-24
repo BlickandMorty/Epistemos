@@ -54,13 +54,15 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
             boundsSize: CGSize(width: 1_512, height: 982),
             backingScale: 2.0,
             isMiniMode: false,
-            lowPowerMode: false
+            lowPowerMode: false,
+            qualityLevel: 0
         )
         let miniScale = GraphDrawableResolutionPolicy.effectiveScale(
             boundsSize: CGSize(width: 360, height: 360),
             backingScale: 2.0,
             isMiniMode: true,
-            lowPowerMode: false
+            lowPowerMode: false,
+            qualityLevel: 0
         )
 
         #expect(fullScale < 2.0)
@@ -74,7 +76,8 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
             boundsSize: CGSize(width: 600, height: 400),
             backingScale: 2.0,
             isMiniMode: false,
-            lowPowerMode: false
+            lowPowerMode: false,
+            qualityLevel: 0
         )
         let drawableSize = GraphDrawableResolutionPolicy.drawableSize(
             boundsSize: CGSize(width: 600, height: 400),
@@ -83,6 +86,33 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
 
         #expect(scale == 2.0)
         #expect(drawableSize == CGSize(width: 1_200, height: 800))
+    }
+
+    @Test("cinematic fullscreen budget matches mini-like pixel pressure")
+    func graphDrawableResolutionPolicyUsesMiniLikeCinematicBudget() {
+        let cinematicScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0
+        )
+        let performanceScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 2
+        )
+        let cinematicSize = GraphDrawableResolutionPolicy.drawableSize(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            scale: cinematicScale
+        )
+        let cinematicPixels = cinematicSize.width * cinematicSize.height
+
+        #expect(cinematicScale < performanceScale)
+        #expect(cinematicPixels <= 1_610_000)
+        #expect(cinematicPixels >= 1_500_000)
     }
 
     @Test("code editor policy hides semantic refresh work until the sidebar is visible")

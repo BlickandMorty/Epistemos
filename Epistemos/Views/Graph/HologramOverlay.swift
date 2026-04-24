@@ -52,20 +52,20 @@ enum GraphOverlayThemeStyle {
         .hudWindow
     }
 
-    static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
-        // Light glaze over the hudWindow blur. Kept minimal so the blur shows through
-        // as true glass instead of being hidden behind an opaque tint.
-        theme.isDark
-            ? NSColor.black.withAlphaComponent(0.32)
-            : NSColor.white.withAlphaComponent(0.72)
-    }
-
-    static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
-        // Mini panel is the "glass float" — tint is just a whisper of color so
-        // the NSVisualEffectView blur defines the look.
+    static func surfaceTintColor(for theme: EpistemosTheme) -> NSColor {
+        // Shared graph glass glaze for full-size and mini surfaces, so visual
+        // comparisons are comparing size/resolution instead of a different tint.
         theme.isDark
             ? NSColor.black.withAlphaComponent(0.22)
             : NSColor.white.withAlphaComponent(0.65)
+    }
+
+    static func overlayTintColor(for theme: EpistemosTheme) -> NSColor {
+        surfaceTintColor(for: theme)
+    }
+
+    static func miniTintColor(for theme: EpistemosTheme) -> NSColor {
+        surfaceTintColor(for: theme)
     }
 
     static func lightModeEnabled(for theme: EpistemosTheme) -> Bool {
@@ -521,6 +521,15 @@ final class HologramOverlay {
         miniBlur.identifier = NSUserInterfaceItemIdentifier("miniBlur") // Identifier for easy removal on restore
         contentView.addSubview(miniBlur, positioned: .below, relativeTo: metalView)
 
+        let miniTint = NSView(frame: contentView.bounds)
+        miniTint.wantsLayer = true
+        miniTint.identifier = GraphOverlayThemeStyle.miniTintIdentifier
+        miniTint.layer?.backgroundColor = GraphOverlayThemeStyle.miniTintColor(
+            for: GraphOverlayThemeStyle.resolvedTheme()
+        ).cgColor
+        miniTint.autoresizingMask = [.width, .height]
+        contentView.addSubview(miniTint, positioned: .below, relativeTo: metalView)
+
         // Round corners for mini mode.
         contentView.wantsLayer = true
         contentView.layer?.cornerRadius = 16
@@ -570,7 +579,11 @@ final class HologramOverlay {
 
         // 2. Remove mini-mode additions (blur with tag 999, expand button).
         window.contentView?.subviews
-            .filter { $0.identifier == NSUserInterfaceItemIdentifier("miniBlur") || ($0 is NSHostingView<AnyView> && $0.frame.width < 100) }
+            .filter {
+                $0.identifier == NSUserInterfaceItemIdentifier("miniBlur")
+                    || $0.identifier == GraphOverlayThemeStyle.miniTintIdentifier
+                    || ($0 is NSHostingView<AnyView> && $0.frame.width < 100)
+            }
             .forEach { $0.removeFromSuperview() }
 
         // 3. Un-hide full-screen subviews.

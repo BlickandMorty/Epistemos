@@ -144,14 +144,21 @@ nonisolated enum GraphInteractionRenderPolicy {
 }
 
 nonisolated enum GraphDrawableResolutionPolicy {
-    private static let fullOverlayPixelBudget: CGFloat = 3_000_000
-    private static let lowPowerPixelBudget: CGFloat = 2_000_000
+    private static let cinematicFullOverlayPixelBudget: CGFloat = 1_600_000
+    private static let performanceFullOverlayPixelBudget: CGFloat = 3_000_000
+    private static let lowPowerPixelBudget: CGFloat = 1_200_000
+
+    static func pixelBudget(qualityLevel: UInt8, lowPowerMode: Bool) -> CGFloat {
+        if lowPowerMode { return lowPowerPixelBudget }
+        return qualityLevel >= 2 ? performanceFullOverlayPixelBudget : cinematicFullOverlayPixelBudget
+    }
 
     static func effectiveScale(
         boundsSize: CGSize,
         backingScale: CGFloat,
         isMiniMode: Bool,
-        lowPowerMode: Bool
+        lowPowerMode: Bool,
+        qualityLevel: UInt8
     ) -> CGFloat {
         guard boundsSize.width.isFinite,
               boundsSize.height.isFinite,
@@ -168,7 +175,7 @@ nonisolated enum GraphDrawableResolutionPolicy {
         }
 
         let nativePixels = boundsSize.width * backingScale * boundsSize.height * backingScale
-        let budget = lowPowerMode ? lowPowerPixelBudget : fullOverlayPixelBudget
+        let budget = pixelBudget(qualityLevel: qualityLevel, lowPowerMode: lowPowerMode)
         guard nativePixels > budget else {
             return backingScale
         }
@@ -703,7 +710,7 @@ final class MetalGraphNSView: NSView {
         layer.pixelFormat = .bgra8Unorm_srgb  // MUST match Rust renderer pipeline (BGRA8Unorm_sRGB)
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
-        layer.maximumDrawableCount = 2     // Double buffer: lower latency, matches standard Metal pipeline.
+        layer.maximumDrawableCount = 3     // Fullscreen water shading needs a spare drawable to avoid visible hitching.
         layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         self.metalLayer = layer
         return layer
@@ -2087,7 +2094,8 @@ final class MetalGraphNSView: NSView {
             boundsSize: bounds.size,
             backingScale: backingScale,
             isMiniMode: isMiniMode,
-            lowPowerMode: PowerGuard.shared.shouldThrottleRendering
+            lowPowerMode: PowerGuard.shared.shouldThrottleRendering,
+            qualityLevel: graphState?.qualityLevel ?? 0
         )
         metalLayer?.contentsScale = effectiveScale
         metalLayer?.drawableSize = GraphDrawableResolutionPolicy.drawableSize(
