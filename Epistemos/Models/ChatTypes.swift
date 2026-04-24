@@ -105,6 +105,13 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
     /// model receives the full set of note bodies instead of just one
     /// token representing the folder.
     case folder
+    /// Phase R.4 file attachment — Finder drop, file picker, or pasted
+    /// content. Carries a `resourceURI` that maps to Rust
+    /// `ResourceId::File` (for live file references) or
+    /// `ResourceId::Attachment` (for pasted snapshots). Separate from
+    /// the legacy `FileAttachment` on the message struct so that tool
+    /// execution can consult the attached-resource manifest.
+    case file
 
     var systemImageName: String {
         switch self {
@@ -112,6 +119,7 @@ enum ContextAttachmentKind: String, Codable, Sendable, Hashable {
         case .chat: "bubble.left.and.bubble.right"
         case .allNotes: "books.vertical"
         case .folder: "folder"
+        case .file: "doc"
         }
     }
 }

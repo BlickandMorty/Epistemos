@@ -920,6 +920,22 @@ struct ChatInputBar: View {
             for attachment in attachments {
                 chat.addAttachment(attachment)
             }
+
+            // Phase R.4 — also mint a companion `ContextAttachment`
+            // per file so downstream surfaces (R.5 grant parser,
+            // future tool-dispatch gate) see a canonical
+            // `file://{absolutePath}` resource with Live + Read/Write
+            // capabilities. Legacy `FileAttachment` still carries the
+            // preview / mimetype / size payload the model uses today;
+            // the ContextAttachment carries the R.4 manifest that the
+            // Rust-side `attached_resource_allows` check will consume.
+            for url in urls {
+                guard let contextAttachment = ComposerReferenceHelpers.fileContextAttachment(
+                    for: url,
+                    displayName: url.lastPathComponent
+                ) else { continue }
+                chat.addContextAttachment(contextAttachment)
+            }
         }
     }
 
@@ -958,6 +974,14 @@ struct ChatInputBar: View {
             return "Read + Search attached vault context"
         case .folder:
             return "Read + Edit attached folder notes"
+        case .file:
+            // Phase R.4: file-kind attachments carry their Live /
+            // Snapshot mode in the manifest. Summarise appropriately.
+            if attachment.resourceMode == .snapshot {
+                return "Read attached pasted snapshot"
+            } else {
+                return "Read + Edit attached file"
+            }
         }
     }
 

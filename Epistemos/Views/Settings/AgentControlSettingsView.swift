@@ -789,6 +789,12 @@ struct AgentControlDetailView: View {
             return "Read + Search attached vault context"
         case .folder:
             return "Read + Edit attached folder notes"
+        case .file:
+            if attachment.resourceMode == .snapshot {
+                return "Read attached pasted snapshot"
+            } else {
+                return "Read + Edit attached file"
+            }
         }
     }
 

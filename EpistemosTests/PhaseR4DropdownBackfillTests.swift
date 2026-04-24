@@ -277,4 +277,90 @@ struct PhaseR4DropdownBackfillTests {
         #expect(chatInputBarAttachment.resourceCapabilities == nil)
         #expect(!chatInputBarAttachment.hasResourceManifest)
     }
+
+    // MARK: - Phase R.4 file-entry attachment (Finder drop / file picker / paste)
+
+    @Test("fileResourceURI returns a Rust-parseable URI for a file URL")
+    func fileResourceURIReturnsCanonicalURI() async throws {
+        let url = URL(fileURLWithPath: "/tmp/authz/Example.swift")
+        let uri = ComposerReferenceHelpers.fileResourceURI(for: url)
+        #expect(uri == "file:///tmp/authz/Example.swift")
+    }
+
+    @Test("fileResourceURI returns nil for non-file URLs")
+    func fileResourceURIRejectsNonFile() async throws {
+        let http = URL(string: "https://example.com/notes.md")!
+        #expect(ComposerReferenceHelpers.fileResourceURI(for: http) == nil)
+    }
+
+    @Test("fileContextAttachment mints Live + Read/Write manifest for file URL")
+    func fileContextAttachmentHappyPath() async throws {
+        let url = URL(fileURLWithPath: "/tmp/authz/Example.swift")
+        let attachment = ComposerReferenceHelpers.fileContextAttachment(for: url)
+        let attachment2 = try #require(attachment)
+        #expect(attachment2.kind == .file)
+        #expect(attachment2.title == "Example.swift")
+        #expect(attachment2.resourceURI == "file:///tmp/authz/Example.swift")
+        #expect(attachment2.resourceMode == .live)
+        #expect(attachment2.resourceCapabilities == ["Read", "Write"])
+        #expect(attachment2.hasResourceManifest)
+    }
+
+    @Test("fileContextAttachment prefers provided displayName over lastPathComponent")
+    func fileContextAttachmentHonorsDisplayName() async throws {
+        let url = URL(fileURLWithPath: "/tmp/authz/Script.swift")
+        let attachment = ComposerReferenceHelpers.fileContextAttachment(
+            for: url,
+            displayName: "Friendly Label"
+        )
+        #expect(attachment?.title == "Friendly Label")
+    }
+
+    @Test("fileContextAttachment returns nil for non-file URLs")
+    func fileContextAttachmentRejectsNonFile() async throws {
+        let http = URL(string: "https://example.com/x.swift")!
+        #expect(ComposerReferenceHelpers.fileContextAttachment(for: http) == nil)
+    }
+
+    @Test("pasteContextAttachment mints Snapshot + Read-only manifest")
+    func pasteContextAttachmentIsSnapshotReadOnly() async throws {
+        let attachment = ComposerReferenceHelpers.pasteContextAttachment(
+            displayName: "Pasted JSON",
+            snapshotContent: #"{"a":1}"#,
+            sourceIdentifier: "abc123"
+        )
+        #expect(attachment.kind == .file)
+        #expect(attachment.title == "Pasted JSON")
+        #expect(attachment.subtitle == #"{"a":1}"#)
+        #expect(attachment.resourceURI == "attachment://paste/id/abc123")
+        #expect(attachment.resourceMode == .snapshot)
+        #expect(attachment.resourceCapabilities == ["Read"])
+        #expect(attachment.hasResourceManifest)
+    }
+
+    @Test("file and paste attachments both flow through the R.5 grant filter")
+    func fileAndPasteFlowThroughR5Filter() async throws {
+        // Prove that whichever file-entry path the user takes, the
+        // R.5 grant parser sees a non-empty URI. Before the R.4
+        // file-entry helpers existed, the file picker flow produced
+        // zero URIs — a user saying "you have my permission to edit
+        // this file" with a dragged-in .swift file would have minted
+        // zero grants.
+        let fileURL = URL(fileURLWithPath: "/tmp/authz/File.swift")
+        let fileAttachment = try #require(
+            ComposerReferenceHelpers.fileContextAttachment(for: fileURL)
+        )
+        let pasteAttachment = ComposerReferenceHelpers.pasteContextAttachment(
+            displayName: "Pasted",
+            snapshotContent: "body",
+            sourceIdentifier: "paste-1"
+        )
+        let extracted = ChatCoordinator.r5ResourceURIsForGrant(
+            from: [fileAttachment, pasteAttachment]
+        )
+        #expect(extracted == [
+            "file:///tmp/authz/File.swift",
+            "attachment://paste/id/paste-1",
+        ])
+    }
 }
