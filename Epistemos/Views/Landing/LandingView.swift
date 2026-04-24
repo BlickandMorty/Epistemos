@@ -66,6 +66,7 @@ struct LandingView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(DailyBriefState.self) private var dailyBrief
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
 
@@ -87,9 +88,14 @@ struct LandingView: View {
     @State private var landingReferencePopoverStyle: ComposerReferencePopoverStyle = .mention
     @State private var landingReferenceSearch = ComposerReferenceSearchState()
     @State private var landingContextAttachments: [ContextAttachment] = []
-    /// Last tap location on the landing background. The appKitPopover anchors
-    /// its arrow at this point so the popover opens right where the cursor is.
+    /// Last tap location on the landing background. The liquid-wave overlay
+    /// anchors the compact flat bar at this point so the bar emerges where
+    /// the cursor clicked.
     @State private var landingTapLocation: CGPoint? = nil
+    /// Monotonic counter bumped on every tap so the Metal renderer can
+    /// enqueue a fresh drop-impulse choreography even when the tap location
+    /// is unchanged (repeat clicks on the same spot).
+    @State private var landingWaveDropTrigger: Int = 0
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
@@ -179,30 +185,43 @@ struct LandingView: View {
                 .onTapGesture(coordinateSpace: .local) { location in
                     guard !showingOverlay && !showingSearchPopover else { return }
                     landingTapLocation = location
+                    landingWaveDropTrigger &+= 1
+                    LandingWaveHaptics.fireBeat(
+                        reduceMotion: reduceMotion,
+                        windowOccluded: ui.windowOccluded
+                    )
                     activateLandingSearch()
                 }
                 .allowsHitTesting(!showingOverlay && !showingSearchPopover)
-                .appKitPopover(
-                    isPresented: $showingSearchPopover,
-                    location: landingTapLocation
-                ) {
-                    Group {
-                        if let bootstrap = AppBootstrap.shared {
-                            landingSearchPopoverContent
-                                .frame(idealWidth: 560, maxWidth: 620)
-                                .padding(18)
-                                .withAppEnvironment(bootstrap)
-                                .modelContainer(bootstrap.modelContainer)
-                        } else {
-                            landingSearchPopoverContent
-                                .frame(idealWidth: 560, maxWidth: 620)
-                                .padding(18)
-                        }
-                    }
-                    .onExitCommand { dismissLandingSearch() }
-                    .onDisappear { onLandingPopoverDisappear() }
-                }
                 .zIndex(0)
+
+            // ── Liquid Wave Overlay ──
+            // Replaces the legacy NSPopover path. Renders a Metal ASCII
+            // liquid wave behind a compact flat search bar that emerges at
+            // the click location. Scope is strictly HomeView landing; the
+            // overlay does not touch any other composer or input surface.
+            if showingSearchPopover {
+                LandingWaveOverlay(
+                    isActive: $showingSearchPopover,
+                    clickLocation: landingTapLocation,
+                    cursorDirection: .zero,
+                    dropTrigger: landingWaveDropTrigger,
+                    onDismiss: { dismissLandingSearch() }
+                ) {
+                    if let bootstrap = AppBootstrap.shared {
+                        landingSearchPopoverContent
+                            .frame(idealWidth: 520, maxWidth: 520)
+                            .withAppEnvironment(bootstrap)
+                            .modelContainer(bootstrap.modelContainer)
+                    } else {
+                        landingSearchPopoverContent
+                            .frame(idealWidth: 520, maxWidth: 520)
+                    }
+                }
+                .onExitCommand { dismissLandingSearch() }
+                .transition(.opacity)
+                .zIndex(4)
+            }
 
             // ── Greeting Mode ──
             // Blurs and fades when Daily Brief or Welcome Back is active.
