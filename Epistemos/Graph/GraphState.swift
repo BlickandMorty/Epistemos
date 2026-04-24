@@ -945,6 +945,10 @@ final class GraphState {
         pendingRebuild = true
     }
 
+    private func notifyGraphRenderSettingsChanged() {
+        NotificationCenter.default.post(name: .graphRenderSettingsChanged, object: self)
+    }
+
     // MARK: - Quality Level
 
     private static let performanceModeDefaultsKey = "epistemos.graph.performanceMode"
@@ -962,6 +966,7 @@ final class GraphState {
             UserDefaults.standard.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
             liteModeVersion += 1
             waterNodesVersion += 1
+            notifyGraphRenderSettingsChanged()
         }
     }
 
@@ -987,6 +992,7 @@ final class GraphState {
         didSet {
             UserDefaults.standard.set(Int(visualTheme.rawValue), forKey: Self.visualThemeDefaultsKey)
             visualThemeVersion += 1
+            notifyGraphRenderSettingsChanged()
         }
     }
     var visualThemeVersion: Int = 0
@@ -1040,6 +1046,7 @@ final class GraphState {
         didSet {
             UserDefaults.standard.set(waterNodesWobble, forKey: "epistemos.waterNodes.wobble")
             waterNodesVersion += 1
+            notifyGraphRenderSettingsChanged()
         }
     }
     var waterNodesVersion: Int = 0
@@ -1049,6 +1056,7 @@ final class GraphState {
     var graphTitleMode: GraphTitleMode = .firstOpen {
         didSet {
             UserDefaults.standard.set(graphTitleMode.rawValue, forKey: "epistemos.graph.titleMode")
+            notifyGraphRenderSettingsChanged()
         }
     }
 
@@ -1070,6 +1078,7 @@ final class GraphState {
         d.set(Int(labelMaxInnerNodes), forKey: "epistemos.label.maxInnerNodes")
         d.set(labelFontFamily.rawValue, forKey: "epistemos.label.fontFamily")
         d.set(Self.labelPolicyVersion, forKey: "epistemos.label.version")
+        notifyGraphRenderSettingsChanged()
     }
 
     func restoreLabelPolicy() {
@@ -1153,12 +1162,14 @@ final class GraphState {
         selectedPhysicsPreset = nil
         forceConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     func pushExtendedForceChange() {
         selectedPhysicsPreset = nil
         extendedForceConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     // ── Laboratory (advanced physics toggles + knobs) ──
@@ -1180,6 +1191,7 @@ final class GraphState {
         selectedPhysicsPreset = nil
         labConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     // MARK: - Physics Persistence
@@ -1371,6 +1383,7 @@ final class GraphState {
         }
         clusterConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
     func pushSemanticChange() {
         selectedPhysicsPreset = nil
@@ -1381,6 +1394,7 @@ final class GraphState {
         }
         semanticForceConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     private func resetPresetSensitiveSettings() {
@@ -1443,6 +1457,7 @@ final class GraphState {
         labConfigVersion += 1
         if persist {
             savePhysicsSettings()
+            notifyGraphRenderSettingsChanged()
         }
     }
 
@@ -1567,6 +1582,7 @@ final class GraphState {
             clusterConfigVersion += 1
             semanticForceConfigVersion += 1
             savePhysicsSettings()
+            notifyGraphRenderSettingsChanged()
         }
     }
 
@@ -1613,6 +1629,7 @@ final class GraphState {
     func pushSchedulerChange() {
         schedulerConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     // MARK: - Custom Physics Presets
@@ -1725,6 +1742,7 @@ final class GraphState {
         labConfigVersion += 1
         schedulerConfigVersion += 1
         savePhysicsSettings()
+        notifyGraphRenderSettingsChanged()
     }
 
     func deleteCustomPreset(id: UUID) {
