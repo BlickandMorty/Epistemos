@@ -545,8 +545,12 @@ struct ReleasePackagingHardeningTests {
 
         #expect(infoPlist.contains("$(PRODUCT_BUNDLE_IDENTIFIER)"))
         #expect(infoPlist.contains("$(PRODUCT_NAME)"))
+        #expect(infoPlist.contains("$(EXECUTABLE_NAME)"))
+        #expect(infoPlist.contains("<string>APPL</string>"))
         #expect(appStoreInfoPlist.contains("$(PRODUCT_BUNDLE_IDENTIFIER)"))
         #expect(appStoreInfoPlist.contains("$(PRODUCT_NAME)"))
+        #expect(appStoreInfoPlist.contains("$(EXECUTABLE_NAME)"))
+        #expect(appStoreInfoPlist.contains("<string>APPL</string>"))
         #expect(!appStoreInfoPlist.contains("NSAccessibilityUsageDescription"))
         #expect(!appStoreInfoPlist.contains("NSAppleEventsUsageDescription"))
         #expect(!appStoreInfoPlist.contains("NSScreenCaptureUsageDescription"))
@@ -658,11 +662,25 @@ struct ReleasePackagingHardeningTests {
     func appStoreBootstrapSkipsProOnlyRuntimeStartup() throws {
         let bootstrap = try loadProductionHardeningRepoTextFile("Epistemos/App/AppBootstrap.swift")
         let environment = try loadProductionHardeningRepoTextFile("Epistemos/App/AppEnvironment.swift")
+        let nightBrain = try loadProductionHardeningRepoTextFile("Epistemos/State/NightBrainService.swift")
+        let app = try loadProductionHardeningRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Configure Knowledge Fusion at boot"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Initialize iMessage driver"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
         #expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
+        #expect(nightBrain.contains("#if EPISTEMOS_APP_STORE\n        Self.log.info(\"NightBrain: scheduler skipped in App Store build\")"))
+        #expect(nightBrain.contains("let bgScheduler = NSBackgroundActivityScheduler(identifier: \"com.epistemos.nightbrain\")"))
+        #expect(app.contains("#if EPISTEMOS_APP_STORE"))
+        #expect(app.contains("private final class AppStoreFirstWindowPresenter"))
+        #expect(app.contains("private weak var bootstrap: AppBootstrap?"))
+        #expect(app.contains("_bootstrap = State(initialValue: bootstrap)"))
+        #expect(app.contains("private static func viableHomeWindow() -> NSWindow?"))
+        #expect(app.contains("window.frame.width >= WindowPresentationPolicy.mainWindowMinimumSize.width"))
+        #expect(app.contains("NSApp.setActivationPolicy(.regular)"))
+        #expect(app.contains("AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)"))
+        #expect(app.contains("window.isReleasedWhenClosed = false"))
+        #expect(app.contains("HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)"))
     }
 
     @Test("App Store build compiles agent core with mas-sandbox feature")

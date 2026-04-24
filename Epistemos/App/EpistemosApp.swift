@@ -69,6 +69,199 @@ private struct AuditMinimalHomeSceneView: View {
     }
 }
 
+private struct HomeSceneRootContent: View {
+    private static let isRunningTests =
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+
+    let bootstrap: AppBootstrap
+    @Binding var showQuickCapture: Bool
+    @AppStorage("epistemos.setupComplete") private var setupComplete = false
+
+    var body: some View {
+        LaunchIntegrityGateView(bootstrap: bootstrap) {
+            RootView(
+                databaseError: bootstrap.databaseError,
+                onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
+            )
+                .withAppEnvironment(bootstrap)
+                .sheet(isPresented: Binding(
+                    get: { !setupComplete },
+                    set: { if !$0 { setupComplete = true } }
+                )) {
+                    SetupAssistantView {
+                        setupComplete = true
+                    }
+                    .withAppEnvironment(bootstrap)
+                }
+                .sheet(isPresented: Binding(
+                    get: { bootstrap.vaultChatMutator.stagedDiff != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            bootstrap.vaultChatMutator.rejectPendingDiff()
+                        }
+                    }
+                )) {
+                    if let diff = bootstrap.vaultChatMutator.stagedDiff {
+                        DiffApprovalSheet(
+                            diffResult: diff,
+                            onApprove: {
+                                Task { @MainActor in
+                                    do {
+                                        _ = try await bootstrap.vaultChatMutator.approvePendingDiff()
+                                        bootstrap.uiState.showToast(
+                                            "Vault change committed.",
+                                            type: .success
+                                        )
+                                    } catch {
+                                        bootstrap.uiState.showToast(
+                                            error.localizedDescription,
+                                            type: .error
+                                        )
+                                    }
+                                }
+                            },
+                            onReject: {
+                                bootstrap.vaultChatMutator.rejectPendingDiff()
+                            }
+                        )
+                    }
+                }
+                .sheet(isPresented: $showQuickCapture) {
+                    QuickCaptureView()
+                        .withAppEnvironment(bootstrap)
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(for: .showQuickCapture)
+                ) { _ in
+                    showQuickCapture = true
+                }
+                .onAppear {
+                    guard !Self.isRunningTests else { return }
+                    StatusBar.shared.setup()
+                    HologramController.shared.setup(
+                        graphState: bootstrap.graphState,
+                        queryEngine: bootstrap.queryEngine,
+                        modelContainer: bootstrap.modelContainer,
+                        physicsCoordinator: bootstrap.physicsCoordinator,
+                        dialogueChatState: bootstrap.dialogueChatState
+                    )
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(500))
+                        await bootstrap.performPrimaryLaunchInitialization()
+                    }
+                }
+                .onContinueUserActivity(CSSearchableItemActionType) { activity in
+                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                    else { return }
+                    NoteWindowManager.shared.open(pageId: pageId)
+                }
+                .onContinueUserActivity("com.epistemos.openNote") { activity in
+                    guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
+                    else { return }
+                    NoteWindowManager.shared.open(pageId: pageId)
+                }
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: NSApplication.willTerminateNotification)
+                ) { _ in
+                    // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
+                }
+        }
+    }
+}
+
+#if EPISTEMOS_APP_STORE
+private struct AppStoreFallbackHomeWindowContent: View {
+    let bootstrap: AppBootstrap
+    @State private var showQuickCapture = false
+
+    var body: some View {
+        HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)
+    }
+}
+
+@MainActor
+private final class AppStoreFirstWindowPresenter {
+    static let shared = AppStoreFirstWindowPresenter()
+
+    private static let log = Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
+    private var fallbackWindow: NSWindow?
+    private weak var bootstrap: AppBootstrap?
+    private var didSchedule = false
+
+    private init() {}
+
+    private static func viableHomeWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            HomeWindowIdentity.matches(window)
+                && window.frame.width >= WindowPresentationPolicy.mainWindowMinimumSize.width
+                && window.frame.height >= WindowPresentationPolicy.mainWindowMinimumSize.height
+        }
+    }
+
+    func schedule(bootstrap: AppBootstrap? = AppBootstrap.shared) {
+        if let bootstrap {
+            self.bootstrap = bootstrap
+        }
+        guard !didSchedule else { return }
+        didSchedule = true
+        Self.log.info("App Store first-window fallback scheduled")
+
+        Task { @MainActor in
+            do {
+                try await Task.sleep(for: .milliseconds(700))
+            } catch {
+                return
+            }
+            surfaceOrCreateHomeWindow()
+        }
+    }
+
+    private func surfaceOrCreateHomeWindow() {
+        if let existingWindow = Self.viableHomeWindow() {
+            Self.log.info("App Store first-window fallback surfaced existing window")
+            surface(existingWindow)
+            return
+        }
+
+        guard let bootstrap = bootstrap ?? AppBootstrap.shared else {
+            Self.log.info("App Store first-window fallback waiting for AppBootstrap")
+            didSchedule = false
+            schedule()
+            return
+        }
+
+        let controller = NSHostingController(
+            rootView: AppStoreFallbackHomeWindowContent(bootstrap: bootstrap)
+        )
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1100, height: 720),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = HomeWindowIdentity.title
+        window.isReleasedWhenClosed = false
+        window.contentViewController = controller
+        window.center()
+        HomeWindowIdentity.apply(to: window)
+        WindowPresentationPolicy.applyModularZoomBehavior(to: window)
+        fallbackWindow = window
+
+        Self.log.info("App Store first-window fallback created NSWindow")
+        surface(window)
+    }
+
+    private func surface(_ window: NSWindow) {
+        Self.log.info("App Store first-window fallback ordering window front")
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        window.orderFrontRegardless()
+        window.makeKeyAndOrderFront(nil)
+    }
+}
+#endif
+
 enum SavedApplicationStatePurger {
     private static let log = Logger(subsystem: "com.epistemos", category: "SavedApplicationState")
 
@@ -485,11 +678,13 @@ struct EpistemosApp: App {
     private static let isRunningTests =
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     @NSApplicationDelegateAdaptor(EpistemosAppDelegate.self) private var appDelegate
-    @State private var bootstrap = AppBootstrap()
-    @AppStorage("epistemos.setupComplete") private var setupComplete = false
+    @State private var bootstrap: AppBootstrap
     @State private var showQuickCapture = false
 
     init() {
+        let bootstrap = AppBootstrap()
+        _bootstrap = State(initialValue: bootstrap)
+
         if SavedApplicationStatePurger.shouldPurgeAtLaunch() {
             SavedApplicationStatePurger.purgeIfNeeded()
         }
@@ -503,6 +698,9 @@ struct EpistemosApp: App {
             ])
             RuntimeIssueMonitor.shared.start()
             HomeWindowInputDiagnostics.shared.startIfNeeded()
+            #if EPISTEMOS_APP_STORE
+                AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)
+            #endif
         }
     }
 
@@ -529,92 +727,7 @@ struct EpistemosApp: App {
         if RuntimeAuditFlags.minimalHomeSceneEnabled {
             AuditMinimalHomeSceneView()
         } else {
-            LaunchIntegrityGateView(bootstrap: bootstrap) {
-                RootView(
-                    databaseError: bootstrap.databaseError,
-                    onResetDatabase: { bootstrap.resetDatabaseAndRelaunch() }
-                )
-                    .withAppEnvironment(bootstrap)
-                    .sheet(isPresented: Binding(
-                        get: { !setupComplete },
-                        set: { if !$0 { setupComplete = true } }
-                    )) {
-                        SetupAssistantView {
-                            setupComplete = true
-                        }
-                        .withAppEnvironment(bootstrap)
-                    }
-                    .sheet(isPresented: Binding(
-                        get: { bootstrap.vaultChatMutator.stagedDiff != nil },
-                        set: { isPresented in
-                            if !isPresented {
-                                bootstrap.vaultChatMutator.rejectPendingDiff()
-                            }
-                        }
-                    )) {
-                        if let diff = bootstrap.vaultChatMutator.stagedDiff {
-                            DiffApprovalSheet(
-                                diffResult: diff,
-                                onApprove: {
-                                    Task { @MainActor in
-                                        do {
-                                            _ = try await bootstrap.vaultChatMutator.approvePendingDiff()
-                                            bootstrap.uiState.showToast(
-                                                "Vault change committed.",
-                                                type: .success
-                                            )
-                                        } catch {
-                                            bootstrap.uiState.showToast(
-                                                error.localizedDescription,
-                                                type: .error
-                                            )
-                                        }
-                                    }
-                                },
-                                onReject: {
-                                    bootstrap.vaultChatMutator.rejectPendingDiff()
-                                }
-                            )
-                        }
-                    }
-                    .sheet(isPresented: $showQuickCapture) {
-                        QuickCaptureView()
-                            .withAppEnvironment(bootstrap)
-                    }
-                    .onReceive(
-                        NotificationCenter.default.publisher(for: .showQuickCapture)
-                    ) { _ in
-                        showQuickCapture = true
-                    }
-                    .onAppear {
-                        guard !Self.isRunningTests else { return }
-                        StatusBar.shared.setup()
-                        HologramController.shared.setup(graphState: bootstrap.graphState, queryEngine: bootstrap.queryEngine, modelContainer: bootstrap.modelContainer, physicsCoordinator: bootstrap.physicsCoordinator, dialogueChatState: bootstrap.dialogueChatState)
-                        // Restore last session after UI settles, then start tracking
-                        Task { @MainActor in
-                            try? await Task.sleep(for: .milliseconds(500))
-                            await bootstrap.performPrimaryLaunchInitialization()
-                        }
-                    }
-                    // Handle Spotlight deep-links — user tapped a note in Spotlight results
-                    .onContinueUserActivity(CSSearchableItemActionType) { activity in
-                        guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
-                        else { return }
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    }
-                    // Handle Siri Suggestions / NSUserActivity continuations
-                    .onContinueUserActivity("com.epistemos.openNote") { activity in
-                        guard let pageId = activity.userInfo?[CSSearchableItemActivityIdentifier] as? String
-                        else { return }
-                        NoteWindowManager.shared.open(pageId: pageId)
-                    }
-                    .onReceive(
-                        NotificationCenter.default.publisher(
-                            for: NSApplication.willTerminateNotification)
-                    ) { _ in
-                        // Teardown handled by EpistemosAppDelegate.applicationShouldTerminate / applicationWillTerminate
-                    }
-            }
+            HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)
         }
     }
 }
@@ -644,6 +757,12 @@ final class EpistemosAppDelegate: NSObject, NSApplicationDelegate, UNUserNotific
         if Self.canConfigureUserNotificationCenter {
             UNUserNotificationCenter.current().delegate = self
         }
+        guard !Self.isRunningTests else { return }
+        #if EPISTEMOS_APP_STORE
+            Logger(subsystem: "com.epistemos", category: "AppStoreFirstWindow")
+                .info("App Store applicationDidFinishLaunching reached")
+            AppStoreFirstWindowPresenter.shared.schedule()
+        #endif
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
