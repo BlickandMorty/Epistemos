@@ -1229,6 +1229,30 @@ impl Simulation {
         }
     }
 
+    /// Release a previously-fixed node while *inheriting* the supplied
+    /// velocity — the whole point of the v3 motion overlay's task 2.
+    ///
+    /// Classical `unfix_node` zeroes velocity, which reads as a dead
+    /// snap at the end of every drag. Callers that carry drag-velocity
+    /// state (the engine's `mouse_up` path, principally) use this
+    /// variant to seed the node with the smoothed pointer velocity so
+    /// the graph continues to relax around a node that is still
+    /// moving. The caller is responsible for the clamp decision — we
+    /// accept whatever magnitudes are passed; `Simulation::tick` and
+    /// its collision pass still bound the final velocity.
+    ///
+    /// Non-finite values are swallowed (zeroed) so the caller's fuzzing
+    /// or timing jitter can never seed NaN into the hot loop.
+    pub fn release_node_with_velocity(&mut self, sim_index: usize, vx: f32, vy: f32) {
+        if sim_index >= self.x.len() {
+            return;
+        }
+        self.fx[sim_index] = None;
+        self.fy[sim_index] = None;
+        self.vx[sim_index] = if vx.is_finite() { vx } else { 0.0 };
+        self.vy[sim_index] = if vy.is_finite() { vy } else { 0.0 };
+    }
+
     // ── SIMD velocity integration (aarch64 NEON) ─────────────────────────
 
     /// Scalar velocity integration — shared by non-aarch64 fallback and SIMD remainder.
@@ -3011,6 +3035,76 @@ mod tests {
         sim.unfix_node(0);
         assert_eq!(sim.vx[0], 0.0);
         assert_eq!(sim.vy[0], 0.0);
+    }
+
+    #[test]
+    fn release_node_with_velocity_seeds_vx_vy() {
+        // The whole point of the v3 motion overlay task 2: release
+        // *inherits* the drag velocity instead of dead-snapping.
+        let graph = make_test_graph(3, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.fix_node(0, 100.0, 100.0);
+        sim.release_node_with_velocity(0, 42.0, -7.5);
+        assert_eq!(sim.fx[0], None);
+        assert_eq!(sim.fy[0], None);
+        assert!((sim.vx[0] - 42.0).abs() < 1e-5);
+        assert!((sim.vy[0] - (-7.5)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn release_node_with_velocity_swallows_nonfinite() {
+        // Timing-jitter protection: NaN / Inf from the caller's EMA
+        // must never seed the hot loop. Both axes independently default
+        // to zero if non-finite.
+        let graph = make_test_graph(3, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.fix_node(0, 0.0, 0.0);
+        sim.release_node_with_velocity(0, f32::NAN, 12.0);
+        assert_eq!(sim.vx[0], 0.0);
+        assert!((sim.vy[0] - 12.0).abs() < 1e-5);
+
+        sim.fix_node(0, 0.0, 0.0);
+        sim.release_node_with_velocity(0, 3.5, f32::INFINITY);
+        assert!((sim.vx[0] - 3.5).abs() < 1e-5);
+        assert_eq!(sim.vy[0], 0.0);
+    }
+
+    #[test]
+    fn release_node_with_velocity_out_of_bounds_no_panic() {
+        let graph = make_test_graph(3, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        // Should not panic even when the sim_index is past the node count.
+        sim.release_node_with_velocity(usize::MAX, 1.0, 2.0);
+        sim.release_node_with_velocity(999, 1.0, 2.0);
+    }
+
+    #[test]
+    fn release_propagates_into_next_tick_motion() {
+        // Integration test: seeded release velocity actually moves the
+        // node on the next tick. Confirms the post-release node is
+        // treated as free (fx/fy cleared) and that tick's integrator
+        // honours the inherited velocity rather than zeroing it before
+        // integration.
+        let graph = make_test_graph(3, true);
+        let mut sim = Simulation::new();
+        sim.load_from_graph(&graph);
+        sim.fix_node(0, 0.0, 0.0);
+        sim.tick();
+        let x_at_release = sim.x[0];
+        sim.release_node_with_velocity(0, 600.0, 0.0);
+        // Re-heat alpha so tick() doesn't short-circuit via is_settled.
+        sim.params.alpha = 0.1;
+        sim.is_settled = false;
+        sim.tick();
+        assert!(
+            sim.x[0] > x_at_release + 0.1,
+            "node did not inherit release velocity: x before={}, after={}",
+            x_at_release,
+            sim.x[0]
+        );
     }
 
     #[test]

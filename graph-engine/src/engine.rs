@@ -111,6 +111,13 @@ fn should_update_field_lines(
 }
 
 /// Drag state for d3-style fx/fy constraint.
+///
+/// Beyond the original fx/fy pin mechanism, this tracks an EMA-smoothed
+/// release velocity (world-units per second) so the simulation can
+/// inherit the drag's momentum on unfix instead of dead-snapping to zero.
+/// The EMA coefficient and min dt match the values in docs/GRAPH_WAVES_PLAN.md
+/// §6 (spec §3.4 — v3 unified executive) so landing on the same motion
+/// envelope is deterministic across platforms.
 struct DragState {
     node_id: u32,
     sim_index: usize,
@@ -120,6 +127,11 @@ struct DragState {
     moved: bool,
     /// Previous world position for fluid grid velocity injection.
     last_world: [f32; 2],
+    /// Timestamp of the last pointer sample; drives the dt in the EMA.
+    last_sample_at: Instant,
+    /// Exponentially-smoothed pointer velocity in world-units per second.
+    /// Seeded to zero at drag start; updated per `mouse_moved` event.
+    smoothed_vel: [f32; 2],
 }
 
 pub struct Engine {
@@ -1049,6 +1061,8 @@ impl Engine {
                         origin: [screen_x, screen_y],
                         moved: false,
                         last_world: [node_x, node_y],
+                        last_sample_at: Instant::now(),
+                        smoothed_vel: [0.0, 0.0],
                     });
                 }
             }
@@ -1096,7 +1110,29 @@ impl Engine {
                 if is_real_drag {
                     drag.moved = true;
                 }
-                drag.last_world = [wx, wy];
+                // EMA-smooth the instantaneous pointer velocity (world-units
+                // per second). The clamp on `dt` caps raw spikes when the
+                // OS delivers two events within a microsecond; α = 0.72
+                // matches the SwiftUI drag-gesture fling coefficient and
+                // the v3 spec starting point. Samples are accepted even on
+                // micro-motion — it's the threshold at release time that
+                // decides whether the inheritance fires.
+                let now = Instant::now();
+                if let Some(drag) = self.drag.as_mut() {
+                    let dt = now
+                        .duration_since(drag.last_sample_at)
+                        .as_secs_f32()
+                        .max(1.0 / 240.0);
+                    let raw_vx = dvx / dt;
+                    let raw_vy = dvy / dt;
+                    const EMA_ALPHA: f32 = 0.72;
+                    drag.smoothed_vel[0] = EMA_ALPHA * drag.smoothed_vel[0]
+                        + (1.0 - EMA_ALPHA) * raw_vx;
+                    drag.smoothed_vel[1] = EMA_ALPHA * drag.smoothed_vel[1]
+                        + (1.0 - EMA_ALPHA) * raw_vy;
+                    drag.last_sample_at = now;
+                    drag.last_world = [wx, wy];
+                }
             }
 
             let mut sim = self.sim.lock();
@@ -1122,9 +1158,31 @@ impl Engine {
     pub fn mouse_up(&mut self, screen_x: f32, screen_y: f32) {
         self.idle_frame_count = 0;
         if let Some(drag) = self.drag.take() {
-            // D3 behavior: unfix node on release, reset alphaTarget so sim cools down.
             let mut sim = self.sim.lock();
-            sim.unfix_node(drag.sim_index);
+            // v3 motion overlay task 2: inherit the drag's smoothed
+            // release velocity instead of zeroing on unfix. Below a
+            // small threshold the user was essentially holding the
+            // node still, so we keep the current `unfix_node` semantics
+            // (zero velocity) — no point spawning a micro-jitter wave.
+            let speed_sq =
+                drag.smoothed_vel[0] * drag.smoothed_vel[0]
+                    + drag.smoothed_vel[1] * drag.smoothed_vel[1];
+            const RELEASE_MIN_SPEED_SQ: f32 = 25.0; // (5 px/s)^2
+            if drag.moved && speed_sq >= RELEASE_MIN_SPEED_SQ {
+                sim.release_node_with_velocity(
+                    drag.sim_index,
+                    drag.smoothed_vel[0],
+                    drag.smoothed_vel[1],
+                );
+                // Re-heat alpha modestly so the graph resumes relaxation
+                // around the newly-moving node rather than falling asleep
+                // the next tick. Floor matches v3 §6.
+                const RELEASE_REHEAT_ALPHA_FLOOR: f32 = 0.08;
+                sim.params.alpha = sim.params.alpha.max(RELEASE_REHEAT_ALPHA_FLOOR);
+                sim.is_settled = false;
+            } else {
+                sim.unfix_node(drag.sim_index);
+            }
             sim.params.alpha_target = 0.0; // Resume normal cooldown
             if drag.moved {
                 sim.sustain_interaction_motion_for(
@@ -2626,6 +2684,8 @@ mod tests {
             origin: [0.0, 0.0],
             moved: false,
             last_world: [0.0, 0.0],
+            last_sample_at: Instant::now(),
+            smoothed_vel: [0.0, 0.0],
         });
 
         engine.set_node_visible(&hidden_uuid, false);
