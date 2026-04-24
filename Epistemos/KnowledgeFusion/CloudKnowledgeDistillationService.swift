@@ -45,7 +45,16 @@ actor CloudKnowledgeDistillationService {
     }
 
     func rebuildModelVaults(for targets: [ModelVaultTarget]) async throws -> CloudKnowledgeDistillationRunSummary {
-        let notes = try sourceNotesProvider?() ?? Self.loadNotes(from: modelContainer)
+        // ?? autoclosure doesn't allow `await`; split into explicit
+        // if-else so the Phase R.3 async path on `loadNotes` works
+        // cleanly alongside the synchronous provider override (tests
+        // stub `sourceNotesProvider` with a sync closure).
+        let notes: [KnowledgeSourceNote]
+        if let provider = sourceNotesProvider {
+            notes = try provider()
+        } else {
+            notes = try await Self.loadNotes(from: modelContainer)
+        }
         let recentChats = try (recentChatsProvider?() ?? Self.loadRecentChats(from: modelContainer))
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -88,7 +97,7 @@ actor CloudKnowledgeDistillationService {
         return lhs.modelID < rhs.modelID
     }
 
-    private nonisolated static func loadNotes(from container: ModelContainer) throws -> [KnowledgeSourceNote] {
+    private nonisolated static func loadNotes(from container: ModelContainer) async throws -> [KnowledgeSourceNote] {
         let context = ModelContext(container)
         context.autosaveEnabled = false
 
@@ -103,18 +112,28 @@ actor CloudKnowledgeDistillationService {
         for page in pages {
             guard !page.isArchived, !page.isTemplate else { continue }
 
+            // Stage Sendable primitives before awaiting so SwiftData's
+            // non-Sendable @Model reference doesn't cross the async
+            // call boundary (Swift 6 region-based isolation).
             let title = page.title.trimmingCharacters(in: .whitespacesAndNewlines)
-            let body = sourceBody(for: page)
+            let pageId = page.id
+            let filePath = page.filePath
+            let inlineBody = page.body
+            let tags = page.tags
+            let updatedAt = page.updatedAt
+            let createdAt = page.createdAt
+
+            let body = await sourceBody(pageId: pageId, filePath: filePath, inlineBody: inlineBody)
             guard !title.isEmpty || !body.isEmpty else { continue }
 
             notes.append(
                 KnowledgeSourceNote(
-                    id: page.id,
+                    id: pageId,
                     title: title.isEmpty ? "Untitled Note" : title,
                     body: body,
-                    tags: page.tags,
-                    updatedAt: page.updatedAt,
-                    createdAt: page.createdAt
+                    tags: tags,
+                    updatedAt: updatedAt,
+                    createdAt: createdAt
                 )
             )
         }
@@ -122,18 +141,31 @@ actor CloudKnowledgeDistillationService {
         return notes
     }
 
-    private nonisolated static func sourceBody(for page: SDPage) -> String {
-        // Large synthetic and pre-migration note sets can legitimately exist only
-        // in the inline `body` field. Avoid hitting the managed-file path for
-        // every such note when there is no external vault file to consult.
-        if page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
-            let inlineBody = page.body.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !inlineBody.isEmpty {
-                return inlineBody
+    /// Phase R.3: body read routed through
+    /// `SDPage.loadBodyAsyncFromPrimitives`, which consults the R.3
+    /// gateway when ready and falls back to `NoteFileStorage.readBody`.
+    /// Takes only Sendable primitives so it can be awaited from any
+    /// async context without moving a SwiftData @Model across actors.
+    private nonisolated static func sourceBody(
+        pageId: String,
+        filePath: String?,
+        inlineBody: String
+    ) async -> String {
+        // Large synthetic and pre-migration note sets can legitimately
+        // exist only in the inline `body` field. Avoid hitting the
+        // managed-file path when there is no external vault file.
+        if filePath?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+            let trimmedInline = inlineBody.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedInline.isEmpty {
+                return trimmedInline
             }
         }
 
-        return page.loadBody(mapped: true).trimmingCharacters(in: .whitespacesAndNewlines)
+        return await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: pageId,
+            filePath: filePath,
+            mapped: true
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private nonisolated static func loadRecentChats(
