@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 // ComputerUseBridge.swift
 //
 // Bridges the Rust agent_core "computer" tool to the native macOS
@@ -386,3 +387,4 @@ final class ComputerUseBridge {
         return str
     }
 }
+#endif

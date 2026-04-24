@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 // Phase4Bridge.swift
 //
 // Bridges the Phase 4 macOS Native Specialties (perceive, interact,
@@ -209,3 +210,4 @@ final class Phase4Bridge {
         return string
     }
 }
+#endif

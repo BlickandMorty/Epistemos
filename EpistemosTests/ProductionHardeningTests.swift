@@ -614,6 +614,43 @@ struct ReleasePackagingHardeningTests {
         #expect(bundler.contains("exit 0"))
     }
 
+    @Test("App Store target does not link native computer-use automation stack")
+    func appStoreTargetDoesNotLinkNativeComputerUseAutomationStack() throws {
+        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
+        let appStoreTarget = try #require(projectSpec.range(of: "  Epistemos-AppStore:"))
+        let testsTarget = try #require(projectSpec.range(of: "  EpistemosTests:"))
+        let appStoreSpec = String(projectSpec[appStoreTarget.lowerBound..<testsTarget.lowerBound])
+
+        #expect(!appStoreSpec.contains("package: AXorcist"))
+        #expect(!appStoreSpec.contains("-lomega_ax"))
+        #expect(!appStoreSpec.contains("omega_axFFI"))
+        #expect(!appStoreSpec.contains("build-omega-ax.sh"))
+        #expect(appStoreSpec.contains("- omega_ax.swift"))
+
+        for wrappedPath in [
+            "Epistemos/Bridge/ComputerUseBridge.swift",
+            "Epistemos/Bridge/Phase4Bridge.swift",
+            "Epistemos/Omega/Agents/GhostComputerAgent.swift",
+            "Epistemos/Omega/Vision/AXMutationDetector.swift",
+            "Epistemos/Omega/Vision/AXorcistBridge.swift",
+            "Epistemos/Omega/Vision/Screen2AXFusion.swift",
+            "Epistemos/Omega/Vision/ScreenCaptureService.swift",
+            "Epistemos/Omega/Vision/VisualVerifyLoop.swift",
+        ] {
+            let source = try loadProductionHardeningRepoTextFile(wrappedPath)
+            #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
+        }
+
+        let stubs = try loadProductionHardeningRepoTextFile("Epistemos/AppStore/AppStoreComputerUseStubs.swift")
+        #expect(stubs.contains("#if EPISTEMOS_APP_STORE"))
+        #expect(stubs.contains("Native computer-use automation is unavailable in the App Store build."))
+        #expect(stubs.contains("final class ComputerUseBridge"))
+        #expect(stubs.contains("final class Phase4Bridge"))
+        #expect(stubs.contains("final class Screen2AXFusion"))
+        #expect(stubs.contains("nonisolated func checkPermissions() -> PermissionStatus"))
+        #expect(stubs.contains("nonisolated func walkAxTreeJson(pid: Int64) -> String"))
+    }
+
     @Test("debug and test targets default to local signing without removing real signing support")
     func debugAndTestsDefaultToLocalSigning() throws {
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")

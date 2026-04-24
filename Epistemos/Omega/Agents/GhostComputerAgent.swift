@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import AppKit
 import AXorcist
@@ -778,3 +779,4 @@ final class GhostComputerAgent: OmegaAgent, Sendable {
         }
     }
 }
+#endif

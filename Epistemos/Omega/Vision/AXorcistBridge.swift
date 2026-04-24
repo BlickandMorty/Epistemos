@@ -1,4 +1,5 @@
 import Foundation
+#if !EPISTEMOS_APP_STORE
 import AXorcist
 import AppKit
 
@@ -230,3 +231,4 @@ final class AXorcistBridge {
         }
     }
 }
+#endif
