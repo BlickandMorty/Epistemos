@@ -170,7 +170,14 @@ struct GraphForceSettings: View {
                 GridItem(.flexible()),
                 GridItem(.flexible()),
             ], spacing: 6) {
-                ForEach(PhysicsPreset.allCases) { preset in
+                // User 2026-04-24: "Observatory, Constellation, and
+                // Chaos are the 3 most important ones and I'd like to
+                // keep them, probably only them." Featured filter
+                // surfaces only those three in the main picker. The
+                // other nine enum cases still exist in code so saved
+                // scheduler steps and lookup-by-name keep working —
+                // they just aren't in the visible grid anymore.
+                ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
                     presetButton(preset)
                 }
             }
@@ -615,7 +622,7 @@ struct GraphForceSettings: View {
             in: RoundedRectangle(cornerRadius: 6, style: .continuous)
         )
         .contextMenu {
-            ForEach(PhysicsPreset.allCases) { preset in
+            ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
                 Button(preset.rawValue) {
                     graphState.timelineSteps[index].presetKey = String(describing: preset)
                     graphState.pushSchedulerChange()
@@ -634,7 +641,7 @@ struct GraphForceSettings: View {
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(.secondary)
             Picker(label, selection: selection) {
-                ForEach(PhysicsPreset.allCases) { preset in
+                ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
                     Text(preset.rawValue).tag(String(describing: preset))
                 }
                 if !graphState.customPhysicsPresets.isEmpty {

@@ -1457,10 +1457,16 @@ impl Engine {
             sim.params.orbital_speed = 0.0;
             sim.reheat();
         }
-        // Renderer-side params
-        self.renderer.enable_elastic_edges = enable_elastic;
+        // Renderer-side params. User 2026-04-24 asked if elastic
+        // edges are worth keeping — they're purely cosmetic (curved
+        // segments bend on drag) and compound with the other motion
+        // that was making things feel jumbled. Force-disabled at
+        // this boundary so presets can't turn them back on. The
+        // argument stays in the FFI for ABI stability.
+        let _ = (enable_elastic, edge_elasticity);
+        self.renderer.enable_elastic_edges = false;
         let _ = enable_tension; // tension coloring removed
-        self.renderer.edge_elasticity = edge_elasticity.clamp(0.0, 1.0);
+        self.renderer.edge_elasticity = 0.0;
         self.renderer.wind_x = 0.0;
         self.renderer.wind_y = 0.0;
     }

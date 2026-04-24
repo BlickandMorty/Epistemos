@@ -144,9 +144,28 @@ impl Default for ForceParams {
             // the out-of-the-box feel matches what Observatory /
             // Constellation / Chaos used to read like. Presets that
             // want the canonical feel can opt in explicitly.
-            collision_compliance: 1.0,       // strict, legacy
+            // Compliant collision (0.7) is back on by default as of
+            // 2026-04-24: user reports small nodes "jumping
+            // chaotically" when a large parent is dragged close
+            // through them. Strict 1.0 resolves overlap instantly
+            // in a single tick — that's the jump. 0.7 spreads the
+            // resolution over ~3 frames, which visually reads as a
+            // soft press-and-recover rather than a teleport. The
+            // earlier "glitchy/springy" complaint was compliant
+            // collision combined with the canonical per-node
+            // damping curve — now that per-node damping is off
+            // (using the legacy scalar), compliance alone is safe
+            // to ship as default.
+            collision_compliance: 0.7,
             ambient_breath_strength: 0.0,    // off, legacy
-            fluid_coupling: 0.2,             // legacy FLUID_K parity
+            // User 2026-04-24: "I want to use fluid wake but it
+            // still feels like the nodes themselves carry too much
+            // strict gravity and force for it to look appealing."
+            // The canonical 3.0 coupling lets the wake visibly push
+            // free nodes in the drag's direction instead of being
+            // dominated by the link/charge pair. Scaled per-node by
+            // 1/√mass so hubs still resist.
+            fluid_coupling: 3.0,
             center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 1,
@@ -155,11 +174,13 @@ impl Default for ForceParams {
             center_mode: CenterMode::Attract,
             semantic_strength: 0.0,
 
-            // Reverted 2026-04-24 to legacy off-by-default: user
-            // reports the always-on drag wake contributed to the
-            // "glitchy / finicky" feel. Presets that want wake
-            // (Chaos, Deep Sea) still toggle it on explicitly.
-            enable_fluid_dynamics: false,
+            // 2026-04-24 (v2): user now explicitly wants the fluid
+            // wake as part of the baseline feel. Re-enabled with the
+            // extras (orbital/torsion/wind/boids) now gated off via
+            // `EXPERIMENTAL_MOTION_FORCES_ENABLED`, the "jumbled
+            // motion" that motivated the earlier off-default is no
+            // longer present.
+            enable_fluid_dynamics: true,
             enable_torsional_springs: false,
             fluid_viscosity: 0.5,
             torsion_rigidity: 0.5,
@@ -253,9 +274,9 @@ const EXPERIMENTAL_MOTION_FORCES_ENABLED: bool = false;
 
 const FLUID_GRID_SIZE: usize = 64;
 const FLUID_CELLS: usize = FLUID_GRID_SIZE * FLUID_GRID_SIZE;
-/// Fraction of grid velocity applied to nodes each tick.
-const FLUID_K: f32 = 0.2;
 /// Diffusion blend factor (0 = no spread, 1 = full neighbor average).
+/// (The former `FLUID_K` scalar was replaced by the per-node
+/// `params.fluid_coupling / √mass` in tick() and removed 2026-04-24.)
 const FLUID_DIFFUSION: f32 = 0.25;
 
 /// Low-resolution 2D velocity field for drag wake effects.
