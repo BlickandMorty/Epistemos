@@ -2170,14 +2170,25 @@ final class GraphState {
 
     /// Build the page subgraph from the active note's markdown body.
     /// Wikilinks are resolved to existing graph nodes.
-    func buildPageSubgraph(for pageId: String, context: ModelContext) {
+    ///
+    /// Phase R.3 async cascade: the body read goes through the
+    /// Sendable-primitive strangler-fig helper
+    /// `SDPage.loadBodyAsyncFromPrimitives` so the R.3 gateway is
+    /// consulted first and the legacy `NoteFileStorage.readBody`
+    /// path is the fallback. The function is `async` to accommodate
+    /// the await — no existing Swift call sites reach this method
+    /// (it's reserved for future page-mode subgraph wiring), so
+    /// making it async today has zero blast radius.
+    func buildPageSubgraph(for pageId: String, context: ModelContext) async {
         let descriptor = FetchDescriptor<SDPage>(
             predicate: #Predicate<SDPage> { $0.id == pageId }
         )
-        let page: SDPage
+        let stagedFilePath: String?
+        let createdAt: Date
         do {
             guard let fetchedPage = try context.fetch(descriptor).first else { return }
-            page = fetchedPage
+            stagedFilePath = fetchedPage.filePath
+            createdAt = fetchedPage.createdAt
         } catch {
             Log.graph.error(
                 "GraphState: failed to fetch page for page-mode subgraph \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -2186,7 +2197,11 @@ final class GraphState {
         }
         guard let pageNodeId = store.node(bySourceId: pageId, type: .note)?.id else { return }
 
-        let body = page.loadBody(mapped: true)
+        let body = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: pageId,
+            filePath: stagedFilePath,
+            mapped: true
+        )
         guard !body.isEmpty else { return }
         guard let cStr = body.cString(using: .utf8) else { return }
 
@@ -2202,9 +2217,10 @@ final class GraphState {
         guard result == 0, let spans = spansPtr, count > 0 else { return }
         defer { markdown_free_spans(spans, count) }
 
-        // UTF-8 bytes for slicing by byte offset.
+        // UTF-8 bytes for slicing by byte offset. `createdAt` was
+        // staged at the top of this function so we don't need a live
+        // SDPage reference here — Phase R.3 primitives-only pattern.
         let utf8Bytes: [UInt8] = Array(body.utf8)
-        let createdAt = page.createdAt
 
         for i in 0..<Int(count) {
             let span = spans[i]
