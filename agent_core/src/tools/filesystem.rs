@@ -148,6 +148,27 @@ fn is_blocked_for_write(path: &Path) -> Option<String> {
     None
 }
 
+fn verify_file_readback(path: &Path, expected: &[u8]) -> Result<(), ToolError> {
+    let actual = std::fs::read(path).map_err(|error| {
+        ToolError::ExecutionFailed(format!(
+            "write verification failed for '{}': readback failed: {error}",
+            path.display()
+        ))
+    })?;
+
+    if actual != expected {
+        return Err(ToolError::ExecutionFailed(format!(
+            "write verification failed for '{}': readback did not match requested content \
+             (expected {} bytes, got {} bytes)",
+            path.display(),
+            expected.len(),
+            actual.len()
+        )));
+    }
+
+    Ok(())
+}
+
 fn is_blocked_for_read(path: &Path) -> Option<String> {
     if is_blocked_filename(path) {
         return Some(format!(
@@ -346,6 +367,7 @@ impl ToolHandler for WriteFileHandler {
             let _ = std::fs::remove_file(&tmp);
             ToolError::ExecutionFailed(format!("rename failed: {e}"))
         })?;
+        verify_file_readback(&resolved, content.as_bytes())?;
 
         let diff_preview = previous
             .as_deref()
@@ -356,6 +378,7 @@ impl ToolHandler for WriteFileHandler {
             "path": resolved.display().to_string(),
             "bytes_written": content.len(),
             "created": previous.is_none(),
+            "verified": true,
         });
         if let Some(diff) = diff_preview {
             result["diff_preview"] = Value::String(diff);
@@ -465,6 +488,7 @@ impl ToolHandler for PatchHandler {
             let _ = std::fs::remove_file(&tmp);
             ToolError::ExecutionFailed(format!("rename failed: {e}"))
         })?;
+        verify_file_readback(&resolved, outcome.patched.as_bytes())?;
 
         Ok(json!({
             "success": true,
@@ -472,6 +496,7 @@ impl ToolHandler for PatchHandler {
             "replacements": outcome.replacements,
             "strategy": outcome.strategy,
             "diff_preview": short_diff_preview(&original, &outcome.patched, 3),
+            "verified": true,
         })
         .to_string())
     }
@@ -1153,8 +1178,20 @@ mod tests {
             }))
             .await
             .unwrap();
-        assert!(result.contains("\"success\":true"));
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["success"], json!(true));
+        assert_eq!(parsed["verified"], json!(true));
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "hello world");
+    }
+
+    #[tokio::test]
+    async fn write_file_readback_verification_detects_mismatch() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("mismatch.txt");
+        std::fs::write(&path, "actual").unwrap();
+
+        let err = verify_file_readback(&path, b"expected").unwrap_err();
+        assert!(format!("{err}").contains("write verification failed"));
     }
 
     #[tokio::test]
@@ -1205,8 +1242,10 @@ mod tests {
             }))
             .await
             .unwrap();
-        assert!(result.contains("\"strategy\":\"exact\""));
-        assert!(result.contains("\"replacements\":1"));
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["strategy"], json!("exact"));
+        assert_eq!(parsed["replacements"], json!(1));
+        assert_eq!(parsed["verified"], json!(true));
         assert_eq!(
             std::fs::read_to_string(&path).unwrap(),
             "fn foo() {\n    baz();\n}\n"

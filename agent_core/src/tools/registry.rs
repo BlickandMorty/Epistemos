@@ -1874,6 +1874,32 @@ struct VaultWriteHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+fn expected_vault_write_readback(
+    previous: Option<&str>,
+    content: &str,
+    tags: &[String],
+    append: bool,
+) -> String {
+    if append {
+        if let Some(previous) = previous {
+            return format!("{previous}\n{content}");
+        }
+    }
+
+    if content.starts_with("---") || tags.is_empty() {
+        content.to_string()
+    } else {
+        let frontmatter = format!(
+            "---\ntags:\n{}\n---\n\n",
+            tags.iter()
+                .map(|tag| format!("  - {tag}"))
+                .collect::<Vec<_>>()
+                .join("\n")
+        );
+        format!("{frontmatter}{content}")
+    }
+}
+
 #[async_trait]
 impl ToolHandler for VaultWriteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -1908,6 +1934,20 @@ impl ToolHandler for VaultWriteHandler {
             .and_then(Value::as_bool)
             .unwrap_or(false);
 
+        let previous_content = if append {
+            match self.vault.read(path).await {
+                Ok(content) => Some(content),
+                Err(VaultError::NotFound(_)) => None,
+                Err(error) => {
+                    return Err(ToolError::ExecutionFailed(format!(
+                        "pre-write readback failed for append verification: {error}"
+                    )))
+                }
+            }
+        } else {
+            None
+        };
+
         // Contradiction pre-flight: surface conflicts but don't block the
         // write. The agent is responsible for deciding whether to proceed.
         let contradictions = if skip_contradiction_check {
@@ -1940,6 +1980,22 @@ impl ToolHandler for VaultWriteHandler {
             .await
             .map_err(map_vault_error)?;
 
+        let expected_readback =
+            expected_vault_write_readback(previous_content.as_deref(), content, &tags, append);
+        let actual_readback = self.vault.read(path).await.map_err(|error| {
+            ToolError::ExecutionFailed(format!(
+                "write verification readback failed for '{path}': {error}"
+            ))
+        })?;
+        if actual_readback != expected_readback {
+            return Err(ToolError::ExecutionFailed(format!(
+                "write verification failed for '{path}': readback did not match requested content \
+                 (expected {} bytes, got {} bytes)",
+                expected_readback.len(),
+                actual_readback.len()
+            )));
+        }
+
         let warnings: Vec<Value> = contradictions
             .iter()
             .filter(|c| c.confidence >= 0.75)
@@ -1958,6 +2014,7 @@ impl ToolHandler for VaultWriteHandler {
             "path": path,
             "bytes_written": content.len(),
             "warnings": warnings,
+            "verified": true,
         })
         .to_string())
     }
@@ -2112,9 +2169,14 @@ mod tier_tests {
     use super::*;
     use crate::storage::vault::{SearchResult, VaultBackend, VaultError};
     use async_trait::async_trait;
+    use std::collections::HashMap;
+    use std::sync::Mutex as TestMutex;
 
     /// Minimal vault stub for registry construction in unit tests.
-    struct NullVault;
+    #[derive(Default)]
+    struct NullVault {
+        notes: TestMutex<HashMap<String, String>>,
+    }
 
     #[async_trait]
     impl VaultBackend for NullVault {
@@ -2126,8 +2188,58 @@ mod tier_tests {
         ) -> Result<Vec<SearchResult>, VaultError> {
             Ok(Vec::new())
         }
+        async fn read(&self, path: &str) -> Result<String, VaultError> {
+            let notes = self
+                .notes
+                .lock()
+                .map_err(|_| VaultError::DatabaseError("test vault lock poisoned".to_string()))?;
+            Ok(notes.get(path).cloned().unwrap_or_default())
+        }
+        async fn write(
+            &self,
+            path: &str,
+            content: &str,
+            tags: Option<&[String]>,
+            append: bool,
+        ) -> Result<(), VaultError> {
+            let mut notes = self
+                .notes
+                .lock()
+                .map_err(|_| VaultError::DatabaseError("test vault lock poisoned".to_string()))?;
+            let previous = notes.get(path).cloned();
+            let empty_tags: Vec<String> = Vec::new();
+            let tags = tags.unwrap_or(&empty_tags);
+            notes.insert(
+                path.to_string(),
+                expected_vault_write_readback(previous.as_deref(), content, tags, append),
+            );
+            Ok(())
+        }
+        async fn list(&self, _path_prefix: &str) -> Result<Vec<String>, VaultError> {
+            Ok(Vec::new())
+        }
+        async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+        async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
+            Ok(false)
+        }
+    }
+
+    struct LyingVault;
+
+    #[async_trait]
+    impl VaultBackend for LyingVault {
+        async fn hybrid_search(
+            &self,
+            _query: &str,
+            _limit: usize,
+            _tag_filter: &[String],
+        ) -> Result<Vec<SearchResult>, VaultError> {
+            Ok(Vec::new())
+        }
         async fn read(&self, _path: &str) -> Result<String, VaultError> {
-            Ok(String::new())
+            Ok("not the requested content".to_string())
         }
         async fn write(
             &self,
@@ -2142,7 +2254,7 @@ mod tier_tests {
             Ok(Vec::new())
         }
         async fn exists(&self, _path: &str) -> Result<bool, VaultError> {
-            Ok(false)
+            Ok(true)
         }
         async fn delete(&self, _path: &str) -> Result<bool, VaultError> {
             Ok(false)
@@ -2150,12 +2262,17 @@ mod tier_tests {
     }
 
     fn build_registry(tier: ToolTier) -> ToolRegistry {
-        ToolRegistry::with_tier(Arc::new(NullVault), true, None::<std::path::PathBuf>, tier)
+        ToolRegistry::with_tier(
+            Arc::new(NullVault::default()),
+            true,
+            None::<std::path::PathBuf>,
+            tier,
+        )
     }
 
     fn build_registry_with_root(tier: ToolTier, vault_root: &std::path::Path) -> ToolRegistry {
         ToolRegistry::with_tier(
-            Arc::new(NullVault),
+            Arc::new(NullVault::default()),
             true,
             Some(vault_root.to_path_buf()),
             tier,
@@ -2450,6 +2567,43 @@ mod tier_tests {
         assert!(result.contains("reasoning"));
     }
 
+    #[tokio::test]
+    async fn vault_write_returns_success_only_after_readback_matches() {
+        let handler = VaultWriteHandler {
+            vault: Arc::new(NullVault::default()),
+        };
+        let result = handler
+            .execute(&serde_json::json!({
+                "path": "Inbox/Verified.md",
+                "content": "verified body",
+                "skip_contradiction_check": true
+            }))
+            .await
+            .unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["success"], serde_json::json!(true));
+        assert_eq!(parsed["verified"], serde_json::json!(true));
+    }
+
+    #[tokio::test]
+    async fn vault_write_rejects_success_when_readback_does_not_match() {
+        let handler = VaultWriteHandler {
+            vault: Arc::new(LyingVault),
+        };
+        let err = handler
+            .execute(&serde_json::json!({
+                "path": "Inbox/Lied.md",
+                "content": "the requested content",
+                "skip_contradiction_check": true
+            }))
+            .await
+            .unwrap_err();
+        assert!(
+            format!("{err}").contains("write verification failed"),
+            "expected readback mismatch to block success, got: {err}"
+        );
+    }
+
     #[test]
     fn clearing_allowlist_restores_tier_only_filtering() {
         let mut registry = build_registry(ToolTier::Agent);
@@ -2606,10 +2760,7 @@ mod tier_tests {
 
         let vault_root = tempfile::tempdir().unwrap();
         let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
-        let unique_path = format!(
-            "Inbox/R5Advisory-{}.md",
-            uuid::Uuid::new_v4()
-        );
+        let unique_path = format!("Inbox/R5Advisory-{}.md", uuid::Uuid::new_v4());
         let result = registry
             .execute("vault_write", &vault_write_input(&unique_path))
             .await
@@ -2740,9 +2891,7 @@ mod tier_tests {
         match result {
             Err(ToolError::PermissionDenied) => {}
             Err(other) => panic!("expected PermissionDenied, got {other:?}"),
-            Ok(payload) => panic!(
-                "expected PermissionDenied, got success payload: {payload}"
-            ),
+            Ok(payload) => panic!("expected PermissionDenied, got success payload: {payload}"),
         }
 
         let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
