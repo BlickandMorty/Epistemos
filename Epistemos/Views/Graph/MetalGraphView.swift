@@ -143,6 +143,51 @@ nonisolated enum GraphInteractionRenderPolicy {
     }
 }
 
+nonisolated enum GraphDrawableResolutionPolicy {
+    private static let fullOverlayPixelBudget: CGFloat = 3_000_000
+    private static let lowPowerPixelBudget: CGFloat = 2_000_000
+
+    static func effectiveScale(
+        boundsSize: CGSize,
+        backingScale: CGFloat,
+        isMiniMode: Bool,
+        lowPowerMode: Bool
+    ) -> CGFloat {
+        guard boundsSize.width.isFinite,
+              boundsSize.height.isFinite,
+              backingScale.isFinite,
+              boundsSize.width > 0,
+              boundsSize.height > 0,
+              backingScale > 0
+        else {
+            return 1.0
+        }
+
+        if isMiniMode {
+            return backingScale
+        }
+
+        let nativePixels = boundsSize.width * backingScale * boundsSize.height * backingScale
+        let budget = lowPowerMode ? lowPowerPixelBudget : fullOverlayPixelBudget
+        guard nativePixels > budget else {
+            return backingScale
+        }
+
+        let cappedScale = backingScale * sqrt(budget / nativePixels)
+        return min(backingScale, max(1.0, cappedScale))
+    }
+
+    static func drawableSize(
+        boundsSize: CGSize,
+        scale: CGFloat
+    ) -> CGSize {
+        CGSize(
+            width: max(1, (boundsSize.width * scale).rounded(.down)),
+            height: max(1, (boundsSize.height * scale).rounded(.down))
+        )
+    }
+}
+
 struct GraphNodeHoverHapticState {
     private(set) var hoveredNodeId: String?
     private(set) var lastTickAt: TimeInterval?
@@ -624,7 +669,13 @@ final class MetalGraphNSView: NSView {
 
     /// When true, the view is in the mini floating panel. Background taps are disabled
     /// and Option+drag moves the parent window (holographic drag).
-    var isMiniMode = false
+    var isMiniMode = false {
+        didSet {
+            guard isMiniMode != oldValue else { return }
+            updateMetalLayerBackingProperties()
+            needsRender = true
+        }
+    }
 
     private func resetSelectedNodeScreenPointTracking(for graphState: GraphState?) {
         sampledSelectedNodeId = nil
@@ -2031,11 +2082,17 @@ final class MetalGraphNSView: NSView {
     }
 
     private func updateMetalLayerBackingProperties() {
-        let scale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
-        metalLayer?.contentsScale = scale
-        metalLayer?.drawableSize = CGSize(
-            width: bounds.width * scale,
-            height: bounds.height * scale
+        let backingScale = window?.backingScaleFactor ?? NSScreen.main?.backingScaleFactor ?? 2.0
+        let effectiveScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: bounds.size,
+            backingScale: backingScale,
+            isMiniMode: isMiniMode,
+            lowPowerMode: PowerGuard.shared.shouldThrottleRendering
+        )
+        metalLayer?.contentsScale = effectiveScale
+        metalLayer?.drawableSize = GraphDrawableResolutionPolicy.drawableSize(
+            boundsSize: bounds.size,
+            scale: effectiveScale
         )
     }
 
