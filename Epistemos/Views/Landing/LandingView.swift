@@ -738,7 +738,14 @@ struct LandingView: View {
     }
 
     private func attachLandingMentionReference(_ choice: ComposerReferenceChoice) {
-        let attachment = ComposerReferenceHelpers.contextAttachment(for: choice)
+        // Phase R.4 — mirror of ChatInputBar / MiniChat: thread the
+        // active vault's stable ID so the attachment gets a canonical
+        // `vault://{vaultId}/note/{relativePath}` manifest at pick time.
+        let vaultId = vaultSync.vaultURL?.lastPathComponent
+        let attachment = ComposerReferenceHelpers.contextAttachment(
+            for: choice,
+            vaultId: vaultId
+        )
         if !landingContextAttachments.contains(attachment) {
             landingContextAttachments.append(attachment)
         }

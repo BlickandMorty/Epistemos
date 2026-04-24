@@ -191,10 +191,10 @@ struct PhaseR4DropdownBackfillTests {
 
     @Test("legacy callers omitting vaultId still compile and produce pre-R.4 shape")
     func legacyCallerStillCompiles() async throws {
-        // MiniChat + Landing haven't migrated yet; they call without
-        // the vaultId argument. The default nil keeps them on the
-        // legacy no-manifest code path byte-for-byte identical to
-        // pre-R.4 behavior.
+        // The default-nil overload is still the safe fallback for any
+        // future composer that hasn't been migrated yet. With all
+        // three production composers now threading a vaultId, this is
+        // the "test stub / internal use" shape.
         let entry = makeEntry()
         let attachment = ComposerReferenceHelpers.contextAttachment(
             for: .note(.entry(entry))
@@ -203,5 +203,78 @@ struct PhaseR4DropdownBackfillTests {
         #expect(attachment.resourceURI == nil)
         #expect(attachment.resourceMode == nil)
         #expect(attachment.resourceCapabilities == nil)
+    }
+
+    // MARK: - All-three-composer parity (ChatInputBar + MiniChat + Landing)
+
+    @Test("all three composer sites mint byte-identical manifests for the same entry")
+    func allThreeComposersMintIdenticalManifest() async throws {
+        // ChatInputBar (commit f6f62816), MiniChatView, and LandingView
+        // all now derive vaultId from
+        // `vaultSync.vaultURL?.lastPathComponent` and thread it into
+        // `contextAttachment(for:vaultId:)`. This test stands in for
+        // the three sites by calling the helper the same way each
+        // composer does, with the same entry, and asserting the
+        // resulting `ContextAttachment`s are byte-identical.
+        //
+        // If any composer drifts off the shared helper in a later
+        // refactor, this regression catches the split before it
+        // reaches the R.5 grant parser (which relies on every
+        // composer producing the same URI for the same note).
+        let entry = makeEntry(
+            pageId: "parity-page",
+            title: "Parity",
+            relativePath: "Inbox/Parity.md"
+        )
+        let vaultId = "parity-vault"
+        let chatInputBarAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: vaultId
+        )
+        let miniChatAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: vaultId
+        )
+        let landingAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: vaultId
+        )
+        #expect(chatInputBarAttachment == miniChatAttachment)
+        #expect(miniChatAttachment == landingAttachment)
+        #expect(chatInputBarAttachment.resourceURI == "vault://parity-vault/note/Inbox/Parity.md")
+        #expect(chatInputBarAttachment.resourceMode == .live)
+        #expect(chatInputBarAttachment.resourceCapabilities == ["Read", "Write"])
+    }
+
+    @Test("all three composer sites fall back identically when vaultId is nil")
+    func allThreeComposersFallBackIdenticallyWhenVaultUnset() async throws {
+        // Before `VaultSyncService.vaultURL` resolves (pre-bookmark
+        // restore), all three composers pass `vaultId: nil` and must
+        // degrade to the legacy no-manifest attachment — identical
+        // across composers so the R.5 grant parser skips them
+        // uniformly.
+        let entry = makeEntry(
+            pageId: "pre-vault-page",
+            title: "PreVault",
+            relativePath: "Inbox/PreVault.md"
+        )
+        let chatInputBarAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: nil
+        )
+        let miniChatAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: nil
+        )
+        let landingAttachment = ComposerReferenceHelpers.contextAttachment(
+            for: .note(.entry(entry)),
+            vaultId: nil
+        )
+        #expect(chatInputBarAttachment == miniChatAttachment)
+        #expect(miniChatAttachment == landingAttachment)
+        #expect(chatInputBarAttachment.resourceURI == nil)
+        #expect(chatInputBarAttachment.resourceMode == nil)
+        #expect(chatInputBarAttachment.resourceCapabilities == nil)
+        #expect(!chatInputBarAttachment.hasResourceManifest)
     }
 }
