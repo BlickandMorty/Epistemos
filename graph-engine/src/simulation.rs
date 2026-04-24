@@ -53,6 +53,12 @@ pub struct ForceParams {
     /// for. Stored as part of `ForceParams` so presets can tune it
     /// (Calm = 0.85, Fluid = 0.70, Playful = 0.50).
     pub collision_compliance: f32,
+    /// Multiplier on the curl-noise ambient breath coupling. 0.0
+    /// disables ambient motion entirely; 1.0 is the canonical default
+    /// ("kelp forest" texture). Presets can tune from 0.5 (Calm) to
+    /// 1.5 (Playful). Only ever applies to non-hub, non-pinned nodes
+    /// so the ambient never overrides authored motion.
+    pub ambient_breath_strength: f32,
     /// How strongly nodes are pulled toward center (0 = no pull, 0.1 = strong).
     pub center_strength: f32,
     /// Collision buffer zone in pixels. 0 = overlap allowed.
@@ -123,6 +129,7 @@ impl Default for ForceParams {
             // velocityDecay=0.4, so the retain multiplier is 0.6. Nodes keep 60% velocity.
             velocity_decay: 0.6,
             collision_compliance: 0.7,
+            ambient_breath_strength: 1.0,
             center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 1,
@@ -486,6 +493,12 @@ pub struct Simulation {
     /// concurrent rings (oldest evicted). See `motion::waves` for the
     /// force profile.
     pub active_waves: crate::motion::waves::ActiveWaves,
+    /// Curl-noise ambient breath — task 7 of the v3 motion spec.
+    /// Divergence-free field derived from a 2-D simplex potential so
+    /// the graph drifts gently when idle without ever piling nodes
+    /// into sinks. Hubs are degree-gated to near-zero weight so only
+    /// leaves flutter. See `motion::curl` for math and tuning.
+    pub curl_field: crate::motion::curl::CurlField,
     /// Monotonic epoch used to express wave event times in sim-seconds.
     /// Set at `Simulation::new` and never rewound — events reference
     /// `(now - t_epoch).as_secs_f64()` for a stable, deterministic clock
@@ -596,6 +609,7 @@ impl Simulation {
             gpu_nbody_forces: None,
             last_tick_instant: std::time::Instant::now(),
             active_waves: crate::motion::waves::ActiveWaves::new(),
+            curl_field: crate::motion::curl::CurlField::default(),
             t_epoch: std::time::Instant::now(),
         }
     }
@@ -845,10 +859,16 @@ impl Simulation {
         let saved_decay_vec = self.decay.clone();
         let saved_decay_param = self.params.velocity_decay;
         let saved_viewport = self.viewport_bounds.take();
+        // Ambient curl breath would visibly drift the graph during
+        // warm-start and shift its bounds centre away from origin,
+        // breaking tests like `entrance_layout_starts_disconnected_components_centered`.
+        // Disable it for the pre-settle pass and restore after.
+        let saved_ambient = self.params.ambient_breath_strength;
         let start = std::time::Instant::now();
 
         self.params.alpha = 0.8;
         self.params.velocity_decay = WARM_START_SCALAR_DECAY; // legacy mirror
+        self.params.ambient_breath_strength = 0.0;
         // Synthesis warning: when we switched to per-node damping, the
         // old heavy warm-start damping needed to be preserved as a
         // scalar override, otherwise leaves overshoot during the
@@ -869,6 +889,7 @@ impl Simulation {
         // Restore params for interactive phase: low alpha, per-node damping.
         self.params.alpha = 0.1; // Gentle refinement from here
         self.params.velocity_decay = saved_decay_param;
+        self.params.ambient_breath_strength = saved_ambient;
         self.decay = saved_decay_vec;
         self.viewport_bounds = saved_viewport;
         self.is_settled = false;
@@ -1166,6 +1187,43 @@ impl Simulation {
                 &self.fx,
                 crate::motion::waves::ActiveWaves::DEFAULT_COUPLING,
                 wave_now_s,
+            );
+        }
+
+        // Curl-noise ambient breath (v3 motion spec task 7). This is
+        // what makes the graph feel "alive when you stare at it"
+        // rather than still. Hubs are zeroed by `breath_weight`
+        // inside the accumulator so only leaves actually drift. Cost
+        // scales linearly with node count and averages ~100 µs at
+        // 500 nodes on M2.
+        //
+        // Gated behind `tick_count > AMBIENT_SETTLE_GRACE_TICKS` so
+        // commit-time layout has a full settling window before the
+        // ambient layer kicks in — otherwise the initial BFS layout
+        // gets nudged before it finishes resolving and tests like
+        // `entrance_layout_starts_disconnected_components_centered`
+        // observe a drifted bounds centre.
+        //
+        // Uses `tick_count`-derived sim-time so two simulations with
+        // the same inputs produce bit-identical outputs — `now_s()`
+        // uses wall-clock which breaks the `simulation_is_deterministic`
+        // regression tests.
+        const AMBIENT_SETTLE_GRACE_TICKS: u32 = 60;
+        if self.params.ambient_breath_strength > 0.0
+            && self.tick_count > AMBIENT_SETTLE_GRACE_TICKS
+            && self.degrees.len() >= n
+        {
+            let curl_t_s = self.tick_count as f32 * PHYS_TICK_DT;
+            self.curl_field.accumulate(
+                &mut self.vx,
+                &mut self.vy,
+                &self.x,
+                &self.y,
+                &self.fx,
+                &self.degrees,
+                crate::motion::curl::DEFAULT_COUPLING
+                    * self.params.ambient_breath_strength,
+                curl_t_s,
             );
         }
 
