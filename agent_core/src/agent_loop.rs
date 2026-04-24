@@ -767,6 +767,7 @@ async fn execute_one_tool(
             }
         };
 
+    #[cfg(not(feature = "mas-sandbox"))]
     let mut is_execution_approved = permission_auto_approved && approval_requirement.is_none();
     if let Some(requirement) = approval_requirement {
         let permission_id = uuid::Uuid::new_v4().to_string();
@@ -802,10 +803,14 @@ async fn execute_one_tool(
         if !approved {
             return Ok(ToolResult::text(id, "Tool execution denied by user.", true));
         }
-        is_execution_approved = true;
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            is_execution_approved = true;
+        }
     }
 
     // Security: classify command risk for bash/shell tools.
+    #[cfg(not(feature = "mas-sandbox"))]
     if name == "bash_execute" || name == "shell" {
         if let Some(command) = input.get("command").and_then(serde_json::Value::as_str) {
             let risk = crate::security::classify_command_risk(command);

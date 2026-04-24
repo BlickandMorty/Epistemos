@@ -227,6 +227,7 @@ pub enum ToolError {
 pub struct ToolRegistry {
     tools: HashMap<String, RegisteredTool>,
     vault: Arc<dyn VaultBackend>,
+    #[cfg_attr(feature = "mas-sandbox", allow(dead_code))]
     enable_bash: bool,
     /// Optional vault root directory. When set, Phase 2 tools that need a
     /// filesystem path (session_search, graph_query, vault_navigate, memory)
@@ -588,6 +589,7 @@ impl ToolRegistry {
         self.apply_tier_overrides();
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_eight_discovery(&mut self) {
         use crate::tools::discovery::{
             mcp_discover_schema, model_catalog_schema, McpDiscoverHandler, ModelCatalogHandler,
@@ -619,6 +621,7 @@ impl ToolRegistry {
         }
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_eight_trajectory(&mut self) {
         use crate::tools::trajectory::{trajectory_export_schema, TrajectoryExportHandler};
         if std::env::var_os("DISABLE_TRAJECTORY_EXPORT").is_some() {
@@ -736,6 +739,7 @@ impl ToolRegistry {
         }
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_seven_intelligence(&mut self) {
         use crate::tools::intelligence::{
             mixture_of_minds_schema, self_evolve_schema, MixtureOfMindsHandler, SelfEvolveHandler,
@@ -771,6 +775,7 @@ impl ToolRegistry {
         }
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_six_communication(&mut self) {
         use crate::tools::communication::{send_message_schema, SendMessageHandler};
         match SendMessageHandler::new() {
@@ -790,6 +795,7 @@ impl ToolRegistry {
         }
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_six_media(&mut self) {
         use crate::tools::media::{
             image_generate_schema, text_to_speech_schema, vision_analyze_schema,
@@ -837,6 +843,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_six_imessage(&mut self) {
         use crate::tools::channel_contacts::{channel_contacts_schema, ChannelContactsHandler};
         use crate::tools::imessage::{imessage_schema, IMessageHandler};
@@ -891,6 +898,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_four_apple_apps(&mut self) {
         use crate::tools::apple::{
             apple_calendar_schema, apple_mail_schema, apple_notes_schema, apple_reminders_schema,
@@ -1127,6 +1135,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_one_terminal(&mut self) {
         use crate::tools::terminal::{
             process_schema, terminal_schema, ProcessHandler, TerminalHandler,
@@ -1168,6 +1177,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_one_scheduling(&mut self) {
         use crate::tools::scheduling::{cronjob_schema, CronJobHandler};
         let c = cronjob_schema();
@@ -1181,6 +1191,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_one_skills_progressive(&mut self) {
         use crate::tools::skills::{
             skill_manage_schema, skill_view_schema, skills_list_schema, SkillManageHandler,
@@ -1218,6 +1229,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_phase_one_custom_tools(&mut self) {
         use crate::tools::custom_tools::{
             custom_tool_manage_schema, load_custom_tool_specs, CustomToolManageHandler,
@@ -1504,6 +1516,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_bash_execute(&mut self) {
         self.register(RegisteredTool {
             name: "bash_execute".to_string(),
@@ -1529,6 +1542,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_claude_code_passthrough(&mut self) {
         self.register(RegisteredTool {
             name: "claude_code".to_string(),
@@ -1571,6 +1585,7 @@ impl ToolRegistry {
         });
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     fn register_codex_passthrough(&mut self) {
         self.register(RegisteredTool {
             name: "codex".to_string(),
@@ -2046,9 +2061,11 @@ impl ToolHandler for VaultWriteHandler {
     }
 }
 
+#[cfg(not(feature = "mas-sandbox"))]
 struct BashExecuteHandler;
 
 #[async_trait]
+#[cfg(not(feature = "mas-sandbox"))]
 impl ToolHandler for BashExecuteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
         let command = input
