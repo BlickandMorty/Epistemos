@@ -1205,6 +1205,13 @@ extension ProseEditorRepresentable2 {
                 return
             }
 
+            // Phase R.3 scope guard: this is an interactive AppKit
+            // edit callback (onBlockEdit → handleTransclusionEdit);
+            // wrapping the body read in a Task would introduce a
+            // perceptible delay between the user's edit and the text
+            // updating. The legacy sync `loadBody` stays here. The
+            // R.3 async cascade is fed by the background/indexing
+            // sites (VaultIndexActor, SpotlightIndexer, etc.).
             let pageBody = page.loadBody()
 
             guard let newBody = BlockMirror.rewrittenBody(

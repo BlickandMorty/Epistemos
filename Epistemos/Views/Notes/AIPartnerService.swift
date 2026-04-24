@@ -191,7 +191,14 @@ final class AIPartnerService {
             return partnerErrorJSON("failed to fetch note \(noteId): \(error.localizedDescription)")
         }
 
-        let content = page.loadBody()
+        // Phase R.3: gateway-first body read via the Sendable-primitive
+        // helper. Parity with legacy `loadBody` is byte-equal per
+        // `PhaseR3BodyReadParityTests`.
+        let content = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body
+        )
         let safeOffset = safeCursorOffset(in: content, cursorOffset: cursorOffset)
         let cursorLine = cursorLine(in: content, cursorOffset: safeOffset)
         let language = inferredLanguage(for: page)

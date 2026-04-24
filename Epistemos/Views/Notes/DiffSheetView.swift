@@ -57,7 +57,7 @@ struct DiffSheetView: View {
         .onAppear(perform: loadVersions)
         .alert("Restore Version", isPresented: $showRestoreAlert) {
             Button("Cancel", role: .cancel) {}
-            Button("Restore") { restoreVersion() }
+            Button("Restore") { Task { await restoreVersion() } }
         } message: {
             if let v = selectedVersion {
                 Text("Replace the current note body with this version from \(versionLabel(v))? The current content will be saved as a new version first.")
@@ -371,7 +371,7 @@ struct DiffSheetView: View {
 
     // MARK: - Restore
 
-    private func restoreVersion() {
+    private func restoreVersion() async {
         guard let version = selectedVersion else { return }
 
         let desc = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
@@ -387,8 +387,13 @@ struct DiffSheetView: View {
             return
         }
 
-        // Save current body as a new version before overwriting
-        let currentBody = page.loadBody()
+        // Save current body as a new version before overwriting.
+        // Phase R.3: gateway-first read via the primitives helper.
+        let currentBody = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body
+        )
         let snapshot = SDPageVersion(
             pageId: page.id, title: page.title,
             body: currentBody, wordCount: page.wordCount
