@@ -369,3 +369,15 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] `qwen25Coder7B` is no longer part of the shipping optional baseline and is hidden from the release chat picker until the freeze path is live-verified (`b587dda4`)
 - [x] `AgentChatState` and `AgentChatView` now route inline `<think>` blocks into the agent thinking popover and persist the captured reasoning trail onto finalized agent turns (`6f9d863c`)
 - [ ] Still needs live launched-app verification: `qwen25Coder7B` cold-load UX, direct-cloud and Rust-agent thinking separation, and any remaining crash repros
+
+## App Store Release Hardening Continuation (2026-04-24)
+- [x] App Store profile gates now hide/compile out Pro-only settings, runtime scripts, native computer-use stack, Pro runtime startup, and Pro-only `agent_core` tool code (`e87fbb6d` → `48fed7d7`)
+- [x] `Epistemos-AppStore` builds `agent_core` with `--features mas-sandbox`; focused release hardening tests cover sandbox/profile gates and App Store runtime exclusions (`0ab57d80`)
+- [x] App Store launch window recovery landed, including first-window surfacing and dock-reopen handling (`5785cef0`, `caa3fdbf`)
+- [x] Chat startup now fails closed when no selected runtime is ready; composer/model controls show setup/no-model state instead of submitting to a dead route (`caa3fdbf`)
+- [x] Local chat output is capped to Overseer steering budgets, fixing the App Store plain-chat policy denial seen during manual Computer Use smoke (`caa3fdbf`)
+- [x] Hugging Face hub snapshots with weight blobs are treated as usable local installs, so prepared local runtimes survive real bundle/cache layouts (`caa3fdbf`)
+- [x] Manual Computer Use smoke on the real App Store Release bundle: `ping` returned `pong`; no restricted-tools warning; shell/Pro affordances absent
+- [x] New canonical tracker: `docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md`
+- [ ] Remaining App Store blockers: attachment write-dispatch gate, Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
+- [ ] Pro work remains deferred until App Store lane is accepted or explicitly branched: CLI subprocess Power Mode, Docker, iMessage channel, full CLI config compiler, Bash/MultiEdit/WebFetch, long-horizon agents

@@ -675,3 +675,54 @@ and asserts:
 - `cargo test --manifest-path agent_core/Cargo.toml bridge::tests -- --nocapture` → 34/34 green.
 
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
+
+---
+
+## 20. App Store completion tracker — 2026-04-24
+
+The App Store / non-Pro lane now has a dedicated handoff tracker:
+
+`docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md`
+
+That file is the current continuation point for finishing everything that is
+App Store-compatible before Pro-only work resumes. It records:
+
+- the 12 App Store hardening commits from `e87fbb6d` through `caa3fdbf`;
+- the automated verification already completed for this pass;
+- the manual Computer Use smoke result (`ping` → `pong` in the real App Store
+  Release bundle, with no restricted-tools warning);
+- the current Phase R labels;
+- the remaining App Store blockers; and
+- the Pro continuation boundary.
+
+### 20.1 Non-Pro blockers still open
+
+Do these before any App Store-ready claim:
+
+1. Attachment write-dispatch gate: Snapshot attachments must deny writes; Live
+   note/file attachments must route through resource grants + verified writes.
+2. Swift-originated verified writes: AI/tool-originated Swift writes still need
+   a readback-verifying wrapper or explicit separation from ordinary user editor
+   saves.
+3. Grant UI manual smoke: create grant → see in Settings → revoke → next
+   matching tool call fails clearly.
+4. Full release-audit closure: automated checks, logs, manual runtime matrix,
+   entitlement/privacy review, and repeated zero-fail passes.
+5. App Store metadata/compliance: App Privacy answers, privacy policy/support
+   URLs, screenshots, TestFlight setup, review notes, export-compliance answers.
+
+### 20.2 Pro handoff boundary
+
+Pro work remains deferred unless the user explicitly branches it:
+
+- Power Mode CLI subprocess;
+- Docker;
+- iMessage channel;
+- full CLI config compiler for Claude/Codex/Gemini;
+- Bash/MultiEdit/WebFetch;
+- long-horizon background agents;
+- broad stdio MCP.
+
+When Pro resumes, build on the shared hardened App Store base and add capability
+only behind `PolicyProfile` / build-profile gates. Do not fork parallel runtime
+implementations.
