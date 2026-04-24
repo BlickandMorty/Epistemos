@@ -590,12 +590,214 @@ pub async fn resource_delete(id: ResourceId, mode: DeleteMode) -> Result<(), Res
 }
 
 // ---------------------------------------------------------------------
+// Phase R.6 — verified-write pipeline bridge
+// ---------------------------------------------------------------------
+//
+// Exposes `runtime::verified_write` via UniFFI so Swift note-save /
+// tool-execution paths can consult a single "write only reports
+// success after post-write readback checksum matches" helper.
+//
+// The pipeline is:
+//   Requested → Resolved → Authorized (R.5 grant check) →
+//   Executed (service.write) → Verified (service.read + checksum
+//   match) → Surfaced + audit-logged.
+//
+// "AI says done but the file didn't actually change" requires the
+// handler to either skip or fake step 5 — which this helper makes
+// impossible by construction.
+
+/// Shape-matched record exposed over FFI in place of the Rust-native
+/// `runtime::VerifiedWrite`. Identical fields; kept as a separate
+/// type so `runtime::VerifiedWrite` can evolve without churning the
+/// FFI surface.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct VerifiedWriteReceipt {
+    pub resource_id: ResourceId,
+    pub new_version: String,
+}
+
+/// FFI-friendly error envelope for the verified-write pipeline. The
+/// Rust-native `runtime::WriteError` is a rich enum; we flatten it
+/// into a discriminator + message so the Swift side can pattern-match
+/// without needing every Rust variant.
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+#[uniffi(flat_error)]
+pub enum VerifiedWriteError {
+    #[error("not initialized: {message}")]
+    NotInitialized { message: String },
+    #[error("invalid resource uri: {uri}")]
+    InvalidResourceUri { uri: String },
+    #[error("permission denied for {resource}: {capability}")]
+    PermissionDenied {
+        resource: String,
+        capability: String,
+    },
+    #[error("version conflict for {resource}: expected {expected}, actual {actual}")]
+    VersionConflict {
+        resource: String,
+        expected: String,
+        actual: String,
+    },
+    #[error("write verification failed: expected {expected}, actual {actual}")]
+    VerificationFailed { expected: String, actual: String },
+    #[error("resource error: {message}")]
+    Resource { message: String },
+    #[error("audit error: {message}")]
+    Audit { message: String },
+}
+
+impl From<crate::runtime::WriteError> for VerifiedWriteError {
+    fn from(error: crate::runtime::WriteError) -> Self {
+        use crate::runtime::WriteError;
+        match error {
+            WriteError::PermissionDenied { resource, capability } => {
+                Self::PermissionDenied {
+                    resource: resource.as_uri(),
+                    capability,
+                }
+            }
+            WriteError::VersionConflict { id, expected, actual } => Self::VersionConflict {
+                resource: id.as_uri(),
+                expected,
+                actual,
+            },
+            WriteError::VerificationFailed { expected, actual } => {
+                Self::VerificationFailed { expected, actual }
+            }
+            WriteError::Resource(message) => Self::Resource { message },
+            WriteError::Audit(message) => Self::Audit { message },
+        }
+    }
+}
+
+/// Process-local audit log slot. Initialised lazily in-memory the
+/// first time a verified-write runs; can be swapped to an on-disk
+/// file via [`verified_write_init_audit_at_path`] once Swift
+/// resolves a container-safe location.
+fn audit_log_holder() -> &'static std::sync::RwLock<Option<Arc<crate::runtime::SqliteResourceAuditLog>>>
+{
+    static HOLDER: OnceLock<
+        std::sync::RwLock<Option<Arc<crate::runtime::SqliteResourceAuditLog>>>,
+    > = OnceLock::new();
+    HOLDER.get_or_init(|| std::sync::RwLock::new(None))
+}
+
+fn active_audit_log() -> Result<Arc<crate::runtime::SqliteResourceAuditLog>, VerifiedWriteError> {
+    {
+        let guard = audit_log_holder()
+            .read()
+            .map_err(|_| VerifiedWriteError::Audit {
+                message: "audit log slot poisoned".into(),
+            })?;
+        if let Some(arc) = guard.as_ref() {
+            return Ok(arc.clone());
+        }
+    }
+    let mut writer = audit_log_holder()
+        .write()
+        .map_err(|_| VerifiedWriteError::Audit {
+            message: "audit log slot poisoned".into(),
+        })?;
+    if let Some(arc) = writer.as_ref() {
+        return Ok(arc.clone());
+    }
+    let log = crate::runtime::SqliteResourceAuditLog::open_in_memory().map_err(|error| {
+        VerifiedWriteError::Audit {
+            message: error.to_string(),
+        }
+    })?;
+    let arc = Arc::new(log);
+    *writer = Some(arc.clone());
+    Ok(arc)
+}
+
+/// Optional: migrate the audit log to on-disk persistence at
+/// `path`. Swift should drive this at launch once it has a
+/// container-safe path, same pattern as the permission store's
+/// `permission_store_init_at_path`.
+#[uniffi::export]
+pub fn verified_write_init_audit_at_path(path: String) -> Result<(), VerifiedWriteError> {
+    let path_buf = PathBuf::from(&path);
+    if path_buf.as_os_str().is_empty() {
+        return Err(VerifiedWriteError::Audit {
+            message: "empty audit log path".into(),
+        });
+    }
+    if let Some(parent) = path_buf.parent() {
+        if !parent.as_os_str().is_empty() && !parent.exists() {
+            std::fs::create_dir_all(parent).map_err(|error| VerifiedWriteError::Audit {
+                message: format!("mkdir {}: {error}", parent.display()),
+            })?;
+        }
+    }
+    let log = crate::runtime::SqliteResourceAuditLog::open(&path_buf).map_err(|error| {
+        VerifiedWriteError::Audit {
+            message: format!("open audit log at {path}: {error}"),
+        }
+    })?;
+    let mut writer = audit_log_holder()
+        .write()
+        .map_err(|_| VerifiedWriteError::Audit {
+            message: "audit log slot poisoned".into(),
+        })?;
+    *writer = Some(Arc::new(log));
+    Ok(())
+}
+
+/// Write to a resource and report success ONLY after the post-write
+/// readback checksum matches. Consults the process-local
+/// `PermissionService` for capability (`Write`), the active
+/// `ResourceService` for the write + readback, and the process-local
+/// audit log for the bookkeeping row.
+///
+/// Swift callers get one of:
+///   - `VerifiedWriteReceipt { resource_id, new_version }` on success.
+///   - `VerifiedWriteError::*` enum variant carrying the specific
+///     failure mode — matches the Rust-internal pipeline so Swift
+///     can surface the exact cause in the UI ("verification failed",
+///     "version conflict", etc.).
+///
+/// `tool_name` + `approval_source` land in the audit-log row so an
+/// operator can trace "which tool wrote what, under which grant."
+#[uniffi::export(async_runtime = "tokio")]
+pub async fn resource_verified_write(
+    id: ResourceId,
+    content: Vec<u8>,
+    base_version: Option<String>,
+    tool_name: String,
+    approval_source: Option<String>,
+) -> Result<VerifiedWriteReceipt, VerifiedWriteError> {
+    let service = active_service().map_err(|error| VerifiedWriteError::NotInitialized {
+        message: error.to_string(),
+    })?;
+    let audit = active_audit_log()?;
+    let store_arc = store().lock().await;
+    let receipt = crate::runtime::verified_write(
+        &*service,
+        &*store_arc,
+        audit.as_ref(),
+        &id,
+        &content,
+        base_version.as_deref(),
+        &tool_name,
+        approval_source.as_deref(),
+    )
+    .await
+    .map_err(VerifiedWriteError::from)?;
+    Ok(VerifiedWriteReceipt {
+        resource_id: receipt.id,
+        new_version: receipt.version,
+    })
+}
+
+// ---------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::runtime::ResourceAuditLog;
 
     #[tokio::test]
     async fn fresh_store_is_empty() {
@@ -847,6 +1049,145 @@ mod tests {
         // round-trip via list_active to verify the file is usable.
         let _ = permission_store_list_active().await;
         restore_store_to_in_memory().await;
+    }
+
+    /// Run the body with a pre-cleared audit log so the assertions
+    /// on entry counts aren't contaminated by other tests. Resets
+    /// the holder to None; the next `active_audit_log()` call will
+    /// re-init an empty in-memory log.
+    async fn reset_audit_log_for_tests() {
+        let mut guard = audit_log_holder().write().unwrap_or_else(|e| e.into_inner());
+        *guard = None;
+    }
+
+    #[tokio::test]
+    async fn verified_write_init_audit_at_empty_path_rejects() {
+        let _gate = bridge_store_gate();
+        let err = verified_write_init_audit_at_path("".into())
+            .expect_err("empty path must be rejected");
+        match err {
+            VerifiedWriteError::Audit { message } => {
+                assert!(message.contains("empty audit log path"));
+            }
+            other => panic!("expected Audit error, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn verified_write_bridge_succeeds_when_grant_covers_resource_and_readback_matches() {
+        let _gate = bridge_store_gate();
+        // Also serialize with the R.3 tests — this body reinitializes
+        // the resource service slot and would race R.3 fixtures that
+        // hold the slot for their duration.
+        let _r3 = r3_gate();
+        reset_audit_log_for_tests().await;
+        restore_store_to_in_memory().await;
+
+        // Stand up a real vault service so the bridge can resolve +
+        // read + write + readback through the production path.
+        let tmp = tempfile::tempdir().unwrap();
+        let note_path = tmp.path().join("Inbox/Verified.md");
+        std::fs::create_dir_all(note_path.parent().unwrap()).unwrap();
+        std::fs::write(&note_path, "before").unwrap();
+        let vault_id = format!("r6-{}", uuid::Uuid::new_v4());
+        let vault_root = tmp.path().to_string_lossy().to_string();
+        resource_service_init(vault_root, vault_id.clone())
+            .expect("resource service should init");
+
+        let id = resource_resolve("Inbox/Verified.md".into()).await.unwrap();
+        let base_version = resource_read(id.clone()).await.unwrap().version;
+
+        // Seed a grant so the R.5 capability check passes.
+        permission_store_record_user_grant_from_statement(
+            "You have my permission to edit this note.".into(),
+            id.as_uri(),
+            vec!["Write".into()],
+            "Session".into(),
+        )
+        .await
+        .expect("grant should land");
+
+        let receipt = resource_verified_write(
+            id.clone(),
+            b"after".to_vec(),
+            Some(base_version.clone()),
+            "note_write".into(),
+            Some("session-grant".into()),
+        )
+        .await
+        .expect("verified write should succeed when readback matches");
+
+        assert_eq!(receipt.resource_id, id);
+        assert!(!receipt.new_version.is_empty());
+
+        // Sanity: file on disk matches the new content.
+        assert_eq!(std::fs::read_to_string(&note_path).unwrap(), "after");
+
+        // Audit row must be `success`.
+        let log = active_audit_log().unwrap();
+        let entries = log.list().await.unwrap();
+        let success_entries = entries.iter().filter(|e| e.result == "success");
+        assert!(success_entries.clone().count() >= 1);
+        assert!(success_entries.clone().any(|e| e.resource_uri == id.as_uri()));
+
+        // Cleanup.
+        restore_store_to_in_memory().await;
+        // Clear the resource service so a later test doesn't race.
+        let mut guard = resource_service_slot().lock().unwrap();
+        *guard = None;
+    }
+
+    #[tokio::test]
+    async fn verified_write_bridge_denies_when_no_grant_covers_resource() {
+        let _gate = bridge_store_gate();
+        let _r3 = r3_gate();
+        reset_audit_log_for_tests().await;
+        restore_store_to_in_memory().await;
+
+        let tmp = tempfile::tempdir().unwrap();
+        let note_path = tmp.path().join("Inbox/Denied.md");
+        std::fs::create_dir_all(note_path.parent().unwrap()).unwrap();
+        std::fs::write(&note_path, "before").unwrap();
+        let vault_id = format!("r6-denied-{}", uuid::Uuid::new_v4());
+        let vault_root = tmp.path().to_string_lossy().to_string();
+        resource_service_init(vault_root, vault_id)
+            .expect("resource service should init");
+
+        let id = resource_resolve("Inbox/Denied.md".into()).await.unwrap();
+
+        // No grant seeded. The verified-write bridge must return
+        // PermissionDenied BEFORE the service.write call fires.
+        let error = resource_verified_write(
+            id.clone(),
+            b"mutation".to_vec(),
+            None,
+            "note_write".into(),
+            None,
+        )
+        .await
+        .expect_err("verified write must deny without a grant");
+
+        match error {
+            VerifiedWriteError::PermissionDenied { resource, .. } => {
+                assert_eq!(resource, id.as_uri());
+            }
+            other => panic!("expected PermissionDenied, got {other:?}"),
+        }
+
+        // File unchanged.
+        assert_eq!(std::fs::read_to_string(&note_path).unwrap(), "before");
+
+        // Audit row captures the denied attempt.
+        let log = active_audit_log().unwrap();
+        let entries = log.list().await.unwrap();
+        assert!(
+            entries.iter().any(|e| e.result == "capability_denied"
+                && e.resource_uri == id.as_uri()),
+            "audit log should record capability_denied row for the blocked write"
+        );
+
+        let mut guard = resource_service_slot().lock().unwrap();
+        *guard = None;
     }
 
     #[tokio::test]

@@ -108,15 +108,23 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## E. Verified writes (Phase R.6)
 
 ### I-007: AI "lies" about writes — the `vault_graph.json` class
+- **Status:** 🟡 **PARTIAL — Rust `verified_write` pipeline is FFI-exposed. Swift note-save call sites (`NoteFileStorage.writeBody`, `SDPage.saveBody`, tool-execution writes) still call the unverified write path. The failing-readback regression is now provable end-to-end through the FFI.**
 - **Symptom:** AI says "Done — I updated vault_graph.json" when no write happened. Later admits "I did not actually update it; I can't verify a real write."
 - **Root cause:** no verified-before-claim pipeline. `AgentEvent::ToolCallResult { is_error: false }` emits on tool-execution return, without verifying the underlying state changed.
-- **Fix:** Phase R.6 — `verified_write()` pipeline: `Requested → Resolved → Authorized → Executed → Verified → Surfaced`. `is_error = false` only after post-write readback with matching checksum.
-- **Verification:** stub `ResourceService::write` to succeed but `read` to return different content; pipeline MUST surface verification failure, NOT emit success.
+- **Scaffolding landed (2026-04-23 session):**
+  - `runtime::verified_write()` implements the full `Requested → Resolved → Authorized → Executed → Verified → Surfaced` pipeline (existed in Rust since Phase R.6 authoring; no change this commit).
+  - **New FFI bridge** (`scaffold(R.6 bridge)` this session): `resource_verified_write(id, content, base_version, tool_name, approval_source)` UniFFI export in `agent_core/src/resources/bridge.rs`. Consults process-local `PermissionService` for capability, process-local `ResourceService` for write + readback, and a new process-local `SqliteResourceAuditLog` for audit rows. Errors flatten to `VerifiedWriteError::{NotInitialized, InvalidResourceUri, PermissionDenied, VersionConflict, VerificationFailed, Resource, Audit}` so Swift can pattern-match the exact failure mode.
+  - **New FFI bridge** `verified_write_init_audit_at_path(path)` — mirrors `permission_store_init_at_path` so Swift can migrate the audit log from in-memory to on-disk at launch once a container-safe path is resolved.
+  - **3 new Rust tests** in `resources::bridge::tests` (all green): happy-path success with matching readback, permission-denied without a grant, empty-path audit init rejection. Plus the existing `write_without_readback_is_treated_as_error` in `runtime::write_pipeline::tests` continues to prove the core verification semantic.
+- **Fix (remaining — Swift leg):** migrate `NoteFileStorage.writeBody` / `SDPage.saveBody` / tool-execution writes (`LocalAgentLoop` + `ChatCoordinator.runRustAgentPath`) to call `resourceVerifiedWrite` instead of the unverified `resourceWrite`. End-to-end test: stub the write to succeed but readback to differ, assert the Swift surface emits "verification failed" — NOT success.
+- **Verification today:** 3 Rust tests + the pre-existing pipeline tests green. The user-visible-symptom-gone assertion ("AI says done only after readback matches") is provable via the FFI but not yet in effect in production Swift save paths.
 
 ### I-008: Writes report success before durable commit
+- **Status:** 🟡 **PARTIAL — same FFI scaffolding as I-007; Swift migration pending.**
 - **Symptom:** AI claim of completion arrives before filesystem sync. On failure, state is inconsistent between app and disk.
 - **Root cause:** same as I-007.
-- **Fix:** Phase R.6 — fsync + readback required before success signal. Audit log records (actor, tool, resource_id, before_version, after_version, approval_source).
+- **Fix evidence (FFI bridge):** `resource_verified_write` records an `AuditEntry { actor, tool, resource_uri, operation, before_version, after_version, approval_source, result, timestamp }` for every write attempt — success, permission denied, version conflict, verification failure, or error. Every row is written BEFORE the Swift-facing Result returns, so the audit log precedes any "done" signal the UI might surface.
+- **Fix (remaining):** Swift save paths need to call `resourceVerifiedWrite` + expose the audit log in Settings so users can inspect the write trail.
 - **Verification:** audit log has an entry for every write in a smoke-test session; no "done" precedes the audit row.
 
 ---
