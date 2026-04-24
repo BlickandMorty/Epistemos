@@ -162,12 +162,15 @@ impl ActiveWaves {
     pub const RELEASE_MIN_SPEED_PX_S: f32 = 5.0;
 
     /// Coupling gain from raw wave force into per-tick velocity delta.
-    /// Started at the FluidGrid `FLUID_K = 0.2` value, but that read
-    /// as near-invisible in-app because the rest of the motion stack
-    /// damps out the ring before it's perceptible. 0.5 puts a visible
-    /// ripple on screen without saturating the graph. Will move behind
-    /// the bulk motion-config FFI once the feel is dialled in.
-    pub const DEFAULT_COUPLING: f32 = 0.5;
+    /// Canonical starting value per v3 spec — parity with FluidGrid's
+    /// `FLUID_K = 0.2` so both overlay layers live on a shared scale
+    /// and tune together. An earlier session bumped this to 0.5 in
+    /// response to "feels subtle," but the cause was a per-second vs
+    /// per-tick unit mismatch on release velocity (fixed in `d7f4be40`);
+    /// with the release integrated correctly, 0.2 is the right starting
+    /// point and deeper tuning belongs in a dedicated A/B commit rather
+    /// than a diagnostic patch.
+    pub const DEFAULT_COUPLING: f32 = 0.2;
 
     pub fn new() -> Self {
         Self {
@@ -200,13 +203,15 @@ impl ActiveWaves {
 
         let speed = speed_sq.sqrt();
         let energy = (speed / 300.0).min(3.0);
-        // Amplitude base doubled from the v3 starting value (45) to 90
-        // because at a 1/√r radial falloff + 16 px origin clamp + 0.5
-        // coupling, the perceived ring was still subtle. 90 puts a
-        // visible beat on screen for a typical 600 px/s flick without
-        // saturating the graph under rapid repeated drags (the √ inside
-        // `energy` keeps the stacking sublinear).
-        let amplitude = 90.0 * energy.sqrt();
+        // Amplitude base follows v3 spec §6 starting value. A 600 px/s
+        // flick produces `45 × √2 ≈ 64` units of amplitude, which with
+        // the 1/√r radial falloff and 0.2 coupling lands as a visible
+        // ring once the release integrator is correctly unit-scaled
+        // (see `d7f4be40` — the previous "feels subtle" report was a
+        // symptom of the rubber-band kick stealing the attention, not
+        // an amplitude shortfall). `sqrt` inside `energy` keeps the
+        // stacking sublinear under rapid repeated drags.
+        let amplitude = 45.0 * energy.sqrt();
 
         if self.events.len() >= Self::CAPACITY {
             // Evict the OLDEST event so the freshest user action always
