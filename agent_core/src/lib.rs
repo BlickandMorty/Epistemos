@@ -15,7 +15,6 @@ pub mod neocortex;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
-pub mod pty;
 pub mod reasoning_metrics;
 pub mod resources;
 pub mod runtime;
@@ -25,6 +24,9 @@ pub mod session;
 pub mod skill_router;
 pub mod types;
 pub mod vault_registry;
+
+#[cfg(not(feature = "mas-sandbox"))]
+pub mod pty;
 
 pub mod providers {
     pub mod claude;
@@ -58,39 +60,57 @@ pub mod tirith;
 pub mod mcp;
 
 pub mod tools {
-    pub mod apple;
-    pub mod browser;
     pub mod channel_contacts;
     pub mod chunk_reduce;
     pub mod clarify;
-    pub mod cli_passthrough;
     pub mod communication;
-    pub mod computer_use;
-    pub mod custom_tools;
-    pub mod delegate_task;
-    pub mod discovery;
     pub mod file_ops;
     pub mod filesystem;
     pub mod graph;
-    pub mod imessage;
-    pub mod imessage_contacts;
     pub mod inference;
-    pub mod intelligence;
     pub mod knowledge;
-    pub mod macos;
-    pub mod media;
     pub mod memory;
     pub mod registry;
-    pub mod scheduling;
-    pub mod skills;
-    pub mod stdio_mcp;
-    pub mod terminal;
     pub mod think;
     pub mod todo;
-    pub mod trajectory;
     pub mod web;
     pub mod web_fetch;
     pub mod workspace_search;
+
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod apple;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod browser;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod cli_passthrough;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod computer_use;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod custom_tools;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod delegate_task;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod discovery;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod imessage;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod imessage_contacts;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod intelligence;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod macos;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod media;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod scheduling;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod skills;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod stdio_mcp;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod terminal;
+    #[cfg(not(feature = "mas-sandbox"))]
+    pub mod trajectory;
 }
 
 #[cfg(test)]

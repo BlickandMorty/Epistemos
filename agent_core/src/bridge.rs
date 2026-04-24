@@ -723,6 +723,7 @@ pub fn compile_command_center_request(input_json: String) -> Result<String, Agen
 
 // MARK: - Persistent PTY FFI
 
+#[cfg(not(feature = "mas-sandbox"))]
 #[derive(uniffi::Record)]
 pub struct PtyConfigFFI {
     pub shell: String,
@@ -731,6 +732,7 @@ pub struct PtyConfigFFI {
     pub rows: u16,
 }
 
+#[cfg(not(feature = "mas-sandbox"))]
 #[derive(uniffi::Record)]
 pub struct PtyOutputFFI {
     pub stdout: String,
@@ -741,6 +743,7 @@ pub struct PtyOutputFFI {
 
 /// Spawn a persistent PTY shell session tied to the given agent session.
 /// Returns a unique `pty_id` for subsequent `pty_execute` / `pty_close` calls.
+#[cfg(not(feature = "mas-sandbox"))]
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn pty_spawn(session_id: String, config: PtyConfigFFI) -> Result<String, AgentErrorFFI> {
     let pty_config = crate::pty::PtyConfig {
@@ -773,6 +776,7 @@ pub async fn pty_spawn(session_id: String, config: PtyConfigFFI) -> Result<Strin
 
 /// Execute a command in a persistent PTY session.
 /// The shell state (working directory, env vars, aliases) persists between calls.
+#[cfg(not(feature = "mas-sandbox"))]
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn pty_execute(
     pty_id: String,
@@ -811,12 +815,14 @@ pub async fn pty_execute(
 }
 
 /// Close a persistent PTY session and terminate its child shell process.
+#[cfg(not(feature = "mas-sandbox"))]
 #[uniffi::export]
 pub fn pty_close(pty_id: String) {
     ffi_guard_value!(crate::pty::PtyPool::close(&pty_id), ());
 }
 
 /// Get the number of active PTY sessions (diagnostics).
+#[cfg(not(feature = "mas-sandbox"))]
 #[uniffi::export]
 pub fn pty_active_count() -> u32 {
     ffi_guard_value!(crate::pty::PtyPool::active_count() as u32, 0)
@@ -1031,8 +1037,8 @@ pub fn shm_read_payload(segment_name: String, byte_length: u64) -> Result<String
 }
 
 /// Write raw bytes into a new shared memory segment and return the reference JSON.
-/// Used by the TCC Swift Proxy to write screen capture pixel data into SHM
-/// without routing through the Python daemon (which lacks TCC permissions).
+/// Used by native clients to write binary payloads into SHM without routing
+/// through any external helper process.
 ///
 /// Returns a JSON string like: `{"segment_name":"/ep_tcc_42","byte_length":1234567,"content_type":"image/png"}`
 #[uniffi::export]

@@ -233,6 +233,7 @@ pub struct SessionGuard {
 impl Drop for SessionGuard {
     fn drop(&mut self) {
         // Cascade-close any PTY sessions tied to this agent session.
+        #[cfg(not(feature = "mas-sandbox"))]
         crate::pty::PtyPool::close_all_for_session(&self.session_id);
 
         // Crash recovery: if the session folder was never finalized, finalize it now
