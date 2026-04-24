@@ -381,5 +381,6 @@ Items 1-15 from `docs/AGENT_INTEGRATION_SESSION_PLAN.md` — all building clean.
 - [x] New canonical tracker: `docs/APP_STORE_RELEASE_COMPLETION_STATUS_2026_04_24.md`
 - [x] Live R.4 attachments now seed session Read/Write grants before chat/tool routing; pasted Snapshot attachments remain read-only. Verified by 9/9 R.5 grant tests, 43/43 R.4/R.5 focused tests, and App Store Release BUILD SUCCEEDED.
 - [x] Attached-write prompt contract now exposes exact `vault_write.path` for Live writable notes and exact `write_file.path` for existing attached text files; offline cached previews remain non-writable. Verified by 32/32 focused attachment/context tests and App Store Release BUILD SUCCEEDED.
-- [ ] Remaining App Store blockers: end-to-end attached-file write verification, Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
+- [x] Approved staged vault-mutation commits now verify UTF-8 readback before reporting success. Verified by 5/5 `LiveNoteExecutorTests` and App Store Release BUILD SUCCEEDED.
+- [ ] Remaining App Store blockers: end-to-end attached-file write verification, remaining Swift-originated verified-write migration, grant UI manual revoke smoke, full repeated release-audit pass, App Store metadata/privacy/TestFlight closure
 - [ ] Pro work remains deferred until App Store lane is accepted or explicitly branched: CLI subprocess Power Mode, Docker, iMessage channel, full CLI config compiler, Bash/MultiEdit/WebFetch, long-horizon agents

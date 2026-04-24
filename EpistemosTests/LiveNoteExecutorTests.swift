@@ -154,6 +154,34 @@ struct LiveNoteExecutorTests {
         #expect(page.loadBody(mapped: true) == body)
     }
 
+    @Test("approved vault mutation file writes verify readback before reporting success")
+    func approvedVaultMutationFileWritesVerifyReadback() throws {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-verified-writer-\(UUID().uuidString).md")
+
+        try VaultVerifiedFileWriter.writeUTF8("Verified body", to: fileURL)
+
+        let readback = try String(contentsOf: fileURL, encoding: .utf8)
+        #expect(readback == "Verified body")
+    }
+
+    @Test("approved vault mutation file writes reject mismatched readback")
+    func approvedVaultMutationFileWritesRejectMismatchedReadback() throws {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-verified-writer-mismatch-\(UUID().uuidString).md")
+
+        do {
+            try VaultVerifiedFileWriter.writeUTF8(
+                "Expected body",
+                to: fileURL,
+                readBack: { _ in "Different body" }
+            )
+            Issue.record("Expected verified writer to reject mismatched readback")
+        } catch let error as VaultChatMutatorError {
+            #expect(error.errorDescription?.contains("did not match") == true)
+        }
+    }
+
     private func makeModelContainer() throws -> ModelContainer {
         try ModelContainer(
             for: Schema(EpistemosSchema.models),

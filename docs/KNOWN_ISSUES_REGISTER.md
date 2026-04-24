@@ -113,7 +113,7 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## E. Verified writes (Phase R.6)
 
 ### I-007: AI "lies" about writes — the `vault_graph.json` class
-- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes now verify readback before returning `success: true`; Rust `verified_write` pipeline is also FFI-exposed. Swift note-save / local Swift tool paths still need migration.**
+- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes now verify readback before returning `success: true`; Rust `verified_write` pipeline is FFI-exposed; approved staged vault-mutation commits now verify UTF-8 readback before reporting success. Other Swift note-save / local Swift tool paths still need migration.**
 - **Symptom:** AI says "Done — I updated vault_graph.json" when no write happened. Later admits "I did not actually update it; I can't verify a real write."
 - **Root cause:** no verified-before-claim pipeline. `AgentEvent::ToolCallResult { is_error: false }` emits on tool-execution return, without verifying the underlying state changed.
 - **Fixes/scaffolding landed:**
@@ -123,17 +123,19 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
   - **3 new Rust tests** in `resources::bridge::tests` (all green): happy-path success with matching readback, permission-denied without a grant, empty-path audit init rejection. Plus the existing `write_without_readback_is_treated_as_error` in `runtime::write_pipeline::tests` continues to prove the core verification semantic.
   - **App Store hardening 2026-04-24:** Rust `write_file`, `patch`, and `vault_write` handlers now read back the written bytes/content before returning success. A fake `LyingVault` that returns `Ok(())` from `write()` but different content from `read()` now produces `ToolError::ExecutionFailed("write verification failed...")`, not a success payload.
   - **Local-agent filtered path hardening 2026-04-24:** `execute_tool_call_filtered` now opens a writable `VaultStore` for `vault_write` instead of the read-only opener used by read/catalog paths. Regression `bridge::tests::filtered_vault_write_uses_writable_backend` proves the filtered Swift `ToolTierBridge` route can write, read back, and return `"verified": true`.
-- **Fix (remaining — Swift leg):** migrate Swift-originated note-save / local-agent write paths (`NoteFileStorage.writeBody`, `SDPage.saveBody`, any LocalAgentLoop raw file writes) to call `resourceVerifiedWrite` or an equivalent verified-write wrapper. End-to-end test: stub the write to succeed but readback to differ, assert the Swift surface emits "verification failed" — NOT success.
-- **Verification today:** Rust tool-handler tests prove `write_file`, `patch`, and `vault_write` success payloads include `"verified": true` only after readback matches. The remaining gap is Swift-originated local write paths.
+  - **Approved staged vault-mutation hardening 2026-04-24:** `VaultMutationIO.commit(diff:)` now writes through `VaultVerifiedFileWriter.writeUTF8`, which performs a post-write readback and throws `VaultChatMutatorError.writeVerificationFailed` on mismatch before the commit path can report success.
+- **Fix (remaining — Swift leg):** migrate remaining Swift-originated note-save / local-agent write paths (`NoteFileStorage.writeBody`, `SDPage.saveBody`, any LocalAgentLoop raw file writes) to call `resourceVerifiedWrite` or an equivalent verified-write wrapper, or explicitly classify them as ordinary user-editor saves that are not agent success claims. End-to-end test: stub the write to succeed but readback to differ, assert the Swift surface emits "verification failed" — NOT success.
+- **Verification today:** Rust tool-handler tests prove `write_file`, `patch`, and `vault_write` success payloads include `"verified": true` only after readback matches. Swift `LiveNoteExecutorTests` prove approved staged vault-mutation writes succeed with matching readback and fail on mismatched readback. Remaining gaps are other Swift-originated local write paths and a full launched-app attached-write dogfood.
 
 ### I-008: Writes report success before durable commit
-- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes now verify durable readback before success; Swift-originated write paths and audit-log UI pending.**
+- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes and approved staged vault-mutation commits now verify durable readback before success; other Swift-originated write paths and audit-log UI pending.**
 - **Symptom:** AI claim of completion arrives before filesystem sync. On failure, state is inconsistent between app and disk.
 - **Root cause:** same as I-007.
 - **Fix evidence (FFI bridge):** `resource_verified_write` records an `AuditEntry { actor, tool, resource_uri, operation, before_version, after_version, approval_source, result, timestamp }` for every write attempt — success, permission denied, version conflict, verification failure, or error. Every row is written BEFORE the Swift-facing Result returns, so the audit log precedes any "done" signal the UI might surface.
 - **Fix evidence (tool handlers):** `write_file`, `patch`, and `vault_write` now perform post-write readback verification before returning success. This closes the Rust registry path where the agent loop could previously surface success immediately after `write()` / `rename()` returned.
-- **Fix (remaining):** Swift save paths need to call `resourceVerifiedWrite` + expose the audit log in Settings so users can inspect the write trail.
-- **Verification:** Rust registry/filesystem tests prove readback mismatch blocks success. Full smoke-test audit-log coverage still pending.
+- **Fix evidence (approved staged vault mutations):** `VaultMutationIO.commit(diff:)` now verifies the file contents immediately after the atomic UTF-8 write. A mismatched readback throws before git add/commit and before UI-level success can be reported.
+- **Fix (remaining):** remaining Swift save paths need to call `resourceVerifiedWrite` or a local verified wrapper where they represent AI/tool claims, and the audit log still needs to surface in Settings so users can inspect the write trail.
+- **Verification:** Rust registry/filesystem tests prove readback mismatch blocks success. `LiveNoteExecutorTests` prove the approved vault-mutation writer rejects mismatched readback. Full smoke-test audit-log coverage still pending.
 
 ---
 
