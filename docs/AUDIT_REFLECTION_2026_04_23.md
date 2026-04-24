@@ -284,4 +284,52 @@ In priority order:
 
 ---
 
+## 11. Build-pass log — 2026-04-23 late evening (R.5 write-side landing)
+
+After Codex's second read-only audit (shared in-conversation) confirmed *"continue `AUDIT_REFLECTION §10.6` in order"*, the next commit in that queue landed:
+
+### 11.1 `0582aa3d` — scaffold(R.5 gate)
+
+- `agent_core::tools::registry::ToolRegistry::execute` now fires a Phase R.5 authorization check before handing control to the tool handler. This is the ONE choke point every tool call passes through — the autonomous Rust agent loop (`agent_loop.rs:857`), the Swift-driven `execute_tool_call` FFI entry point (`bridge.rs:1919`), AND the allowlist-limited `execute_tool_call_filtered` variant (`bridge.rs:1964`) all converge here. One edit covers cloud + local paths.
+- New module `agent_core/src/resources/tool_authz.rs` provides the pure `infer_tool_authz_target(tool_name, input, risk_level, vault_root) -> Option<ToolAuthzTarget>`. First arm recognizes `vault_write` and builds `(ResourceId::VaultNote { vault_id, note_id }, Capability::Write)` using `vault_root.file_name()` for vault id — same convention as `AppBootstrap.initializeRustResourceServiceIfReady`. The arm-by-arm pattern lets every future tool addition land independently.
+- Two new crate-private helpers on `resources::bridge`: `check_resource_capability(ResourceId, Capability) -> bool` (so the gate doesn't need to round-trip through the stringified FFI) and `active_grant_count() -> usize` (used by the empty-store safety branch).
+- **First-cut semantics — conservative by design:**
+  - **Advisory (default):** gate emits `tracing::info!` with `tool`, `capability`, `granted`, `active_grants`, `enforce` but never blocks. Live traffic unchanged.
+  - **Enforcement (`EPISTEMOS_R5_ENFORCE=1`):** if `granted == false` AND `active_grants > 0`, return `ToolError::PermissionDenied` before the handler runs. The `active_grants > 0` guard is the user-opt-in safety — an empty store means the user hasn't configured anything yet, so we never break flows out from under them.
+  - **Read-only tools (`RiskLevel::ReadOnly`) bypass entirely** — R.5 is about mutation gating.
+- **12 new Rust tests, all green:**
+  - `resources::tool_authz::tests` (8): URI construction happy path + leading-slash normalization; `None` for: no vault root, no path, empty path, read-only risk, unrecognized tool, unresolvable vault root.
+  - `tools::registry::tier_tests::r5_gate_*` (4): advisory-mode allow regardless of grant state; enforcement-mode allow when a matching grant exists; **enforcement-mode deny when a different grant exists** (the I-009 enforcement proof); read-only `vault_read` bypasses even under enforcement. Tests serialize behind `R5_GATE_TEST_LOCK` + a `ScopedEnforceFlag` RAII guard that restores the env var on drop.
+- Verification: `cargo test` passes 609 main lib + 2 + 5 binary test suites = 616 tests. `xcodebuild -scheme Epistemos build` → BUILD SUCCEEDED. Swift Phase R regression (46 tests across 5 suites) unchanged.
+
+### 11.2 Why I-009 remains PARTIAL (not FIXED)
+
+Honest-labeling holds: I-009 moved from PARTIAL to PARTIAL. The wiring is real and testable, but:
+1. Default mode is advisory. Enforcement only fires under the env flag. The plan's promise is that the user-visible symptom goes away — that requires enforcement ON by default.
+2. Only `vault_write` is recognized. Other mutating tools (file writers, delete variants, custom tools, send_message, claude_code) still bypass. Until every mutating arm is covered, enabling default enforcement would create holes that leak unauthorized writes through the un-mapped tools.
+3. The permission store is still in-memory. A full I-009 FIXED needs persistence across app relaunches.
+
+### 11.3 Next in the §10.6 queue
+
+1. ✅ **R.5 write-side** — landed as `0582aa3d` (this commit). Advisory today, enforcement one env var away.
+2. ⏳ **R.3 production read-site migration** — migrate `NoteFileStorage.readBody` / `VaultIndexActor` / `NotesSidebar` consumers from `loadBody` to `loadBodyAsync`. Parity tests already cover the byte-level contract; just flip the call sites and add a migration-level integration test.
+3. ⏳ **R.4 MiniChat + Landing dropdown backfill** — mirror `f6f62816` into the two other composers. Small, mechanical; closes all three chat surfaces for grant eligibility.
+4. ⏳ **R.5 arm-by-arm expansion** — add every mutating tool to `tool_authz::infer_tool_authz_target`. Needed before enforcement default can flip ON.
+5. ⏳ **R.5 persistence** — migrate the permission store to on-disk at a container-safe path.
+6. ⏳ **R.6 verified write** — Rust already has `verified_write`; Swift integration flips I-007 / I-008 from OPEN.
+
+### 11.4 Codex's muddy-count note reconciled
+
+Codex's second audit observed *"Claude's '72/72' count didn't reproduce exactly for my selected suites: I got 68/68 on the seven mapped Phase R suites, plus 20/20 on alias/composer tests."* The difference comes from which suites each run picks: the 72 figure included `MiniChatViewAuditTests` + `ComposerReferenceHelpersTests` as part of the "Phase R touch surface"; Codex's 68 excluded them. Both numbers are correct for the suites each of us selected. The authoritative number for this commit's additions is: **12 new Rust tests** (`tool_authz` + `tier_tests::r5_gate_*`) and zero Swift test count change.
+
+### 11.5 Stale-early-statement disclaimer
+
+Codex also noted *"`AUDIT_REFLECTION_2026_04_23.md` now has stale early statements contradicted by the newer §10/§11 session work."* Accurate. §1–§9 describe the pre-build-pass ground truth; §10 / §11 are authoritative for the commits they name. A reconciliation pass (folding the early sections into a single "As of 2026-04-23 morning" preamble) is queued as a low-priority doc-only chore.
+
+### 11.6 Dirty worktree caveat
+
+`Epistemos.xcodeproj/project.pbxproj` continues to show unstaged cosmetic Xcode drift from opening the project. Do NOT commit it alongside scaffold work — it belongs in its own trivially-reversible commit if it ever needs to land.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
