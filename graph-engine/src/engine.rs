@@ -1427,6 +1427,18 @@ impl Engine {
         enable_orbital: bool,
         orbital_speed: f32,
     ) {
+        // User 2026-04-24: "things are still orbiting, little nodes
+        // are still trying to orbit — want to remove that as well,
+        // it's redundant." Plus earlier feedback on the jumbled
+        // presets. Torsion / orbital / wind / boids are force-zeroed
+        // at this FFI boundary regardless of what the preset sends,
+        // so no new preset can resurrect the competing motion.
+        // Arguments remain in the signature for FFI ABI stability.
+        let _ = (enable_torsion, torsion_rigidity);
+        let _ = boids_cohesion;
+        let _ = (wind_x, wind_y);
+        let _ = (enable_orbital, orbital_speed);
+
         self.idle_frame_count = 0;
         // Simulation-side params
         {
@@ -1435,22 +1447,22 @@ impl Engine {
             if !enable_fluid {
                 sim.clear_fluid_velocity();
             }
-            sim.params.enable_torsional_springs = enable_torsion;
+            sim.params.enable_torsional_springs = false;
             sim.params.fluid_viscosity = fluid_viscosity.clamp(0.0, 1.0);
-            sim.params.torsion_rigidity = torsion_rigidity.clamp(0.0, 1.0);
-            sim.params.boids_cohesion = boids_cohesion.clamp(0.0, 1.0);
-            sim.params.wind_x = wind_x;
-            sim.params.wind_y = wind_y;
-            sim.params.enable_orbital = enable_orbital;
-            sim.params.orbital_speed = orbital_speed.clamp(0.0, 1.0);
+            sim.params.torsion_rigidity = 0.0;
+            sim.params.boids_cohesion = 0.0;
+            sim.params.wind_x = 0.0;
+            sim.params.wind_y = 0.0;
+            sim.params.enable_orbital = false;
+            sim.params.orbital_speed = 0.0;
             sim.reheat();
         }
         // Renderer-side params
         self.renderer.enable_elastic_edges = enable_elastic;
         let _ = enable_tension; // tension coloring removed
         self.renderer.edge_elasticity = edge_elasticity.clamp(0.0, 1.0);
-        self.renderer.wind_x = wind_x;
-        self.renderer.wind_y = wind_y;
+        self.renderer.wind_x = 0.0;
+        self.renderer.wind_y = 0.0;
     }
 
     // ── Shadow Attraction ──────────────────────────────────────────────
