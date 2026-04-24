@@ -482,4 +482,74 @@ Key pattern throughout the migration: the `SDPage` reference NEVER crosses a Tas
 
 ---
 
+## 16. Build-pass log — 2026-04-23 end-of-runway (Steps 5-7)
+
+### 16.1 `scaffold(R.4 minichat+landing)` — Step 5
+
+Mirror of `f6f62816` (ChatInputBar) into the two remaining production composers. `MiniChatView.attachMentionReference` and `LandingView.attachLandingMentionReference` both now thread `vaultSync.vaultURL?.lastPathComponent` into `ComposerReferenceHelpers.contextAttachment(for:vaultId:)`.
+
+Before: R.5 grant parser was effectively dead on MiniChat + Landing turns (their attachments had no resourceURI, so `r5ResourceURIsForGrant(from:)` filtered them all out).
+After: every `@`-picked note on all three chat surfaces carries a canonical URI; "you have my permission to edit this" from any composer mints a real grant.
+
+2 new parity tests (`allThreeComposersMintIdenticalManifest`, `allThreeComposersFallBackIdenticallyWhenVaultUnset`) prove all three composers produce byte-identical attachments for the same entry.
+
+### 16.2 `scaffold(R.4 finder+paste)` — Step 6
+
+Finder drop + paste handlers don't exist in the codebase today (the spec-mentioned `.onDrop` / `.onPasteCommand`). The only file-entry point is the NSOpenPanel file picker in `ChatInputBar`. This commit wires that existing path:
+
+- New `ContextAttachmentKind.file` case on the attachment model.
+- New helpers: `fileResourceURI(for:)`, `fileContextAttachment(for:displayName:)`, `pasteContextAttachment(displayName:snapshotContent:sourceIdentifier:)`.
+- File-picker flow now mints a companion manifest-bearing `ContextAttachment` per picked file. R.5 grant parser sees the `file://` URIs.
+
+Honest scope guard: **tool-dispatch enforcement** (tool-call consulting `attachment.toAttachedResource().allows(.write)` before writing) is NOT included. I-004/I-005/I-006 stay PARTIAL — manifest plumbing is now present on every entry point (dropdown + file picker + paste helper), but the write-side gate hasn't been flipped on for files the way R.5 flipped it for `vault_write`.
+
+7 new tests (20/20 green in `PhaseR4DropdownBackfillTests`).
+
+### 16.3 `scaffold(R.6 bridge)` — Step 7
+
+Rust `runtime::verified_write()` pipeline — which has existed since Phase R.6 authoring — now has a UniFFI facade:
+
+- **`resource_verified_write(id, content, base_version, tool_name, approval_source)`** — drives the full Requested → Resolved → Authorized → Executed → Verified → Surfaced pipeline using process-local `PermissionService` + `ResourceService` + a new process-local `SqliteResourceAuditLog` slot.
+- **`verified_write_init_audit_at_path(path)`** — mirrors `permission_store_init_at_path`; Swift can migrate the audit log from in-memory to on-disk at launch.
+- **`VerifiedWriteError` UniFFI enum** flattens the rich Rust `runtime::WriteError` into `NotInitialized / InvalidResourceUri / PermissionDenied / VersionConflict / VerificationFailed / Resource / Audit` so Swift can pattern-match the exact failure mode.
+- **`VerifiedWriteReceipt` UniFFI record** — success payload carrying the resource id + new version.
+
+3 new Rust tests (all green):
+- `verified_write_bridge_succeeds_when_grant_covers_resource_and_readback_matches` — happy path.
+- `verified_write_bridge_denies_when_no_grant_covers_resource` — gate fires before the write handler.
+- `verified_write_init_audit_at_empty_path_rejects` — validation guard.
+
+Tests serialize on both `bridge_store_gate()` (permission store) AND `r3_gate()` (resource service slot) so re-initialising the active vault doesn't race existing R.3 fixtures.
+
+**Honest scope guard — this is NOT `fix(R.6)`:**
+- I-007 / I-008 stay PARTIAL.
+- The Rust FFI surface is present + tested; Swift call-site migration is the remaining work.
+- `NoteFileStorage.writeBody`, `SDPage.saveBody`, and tool-execution writes in Swift still call the unverified `resourceWrite` / raw `FileManager` write path. Migrating those to `resourceVerifiedWrite` is the next commit that flips the label to FIXED. It should also surface the audit log in `AgentControlSettingsView`.
+
+### 16.4 Verification summary — end of runway
+
+- Rust: **626 lib + 2 + 5 = 633 tests** green (was 616 at session start; +17 new tests across Steps 1-7).
+- Swift Phase R regression: **55/55** across 5 suites (`PhaseR3BodyReadParityTests` 5, `PhaseR4DropdownBackfillTests` 20, `PhaseR5ChatGrantWiringTests` 7, `PhaseRAttachmentBridgeTests` 14, `PhaseRPermissionBridgeTests` 9).
+- `xcodebuild -scheme Epistemos` → BUILD SUCCEEDED after every commit in the runway.
+- Pre-existing third-party SwiftLint failures on `CodeEditSourceEditor` / `CodeEditTextView` — unchanged (not touched during this runway).
+
+### 16.5 Label outcomes across the runway
+
+- **I-001** — no change (already PARTIAL read-side FIXED; write-edge deferred per `40bcd115`).
+- **I-002 / I-003** — OPEN → PARTIAL (R.3 async cascade migrated).
+- **I-004 / I-005 / I-006** — OPEN → PARTIAL (manifest plumbing on every entry point, tool-dispatch gate pending).
+- **I-007 / I-008** — OPEN → PARTIAL (verified-write FFI bridge landed, Swift call-site migration pending).
+- **I-009 — OPEN → FIXED** 🟢 (default enforcement flipped on; Step 2).
+- **I-010** — no change (CONFIRMED-CLEAN-AT-BRIDGE; in-effect hinges on I-009 which is now FIXED — worth a re-audit after the Swift verified-write migration).
+
+### 16.6 Pending work NOT in this runway
+
+- Swift call-site migration for verified writes (the `fix(R.6)` commit).
+- Tool-dispatch write gate for attachments (the `fix(R.4)` commit).
+- R.7 UI surface for active grants (I-014).
+- R.8 picker / DisclosureGroup rebuild (I-011 / I-012 / I-013).
+- Doc-reconciliation fold of §1-§9 into a preamble (lowest-priority chore, deliberately deferred).
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
