@@ -8,4 +8,5 @@
 //! `Simulation::tick` at the insertion point described in
 //! `docs/GRAPH_WAVES_PLAN.md` §3.
 
+pub mod curl;
 pub mod waves;
