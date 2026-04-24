@@ -225,7 +225,8 @@ struct RootView: View {
             }
         }
         .overlay {
-            if let issue = vaultSync.recoveryIssue {
+            if let issue = vaultSync.recoveryIssue,
+               issue.blocksWorkspaceInteraction {
                 VaultRecoveryOverlay(
                     issue: issue,
                     isRecovering: vaultSync.isRecoveringLocalState,
