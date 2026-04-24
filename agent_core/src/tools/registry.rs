@@ -10,22 +10,32 @@ use serde_json::{json, Value};
 use crate::storage::vault::{VaultBackend, VaultError};
 use crate::types::ToolSchema;
 
-/// Phase R.5 — env-flag gate. When set to a truthy value
-/// (`1`, `true`, `yes`) the tool-execution authorization check will
-/// REJECT calls that don't match a stored grant (as long as the
-/// store is non-empty). Default is advisory-only: the check still
-/// fires and emits telemetry but does not block execution, so
-/// production traffic stays unaffected while we gather coverage.
+/// Phase R.5 — env-flag gate. Default is **enforcement ON**: when a
+/// grant store is non-empty and this tool call doesn't match any
+/// grant, the R.5 gate rejects the call before the handler runs.
+/// `EPISTEMOS_R5_ENFORCE=0` (or `false`/`no`/`off`) is the escape
+/// hatch — primarily for operators who need to roll back to
+/// advisory-only behaviour while diagnosing a grant-store issue.
+///
+/// Any other value — including `1`/`true`/`yes`/`on` — leaves
+/// enforcement on, matching the unset default.
+///
+/// Prior to 2026-04-23 the default was advisory; the R.5
+/// arm-by-arm expansion landed first so the flip here doesn't
+/// accidentally block anything that has no ResourceId mapping
+/// (those tools return `None` from `infer_tool_authz_target` and
+/// bypass the gate entirely — see
+/// `resources::tool_authz::tests::non_resourceable_mutating_tools_return_none`).
 ///
 /// Placed here (rather than a general config module) because the
 /// only consumer is `ToolRegistry::execute` directly below.
 fn r5_enforce_enabled() -> bool {
     match std::env::var("EPISTEMOS_R5_ENFORCE") {
-        Ok(raw) => matches!(
+        Ok(raw) => !matches!(
             raw.trim().to_ascii_lowercase().as_str(),
-            "1" | "true" | "yes" | "on"
+            "0" | "false" | "no" | "off"
         ),
-        Err(_) => false,
+        Err(_) => true,
     }
 }
 
@@ -2521,6 +2531,15 @@ mod tier_tests {
             Self { previous }
         }
 
+        /// The escape hatch: set the env var to "0" so the gate drops
+        /// back to advisory mode. Used by the regression test that
+        /// proves operators can roll back to the pre-flip default.
+        fn set_off() -> Self {
+            let previous = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
+            std::env::set_var("EPISTEMOS_R5_ENFORCE", "0");
+            Self { previous }
+        }
+
         fn clear() -> Self {
             let previous = std::env::var("EPISTEMOS_R5_ENFORCE").ok();
             std::env::remove_var("EPISTEMOS_R5_ENFORCE");
@@ -2546,12 +2565,29 @@ mod tier_tests {
     }
 
     #[tokio::test]
-    async fn r5_gate_allows_vault_write_when_enforce_flag_is_off() {
+    async fn r5_gate_allows_vault_write_when_escape_hatch_disables_enforce() {
         let _guard = r5_gate_test_lock();
-        let _env = ScopedEnforceFlag::clear();
+        // EPISTEMOS_R5_ENFORCE=0 rolls the gate back to advisory mode.
+        // Even with grants in the store pointing at OTHER resources,
+        // this call — which has no matching grant — must succeed.
+        let _env = ScopedEnforceFlag::set_off();
 
-        // Even if no grant exists for this resource, the gate is in
-        // advisory mode by default — the call must succeed.
+        // Seed an unrelated grant so active_grant_count > 0; advisory
+        // mode must still allow regardless.
+        let unrelated_uri = format!(
+            "vault://r5-escape-{0}/note/Inbox/Unrelated-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let unrelated_grant =
+            crate::resources::bridge::permission_store_record_user_grant_from_statement(
+                "You have my permission to edit this note.".into(),
+                unrelated_uri,
+                vec!["Write".into()],
+                "Session".into(),
+            )
+            .await
+            .expect("seed grant for escape-hatch test");
+
         let vault_root = tempfile::tempdir().unwrap();
         let registry = build_registry_with_root(ToolTier::Agent, vault_root.path());
         let unique_path = format!(
@@ -2564,6 +2600,58 @@ mod tier_tests {
             .expect("advisory-mode gate must not block vault_write");
         let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
         assert_eq!(parsed["path"], serde_json::json!(unique_path));
+
+        let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
+    }
+
+    #[tokio::test]
+    async fn r5_gate_denies_vault_write_by_default_when_grants_exist_but_not_for_this_resource() {
+        let _guard = r5_gate_test_lock();
+        // Critical test: prove default-on enforcement. No env var
+        // set — the new default (`r5_enforce_enabled() == true`) must
+        // kick in so an un-granted vault_write against a target that
+        // doesn't match any stored grant is rejected. Pre-flip this
+        // would have been advisory-allow; the whole point of flipping
+        // is that the user-visible "permission evaporates as chat
+        // text" symptom stops reproducing in production.
+        let _env = ScopedEnforceFlag::clear();
+
+        // Seed ANY grant so `active_grant_count > 0`. The test call
+        // below targets a different resource, so enforcement must
+        // DENY without any env flag being set.
+        let unrelated_uri = format!(
+            "vault://r5-default-{0}/note/Inbox/Unrelated-{0}.md",
+            uuid::Uuid::new_v4()
+        );
+        let unrelated_grant =
+            crate::resources::bridge::permission_store_record_user_grant_from_statement(
+                "You have my permission to edit this note.".into(),
+                unrelated_uri,
+                vec!["Write".into()],
+                "Session".into(),
+            )
+            .await
+            .expect("seed grant for default-enforce test");
+
+        let vault_dir_name = format!("r5-default-{}", uuid::Uuid::new_v4());
+        let parent = tempfile::tempdir().unwrap();
+        let vault_root = parent.path().join(&vault_dir_name);
+        std::fs::create_dir_all(&vault_root).unwrap();
+        let relative_path = format!("Inbox/Target-{}.md", uuid::Uuid::new_v4());
+
+        let registry = build_registry_with_root(ToolTier::Agent, &vault_root);
+        let result = registry
+            .execute("vault_write", &vault_write_input(&relative_path))
+            .await;
+        match result {
+            Err(ToolError::PermissionDenied) => {}
+            Err(other) => panic!("expected PermissionDenied, got {other:?}"),
+            Ok(payload) => panic!(
+                "expected PermissionDenied under default-on enforcement, got success: {payload}"
+            ),
+        }
+
+        let _ = crate::resources::bridge::permission_store_revoke(unrelated_grant).await;
     }
 
     #[tokio::test]

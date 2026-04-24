@@ -360,4 +360,41 @@ Continues §11's work list (`§11.3` item (4) "R.5 arm-by-arm expansion"). Finis
 
 ---
 
+## 13. Build-pass log — 2026-04-23 late night (R.5 default flipped — I-009 FIXED)
+
+### 13.1 `fix(R.5): default to enforcement — I-009 FIXED`
+
+- `r5_enforce_enabled()` in `agent_core/src/tools/registry.rs` now defaults to `true`. Unset env var or any value that isn't `0`/`false`/`no`/`off` → enforce. `EPISTEMOS_R5_ENFORCE=0` is the explicit escape hatch (operator rollback to advisory).
+- `ScopedEnforceFlag::set_off()` added to the R.5 test toolkit — mirrors `set_on()`/`clear()` but sets the env to "0" so the escape-hatch test can prove the rollback.
+- Existing `r5_gate_allows_vault_write_when_enforce_flag_is_off` renamed to `r5_gate_allows_vault_write_when_escape_hatch_disables_enforce`. The test now also seeds an unrelated grant so the assertion "escape hatch still allows even when the store has grants" is exercised, not "advisory + empty store".
+- **New test: `r5_gate_denies_vault_write_by_default_when_grants_exist_but_not_for_this_resource`.** Clears any prior env var, seeds a grant for resource A, calls `vault_write` against resource B, asserts `Err(ToolError::PermissionDenied)`. This is the I-009 user-visible-symptom-gone proof: "permission given in chat, tool call to a DIFFERENT target gets denied at the gate — no env flag, no special config."
+- Rust suite: **619 lib + 2 + 5 = 626 tests** green (was 618 + 2 + 5 = 625). The +1 is the new default-on deny test. `xcodebuild -scheme Epistemos` → BUILD SUCCEEDED. `xcodebuild test -only-testing:...Phase R suites` → 46/46 across 5 suites green.
+
+### 13.2 Why this fixes I-009 (not just moves the label)
+
+The bug class is "grant text in chat evaporates — tool call proceeds anyway". The fix has three legs:
+1. **Grant is persisted** (scaffold `6c5d5ecb` + `1209d968` — chat handler records to Rust store).
+2. **Gate checks before handler runs** (scaffold `0582aa3d` — `ToolRegistry::execute` consults store, rejects with `PermissionDenied` when grant missing under enforcement).
+3. **Enforcement is ON by default** (this commit — no hidden env flag required for the user-visible fix to be in effect).
+
+Without leg 3, legs 1+2 were scaffolding the user couldn't rely on. With leg 3, a grant for note A and a tool call for note B in the same session produces a visible deny, not a silent success. That's the symptom disappearing.
+
+### 13.3 Dependent follow-ups (separate closures)
+
+The I-009 closure deliberately does NOT depend on:
+- Persistence (Step 3 in the runway). In-memory store means grants disappear on relaunch, but within a session the fix works. A per-relaunch regression is a *new* symptom; fold into the on-disk persistence commit.
+- MiniChat / Landing backfill (Step 5). The grant-recording path works via the main ChatCoordinator today; other composers emit manifest-less attachments. Their grants still land via the dropdown/paste paths that DO have manifests. Any composer that can get to a grant-eligible user turn will.
+
+### 13.4 What the queue now looks like
+
+- ✅ Step 1 — `scaffold(R.5 arms)` — landed.
+- ✅ Step 2 — `fix(R.5)` — landed. I-009 FIXED.
+- ⏳ Step 3 — permission-store on-disk persistence.
+- ⏳ Step 4 — R.3 production read-site migration.
+- ⏳ Step 5 — R.4 MiniChat + Landing dropdown backfill.
+- ⏳ Step 6 — R.4 Finder-drop + paste attachment sites.
+- ⏳ Step 7 — R.6 verified-write Swift integration.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
