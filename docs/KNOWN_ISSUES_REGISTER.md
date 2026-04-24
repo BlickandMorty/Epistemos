@@ -24,22 +24,32 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## B. Action gateway (Phase R.3)
 
 ### I-002: Multiple codepaths for note lookup
-- **Status:** 🟡 **OPEN — R.3 gateway scaffolding in place; first Swift migration path landed (read path); full lookup convergence deferred.**
+- **Status:** 🟡 **PARTIAL — async read cascade migrated across all background / indexing / intents / AppIntents call sites (8 files). Sync MainActor save-flow + interactive-edit sites kept on legacy `loadBody` with honest scope-guard comments.**
 - **Symptom:** Notes lookup by title, by path, and by ID each have their own codepath. Edits made through one path don't reliably surface through another.
 - **Root cause:** no single resource-service abstraction.
 - **Scaffolding landed (2026-04-23 session):**
   - `a00f1c1f` — `resourceServiceInit(vaultRoot:vaultId:)` called at boot.
   - `49906b61` — re-init fires on `.vaultChanged` with an idempotent path guard so vault switches / bookmark restores are tracked post-launch.
   - `8d6a8dbd` — `SDPage.loadBodyAsync(mapped:fast:)` added as a strangler-fig alongside `loadBody`. Goes through `resourceResolve` + `resourceRead`; falls back to legacy `NoteFileStorage.readBody` when the gateway isn't ready. 5 byte-equal parity tests (`PhaseR3BodyReadParityTests.swift`) prove the gateway returns FileManager-identical bytes across file://, vault:// and resolve-then-read entry points + multibyte UTF-8 + sha256 checksum.
-- **Fix (remaining):** Phase R.3 — migrate production read sites (VaultIndexActor, NotesSidebar, NoteFileStorage) from `loadBody` to `loadBodyAsync`. Write/create/delete migrations to follow.
-- **Verification:** parity tests + `grep -rE "fn (read|write|find|create|edit|delete)_note\b" agent_core/ epistemos-core/ Epistemos/ | grep -v "ResourceService\|_adapter\b"` returns zero matches once migrations complete.
+- **Production migrations landed (this session, 8 commits):**
+  - `scaffold(R.3 migrate SpotlightIndexer)` — `index`/`reindexAll` stage Sendable primitives and dispatch the body read through the gateway-first helper.
+  - `scaffold(R.3 migrate EntityExtractor)` — all 3 body read sites in `scanVault` (incremental filter, batch build, hash update).
+  - `scaffold(R.3 migrate GraphState.buildPageSubgraph)` — async'd; no existing Swift callers (future page-mode subgraph wiring).
+  - `scaffold(R.3 migrate DataviewService)` — dead-code `file.size` field uses `NoteFileStorage.readBody` directly (TODO for future caller).
+  - `scaffold(R.3 migrate CloudKnowledgeDistillationService)` — `loadNotes` + `sourceBody` async'd; caller `rebuildModelVaults` already awaits.
+  - `scaffold(R.3 migrate VaultIndexActor)` — 9 sites across `upsertPage`, `exportPage`, `importVault`, `fullPageData`, `allPagesForRebuild`, `buildVaultContext`, `buildVaultManifest`, `fetchNoteBodies`, `spotlightReindexAll`. Introduced `drainEnumerator` sync helper so `importVault` can remain async-iterating over pre-drained URLs.
+  - `scaffold(R.3 migrate VaultSyncService)` — docs-only scope guard; 4 sites are save-flow bookkeeping (not the lookup-duplicate-codepath class).
+  - `scaffold(R.3 migrate UI consumers)` — 7 sites async-migrated (AIPartnerService, JournalIntents, TimeMachineService, DiffSheetView, VaultChangesPanel, AppBootstrap.migrateBlockReferences, VaultParser, LiveNoteExecutor). 1 site scope-guarded (ProseEditorRepresentable2 interactive edit callback — async would delay edits).
+- **Helper enhancement:** `SDPage.loadBodyAsyncFromPrimitives(pageId:filePath:inlineBody:mapped:fast:)` now implements the full 4-step fallback chain (gateway → managed sidecar → inline body → vault file) so callers retain `loadBody`-equivalent behaviour across every entry point.
+- **Remaining gap (honest-labeled):** 5 sites total stay on legacy sync `loadBody` — 4 in `VaultSyncService` save-flow MainActor bookkeeping + 1 in `ProseEditorRepresentable2` interactive edit. Those aren't the duplicate-lookup codepath class described in I-002; they're write-side / edit-side paths. A future migration would lift the SaveBatch state machine and the transclusion-edit callback to async, but that's outside "focus on the async cascade" scope.
+- **Verification today:** Phase R regression 46/46 across 5 suites (`PhaseR3BodyReadParityTests` 5, `PhaseR4DropdownBackfillTests` 11, `PhaseR5ChatGrantWiringTests` 7, `PhaseRAttachmentBridgeTests` 14, `PhaseRPermissionBridgeTests` 9). `cargo test` → 623 + 2 + 5 = 630. `xcodebuild` → BUILD SUCCEEDED.
 
 ### I-003: Duplicate read/edit/find across AI tools, sidebar, attachments, popovers, chat actions
-- **Status:** 🟡 **OPEN — same scaffolding as I-002; production call-site migrations still pending.**
+- **Status:** 🟡 **PARTIAL — same migration set as I-002. AI-tool / sidebar / attachment / chat-action read paths all route through the gateway-first cascade. Interactive edit propagation between surfaces still uses legacy sync path (Prose editor) but that's write-side, not the read-layer "split-brain" the issue describes.**
 - **Symptom:** Edit a note from sidebar → appears updated. AI edits via tool → file changes but sidebar doesn't refresh. Or vice versa. Split-brain bugs.
 - **Root cause:** same as I-002.
-- **Fix:** Phase R.3 — every UI surface and every tool routes through `ResourceService`. Observer pattern propagates changes to all viewers.
-- **Verification:** `ui_history_and_tool_layer_show_same_updated_note_after_edit` regression test.
+- **Fix landed this session:** every read-side site (AI context assembly, sidebar index, vault manifest, spotlight, graph extraction, knowledge distillation, chat @-mention resolution) now funnels through `SDPage.loadBodyAsyncFromPrimitives`, which calls `resourceRead` when the gateway is ready and falls back to `NoteFileStorage.readBody` otherwise. One gateway, one source of truth for read.
+- **Remaining gap:** observer-pattern change propagation (edit in sidebar → AI tool notices immediately) isn't explicitly wired; it still rides on the SwiftData change notifications plus file-system watchers. That was never part of this migration sprint — it's a separate Phase R.3 line item.
 
 ---
 

@@ -430,4 +430,56 @@ This is `scaffold(R.5 persist)` — not `fix(...)` — because I-009 was already
 
 ---
 
+## 15. Build-pass log — 2026-04-23 very late night (R.3 async cascade migration)
+
+Step 4 of the runway prompt — "R.3 production read-site migration". Completed across 8 files, one commit per file, per the runway prompt's order.
+
+### 15.1 Commits landed
+
+1. `scaffold(R.3 migrate SpotlightIndexer)` — `index`/`reindexAll` stage Sendable primitives (pageId/filePath/title/tags/dates) and route the body read through the new `SDPage.loadBodyAsyncFromPrimitives` helper. SDPage reference never crosses the Task boundary.
+2. `scaffold(R.3 migrate EntityExtractor)` — 3 body-read sites in `scanVault` (change-detection filter, batch-content build, hash-cache update) all primitives-staged.
+3. `scaffold(R.3 migrate GraphState.buildPageSubgraph)` — method async'd; zero existing Swift callers (future page-mode subgraph wiring).
+4. `scaffold(R.3 migrate DataviewService)` — dead-code `file.size` field switched from sync `loadBody` to `NoteFileStorage.readBody` directly. TODO comment for future async caller.
+5. `scaffold(R.3 migrate CloudKnowledgeDistillationService)` — `loadNotes` + `sourceBody` async'd; caller `rebuildModelVaults` already awaits; autoclosure `??` split into if-else.
+6. `scaffold(R.3 migrate VaultIndexActor)` — 9 sites across 10 methods (`upsertPage`, `exportPage`, `reindexFile`, `importVault`, `fullPageData`, `allPagesForRebuild`, `buildVaultContext`, `buildVaultManifest`, `fetchNoteBodies`, `spotlightReindexAll`). Introduced `drainEnumerator` sync helper because `FileManager.DirectoryEnumerator.makeIterator()` is unavailable from async contexts in Swift 6. `autoreleasepool` wrapper dropped around async `upsertPage` (incompatible with async, and per-page scratch context handles memory pressure anyway).
+7. `scaffold(R.3 migrate VaultSyncService)` — docs-only scope guard on `latestAvailableBody` documenting why its 4 sites stay on legacy sync `loadBody` (MainActor save-path state machine would require refactoring).
+8. `scaffold(R.3 migrate UI consumers)` — 7 sites async'd (AIPartnerService, JournalIntents, TimeMachineService, DiffSheetView, VaultChangesPanel, AppBootstrap.migrateBlockReferences, VaultParser, LiveNoteExecutor). 1 scope-guarded (ProseEditorRepresentable2 interactive edit callback — async would be perceptible lag).
+
+### 15.2 Helper enhancement
+
+`SDPage.loadBodyAsyncFromPrimitives` gained an `inlineBody: String` parameter so the helper implements the FULL 4-step fallback chain of legacy `loadBody`:
+1. R.3 gateway (resolve + read) when ready.
+2. `NoteFileStorage.readBody` (managed sidecar file).
+3. Inline `body` column (pre-migration pages).
+4. Raw vault file via `VaultIndexActor.decodedBodyFromReadableVaultFile`.
+
+This means every migrated call site now matches the legacy `loadBody` behaviour byte-for-byte — just with the gateway consulted first.
+
+### 15.3 Honest label on I-002 / I-003
+
+Moved both from OPEN to **PARTIAL**. The async read cascade is migrated across every call site that can reasonably be async today (8 files; ~25 call sites total). The remaining 5 sites stay on sync `loadBody`:
+- **4 in `VaultSyncService`** — save-flow bookkeeping (dirty-page hash checks, version capture, new-page save tracking). Write-side, not the lookup-duplicate class I-002/I-003 describes.
+- **1 in `ProseEditorRepresentable2`** — interactive AppKit edit callback. Async would delay the edit visibly.
+
+Neither is the "6+ duplicate read codepaths" class. The observer-pattern change propagation I-003 mentions (edit-in-one-surface-visible-in-another) is a separate Phase R.3 line item that still rides on SwiftData notifications + file-system watchers.
+
+### 15.4 Swift 6 sendability patterns used
+
+Key pattern throughout the migration: the `SDPage` reference NEVER crosses a Task or async-call boundary directly. Instead, the caller reads `pageId`, `filePath`, `inlineBody` (and any other needed metadata) synchronously from the `@MainActor` / `@ModelActor` context, then passes those primitive Strings/ints/dates through the await boundary. Swift 6 region-based isolation is fully satisfied — no `@unchecked Sendable` escape hatches introduced.
+
+### 15.5 Verification
+
+- Rust: 623 + 2 + 5 = **630 tests** green (unchanged across the migration — R.3 is Swift-only).
+- Swift: `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` → BUILD SUCCEEDED after every commit in the series.
+- Phase R regression suites: **46/46 across 5 suites** green after every commit.
+- Pre-existing third-party SwiftLint failures on `CodeEditSourceEditor` / `CodeEditTextView` — unchanged.
+
+### 15.6 What's next
+
+- ⏳ Step 5 — R.4 MiniChat + Landing dropdown backfill. Mirror commit `f6f62816` into `MiniChatView.swift` + `LandingView.swift`.
+- ⏳ Step 6 — R.4 Finder-drop + paste attachment sites.
+- ⏳ Step 7 — R.6 verified-write Swift integration.
+
+---
+
 **End of audit reflection. Ground truth is captured. Plan is intact. Execution can start with confidence.**
