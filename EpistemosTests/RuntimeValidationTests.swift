@@ -3065,6 +3065,7 @@ struct RuntimeValidationTests {
 
         #expect(!source.contains("page.saveBody("))
         #expect(!source.contains(".mappedIfSafe"))
+        #expect(!source.contains("loadBody(mapped: true)"))
         #expect(!source.contains("NoteFileStorage.writeBody(pageId: snapshot.pageId"))
         #expect(source.contains("private nonisolated static func vaultFileData("))
         #expect(source.contains("await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)"))

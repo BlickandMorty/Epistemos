@@ -1140,7 +1140,7 @@ actor VaultIndexActor {
             // (from historical DB reset or write failure) should never win over vault content.
             // Import rollback needs the managed note snapshot, not the
             // incoming vault file from `filePath`.
-            let currentBody = page.loadBody(mapped: true)
+            let currentBody = page.loadBody(mapped: false)
             let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
