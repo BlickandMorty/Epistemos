@@ -163,7 +163,15 @@ impl Default for ForceParams {
 
             shadow_enabled: false,
             enable_mass_drag: false,
-            snap_back_strength: 0.3,
+            // v3 motion spec §6: stronger initial kick when mass-drag
+            // is enabled, so the release feels like a decisive spring
+            // rather than a soft lean. 1.0 × tether-offset per mass
+            // unit maps to a ~15% overshoot at M3-style snap_freq_hz
+            // 1.75 — the perceptually-calibrated "settled rebound"
+            // envelope. Default is 1.0, not 2.0 (canonical upper),
+            // so `enable_mass_drag = false` (still default) callers
+            // that flip it on don't get an unexpected flood of motion.
+            snap_back_strength: 1.0,
 
             // d3 default: alpha starts at 1.0, decays to alpha_min over ~300 ticks.
             alpha: 1.0,
