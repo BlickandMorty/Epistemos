@@ -137,6 +137,90 @@ enum ComposerReferenceHelpers {
             subtitle: subtitle
         )
     }
+
+    // MARK: - Phase R.4 file-entry helpers
+
+    /// Build the `file://{absolutePath}` URI that maps to Rust
+    /// `ResourceId::File`. Returns `nil` when the URL isn't a
+    /// file-scheme URL or has no path — the callers should fall back
+    /// to the legacy no-manifest attachment rather than fabricate a
+    /// bad URI.
+    ///
+    /// The URI matches `ResourceId::File::as_uri()` on the Rust side
+    /// (`format!("file://{absolute_path}")`) so attachments minted
+    /// here round-trip cleanly through the R.4 bridge factories.
+    static func fileResourceURI(for url: URL) -> String? {
+        guard url.isFileURL else { return nil }
+        let path = url.path
+        guard !path.isEmpty else { return nil }
+        return "file://\(path)"
+    }
+
+    /// Construct a `ContextAttachment` for a file that the user
+    /// picked via the file-picker / (future) Finder drop. Carries
+    /// the Phase R.4 manifest (`resourceURI` / `resourceMode = .live`
+    /// / `resourceCapabilities = ["Read", "Write"]`), matching the
+    /// `attach_via_ui` / `finder_file` contract on the Rust side.
+    ///
+    /// Scope: this is the entry-side wiring. Tool execution consulting
+    /// `ContextAttachment.toAttachedResource().allows(.write)` before
+    /// writing is a separate follow-up (the "tool-dispatch gate" gap
+    /// in I-004 / I-005 / I-006).
+    ///
+    /// Returns `nil` for non-file URLs (http, etc.) so callers can
+    /// skip the companion attachment when it wouldn't make sense.
+    static func fileContextAttachment(
+        for url: URL,
+        displayName: String? = nil
+    ) -> ContextAttachment? {
+        guard let resourceURI = fileResourceURI(for: url) else { return nil }
+        let resolvedName: String
+        if let displayName = displayName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !displayName.isEmpty {
+            resolvedName = displayName
+        } else {
+            resolvedName = url.lastPathComponent
+        }
+        return ContextAttachment(
+            kind: .file,
+            targetId: url.absoluteString,
+            title: resolvedName,
+            subtitle: url.deletingLastPathComponent().lastPathComponent,
+            resourceURI: resourceURI,
+            resourceMode: .live,
+            resourceCapabilities: defaultLiveAttachmentCapabilities
+        )
+    }
+
+    /// Mint a `ContextAttachment` for pasted text. The attachment is
+    /// Snapshot (read-only) mode — the snapshot content lives inline
+    /// on the attachment rather than referencing a live resource —
+    /// matching Rust `AttachmentMode::Snapshot` / Capability: Read.
+    ///
+    /// `sourceIdentifier` can be anything unique enough for the
+    /// `targetId`: a page reference, a pastebin URL, or a
+    /// timestamp-based synthetic id when the source isn't known.
+    /// Pasted text rarely has a canonical `file://` URI, so the
+    /// `resourceURI` the manifest carries is the synthetic
+    /// `attachment://paste/<id>` form below — still parseable by
+    /// Rust's `ResourceId::parse` via the attachment scheme.
+    static func pasteContextAttachment(
+        displayName: String,
+        snapshotContent: String,
+        sourceIdentifier: String = UUID().uuidString
+    ) -> ContextAttachment {
+        let turnId = "paste"
+        let resourceURI = "attachment://\(turnId)/id/\(sourceIdentifier)"
+        return ContextAttachment(
+            kind: .file,
+            targetId: sourceIdentifier,
+            title: displayName.isEmpty ? "Pasted content" : displayName,
+            subtitle: snapshotContent,
+            resourceURI: resourceURI,
+            resourceMode: .snapshot,
+            resourceCapabilities: ["Read"]
+        )
+    }
 }
 
 enum ComposerReferenceChoice: Identifiable {

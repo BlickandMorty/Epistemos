@@ -3541,7 +3541,11 @@ final class ChatCoordinator {
           seenNoteIDs.insert(attachment.targetId)
           result.append(attachment)
         }
-      case .chat, .allNotes:
+      case .chat, .allNotes, .file:
+        // Phase R.4: file-kind attachments pass through unchanged —
+        // they're already resolved (they carry a canonical
+        // file://{path} or attachment://... URI from pick time) and
+        // don't need folder-expansion or dedup by page id.
         result.append(attachment)
       }
     }
