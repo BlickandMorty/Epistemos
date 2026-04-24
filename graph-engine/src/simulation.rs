@@ -59,6 +59,14 @@ pub struct ForceParams {
     /// 1.5 (Playful). Only ever applies to non-hub, non-pinned nodes
     /// so the ambient never overrides authored motion.
     pub ambient_breath_strength: f32,
+    /// Coupling gain from the FluidGrid velocity field into each
+    /// node's velocity. Synthesis §2.2 starting value: 3.0 (legacy
+    /// `FLUID_K = 0.2` was ~15× too low to read on screen). The
+    /// actual per-node coupling is `fluid_coupling / sqrt(mass)`
+    /// (Stokes-style) so heavy hubs feel currents less than leaves —
+    /// a dragged leaf visibly trails through water; a dragged hub
+    /// parts it. Tunable up to ~6.0 for stronger "underwater" feel.
+    pub fluid_coupling: f32,
     /// How strongly nodes are pulled toward center (0 = no pull, 0.1 = strong).
     pub center_strength: f32,
     /// Collision buffer zone in pixels. 0 = overlap allowed.
@@ -130,6 +138,7 @@ impl Default for ForceParams {
             velocity_decay: 0.6,
             collision_compliance: 0.7,
             ambient_breath_strength: 1.0,
+            fluid_coupling: 3.0,
             center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 1,
@@ -138,7 +147,11 @@ impl Default for ForceParams {
             center_mode: CenterMode::Attract,
             semantic_strength: 0.0,
 
-            enable_fluid_dynamics: false,
+            // Canonical v3 motion overlay: drag wake should be part of
+            // the default experience. Enabled by default so nodes near
+            // a drag visibly follow the current in real time rather
+            // than waiting for a preset to switch it on.
+            enable_fluid_dynamics: true,
             enable_torsional_springs: false,
             fluid_viscosity: 0.5,
             torsion_rigidity: 0.5,
@@ -1227,16 +1240,30 @@ impl Simulation {
             );
         }
 
-        // Fluid grid: diffuse/decay, then sample at each node to add wake velocity.
+        // Fluid grid: diffuse/decay, then sample at each node to add wake
+        // velocity. Canonical Commit 8 — the per-node coupling is
+        // `fluid_coupling / sqrt(mass)` so heavier nodes feel the
+        // current less than lighter ones (synthesis §2.2 Stokes-style
+        // relaxation). The resulting field has exactly the intended
+        // "light leaf trails through water, heavy hub parts it"
+        // texture.
         if self.params.enable_fluid_dynamics && self.fluid_grid.is_active() {
             // Viscosity maps to decay: 0.0 (watery, fast dissipation) → 1.0 (honey, slow)
             let decay = 0.85 + self.params.fluid_viscosity * 0.13;
             self.fluid_grid.diffuse_and_decay_with(decay);
+            let beta = self.params.fluid_coupling;
+            let mass_available = self.mass.len() >= n;
             for i in 0..n {
                 if self.fx[i].is_none() {
                     let (fvx, fvy) = self.fluid_grid.sample(self.x[i], self.y[i]);
-                    self.vx[i] += fvx * FLUID_K;
-                    self.vy[i] += fvy * FLUID_K;
+                    let mass_i = if mass_available {
+                        self.mass[i].max(1.0)
+                    } else {
+                        1.0
+                    };
+                    let coupling = beta / mass_i.sqrt();
+                    self.vx[i] += fvx * coupling;
+                    self.vy[i] += fvy * coupling;
                 }
             }
         }
