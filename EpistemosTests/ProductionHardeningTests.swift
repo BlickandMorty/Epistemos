@@ -626,6 +626,9 @@ struct ReleasePackagingHardeningTests {
         #expect(!appStoreSpec.contains("omega_axFFI"))
         #expect(!appStoreSpec.contains("build-omega-ax.sh"))
         #expect(appStoreSpec.contains("- omega_ax.swift"))
+        #expect(appStoreSpec.contains("Scrub Pro Frameworks"))
+        #expect(appStoreSpec.contains(#"rm -f "${frameworks_dir}/libomega_ax.dylib""#))
+        #expect(appStoreSpec.contains(#"rm -rf "${frameworks_dir}/AXorcist.framework""#))
 
         for wrappedPath in [
             "Epistemos/Bridge/ComputerUseBridge.swift",
@@ -660,6 +663,29 @@ struct ReleasePackagingHardeningTests {
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n        // Initialize iMessage driver"))
         #expect(bootstrap.contains("#if !EPISTEMOS_APP_STORE\n            KnowledgeFusionViewModel.shared.prepareBackgroundSchedulingIfNeeded()"))
         #expect(environment.contains("#if !EPISTEMOS_APP_STORE\n            .environment(bootstrap.iMessageDriver)"))
+    }
+
+    @Test("App Store build compiles agent core with mas-sandbox feature")
+    func appStoreBuildCompilesAgentCoreWithMasSandboxFeature() throws {
+        let cargoToml = try loadProductionHardeningRepoTextFile("agent_core/Cargo.toml")
+        let bridge = try loadProductionHardeningRepoTextFile("agent_core/src/bridge.rs")
+        let registry = try loadProductionHardeningRepoTextFile("agent_core/src/tools/registry.rs")
+        let script = try loadProductionHardeningRepoTextFile("build-agent-core.sh")
+
+        #expect(cargoToml.contains("[features]"))
+        #expect(cargoToml.contains("mas-sandbox = []"))
+        #expect(script.contains("FEATURE_ARGS"))
+        #expect(script.contains("TARGET_NAME"))
+        #expect(script.contains("Epistemos-AppStore"))
+        #expect(script.contains("PRODUCT_BUNDLE_IDENTIFIER"))
+        #expect(script.contains("com.epistemos.appstore"))
+        #expect(script.contains("--features mas-sandbox"))
+        #expect(bridge.contains("#[cfg(not(feature = \"mas-sandbox\"))]"))
+        #expect(bridge.contains("register_discovered_stdio_mcp_tools"))
+        #expect(registry.contains("#[cfg(feature = \"mas-sandbox\")]"))
+        #expect(registry.contains("mas_sandbox_registry_excludes_unbounded_tools"))
+        #expect(registry.contains("bash_execute"))
+        #expect(registry.contains("must not be registered in mas-sandbox"))
     }
 
     @Test("debug and test targets default to local signing without removing real signing support")

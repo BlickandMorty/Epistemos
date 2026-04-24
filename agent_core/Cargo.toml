@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 
+[features]
+default = []
+mas-sandbox = []
+
 [lib]
 name = "agent_core"
 crate-type = ["cdylib", "staticlib", "rlib"]

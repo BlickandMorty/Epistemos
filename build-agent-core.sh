@@ -13,14 +13,19 @@ fi
 
 cd "$(dirname "$0")/agent_core"
 
+FEATURE_ARGS=()
+if [ "${TARGET_NAME:-}" = "Epistemos-AppStore" ] || [ "${PRODUCT_BUNDLE_IDENTIFIER:-}" = "com.epistemos.appstore" ]; then
+    FEATURE_ARGS+=(--features mas-sandbox)
+fi
+
 if [ "$CONFIGURATION" = "Debug" ]; then
-    cargo build --target aarch64-apple-darwin
-    cargo build --target x86_64-apple-darwin
+    cargo build "${FEATURE_ARGS[@]}" --target aarch64-apple-darwin
+    cargo build "${FEATURE_ARGS[@]}" --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/debug/libagent_core.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/debug/libagent_core.dylib"
 else
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
+    cargo build "${FEATURE_ARGS[@]}" --release --target aarch64-apple-darwin
+    cargo build "${FEATURE_ARGS[@]}" --release --target x86_64-apple-darwin
     ARM64_LIB_PATH="target/aarch64-apple-darwin/release/libagent_core.dylib"
     X86_64_LIB_PATH="target/x86_64-apple-darwin/release/libagent_core.dylib"
 fi

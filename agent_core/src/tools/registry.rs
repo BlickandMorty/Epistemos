@@ -250,7 +250,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash: true,
+            enable_bash: !cfg!(feature = "mas-sandbox"),
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -263,7 +263,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash,
+            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -283,7 +283,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash,
+            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
             vault_root_path: Some(vault_root.into()),
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
@@ -305,7 +305,7 @@ impl ToolRegistry {
         let mut registry = Self {
             tools: HashMap::new(),
             vault,
-            enable_bash,
+            enable_bash: enable_bash && !cfg!(feature = "mas-sandbox"),
             vault_root_path: vault_root.map(Into::into),
             active_tier: tier,
             allowed_tool_names: None,
@@ -518,26 +518,33 @@ impl ToolRegistry {
         self.register_think_tool();
         self.register_chunk_reduce();
         self.register_workspace_search();
-        if self.enable_bash {
-            self.register_bash_execute();
-        }
         self.register_pkm_graph_neighbors();
 
-        // Tunnel C — delegate a task to Claude Code / Codex CLI. Same
-        // `enable_bash` gate because these are subprocess spawners with
-        // the same trust profile.
-        if self.enable_bash {
-            self.register_claude_code_passthrough();
-            self.register_codex_passthrough();
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            if self.enable_bash {
+                self.register_bash_execute();
+            }
+
+            // Tunnel C — delegate a task to Claude Code / Codex CLI. Same
+            // `enable_bash` gate because these are subprocess spawners with
+            // the same trust profile.
+            if self.enable_bash {
+                self.register_claude_code_passthrough();
+                self.register_codex_passthrough();
+            }
         }
 
         // Phase 1 core tools (Hermes/OpenClaw parity)
         self.register_phase_one_filesystem();
-        self.register_phase_one_terminal();
         self.register_phase_one_todo();
-        self.register_phase_one_scheduling();
-        self.register_phase_one_skills_progressive();
-        self.register_phase_one_custom_tools();
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            self.register_phase_one_terminal();
+            self.register_phase_one_scheduling();
+            self.register_phase_one_skills_progressive();
+            self.register_phase_one_custom_tools();
+        }
 
         // Phase 2 knowledge & memory tools (vault-native specialties)
         self.register_phase_two_knowledge();
@@ -547,27 +554,33 @@ impl ToolRegistry {
         // Phase 3 web tools — replaces the legacy DuckDuckGo web_search.
         self.register_phase_three_web();
 
-        // Phase 4 Apple app tools (pure Rust via osascript).
-        self.register_phase_four_apple_apps();
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            // Phase 4 Apple app tools (pure Rust via osascript).
+            self.register_phase_four_apple_apps();
+        }
 
         // Phase 5 inference specialties — route_private is pure Rust. The
         // Swift-dependent ones (ssm_resume, constrained_generate) are wired
         // in via register_delegate_tools().
         self.register_phase_five_route_private();
 
-        // Phase 6 communication + media tools.
-        self.register_phase_six_communication();
-        self.register_phase_six_media();
-        self.register_phase_six_imessage();
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            // Phase 6 communication + media tools.
+            self.register_phase_six_communication();
+            self.register_phase_six_media();
+            self.register_phase_six_imessage();
 
-        // Phase 7 intelligence layer (pure-Rust parts).
-        self.register_phase_seven_intelligence();
+            // Phase 7 intelligence layer (pure-Rust parts).
+            self.register_phase_seven_intelligence();
 
-        // Phase 8 discovery + trajectory + skill marketplace (post-plan work
-        // — comprehensive Hermes/OpenClaw parity pass). All read-only except
-        // trajectory_export (Modification because it writes JSONL to disk).
-        self.register_phase_eight_discovery();
-        self.register_phase_eight_trajectory();
+            // Phase 8 discovery + trajectory + skill marketplace (post-plan work
+            // — comprehensive Hermes/OpenClaw parity pass). All read-only except
+            // trajectory_export (Modification because it writes JSONL to disk).
+            self.register_phase_eight_discovery();
+            self.register_phase_eight_trajectory();
+        }
 
         // Tier rebalance: mark the read-only research tools as ChatLite so
         // normal chat (fast/thinking) can call them, and the cloud-heavy
@@ -937,11 +950,6 @@ impl ToolRegistry {
         delegate: Arc<dyn crate::bridge::AgentEventDelegate>,
     ) {
         use crate::tools::clarify::{clarify_schema, ClarifyHandler};
-        use crate::tools::macos::{
-            interact_schema, perceive_schema, screen_watch_schema, InteractHandler,
-            PerceiveHandler, ScreenWatchHandler,
-        };
-
         let schema = clarify_schema();
         self.register(RegisteredTool {
             name: schema.name,
@@ -952,36 +960,44 @@ impl ToolRegistry {
             tier: ToolTier::Agent,
         });
 
-        // Phase 4: macOS perception stack — Specialties A1/A2/A3.
-        let p = perceive_schema();
-        self.register(RegisteredTool {
-            name: p.name,
-            description: p.description,
-            parameters: p.parameters,
-            handler: Box::new(PerceiveHandler::new(Arc::clone(&delegate))),
-            risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
-        });
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            use crate::tools::macos::{
+                interact_schema, perceive_schema, screen_watch_schema, InteractHandler,
+                PerceiveHandler, ScreenWatchHandler,
+            };
 
-        let i = interact_schema();
-        self.register(RegisteredTool {
-            name: i.name,
-            description: i.description,
-            parameters: i.parameters,
-            handler: Box::new(InteractHandler::new(Arc::clone(&delegate))),
-            risk_level: RiskLevel::Modification,
-            tier: ToolTier::Agent,
-        });
+            // Phase 4: macOS perception stack — Specialties A1/A2/A3.
+            let p = perceive_schema();
+            self.register(RegisteredTool {
+                name: p.name,
+                description: p.description,
+                parameters: p.parameters,
+                handler: Box::new(PerceiveHandler::new(Arc::clone(&delegate))),
+                risk_level: RiskLevel::ReadOnly,
+                tier: ToolTier::Agent,
+            });
 
-        let w = screen_watch_schema();
-        self.register(RegisteredTool {
-            name: w.name,
-            description: w.description,
-            parameters: w.parameters,
-            handler: Box::new(ScreenWatchHandler::new(Arc::clone(&delegate))),
-            risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
-        });
+            let i = interact_schema();
+            self.register(RegisteredTool {
+                name: i.name,
+                description: i.description,
+                parameters: i.parameters,
+                handler: Box::new(InteractHandler::new(Arc::clone(&delegate))),
+                risk_level: RiskLevel::Modification,
+                tier: ToolTier::Agent,
+            });
+
+            let w = screen_watch_schema();
+            self.register(RegisteredTool {
+                name: w.name,
+                description: w.description,
+                parameters: w.parameters,
+                handler: Box::new(ScreenWatchHandler::new(Arc::clone(&delegate))),
+                risk_level: RiskLevel::ReadOnly,
+                tier: ToolTier::Agent,
+            });
+        }
 
         // Phase 5: on-device inference specialties that need the Swift MLX
         // runtime — ssm_resume (Mamba state) and constrained_generate (EBNF
@@ -1012,52 +1028,55 @@ impl ToolRegistry {
             tier: ToolTier::Agent,
         });
 
-        // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
-        use crate::tools::intelligence::{
-            inline_partner_schema, nightbrain_trigger_schema, InlinePartnerHandler,
-            NightBrainTriggerHandler,
-        };
-        let ip = inline_partner_schema();
-        self.register(RegisteredTool {
-            name: ip.name,
-            description: ip.description,
-            parameters: ip.parameters,
-            handler: Box::new(InlinePartnerHandler::new(Arc::clone(&delegate))),
-            risk_level: RiskLevel::ReadOnly,
-            tier: ToolTier::Agent,
-        });
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            // Phase 7: NightBrain trigger (delegate-backed Specialty D1).
+            use crate::tools::intelligence::{
+                inline_partner_schema, nightbrain_trigger_schema, InlinePartnerHandler,
+                NightBrainTriggerHandler,
+            };
+            let ip = inline_partner_schema();
+            self.register(RegisteredTool {
+                name: ip.name,
+                description: ip.description,
+                parameters: ip.parameters,
+                handler: Box::new(InlinePartnerHandler::new(Arc::clone(&delegate))),
+                risk_level: RiskLevel::ReadOnly,
+                tier: ToolTier::Agent,
+            });
 
-        let nb = nightbrain_trigger_schema();
-        self.register(RegisteredTool {
-            name: nb.name,
-            description: nb.description,
-            parameters: nb.parameters,
-            handler: Box::new(NightBrainTriggerHandler::new(Arc::clone(&delegate))),
-            risk_level: RiskLevel::Modification,
-            tier: ToolTier::Agent,
-        });
+            let nb = nightbrain_trigger_schema();
+            self.register(RegisteredTool {
+                name: nb.name,
+                description: nb.description,
+                parameters: nb.parameters,
+                handler: Box::new(NightBrainTriggerHandler::new(Arc::clone(&delegate))),
+                risk_level: RiskLevel::Modification,
+                tier: ToolTier::Agent,
+            });
 
-        // Phase 6: upgrade `image_generate` from the delegate-free fallback
-        // registration in `register_phase_six_media` to a delegate-backed
-        // instance so the default `provider: "mlx"` path can reach the
-        // Swift sidecar per PLAN_V2 §5.1 / §16. The FAL cloud path stays
-        // available as an explicit `provider: "fal"` opt-in. This call
-        // replaces the existing registration entry (register() is
-        // insert-or-replace on the tool name key).
-        use crate::tools::media::{image_generate_schema, ImageGenerateHandler};
-        match ImageGenerateHandler::new_with_delegate(Arc::clone(&delegate)) {
-            Ok(handler) => {
-                let schema = image_generate_schema();
-                self.register(RegisteredTool {
-                    name: schema.name,
-                    description: schema.description,
-                    parameters: schema.parameters,
-                    handler: Box::new(handler),
-                    risk_level: RiskLevel::ReadOnly,
-                    tier: ToolTier::Agent,
-                });
+            // Phase 6: upgrade `image_generate` from the delegate-free fallback
+            // registration in `register_phase_six_media` to a delegate-backed
+            // instance so the default `provider: "mlx"` path can reach the
+            // Swift sidecar per PLAN_V2 §5.1 / §16. The FAL cloud path stays
+            // available as an explicit `provider: "fal"` opt-in. This call
+            // replaces the existing registration entry (register() is
+            // insert-or-replace on the tool name key).
+            use crate::tools::media::{image_generate_schema, ImageGenerateHandler};
+            match ImageGenerateHandler::new_with_delegate(Arc::clone(&delegate)) {
+                Ok(handler) => {
+                    let schema = image_generate_schema();
+                    self.register(RegisteredTool {
+                        name: schema.name,
+                        description: schema.description,
+                        parameters: schema.parameters,
+                        handler: Box::new(handler),
+                        risk_level: RiskLevel::ReadOnly,
+                        tier: ToolTier::Agent,
+                    });
+                }
+                Err(e) => tracing::warn!("image_generate delegate-aware registration skipped: {e}"),
             }
-            Err(e) => tracing::warn!("image_generate delegate-aware registration skipped: {e}"),
         }
     }
 
@@ -1591,13 +1610,6 @@ impl ToolRegistry {
     }
 
     fn register_phase_three_web(&mut self) {
-        use crate::tools::browser::{
-            browser_back_schema, browser_click_schema, browser_close_schema,
-            browser_console_schema, browser_get_images_schema, browser_navigate_schema,
-            browser_press_schema, browser_scroll_schema, browser_snapshot_schema,
-            browser_type_schema, browser_vision_schema, BrowserAction, BrowserActionHandler,
-            BrowserManager,
-        };
         use crate::tools::web::{
             web_crawl_schema, web_extract_schema, web_search_schema, WebCrawlHandler,
             WebExtractHandler, WebSearchHandler,
@@ -1651,74 +1663,88 @@ impl ToolRegistry {
             Err(e) => tracing::warn!("web_crawl registration skipped: {e}"),
         }
 
-        let browser_manager = BrowserManager::new();
-        let mut register_browser =
-            |schema: crate::types::ToolSchema, action: BrowserAction, risk_level: RiskLevel| {
-                self.register(RegisteredTool {
-                    name: schema.name,
-                    description: schema.description,
-                    parameters: schema.parameters,
-                    handler: Box::new(BrowserActionHandler::new(browser_manager.clone(), action)),
-                    risk_level,
-                    tier: ToolTier::Agent,
-                });
+        #[cfg(not(feature = "mas-sandbox"))]
+        {
+            use crate::tools::browser::{
+                browser_back_schema, browser_click_schema, browser_close_schema,
+                browser_console_schema, browser_get_images_schema, browser_navigate_schema,
+                browser_press_schema, browser_scroll_schema, browser_snapshot_schema,
+                browser_type_schema, browser_vision_schema, BrowserAction, BrowserActionHandler,
+                BrowserManager,
             };
 
-        register_browser(
-            browser_navigate_schema(),
-            BrowserAction::Navigate,
-            RiskLevel::Modification,
-        );
-        register_browser(
-            browser_snapshot_schema(),
-            BrowserAction::Snapshot,
-            RiskLevel::ReadOnly,
-        );
-        register_browser(
-            browser_click_schema(),
-            BrowserAction::Click,
-            RiskLevel::Destructive,
-        );
-        register_browser(
-            browser_type_schema(),
-            BrowserAction::Type,
-            RiskLevel::Destructive,
-        );
-        register_browser(
-            browser_scroll_schema(),
-            BrowserAction::Scroll,
-            RiskLevel::Modification,
-        );
-        register_browser(
-            browser_back_schema(),
-            BrowserAction::Back,
-            RiskLevel::Modification,
-        );
-        register_browser(
-            browser_press_schema(),
-            BrowserAction::Press,
-            RiskLevel::Destructive,
-        );
-        register_browser(
-            browser_close_schema(),
-            BrowserAction::Close,
-            RiskLevel::Modification,
-        );
-        register_browser(
-            browser_get_images_schema(),
-            BrowserAction::GetImages,
-            RiskLevel::ReadOnly,
-        );
-        register_browser(
-            browser_vision_schema(),
-            BrowserAction::Vision,
-            RiskLevel::ReadOnly,
-        );
-        register_browser(
-            browser_console_schema(),
-            BrowserAction::Console,
-            RiskLevel::ReadOnly,
-        );
+            let browser_manager = BrowserManager::new();
+            let mut register_browser =
+                |schema: crate::types::ToolSchema, action: BrowserAction, risk_level: RiskLevel| {
+                    self.register(RegisteredTool {
+                        name: schema.name,
+                        description: schema.description,
+                        parameters: schema.parameters,
+                        handler: Box::new(BrowserActionHandler::new(
+                            browser_manager.clone(),
+                            action,
+                        )),
+                        risk_level,
+                        tier: ToolTier::Agent,
+                    });
+                };
+
+            register_browser(
+                browser_navigate_schema(),
+                BrowserAction::Navigate,
+                RiskLevel::Modification,
+            );
+            register_browser(
+                browser_snapshot_schema(),
+                BrowserAction::Snapshot,
+                RiskLevel::ReadOnly,
+            );
+            register_browser(
+                browser_click_schema(),
+                BrowserAction::Click,
+                RiskLevel::Destructive,
+            );
+            register_browser(
+                browser_type_schema(),
+                BrowserAction::Type,
+                RiskLevel::Destructive,
+            );
+            register_browser(
+                browser_scroll_schema(),
+                BrowserAction::Scroll,
+                RiskLevel::Modification,
+            );
+            register_browser(
+                browser_back_schema(),
+                BrowserAction::Back,
+                RiskLevel::Modification,
+            );
+            register_browser(
+                browser_press_schema(),
+                BrowserAction::Press,
+                RiskLevel::Destructive,
+            );
+            register_browser(
+                browser_close_schema(),
+                BrowserAction::Close,
+                RiskLevel::Modification,
+            );
+            register_browser(
+                browser_get_images_schema(),
+                BrowserAction::GetImages,
+                RiskLevel::ReadOnly,
+            );
+            register_browser(
+                browser_vision_schema(),
+                BrowserAction::Vision,
+                RiskLevel::ReadOnly,
+            );
+            register_browser(
+                browser_console_schema(),
+                BrowserAction::Console,
+                RiskLevel::ReadOnly,
+            );
+        }
     }
 
     fn register_chunk_reduce(&mut self) {
@@ -2351,6 +2377,91 @@ mod tier_tests {
         assert!(!names.contains(&"cronjob".to_string()));
     }
 
+    #[cfg(feature = "mas-sandbox")]
+    #[test]
+    fn mas_sandbox_registry_excludes_unbounded_tools() {
+        let _env_guard = crate::test_support::env_lock();
+        let saved_tavily = std::env::var("TAVILY_API_KEY").ok();
+        std::env::set_var("TAVILY_API_KEY", "test-fixture-key");
+
+        let temp = tempfile::tempdir().unwrap();
+        let registry = build_registry_with_root(ToolTier::Full, temp.path());
+        let names: std::collections::HashSet<String> = registry
+            .get_all_definitions()
+            .into_iter()
+            .map(|tool| tool.name)
+            .collect();
+
+        match saved_tavily {
+            Some(v) => std::env::set_var("TAVILY_API_KEY", v),
+            None => std::env::remove_var("TAVILY_API_KEY"),
+        }
+
+        for blocked in [
+            "bash_execute",
+            "terminal",
+            "process",
+            "claude_code",
+            "codex",
+            "imessage",
+            "imessage_contacts",
+            "channel_contacts",
+            "send_message",
+            "apple_notes",
+            "apple_reminders",
+            "apple_calendar",
+            "apple_mail",
+            "browser_navigate",
+            "browser_click",
+            "browser_type",
+            "browser_press",
+            "browser_close",
+            "browser_scroll",
+            "skill_manage",
+            "custom_tool_manage",
+            "cronjob",
+            "trajectory_export",
+            "mcp_discover",
+            "vision_analyze",
+            "image_generate",
+            "text_to_speech",
+            "perceive",
+            "interact",
+            "screen_watch",
+            "nightbrain_trigger",
+            "inline_partner",
+        ] {
+            assert!(
+                !names.contains(blocked),
+                "{blocked} must not be registered in mas-sandbox"
+            );
+        }
+
+        for allowed in [
+            "vault_search",
+            "vault_read",
+            "vault_write",
+            "read_file",
+            "write_file",
+            "patch",
+            "search_files",
+            "think",
+            "todo",
+            "graph_query",
+            "memory",
+            "web_search",
+            "web_extract",
+            "web_crawl",
+            "route_private",
+        ] {
+            assert!(
+                names.contains(allowed),
+                "{allowed} should remain in bounded MAS registry; got {names:?}"
+            );
+        }
+    }
+
+    #[cfg(not(feature = "mas-sandbox"))]
     #[test]
     fn chat_pro_adds_vision_and_tts_over_chat_lite() {
         let _env_guard = crate::test_support::env_lock();
@@ -2382,6 +2493,7 @@ mod tier_tests {
         assert!(pro_names.contains("text_to_speech"));
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     #[test]
     fn agent_tier_is_superset_of_chat_pro() {
         let _env_guard = crate::test_support::env_lock();
@@ -2414,6 +2526,7 @@ mod tier_tests {
         assert!(agent_names.contains("send_message"));
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     #[test]
     fn trajectory_export_disappears_when_registration_is_disabled() {
         let saved = std::env::var("DISABLE_TRAJECTORY_EXPORT").ok();
@@ -2435,6 +2548,7 @@ mod tier_tests {
         assert!(!names.contains("trajectory_export"));
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     #[test]
     fn model_facing_catalog_hides_unsupported_image_generation() {
         let registry = build_registry(ToolTier::Agent);
@@ -2622,6 +2736,7 @@ mod tier_tests {
         );
     }
 
+    #[cfg(not(feature = "mas-sandbox"))]
     #[tokio::test]
     async fn custom_tool_specs_become_runtime_tools() {
         let vault_root = tempfile::tempdir().unwrap();

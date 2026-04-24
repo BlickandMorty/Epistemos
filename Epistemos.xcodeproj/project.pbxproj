@@ -500,6 +500,7 @@
 				4EF88187EDE7DCEE6CC43D97 /* Resources */,
 				E7F55AE2AEC8F0BA884A93F7 /* Frameworks */,
 				4E337C83B228C8BF01D9A6D2 /* Bundle Runtime Assets */,
+				7A2A0F51F641A7EFF9924990 /* Scrub Pro Frameworks */,
 			);
 			buildRules = (
 			);
@@ -639,6 +640,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "bash \"${SRCROOT}/bundle-app-runtime-assets.sh\"";
+		};
+		7A2A0F51F641A7EFF9924990 /* Scrub Pro Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Scrub Pro Frameworks";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nframeworks_dir=\"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nrm -f \"${frameworks_dir}/libomega_ax.dylib\"\nrm -rf \"${frameworks_dir}/AXorcist.framework\"\n";
 		};
 		9ECE8015F787406179285179 /* Build Rust Engine */ = {
 			isa = PBXShellScriptBuildPhase;
