@@ -3059,6 +3059,17 @@ struct RuntimeValidationTests {
         #expect(source.contains("private nonisolated static func contentModificationDate("))
     }
 
+    @Test("vault index actor keeps durable body writes out of SDPage model methods")
+    func vaultIndexActorAvoidsSynchronousModelBodyWrites() throws {
+        let source = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
+
+        #expect(!source.contains("page.saveBody("))
+        #expect(!source.contains("NoteFileStorage.writeBody(pageId: snapshot.pageId"))
+        #expect(source.contains("await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)"))
+        #expect(source.contains("NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)"))
+        #expect(source.contains("page.updateBodyDerivedState(from: body)"))
+    }
+
     @Test("custom secondary windows opt out of AppKit state restoration")
     func customSecondaryWindowsOptOutOfAppKitStateRestoration() throws {
         let noteWindowManager = try loadRepoTextFile("Epistemos/Views/Notes/NoteWindowManager.swift")
