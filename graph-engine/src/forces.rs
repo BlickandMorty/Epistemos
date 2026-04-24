@@ -897,13 +897,21 @@ pub fn force_snap_back(
             continue;
         }
         // Snap-back velocity injection, inversely proportional to mass.
+        // Per v3 motion spec §6: `snap_freq_hz = 1.75`, damping ratio
+        // 0.55. The legacy tether-decay form (0.85 / tick) reads as
+        // over-damped — the node returns linearly rather than with
+        // the slight overshoot that M3 Expressive calls for. 0.82
+        // retention per tick is the canonical approximation at 60 Hz.
+        // A full 2nd-order spring rewrite (proper `omega_n`/`zeta`
+        // integration) is deferred to a later commit — this tune
+        // pulls the existing tether form toward the right envelope
+        // without a wholesale rewrite.
         let m = mass[i].max(0.5);
         let factor = strength / m;
         vx[i] += sb[0] * factor;
         vy[i] += sb[1] * factor;
-        // Decay tether (spring relaxation).
-        sb[0] *= 0.85;
-        sb[1] *= 0.85;
+        sb[0] *= 0.82;
+        sb[1] *= 0.82;
     }
 }
 
