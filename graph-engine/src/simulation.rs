@@ -706,10 +706,17 @@ impl Simulation {
             }
         }
 
-        // Compute per-node mass from degree (for mass-based drag resistance).
-        // mass = 1.0 + degree * 0.2, giving hub nodes higher inertia.
+        // Compute per-node mass from degree using the canonical
+        // logarithmic form (v3 spec §3.2, synthesis §1.2). The linear
+        // version (`1.0 + degree * 0.2`) gave degree-50 hubs a mass of
+        // 11.0 — so heavy they read as immovable black holes inside
+        // the existing force pipeline. The logarithmic form puts the
+        // same degree-50 hub at mass ≈ 2.38, which is enough inertia
+        // to anchor without breaking relaxation. Every research pass
+        // (Perplexity, GPT, Claude v1-v3) converged on this shape.
         for i in 0..self.mass.len() {
-            self.mass[i] = 1.0 + self.degrees[i] as f32 * 0.2;
+            let degree = self.degrees[i] as f32;
+            self.mass[i] = 1.0 + 0.35 * (degree + 1.0).ln();
         }
 
         // Reset simulation state for fresh run (skip if user-frozen).
