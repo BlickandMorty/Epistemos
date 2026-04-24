@@ -2739,13 +2739,20 @@ private actor BodyMigrationActor {
         return migrated
     }
 
-    func migrateBlockReferences() throws -> Int {
+    func migrateBlockReferences() async throws -> Int {
         let pages = try modelContext.fetch(FetchDescriptor<SDPage>())
         var migrated = 0
         let pattern = /\(\(([^)]+)\)\)/
 
         for page in pages where page.blockReferences.isEmpty {
-            let body = page.loadBody(mapped: true)
+            // Phase R.3: gateway-first body read via the
+            // Sendable-primitive helper.
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body,
+                mapped: true
+            )
             guard !body.isEmpty else { continue }
             let matches = body.matches(of: pattern)
             let refs = matches.compactMap { match -> String? in

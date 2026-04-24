@@ -770,18 +770,28 @@ final class TimeMachineService {
     /// storage, no extra capture path. Because every historical save
     /// is already in SwiftData, the diff covers every in-between state,
     /// not just commit boundaries the way git does. That's the moat.
+    /// Phase R.3 async cascade: body read routed through the R.3
+    /// gateway via the Sendable-primitive helper. Method signature
+    /// became `async` — zero blast radius because no Swift caller
+    /// reaches this method today (function is exposed for future
+    /// time-machine diff UI wiring).
     func computeLineDiff(
         pageId: String,
         at date: Date,
         context: Int = 3
-    ) -> NoteLineDiff.Summary? {
+    ) async -> NoteLineDiff.Summary? {
         guard let page = fetchFirst(
             FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId }),
             label: "line-diff current page"
         ) else {
             return nil
         }
-        let currentBody = page.loadBody(fast: true)
+        let currentBody = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            fast: true
+        )
         let priorBody = nearestVersionBody(pageId: pageId, before: date)
         return NoteLineDiff.summarize(
             oldText: priorBody ?? "",

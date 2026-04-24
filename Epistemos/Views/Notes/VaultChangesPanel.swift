@@ -59,11 +59,32 @@ struct VaultChangesPanel: View {
                             DirtyPageRow(page: page)
                                 .contentShape(Rectangle())
                                 .onTapGesture {
-                                    diffRequest = DiffPresentationRequest(
-                                        pageId: page.id,
-                                        currentTitle: page.title,
-                                        currentBody: NoteWindowManager.shared.editorBody(for: page.id) ?? page.loadBody()
-                                    )
+                                    // Phase R.3 async cascade: body read via
+                                    // the primitives helper; set the diff
+                                    // request once the body is available.
+                                    // Live editor body short-circuits when
+                                    // the page is open in a window.
+                                    let pageId = page.id
+                                    let currentTitle = page.title
+                                    let filePath = page.filePath
+                                    let inline = page.body
+                                    Task { @MainActor in
+                                        let currentBody: String
+                                        if let live = NoteWindowManager.shared.editorBody(for: pageId) {
+                                            currentBody = live
+                                        } else {
+                                            currentBody = await SDPage.loadBodyAsyncFromPrimitives(
+                                                pageId: pageId,
+                                                filePath: filePath,
+                                                inlineBody: inline
+                                            )
+                                        }
+                                        diffRequest = DiffPresentationRequest(
+                                            pageId: pageId,
+                                            currentTitle: currentTitle,
+                                            currentBody: currentBody
+                                        )
+                                    }
                                 }
                         }
                     }

@@ -140,7 +140,13 @@ struct CreateJournalIntent: AppIntent {
             throw IntentError.creationFailed
         }
 
-        let originalBody = page.loadBody()
+        // Phase R.3 async cascade: gateway-first read via the
+        // Sendable-primitive helper.
+        let originalBody = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body
+        )
         let originalIsJournal = page.isJournal
         let originalJournalDate = page.journalDate
         let originalNeedsVaultSync = page.needsVaultSync

@@ -78,7 +78,14 @@ final class LiveNoteExecutor {
             return false
         }
 
-        let originalBody = page.loadBody(mapped: true)
+        // Phase R.3: gateway-first body read via the
+        // Sendable-primitive helper.
+        let originalBody = await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            mapped: true
+        )
         let originalFilePath = page.filePath
         let originalWordCount = page.wordCount
         let originalUpdatedAt = page.updatedAt

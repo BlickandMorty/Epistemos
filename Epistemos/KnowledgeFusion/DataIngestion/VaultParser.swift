@@ -51,12 +51,18 @@ actor VaultParser {
     /// Parse all SDPages from SwiftData, applying Rust classifier + boilerplate filter.
     /// This is the main entry point for Knowledge Fusion's data ingestion.
     @MainActor
-    func parsePages(_ pages: [SDPage]) -> VaultParseResult {
+    func parsePages(_ pages: [SDPage]) async -> VaultParseResult {
         var documents: [ParsedDocument] = []
         documents.reserveCapacity(pages.count)
 
         for page in pages {
-            let body = page.loadBody()
+            // Phase R.3: gateway-first body read via the
+            // Sendable-primitive helper.
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: page.id,
+                filePath: page.filePath,
+                inlineBody: page.body
+            )
             guard !body.isEmpty else { continue }
 
             // Classify via Rust FFI
