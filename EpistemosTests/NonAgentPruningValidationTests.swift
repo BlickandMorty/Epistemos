@@ -120,13 +120,14 @@ struct NonAgentPruningValidationTests {
     func settingsSidebarShowsAdvancedSections() throws {
         let source = try loadRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
 
-        #expect(source.contains("static let visibleSections"))
+        #expect(source.contains("static var visibleSections"))
         #expect(source.contains("ForEach(SettingsCategory.orderedCases)"))
         #expect(source.contains("SettingsSection.visibleSections"))
         #expect(!source.contains("List(SettingsSection.allCases"))
         #expect(source.contains(".cognitive"))
         #expect(source.contains(".knowledgeFusion"))
         #expect(source.contains(".modelVaults"))
+        #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
         #expect(!source.contains(".omega"))
     }
 

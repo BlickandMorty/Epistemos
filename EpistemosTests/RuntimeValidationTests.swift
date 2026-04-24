@@ -3744,7 +3744,10 @@ struct RuntimeValidationTests {
         #expect(vaultSync.contains("NoteFileStorage.deleteBody(pageId: failedPageId)"))
 
         #expect(!journal.contains("context.rollback()"))
-        #expect(journal.contains("let originalBody = page.loadBody()"))
+        #expect(journal.contains("let originalBody = await SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(journal.contains("pageId: page.id"))
+        #expect(journal.contains("filePath: page.filePath"))
+        #expect(journal.contains("inlineBody: page.body"))
         #expect(journal.contains("let originalJournalDate = page.journalDate"))
         #expect(journal.contains("page.journalDate = journalDate"))
         #expect(journal.contains("page.journalDate = originalJournalDate"))

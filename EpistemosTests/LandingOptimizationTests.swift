@@ -8,6 +8,7 @@ struct LandingOptimizationTests {
     @Test("home window identity can tag untitled main windows for landing lifecycle checks")
     func homeWindowIdentityCanTagUntitledMainWindows() {
         let window = NSWindow()
+        window.isReleasedWhenClosed = false
         defer { window.close() }
 
         window.title = ""
