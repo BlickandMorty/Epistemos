@@ -7,6 +7,7 @@ pub mod cluster_cache;
 pub mod code_highlight;
 pub mod ecs;
 pub mod edge_aggregation;
+pub mod edge_trim;
 pub mod embedding;
 pub mod engine;
 pub mod forces;
