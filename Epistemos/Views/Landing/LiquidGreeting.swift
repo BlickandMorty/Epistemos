@@ -69,13 +69,35 @@ struct LiquidGreeting: View {
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
+    /// Font used for the live search line. Shrinks as the query grows so
+    /// long prompts still fit on one visual row — mirrors the behaviour of
+    /// note titles (a big headline for a short title, smaller for a long
+    /// one, then stable below a floor).
+    private var searchFont: Font { AppDisplayTypography.font(size: dynamicSearchFontSize) }
+    /// Dynamic size curve for the search line. Linear ramp between a soft
+    /// threshold (start of shrink) and a hard floor (stable minimum). Animated
+    /// via the `.animation(..., value: dynamicSearchFontSize)` binding on
+    /// `searchLine` so the transition is smooth rather than steppy.
+    private var dynamicSearchFontSize: CGFloat {
+        let baseSize: CGFloat = compact ? 22 : 44
+        let minSize: CGFloat = compact ? 14 : 18
+        let softThreshold = 12
+        let hardFloor = 160
+        let count = searchText.count
+        if count <= softThreshold { return baseSize }
+        if count >= hardFloor { return minSize }
+        let progress = Double(count - softThreshold) / Double(hardFloor - softThreshold)
+        let size = Double(baseSize) - Double(baseSize - minSize) * progress
+        return CGFloat(size)
+    }
     private var greetingColor: Color {
         theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9)
     }
-    /// Block cursor width/height tuned to roughly match the glyph stem of
-    /// the greeting font at each size.
+    /// Block cursor width/height scaled to the current search font so the
+    /// caret stays proportional as the text shrinks.
     private var cursorMetrics: CGSize {
-        compact ? CGSize(width: 9, height: 22) : CGSize(width: 18, height: 40)
+        let size = dynamicSearchFontSize
+        return CGSize(width: max(6, size * 0.42), height: max(16, size * 0.9))
     }
 
     private var shouldAnimate: Bool {
@@ -153,11 +175,14 @@ struct LiquidGreeting: View {
     /// Renders the live query followed by a thick block cursor. When the
     /// query is empty the line is just the cursor — an empty backspaced
     /// greeting with a single blinking caret, ready to receive typed text.
+    /// Uses the dynamic `searchFont` that shrinks as the text grows.
     private var searchLine: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Text(searchText)
-                .font(greetingFont)
+                .font(searchFont)
                 .foregroundStyle(greetingColor)
+                .lineLimit(3)
+                .multilineTextAlignment(.center)
             Rectangle()
                 .fill(greetingColor)
                 .frame(width: cursorMetrics.width, height: cursorMetrics.height)
@@ -165,6 +190,10 @@ struct LiquidGreeting: View {
                 .padding(.leading, searchText.isEmpty ? 0 : 2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .animation(
+            .spring(response: 0.22, dampingFraction: 0.82),
+            value: dynamicSearchFontSize
+        )
         .shadow(
             color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear),
             radius: compact ? 0 : 8

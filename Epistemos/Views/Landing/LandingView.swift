@@ -347,19 +347,23 @@ struct LandingView: View {
                     searchText: landingSearchText
                 )
 
-                // Inline model picker — only visible while searching, kept
-                // in a monospace design so it matches the retro-terminal
+                // Inline controls — only visible while searching. All
+                // rendered in monospace so they match the retro-terminal
                 // feel of the greeting's backspace-to-cursor transition.
-                // "Implicit": rendered at lower opacity so it's present
-                // without shouting.
+                // "Implicit": lower opacity so they're present without
+                // shouting over the cursor.
                 if showingSearchPopover {
-                    ChatBrainPickerMenu(
-                        operatingMode: operatingModeBinding,
-                        availableOperatingModes: supportedOperatingModes,
-                        isTemporaryChatEnabled: incognitoBinding
-                    )
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .opacity(0.65)
+                    VStack(spacing: 8) {
+                        ChatBrainPickerMenu(
+                            operatingMode: operatingModeBinding,
+                            availableOperatingModes: supportedOperatingModes,
+                            isTemporaryChatEnabled: incognitoBinding
+                        )
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .opacity(0.7)
+
+                        landingSearchControlsRow
+                    }
                     .transition(.opacity.combined(with: .offset(y: -6)))
                     .allowsHitTesting(true)
                 }
@@ -650,6 +654,90 @@ struct LandingView: View {
                 .padding(.bottom, 4)
             }
         }
+    }
+
+    /// Label style for the landing search control strip — small SF-mono
+    /// caption with a trailing icon, sized to read as an inline keyword
+    /// rather than a button pill. Emphasis `.accent` tints the icon with
+    /// the theme accent for the primary (submit) action.
+    private struct MonospaceLandingLabelStyle: LabelStyle {
+        enum Emphasis { case normal, accent }
+        var emphasis: Emphasis = .normal
+
+        func makeBody(configuration: Configuration) -> some View {
+            HStack(spacing: 4) {
+                configuration.icon
+                    .font(.system(size: 12, weight: .medium))
+                configuration.title
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+            }
+            .foregroundStyle(emphasis == .accent ? .primary : .secondary)
+        }
+    }
+
+    /// Monospace button strip below the greeting's cursor when search mode
+    /// is active. Mirrors the main chat composer's control intent (send,
+    /// mention, attach, cache) but at an implicit, retro-terminal weight
+    /// so it reads as companion chrome to the greeting rather than a
+    /// separate bar.
+    private var landingSearchControlsRow: some View {
+        let trimmed = landingSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sendEnabled = !trimmed.isEmpty
+        return HStack(spacing: 14) {
+            // @ mention — inserts an @ at the caret and keeps focus.
+            Button {
+                if !landingSearchText.hasSuffix("@") {
+                    landingSearchText.append("@")
+                }
+                landingSearchFocused = true
+            } label: {
+                Label("mention", systemImage: "at")
+                    .labelStyle(MonospaceLandingLabelStyle())
+            }
+            .buttonStyle(.plain)
+            .help("Reference a note or chat")
+
+            // Attach — mirrors the paperclip on the main composer. For now
+            // this is a visual-only placeholder; wiring into the file panel
+            // comes in a follow-up. The control is still discoverable so
+            // landing feels feature-complete rather than stripped.
+            Button {
+                landingSearchFocused = true
+            } label: {
+                Label("attach", systemImage: "paperclip")
+                    .labelStyle(MonospaceLandingLabelStyle())
+            }
+            .buttonStyle(.plain)
+            .help("Attach (coming soon)")
+            .disabled(true)
+
+            // Context / cache indicator — copy of the cache.bolt intent
+            // from main chat. Visual parity for now.
+            Label("cache", systemImage: "bolt.horizontal.circle")
+                .labelStyle(MonospaceLandingLabelStyle())
+                .opacity(0.55)
+
+            Spacer(minLength: 0)
+
+            // Keyboard hints + explicit send button. Enter submits; Esc
+            // dismisses. The button stays visible so users discover it
+            // without having to know the shortcut.
+            Text("↩ send   ⎋ back")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(theme.mutedForeground.opacity(0.55))
+
+            Button(action: submitLandingSearch) {
+                Label("submit", systemImage: "arrow.up.circle.fill")
+                    .labelStyle(MonospaceLandingLabelStyle(emphasis: .accent))
+            }
+            .buttonStyle(.plain)
+            .disabled(!sendEnabled)
+            .opacity(sendEnabled ? 1.0 : 0.35)
+            .keyboardShortcut(.return, modifiers: .command)
+            .help("Submit (⌘↩)")
+        }
+        .padding(.horizontal, Spacing.xxl)
+        .foregroundStyle(theme.mutedForeground.opacity(0.85))
     }
 
     @ViewBuilder
