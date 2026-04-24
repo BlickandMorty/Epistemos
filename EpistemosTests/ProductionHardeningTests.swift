@@ -581,6 +581,39 @@ struct ReleasePackagingHardeningTests {
         #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
     }
 
+    @Test("App Store target excludes executable Python and Pro runtime assets")
+    func appStoreTargetExcludesExecutablePythonRuntimeAssets() throws {
+        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
+        let bundler = try loadProductionHardeningRepoTextFile("bundle-app-runtime-assets.sh")
+        let appStoreTarget = try #require(projectSpec.range(of: "  Epistemos-AppStore:"))
+        let testsTarget = try #require(projectSpec.range(of: "  EpistemosTests:"))
+        let appStoreSpec = String(projectSpec[appStoreTarget.lowerBound..<testsTarget.lowerBound])
+
+        for excludedPath in [
+            "KnowledgeFusion/Alignment/scripts/**",
+            "KnowledgeFusion/Training/scripts/**",
+            "KnowledgeFusion/MoLoRA/molora_inference.py",
+            "KnowledgeFusion/MoLoRA/sgmm_kernel.py",
+            "KnowledgeFusion/MoLoRA/train_router.py",
+            "KnowledgeFusion/MoLoRA/tests/**",
+            "KnowledgeFusion/MoLoRA/__pycache__/**",
+        ] {
+            #expect(appStoreSpec.contains(excludedPath))
+        }
+
+        #expect(bundler.contains("is_app_store_build()"))
+        #expect(bundler.contains("sanitize_app_store_resources()"))
+        #expect(bundler.contains(#""${TARGET_NAME:-}" == "Epistemos-AppStore""#))
+        #expect(bundler.contains(#""${PRODUCT_BUNDLE_IDENTIFIER:-}" == "com.epistemos.appstore""#))
+        #expect(bundler.contains("EPISTEMOS_APP_STORE"))
+        #expect(bundler.contains("-name '*.py'"))
+        #expect(bundler.contains("-name '*.pyc'"))
+        #expect(bundler.contains("rm -rf \"$AGENT_RUNTIME_DIR\""))
+        #expect(bundler.contains("find \"$KNOWLEDGE_FUSION_DIR\" -depth -type d -empty -delete"))
+        #expect(bundler.contains("if is_app_store_build; then"))
+        #expect(bundler.contains("exit 0"))
+    }
+
     @Test("debug and test targets default to local signing without removing real signing support")
     func debugAndTestsDefaultToLocalSigning() throws {
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
