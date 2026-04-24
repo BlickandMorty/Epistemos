@@ -1174,10 +1174,19 @@ impl Engine {
                 // will be (see docs/GRAPH_WAVES_PLAN.md §6).
                 let release_x = sim.x[drag.sim_index];
                 let release_y = sim.y[drag.sim_index];
+                // The simulation integrates with a unit time step (d3
+                // convention: `vx *= decay; x += vx`). `smoothed_vel`
+                // is in world-units per second, so we convert to
+                // per-tick units by dividing by the target tick rate.
+                // Seeding px/s directly would produce the "rubber-band
+                // kick" on release — a 600 px/s drag would move the
+                // node 600 units the next frame.
+                const TICK_HZ: f32 = 60.0;
+                const PER_TICK_SCALE: f32 = 1.0 / TICK_HZ;
                 sim.release_node_with_velocity(
                     drag.sim_index,
-                    drag.smoothed_vel[0],
-                    drag.smoothed_vel[1],
+                    drag.smoothed_vel[0] * PER_TICK_SCALE,
+                    drag.smoothed_vel[1] * PER_TICK_SCALE,
                 );
                 // Re-heat alpha modestly so the graph resumes relaxation
                 // around the newly-moving node rather than falling asleep

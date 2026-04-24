@@ -161,12 +161,13 @@ impl ActiveWaves {
     /// flick always does.
     pub const RELEASE_MIN_SPEED_PX_S: f32 = 5.0;
 
-    /// Coupling gain from raw wave force into node velocity. Matches
-    /// the existing fluid-grid coupling (`FLUID_K = 0.2`) so all three
-    /// motion-overlay layers live on a shared scale — tune once and
-    /// all of them move together. Follow-up commits will expose this
-    /// via the bulk motion-config FFI.
-    pub const DEFAULT_COUPLING: f32 = 0.2;
+    /// Coupling gain from raw wave force into per-tick velocity delta.
+    /// Started at the FluidGrid `FLUID_K = 0.2` value, but that read
+    /// as near-invisible in-app because the rest of the motion stack
+    /// damps out the ring before it's perceptible. 0.5 puts a visible
+    /// ripple on screen without saturating the graph. Will move behind
+    /// the bulk motion-config FFI once the feel is dialled in.
+    pub const DEFAULT_COUPLING: f32 = 0.5;
 
     pub fn new() -> Self {
         Self {
@@ -199,7 +200,13 @@ impl ActiveWaves {
 
         let speed = speed_sq.sqrt();
         let energy = (speed / 300.0).min(3.0);
-        let amplitude = 45.0 * energy.sqrt();
+        // Amplitude base doubled from the v3 starting value (45) to 90
+        // because at a 1/√r radial falloff + 16 px origin clamp + 0.5
+        // coupling, the perceived ring was still subtle. 90 puts a
+        // visible beat on screen for a typical 600 px/s flick without
+        // saturating the graph under rapid repeated drags (the √ inside
+        // `energy` keeps the stacking sublinear).
+        let amplitude = 90.0 * energy.sqrt();
 
         if self.events.len() >= Self::CAPACITY {
             // Evict the OLDEST event so the freshest user action always
