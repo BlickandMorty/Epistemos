@@ -93,4 +93,19 @@ pub mod tools {
     pub mod workspace_search;
 }
 
+#[cfg(test)]
+pub(crate) mod test_support {
+    use std::sync::{Mutex, MutexGuard, OnceLock};
+
+    /// Serializes tests that mutate process-wide environment variables.
+    /// Rust's default parallel test runner otherwise lets one test remove
+    /// an API key while another is constructing an env-dependent registry.
+    pub(crate) fn env_lock() -> MutexGuard<'static, ()> {
+        static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        LOCK.get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+}
+
 uniffi::setup_scaffolding!();

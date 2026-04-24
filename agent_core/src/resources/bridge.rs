@@ -220,11 +220,10 @@ pub(crate) async fn check_resource_capability(
 }
 
 /// Snapshot the current grant count. Used by the R.5 tool-execution
-/// gate to distinguish "the user has configured grants — enforce
-/// them" from "the store is empty — don't block tool calls before
-/// the user has had a chance to opt in". Crate-private; not exposed
-/// via FFI because Swift has `permission_store_list_active` for the
-/// same purpose in UI contexts.
+/// gate for telemetry only; enforcement is fail-closed for any
+/// resource-targeted mutating tool without a matching grant.
+/// Crate-private; not exposed via FFI because Swift has
+/// `permission_store_list_active` for the same purpose in UI contexts.
 pub(crate) async fn active_grant_count() -> usize {
     let guard = store().lock().await;
     guard.list_active().await.len()

@@ -1379,9 +1379,8 @@ final class ChatCoordinator {
 
     // Phase R.5 parser hook — detect and persist consent phrases in
     // this user turn against any attached resource URI. Fire-and-forget
-    // so the chat stream is never blocked by the FFI call. Grants
-    // landed here will be consulted by the tool-check wiring that
-    // ships in a follow-up commit (I-009 / §Phase R.5 §tool gate).
+    // so the chat stream is never blocked by the FFI call. Resource-
+    // targeted mutating tools now consult these grants before execution.
     recordResourceGrantsFromUserTurn(
       statement: query,
       attachments: chatState.pendingContextAttachments
@@ -1920,10 +1919,9 @@ final class ChatCoordinator {
   /// URI are skipped (they have no canonical identity for the grant to
   /// apply to — legacy code-path compatibility).
   ///
-  /// This is the READ-SIDE of I-009. The WRITE-SIDE (tool-execution
-  /// gate) ships in a follow-up commit and will consult grants landed
-  /// here via `permissionStoreCheck`. Until that lands, persisted
-  /// grants are visible in Settings but don't yet gate tool behavior.
+  /// The Rust tool-execution gate consults grants landed here before
+  /// resource-targeted mutating tools run. Non-grant phrasing remains
+  /// ordinary chat text and never creates authority.
   private func recordResourceGrantsFromUserTurn(
     statement: String,
     attachments: [ContextAttachment]
