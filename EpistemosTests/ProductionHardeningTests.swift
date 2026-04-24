@@ -585,6 +585,16 @@ struct ReleasePackagingHardeningTests {
         #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
     }
 
+    @Test("App Store composer hides shell access affordances")
+    func appStoreComposerHidesShellAccessAffordances() throws {
+        let inputBar = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+
+        #expect(inputBar.contains("#if !EPISTEMOS_APP_STORE\n        rows.append(\n            ComposerPermissionGrantRow(\n                id: \"shell-approval\""))
+        #expect(inputBar.contains("#if !EPISTEMOS_APP_STORE\n        segments.append(\"Shell: ask first\")"))
+        #expect(inputBar.contains("#if EPISTEMOS_APP_STORE\n        .accessibilityHint(\"Shows attached-resource and vault access for this chat.\")"))
+        #expect(inputBar.contains("segments.append(\"Local chat\")"))
+    }
+
     @Test("App Store target excludes executable Python and Pro runtime assets")
     func appStoreTargetExcludesExecutablePythonRuntimeAssets() throws {
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
@@ -1149,6 +1159,7 @@ struct AuditHardeningRegressionTests {
 
         #expect(rootView.contains("ToastOverlay("))
         #expect(rootView.contains("VaultRecoveryOverlay("))
+        #expect(rootView.contains("issue.blocksWorkspaceInteraction"))
         #expect(rootView.contains(".accessibilityLabel(\"Back to Home\")"))
         #expect(rootView.contains(".accessibilityLabel(\"Settings\")"))
         #expect(rootView.contains(".accessibilityLabel(\"Chat History\")"))

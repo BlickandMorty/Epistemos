@@ -415,6 +415,7 @@ struct ChatInputBar: View {
             }
         )
 
+        #if !EPISTEMOS_APP_STORE
         rows.append(
             ComposerPermissionGrantRow(
                 id: "shell-approval",
@@ -424,6 +425,7 @@ struct ChatInputBar: View {
                 isRevocable: false
             )
         )
+        #endif
 
         return rows
     }
@@ -437,7 +439,12 @@ struct ChatInputBar: View {
         if vaultSync.vaultURL != nil {
             segments.append("Read + Search vault")
         }
+        #if !EPISTEMOS_APP_STORE
         segments.append("Shell: ask first")
+        #endif
+        if segments.isEmpty {
+            segments.append("Local chat")
+        }
         return segments.joined(separator: " · ")
     }
     var body: some View {
@@ -754,7 +761,11 @@ struct ChatInputBar: View {
             .frame(width: 360, alignment: .leading)
         }
         .accessibilityLabel("Current assistant access")
+        #if EPISTEMOS_APP_STORE
+        .accessibilityHint("Shows attached-resource and vault access for this chat.")
+        #else
         .accessibilityHint("Shows attached-resource, vault, and shell approval access for this chat.")
+        #endif
     }
 
     private var composerTextArea: some View {
