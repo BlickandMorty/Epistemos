@@ -604,6 +604,16 @@ struct ReleasePackagingHardeningTests {
         #expect(source.contains("static func shouldScheduleMetalShaderWarmupAtLaunch("))
         #expect(source.contains("guard Self.shouldScheduleMetalShaderWarmupAtLaunch() else { return }"))
     }
+
+    @Test("spotlight single-page indexing does not capture SwiftData models across async work")
+    func spotlightSinglePageIndexingStagesSendablePrimitives() throws {
+        let source = try loadProductionHardeningRepoTextFile("Epistemos/Engine/SpotlightIndexer.swift")
+
+        #expect(source.contains("private struct PageStage: Sendable"))
+        #expect(source.contains("let stage = stage(page)"))
+        #expect(source.contains("pageId: stage.pageId"))
+        #expect(!source.contains("let item = makeItem(for: page, body: body)"))
+    }
 }
 
 // MARK: - Audit Hardening Regression Tests
