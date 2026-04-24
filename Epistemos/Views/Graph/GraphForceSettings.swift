@@ -10,15 +10,33 @@ enum GraphForceSettingsLayout {
     static let panelWidth: CGFloat = 320
 }
 
+private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
+    case presets = "Presets"
+    case physics = "Physics"
+    case display = "Display"
+    case advanced = "Advanced"
+
+    var id: Self { self }
+
+    var icon: String {
+        switch self {
+        case .presets: return "sparkles"
+        case .physics: return "bolt"
+        case .display: return "rectangle.on.rectangle"
+        case .advanced: return "slider.horizontal.3"
+        }
+    }
+}
+
 struct GraphForceSettings: View {
     @Environment(GraphState.self) private var graphState
 
-    @State private var showAdvanced = false
     @State private var showLaboratory = false
     @State private var showSavePresetAlert = false
     @State private var newPresetName = ""
     @State private var renameTargetId: UUID? = nil
     @State private var renameDraft = ""
+    @State private var selectedSection: GraphForceSettingsSection = .presets
 
     private var isStatic: Bool { graphState.isStaticLayout }
 
@@ -27,81 +45,107 @@ struct GraphForceSettings: View {
 
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                // ── Static Layout Banner ──
                 if isStatic {
                     staticLayoutBanner
                 }
 
-                // ── Presets (always visible at top) ──
-                presetSection
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
+                sectionBar
 
-                // ── Custom Presets ──
-                customPresetsSection
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
-
-                Divider().opacity(0.3)
-
-                performanceSection(gs: $gs)
-
-                Divider().opacity(0.3)
-
-                // ── Basic Forces ──
-                basicSection(gs: $gs)
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
-
-                // ── Advanced Toggle ──
-                advancedToggle
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
-
-                if showAdvanced {
-                    Divider().opacity(0.3)
-                    VStack(alignment: .leading, spacing: 16) {
-                        advancedSection(gs: $gs)
-                        clusterSection(gs: $gs)
-                        schedulerSection(gs: $gs)
+                Group {
+                    switch selectedSection {
+                    case .presets:
+                        presetsPanel(gs: $gs)
+                    case .physics:
+                        physicsPanel(gs: $gs)
+                    case .display:
+                        displayPanel(gs: $gs)
+                    case .advanced:
+                        advancedPanel(gs: $gs)
                     }
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
                 }
-
-                Divider().opacity(0.3)
-                laboratoryToggle
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
-
-                if showLaboratory {
-                    laboratorySection(gs: $gs)
-                        .opacity(isStatic ? 0.4 : 1.0)
-                        .allowsHitTesting(!isStatic)
-                }
-
-                Divider().opacity(0.3)
-                titleOverlaySection(gs: $gs)
-
-                Divider().opacity(0.3)
-                waterNodesSection(gs: $gs)
-
-                Divider().opacity(0.3)
-                labelsSection(gs: $gs)
-
-                Divider().opacity(0.3)
-                resetButton
-                    .opacity(isStatic ? 0.4 : 1.0)
-                    .allowsHitTesting(!isStatic)
-
-
-
+                .opacity(isStatic && selectedSection != .display ? 0.4 : 1.0)
+                .allowsHitTesting(!isStatic || selectedSection == .display)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(width: GraphForceSettingsLayout.panelWidth)
-        .frame(maxHeight: 900)
+        .frame(maxHeight: 720)
+    }
+
+    // MARK: - Top Sections
+
+    private var sectionBar: some View {
+        HStack(spacing: 6) {
+            ForEach(GraphForceSettingsSection.allCases) { section in
+                let isSelected = selectedSection == section
+                Button {
+                    selectedSection = section
+                } label: {
+                    VStack(spacing: 3) {
+                        Image(systemName: section.icon)
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(section.rawValue)
+                            .font(.system(size: 9, weight: .medium))
+                            .lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 7)
+                    .background(
+                        isSelected ? Color.accentColor.opacity(0.16) : Color.primary.opacity(0.04),
+                        in: RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(isSelected ? Color.accentColor.opacity(0.35) : .clear, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Graph settings sections")
+    }
+
+    private func presetsPanel(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            renderModeSection(gs: gs)
+            Divider().opacity(0.3)
+            presetSection
+            customPresetsSection
+        }
+    }
+
+    private func physicsPanel(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            basicSection(gs: gs)
+            Divider().opacity(0.3)
+            advancedSection(gs: gs)
+            Divider().opacity(0.3)
+            clusterSection(gs: gs)
+        }
+    }
+
+    private func displayPanel(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            titleOverlaySection(gs: gs)
+            Divider().opacity(0.3)
+            labelsSection(gs: gs)
+            Divider().opacity(0.3)
+            resetButton
+        }
+    }
+
+    private func advancedPanel(gs: Bindable<GraphState>) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            schedulerSection(gs: gs)
+            Divider().opacity(0.3)
+            laboratoryToggle
+            if showLaboratory {
+                laboratorySection(gs: gs)
+            }
+        }
     }
 
     // MARK: - Static Layout Banner
@@ -135,26 +179,28 @@ struct GraphForceSettings: View {
 
     // MARK: - Presets
 
-    private func performanceSection(gs: Bindable<GraphState>) -> some View {
+    private func renderModeSection(gs: Bindable<GraphState>) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Rendering", icon: "speedometer")
+            sectionHeader("Mode", icon: graphState.performanceModeEnabled ? "speedometer" : "water.waves")
 
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Performance Mode")
+                    Text(graphState.performanceModeEnabled ? "Performance" : "Cinematic")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.secondary)
-                    Text("Straight edges, near-default node shading, and no cinematic glow or blur effects.")
+                    Text(graphState.performanceModeEnabled
+                         ? "Simple shading and straight edges for the fastest large-graph view."
+                         : "Water nodes are on by default with the full graph surface.")
                         .font(.system(size: 9))
                         .foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                Toggle("", isOn: gs.performanceModeEnabled)
+                Toggle("Performance", isOn: gs.performanceModeEnabled)
                     .labelsHidden()
                     .toggleStyle(.switch)
-                    .controlSize(.mini)
+                    .controlSize(.small)
             }
         }
     }
@@ -345,24 +391,6 @@ struct GraphForceSettings: View {
         }
     }
 
-    // MARK: - Advanced Toggle
-
-    private var advancedToggle: some View {
-        Button {
-            withAnimation(.smooth(duration: 0.2)) { showAdvanced.toggle() }
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                Text("Layout & Clustering")
-                    .font(.system(size: 11, weight: .medium))
-                Spacer()
-            }
-            .foregroundStyle(.secondary)
-        }
-        .buttonStyle(.plain)
-    }
-
     // MARK: - Advanced Section
 
     private func advancedSection(gs: Bindable<GraphState>) -> some View {
@@ -474,19 +502,6 @@ struct GraphForceSettings: View {
     private func schedulerSection(gs: Bindable<GraphState>) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             sectionHeader("Startup Scheduler", icon: "timer")
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Opens in")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.secondary)
-                Picker("Opens in", selection: gs.startupViewMode) {
-                    ForEach(GraphStartupViewMode.allCases) { mode in
-                        Text(mode.displayName).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-            }
 
             Picker("Mode", selection: gs.schedulerMode) {
                 Text("Simple").tag(PhysicsSchedulerMode.simple)
@@ -797,31 +812,6 @@ struct GraphForceSettings: View {
                 }
                 .pickerStyle(.segmented)
                 .controlSize(.small)
-            }
-        }
-    }
-
-    // MARK: - Water Nodes
-
-    private func waterNodesSection(gs: Bindable<GraphState>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionHeader("Water Nodes", icon: "drop.triangle")
-
-            labToggle(
-                label: "Water Nodes",
-                isOn: gs.waterNodesEnabled,
-                onChange: {}
-            )
-
-            if graphState.waterNodesEnabled {
-                forceSlider(
-                    label: "Wobble",
-                    value: gs.waterNodesWobble,
-                    range: 0...1,
-                    format: "%.2f",
-                    subtitle: "Still \u{2194} Wavy",
-                    onChange: { graphState.waterNodesVersion += 1 }
-                )
             }
         }
     }

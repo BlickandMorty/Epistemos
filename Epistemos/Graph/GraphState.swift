@@ -951,9 +951,9 @@ final class GraphState {
 
     /// Graph-only runtime render mode. Default remains the polished cinematic path.
     var performanceModeEnabled: Bool = {
-        // Default to performance mode on first launch.
+        // Default to cinematic mode on first launch. Performance is an explicit fast path.
         if UserDefaults.standard.object(forKey: "epistemos.graph.performanceMode") == nil {
-            return true
+            return false
         }
         return UserDefaults.standard.bool(forKey: "epistemos.graph.performanceMode")
     }() {
@@ -961,6 +961,7 @@ final class GraphState {
             guard performanceModeEnabled != oldValue else { return }
             UserDefaults.standard.set(performanceModeEnabled, forKey: Self.performanceModeDefaultsKey)
             liteModeVersion += 1
+            waterNodesVersion += 1
         }
     }
 
@@ -1030,11 +1031,10 @@ final class GraphState {
 
     // MARK: - Water Nodes
 
-    var waterNodesEnabled: Bool = false {
-        didSet {
-            UserDefaults.standard.set(waterNodesEnabled, forKey: "epistemos.waterNodes.enabled")
-            waterNodesVersion += 1
-        }
+    /// Water nodes are the default cinematic look. Performance mode switches to
+    /// the simpler renderer style and disables water nodes as one coherent mode.
+    var waterNodesEnabled: Bool {
+        !performanceModeEnabled
     }
     var waterNodesWobble: Float = 0.0 {
         didSet {
@@ -1108,10 +1108,6 @@ final class GraphState {
         if let raw = d.string(forKey: "epistemos.label.fontFamily"),
            let family = LabelFontFamily(rawValue: raw) {
             labelFontFamily = family
-        }
-        // Restore water nodes
-        if d.object(forKey: "epistemos.waterNodes.enabled") != nil {
-            waterNodesEnabled = d.bool(forKey: "epistemos.waterNodes.enabled")
         }
         if d.object(forKey: "epistemos.waterNodes.wobble") != nil {
             waterNodesWobble = d.float(forKey: "epistemos.waterNodes.wobble")
