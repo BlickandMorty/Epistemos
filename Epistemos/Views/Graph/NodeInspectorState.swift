@@ -17,6 +17,13 @@ final class NodeInspectorState {
         let topologyVersion: Int
     }
 
+    private struct BodyReadStage: Sendable {
+        let pageId: String
+        let filePath: String?
+        let inlineBody: String
+        let fallbackSummary: String
+    }
+
     enum InspectorMode: Hashable { case profile, editor }
 
     // MARK: - Selection
@@ -116,9 +123,12 @@ final class NodeInspectorState {
                     if let liveBody = currentEditorBody(for: sourceId) {
                         noteBody = liveBody
                     } else {
-                        noteBody = await Task.detached {
-                            NoteFileStorage.readBody(pageId: sourceId)
-                        }.value
+                        let stage = stageBodyRead(
+                            pageId: sourceId,
+                            modelContext: modelContext,
+                            logPrefix: "NodeInspectorState"
+                        )
+                        noteBody = await Self.bodyText(for: stage)
                     }
                 } else {
                     noteBody = ""
@@ -461,6 +471,82 @@ final class NodeInspectorState {
         return bodies
     }
 
+    private func stageBodyRead(from page: SDPage) -> BodyReadStage {
+        BodyReadStage(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            fallbackSummary: page.summary
+        )
+    }
+
+    private func stageBodyRead(pageId: String, modelContext: ModelContext, logPrefix: String) -> BodyReadStage {
+        let targetId = pageId
+        let predicate = #Predicate<SDPage> { $0.id == targetId }
+        var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
+        descriptor.fetchLimit = 1
+        do {
+            if let page = try modelContext.fetch(descriptor).first {
+                return stageBodyRead(from: page)
+            }
+        } catch {
+            Log.graph.error(
+                "\(logPrefix): failed to fetch page summary for \(String(pageId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        return BodyReadStage(pageId: pageId, filePath: nil, inlineBody: "", fallbackSummary: "")
+    }
+
+    private func stagedBodyReads(
+        for pageIds: [String],
+        modelContext: ModelContext,
+        logPrefix: String
+    ) -> [String: BodyReadStage] {
+        var stages: [String: BodyReadStage] = [:]
+        stages.reserveCapacity(pageIds.count)
+        for pageId in pageIds {
+            stages[pageId] = stageBodyRead(
+                pageId: pageId,
+                modelContext: modelContext,
+                logPrefix: logPrefix
+            )
+        }
+        return stages
+    }
+
+    private nonisolated static func bodyText(for stage: BodyReadStage) async -> String {
+        await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: stage.pageId,
+            filePath: stage.filePath,
+            inlineBody: stage.inlineBody,
+            mapped: true,
+            fast: true
+        )
+    }
+
+    private nonisolated static func bodyTexts(
+        for stages: [BodyReadStage?],
+        liveBodies: [String: String]
+    ) async -> [String] {
+        await Task.detached(priority: .utility) { () async -> [String] in
+            var bodies: [String] = []
+            bodies.reserveCapacity(stages.count)
+            for stage in stages {
+                guard let stage else {
+                    bodies.append("")
+                    continue
+                }
+                if let liveBody = liveBodies[stage.pageId] {
+                    bodies.append(liveBody)
+                    continue
+                }
+                let body = await bodyText(for: stage)
+                bodies.append(body.isEmpty ? stage.fallbackSummary : body)
+            }
+            return bodies
+        }.value
+    }
+
     private func fetchPageContent(_ node: GraphNodeRecord, modelContext: ModelContext) async -> String {
         guard let sourceId = node.sourceId else { return node.label }
         let label = node.label
@@ -469,31 +555,20 @@ final class NodeInspectorState {
             return liveBody
         }
 
-        // File I/O off main actor (NoteFileStorage.readBody is nonisolated static).
-        let body = await Task.detached {
-            NoteFileStorage.readBody(pageId: sourceId)
-        }.value
+        let stage = stageBodyRead(
+            pageId: sourceId,
+            modelContext: modelContext,
+            logPrefix: "NodeInspectorState"
+        )
+        let body = await Self.bodyText(for: stage)
         if !body.isEmpty { return body }
-
-        // Fallback: SwiftData page summary if body file doesn't exist (rare, stays on main).
-        let predicate = #Predicate<SDPage> { $0.id == sourceId }
-        var descriptor = FetchDescriptor<SDPage>(predicate: predicate)
-        descriptor.fetchLimit = 1
-        do {
-            if let page = try modelContext.fetch(descriptor).first, !page.summary.isEmpty {
-                return page.summary
-            }
-        } catch {
-            Log.graph.error(
-                "NodeInspectorState: failed to fetch page summary for \(String(sourceId.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
-            )
-        }
+        if !stage.fallbackSummary.isEmpty { return stage.fallbackSummary }
         return label
     }
 
     private func fetchFolderContent(_ node: GraphNodeRecord, store: GraphStore, modelContext: ModelContext) async -> String {
         guard let folderID = node.sourceId else {
-            return await fetchConnectedContext(for: node, store: store)
+            return await fetchConnectedContext(for: node, store: store, modelContext: modelContext)
         }
 
         let predicate = #Predicate<SDFolder> { $0.id == folderID }
@@ -503,14 +578,14 @@ final class NodeInspectorState {
         let folder: SDFolder
         do {
             guard let fetchedFolder = try modelContext.fetch(descriptor).first else {
-                return await fetchConnectedContext(for: node, store: store)
+                return await fetchConnectedContext(for: node, store: store, modelContext: modelContext)
             }
             folder = fetchedFolder
         } catch {
             Log.graph.error(
                 "NodeInspectorState: failed to fetch folder \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
-            return await fetchConnectedContext(for: node, store: store)
+            return await fetchConnectedContext(for: node, store: store, modelContext: modelContext)
         }
 
         let relativePath = folder.relativePath
@@ -529,7 +604,7 @@ final class NodeInspectorState {
             Log.graph.error(
                 "NodeInspectorState: failed to fetch folder pages for \(String(folderID.prefix(8)), privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
-            return await fetchConnectedContext(for: node, store: store)
+            return await fetchConnectedContext(for: node, store: store, modelContext: modelContext)
         }
         let descendantPages = Array(
             allPages.filter { page in
@@ -544,14 +619,10 @@ final class NodeInspectorState {
 
         let descendantPageIDs = descendantPages.map(\.id)
         let liveBodies = liveEditorBodies(for: descendantPageIDs)
-        let pageBodies = await Task.detached {
-            descendantPageIDs.map { pageID in
-                if let liveBody = liveBodies[pageID] {
-                    return liveBody
-                }
-                return NoteFileStorage.readBody(pageId: pageID)
-            }
-        }.value
+        let pageBodies = await Self.bodyTexts(
+            for: descendantPages.map { Optional(stageBodyRead(from: $0)) },
+            liveBodies: liveBodies
+        )
 
         var parts: [String] = [
             "Folder: \(node.label)",
@@ -570,7 +641,12 @@ final class NodeInspectorState {
             parts.append("Note: \(page.title)\n\(preview)")
         }
 
-        let connectedContext = await fetchConnectedContext(for: node, store: store, excluding: Set(descendantPages.map(\.id)))
+        let connectedContext = await fetchConnectedContext(
+            for: node,
+            store: store,
+            modelContext: modelContext,
+            excluding: Set(descendantPages.map(\.id))
+        )
         if !connectedContext.isEmpty {
             parts.append(connectedContext)
         }
@@ -585,16 +661,15 @@ final class NodeInspectorState {
             .map { (sourceId: $0.sourceId, label: $0.label) }
 
         let liveBodies = liveEditorBodies(for: related.compactMap(\.sourceId))
-        // Batch file reads off main actor.
-        let bodies = await Task.detached {
-            related.map { rel in
-                guard let sid = rel.sourceId else { return "" }
-                if let liveBody = liveBodies[sid] {
-                    return liveBody
-                }
-                return NoteFileStorage.readBody(pageId: sid)
-            }
-        }.value
+        let stagesById = stagedBodyReads(
+            for: related.compactMap(\.sourceId),
+            modelContext: modelContext,
+            logPrefix: "NodeInspectorState"
+        )
+        let bodies = await Self.bodyTexts(
+            for: related.map { rel in rel.sourceId.flatMap { stagesById[$0] } },
+            liveBodies: liveBodies
+        )
 
         var parts: [String] = ["Tag: \(node.label)\nRelated nodes:"]
         for (i, rel) in related.enumerated() {
@@ -608,6 +683,7 @@ final class NodeInspectorState {
     private func fetchConnectedContext(
         for node: GraphNodeRecord,
         store: GraphStore,
+        modelContext: ModelContext,
         excluding excludedSourceIDs: Set<String> = []
     ) async -> String {
         let relatedNodes = (store.adjacency[node.id] ?? [])
@@ -623,25 +699,23 @@ final class NodeInspectorState {
         guard !relatedArray.isEmpty else { return "" }
 
         let liveBodies = liveEditorBodies(for: relatedArray.compactMap(\.sourceId))
-        let previews = await Task.detached {
-            relatedArray.map { related -> String in
-                guard let sourceId = related.sourceId else {
-                    return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
-                }
-                if let liveBody = liveBodies[sourceId] {
-                    return liveBody
-                }
-                let body = NoteFileStorage.readBody(pageId: sourceId).trimmingCharacters(in: .whitespacesAndNewlines)
-                if !body.isEmpty {
-                    return body
-                }
-                return related.metadata.abstract ?? related.metadata.quoteText ?? related.label
-            }
-        }.value
+        let stagesById = stagedBodyReads(
+            for: relatedArray.compactMap(\.sourceId),
+            modelContext: modelContext,
+            logPrefix: "NodeInspectorState"
+        )
+        let previews = await Self.bodyTexts(
+            for: relatedArray.map { related in related.sourceId.flatMap { stagesById[$0] } },
+            liveBodies: liveBodies
+        )
 
         var lines = ["Connected graph context:"]
         for (index, related) in relatedArray.enumerated() {
-            let preview = String(previews[index].prefix(420))
+            let fallback = related.metadata.abstract ?? related.metadata.quoteText ?? related.label
+            let previewSource = previews[index].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? fallback
+                : previews[index]
+            let preview = String(previewSource.prefix(420))
             lines.append("- \(related.label) (\(related.type.displayName)): \(preview)")
         }
         return lines.joined(separator: "\n")

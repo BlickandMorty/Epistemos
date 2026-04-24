@@ -585,7 +585,8 @@ struct RuntimeValidationTests {
         #expect(scanner.contains("let context = ModelContext(modelContainer)"))
         #expect(scanner.contains("Task.detached(priority: .utility)"))
         #expect(pageModel.contains("func loadBody(mapped: Bool = false, fast: Bool = false)"))
-        #expect(scanner.contains("NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)"))
+        #expect(scanner.contains("return await Self.scanTasksAsync(from: candidates)"))
+        #expect(scanner.contains("await SDPage.loadBodyAsyncFromPrimitives("))
         #expect(executor.contains("let tasks = await scanner.scanForLiveNotes(modelContainer: container)"))
         #expect(!scanner.contains("func scanForLiveNotes(context: ModelContext) async -> [LiveNoteTask]"))
     }
@@ -4065,11 +4066,13 @@ struct RuntimeValidationTests {
         #expect(vaultIndexActor.contains("private nonisolated static func contentModificationDate("))
     }
 
-    @Test("landing search uses the anchored AppKit popover without detached hit-swallow layers")
-    func landingSearchUsesAnchoredPopover() throws {
+    @Test("landing search uses the liquid-wave overlay without detached hit-swallow layers")
+    func landingSearchUsesLiquidWaveOverlay() throws {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
-        #expect(landing.contains(".appKitPopover("))
+        #expect(landing.contains("LandingWaveOverlay("))
+        #expect(landing.contains("LandingWaveSearchBar("))
+        #expect(!landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
         #expect(landing.contains("landingTapLocation"))
         #expect(landing.contains(".onTapGesture(coordinateSpace: .local) { location in"))

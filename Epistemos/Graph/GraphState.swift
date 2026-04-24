@@ -2173,11 +2173,11 @@ final class GraphState {
     ///
     /// Phase R.3 async cascade: the body read goes through the
     /// Sendable-primitive strangler-fig helper
-    /// `SDPage.loadBodyAsyncFromPrimitives` so the R.3 gateway is
-    /// consulted first and the legacy `NoteFileStorage.readBody`
-    /// path is the fallback. The function is `async` to accommodate
-    /// the await — no existing Swift call sites reach this method
-    /// (it's reserved for future page-mode subgraph wiring), so
+    /// `SDPage.loadBodyAsyncFromPrimitives` so the managed sidecar
+    /// remains authoritative, then the R.3 gateway is consulted before
+    /// inline/raw vault-file fallback. The function is `async` to
+    /// accommodate the await — no existing Swift call sites reach this
+    /// method (it's reserved for future page-mode subgraph wiring), so
     /// making it async today has zero blast radius.
     func buildPageSubgraph(for pageId: String, context: ModelContext) async {
         let descriptor = FetchDescriptor<SDPage>(
