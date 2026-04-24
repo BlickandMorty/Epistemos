@@ -870,10 +870,11 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         }
 
         let installedDirectory = paths.activeDirectory(for: descriptor)
-        guard FileManager.default.fileExists(atPath: installedDirectory.path) else {
-            return nil
+        if FileManager.default.fileExists(atPath: installedDirectory.path) {
+            return installedDirectory
         }
-        return installedDirectory
+
+        return paths.usableHubSnapshotDirectory(for: descriptor)
     }
 
     private func resolvedArtifactID(for modelID: String) -> String? {

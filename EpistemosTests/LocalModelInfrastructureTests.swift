@@ -1129,6 +1129,68 @@ struct LocalModelInfrastructureTests {
     }
 
     @MainActor
+    @Test("refresh treats usable hub snapshots as runnable installs")
+    func refreshTreatsUsableHubSnapshotsAsRunnableInstalls() throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue)
+        )
+        let snapshotURL = root.hubDirectory(for: .text)
+            .appendingPathComponent("models--\(descriptor.slug)", isDirectory: true)
+            .appendingPathComponent("snapshots", isDirectory: true)
+            .appendingPathComponent(descriptor.revision, isDirectory: true)
+        try FileManager.default.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
+        try Data([0x00]).write(to: snapshotURL.appendingPathComponent("model.safetensors"))
+
+        let inference = InferenceState()
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        manager.refreshFromDisk()
+
+        #expect(root.usableHubSnapshotDirectory(for: descriptor) == snapshotURL)
+        #expect(inference.installedLocalTextModelIDs.contains(descriptor.id))
+    }
+
+    @MainActor
+    @Test("refresh ignores hub snapshots without model weights")
+    func refreshIgnoresHubSnapshotsWithoutModelWeights() throws {
+        let root = makeTemporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root.rootDirectory) }
+
+        let descriptor = try #require(
+            LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue)
+        )
+        let snapshotURL = root.hubDirectory(for: .text)
+            .appendingPathComponent("models--\(descriptor.slug)", isDirectory: true)
+            .appendingPathComponent("snapshots", isDirectory: true)
+            .appendingPathComponent(descriptor.revision, isDirectory: true)
+        try FileManager.default.createDirectory(at: snapshotURL, withIntermediateDirectories: true)
+        try "{}".write(
+            to: snapshotURL.appendingPathComponent("config.json"),
+            atomically: true,
+            encoding: .utf8
+        )
+
+        let inference = InferenceState()
+        let manager = LocalModelManager(
+            inference: inference,
+            paths: root,
+            installer: FakeLocalModelInstaller()
+        )
+
+        manager.refreshFromDisk()
+
+        #expect(root.usableHubSnapshotDirectory(for: descriptor) == nil)
+        #expect(!inference.installedLocalTextModelIDs.contains(descriptor.id))
+    }
+
+    @MainActor
     @Test("refresh prunes stale install records whose revision no longer matches the pinned catalog")
     func refreshPrunesStaleRevisionRecords() throws {
         let root = makeTemporaryRoot()

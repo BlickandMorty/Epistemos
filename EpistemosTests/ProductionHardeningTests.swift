@@ -595,6 +595,22 @@ struct ReleasePackagingHardeningTests {
         #expect(inputBar.contains("segments.append(\"Local chat\")"))
     }
 
+    @Test("Chat surfaces disable send when no runtime is ready")
+    func chatSurfacesDisableSendWhenNoRuntimeIsReady() throws {
+        let inferenceState = try loadProductionHardeningRepoTextFile("Epistemos/State/InferenceState.swift")
+        let rootView = try loadProductionHardeningRepoTextFile("Epistemos/App/RootView.swift")
+        let inputBar = try loadProductionHardeningRepoTextFile("Epistemos/Views/Chat/ChatInputBar.swift")
+        let miniChat = try loadProductionHardeningRepoTextFile("Epistemos/Views/MiniChat/MiniChatView.swift")
+
+        #expect(inferenceState.contains("func isChatSurfaceRuntimeReady(for operatingMode: EpistemosOperatingMode) -> Bool"))
+        #expect(rootView.contains("return \"\\(operatingMode.wrappedValue.displayName) · Set Up Model\""))
+        #expect(rootView.contains("return \"Set Up Model\""))
+        #expect(inputBar.contains("isEnabled: isProcessing || (!trimmedText.isEmpty && selectedRuntimeReady)"))
+        #expect(inputBar.contains("guard !trimmedText.isEmpty, !isProcessing, selectedRuntimeReady else { return }"))
+        #expect(miniChat.contains("isProcessing || (!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && selectedRuntimeReady)"))
+        #expect(miniChat.contains("guard !trimmed.isEmpty, !isProcessing, selectedRuntimeReady else { return }"))
+    }
+
     @Test("App Store target excludes executable Python and Pro runtime assets")
     func appStoreTargetExcludesExecutablePythonRuntimeAssets() throws {
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
@@ -689,6 +705,9 @@ struct ReleasePackagingHardeningTests {
         #expect(app.contains("window.frame.width >= WindowPresentationPolicy.mainWindowMinimumSize.width"))
         #expect(app.contains("NSApp.setActivationPolicy(.regular)"))
         #expect(app.contains("AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)"))
+        #expect(app.contains("AppStoreFirstWindowPresenter.shared.scheduleAfterLaunch()"))
+        #expect(app.contains("func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool"))
+        #expect(app.contains("AppStoreFirstWindowPresenter.shared.ensureHomeWindow()"))
         #expect(app.contains("window.isReleasedWhenClosed = false"))
         #expect(app.contains("HomeSceneRootContent(bootstrap: bootstrap, showQuickCapture: $showQuickCapture)"))
     }

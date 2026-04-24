@@ -2645,6 +2645,30 @@ struct TriageServiceIntegrationTests {
         #expect(local.streamRequests.first?.steeringHintsJSON == hintsJSON)
     }
 
+    @Test("explicit local streaming caps output tokens to the steering budget")
+    @MainActor func explicitLocalStreamingCapsOutputTokensToSteeringBudget() async {
+        let local = RecordingConfigurableLocalLLMClient()
+        let triage = makeService(
+            appleAvailable: false,
+            localInstalled: [triageInteractiveReleaseFixtureModelID.rawValue],
+            localLLMService: local
+        )
+        let hintsJSON = #"{"kv_policy_hint":"flush_all","depth_budget":{"max_turns":2,"max_reasoning_steps":4,"max_tool_calls":1,"max_output_tokens":512}}"#
+
+        let stream = triage.streamGeneralLocally(
+            prompt: "ping",
+            systemPrompt: "Answer plainly.",
+            operation: .chatResponse(query: "ping"),
+            contentLength: 4,
+            steeringHintsJSON: hintsJSON
+        )
+        let outcome = await LocalRuntimeSmokeSupport.collect(stream)
+
+        #expect(outcome.error == nil)
+        #expect(local.streamRequests.count == 1)
+        #expect(local.streamRequests.first?.maxTokens == 512)
+    }
+
     @Test("missing cloud provider keys are cached after the initial miss")
     @MainActor func missingCloudProviderKeysAreCachedAfterTheInitialMiss() {
         let loadCounts = LockedStringIntMap()
