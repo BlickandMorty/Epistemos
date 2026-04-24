@@ -1117,11 +1117,12 @@ struct AuditHardeningRegressionTests {
 
         #expect(vaultIndexActor.contains("private func discardPendingImportedPages("))
         #expect(vaultIndexActor.contains("pendingInsertedPages.removeAll(keepingCapacity: true)"))
-        #expect(vaultIndexActor.contains("modelContext.delete(page)"))
-        #expect(vaultIndexActor.contains("predicate: #Predicate<SDBlock> { $0.pageId == pageID }"))
+        #expect(vaultIndexActor.contains("let pendingInsertedPageIDs = pendingInsertedPages.map(\\.id)"))
+        #expect(vaultIndexActor.contains("modelContext.rollback()"))
+        #expect(vaultIndexActor.contains("modelContext.processPendingChanges()"))
         #expect(vaultIndexActor.contains("NoteFileStorage.deleteBody(pageId: pageID)"))
         #expect(vaultIndexActor.contains("try searchService?.delete(pageId: pageID)"))
-        #expect(vaultIndexActor.contains("discardPendingImportedPages(pendingInsertedPages, failedSaveLabel: label)"))
+        #expect(vaultIndexActor.contains("discardPendingImportedPages(pendingInsertedPageIDs, failedSaveLabel: label)"))
     }
 
     @Test("root shell keeps recovery overlays toast feedback and toolbar accessibility affordances")

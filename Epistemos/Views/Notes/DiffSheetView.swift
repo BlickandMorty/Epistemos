@@ -388,7 +388,7 @@ struct DiffSheetView: View {
         }
 
         // Save current body as a new version before overwriting.
-        // Phase R.3: gateway-first read via the primitives helper.
+        // Phase R.3: managed-sidecar-first read via the primitives helper.
         let currentBody = await SDPage.loadBodyAsyncFromPrimitives(
             pageId: page.id,
             filePath: page.filePath,

@@ -2753,8 +2753,8 @@ private actor BodyMigrationActor {
         let pattern = /\(\(([^)]+)\)\)/
 
         for page in pages where page.blockReferences.isEmpty {
-            // Phase R.3: gateway-first body read via the
-            // Sendable-primitive helper.
+            // Phase R.3: managed-sidecar-first body read via the
+            // Sendable-primitive helper, with gateway fallback.
             let body = await SDPage.loadBodyAsyncFromPrimitives(
                 pageId: page.id,
                 filePath: page.filePath,

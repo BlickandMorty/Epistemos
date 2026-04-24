@@ -85,11 +85,11 @@ enum SpotlightIndexer {
     /// Index a single SDPage in Spotlight.
     ///
     /// Phase R.3 async cascade: captures Sendable primitives and
-    /// dispatches the body read
-    /// through `SDPage.loadBodyAsyncFromPrimitives`, which routes to
-    /// the R.3 gateway when ready and falls back to
-    /// `NoteFileStorage.readBody` otherwise. `SDPage` stays on the
-    /// main actor — the Task never captures the model reference.
+    /// dispatches the body read through
+    /// `SDPage.loadBodyAsyncFromPrimitives`, which preserves the
+    /// managed sidecar before using the R.3 gateway fallback.
+    /// `SDPage` stays on the main actor — the Task never captures
+    /// the model reference.
     static func index(_ page: SDPage) {
         let stage = stage(page)
         Task { @MainActor in
@@ -129,8 +129,8 @@ enum SpotlightIndexer {
     /// (note bodies live in sidecar markdown files, so each read is explicit disk I/O).
     ///
     /// Phase R.3 async cascade: each body read goes through
-    /// `loadBodyAsyncFromPrimitives` so the R.3 gateway is consulted
-    /// first and the legacy `NoteFileStorage` path is the fallback.
+    /// `loadBodyAsyncFromPrimitives` so the managed sidecar remains
+    /// authoritative before the R.3 gateway fallback is used.
     /// The work is dispatched onto the current MainActor Task so the
     /// public call signature stays sync; inside the task we await per
     /// page.
