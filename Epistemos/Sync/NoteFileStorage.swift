@@ -949,12 +949,13 @@ enum NoteFileStorage {
     }
 
     /// Write a note body off the caller actor while preserving global file mutation order.
-    nonisolated static func writeBodyAsync(pageId: String, content: String) async {
+    @discardableResult
+    nonisolated static func writeBodyAsync(pageId: String, content: String) async -> Bool {
         let directory = storageDirectory()
         guard let stagedContent = stageBodyForImmediateRead(pageId: pageId, content: content, directory: directory) else {
-            return
+            return false
         }
-        await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
+        return await persistStagedBodyAsync(stagedContent, pageId: pageId, directory: directory)
     }
 
     /// Stage a note body for immediate reads and durably persist it in the background.

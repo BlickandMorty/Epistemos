@@ -69,7 +69,9 @@ pub struct ForceParams {
     pub fluid_coupling: f32,
     /// How strongly nodes are pulled toward center (0 = no pull, 0.1 = strong).
     pub center_strength: f32,
-    /// Collision buffer zone in pixels. 0 = overlap allowed.
+    /// Collision shell padding control. Runtime collision uses each
+    /// node's visual radius plus a small fraction of this value, so small
+    /// nodes do not carry the same invisible shell as hubs. 0 = disabled.
     pub collision_radius: f32,
     /// Number of collision resolution passes per tick (1-4).
     pub collision_iterations: u32,
@@ -234,6 +236,7 @@ const PHYS_DAMPING_ALPHA: f32 = 0.5;
 /// pre-baked `decay[i]` calculation. A later commit migrates the whole
 /// tick to explicit `dt`-based semi-implicit Euler.
 const PHYS_TICK_DT: f32 = 1.0 / 60.0;
+const COLLISION_SHELL_PADDING_SCALE: f32 = 0.08;
 
 /// Per-node damping coefficient γ, scaled by mass. Heavier nodes get
 /// stronger damping so they resettle faster.
@@ -248,6 +251,15 @@ fn gamma_from_mass(mass: f32) -> f32 {
 #[inline]
 fn decay_for_mass(mass: f32) -> f32 {
     (-gamma_from_mass(mass) * PHYS_TICK_DT).exp()
+}
+
+#[inline]
+fn collision_radius_for_node(visual_radius: f32, padding_control: f32) -> f32 {
+    let padding_control = padding_control.clamp(0.0, 100.0);
+    if padding_control <= f32::EPSILON {
+        return 0.0;
+    }
+    visual_radius.max(0.0) + padding_control * COLLISION_SHELL_PADDING_SCALE
 }
 
 /// Heavy scalar damping applied during `warm_start` to keep leaves
@@ -682,6 +694,17 @@ impl Simulation {
         self.t_epoch.elapsed().as_secs_f64()
     }
 
+    pub(crate) fn refresh_collision_radii(&mut self) {
+        self.collision_radii.clear();
+        self.collision_radii.reserve(self.radii.len());
+        self.collision_radii.extend(
+            self.radii
+                .iter()
+                .copied()
+                .map(|radius| collision_radius_for_node(radius, self.params.collision_radius)),
+        );
+    }
+
     /// Spawn an authored wave ring from a drag release. Callers on the
     /// engine side pass the node's release position and the smoothed
     /// pointer velocity; the wave module applies its own min-speed and
@@ -743,7 +766,10 @@ impl Simulation {
             self.fy.push(node.fy);
             self.radii.push(node.radius);
             self.degrees.push(0); // computed below
-            self.collision_radii.push(self.params.collision_radius);
+            self.collision_radii.push(collision_radius_for_node(
+                node.radius,
+                self.params.collision_radius,
+            ));
             self.drift.push(0.0);
             self.shadow_strength.push(0.0);
             // Mass derived from link_count (set later after degree computation).
@@ -2751,7 +2777,14 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         assert_eq!(sim.collision_radii.len(), 1);
-        assert_eq!(sim.collision_radii[0], sim.params.collision_radius);
+        assert!((sim.collision_radii[0] - (sim.radii[0] + 26.0 * 0.08)).abs() < 1e-5);
+    }
+
+    #[test]
+    fn collision_shell_hugs_visual_radius() {
+        assert_eq!(collision_radius_for_node(11.0, 0.0), 0.0);
+        assert!((collision_radius_for_node(11.0, 26.0) - 13.08).abs() < 1e-5);
+        assert!((collision_radius_for_node(55.0, 26.0) - 57.08).abs() < 1e-5);
     }
 
     // =========================================================================

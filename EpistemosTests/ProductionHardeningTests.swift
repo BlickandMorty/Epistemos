@@ -571,18 +571,25 @@ struct ReleasePackagingHardeningTests {
     func appStoreSettingsHideProOnlySurfaces() throws {
         let settings = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let agentSection = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/AgentSectionDetailView.swift")
+        let authority = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/AuthoritySettingsView.swift")
 
-        #expect(settings.contains("#if !EPISTEMOS_APP_STORE"))
+        #expect(settings.contains("#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)"))
         #expect(settings.contains("categories.append(.automation)"))
         #expect(settings.contains("sections.append(.channels)"))
         #expect(settings.contains("sections.append(.knowledgeFusion)"))
         #expect(settings.contains(".iMessageDriver"))
         #expect(settings.contains(".skills"))
+        #expect(settings.contains("safeDetailSelection(for section: SettingsSection?)"))
+        #expect(settings.contains("case .channels, .knowledgeFusion, .iMessageDriver, .skills:"))
         #expect(settings.contains("NotificationCenter.default.publisher(for: .showIMessageDriverSettings)"))
-        #expect(agentSection.contains("#if EPISTEMOS_APP_STORE"))
+        #expect(agentSection.contains("#if EPISTEMOS_APP_STORE || MAS_SANDBOX"))
         #expect(agentSection.contains("[.authority]"))
         #expect(agentSection.contains("ForEach(AgentTab.visibleTabs)"))
         #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
+        #expect(authority.contains("isVisibleInAppStoreAuthority"))
+        #expect(authority.contains("AgentAuthorityQuickSetupPreset.allCases.filter { $0 != .lessInterruptions }"))
+        #expect(authority.contains("case .gitOperation,"))
+        #expect(authority.contains("return [.askFirst, .neverAllow]"))
     }
 
     @Test("App Store composer hides shell access affordances")

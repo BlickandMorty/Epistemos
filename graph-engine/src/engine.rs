@@ -1987,11 +1987,7 @@ impl Engine {
         sim.params.center_strength = center_strength.clamp(0.0, 0.2);
         sim.params.collision_radius = collision_radius.clamp(0.0, 100.0);
 
-        // Update collision radii for all nodes.
-        let new_radius = sim.params.collision_radius;
-        for r in &mut sim.collision_radii {
-            *r = new_radius;
-        }
+        sim.refresh_collision_radii();
         sim.reheat();
     }
 

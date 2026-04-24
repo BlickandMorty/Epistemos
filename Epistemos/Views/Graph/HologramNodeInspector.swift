@@ -276,7 +276,12 @@ struct HologramNodeInspector: View {
             }
             guard !Task.isCancelled else { return }
             guard text != lastPersistedBody else { return }
-            await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text)
+            guard await NoteFileStorage.writeBodyAsync(pageId: pageId, content: text) else {
+                Log.notes.error(
+                    "HologramNodeInspector: failed to persist body for \(String(pageId.prefix(8)), privacy: .public)"
+                )
+                return
+            }
             lastPersistedBody = text
             markPageDirty(pageId: pageId, body: text)
             NoteFileStorage.notifyBodyChanged(pageId: pageId)

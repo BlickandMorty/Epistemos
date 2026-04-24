@@ -54,7 +54,7 @@ struct SettingsView: View {
                 .models,
                 .graph,
             ]
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             categories.append(.automation)
             #endif
             categories += [
@@ -96,18 +96,18 @@ struct SettingsView: View {
             var sections: [SettingsSection] = [
                 .general,
             ]
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             sections.append(.channels)
             #endif
             sections += [
                 .cognitive,
                 .inference,
             ]
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             sections.append(.knowledgeFusion)
             #endif
             sections.append(.modelVaults)
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             sections += [
                 .iMessageDriver,
                 .skills,
@@ -120,6 +120,21 @@ struct SettingsView: View {
                 .vault,
             ]
             return sections
+        }
+
+        static func safeDetailSelection(for section: SettingsSection?) -> SettingsSection? {
+            #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+            switch section {
+            case .channels, .knowledgeFusion, .iMessageDriver, .skills:
+                return .general
+            case .agent, .agentControl, .authority, .overseer:
+                return .authority
+            default:
+                return section
+            }
+            #else
+            return section
+            #endif
         }
 
         var icon: String {
@@ -151,10 +166,15 @@ struct SettingsView: View {
                  .modelVaults,
                  .knowledgeFusion: .models
             case .appearance:     .graph
+            case .agent:
+                #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+                .advanced
+                #else
+                .automation
+                #endif
             case .channels,
                  .iMessageDriver,
                  .skills,
-                 .agent,
                  .agentControl,
                  .authority,
                  .overseer:       .automation
@@ -233,9 +253,20 @@ struct SettingsView: View {
         .navigationSplitViewStyle(.balanced)
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .onReceive(NotificationCenter.default.publisher(for: .showIMessageDriverSettings)) { _ in
-            #if !EPISTEMOS_APP_STORE
+            #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
             selection = .iMessageDriver
             #endif
+        }
+        .onAppear {
+            Task { @MainActor in
+                selection = SettingsSection.safeDetailSelection(for: selection)
+            }
+        }
+        .onChange(of: selection) { _, newSelection in
+            let safeSelection = SettingsSection.safeDetailSelection(for: newSelection)
+            if safeSelection != newSelection {
+                selection = safeSelection
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
@@ -249,15 +280,28 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var settingsDetail: some View {
-        switch selection {
+        switch SettingsSection.safeDetailSelection(for: selection) {
         case .general: GeneralDetailView()
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        case .channels, .knowledgeFusion, .iMessageDriver, .skills:
+            GeneralDetailView()
+        #else
         case .channels: ChannelsDetailView()
+        #endif
         case .cognitive: CognitiveSettingsSection()
         case .inference: InferenceDetailView()
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .knowledgeFusion: KnowledgeFusionDetailView()
+        #endif
         case .modelVaults: ModelVaultsSettingsView()
+        #if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)
         case .iMessageDriver: iMessageDriverDetailView()
         case .skills: SkillsDetailView()
+        #endif
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        case .agent, .agentControl, .authority, .overseer:
+            AuthoritySettingsView(store: sharedAuthorityStore)
+        #else
         case .agent:
             AgentSectionDetailView(authorityStore: sharedAuthorityStore)
         case .agentControl:
@@ -266,6 +310,7 @@ struct SettingsView: View {
             AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .authority)
         case .overseer:
             AgentSectionDetailView(authorityStore: sharedAuthorityStore, initialTab: .overseer)
+        #endif
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()

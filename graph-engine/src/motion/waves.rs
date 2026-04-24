@@ -171,6 +171,7 @@ impl ActiveWaves {
     /// point and deeper tuning belongs in a dedicated A/B commit rather
     /// than a diagnostic patch.
     pub const DEFAULT_COUPLING: f32 = 0.2;
+    const STACKED_FORCE_LIMIT: f32 = 96.0;
 
     pub fn new() -> Self {
         Self {
@@ -276,10 +277,27 @@ impl ActiveWaves {
                 ax += wx;
                 ay += wy;
             }
+            let (ax, ay) = saturate_wave_force(ax, ay, Self::STACKED_FORCE_LIMIT);
             vx[i] += ax * coupling;
             vy[i] += ay * coupling;
         }
     }
+}
+
+#[inline]
+fn saturate_wave_force(x: f32, y: f32, limit: f32) -> (f32, f32) {
+    let mag_sq = x * x + y * y;
+    if mag_sq <= f32::EPSILON || !mag_sq.is_finite() {
+        return (0.0, 0.0);
+    }
+    let mag = mag_sq.sqrt();
+    let limit = limit.max(1e-3);
+    if mag <= limit {
+        return (x, y);
+    }
+    let saturated = limit * (mag / limit).tanh();
+    let scale = saturated / mag;
+    (x * scale, y * scale)
 }
 
 #[cfg(test)]
@@ -480,5 +498,36 @@ mod tests {
         w.accumulate(&mut vx, &mut vy, &x, &y, &fx, 0.2, 1.0);
         assert!(vx[0].is_finite());
         assert!(vx[0].abs() < 5000.0, "wave stack produced implausible force: {}", vx[0]);
+    }
+
+    #[test]
+    fn accumulate_saturates_extreme_wave_stacks() {
+        let mut w = ActiveWaves::new();
+        for _ in 0..ActiveWaves::CAPACITY {
+            w.events.push(WaveEvent {
+                center_x: 0.0,
+                center_y: 0.0,
+                t_start_s: 0.0,
+                speed_px_s: WaveEvent::DEFAULT_SPEED_PX_S,
+                amplitude: 10_000.0,
+                sigma_px: WaveEvent::DEFAULT_SIGMA_PX,
+                decay_s: WaveEvent::DEFAULT_DECAY_S,
+                max_radius_px: WaveEvent::DEFAULT_MAX_RADIUS_PX,
+            });
+        }
+
+        let mut vx = vec![0.0_f32];
+        let mut vy = vec![0.0_f32];
+        let x = vec![320.0_f32];
+        let y = vec![0.0_f32];
+        let fx: Vec<Option<f32>> = vec![None];
+        w.accumulate(&mut vx, &mut vy, &x, &y, &fx, 1.0, 1.0);
+
+        let mag = (vx[0] * vx[0] + vy[0] * vy[0]).sqrt();
+        assert!(
+            mag <= ActiveWaves::STACKED_FORCE_LIMIT + 1e-3,
+            "stacked waves should saturate at the perceptual force limit, got {}",
+            mag
+        );
     }
 }
