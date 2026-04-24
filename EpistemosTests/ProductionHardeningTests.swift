@@ -515,6 +515,45 @@ struct ReleasePackagingHardeningTests {
         #expect(projectSpec.contains("ENABLE_HARDENED_RUNTIME: true"))
     }
 
+    @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
+    func appStoreTargetUsesSandboxEntitlements() throws {
+        let appStoreEntitlements = try loadProductionHardeningRepoTextFile("Epistemos/Epistemos-AppStore.entitlements")
+        let infoPlist = try loadProductionHardeningRepoTextFile("Epistemos-Info.plist")
+        let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
+        let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
+
+        for key in [
+            "com.apple.security.app-sandbox",
+            "com.apple.security.cs.allow-jit",
+            "com.apple.security.files.bookmarks.app-scope",
+            "com.apple.security.files.user-selected.read-write",
+            "com.apple.security.network.client",
+        ] {
+            #expect(appStoreEntitlements.contains(key))
+        }
+
+        for prohibitedKey in [
+            "com.apple.security.automation.apple-events",
+            "com.apple.security.cs.allow-unsigned-executable-memory",
+            "com.apple.security.cs.disable-library-validation",
+            "com.apple.security.files.bookmarks.document-scope",
+            "com.apple.security.temporary-exception.mach-lookup.global-name",
+        ] {
+            #expect(!appStoreEntitlements.contains(prohibitedKey))
+        }
+
+        #expect(infoPlist.contains("$(PRODUCT_BUNDLE_IDENTIFIER)"))
+        #expect(infoPlist.contains("$(PRODUCT_NAME)"))
+        #expect(projectSpec.contains("Epistemos-AppStore:"))
+        #expect(projectSpec.contains("PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore"))
+        #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements"))
+        #expect(projectSpec.contains("EPISTEMOS_APP_STORE MAS_SANDBOX"))
+        #expect(project.contains("Epistemos-AppStore"))
+        #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;"))
+        #expect(project.contains("CODE_SIGN_ENTITLEMENTS = \"Epistemos/Epistemos-AppStore.entitlements\";") ||
+                project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-AppStore.entitlements;"))
+    }
+
     @Test("debug and test targets default to local signing without removing real signing support")
     func debugAndTestsDefaultToLocalSigning() throws {
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")

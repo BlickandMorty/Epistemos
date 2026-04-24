@@ -5,7 +5,7 @@
 	<key>ATSApplicationFontsPath</key>
 	<string>Resources/Fonts</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.epistemos.app</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleIconName</key>
 	<string>AppIcon</string>
 	<key>CFBundleVersion</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>1.0.0</string>
 	<key>CFBundleName</key>
-	<string>Epistemos</string>
+	<string>$(PRODUCT_NAME)</string>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Epistemos uses Accessibility to read screen content for Omega desktop automation when you enable it.</string>
 	<key>NSMicrophoneUsageDescription</key>
