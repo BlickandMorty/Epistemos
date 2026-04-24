@@ -618,6 +618,7 @@ async fn run_agent_session_inner(
     // and register their advertised tools. Errors are logged and the
     // remaining servers still register, so a single bad entry can't
     // block the agent from coming up.
+    #[cfg(not(feature = "mas-sandbox"))]
     let _ = crate::tools::stdio_mcp::register_discovered_stdio_mcp_tools(&mut tool_registry).await;
 
     // Install the caller-provided per-tool allowlist (Phase 5 authority

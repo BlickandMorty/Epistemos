@@ -192,6 +192,13 @@ targets:
       - name: Bundle Runtime Assets
         script: bash "${SRCROOT}/bundle-app-runtime-assets.sh"
         basedOnDependencyAnalysis: false
+      - name: Scrub Pro Frameworks
+        script: |
+          set -euo pipefail
+          frameworks_dir="${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}"
+          rm -f "${frameworks_dir}/libomega_ax.dylib"
+          rm -rf "${frameworks_dir}/AXorcist.framework"
+        basedOnDependencyAnalysis: false
     dependencies:
       - package: GRDB
       - package: Grape
