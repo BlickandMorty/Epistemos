@@ -106,8 +106,12 @@ actor NightBrainService {
 
     // MARK: - Lifecycle
 
-    /// Always registers the scheduler. Config is checked live at each invocation.
+    /// Direct builds register the scheduler. Config is checked live at each invocation.
     func start() {
+        #if EPISTEMOS_APP_STORE
+        Self.log.info("NightBrain: scheduler skipped in App Store build")
+        return
+        #else
         let bgScheduler = NSBackgroundActivityScheduler(identifier: "com.epistemos.nightbrain")
         bgScheduler.repeats = true
         bgScheduler.interval = 86400
@@ -127,6 +131,7 @@ actor NightBrainService {
         }
         scheduler = bgScheduler
         Self.log.info("NightBrain: scheduler registered")
+        #endif
     }
 
     func stop() {

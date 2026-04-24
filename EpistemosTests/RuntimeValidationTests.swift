@@ -610,6 +610,13 @@ struct RuntimeValidationTests {
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
 
         #expect(app.contains("WindowGroup(\"Epistemos\")"))
+        #expect(app.contains("#if EPISTEMOS_APP_STORE"))
+        #expect(app.contains("_bootstrap = State(initialValue: bootstrap)"))
+        #expect(app.contains("private static func viableHomeWindow() -> NSWindow?"))
+        #expect(app.contains("window.frame.height >= WindowPresentationPolicy.mainWindowMinimumSize.height"))
+        #expect(app.contains("AppStoreFirstWindowPresenter.shared.schedule(bootstrap: bootstrap)"))
+        #expect(app.contains("window.isReleasedWhenClosed = false"))
+        #expect(app.contains("guard !Self.isRunningTests else { return }"))
         #expect(!app.contains("ModularZoomWindowObserver"))
         #expect(!app.contains("applyMainWindowPolicyIfNeeded"))
         #expect(!app.contains("NSWindow.didBecomeMainNotification"))
