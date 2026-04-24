@@ -1,6 +1,6 @@
 # Epistemos Known Issues Register
 
-**Date:** 2026-04-23.
+**Date:** 2026-04-24.
 **Status:** canonical list of bugs/drift to fix BEFORE any new-feature work (Phases A, B, C, D, I, J, K, G, E, F, H). All fixes land in **Phase R — Resource Runtime Hardening** plus a short list of pre-existing debt items. Nothing here is a feature — every entry is a correctness issue observed in the live app or in chat logs.
 
 Every issue has: **ID**, **symptom**, **root cause**, **fix location in plan**, **verification test**.
@@ -56,28 +56,29 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## C. Attachments (Phase R.4)
 
 ### I-004: Attached notes ambiguous between snapshot (inline text) and live (writable file)
-- **Status:** 🟡 **OPEN — bridge + ContextAttachment manifest + dropdown backfill landed 2026-04-23. Tool-dispatch enforcement still the gap.**
+- **Status:** 🟡 **PARTIAL — bridge + ContextAttachment manifest + dropdown/file/paste backfill landed. Tool-dispatch enforcement is still the gap.**
 - **Scaffolding (landed):**
   - `6a2c1de6` — FFI primitives: `AttachmentMode::{Snapshot, Live}` + `Capability::{Read, Write, Delete, Create, Search}` + `AttachedResource` crossing FFI as `uniffi::Enum` / `uniffi::Record`. Four factory functions: `attachedResourceFromUi` (Live + Read/Write), `attachedResourceFromFinder` (Live + Read/Write, code-file-friendly), `attachedResourceFromPaste` (Snapshot + Read-only), `attachedResourceAllows` (capability predicate).
   - `34fb53cf` — `ContextAttachment` carries optional `resourceURI` / `resourceMode` / `resourceCapabilities` manifest + `toAttachedResource()` converter.
   - `f6f62816` — `ChatInputBar` `@`-mention dropdown now populates the manifest at pick time. Every note picked from the dropdown gets a canonical `vault://{vaultId}/note/{relativePath}` URI + Live mode + Read/Write. Vault ID convention matches `AppBootstrap.initializeRustResourceServiceIfReady` so both sides of the FFI agree on identity. 11 tests in `PhaseR4DropdownBackfillTests.swift` green.
-- **Why still OPEN:** tool-execution dispatch still uses legacy attachment fields — no tool call consults `resource.grantedCapabilities` or `attachedResourceAllows(.write)` before performing a write. MiniChat + Landing pickers also still emit no-manifest attachments (deliberate scope guard on the dropdown commit). "AI claims edit but file doesn't change" remains reproducible until tool-dispatch wiring lands.
-- **Remaining work (R.4 Swift leg):** (a) migrate `LocalAgentLoop` + `ChatCoordinator` Rust-agent tool dispatch to call `attachedResourceAllows` before Write/Delete; (b) backfill the same vaultId parameter on MiniChat + Landing pickers.
-- **Verification today:** 19 Swift tests across `PhaseRAttachmentBridgeTests.swift` (FFI factories + ResourceId round-trip) + `PhaseR4DropdownBackfillTests.swift` (URI construction + backfill semantics + R.5 handoff) green. **Not** end-to-end — no test confirms "user attaches a note in popover → AI edits it → file on disk changes."
+  - Later R.4 wiring extended the same manifest contract to MiniChat/Landing parity and file/paste helpers: file entries mint Live + Read/Write `file://` resources; pasted text mints Snapshot + Read-only `attachment://` resources.
+- **Why still PARTIAL:** tool-execution dispatch still uses legacy attachment fields — no tool call consistently consults `resource.grantedCapabilities` or `attachedResourceAllows(.write)` before performing a write. "AI claims edit but file doesn't change" remains possible until write-dispatch wiring lands.
+- **Remaining work (R.4 Swift leg):** migrate `LocalAgentLoop` + `ChatCoordinator` Rust-agent tool dispatch to call `attachedResourceAllows` before Write/Delete/Create, then route allowed writes through the verified-write path.
+- **Verification today:** Swift tests across `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. **Not** end-to-end — no test yet confirms "user attaches a note/file in the UI → AI edits it → file on disk changes."
 
 ### I-005: Attached files from popover are not "under user's control" — AI cannot truly edit
-- **Status:** 🟡 **OPEN — dropdown side now mints Live manifest; tool-dispatch gate still absent.**
+- **Status:** 🟡 **PARTIAL — file attachment helpers now mint Live manifests; tool-dispatch gate still absent.**
 - **Scaffolding (landed):**
   - Same FFI primitives as I-004.
   - `f6f62816` — dropdown picks produce manifest-bearing Live attachments (the input side of the authorization fence).
-- **Why still OPEN:** no tool-call path checks the manifest before writing. The Live manifest is present but ignored.
+- **Why still PARTIAL:** no tool-call path consistently checks the manifest before writing. The Live manifest is present but not yet the write authority.
 - **Remaining work:** wire `attachedResourceAllows(.write)` into `LocalAgentLoop` tool dispatch + `ChatCoordinator.runRustAgentPath` tool-call boundary.
 
 ### I-006: AI can't code / edit code files the app supports
-- **Status:** 🟡 **OPEN — Finder factory available; attachment sites for Finder drops still legacy.**
+- **Status:** 🟡 **PARTIAL — Finder/file helper manifests exist; AI/tool write path still needs verified dispatch.**
 - **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`.
-- **Why NOT fixed:** (a) no Swift attachment site creates `AttachedResource` for Finder drops yet (the dropdown backfill only covers vault-note mentions); (b) Swift tool execution doesn't route through `write_attached_resource` — it uses `NoteFileStorage.writeBody` / raw file I/O; (c) R.6 verified-write pipeline isn't wired from Swift, so "AI says done" can still precede a durable commit.
-- **Remaining work:** R.3 Swift `ResourceService` write migration + R.4 Finder-drop attachment migration + R.6 Swift verified-write.
+- **Why NOT fixed:** Swift tool execution doesn't route attached code-file writes through `write_attached_resource` / `resourceVerifiedWrite`; some Swift-originated write paths still use `NoteFileStorage.writeBody` / `saveBody`. "AI says done" can still precede a durable verified commit on those paths.
+- **Remaining work:** R.4 write-dispatch gate + R.6 Swift verified-write migration + an end-to-end attached-code-file edit test.
 
 ---
 
@@ -135,32 +136,37 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## F. UI grant visibility (Phase R.7)
 
 ### I-014: User can't see what the assistant can currently do
+- **Status:** 🟡 **PARTIAL — composer chip and Settings active-grant list exist; real revoke/in-flight-denial smoke still required.**
 - **Symptom:** "What does the AI have access to right now?" is unanswerable from the UI.
 - **Root cause:** no UI surface for active grants.
-- **Fix:** Phase R.7 — composer chip always visible (`Read + Edit attached notes · Read + Search vault · Shell: ask first`); Settings → Permissions pane with active grants + revoke buttons; T3 approval modal shows the grant being created (not just "allow this tool").
-- **Verification:** manual UI smoke — grant is visible, revoke works mid-session, revoked grant causes in-flight tool call to fail with `GrantRevoked`.
+- **Fix evidence:** composer chip is always visible and App Store-safe (`Read + Search vault`, plus live attachment capability text when present; Shell text is compiled out for App Store). `AgentControlSettingsView.activeGrantsSection` reads `permissionStoreListActive()` and exposes revoke through `permissionStoreRevoke(...)`.
+- **Remaining work:** run a real App Store manual smoke where a grant is created, appears in Settings, is revoked, and the next matching tool call fails clearly. T3 modal copy/resource summary should be rechecked during that smoke.
+- **Verification:** code/static tests cover the surfaces; manual revoke/in-flight-denial proof is still pending.
 
 ---
 
 ## G. UI hardening — pickers & collapse (Phase R.8)
 
 ### I-011: Model picker popover is not native-compact
+- **Status:** ✅ **FIXED for the scoped App Store surface — visual QA remains in Phase S.**
 - **Symptom:** Current model picker is too tall, not the native macOS-popover feel.
 - **Root cause:** custom SwiftUI sheet instead of `.popover()` with `.contentSize`.
-- **Fix:** Phase R.8 — native `.popover(isPresented:)` with `.contentSize(CGSize(width: 320, height: 380))` (or `NSPopover` with `.appearance = .systemEffect` for native blur). Anchored to the model-badge button in composer.
-- **Verification:** visual — picker is ≤380pt tall by default, uses system blur.
+- **Fix evidence:** `LocalModelToolbarMenu` uses anchored popover controls; the model popover is constrained to `frame(width: 320, height: 380)`, and the compact split toolbar is used in main chat. Runtime validation tests assert popover usage in the relevant settings/model surfaces.
+- **Verification:** visual QA still needed during Phase S; code surface is no longer the old oversized model sheet.
 
 ### I-012: Collapsible lists don't actually collapse by default
+- **Status:** ✅ **FIXED for model picker + model-vault tree surfaces — visual QA remains in Phase S.**
 - **Symptom:** "Collapsible" sections in model picker and sidebar show flat lists styled with indentation — no real expand/collapse.
 - **Root cause:** lists are rendered as flat `ForEach` with padding, not `DisclosureGroup`.
-- **Fix:** Phase R.8 — every tree section uses `DisclosureGroup` with `@State var isExpanded`. Default-collapsed except for the group containing the currently selected item.
-- **Verification:** UI test — tapping caret toggles expansion; default state is collapsed.
+- **Fix evidence:** `LocalModelToolbarMenu` uses `DisclosureGroup` for Local Models, Cloud Provider, and active cloud-model options; `ModelVaultsSidebarSection` and model-vault rows use real `DisclosureGroup`/expanded state rather than flat indentation.
+- **Verification:** visual QA still needed during Phase S; static/runtime tests cover the presence of `DisclosureGroup` in the scoped surfaces.
 
 ### I-013: Model vault UI uses "open sheet" instead of "expand inline"
+- **Status:** ✅ **FIXED for model-vault browsing — create/delete confirmations still use normal modals/alerts.**
 - **Symptom:** Model vault opens in a modal sheet — feels like a second app inside the sidebar instead of a folder tree.
 - **Root cause:** presentation-style decision to use `.sheet()` instead of inline disclosure.
-- **Fix:** Phase R.8 — convert to inline `DisclosureGroup` expansion within the sidebar. Preserve all functionality (rename, delete, properties) via context menu / disclosure-caret interactions.
-- **Verification:** visual — vault expands inline; every prior action is still reachable in ≤2 clicks.
+- **Fix evidence:** `ModelVaultsSidebarSection` renders `ModelVaultSidebarRow` inline and `RuntimeValidationTests` assert the old `ModelVaultBrowserSheet(entry: selection)` / `.sheet(item: $selectedModel)` pattern is absent. The remaining `.sheet(item: $pendingCreateRequest)` is a create dialog, not the old browser surface.
+- **Verification:** visual QA still needed during Phase S; source/test evidence confirms the old model-vault browser sheet is gone.
 
 ---
 
