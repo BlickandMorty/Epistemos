@@ -267,6 +267,102 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
             return LabOverrides()
         }
     }
+
+    // MARK: - Motion Vocabulary (v3 motion spec §3.4 / canonical commit 9)
+    //
+    // Synthesis explicitly rejected the earlier "collapse 12 presets
+    // into 3×3" plan — discoverability of named starting points
+    // matters. Instead, every preset carries a `MotionCategory` tag
+    // and an `isFeatured` flag so the picker UI can:
+    //
+    //   1. Show a short featured list by default (Observatory, Chaos,
+    //      Zen Garden — the three the user specifically asked to
+    //      keep).
+    //   2. Disclose the rest under a category-grouped "More presets"
+    //      section: Calm, Fluid, Playful, Experimental.
+    //
+    // No physics values change here — this is pure metadata. Presets
+    // that enable experimental forces (orbital / torsion / wind) are
+    // marked `.experimental` so the user can tell at a glance before
+    // picking.
+
+    var motionCategory: GraphMotionCategory {
+        switch self {
+        // Calm — spread, minimal forces, quiet layout
+        case .observatory:   return .calm
+        case .constellation: return .calm
+        case .zenGarden:     return .calm
+        // Fluid — water-like, springy, flow
+        case .nebula:        return .fluid
+        case .fluid:         return .fluid
+        case .deepSea:       return .fluid
+        // Playful — bouncy, snappy, dynamic
+        case .crystal:       return .playful
+        case .rubberBand:    return .playful
+        case .chaos:         return .playful
+        // Experimental — enable orbital / torsion / wind so feel
+        // differs sharply from classical graph layout
+        case .solarSystem:   return .experimental
+        case .windTunnel:    return .experimental
+        case .snowflake:     return .experimental
+        }
+    }
+
+    /// Whether this preset should appear in the default (short)
+    /// picker list. User ask: "I love Observatory, Chaos, and a very
+    /// simple preset." Observatory (calm/default), Zen Garden (the
+    /// quietest layout — fits "simple"), and Chaos.
+    var isFeatured: Bool {
+        switch self {
+        case .observatory, .zenGarden, .chaos:
+            return true
+        default:
+            return false
+        }
+    }
+}
+
+/// Vocabulary for grouping physics presets by perceptual feel
+/// (v3 motion spec §3.4). Used by the picker UI to organise the
+/// 12-preset list into meaningful sections rather than a flat dump.
+enum GraphMotionCategory: String, CaseIterable, Identifiable, Codable {
+    case calm
+    case fluid
+    case playful
+    case experimental
+
+    var id: String { rawValue }
+
+    /// Human-readable header for a section in the picker UI.
+    var displayName: String {
+        switch self {
+        case .calm:         return "Calm"
+        case .fluid:        return "Fluid"
+        case .playful:      return "Playful"
+        case .experimental: return "Experimental"
+        }
+    }
+
+    /// Short description shown under the section header so users know
+    /// what to expect before expanding.
+    var tagline: String {
+        switch self {
+        case .calm:         return "Spread and quiet — hubs anchor, leaves drift"
+        case .fluid:        return "Flowing and springy — drag leaves a wake"
+        case .playful:      return "Bouncy and dynamic — crisp overshoot on release"
+        case .experimental: return "Orbital, torsion, wind — the lab drawer"
+        }
+    }
+
+    /// Stable display order in the picker UI.
+    var sortOrder: Int {
+        switch self {
+        case .calm:         return 0
+        case .fluid:        return 1
+        case .playful:      return 2
+        case .experimental: return 3
+        }
+    }
 }
 
 // MARK: - GraphInteractionMode
