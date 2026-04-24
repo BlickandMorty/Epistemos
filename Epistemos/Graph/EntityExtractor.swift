@@ -76,12 +76,31 @@ final class EntityExtractor {
         }
         var currentHashes = processedHashes
 
-        // Incremental change detection: skip notes whose content hash matches last extraction
-        let pages = allPages.filter { page in
-            let body = page.loadBody(mapped: true)
+        // Incremental change detection: skip notes whose content hash
+        // matches last extraction.
+        //
+        // Phase R.3 async cascade: `loadBodyAsync` routes through the
+        // R.3 gateway when ready. Can't use `filter` directly because
+        // the body read is async — fall back to a sequential loop
+        // over `allPages`. scanVault is already async and the
+        // per-note LLM call in the next phase dominates runtime, so
+        // losing a tiny bit of filter parallelism is irrelevant.
+        var pages: [SDPage] = []
+        pages.reserveCapacity(allPages.count)
+        for page in allPages {
+            // Staging primitives keeps the SwiftData @Model reference
+            // off the async call's send-region.
+            let pageId = page.id
+            let filePath = page.filePath
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: pageId,
+                filePath: filePath,
+                mapped: true
+            )
             let hash = contentHash(of: body)
-            let storedHash = currentHashes[page.id]
-            return storedHash != hash  // changed or new
+            if currentHashes[pageId] != hash {
+                pages.append(page)
+            }
         }
 
         let skipped = allPages.count - pages.count
@@ -111,8 +130,18 @@ final class EntityExtractor {
 
             var batchContent = ""
             for page in batch {
-                let body = page.loadBody(mapped: true)
-                let blocks = allBatchBlocks[page.id] ?? []
+                // Phase R.3: gateway-first body read via the
+                // Sendable-primitive strangler-fig helper. Parity
+                // with legacy `loadBody` is byte-equal per
+                // `PhaseR3BodyReadParityTests`.
+                let pageId = page.id
+                let filePath = page.filePath
+                let body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: pageId,
+                    filePath: filePath,
+                    mapped: true
+                )
+                let blocks = allBatchBlocks[pageId] ?? []
                 let annotated = annotateBodyWithBlocks(body: body, blocks: blocks)
                 batchContent += "--- Note: \(page.title) ---\n\(annotated)\n\n"
             }
@@ -139,10 +168,17 @@ final class EntityExtractor {
                 if let extraction = parseJSON(response, as: ExtractionResult.self) {
                     processExtractionResult(extraction, sourcePages: batch, context: context)
 
-                    // Update hash cache for successfully processed notes
+                    // Update hash cache for successfully processed notes.
+                    // Phase R.3: same gateway-first read path as above.
                     for page in batch {
-                        let body = page.loadBody(mapped: true)
-                        currentHashes[page.id] = contentHash(of: body)
+                        let pageId = page.id
+                        let filePath = page.filePath
+                        let body = await SDPage.loadBodyAsyncFromPrimitives(
+                            pageId: pageId,
+                            filePath: filePath,
+                            mapped: true
+                        )
+                        currentHashes[pageId] = contentHash(of: body)
                     }
                 } else {
                     Log.app.info("EntityExtractor: failed to parse JSON for note batch \(batchStart/batchSize + 1)")
