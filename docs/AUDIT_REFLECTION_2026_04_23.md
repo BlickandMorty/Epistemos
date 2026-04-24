@@ -726,3 +726,43 @@ Pro work remains deferred unless the user explicitly branches it:
 When Pro resumes, build on the shared hardened App Store base and add capability
 only behind `PolicyProfile` / build-profile gates. Do not fork parallel runtime
 implementations.
+
+---
+
+## 21. Live attachment grant bridge — 2026-04-24
+
+This closes a missing App Store-safe leg between R.4 attachment manifests and
+R.5 stored permission grants.
+
+### 21.1 What changed
+
+- `ChatCoordinator.handleQuery` now seeds session grants for pending Live
+  `ContextAttachment`s before context selection, routing, or tool execution.
+- The seed path uses the same Rust parser/store bridge as typed user consent:
+  `permissionStoreRecordUserGrantFromStatement`.
+- Only Live attachments with explicit `Write` capability produce grant
+  candidates.
+- Snapshot/paste attachments and legacy attachments are skipped, so pasted text
+  remains read-only.
+- The seeded grant is limited to `Read` / `Write`; it does not mint `Delete` or
+  `Create`.
+
+### 21.2 Why the label stays honest
+
+- **I-009 remains FIXED**: the stored-grant path is live, persisted, and enforced
+  fail-closed for ResourceId-targeted mutating tools.
+- **I-004 / I-005 / I-006 remain PARTIAL but materially improved**: attachment
+  manifests now feed the permission layer automatically for Live resources, but
+  the final end-to-end proof still needs "attach note/file -> model writes ->
+  disk changes only when live + granted + verified."
+- **I-007 / I-008 remain PARTIAL**: Rust registry writes verify readback, but
+  Swift-originated AI/tool writes still need migration or explicit separation
+  from ordinary editor saves.
+
+### 21.3 Verification
+
+- `PhaseR5ChatGrantWiringTests` -> 9/9 green.
+- R.4/R.5 focused Swift slice (`PhaseR5ChatGrantWiringTests`,
+  `PhaseRAttachmentBridgeTests`, `PhaseR4DropdownBackfillTests`) -> 43/43 green.
+- `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
+  SUCCEEDED after this bridge.

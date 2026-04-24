@@ -126,6 +126,72 @@ struct PhaseR5ChatGrantWiringTests {
         #expect(ChatCoordinator.r5GrantScope == "Session")
     }
 
+    // MARK: - Live attachment default grants
+
+    @Test("live attachment grant candidates skip snapshots and legacy attachments")
+    func liveAttachmentGrantCandidatesSkipSnapshotsAndLegacy() async throws {
+        let live = ContextAttachment(
+            kind: .note,
+            targetId: "page-live",
+            title: "Live",
+            resourceURI: "vault://r5-live-candidate/note/Inbox/Live.md",
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+        let snapshot = ContextAttachment(
+            kind: .file,
+            targetId: "paste-snapshot",
+            title: "Snapshot",
+            subtitle: "Frozen text",
+            resourceURI: "attachment://paste/id/snapshot",
+            resourceMode: .snapshot,
+            resourceCapabilities: ["Read"]
+        )
+        let legacy = ContextAttachment(
+            kind: .note,
+            targetId: "page-legacy",
+            title: "Legacy"
+        )
+
+        let candidates = ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(
+            from: [snapshot, legacy, live]
+        )
+
+        #expect(candidates.count == 1)
+        #expect(candidates.first?.resourceURI == "vault://r5-live-candidate/note/Inbox/Live.md")
+        #expect(candidates.first?.capabilities == ["Read", "Write"])
+    }
+
+    @Test("default live attachment grant authorizes write but not delete")
+    func defaultLiveAttachmentGrantAuthorizesWriteButNotDelete() async throws {
+        let uniqueURI = "vault://r5-live-default-\(UUID().uuidString)/note/Inbox/Live.md"
+        let attachment = ContextAttachment(
+            kind: .note,
+            targetId: "page-live-default",
+            title: "Live Default",
+            resourceURI: uniqueURI,
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+
+        let candidates = ChatCoordinator.r4LiveAttachmentWriteGrantCandidates(from: [attachment])
+        let candidate = try #require(candidates.first)
+        let grantID = await permissionStoreRecordUserGrantFromStatement(
+            statement: ChatCoordinator.r4LiveAttachmentDefaultGrantStatement,
+            resourceUri: candidate.resourceURI,
+            capabilityNames: candidate.capabilities,
+            scopeName: ChatCoordinator.r5GrantScope
+        )
+
+        #expect(grantID != nil)
+        #expect(await permissionStoreCheck(resourceUri: uniqueURI, capability: "Write"))
+        let canDelete = await permissionStoreCheck(resourceUri: uniqueURI, capability: "Delete")
+        #expect(!canDelete)
+        if let grantID {
+            _ = await permissionStoreRevoke(grantId: grantID)
+        }
+    }
+
     // MARK: - Smoke: FFI accepts the same URI shape the filter produces
 
     @Test("URI produced by the filter round-trips through the Rust grant parser")

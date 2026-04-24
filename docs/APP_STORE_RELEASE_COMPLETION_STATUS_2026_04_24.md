@@ -28,6 +28,7 @@ Recent release-hardening commits on `codex/runtime-input-audit`:
 | `5785cef0` | Ensure App Store launch window surfaces. |
 | `d6f5de5b` | Polish App Store launch/composer affordances. |
 | `caa3fdbf` | Harden App Store chat startup and runtime readiness. |
+| `this change` | Seed session Read/Write grants for Live attachments before chat/tool routing; snapshots remain read-only. |
 
 ## Verified Baseline From This Pass
 
@@ -41,6 +42,10 @@ Automated checks already run after the current hardening series:
 - `agent_core --features mas-sandbox`: **499 lib + 2 relay + 5 worker + doctests passed**.
 - Focused release/routing slice: **182 tests passed**.
 - App Store Release build: `Epistemos-AppStore` + `Release` + `CODE_SIGNING_ALLOWED=NO` **BUILD SUCCEEDED**.
+- R.4/R.5 live-attachment grant bridge:
+  - `PhaseR5ChatGrantWiringTests` **9/9 passed**.
+  - R.4/R.5 focused slice (`PhaseR5ChatGrantWiringTests`, `PhaseRAttachmentBridgeTests`, `PhaseR4DropdownBackfillTests`) **43/43 passed**.
+  - App Store Release build after the bridge change **BUILD SUCCEEDED**.
 
 Manual Computer Use smoke on the real App Store Release bundle:
 
@@ -56,7 +61,7 @@ Manual Computer Use smoke on the real App Store Release bundle:
 |---|---|---|
 | R.2 canonical IDs | Mostly fixed | Sidebar/read-side model aliases route through Rust alias registry. Write-edge canonicalization remains deferred by convention. |
 | R.3 read gateway | Partial | Background/indexing/context read paths migrated to gateway-first async cascade. Legacy sync save/edit paths remain intentionally outside that slice. |
-| R.4 live vs snapshot attachments | Partial | Note mentions, file helper, and paste helper now carry explicit manifests. Tool-dispatch write gate still needs end-to-end wiring. |
+| R.4 live vs snapshot attachments | Partial, improved | Note mentions, file helper, and paste helper carry explicit manifests. Live attachments now seed session Read/Write grants before routing; snapshots remain read-only. End-to-end attached-file write verification still needs closure. |
 | R.5 permission grants | Fixed for ResourceId-gated tools | Default-on, fail-closed enforcement; grants persist on disk; note content is not authority. |
 | R.6 verified writes | Partial | Rust registry `write_file`, `patch`, `vault_write` verify readback; FFI bridge exists. Swift-originated write paths still need migration or explicit separation as user-editor writes. |
 | R.7 grant visibility | Partial | Composer chip and Settings active-grants/revoke surface exist. Manual revoke/in-flight failure smoke still needed. |
@@ -67,8 +72,8 @@ Manual Computer Use smoke on the real App Store Release bundle:
 
 These are **non-Pro** and should be completed before claiming App Store readiness:
 
-1. **Attachment write-dispatch gate**  
-   Wire attachment manifests into the write/delete/create tool-dispatch boundary. Snapshot attachments must deny writes; live note/file attachments must route through the canonical resource/permission path. Add an end-to-end test: attach note/file → model write attempt → disk changes only when live + granted + verified.
+1. **Attachment write-dispatch closure**
+   The routing side now seeds Read/Write grants for Live attachments and keeps Snapshot attachments read-only. Finish the end-to-end path: attach note/file → model write attempt → disk changes only when live + granted + verified, with denied UI for snapshot or revoked grant.
 
 2. **Swift-originated verified writes**  
    Migrate AI/tool-originated Swift write paths to `resourceVerifiedWrite` or an equivalent readback-verifying wrapper. Keep ordinary user editor saves separate so normal typing is not blocked by agent permission grants. Remaining high-risk paths include `LiveNoteExecutor`, `AppCoordinator`, `CodeEditorView`, `ModelVaultBrowserStore`, `JournalIntents`, and sync/import flows.
@@ -96,4 +101,3 @@ Do **not** start these until the App Store lane is accepted or the user explicit
 - Pro tools: Bash, MultiEdit, WebFetch, long-horizon background agents, broad stdio MCP.
 
 When Pro starts, use the App Store hardening as the shared base. The Pro work should add capabilities behind `PolicyProfile`/build-profile gates, not duplicate the runtime.
-
