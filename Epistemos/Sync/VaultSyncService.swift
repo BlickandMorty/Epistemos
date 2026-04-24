@@ -2333,6 +2333,19 @@ final class VaultSyncService {
         }
     }
 
+    /// Phase R.3 scope guard: the 4 `page.loadBody` call sites in
+    /// `VaultSyncService` are intentionally NOT migrated to
+    /// `loadBodyAsync` — they all run on the MainActor inside
+    /// synchronous save-path state machines (dirty-page hash
+    /// checks, version capture, new-page save tracking) where
+    /// lifting to async requires refactoring the entire SaveBatch
+    /// coordinator. These sites are write-side bookkeeping (compare
+    /// current body vs last-synced hash), not the "6+ duplicate
+    /// read codepaths" that I-002 / I-003 describes.
+    /// The read-side async cascade in `VaultIndexActor`,
+    /// `SpotlightIndexer`, `EntityExtractor`, `GraphState`, and
+    /// `CloudKnowledgeDistillationService` now routes through the
+    /// R.3 gateway for every read-facing code path.
     private func latestAvailableBody(for page: SDPage, pageId: String) -> String {
         if let liveBody = NoteWindowManager.shared.editorBody(for: pageId) {
             return liveBody
