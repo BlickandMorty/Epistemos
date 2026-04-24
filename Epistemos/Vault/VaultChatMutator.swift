@@ -118,6 +118,7 @@ enum VaultChatMutatorError: LocalizedError {
     case vaultUnavailable
     case nothingStaged
     case fileOutsideRepositoryRoot
+    case writeVerificationFailed(path: String)
     case gitCommandFailed(String)
 
     var errorDescription: String? {
@@ -130,8 +131,26 @@ enum VaultChatMutatorError: LocalizedError {
             return "There is no staged diff to approve."
         case .fileOutsideRepositoryRoot:
             return "Vault mutations must stay inside the attached vault root."
+        case .writeVerificationFailed(let path):
+            return "Vault mutation write did not match readback at \(path)."
         case .gitCommandFailed(let output):
             return output.isEmpty ? "Git command failed." : output
+        }
+    }
+}
+
+nonisolated enum VaultVerifiedFileWriter {
+    typealias ReadBack = (URL) throws -> String
+
+    static func writeUTF8(
+        _ content: String,
+        to fileURL: URL,
+        readBack: ReadBack = { try String(contentsOf: $0, encoding: .utf8) }
+    ) throws {
+        try content.write(to: fileURL, atomically: true, encoding: .utf8)
+        let persistedContent = try readBack(fileURL)
+        guard persistedContent == content else {
+            throw VaultChatMutatorError.writeVerificationFailed(path: fileURL.path)
         }
     }
 }
@@ -415,7 +434,7 @@ private actor VaultMutationIO {
             withIntermediateDirectories: true,
             attributes: nil
         )
-        try diff.after.write(to: diff.fileURL, atomically: true, encoding: .utf8)
+        try VaultVerifiedFileWriter.writeUTF8(diff.after, to: diff.fileURL)
 
         try await ensureGitRepository(at: diff.repositoryRootURL)
         _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)

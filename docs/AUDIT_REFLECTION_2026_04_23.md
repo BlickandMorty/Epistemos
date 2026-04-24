@@ -801,3 +801,38 @@ resource is actually writable.
   `FileAttachmentBuilderTests` + `PipelineServiceTests` -> 32/32 green.
 - `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
   SUCCEEDED after the prompt-contract change.
+
+---
+
+## 23. Approved vault-mutation verified writer — 2026-04-24
+
+This closes one Swift-side R.6 gap without widening into ordinary editor-save
+paths.
+
+### 23.1 What changed
+
+- `VaultMutationIO.commit(diff:)` now writes staged vault mutations through
+  `VaultVerifiedFileWriter.writeUTF8`.
+- The writer performs the atomic UTF-8 write, immediately reads the file back,
+  and throws `VaultChatMutatorError.writeVerificationFailed` when persisted
+  content does not match the intended content.
+- The failure happens before the git add/commit leg and before the approval
+  path can report success.
+
+### 23.2 Label impact
+
+- **I-007 / I-008 remain PARTIAL but improved**: Rust ResourceId-targeted tool
+  writes are verified, and the approved staged vault-mutation Swift path is now
+  verified too.
+- Remaining Swift-originated AI/tool write paths still need migration or
+  explicit classification as ordinary user-editor saves that should not be
+  permission-gated agent claims.
+
+### 23.3 Verification
+
+- Test-first failure confirmed before implementation:
+  `LiveNoteExecutorTests/approvedVaultMutationFileWritesRejectMismatchedReadback`
+  failed because `VaultVerifiedFileWriter` did not exist.
+- Focused Swift run: `LiveNoteExecutorTests` -> 5/5 green after the fix.
+- `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
+  SUCCEEDED after the verified-writer change.
