@@ -835,6 +835,15 @@ async fn execute_one_tool(
         }
     }
 
+    #[cfg(feature = "mas-sandbox")]
+    if name == "computer" {
+        return Ok(ToolResult::text(
+            id,
+            "Tool execution denied: computer use is unavailable in the App Store build.",
+            true,
+        ));
+    }
+
     if name == "computer" {
         let output = delegate.execute_computer_action(input_json.clone());
         let is_error = serde_json::from_str::<serde_json::Value>(&output)

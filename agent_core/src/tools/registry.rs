@@ -39,6 +39,96 @@ fn r5_enforce_enabled() -> bool {
     }
 }
 
+#[cfg(feature = "mas-sandbox")]
+const MAS_RUNTIME_FORBIDDEN_TOOLS: &[&str] = &[
+    "bash_execute",
+    "terminal",
+    "process",
+    "claude_code",
+    "codex",
+    "imessage",
+    "imessage_contacts",
+    "channel_contacts",
+    "send_message",
+    "apple_notes",
+    "apple_reminders",
+    "apple_calendar",
+    "apple_mail",
+    "browser_navigate",
+    "browser_click",
+    "browser_type",
+    "browser_press",
+    "browser_close",
+    "browser_scroll",
+    "skill_manage",
+    "custom_tool_manage",
+    "cronjob",
+    "trajectory_export",
+    "mcp_discover",
+    "vision_analyze",
+    "image_generate",
+    "text_to_speech",
+    "perceive",
+    "interact",
+    "screen_watch",
+    "nightbrain_trigger",
+    "inline_partner",
+];
+
+#[cfg(feature = "mas-sandbox")]
+fn mas_runtime_forbids_tool(name: &str) -> bool {
+    MAS_RUNTIME_FORBIDDEN_TOOLS.contains(&name)
+}
+
+#[cfg(feature = "mas-sandbox")]
+fn mas_allows_bounded_internal_mutation(name: &str, input: &Value) -> bool {
+    let action = input.get("action").and_then(Value::as_str).unwrap_or("read");
+    match name {
+        // App-contained memory and SSM state are bounded local state, not
+        // arbitrary filesystem / process / network execution. Keep this list
+        // deliberately tiny so future mutating tools fail closed until audited.
+        "memory" => matches!(action, "add" | "replace" | "remove" | "read"),
+        "ssm_resume" => matches!(action, "save" | "load" | "list" | "prune"),
+        _ => false,
+    }
+}
+
+#[cfg(feature = "mas-sandbox")]
+fn mas_runtime_preflight(
+    tool: &RegisteredTool,
+    input: &Value,
+    authz_target: Option<&crate::resources::tool_authz::ToolAuthzTarget>,
+) -> Result<(), ToolError> {
+    if mas_runtime_forbids_tool(&tool.name) {
+        tracing::warn!(
+            tool = tool.name.as_str(),
+            "App Store runtime preflight denied forbidden tool"
+        );
+        return Err(ToolError::PermissionDenied);
+    }
+
+    if matches!(tool.risk_level, RiskLevel::Destructive) {
+        tracing::warn!(
+            tool = tool.name.as_str(),
+            "App Store runtime preflight denied destructive tool"
+        );
+        return Err(ToolError::PermissionDenied);
+    }
+
+    if matches!(tool.risk_level, RiskLevel::Modification)
+        && authz_target.is_none()
+        && !mas_allows_bounded_internal_mutation(&tool.name, input)
+    {
+        tracing::warn!(
+            tool = tool.name.as_str(),
+            "App Store runtime preflight denied unscoped mutating tool"
+        );
+        return Err(ToolError::PermissionDenied);
+    }
+
+    Ok(())
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RiskLevel {
     ReadOnly,
@@ -439,6 +529,16 @@ impl ToolRegistry {
             return Err(ToolError::PermissionDenied);
         }
 
+        let authz_target = crate::resources::tool_authz::infer_tool_authz_target(
+            name,
+            input,
+            &tool.risk_level,
+            self.vault_root_path.as_deref(),
+        );
+
+        #[cfg(feature = "mas-sandbox")]
+        mas_runtime_preflight(tool, input, authz_target.as_ref())?;
+
         // Phase R.5 authorization gate. Infers a `(ResourceId, Capability)`
         // target for mutating tools, consults the process-local
         // permission store, and denies the call when no grant covers the
@@ -446,12 +546,7 @@ impl ToolRegistry {
         // `EPISTEMOS_R5_ENFORCE=0` is the explicit operator rollback
         // path. Telemetry is emitted in both modes so operators can tune
         // policy against real traffic without muting visibility.
-        if let Some(target) = crate::resources::tool_authz::infer_tool_authz_target(
-            name,
-            input,
-            &tool.risk_level,
-            self.vault_root_path.as_deref(),
-        ) {
+        if let Some(target) = authz_target {
             let granted = crate::resources::bridge::check_resource_capability(
                 target.resource.clone(),
                 target.capability,
@@ -2322,6 +2417,35 @@ mod tier_tests {
         )
     }
 
+    #[cfg(feature = "mas-sandbox")]
+    struct StaticOkHandler;
+
+    #[cfg(feature = "mas-sandbox")]
+    #[async_trait]
+    impl ToolHandler for StaticOkHandler {
+        async fn execute(&self, _input: &serde_json::Value) -> Result<String, ToolError> {
+            Ok(serde_json::json!({ "success": true }).to_string())
+        }
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    fn register_test_tool(registry: &mut ToolRegistry, name: &str, risk_level: RiskLevel) {
+        registry.register(RegisteredTool {
+            name: name.to_string(),
+            description: "test tool".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "action": { "type": "string" },
+                    "path": { "type": "string" }
+                }
+            }),
+            handler: Box::new(StaticOkHandler),
+            risk_level,
+            tier: ToolTier::ChatLite,
+        });
+    }
+
     #[test]
     fn tool_tier_ordering_is_ladder() {
         assert!(ToolTier::None < ToolTier::ChatLite);
@@ -2476,6 +2600,89 @@ mod tier_tests {
                 "{allowed} should remain in bounded MAS registry; got {names:?}"
             );
         }
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[tokio::test]
+    async fn mas_runtime_denies_forbidden_tool_even_if_registered() {
+        let mut registry = build_registry(ToolTier::Full);
+        register_test_tool(&mut registry, "bash_execute", RiskLevel::ReadOnly);
+
+        let result = registry
+            .execute("bash_execute", &serde_json::json!({ "command": "echo nope" }))
+            .await;
+        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[tokio::test]
+    async fn mas_runtime_denies_destructive_tool_even_if_registered() {
+        let mut registry = build_registry(ToolTier::Full);
+        register_test_tool(&mut registry, "local_delete_fixture", RiskLevel::Destructive);
+
+        let result = registry
+            .execute("local_delete_fixture", &serde_json::json!({ "path": "anything" }))
+            .await;
+        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[tokio::test]
+    async fn mas_runtime_denies_unscoped_mutating_tool() {
+        let mut registry = build_registry(ToolTier::Full);
+        register_test_tool(
+            &mut registry,
+            "unscoped_mutation_fixture",
+            RiskLevel::Modification,
+        );
+
+        let result = registry
+            .execute(
+                "unscoped_mutation_fixture",
+                &serde_json::json!({ "action": "mutate" }),
+            )
+            .await;
+        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[tokio::test]
+    async fn mas_runtime_allows_explicit_bounded_internal_mutation() {
+        let mut registry = build_registry(ToolTier::Full);
+        register_test_tool(&mut registry, "memory", RiskLevel::Modification);
+
+        let result = registry
+            .execute("memory", &serde_json::json!({ "action": "add" }))
+            .await
+            .expect("bounded internal App Store mutation should pass preflight");
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        assert_eq!(parsed["success"], serde_json::json!(true));
+    }
+
+    #[cfg(feature = "mas-sandbox")]
+    #[tokio::test]
+    async fn mas_runtime_requires_grant_for_file_write() {
+        let _guard = r5_gate_test_lock();
+        let _env = ScopedEnforceFlag::set_on();
+
+        let temp = tempfile::tempdir().unwrap();
+        let target = temp.path().join(format!("mas-write-{}.txt", uuid::Uuid::new_v4()));
+        let registry = build_registry_with_root(ToolTier::Full, temp.path());
+
+        let result = registry
+            .execute(
+                "write_file",
+                &serde_json::json!({
+                    "path": target.to_string_lossy(),
+                    "content": "blocked"
+                }),
+            )
+            .await;
+        assert!(matches!(result, Err(ToolError::PermissionDenied)));
+        assert!(
+            !target.exists(),
+            "write_file must be denied before the handler creates the file"
+        );
     }
 
     #[cfg(not(feature = "mas-sandbox"))]
