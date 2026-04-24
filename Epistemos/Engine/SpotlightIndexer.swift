@@ -41,14 +41,28 @@ enum SpotlightIndexer {
     }
 
     /// Index a single SDPage in Spotlight.
+    ///
+    /// Phase R.3 async cascade: captures Sendable primitives
+    /// (`pageId`, `filePath`, `title`) and dispatches the body read
+    /// through `SDPage.loadBodyAsyncFromPrimitives`, which routes to
+    /// the R.3 gateway when ready and falls back to
+    /// `NoteFileStorage.readBody` otherwise. `SDPage` stays on the
+    /// main actor — the Task never captures the model reference.
     static func index(_ page: SDPage) {
         let title = page.title
-        let body = page.loadBody(mapped: true)
-        let item = makeItem(for: page, body: body)
-
-        CSSearchableIndex.default().indexSearchableItems([item]) { error in
-            if let error {
-                Log.notes.error("Spotlight index failed for '\(title, privacy: .public)': \(error.localizedDescription, privacy: .private)")
+        let pageId = page.id
+        let filePath = page.filePath
+        Task { @MainActor in
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: pageId,
+                filePath: filePath,
+                mapped: true
+            )
+            let item = makeItem(for: page, body: body)
+            CSSearchableIndex.default().indexSearchableItems([item]) { error in
+                if let error {
+                    Log.notes.error("Spotlight index failed for '\(title, privacy: .public)': \(error.localizedDescription, privacy: .private)")
+                }
             }
         }
     }
@@ -65,27 +79,82 @@ enum SpotlightIndexer {
     /// Bulk re-index all notes (e.g. on vault load).
     /// Processes in batches to avoid loading all page bodies into memory at once
     /// (note bodies live in sidecar markdown files, so each read is explicit disk I/O).
+    ///
+    /// Phase R.3 async cascade: each body read goes through
+    /// `loadBodyAsyncFromPrimitives` so the R.3 gateway is consulted
+    /// first and the legacy `NoteFileStorage` path is the fallback.
+    /// The work is dispatched onto the current MainActor Task so the
+    /// public call signature stays sync; inside the task we await per
+    /// page.
     static func reindexAll(_ pages: [SDPage]) {
         let batchSize = 50
         let total = pages.count
 
-        for batchStart in stride(from: 0, to: total, by: batchSize) {
-            let batchEnd = min(batchStart + batchSize, total)
-            let batch = pages[batchStart..<batchEnd]
-
-            let items = batch.map { page -> CSSearchableItem in
-                let pageBody = page.loadBody(mapped: true)
-                return makeItem(for: page, body: pageBody)
-            }
-
-            CSSearchableIndex.default().indexSearchableItems(items) { error in
-                if let error {
-                    Log.notes.error("Spotlight batch reindex failed: \(error.localizedDescription, privacy: .private)")
-                }
-            }
+        // Stage Sendable primitives for every page up-front so the
+        // async work doesn't need to capture the SDPage reference
+        // (SwiftData @Model isn't Sendable).
+        struct PageStage: Sendable {
+            let pageId: String
+            let filePath: String?
+            let title: String
+            let tagsJoined: String
+            let tags: [String]
+            let createdAt: Date
+            let updatedAt: Date
+        }
+        let stages: [PageStage] = pages.map { page in
+            PageStage(
+                pageId: page.id,
+                filePath: page.filePath,
+                title: page.title,
+                tagsJoined: page.tags.joined(separator: ", "),
+                tags: page.tags,
+                createdAt: page.createdAt,
+                updatedAt: page.updatedAt
+            )
         }
 
-        Log.notes.info("Spotlight indexed \(total, privacy: .public) notes in batches of \(batchSize)")
+        Task { @MainActor in
+            for batchStart in stride(from: 0, to: total, by: batchSize) {
+                let batchEnd = min(batchStart + batchSize, total)
+                let batch = Array(stages[batchStart..<batchEnd])
+
+                var items: [CSSearchableItem] = []
+                items.reserveCapacity(batch.count)
+                for stage in batch {
+                    let pageBody = await SDPage.loadBodyAsyncFromPrimitives(
+                        pageId: stage.pageId,
+                        filePath: stage.filePath,
+                        mapped: true
+                    )
+                    let attrs = CSSearchableItemAttributeSet(contentType: .text)
+                    attrs.title = stage.title
+                    attrs.textContent = String(pageBody.prefix(500))
+                    attrs.contentDescription = stage.tags.isEmpty
+                        ? stage.title
+                        : "Tags: \(stage.tagsJoined)"
+                    attrs.keywords = stage.tags
+                    attrs.contentModificationDate = stage.updatedAt
+                    attrs.contentCreationDate = stage.createdAt
+                    attrs.relatedUniqueIdentifier = stage.pageId
+                    let item = CSSearchableItem(
+                        uniqueIdentifier: stage.pageId,
+                        domainIdentifier: domainID,
+                        attributeSet: attrs
+                    )
+                    item.expirationDate = .distantFuture
+                    items.append(item)
+                }
+
+                CSSearchableIndex.default().indexSearchableItems(items) { error in
+                    if let error {
+                        Log.notes.error("Spotlight batch reindex failed: \(error.localizedDescription, privacy: .private)")
+                    }
+                }
+            }
+
+            Log.notes.info("Spotlight indexed \(total, privacy: .public) notes in batches of \(batchSize)")
+        }
     }
 
     /// Remove all Lucid notes from Spotlight.

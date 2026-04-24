@@ -297,6 +297,43 @@ final class SDPage {
         return page.id
     }
 
+    /// Sendable-primitive async body read. Use this when the caller is
+    /// inside a detached `Task` that can't safely capture an `SDPage`
+    /// reference (e.g. `@MainActor` call sites that need to dispatch
+    /// indexing off the sync call stack without SwiftData's non-Sendable
+    /// `@Model` flowing across the Task boundary).
+    ///
+    /// Behaviour matches ``loadBodyAsync(mapped:fast:)``:
+    /// - R.3 gateway path when ready (resolve → read).
+    /// - `NoteFileStorage.readBody` fallback otherwise.
+    ///
+    /// Takes only Sendable primitives (`pageId`, optional `filePath`)
+    /// so it can be called freely from detached Tasks. Always returns
+    /// a `String` — never throws; errors fall through to the legacy
+    /// read path.
+    static func loadBodyAsyncFromPrimitives(
+        pageId: String,
+        filePath: String?,
+        mapped: Bool = false,
+        fast: Bool = false
+    ) async -> String {
+        if resourceServiceIsReady() {
+            let trimmedPath = filePath?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            let reference = trimmedPath.isEmpty ? pageId : trimmedPath
+            do {
+                let resourceId = try await resourceResolve(reference: reference)
+                let content = try await resourceRead(id: resourceId)
+                if let decoded = String(data: content.bytes, encoding: .utf8) {
+                    return decoded
+                }
+            } catch {
+                // Expected during vault-switch races or when the page
+                // is inline-body-only. Fall through to legacy path.
+            }
+        }
+        return NoteFileStorage.readBody(pageId: pageId, mapped: mapped, fast: fast)
+    }
+
     func bodyPrefix(_ limit: Int, mapped: Bool = false) -> String {
         guard limit > 0 else { return "" }
         return String(loadBody(mapped: mapped).prefix(limit))
