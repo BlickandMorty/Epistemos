@@ -10,6 +10,33 @@ KNOWLEDGE_FUSION_DIR="$RESOURCES_DIR/KnowledgeFusion"
 AGENT_RUNTIME_DIR="$RESOURCES_DIR/AgentRuntime"
 HERMES_RUNTIME_DIR="$AGENT_RUNTIME_DIR/hermes-agent"
 
+is_app_store_build() {
+    [[ "${TARGET_NAME:-}" == "Epistemos-AppStore" ]] ||
+        [[ "${PRODUCT_BUNDLE_IDENTIFIER:-}" == "com.epistemos.appstore" ]] ||
+        [[ " ${SWIFT_ACTIVE_COMPILATION_CONDITIONS:-} " == *" EPISTEMOS_APP_STORE "* ]]
+}
+
+sanitize_app_store_resources() {
+    rm -rf "$KNOWLEDGE_FUSION_DIR/Training/scripts"
+    rm -rf "$KNOWLEDGE_FUSION_DIR/Alignment/scripts"
+    rm -rf "$KNOWLEDGE_FUSION_DIR/MoLoRA"
+    rm -rf "$KNOWLEDGE_FUSION_DIR/MOHAWK"
+    rm -rf "$AGENT_RUNTIME_DIR"
+
+    find "$RESOURCES_DIR" -type f \( \
+        -name '*.py' -o \
+        -name '*.pyc' -o \
+        -name '*.pyo' \
+    \) -delete
+
+    find "$RESOURCES_DIR" -type d \( \
+        -name '__pycache__' -o \
+        -name '.pytest_cache' \
+    \) -prune -exec rm -rf {} +
+
+    find "$KNOWLEDGE_FUSION_DIR" -depth -type d -empty -delete 2>/dev/null || true
+}
+
 rm -rf "$KNOWLEDGE_FUSION_DIR/Training/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/Alignment/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/MoLoRA"
@@ -23,6 +50,12 @@ mkdir -p "$AGENT_RUNTIME_DIR"
 
 cp "$SRCROOT/config/model_manifest.json" \
     "$RESOURCES_DIR/model_manifest.json"
+
+if is_app_store_build; then
+    sanitize_app_store_resources
+    exit 0
+fi
+
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_knowledge.py" \
     "$KNOWLEDGE_FUSION_DIR/Training/scripts/train_knowledge.py"
 cp "$SRCROOT/Epistemos/KnowledgeFusion/Training/scripts/train_style.py" \
