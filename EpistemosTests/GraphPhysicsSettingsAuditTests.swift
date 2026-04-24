@@ -138,6 +138,26 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(abs(state.orbitalSpeed - 0.3) < 0.0001)
     }
 
+    @Test("Featured graph presets include centered layouts without enabling lab forces")
+    func featuredPresetsIncludeCenteredLayoutsWithoutLabForces() {
+        let featured = Set(PhysicsPreset.allCases.filter(\.isFeatured))
+        let centered: Set<PhysicsPreset> = [.crystal, .gravityWell, .halo, .nucleus]
+
+        for preset in centered {
+            #expect(featured.contains(preset))
+            #expect(preset.motionCategory != .experimental)
+            #expect(preset.centerStrength >= PhysicsPreset.crystal.centerStrength)
+            #expect(preset.labOverrides.enableOrbital != true)
+            #expect(preset.labOverrides.enableTorsion != true)
+            #expect(preset.labOverrides.windX == nil || abs(preset.labOverrides.windX ?? 0) < 0.0001)
+            #expect(preset.labOverrides.windY == nil || abs(preset.labOverrides.windY ?? 0) < 0.0001)
+        }
+
+        #expect(PhysicsPreset.gravityWell.centerStrength > PhysicsPreset.observatory.centerStrength)
+        #expect(PhysicsPreset.nucleus.centerStrength > PhysicsPreset.gravityWell.centerStrength)
+        #expect(PhysicsPreset.halo.chargeRange < PhysicsPreset.constellation.chargeRange)
+    }
+
     @Test("Overlay cycle reaches chaos in 4 seconds from the constellation opening preset without enabling fluid wake")
     func overlayCycleKeepsFluidWakeOffByDefault() async {
         clearPhysicsDefaults()

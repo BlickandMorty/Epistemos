@@ -170,13 +170,9 @@ struct GraphForceSettings: View {
                 GridItem(.flexible()),
                 GridItem(.flexible()),
             ], spacing: 6) {
-                // User 2026-04-24: "Observatory, Constellation, and
-                // Chaos are the 3 most important ones and I'd like to
-                // keep them, probably only them." Featured filter
-                // surfaces only those three in the main picker. The
-                // other nine enum cases still exist in code so saved
-                // scheduler steps and lookup-by-name keep working —
-                // they just aren't in the visible grid anymore.
+                // Featured filter keeps the main picker intentional.
+                // Hidden built-ins still exist in code so saved
+                // scheduler steps and lookup-by-name keep working.
                 ForEach(PhysicsPreset.allCases.filter { $0.isFeatured }) { preset in
                     presetButton(preset)
                 }

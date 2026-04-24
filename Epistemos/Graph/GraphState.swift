@@ -77,6 +77,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     case observatory = "Observatory"     // Default — spread out, calm
     case nebula = "Nebula"               // Loose, floaty, gentle drift
     case crystal = "Crystal"             // Tight, structured, snappy
+    case gravityWell = "Gravity Well"     // Compact center cluster
+    case halo = "Halo"                    // Rounded middle cloud
+    case nucleus = "Nucleus"              // Densest centered preset
     case fluid = "Fluid"                 // Bouncy, dynamic, alive
     case constellation = "Constellation" // Very spread, minimal gravity
     case deepSea = "Deep Sea"            // Heavy viscosity, slow currents
@@ -94,6 +97,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return "moonphase.waning.gibbous"
         case .nebula:        return "cloud"
         case .crystal:       return "diamond"
+        case .gravityWell:   return "smallcircle.filled.circle"
+        case .halo:          return "circle.dotted"
+        case .nucleus:       return "circle.hexagongrid.fill"
         case .fluid:         return "drop"
         case .constellation: return "sparkles"
         case .deepSea:       return "water.waves"
@@ -111,6 +117,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 80
         case .nebula:        return 280
         case .crystal:       return 80
+        case .gravityWell:   return 72
+        case .halo:          return 120
+        case .nucleus:       return 58
         case .fluid:         return 180
         case .constellation: return 350
         case .deepSea:       return 200
@@ -127,6 +136,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return -300
         case .nebula:        return -250
         case .crystal:       return -300
+        case .gravityWell:   return -180
+        case .halo:          return -260
+        case .nucleus:       return -120
         case .fluid:         return -350
         case .constellation: return -200
         case .deepSea:       return -300
@@ -143,6 +155,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 400
         case .nebula:        return 1200
         case .crystal:       return 400
+        case .gravityWell:   return 320
+        case .halo:          return 520
+        case .nucleus:       return 240
         case .fluid:         return 1000
         case .constellation: return 1500
         case .deepSea:       return 800
@@ -159,6 +174,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 0
         case .nebula:        return 0
         case .crystal:       return 0
+        case .gravityWell:   return 0
+        case .halo:          return 0
+        case .nucleus:       return 0.12
         case .fluid:         return 0
         case .constellation: return 0
         case .deepSea:       return 0
@@ -176,6 +194,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 0.6
         case .nebula:        return 0.10
         case .crystal:       return 0.90
+        case .gravityWell:   return 0.78
+        case .halo:          return 0.55
+        case .nucleus:       return 0.86
         case .fluid:         return 0.20
         case .constellation: return 0.08
         case .deepSea:       return 0.50
@@ -192,6 +213,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 0.03
         case .nebula:        return 0.005
         case .crystal:       return 0.03
+        case .gravityWell:   return 0.085
+        case .halo:          return 0.055
+        case .nucleus:       return 0.12
         case .fluid:         return 0.008
         case .constellation: return 0.002
         case .deepSea:       return 0.005
@@ -208,6 +232,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return 26
         case .nebula:        return 40
         case .crystal:       return 30
+        case .gravityWell:   return 18
+        case .halo:          return 34
+        case .nucleus:       return 16
         case .fluid:         return 45
         case .constellation: return 35
         case .deepSea:       return 50
@@ -263,23 +290,23 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
                               fluidViscosity: 0.1, edgeElasticity: 0.9,
                               torsionRigidity: 0.8, windX: 20, windY: -15,
                               enableOrbital: true, orbitalSpeed: 0.8)
-        default:
+        case .crystal,
+             .gravityWell,
+             .halo,
+             .nucleus,
+             .nebula,
+             .fluid,
+             .constellation:
             return LabOverrides()
         }
     }
 
     // MARK: - Motion Vocabulary (v3 motion spec §3.4 / canonical commit 9)
     //
-    // Synthesis explicitly rejected the earlier "collapse 12 presets
-    // into 3×3" plan — discoverability of named starting points
-    // matters. Instead, every preset carries a `MotionCategory` tag
-    // and an `isFeatured` flag so the picker UI can:
-    //
-    //   1. Show a short featured list by default (Observatory, Chaos,
-    //      Zen Garden — the three the user specifically asked to
-    //      keep).
-    //   2. Disclose the rest under a category-grouped "More presets"
-    //      section: Calm, Fluid, Playful, Experimental.
+    // Synthesis explicitly rejected a giant flat preset dump. Every
+    // preset carries a `MotionCategory` tag and an `isFeatured` flag so
+    // the picker UI can show a short, intentional set while saved
+    // scheduler steps and hidden built-ins keep resolving by name.
     //
     // No physics values change here — this is pure metadata. Presets
     // that enable experimental forces (orbital / torsion / wind) are
@@ -292,6 +319,9 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         case .observatory:   return .calm
         case .constellation: return .calm
         case .zenGarden:     return .calm
+        case .gravityWell:   return .calm
+        case .halo:          return .calm
+        case .nucleus:       return .calm
         // Fluid — water-like, springy, flow
         case .nebula:        return .fluid
         case .fluid:         return .fluid
@@ -308,13 +338,20 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Whether this preset should appear in the default (short)
-    /// picker list. User ask (clarified 2026-04-24):
-    /// "Observatory, Constellation, and Chaos are the 3 most
-    /// important ones and I'd like to keep them probably only them."
+    /// Whether this preset should appear in the default picker list.
+    /// The picker intentionally stays short, but includes the centered
+    /// layouts the user asked for after the graph motion pass: Crystal
+    /// plus a few middle-congregating options that reuse the existing
+    /// physics parameters without changing the Rust engine.
     var isFeatured: Bool {
         switch self {
-        case .observatory, .constellation, .chaos:
+        case .observatory,
+             .crystal,
+             .gravityWell,
+             .halo,
+             .nucleus,
+             .constellation,
+             .chaos:
             return true
         default:
             return false
