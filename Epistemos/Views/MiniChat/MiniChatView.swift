@@ -1625,8 +1625,19 @@ private struct MiniChatInputBar: View {
     }
 
     private func attachMentionReference(_ choice: ComposerReferenceChoice) {
+        // Phase R.4 — mirror of ChatInputBar: pass the active vault's
+        // stable ID so the `ContextAttachment` gets populated with a
+        // canonical `vault://{vaultId}/note/{relativePath}` URI at
+        // pick time. Powers the R.5 grant parser + (future) tool-check
+        // gate. `lastPathComponent` matches
+        // `AppBootstrap.initializeRustResourceServiceIfReady` so both
+        // ends of the FFI agree on the vault identity.
+        let vaultId = vaultSync.vaultURL?.lastPathComponent
         threadState.addMiniChatContextAttachment(
-            ComposerReferenceHelpers.contextAttachment(for: choice),
+            ComposerReferenceHelpers.contextAttachment(
+                for: choice,
+                vaultId: vaultId
+            ),
             chatID: chatID
         )
         persistMiniChatSession()
