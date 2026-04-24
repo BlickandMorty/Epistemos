@@ -351,6 +351,8 @@ struct GraphPhysicsSettingsAuditTests {
     func graphSettingsRemoveMiddleWaterAndStartupControls() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Graph/GraphForceSettings.swift")
         let overlay = try loadMirroredSourceTextFile("Epistemos/Views/Graph/HologramOverlay.swift")
+        let graphState = try loadMirroredSourceTextFile("Epistemos/Graph/GraphState.swift")
+        let metalGraph = try loadMirroredSourceTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
 
         #expect(settings.contains("GraphForceSettingsSection"))
         #expect(settings.contains("case physics = \"Physics\""))
@@ -360,6 +362,10 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(overlay.contains("static func overlayTintColor(for theme: EpistemosTheme) -> NSColor"))
         #expect(overlay.contains("static func miniTintColor(for theme: EpistemosTheme) -> NSColor"))
         #expect(overlay.components(separatedBy: "surfaceTintColor(for: theme)").count >= 3)
+        #expect(graphState.contains("notifyGraphRenderSettingsChanged()"))
+        #expect(graphState.contains("NotificationCenter.default.post(name: .graphRenderSettingsChanged"))
+        #expect(metalGraph.contains("forName: .graphRenderSettingsChanged"))
+        #expect(metalGraph.contains("self.needsRender = true"))
     }
 
     @Test("Visual theme defaults to classic when unset")

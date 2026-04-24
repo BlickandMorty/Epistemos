@@ -510,6 +510,7 @@ final class MetalGraphNSView: NSView {
     private nonisolated(unsafe) var backingPropertiesObserver: (any NSObjectProtocol)?
     private nonisolated(unsafe) var occlusionObserver: (any NSObjectProtocol)?
     private nonisolated(unsafe) var powerModeObserver: (any NSObjectProtocol)?
+    private nonisolated(unsafe) var graphRenderSettingsObserver: (any NSObjectProtocol)?
 
     /// Frame coalescing: prevents queuing multiple render dispatches.
     /// Atomic to avoid data race between CVDisplayLink (background) and main thread.
@@ -735,6 +736,7 @@ final class MetalGraphNSView: NSView {
         // — labels just stay hidden until the atlas is regenerated + rebuilt.
         loadSDFLabelAtlasIfAvailable()
 
+        refreshGraphRenderSettingsObserver()
         refreshPowerModeObserver()
         startDisplayLink()
     }
@@ -833,6 +835,24 @@ final class MetalGraphNSView: NSView {
         pushForceParams()
         pushExtendedForceParams()
         needsRender = true
+    }
+
+    private func refreshGraphRenderSettingsObserver() {
+        if let graphRenderSettingsObserver {
+            NotificationCenter.default.removeObserver(graphRenderSettingsObserver)
+            self.graphRenderSettingsObserver = nil
+        }
+
+        graphRenderSettingsObserver = NotificationCenter.default.addObserver(
+            forName: .graphRenderSettingsChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.needsRender = true
+            }
+        }
     }
 
     // MARK: - Display Link
@@ -2282,6 +2302,9 @@ final class MetalGraphNSView: NSView {
         if let powerModeObserver {
             NotificationCenter.default.removeObserver(powerModeObserver)
         }
+        if let graphRenderSettingsObserver {
+            NotificationCenter.default.removeObserver(graphRenderSettingsObserver)
+        }
         // Inline display-link stop — can't call @MainActor stopDisplayLink() from nonisolated deinit.
         // Safe: no other references exist during deallocation.
         if let link = activeDisplayLink {
@@ -2305,4 +2328,5 @@ extension Notification.Name {
     static let graphResetRequested = Notification.Name("EpistemosGraphResetRequested")
     static let graphRestoreRequested = Notification.Name("EpistemosGraphRestoreRequested")
     static let graphCloseRequested = Notification.Name("EpistemosGraphCloseRequested")
+    static let graphRenderSettingsChanged = Notification.Name("EpistemosGraphRenderSettingsChanged")
 }
