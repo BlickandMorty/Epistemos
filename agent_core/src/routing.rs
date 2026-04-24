@@ -193,7 +193,7 @@ impl ConfidenceRouter {
     }
 }
 
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
+pub(crate) fn contains_any(haystack: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| haystack.contains(needle))
 }
 
@@ -285,7 +285,14 @@ fn default_tools_for_objective(objective: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::default_tools_for_objective;
+    use super::{contains_any, default_tools_for_objective};
+
+    #[test]
+    fn contains_any_matches_substrings_without_normalizing_case() {
+        assert!(contains_any("latest vault research", &["vault", "web"]));
+        assert!(!contains_any("Latest Vault Research", &["vault", "web"]));
+        assert!(!contains_any("latest vault research", &[]));
+    }
 
     #[test]
     fn research_queries_prefer_web_search_before_vault_tools() {

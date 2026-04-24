@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import os
 
 enum ModelInvolvementContentVariant: Equatable {
     case sheet
@@ -401,6 +402,8 @@ struct ModelInvolvementSheet: View {
 }
 
 struct ModelInvolvementContent: View {
+    private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "ModelInvolvement")
+
     let modelID: String
     let acceptedModelIDs: Set<String>
     let variant: ModelInvolvementContentVariant
@@ -790,7 +793,15 @@ struct ModelInvolvementContent: View {
                 predicate: #Predicate<SDMessage> { $0.authoredByModelID == acceptedModelID },
                 sortBy: [SortDescriptor(\SDMessage.createdAt, order: .reverse)]
             )
-            guard let fetched = try? modelContext.fetch(descriptor) else { continue }
+            let fetched: [SDMessage]
+            do {
+                fetched = try modelContext.fetch(descriptor)
+            } catch {
+                log.error(
+                    "ModelInvolvementContent: failed to fetch contributions for \(acceptedModelID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                continue
+            }
             for message in fetched where message.role == "assistant" {
                 mergedByID[message.id] = message
             }

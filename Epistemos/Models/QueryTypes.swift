@@ -42,6 +42,13 @@ enum PropertyValue: Sendable, Equatable {
     }
 }
 
+enum OrderBy: Sendable {
+    case created(ascending: Bool)
+    case updated(ascending: Bool)
+    case relevance
+    case connections
+}
+
 // MARK: - NodeFilter
 
 struct NodeFilter: Sendable {

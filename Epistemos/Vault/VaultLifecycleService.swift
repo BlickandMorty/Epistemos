@@ -207,6 +207,40 @@ private nonisolated struct TraceAnalysisPattern: Codable, Sendable {
     let topFailureOutputs: [String]
 }
 
+private nonisolated struct TraceHeuristicEvent: Decodable, Sendable {
+    let name: String?
+    let inputSummary: String?
+    let outputSummary: String?
+    let durationMs: Double?
+    let outcome: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case inputSummary = "input_summary"
+        case outputSummary = "output_summary"
+        case durationMs = "duration_ms"
+        case outcome
+    }
+
+    var searchableText: String {
+        [name, inputSummary, outputSummary]
+            .compactMap { $0?.lowercased() }
+            .joined(separator: " ")
+    }
+}
+
+private nonisolated struct HeuristicSkillMutationProposal: Encodable, Sendable {
+    let mutationType: String
+    let reasoning: String
+    let proposedAppendix: String
+
+    enum CodingKeys: String, CodingKey {
+        case mutationType = "mutation_type"
+        case reasoning
+        case proposedAppendix = "proposed_appendix"
+    }
+}
+
 @MainActor func sessionFolderPathLocal(sessionId: String) -> String? {
     let shortID = String(sessionId.prefix(8))
     for entry in VaultRegistry.shared.entries {
@@ -560,34 +594,24 @@ nonisolated func analyzeSkillTracesLocal(vaultPath: String, skillName: String) t
     for session in sessions {
         let traceURL = URL(fileURLWithPath: session.folderPath).appendingPathComponent("trace.json")
         guard let data = try? Data(contentsOf: traceURL),
-              let jsonArray = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+              let events = try? JSONDecoder().decode([TraceHeuristicEvent].self, from: data) else {
             continue
         }
 
-        for event in jsonArray {
-            let searchable = [
-                event["name"] as? String,
-                event["input_summary"] as? String,
-                event["output_summary"] as? String
-            ]
-            .compactMap { $0?.lowercased() }
-            .joined(separator: " ")
-
-            guard searchable.contains(needle) else {
+        for event in events {
+            guard event.searchableText.contains(needle) else {
                 continue
             }
 
             matchingEvents += 1
-            if let outcome = (event["outcome"] as? String)?.lowercased(), !outcome.contains("fail") {
+            if let outcome = event.outcome?.lowercased(), !outcome.contains("fail") {
                 successCount += 1
-            } else if let output = event["output_summary"] as? String {
+            } else if let output = event.outputSummary {
                 failureOutputs.append(output)
             }
 
-            if let duration = event["duration_ms"] as? Double {
+            if let duration = event.durationMs {
                 durations.append(duration)
-            } else if let durationInt = event["duration_ms"] as? Int {
-                durations.append(Double(durationInt))
             }
         }
     }
@@ -617,17 +641,19 @@ nonisolated func proposeSkillMutationHeuristic(skillContent: String, tracePatter
         return ""
     }
 
-    let proposal: [String: Any] = [
-        "mutation_type": "instruction_tightening",
-        "reasoning": "Observed \(pattern.failureCount) failing traces for \(pattern.skillName); clarify failure-prone guidance.",
-        "proposed_appendix": """
+    let proposal = HeuristicSkillMutationProposal(
+        mutationType: "instruction_tightening",
+        reasoning: "Observed \(pattern.failureCount) failing traces for \(pattern.skillName); clarify failure-prone guidance.",
+        proposedAppendix: """
         ## Reliability Notes
         - Prefer deterministic, narrower tool usage when the request already names the target file or command.
         - Reflect the actual runtime result back to the caller before moving to the next step.
         - If the supporting trace format changes, update the parser before relying on automated analysis.
         """
-    ]
-    let json = try JSONSerialization.data(withJSONObject: proposal, options: [.prettyPrinted, .sortedKeys])
+    )
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let json = try encoder.encode(proposal)
     return String(decoding: json, as: UTF8.self)
 }
 

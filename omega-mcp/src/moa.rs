@@ -1,15 +1,14 @@
 // ── Mixture-of-Agents Parallel Pool ─────────────────────────────────────────
 //
-// Rust-native parallel sub-agent executor that bypasses Python's GIL.
-// Uses rayon's work-stealing thread pool to distribute N concurrent
-// sub-agent tasks across all Apple Silicon performance cores.
+// Rust-native parallel task pool for MoA-style callers.
+// Uses rayon's work-stealing thread pool to distribute caller-provided
+// task execution across available cores.
 //
 // Architecture:
 //   Hermes (Python) calls MCP tool "moa_execute" with N task descriptions.
 //   Swift routes to this Rust module via UniFFI.
-//   Rust spawns N rayon tasks, each making HTTP requests to the LLM API.
-//   Results are collected, a consensus reducer picks the best answer.
-//   Single JSON result returned to Hermes in microseconds after completion.
+//   Rust spawns N rayon tasks and invokes the supplied executor closure.
+//   Results are collected, and a simple reducer picks the best answer.
 //
 // This eliminates the Python GIL bottleneck where threading.Thread
 // serializes CPU-bound JSON parsing across all sub-agents.
@@ -140,8 +139,8 @@ pub fn execute_pool(
 /// Execute a MoA pool from Swift via UniFFI.
 /// Takes JSON-encoded tasks and config, returns JSON-encoded results.
 ///
-/// The actual LLM API calls are stubbed here — in production, Swift
-/// will provide the HTTP executor via the MCP bridge callback pattern.
+/// This entry point cannot receive the executor closure used by `execute_pool`,
+/// so it reports each task as failed until a bridge callback is wired.
 pub fn moa_execute_pool(tasks_json: &str, config_json: &str) -> String {
     let tasks: Vec<MoaTask> = match serde_json::from_str(tasks_json) {
         Ok(t) => t,
@@ -152,20 +151,15 @@ pub fn moa_execute_pool(tasks_json: &str, config_json: &str) -> String {
         Err(_) => MoaConfig::default(),
     };
 
-    // Stub executor — returns placeholder results.
-    // In production, Swift will route each task through the Hermes bridge
-    // or directly to the LLM API via URLSession.
-    let result = execute_pool(tasks, &config, |task, _cfg| {
-        MoaResult {
-            task_id: task.id.clone(),
-            response: String::new(),
-            model: task.model.clone().unwrap_or_default(),
-            input_tokens: 0,
-            output_tokens: 0,
-            latency_ms: 0,
-            success: false,
-            error: Some("Stub executor — wire HTTP calls via MCP bridge".to_string()),
-        }
+    let result = execute_pool(tasks, &config, |task, _cfg| MoaResult {
+        task_id: task.id.clone(),
+        response: String::new(),
+        model: task.model.clone().unwrap_or_default(),
+        input_tokens: 0,
+        output_tokens: 0,
+        latency_ms: 0,
+        success: false,
+        error: Some("MoA UniFFI entry point has no executor bridge".to_string()),
     });
 
     serde_json::to_string(&result).unwrap_or_else(|e| format!("{{\"error\":\"{e}\"}}"))
@@ -220,13 +214,27 @@ mod tests {
     #[test]
     fn test_consensus_picks_longest() {
         let tasks = vec![
-            MoaTask { id: "a".into(), prompt: "".into(), model: None, max_tokens: None },
-            MoaTask { id: "b".into(), prompt: "".into(), model: None, max_tokens: None },
+            MoaTask {
+                id: "a".into(),
+                prompt: "".into(),
+                model: None,
+                max_tokens: None,
+            },
+            MoaTask {
+                id: "b".into(),
+                prompt: "".into(),
+                model: None,
+                max_tokens: None,
+            },
         ];
         let config = MoaConfig::default();
 
         let result = execute_pool(tasks, &config, |task, _| {
-            let response = if task.id == "b" { "longer response wins".to_string() } else { "short".to_string() };
+            let response = if task.id == "b" {
+                "longer response wins".to_string()
+            } else {
+                "short".to_string()
+            };
             MoaResult {
                 task_id: task.id.clone(),
                 response,
@@ -245,21 +253,27 @@ mod tests {
     #[test]
     fn test_caps_at_max_parallel() {
         let tasks: Vec<_> = (0..20)
-            .map(|i| MoaTask { id: format!("{i}"), prompt: "".into(), model: None, max_tokens: None })
+            .map(|i| MoaTask {
+                id: format!("{i}"),
+                prompt: "".into(),
+                model: None,
+                max_tokens: None,
+            })
             .collect();
-        let config = MoaConfig { max_parallel: 3, ..Default::default() };
+        let config = MoaConfig {
+            max_parallel: 3,
+            ..Default::default()
+        };
 
-        let result = execute_pool(tasks, &config, |task, _| {
-            MoaResult {
-                task_id: task.id.clone(),
-                response: "ok".into(),
-                model: "test".into(),
-                input_tokens: 0,
-                output_tokens: 0,
-                latency_ms: 0,
-                success: true,
-                error: None,
-            }
+        let result = execute_pool(tasks, &config, |task, _| MoaResult {
+            task_id: task.id.clone(),
+            response: "ok".into(),
+            model: "test".into(),
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: 0,
+            success: true,
+            error: None,
         });
 
         assert_eq!(result.results.len(), 3);
@@ -268,23 +282,43 @@ mod tests {
     #[test]
     fn test_mixed_success_failure() {
         let tasks = vec![
-            MoaTask { id: "ok".into(), prompt: "".into(), model: None, max_tokens: None },
-            MoaTask { id: "fail".into(), prompt: "".into(), model: None, max_tokens: None },
+            MoaTask {
+                id: "ok".into(),
+                prompt: "".into(),
+                model: None,
+                max_tokens: None,
+            },
+            MoaTask {
+                id: "fail".into(),
+                prompt: "".into(),
+                model: None,
+                max_tokens: None,
+            },
         ];
         let config = MoaConfig::default();
 
         let result = execute_pool(tasks, &config, |task, _| {
             if task.id == "fail" {
                 MoaResult {
-                    task_id: task.id.clone(), response: String::new(), model: "test".into(),
-                    input_tokens: 0, output_tokens: 0, latency_ms: 0,
-                    success: false, error: Some("boom".into()),
+                    task_id: task.id.clone(),
+                    response: String::new(),
+                    model: "test".into(),
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    latency_ms: 0,
+                    success: false,
+                    error: Some("boom".into()),
                 }
             } else {
                 MoaResult {
-                    task_id: task.id.clone(), response: "good".into(), model: "test".into(),
-                    input_tokens: 0, output_tokens: 0, latency_ms: 0,
-                    success: true, error: None,
+                    task_id: task.id.clone(),
+                    response: "good".into(),
+                    model: "test".into(),
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    latency_ms: 0,
+                    success: true,
+                    error: None,
                 }
             }
         });

@@ -9,6 +9,7 @@ use crate::bridge::AgentEventDelegate;
 use crate::prompts::{build_system_prompt_with_index, PromptMode};
 use crate::provider::{AgentProvider, StreamEvent};
 use crate::reasoning_metrics::{compute_trajectory_metrics, ReasoningTrajectoryMetrics};
+use crate::routing::contains_any;
 use crate::session::GlobalSessions;
 use crate::storage::session_store::{ToolCallRecord, TraceEvent, TranscriptTurn};
 use crate::tools::registry::{RiskLevel, ToolRegistry};
@@ -1027,10 +1028,6 @@ fn should_preload_vault_context(prompt_mode: PromptMode, objective: &str) -> boo
         PromptMode::Research => objective_mentions_local_context(&objective.to_lowercase()),
         PromptMode::General | PromptMode::Code | PromptMode::LocalFallback => true,
     }
-}
-
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| haystack.contains(needle))
 }
 
 fn estimate_tokens(messages: &[Message]) -> usize {

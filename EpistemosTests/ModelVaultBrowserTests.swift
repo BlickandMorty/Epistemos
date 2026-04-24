@@ -428,6 +428,27 @@ struct ModelVaultBrowserTests {
         }
     }
 
+    @Test("model vault workspace persistence exposes SwiftData failures")
+    func modelVaultWorkspacePersistenceExposesSwiftDataFailures() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ModelVaultBrowserSheet.swift")
+
+        #expect(!source.contains("if let existing = try? modelContext.fetch(descriptor).first"))
+        #expect(!source.contains("let allPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []"))
+        #expect(!source.contains("let insight = try? modelContext.fetch(insightDescriptor).first"))
+        #expect(!source.contains("try? modelContext.save()"))
+        #expect(source.contains("ModelVaultBrowserStore: failed to fetch workspace page"))
+        #expect(source.contains("ModelVaultBrowserStore: failed to fetch workspace pages for deletion"))
+        #expect(source.contains("ModelVaultBrowserStore: failed to persist refreshed workspace page"))
+    }
+
+    @Test("model involvement contribution fetches report failures instead of dropping history silently")
+    func modelInvolvementContributionFetchesReportFailures() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ModelInvolvementSheet.swift")
+
+        #expect(!source.contains("guard let fetched = try? modelContext.fetch(descriptor) else { continue }"))
+        #expect(source.contains("ModelInvolvementContent: failed to fetch contributions"))
+    }
+
     @Test("gpt_5_4_sidebar_shows_full_history")
     @MainActor
     func gpt_5_4_sidebar_shows_full_history() throws {

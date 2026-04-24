@@ -23,46 +23,97 @@ struct TodoSnapshot: Equatable, Sendable {
     /// Returns nil on malformed input or an unsupported action.
     static func fromToolInput(_ inputJson: String) -> TodoSnapshot? {
         guard let data = inputJson.data(using: .utf8),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+              let payload = try? JSONDecoder().decode(TodoToolInputPayload.self, from: data) else {
             return nil
         }
 
         // Only `write` / `merge` produce a plan; `list` / `clear` aren't
         // list-snapshots in the same sense.
-        let action = (obj["action"] as? String)?.lowercased() ?? "write"
-        switch action {
-        case "write", "merge":
+        switch payload.action {
+        case .write, .merge:
             break
-        case "clear":
+        case .clear:
             return TodoSnapshot(items: [], capturedAt: Date())
-        default:
+        }
+
+        guard let todos = payload.todos else {
             return nil
         }
 
-        guard let rawArray = obj["todos"] as? [[String: Any]] else {
-            return nil
-        }
-
-        let parsed: [TodoSnapshotItem] = rawArray.enumerated().compactMap { idx, entry in
-            guard let content = (entry["content"] as? String)?.trimmingCharacters(in: .whitespaces),
-                  !content.isEmpty else {
+        let parsed: [TodoSnapshotItem] = todos.enumerated().compactMap { idx, entry in
+            guard let content = entry.content?
+                .trimmingCharacters(in: .whitespaces)
+                .nonEmpty else {
                 return nil
             }
-            let statusRaw = (entry["status"] as? String)?.lowercased() ?? "pending"
-            let status = TodoStatus(rawValue: statusRaw) ?? .pending
-            let id = (entry["id"] as? String) ?? "todo-\(idx)"
-            let activeForm = (entry["active_form"] as? String)?
+            let activeForm = entry.activeForm?
                 .trimmingCharacters(in: .whitespaces)
                 .nonEmpty ?? content
             return TodoSnapshotItem(
-                id: id,
+                id: entry.id ?? "todo-\(idx)",
                 content: content,
                 activeForm: activeForm,
-                status: status
+                status: entry.status ?? .pending
             )
         }
 
         return TodoSnapshot(items: parsed, capturedAt: Date())
+    }
+}
+
+private struct TodoToolInputPayload: Decodable {
+    let action: TodoAction
+    let todos: [TodoInputItem]?
+
+    enum CodingKeys: String, CodingKey {
+        case action
+        case todos
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        action = try container.decodeIfPresent(TodoAction.self, forKey: .action) ?? .write
+        todos = try container.decodeIfPresent([TodoInputItem].self, forKey: .todos)
+    }
+}
+
+private enum TodoAction: String, Decodable {
+    case write
+    case merge
+    case clear
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).lowercased()
+        guard let action = TodoAction(rawValue: rawValue) else {
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Unsupported todo action: \(rawValue)"
+            )
+        }
+        self = action
+    }
+}
+
+private struct TodoInputItem: Decodable {
+    let id: String?
+    let content: String?
+    let activeForm: String?
+    let status: TodoStatus?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case content
+        case activeForm = "active_form"
+        case status
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try? container.decodeIfPresent(String.self, forKey: .id)
+        content = try? container.decodeIfPresent(String.self, forKey: .content)
+        activeForm = try? container.decodeIfPresent(String.self, forKey: .activeForm)
+        status = (try? container.decodeIfPresent(TodoStatus.self, forKey: .status)) ?? nil
     }
 }
 
@@ -73,11 +124,17 @@ struct TodoSnapshotItem: Equatable, Sendable, Identifiable {
     let status: TodoStatus
 }
 
-enum TodoStatus: String, Sendable, Equatable {
+enum TodoStatus: String, Sendable, Equatable, Decodable {
     case pending
     case inProgress = "in_progress"
     case completed
     case cancelled
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let rawValue = try container.decode(String.self).lowercased()
+        self = TodoStatus(rawValue: rawValue) ?? .pending
+    }
 }
 
 private extension String {

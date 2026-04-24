@@ -265,27 +265,6 @@ public struct ToolArgumentsMacro: MemberMacro, ExtensionMacro {
         return "String"
     }
     
-    private static func qualifyTypeName(_ type: TypeSyntax, parentTypeName: String) -> String {
-        var typeString = type.description.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Handle optional types first
-        if let optionalType = type.as(OptionalTypeSyntax.self),
-           let wrappedType = optionalType.wrappedType.as(IdentifierTypeSyntax.self) {
-            let wrappedTypeName = wrappedType.name.text
-            if !isBuiltInType(wrappedTypeName) && !wrappedTypeName.contains(".") {
-                typeString = "\(parentTypeName).\(wrappedTypeName)?"
-            }
-        } else if let identifierType = type.as(IdentifierTypeSyntax.self) {
-            let typeName = identifierType.name.text
-            // Check if this is likely a nested type
-            if !isBuiltInType(typeName) && !typeName.contains(".") {
-                typeString = "\(parentTypeName).\(typeName)"
-            }
-        }
-        
-        return typeString
-    }
-    
     private static func checkCaseIterableType(_ type: TypeSyntax, parentTypeName: String) -> String? {
         // Check if the type is an enum that conforms to CaseIterable
         // Since we can't check conformance at compile time in the macro,

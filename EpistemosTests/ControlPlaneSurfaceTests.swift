@@ -189,6 +189,91 @@ struct ControlPlaneSurfaceTests {
         let persisted = try #require(jsonObject(at: secondFolder.appendingPathComponent("session.json")))
         #expect(persisted["parent_session_id"] as? String == "sess-1")
         #expect(persisted["chat_thread_id"] as? String == "chat-main")
+        #expect(persisted["tags"] as? [String] == ["smoke", "lineage"])
+        #expect((persisted["token_count"] as? [String: Int])?["input"] == 0)
+    }
+
+    @Test("todo snapshot decodes tool input through typed schema")
+    func todoSnapshotDecodesToolInputThroughTypedSchema() throws {
+        let json = """
+        {
+          "action": "merge",
+          "todos": [
+            {
+              "id": "one",
+              "content": "Read trace payloads",
+              "active_form": "Reading trace payloads",
+              "status": "in_progress"
+            },
+            {
+              "id": "two",
+              "content": "Ship typed decoder",
+              "active_form": "",
+              "status": "completed"
+            },
+            {
+              "id": "empty-content",
+              "content": "   ",
+              "status": "pending"
+            }
+          ]
+        }
+        """
+
+        let snapshot = try #require(TodoSnapshot.fromToolInput(json))
+        #expect(snapshot.items.count == 2)
+        #expect(snapshot.inProgressItem?.id == "one")
+        #expect(snapshot.completedCount == 1)
+        #expect(snapshot.items[1].activeForm == "Ship typed decoder")
+    }
+
+    @Test("skill trace heuristic reads typed trace rows and emits typed proposal")
+    func skillTraceHeuristicReadsTypedTraceRowsAndEmitsTypedProposal() throws {
+        let fileManager = FileManager.default
+        let root = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let sessionFolder = root
+            .appendingPathComponent("sessions", isDirectory: true)
+            .appendingPathComponent("2026-04-10_release-audit", isDirectory: true)
+        try fileManager.createDirectory(at: sessionFolder, withIntermediateDirectories: true)
+        try writeSessionMetadata(at: sessionFolder, sessionID: "release-audit")
+
+        let trace = """
+        [
+          {
+            "name": "release-audit",
+            "input_summary": "audit pass",
+            "output_summary": "first failure",
+            "outcome": "failed",
+            "duration_ms": 12
+          },
+          {
+            "name": "release-audit",
+            "input_summary": "audit pass",
+            "output_summary": "second failure",
+            "outcome": "failed",
+            "duration_ms": 18.5
+          },
+          {
+            "name": "release-audit",
+            "input_summary": "audit pass",
+            "output_summary": "third failure",
+            "outcome": "failed",
+            "duration_ms": 21
+          }
+        ]
+        """
+        try trace.write(to: sessionFolder.appendingPathComponent("trace.json"), atomically: true, encoding: .utf8)
+
+        let patternJSON = try analyzeSkillTracesLocal(vaultPath: root.path, skillName: "release-audit")
+        let pattern = try #require(jsonObject(from: patternJSON))
+        #expect(pattern["traceCount"] as? Int == 3)
+        #expect(pattern["failureCount"] as? Int == 3)
+        #expect(pattern["averageDurationMs"] as? Double == (12.0 + 18.5 + 21.0) / 3.0)
+
+        let proposalJSON = try proposeSkillMutationHeuristic(skillContent: "", tracePatternJson: patternJSON)
+        let proposal = try #require(jsonObject(from: proposalJSON))
+        #expect(proposal["mutation_type"] as? String == "instruction_tightening")
+        #expect((proposal["reasoning"] as? String)?.contains("3 failing traces") == true)
     }
 
     @Test("iMessage adapter parses chat summaries for operator thread continuity")
@@ -526,7 +611,7 @@ private func writeSessionMetadata(at folderURL: URL, sessionID: String) throws {
         "model": "claude-sonnet",
         "provider": "anthropic",
         "started_at": "2026-04-10T00:00:00Z",
-        "tags": [],
+        "tags": ["smoke", "lineage"],
         "token_count": ["input": 0, "output": 0],
         "context_fill_pct": 0.0,
         "turn_count": 0,

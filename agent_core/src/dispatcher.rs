@@ -6,6 +6,7 @@
 //! 3. Keyword heuristics → dispatch to agent type
 //! 4. Default → direct response (no routing)
 
+use crate::routing::contains_any;
 use crate::skill_router::SkillRouter;
 use crate::storage::skills_registry::SkillRegistryEntry;
 use serde::{Deserialize, Serialize};
@@ -118,10 +119,6 @@ pub fn dispatch_intent(
         confidence: 0.3,
         reasoning: "No skill or agent type matched — using direct response".to_string(),
     }
-}
-
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| haystack.contains(needle))
 }
 
 // Expose SkillMatch for FFI type conversion

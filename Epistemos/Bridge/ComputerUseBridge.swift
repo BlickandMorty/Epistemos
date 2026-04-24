@@ -327,43 +327,6 @@ final class ComputerUseBridge {
 
     // MARK: - Image Utilities
 
-    private func scaleImage(_ image: CGImage, maxWidth: Int, maxHeight: Int) -> CGImage {
-        let width = image.width
-        let height = image.height
-
-        if width <= maxWidth && height <= maxHeight {
-            return image
-        }
-
-        guard width > 0, height > 0 else { return image }
-
-        let scaleX = CGFloat(maxWidth) / CGFloat(width)
-        let scaleY = CGFloat(maxHeight) / CGFloat(height)
-        let scale = min(scaleX, scaleY)
-
-        guard scale.isFinite else { return image }
-
-        let newWidth = Int(CGFloat(width) * scale)
-        let newHeight = Int(CGFloat(height) * scale)
-
-        guard let context = CGContext(
-            data: nil,
-            width: newWidth,
-            height: newHeight,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
-        ) else {
-            return image
-        }
-
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
-
-        return context.makeImage() ?? image
-    }
-
     private func jpegData(from image: CGImage, quality: CGFloat) -> Data? {
         let rep = NSBitmapImageRep(cgImage: image)
         return rep.representation(using: .jpeg, properties: [.compressionFactor: quality])

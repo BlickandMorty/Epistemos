@@ -133,12 +133,6 @@ final class FallbackChainResolver {
          .replacingOccurrences(of: "`", with: "\\`")
     }
 
-    private static func safeJsonEscape(_ s: String) -> String {
-        s.replacingOccurrences(of: "\\", with: "\\\\")
-         .replacingOccurrences(of: "\"", with: "\\\"")
-         .replacingOccurrences(of: "\n", with: "\\n")
-    }
-
     private static func jsonObject(_ dict: [String: Any]) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: dict),
               let json = String(data: data, encoding: .utf8) else {

@@ -1,10 +1,10 @@
 // Tool registry: register, discover, validate, and invoke tools by name.
 // Thread-safe via internal HashMap (UniFFI handles concurrency at the Swift level).
 
-use std::collections::HashMap;
-use crate::types::ToolDefinition;
 #[cfg(test)]
 use crate::types::SafetyInfo;
+use crate::types::ToolDefinition;
+use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -66,15 +66,18 @@ impl ToolRegistry {
     /// For Phase 0, this does basic structural validation (is valid JSON object).
     /// Full JSON Schema validation will be added when needed.
     pub fn validate_args(&self, tool_name: &str, args_json: &str) -> Result<(), ToolRegistryError> {
-        let tool = self.tools.get(tool_name)
+        let tool = self
+            .tools
+            .get(tool_name)
             .ok_or_else(|| ToolRegistryError::NotFound(tool_name.to_string()))?;
 
         // Parse the arguments as JSON
-        let args: serde_json::Value = serde_json::from_str(args_json)
-            .map_err(|e| ToolRegistryError::ValidationFailed(
+        let args: serde_json::Value = serde_json::from_str(args_json).map_err(|e| {
+            ToolRegistryError::ValidationFailed(
                 tool_name.to_string(),
                 format!("Arguments are not valid JSON: {e}"),
-            ))?;
+            )
+        })?;
 
         // Must be an object
         if !args.is_object() {
@@ -87,7 +90,12 @@ impl ToolRegistry {
         // Parse schema to check required fields
         if let Ok(schema) = serde_json::from_str::<serde_json::Value>(&tool.input_schema_json) {
             if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
-                let obj = args.as_object().unwrap();
+                let Some(obj) = args.as_object() else {
+                    return Err(ToolRegistryError::ValidationFailed(
+                        tool_name.to_string(),
+                        "Arguments must be a JSON object".to_string(),
+                    ));
+                };
                 for req in required {
                     if let Some(key) = req.as_str() {
                         if !obj.contains_key(key) {
@@ -119,7 +127,9 @@ mod tests {
             name: name.to_string(),
             agent: "test".to_string(),
             description: format!("Test tool: {name}"),
-            input_schema_json: r#"{"type":"object","properties":{"input":{"type":"string"}},"required":["input"]}"#.to_string(),
+            input_schema_json:
+                r#"{"type":"object","properties":{"input":{"type":"string"}},"required":["input"]}"#
+                    .to_string(),
             arguments_example: r#"{"input":"test"}"#.to_string(),
             safety: SafetyInfo {
                 destructive: false,

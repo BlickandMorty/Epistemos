@@ -299,30 +299,6 @@ struct CommandCenterRequestCompiler {
         }
     }
 
-    private func buildNotesContextBlock(from refs: [ResolvedContextRef]) -> String? {
-        let noteRefs: [(title: String, body: String)] = refs.compactMap { ref in
-            guard case .note(_, let title, _, let body?, _) = ref else { return nil }
-            return (title, body)
-        }
-        guard !noteRefs.isEmpty else { return nil }
-
-        var lines: [String] = []
-        lines.append("## Requested Note Context")
-        lines.append(
-            "The user explicitly attached these notes via @mention. Prefer them when answering."
-        )
-        for (title, body) in noteRefs {
-            lines.append("### \(title)")
-            // Cap each note body at ~6k chars to keep the context block bounded.
-            if body.count > 6_000 {
-                lines.append(String(body.prefix(6_000)) + "…")
-            } else {
-                lines.append(body)
-            }
-        }
-        return lines.joined(separator: "\n")
-    }
-
     // MARK: - FFI Input Envelope
     //
     // Codable shape that mirrors the Rust `CompileCommandCenterInput` struct

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 struct ModelVaultDocumentEntry: Identifiable, Hashable {
     enum Kind: Hashable {
@@ -56,6 +57,8 @@ struct ModelVaultDocumentEntry: Identifiable, Hashable {
 }
 
 enum ModelVaultBrowserStore {
+    private nonisolated static let log = Logger(subsystem: "com.epistemos", category: "ModelVaultBrowser")
+
     private static let preferredFiles = [
         "instructions.md",
         "knowledge_profile.md",
@@ -152,9 +155,16 @@ enum ModelVaultBrowserStore {
             predicate: #Predicate<SDPage> { $0.filePath == normalizedPath }
         )
 
-        if let existing = try? modelContext.fetch(descriptor).first {
-            refreshWorkspacePageFromDiskIfSafe(existing, sourceURL: document.url, modelContext: modelContext)
-            return existing.id
+        do {
+            if let existing = try modelContext.fetch(descriptor).first {
+                refreshWorkspacePageFromDiskIfSafe(existing, sourceURL: document.url, modelContext: modelContext)
+                return existing.id
+            }
+        } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to fetch workspace page for \(normalizedPath, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
         }
 
         let page = SDPage(title: document.displayName)
@@ -166,6 +176,9 @@ enum ModelVaultBrowserStore {
             try modelContext.save()
             return page.id
         } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to save workspace page for \(normalizedPath, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
             NoteFileStorage.deleteBody(pageId: page.id)
             modelContext.delete(page)
             return nil
@@ -182,7 +195,16 @@ enum ModelVaultBrowserStore {
             ? normalizedDeletedPath
             : normalizedDeletedPath + "/"
 
-        let allPages = (try? modelContext.fetch(FetchDescriptor<SDPage>())) ?? []
+        let allPages: [SDPage]
+        do {
+            allPages = try modelContext.fetch(FetchDescriptor<SDPage>())
+        } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to fetch workspace pages for deletion under \(normalizedDeletedPath, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+
         let matchingPages = allPages.filter { page in
             guard let filePath = page.filePath?.trimmingCharacters(in: .whitespacesAndNewlines),
                   !filePath.isEmpty else {
@@ -208,17 +230,30 @@ enum ModelVaultBrowserStore {
             let insightDescriptor = FetchDescriptor<SDNoteInsight>(
                 predicate: #Predicate { $0.pageId == pageId }
             )
-            let insight = try? modelContext.fetch(insightDescriptor).first
-            if let insight {
+            do {
+                let insight = try modelContext.fetch(insightDescriptor).first
+                removedPages.append(RemovedWorkspacePage(page: page, insight: insight))
+            } catch {
+                log.error(
+                    "ModelVaultBrowserStore: failed to fetch workspace page insight for \(pageId, privacy: .private): \(error.localizedDescription, privacy: .public)"
+                )
+                return []
+            }
+        }
+
+        for removed in removedPages {
+            if let insight = removed.insight {
                 modelContext.delete(insight)
             }
-            modelContext.delete(page)
-            removedPages.append(RemovedWorkspacePage(page: page, insight: insight))
+            modelContext.delete(removed.page)
         }
 
         do {
             try modelContext.save()
         } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to persist workspace page deletion under \(normalizedDeletedPath, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
             for removed in removedPages {
                 if let insight = removed.insight {
                     modelContext.insert(insight)
@@ -262,6 +297,9 @@ enum ModelVaultBrowserStore {
         do {
             try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
         } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to create model vault file directory \(directoryURL.path, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
             return nil
         }
 
@@ -290,6 +328,9 @@ enum ModelVaultBrowserStore {
             try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
             return directoryURL
         } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to create model vault directory \(directoryURL.path, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
             return nil
         }
     }
@@ -299,6 +340,9 @@ enum ModelVaultBrowserStore {
             try FileManager.default.removeItem(at: url)
             return true
         } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to delete model vault item \(url.path, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
             return false
         }
     }
@@ -394,7 +438,13 @@ enum ModelVaultBrowserStore {
         }
 
         syncWorkspacePageFromDisk(page, sourceURL: sourceURL, bodyOverride: diskBody, bodyHashOverride: diskHash)
-        try? modelContext.save()
+        do {
+            try modelContext.save()
+        } catch {
+            log.error(
+                "ModelVaultBrowserStore: failed to persist refreshed workspace page \(page.id, privacy: .private): \(error.localizedDescription, privacy: .public)"
+            )
+        }
     }
 
     @MainActor

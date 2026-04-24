@@ -37,6 +37,26 @@ pub const METHOD_NOT_FOUND: i64 = -32601;
 pub const INVALID_PARAMS: i64 = -32602;
 pub const INTERNAL_ERROR: i64 = -32603;
 
+impl JsonRpcRequest {
+    pub fn new(method: impl Into<String>, params: serde_json::Value, id: u64) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            method: method.into(),
+            params: Some(params),
+            id: Some(serde_json::Value::Number(id.into())),
+        }
+    }
+
+    pub fn notification(method: impl Into<String>, params: serde_json::Value) -> Self {
+        Self {
+            jsonrpc: "2.0".to_string(),
+            method: method.into(),
+            params: Some(params),
+            id: None,
+        }
+    }
+}
+
 impl JsonRpcResponse {
     pub fn success(id: Option<serde_json::Value>, result: serde_json::Value) -> Self {
         JsonRpcResponse {
@@ -47,13 +67,13 @@ impl JsonRpcResponse {
         }
     }
 
-    pub fn error(id: Option<serde_json::Value>, code: i64, message: String) -> Self {
+    pub fn error(id: Option<serde_json::Value>, code: i64, message: impl Into<String>) -> Self {
         JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
             result: None,
             error: Some(JsonRpcError {
                 code,
-                message,
+                message: message.into(),
                 data: None,
             }),
             id,
@@ -63,9 +83,8 @@ impl JsonRpcResponse {
 
 /// Parse a JSON-RPC request from a string.
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
-    let req: JsonRpcRequest = serde_json::from_str(input).map_err(|e| {
-        JsonRpcResponse::error(None, PARSE_ERROR, format!("Parse error: {e}"))
-    })?;
+    let req: JsonRpcRequest = serde_json::from_str(input)
+        .map_err(|e| JsonRpcResponse::error(None, PARSE_ERROR, format!("Parse error: {e}")))?;
 
     if req.jsonrpc != "2.0" {
         return Err(JsonRpcResponse::error(
@@ -138,14 +157,19 @@ mod tests {
 
     #[test]
     fn test_response_success() {
-        let resp = JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"tools": []}));
+        let resp =
+            JsonRpcResponse::success(Some(serde_json::json!(1)), serde_json::json!({"tools": []}));
         assert!(resp.result.is_some());
         assert!(resp.error.is_none());
     }
 
     #[test]
     fn test_response_error() {
-        let resp = JsonRpcResponse::error(Some(serde_json::json!(1)), METHOD_NOT_FOUND, "not found".to_string());
+        let resp = JsonRpcResponse::error(
+            Some(serde_json::json!(1)),
+            METHOD_NOT_FOUND,
+            "not found".to_string(),
+        );
         assert!(resp.result.is_none());
         assert_eq!(resp.error.unwrap().code, METHOD_NOT_FOUND);
     }
