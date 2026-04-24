@@ -1169,6 +1169,11 @@ impl Engine {
                     + drag.smoothed_vel[1] * drag.smoothed_vel[1];
             const RELEASE_MIN_SPEED_SQ: f32 = 25.0; // (5 px/s)^2
             if drag.moved && speed_sq >= RELEASE_MIN_SPEED_SQ {
+                // Capture the release position BEFORE we hand sim back
+                // to the release path; this is what the wave's epicentre
+                // will be (see docs/GRAPH_WAVES_PLAN.md §6).
+                let release_x = sim.x[drag.sim_index];
+                let release_y = sim.y[drag.sim_index];
                 sim.release_node_with_velocity(
                     drag.sim_index,
                     drag.smoothed_vel[0],
@@ -1180,6 +1185,16 @@ impl Engine {
                 const RELEASE_REHEAT_ALPHA_FLOOR: f32 = 0.08;
                 sim.params.alpha = sim.params.alpha.max(RELEASE_REHEAT_ALPHA_FLOOR);
                 sim.is_settled = false;
+                // Task 3: spawn an authored wave ring from the release
+                // point. The wave module enforces its own min-speed and
+                // capacity bounds, so this is safe to call unconditionally
+                // on the fast-release path.
+                sim.emit_wave_from_release(
+                    release_x,
+                    release_y,
+                    drag.smoothed_vel[0],
+                    drag.smoothed_vel[1],
+                );
             } else {
                 sim.unfix_node(drag.sim_index);
             }
