@@ -456,10 +456,11 @@ actor VaultIndexActor {
                 page.subfolder = snapshot.subfolder
                 page.isJournal = snapshot.isJournal
                 page.journalDate = snapshot.journalDate
-                page.saveBody(snapshot.body)
+                NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)
+                page.updateBodyDerivedState(from: snapshot.body)
                 BlockMirror.sync(pageId: snapshot.pageId, body: snapshot.body, modelContext: modelContext)
             } else {
-                NoteFileStorage.writeBody(pageId: snapshot.pageId, content: snapshot.body)
+                NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)
             }
             upsertSearchIndex(
                 pageId: snapshot.pageId,
@@ -1174,7 +1175,8 @@ actor VaultIndexActor {
                     log.info("Preserving in-app edits for '\(parsedTitle, privacy: .public)' — note-body newer than vault .md")
                     page.needsVaultSync = true
                 } else {
-                    page.saveBody(body)
+                    await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)
+                    page.updateBodyDerivedState(from: body)
                     BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
                     page.lastSyncedBodyHash = SDPage.bodyHash(body)
                     page.lastSyncedAt = .now
@@ -1245,7 +1247,8 @@ actor VaultIndexActor {
                 }
             }
 
-            page.saveBody(body)
+            await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)
+            page.updateBodyDerivedState(from: body)
             BlockMirror.sync(pageId: page.id, body: body, modelContext: modelContext)
             page.filePath = filePath
             page.wordCount = parsedWordCount
