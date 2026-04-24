@@ -3064,7 +3064,9 @@ struct RuntimeValidationTests {
         let source = try loadRepoTextFile("Epistemos/Sync/VaultIndexActor.swift")
 
         #expect(!source.contains("page.saveBody("))
+        #expect(!source.contains(".mappedIfSafe"))
         #expect(!source.contains("NoteFileStorage.writeBody(pageId: snapshot.pageId"))
+        #expect(source.contains("private nonisolated static func vaultFileData("))
         #expect(source.contains("await NoteFileStorage.writeBodyAsync(pageId: page.id, content: body)"))
         #expect(source.contains("NoteFileStorage.scheduleWriteBody(pageId: snapshot.pageId, content: snapshot.body)"))
         #expect(source.contains("page.updateBodyDerivedState(from: body)"))

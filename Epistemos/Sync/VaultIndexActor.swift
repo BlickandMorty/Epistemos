@@ -181,12 +181,12 @@ actor VaultIndexActor {
         }
     }
 
-    private nonisolated static func mappedFileData(
+    private nonisolated static func vaultFileData(
         at fileURL: URL,
         label: String
     ) -> Data? {
         do {
-            return try Data(contentsOf: fileURL, options: .mappedIfSafe)
+            return try Data(contentsOf: fileURL)
         } catch {
             staticLog.error(
                 "VaultIndex: failed to read \(label, privacy: .public) at \(fileURL.path, privacy: .public): \(error.localizedDescription, privacy: .public)"
@@ -1073,7 +1073,7 @@ actor VaultIndexActor {
 
         let content: String
         do {
-            guard let data = Self.mappedFileData(
+            guard let data = Self.vaultFileData(
                 at: fileURL,
                 label: "vault note file"
             ) else {
@@ -1284,7 +1284,7 @@ actor VaultIndexActor {
 
     nonisolated static func decodedBodyFromReadableVaultFile(at fileURL: URL) -> String? {
         guard FileManager.default.isReadableFile(atPath: fileURL.path),
-              let data = Self.mappedFileData(at: fileURL, label: "readable vault body preview") else {
+              let data = Self.vaultFileData(at: fileURL, label: "readable vault body preview") else {
             return nil
         }
 
