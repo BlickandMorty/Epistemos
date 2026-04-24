@@ -3,8 +3,9 @@ import SwiftUI
 /// Custom landing-only search bar, Material 3 inspired.
 ///
 /// Design language:
-///   - 56pt tall, 20pt corner radius — rounded but not oval
-///   - Leading: search glyph. Trailing: submit button.
+///   - Two-row layout. Top row (56pt): search icon + text input + submit.
+///     Bottom row (36pt): mode/brain picker + future pills. Total ~104pt.
+///   - 20pt corner radius — rounded but not oval
 ///   - Subtle elevation (1pt stroke + soft drop shadow). Focus state
 ///     thickens the stroke and tints it with the theme accent.
 ///   - SF Mono 14pt text so the bar reads as "quick search," not chat.
@@ -12,12 +13,16 @@ import SwiftUI
 ///     any other composer. This is the only bar that emerges from the
 ///     landing wave; every other bar in the app stays untouched.
 ///
-/// Functional scope (this first iteration): plain text input + submit +
-/// dismiss. Mentions, attachments, and the capability pill are not part
-/// of this bar. The user can open a full chat via Cmd+Enter or by
-/// clicking the mode hint.
+/// Functional scope: plain text input + submit + dismiss + brain-picker
+/// menu (for switching operating mode and enabling temporary chats).
+/// Mentions and attachments are not part of this bar — by design: the
+/// landing surface is for quick queries, with the full chat experience
+/// reachable via ⌘⇧Return from the bar.
 struct LandingWaveSearchBar: View {
     @Binding var text: String
+    @Binding var operatingMode: EpistemosOperatingMode
+    @Binding var isTemporaryChatEnabled: Bool
+    let availableOperatingModes: [EpistemosOperatingMode]
     let onSubmit: (String) -> Void
     let onDismiss: () -> Void
 
@@ -30,6 +35,31 @@ struct LandingWaveSearchBar: View {
     }
 
     var body: some View {
+        VStack(spacing: 0) {
+            topRow
+            Divider().opacity(0.18)
+            bottomRow
+        }
+        .background(barBackground)
+        .overlay(barStroke)
+        .shadow(
+            color: shadowColor,
+            radius: focused ? 20 : 12,
+            x: 0,
+            y: focused ? 8 : 5
+        )
+        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: focused)
+        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: trimmed.isEmpty)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
+                focused = true
+            }
+        }
+    }
+
+    // MARK: - Rows
+
+    private var topRow: some View {
         HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .medium))
@@ -47,35 +77,56 @@ struct LandingWaveSearchBar: View {
             if !trimmed.isEmpty {
                 Button(action: fireSubmit) {
                     Image(systemName: "arrow.up.circle.fill")
-                        .font(.system(size: 22, weight: .regular))
+                        .font(.system(size: 24, weight: .regular))
                         .foregroundStyle(theme.fontAccent)
                         .symbolRenderingMode(.hierarchical)
                 }
                 .buttonStyle(.plain)
+                .keyboardShortcut(.return, modifiers: [])
                 .transition(.scale.combined(with: .opacity))
+                .help("Send")
             }
         }
         .padding(.horizontal, 18)
         .frame(height: 56)
-        .background(barBackground)
-        .overlay(barStroke)
-        .shadow(
-            color: shadowColor,
-            radius: focused ? 16 : 10,
-            x: 0,
-            y: focused ? 6 : 4
-        )
-        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: focused)
-        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: trimmed.isEmpty)
-        .onAppear {
-            // Defer focus by one runloop so the emergence animation can begin
-            // before the caret blink starts — small but noticeably less
-            // jarring than focusing on the first frame.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
-                focused = true
-            }
-        }
     }
+
+    private var bottomRow: some View {
+        HStack(spacing: 8) {
+            ChatBrainPickerMenu(
+                operatingMode: $operatingMode,
+                availableOperatingModes: availableOperatingModes,
+                isTemporaryChatEnabled: $isTemporaryChatEnabled
+            )
+
+            if isTemporaryChatEnabled {
+                HStack(spacing: 4) {
+                    Image(systemName: "eye.slash.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("Temporary")
+                        .font(.system(size: 11, weight: .semibold))
+                }
+                .foregroundStyle(theme.resolved.accent.color)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(
+                    theme.resolved.accent.color.opacity(0.10),
+                    in: Capsule()
+                )
+                .transition(.opacity.combined(with: .scale))
+            }
+
+            Spacer(minLength: 0)
+
+            Text("↩ send    ⎋ dismiss")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .foregroundStyle(theme.mutedForeground.opacity(0.55))
+        }
+        .padding(.horizontal, 14)
+        .frame(height: 36)
+    }
+
+    // MARK: - Chrome
 
     private var promptText: Text {
         Text("Search or ask…")

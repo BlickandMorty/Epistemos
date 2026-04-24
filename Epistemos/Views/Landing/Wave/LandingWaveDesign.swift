@@ -39,9 +39,10 @@ enum LandingWaveDesign {
 
     /// Wave propagation speed squared. CFL stability requires c² ≤ 0.5 for a
     /// 4-neighbour Laplacian; 0.21 gives visible-but-not-snappy propagation.
-    static let waveSpeedSquared: Float = 0.21
-    /// Per-tick amplitude decay factor. 0.995 damps a ripple to ~0 over ~1.4s.
-    static let waveDamping: Float = 0.995
+    static let waveSpeedSquared: Float = 0.32
+    /// Per-tick amplitude decay factor. 0.997 lets ripples linger slightly
+    /// longer so the cascade beats (crown → crater → jet) visibly overlap.
+    static let waveDamping: Float = 0.997
     /// Ambient micro-wave amplitude after the initial drop has settled.
     /// Pool is never fully still — sells "alive" presence at ~0 GPU cost.
     static let ambientAmplitude: Float = 0.05
@@ -86,13 +87,16 @@ enum LandingWaveDesign {
         static let settle: Int = 550
     }
 
-    /// Strength multipliers applied to each beat's primary impulse.
+    /// Strength multipliers applied to each beat's primary impulse. Boosted
+    /// on 2026-04-24 so the wave reads clearly on the landing backdrop — the
+    /// earlier values produced ripples that were technically correct but
+    /// visually subtle.
     enum DropBeatStrength {
-        static let impactFlash: Float = 4.0
-        static let splashCrown: Float = 1.8
-        static let crater: Float = -2.5  // negative — forms the cavity
-        static let worthingtonJet: Float = 3.0
-        static let secondaryDroplet: Float = 0.6
+        static let impactFlash: Float = 8.0
+        static let splashCrown: Float = 4.0
+        static let crater: Float = -5.0  // negative — forms the cavity
+        static let worthingtonJet: Float = 6.5
+        static let secondaryDroplet: Float = 1.5
     }
 
     // MARK: - Anisotropic ripple (see plan §6.2)
