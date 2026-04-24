@@ -204,23 +204,6 @@ struct ScrollStabilityTests {
     }
 
     @MainActor
-    private func waitUntilRefreshObserved(
-        timeout: Duration = .milliseconds(250),
-        condition: @escaping @MainActor () -> Bool
-    ) async throws {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-
-        while clock.now < deadline {
-            if condition() {
-                return
-            }
-            await Task.yield()
-            try await Task.sleep(for: .milliseconds(5))
-        }
-    }
-
-    @MainActor
     private func makeTextKit2TextView(text: String) -> (NSScrollView, ProseTextView2) {
         let (scrollView, textView) = ProseTextView2.makeTextKit2()
         scrollView.frame = NSRect(x: 0, y: 0, width: 480, height: 220)

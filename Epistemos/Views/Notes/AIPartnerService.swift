@@ -650,22 +650,6 @@ final class AIPartnerService {
         }
     }
     
-    private func calculateConfidence(semanticScore: Float, response: String) -> Double {
-        var confidence = Double(semanticScore) * configuration.semanticWeight
-        
-        // Boost for code blocks
-        if response.contains("```") {
-            confidence += 0.1
-        }
-        
-        // Boost for specific suggestions
-        if response.contains("func ") || response.contains("class ") || response.contains("struct ") {
-            confidence += 0.05
-        }
-        
-        return min(confidence, 1.0)
-    }
-    
     // MARK: - Suggestion Management
     
     private func showNextSuggestion() {

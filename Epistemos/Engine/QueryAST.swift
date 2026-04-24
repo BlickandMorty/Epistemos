@@ -48,16 +48,9 @@ indirect enum QueryAST: Sendable {
 }
 
 // MARK: - Supporting Types (defined in QueryTypes.swift)
-// SearchScope, CompOp, PropertyValue are defined in QueryTypes.swift
+// SearchScope, CompOp, PropertyValue, and OrderBy are defined in QueryTypes.swift
 
 enum DateField: Sendable {
     case created
     case updated
-}
-
-enum OrderBy: Sendable {
-    case created(ascending: Bool)
-    case updated(ascending: Bool)
-    case relevance
-    case connections
 }

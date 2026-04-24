@@ -5077,10 +5077,6 @@ final class InferenceState {
         }
     }
 
-    private func preferredVisibleCloudProviderFallback() -> CloudModelProvider {
-        CloudModelProvider.preferredOrder.first(where: hasConfiguredCloudAccess(for:)) ?? .openAI
-    }
-
     private func normalizedVisibleCloudProvider(_ provider: CloudModelProvider) -> CloudModelProvider {
         return provider
     }

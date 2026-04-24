@@ -2056,29 +2056,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         return request
     }
 
-    private func compatibleChatCompletionBody(
-        modelID: String,
-        prompt: String,
-        systemPrompt: String?,
-        imagePayloads: [VisionPayload],
-        maxTokens: Int,
-        stream: Bool
-    ) -> [String: Any] {
-        var body: [String: Any] = [
-            "model": modelID,
-            "messages": Self.compatibleChatMessages(
-                prompt: prompt,
-                systemPrompt: systemPrompt,
-                imagePayloads: imagePayloads
-            ),
-            "stream": stream,
-        ]
-        if maxTokens > 0 {
-            body["max_tokens"] = maxTokens
-        }
-        return body
-    }
-
     nonisolated static func visionPayloads(from imageURLs: [URL]) throws -> [VisionPayload] {
         try imageURLs.map(Self.visionPayload(for:))
     }
@@ -2187,26 +2164,6 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         default:
             "image/png"
         }
-    }
-
-    private func openAICompatibleMessageText(from json: [String: Any]) -> String? {
-        // Only return the final `content` channel. Never fall through to
-        // `reasoning_content` — that's the model's private chain-of-
-        // thought and rendering it as the chat reply makes the app look
-        // broken ("Okay, so I'm trying to figure out..." shown as the
-        // answer). If the model returns only reasoning with no content,
-        // yield nil so the empty-stream guard surfaces a real error
-        // instead of rendering the monologue.
-        let choices = json["choices"] as? [[String: Any]] ?? []
-        let text = choices.compactMap { choice -> String? in
-            guard let message = choice["message"] as? [String: Any] else { return nil }
-            if let content = message["content"] as? String, !content.isEmpty {
-                return content
-            }
-            return nil
-        }
-        .joined()
-        return text.isEmpty ? nil : text
     }
 
     private func googleModelsRequest(

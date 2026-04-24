@@ -61,23 +61,25 @@ final class AgentSessionLineageStore {
         let sessionURL = URL(fileURLWithPath: sessionFolderPath, isDirectory: true)
             .appendingPathComponent("session.json")
         let data = try Data(contentsOf: sessionURL)
-        guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard var root = try? JSONDecoder().decode([String: JSONValue].self, from: data) else {
             throw AgentSessionLineageStoreError.invalidSessionMetadata
         }
 
         if let parentSessionID = normalized(parentSessionID) {
-            root["parent_session_id"] = parentSessionID
+            root["parent_session_id"] = .string(parentSessionID)
         } else {
             root.removeValue(forKey: "parent_session_id")
         }
 
         if let chatThreadID = normalized(chatThreadID) {
-            root["chat_thread_id"] = chatThreadID
+            root["chat_thread_id"] = .string(chatThreadID)
         } else {
             root.removeValue(forKey: "chat_thread_id")
         }
 
-        let updatedData = try JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys])
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let updatedData = try encoder.encode(root)
         try updatedData.write(to: sessionURL, options: .atomic)
     }
 

@@ -7,7 +7,8 @@
 // StdioTransport: client-side, wraps child process stdin/stdout
 // StdioServer: server-side, accepts JSON-RPC on own stdin/stdout
 
-use serde::{Deserialize, Serialize};
+use crate::server::{JsonRpcRequest, JsonRpcResponse};
+use serde::Serialize;
 use std::io::{self, BufRead, Write};
 
 /// Errors specific to the MCP stdio transport layer.
@@ -21,81 +22,6 @@ pub enum TransportError {
     Closed,
     #[error("malformed message: {0}")]
     MalformedMessage(String),
-}
-
-/// A JSON-RPC 2.0 request message.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcRequest {
-    pub jsonrpc: String,
-    pub method: String,
-    #[serde(default)]
-    pub params: serde_json::Value,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<serde_json::Value>,
-}
-
-/// A JSON-RPC 2.0 response message.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcResponse {
-    pub jsonrpc: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub result: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub error: Option<JsonRpcError>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<serde_json::Value>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JsonRpcError {
-    pub code: i64,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<serde_json::Value>,
-}
-
-impl JsonRpcRequest {
-    pub fn new(method: impl Into<String>, params: serde_json::Value, id: u64) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            method: method.into(),
-            params,
-            id: Some(serde_json::Value::Number(id.into())),
-        }
-    }
-
-    pub fn notification(method: impl Into<String>, params: serde_json::Value) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            method: method.into(),
-            params,
-            id: None,
-        }
-    }
-}
-
-impl JsonRpcResponse {
-    pub fn success(result: serde_json::Value, id: serde_json::Value) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            result: Some(result),
-            error: None,
-            id: Some(id),
-        }
-    }
-
-    pub fn error(code: i64, message: impl Into<String>, id: Option<serde_json::Value>) -> Self {
-        Self {
-            jsonrpc: "2.0".to_string(),
-            result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.into(),
-                data: None,
-            }),
-            id,
-        }
-    }
 }
 
 /// Client-side stdio transport for communicating with a child process.
@@ -125,7 +51,7 @@ impl<W: Write, R: BufRead> StdioTransport<W, R> {
 
     /// Send a typed JSON-RPC request.
     pub fn send_request(&mut self, request: &JsonRpcRequest) -> Result<(), TransportError> {
-        let json = serde_json::to_string(request)?;
+        let json = serialize_transport_message(request)?;
         self.send(&json)
     }
 
@@ -187,7 +113,7 @@ impl<W: Write, R: BufRead> StdioServer<W, R> {
 
     /// Send a JSON-RPC response.
     pub fn send_response(&mut self, response: &JsonRpcResponse) -> Result<(), TransportError> {
-        let json = serde_json::to_string(response)?;
+        let json = serialize_transport_message(response)?;
         // Never write non-JSON to stdout (preserve transport cleanliness).
         self.writer.write_all(json.as_bytes())?;
         self.writer.write_all(b"\n")?;
@@ -201,7 +127,7 @@ impl<W: Write, R: BufRead> StdioServer<W, R> {
         result: serde_json::Value,
         id: serde_json::Value,
     ) -> Result<(), TransportError> {
-        self.send_response(&JsonRpcResponse::success(result, id))
+        self.send_response(&JsonRpcResponse::success(Some(id), result))
     }
 
     /// Send an error response.
@@ -211,13 +137,37 @@ impl<W: Write, R: BufRead> StdioServer<W, R> {
         message: &str,
         id: Option<serde_json::Value>,
     ) -> Result<(), TransportError> {
-        self.send_response(&JsonRpcResponse::error(code, message, id))
+        self.send_response(&JsonRpcResponse::error(id, code, message))
+    }
+}
+
+fn serialize_transport_message<T: Serialize>(message: &T) -> Result<String, TransportError> {
+    let mut value = serde_json::to_value(message)?;
+    strip_null_fields(&mut value);
+    Ok(serde_json::to_string(&value)?)
+}
+
+fn strip_null_fields(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Object(object) => {
+            object.retain(|_, child| {
+                strip_null_fields(child);
+                !child.is_null()
+            });
+        }
+        serde_json::Value::Array(items) => {
+            for item in items {
+                strip_null_fields(item);
+            }
+        }
+        _ => {}
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::server;
     use std::io::Cursor;
 
     #[test]
@@ -309,10 +259,7 @@ mod tests {
         assert_eq!(request.method, "tools/list");
 
         server
-            .send_success(
-                serde_json::json!({"tools": []}),
-                request.id.unwrap(),
-            )
+            .send_success(serde_json::json!({"tools": []}), request.id.unwrap())
             .unwrap();
 
         let written = String::from_utf8(write_buf).unwrap();
@@ -323,10 +270,44 @@ mod tests {
 
     #[test]
     fn json_rpc_error_response() {
-        let response = JsonRpcResponse::error(-32601, "Method not found", Some(serde_json::json!(1)));
+        let response =
+            JsonRpcResponse::error(Some(serde_json::json!(1)), -32601, "Method not found");
         let json = serde_json::to_string(&response).unwrap();
         let decoded: JsonRpcResponse = serde_json::from_str(&json).unwrap();
         assert!(decoded.error.is_some());
         assert_eq!(decoded.error.unwrap().code, -32601);
+    }
+
+    #[test]
+    fn transport_response_serialization_omits_null_fields() {
+        let read_buf = Cursor::new(Vec::new());
+        let mut write_buf = Vec::new();
+        let mut transport = StdioServer::new(&mut write_buf, read_buf);
+        let response = JsonRpcResponse::error(None, -32601, "Method not found");
+
+        transport.send_response(&response).unwrap();
+
+        let written = String::from_utf8(write_buf).unwrap();
+        assert!(!written.contains("\"id\""));
+        assert!(!written.contains("\"data\""));
+        assert!(!written.contains("\"result\""));
+    }
+
+    #[test]
+    fn transport_accepts_canonical_server_json_rpc_response() {
+        let read_buf = Cursor::new(Vec::new());
+        let mut write_buf = Vec::new();
+        let mut transport = StdioServer::new(&mut write_buf, read_buf);
+        let response = server::JsonRpcResponse::success(
+            Some(serde_json::json!(7)),
+            serde_json::json!({"ok": true}),
+        );
+
+        transport.send_response(&response).unwrap();
+
+        let written = String::from_utf8(write_buf).unwrap();
+        let decoded: server::JsonRpcResponse = serde_json::from_str(written.trim()).unwrap();
+        assert_eq!(decoded.id, Some(serde_json::json!(7)));
+        assert_eq!(decoded.result, Some(serde_json::json!({"ok": true})));
     }
 }

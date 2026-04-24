@@ -227,18 +227,30 @@ final class ContradictionDetectionService {
     }
     
     private func replaceFact(_ contradiction: VaultContradiction) async throws {
-        // Implementation would update the vault file to replace the old fact
-        // This is a placeholder - actual implementation would use VaultStore FFI
-        Logger.vault.info("Would replace fact in \(contradiction.existingFilePath)")
+        throw ContradictionResolutionError.vaultWriteUnavailable(
+            "accepting new facts is not wired to a vault write path for \(contradiction.existingFilePath)"
+        )
     }
     
     private func mergeFacts(_ contradiction: VaultContradiction) async throws {
-        // Implementation would append both facts with a note about the contradiction
-        Logger.vault.info("Would merge facts, keeping both with note")
+        throw ContradictionResolutionError.vaultWriteUnavailable(
+            "keeping both facts is not wired to a vault write path for \(contradiction.existingFilePath)"
+        )
     }
 }
 
 // MARK: - Supporting Types
+
+private enum ContradictionResolutionError: LocalizedError {
+    case vaultWriteUnavailable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .vaultWriteUnavailable(let message):
+            return message
+        }
+    }
+}
 
 enum MemoryWriteOperation {
     case add(content: String)
