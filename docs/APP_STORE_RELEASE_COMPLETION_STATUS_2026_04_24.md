@@ -28,7 +28,8 @@ Recent release-hardening commits on `codex/runtime-input-audit`:
 | `5785cef0` | Ensure App Store launch window surfaces. |
 | `d6f5de5b` | Polish App Store launch/composer affordances. |
 | `caa3fdbf` | Harden App Store chat startup and runtime readiness. |
-| `this change` | Seed session Read/Write grants for Live attachments before chat/tool routing; snapshots remain read-only. |
+| `744e54e7` | Seed session Read/Write grants for Live attachments before chat/tool routing; snapshots remain read-only. |
+| `this change` | Expose exact writable `vault_write.path` / `write_file.path` context only for Live writable notes and existing attached text files. |
 
 ## Verified Baseline From This Pass
 
@@ -46,6 +47,11 @@ Automated checks already run after the current hardening series:
   - `PhaseR5ChatGrantWiringTests` **9/9 passed**.
   - R.4/R.5 focused slice (`PhaseR5ChatGrantWiringTests`, `PhaseRAttachmentBridgeTests`, `PhaseR4DropdownBackfillTests`) **43/43 passed**.
   - App Store Release build after the bridge change **BUILD SUCCEEDED**.
+- Attachment write-path prompt contract:
+  - `FileAttachmentBuilderTests` + `PipelineServiceTests` focused run **32/32 passed**.
+  - Live writable note context now includes the exact `vault_write.path`.
+  - Existing attached text-file context now includes the exact `write_file.path`; offline cached previews do not.
+  - App Store Release build after the prompt-contract change **BUILD SUCCEEDED**.
 
 Manual Computer Use smoke on the real App Store Release bundle:
 
@@ -61,7 +67,7 @@ Manual Computer Use smoke on the real App Store Release bundle:
 |---|---|---|
 | R.2 canonical IDs | Mostly fixed | Sidebar/read-side model aliases route through Rust alias registry. Write-edge canonicalization remains deferred by convention. |
 | R.3 read gateway | Partial | Background/indexing/context read paths migrated to gateway-first async cascade. Legacy sync save/edit paths remain intentionally outside that slice. |
-| R.4 live vs snapshot attachments | Partial, improved | Note mentions, file helper, and paste helper carry explicit manifests. Live attachments now seed session Read/Write grants before routing; snapshots remain read-only. End-to-end attached-file write verification still needs closure. |
+| R.4 live vs snapshot attachments | Partial, improved | Note mentions, file helper, and paste helper carry explicit manifests. Live attachments now seed session Read/Write grants before routing; snapshots remain read-only. Prompt context exposes exact writable tool paths only for Live writable notes / existing text files. End-to-end attached-file write verification still needs closure. |
 | R.5 permission grants | Fixed for ResourceId-gated tools | Default-on, fail-closed enforcement; grants persist on disk; note content is not authority. |
 | R.6 verified writes | Partial | Rust registry `write_file`, `patch`, `vault_write` verify readback; FFI bridge exists. Swift-originated write paths still need migration or explicit separation as user-editor writes. |
 | R.7 grant visibility | Partial | Composer chip and Settings active-grants/revoke surface exist. Manual revoke/in-flight failure smoke still needed. |
@@ -73,7 +79,7 @@ Manual Computer Use smoke on the real App Store Release bundle:
 These are **non-Pro** and should be completed before claiming App Store readiness:
 
 1. **Attachment write-dispatch closure**
-   The routing side now seeds Read/Write grants for Live attachments and keeps Snapshot attachments read-only. Finish the end-to-end path: attach note/file → model write attempt → disk changes only when live + granted + verified, with denied UI for snapshot or revoked grant.
+   The routing side now seeds Read/Write grants for Live attachments, keeps Snapshot attachments read-only, and exposes exact write-tool paths only for resources that can actually be written. Finish the end-to-end path: attach note/file → model write attempt → disk changes only when live + granted + verified, with denied UI for snapshot or revoked grant.
 
 2. **Swift-originated verified writes**  
    Migrate AI/tool-originated Swift write paths to `resourceVerifiedWrite` or an equivalent readback-verifying wrapper. Keep ordinary user editor saves separate so normal typing is not blocked by agent permission grants. Remaining high-risk paths include `LiveNoteExecutor`, `AppCoordinator`, `CodeEditorView`, `ModelVaultBrowserStore`, `JournalIntents`, and sync/import flows.

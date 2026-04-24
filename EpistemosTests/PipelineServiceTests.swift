@@ -2206,6 +2206,66 @@ struct ChatCoordinatorPersistenceTests {
         #expect(resolution.loadedNoteTitles == ["Project Atlas"])
     }
 
+    @Test("live attached notes expose exact vault_write path only when writable")
+    func liveAttachedNotesExposeWritablePath() async {
+        let now = Date()
+        let manifest = VaultManifest(
+            vaultTitle: "my mind",
+            totalNoteCount: 1,
+            isInventoryComplete: true,
+            entries: [
+                VaultManifest.ManifestEntry(
+                    pageId: "atlas-id",
+                    title: "Project Atlas",
+                    relativePath: "Research/Project Atlas.md",
+                    tags: [],
+                    folderName: "Research",
+                    wordCount: 140,
+                    snippet: "Atlas snippet",
+                    updatedAt: now,
+                    createdAt: now
+                )
+            ],
+            recentBodies: [],
+            generatedAt: now
+        )
+
+        let liveAttachment = ContextAttachment(
+            kind: .note,
+            targetId: "atlas-id",
+            title: "Project Atlas",
+            subtitle: "Research",
+            resourceURI: "vault://my mind/note/Research/Project Atlas.md",
+            resourceMode: .live,
+            resourceCapabilities: ["Read", "Write"]
+        )
+
+        let resolution = await ChatCoordinator.resolveAttachedContext(
+            query: "Update the selected note",
+            attachments: [liveAttachment],
+            manifest: manifest,
+            includeAllNotesContext: false,
+            findNotesByTitle: { _ in [] },
+            fetchNoteBodies: { ids in
+                ids.contains("atlas-id")
+                    ? [
+                        VaultManifest.NoteBody(
+                            pageId: "atlas-id",
+                            title: "Project Atlas",
+                            relativePath: "Research/Project Atlas.md",
+                            body: "Atlas body"
+                        )
+                    ]
+                    : []
+            },
+            searchNoteIDs: { _ in [] },
+            fetchChatMessages: { _ in [] }
+        )
+
+        #expect(resolution.context?.contains("Canonical vault-relative path (use this with `vault_read`): Research/Project Atlas.md") == true)
+        #expect(resolution.context?.contains("Writable attached-note path (use this exact value with `vault_write.path` only when the user asks you to edit this note): Research/Project Atlas.md") == true)
+    }
+
     @Test("natural language note requests resolve note context without mention syntax")
     func naturalLanguageNoteRequestsResolveNoteContext() async {
         let now = Date()
