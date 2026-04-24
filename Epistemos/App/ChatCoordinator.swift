@@ -3647,12 +3647,16 @@ final class ChatCoordinator {
       guard let body = bodiesByID[attachment.targetId] else { continue }
       guard seenIDs.insert(body.pageId).inserted else { continue }
       let pathLine = body.vaultReadReferenceLine.map { "\($0)\n" } ?? ""
+      let writePathLine = attachedNoteWriteReferenceLine(
+        attachment: attachment,
+        body: body
+      ).map { "\($0)\n" } ?? ""
       sections.append(
         """
         ### Attached Note: \(body.title)
         Reason: The user explicitly attached this note to the current request.
         Priority: Required context. Use it when relevant and cite the note title.
-        \(pathLine)Content:
+        \(pathLine)\(writePathLine)Content:
         \(body.body)
         """
       )
@@ -3679,6 +3683,20 @@ final class ChatCoordinator {
       loadedNoteIds: loadedIDs,
       loadedNoteTitles: loadedTitles
     )
+  }
+
+  private nonisolated static func attachedNoteWriteReferenceLine(
+    attachment: ContextAttachment,
+    body: VaultManifest.NoteBody
+  ) -> String? {
+    guard attachment.resourceMode == .live,
+          let capabilities = attachment.resourceCapabilities,
+          capabilities.contains("Write"),
+          let relativePath = body.relativePath?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !relativePath.isEmpty
+    else { return nil }
+
+    return "Writable attached-note path (use this exact value with `vault_write.path` only when the user asks you to edit this note): \(relativePath)"
   }
 
   static func buildChatContextPack(
@@ -4272,11 +4290,12 @@ final class ChatCoordinator {
     switch attachment.type {
     case .text, .csv:
       guard let text = loadedTextAttachmentBody(for: attachment) else { return nil }
+      let writePathLine = writableTextFilePathLine(for: attachment).map { "\($0)\n" } ?? ""
       return """
         Attached file: \(attachment.name)
         Reason: The user explicitly attached this file to the current request.
         Priority: Required context. Use it when relevant and cite the file name.
-        Content:
+        \(writePathLine)Content:
         \(text)
         """
     case .pdf:
@@ -4316,16 +4335,26 @@ final class ChatCoordinator {
     case .other:
       // Attempt text extraction as a best effort.
       if let text = loadedTextAttachmentBody(for: attachment) {
+        let writePathLine = writableTextFilePathLine(for: attachment).map { "\($0)\n" } ?? ""
         return """
           Attached file: \(attachment.name)
           Reason: The user explicitly attached this file to the current request.
           Priority: Required context. Use the recovered text when relevant and cite the file name.
-          Content:
+          \(writePathLine)Content:
           \(text)
           """
       }
       return nil
     }
+  }
+
+  private nonisolated static func writableTextFilePathLine(for attachment: FileAttachment) -> String? {
+    guard attachment.type == .text || attachment.type == .csv || attachment.type == .other,
+          let fileURL = resolvedFileAttachmentURL(from: attachment.uri),
+          FileManager.default.fileExists(atPath: fileURL.path)
+    else { return nil }
+
+    return "Writable file path (use this exact value with `write_file.path` only when the user asks you to edit this attached text file): \(fileURL.path)"
   }
 
   private nonisolated static func loadedTextAttachmentBody(for attachment: FileAttachment)

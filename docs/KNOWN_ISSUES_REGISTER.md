@@ -56,27 +56,29 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## C. Attachments (Phase R.4)
 
 ### I-004: Attached notes ambiguous between snapshot (inline text) and live (writable file)
-- **Status:** 🟡 **PARTIAL — bridge + ContextAttachment manifest + dropdown/file/paste backfill landed. Tool-dispatch enforcement is still the gap.**
+- **Status:** 🟡 **PARTIAL — bridge + ContextAttachment manifest + dropdown/file/paste backfill + grant seeding + writable-path prompt contract landed. End-to-end write dispatch is still the gap.**
 - **Scaffolding (landed):**
   - `6a2c1de6` — FFI primitives: `AttachmentMode::{Snapshot, Live}` + `Capability::{Read, Write, Delete, Create, Search}` + `AttachedResource` crossing FFI as `uniffi::Enum` / `uniffi::Record`. Four factory functions: `attachedResourceFromUi` (Live + Read/Write), `attachedResourceFromFinder` (Live + Read/Write, code-file-friendly), `attachedResourceFromPaste` (Snapshot + Read-only), `attachedResourceAllows` (capability predicate).
   - `34fb53cf` — `ContextAttachment` carries optional `resourceURI` / `resourceMode` / `resourceCapabilities` manifest + `toAttachedResource()` converter.
   - `f6f62816` — `ChatInputBar` `@`-mention dropdown now populates the manifest at pick time. Every note picked from the dropdown gets a canonical `vault://{vaultId}/note/{relativePath}` URI + Live mode + Read/Write. Vault ID convention matches `AppBootstrap.initializeRustResourceServiceIfReady` so both sides of the FFI agree on identity. 11 tests in `PhaseR4DropdownBackfillTests.swift` green.
   - Later R.4 wiring extended the same manifest contract to MiniChat/Landing parity and file/paste helpers: file entries mint Live + Read/Write `file://` resources; pasted text mints Snapshot + Read-only `attachment://` resources.
   - 2026-04-24 live-grant bridge — `ChatCoordinator.handleQuery` now seeds session Read/Write grants for Live manifest attachments before routing or tool execution. Legacy attachments and Snapshot/paste attachments do not receive write grants.
-- **Why still PARTIAL:** the permission side is now seeded for Live attachments, but the final user-facing proof is still missing: "attach note/file in the UI → AI writes through the canonical/verified path → file on disk changes only when live + granted + verified." Swift-originated write paths still need R.6 migration or explicit separation from ordinary user editor saves.
+  - 2026-04-24 writable-path prompt contract — Live attached notes with explicit `Write` capability now include the exact `vault_write.path`; non-writable attachments do not get a write path.
+- **Why still PARTIAL:** the permission and prompt sides are now seeded for Live attachments, but the final user-facing proof is still missing: "attach note/file in the UI → AI writes through the canonical/verified path → file on disk changes only when live + granted + verified." Swift-originated write paths still need R.6 migration or explicit separation from ordinary user editor saves.
 - **Remaining work (R.4 Swift leg):** add the end-to-end attached-note/file write regression and ensure the write path always routes through the verified-write path for AI/tool-originated writes.
-- **Verification today:** Swift tests across `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. `PhaseR5ChatGrantWiringTests` now also proves Live attachments produce Write grants while Snapshot and legacy attachments do not. **Not** full end-to-end yet.
+- **Verification today:** Swift tests across `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. `PhaseR5ChatGrantWiringTests` now also proves Live attachments produce Write grants while Snapshot and legacy attachments do not. `FileAttachmentBuilderTests` + `PipelineServiceTests` prove exact writable tool paths are emitted only for writable context. **Not** full end-to-end yet.
 
 ### I-005: Attached files from popover are not "under user's control" — AI cannot truly edit
-- **Status:** 🟡 **PARTIAL — file attachment helpers now mint Live manifests; tool-dispatch gate still absent.**
+- **Status:** 🟡 **PARTIAL — file attachment helpers now mint Live manifests and prompt exact writable file paths for existing text files; tool-dispatch gate still absent.**
 - **Scaffolding (landed):**
   - Same FFI primitives as I-004.
   - `f6f62816` — dropdown picks produce manifest-bearing Live attachments (the input side of the authorization fence).
-- **Why still PARTIAL:** Live file attachments now seed Write grants, but the final end-to-end file-edit proof still needs a real attached-file tool write that verifies disk content after the call.
+- **Additional 2026-04-24 evidence:** existing attached text / CSV / text-extracted files now include the exact `write_file.path` in model context. Offline cached previews deliberately do not expose a writable path.
+- **Why still PARTIAL:** Live file attachments now seed Write grants and expose exact write-tool paths, but the final end-to-end file-edit proof still needs a real attached-file tool write that verifies disk content after the call.
 - **Remaining work:** add/verify attached-file write flow through the verified-write path and prove Snapshot file/text attachments deny writes.
 
 ### I-006: AI can't code / edit code files the app supports
-- **Status:** 🟡 **PARTIAL — Finder/file helper manifests exist; AI/tool write path still needs verified dispatch.**
+- **Status:** 🟡 **PARTIAL — Finder/file helper manifests and exact writable text-file paths exist; AI/tool write path still needs verified dispatch.**
 - **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`.
 - **Why NOT fixed:** Swift tool execution doesn't route attached code-file writes through `write_attached_resource` / `resourceVerifiedWrite`; some Swift-originated write paths still use `NoteFileStorage.writeBody` / `saveBody`. "AI says done" can still precede a durable verified commit on those paths.
 - **Remaining work:** R.4 write-dispatch gate + R.6 Swift verified-write migration + an end-to-end attached-code-file edit test.

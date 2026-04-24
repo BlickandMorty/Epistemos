@@ -87,6 +87,7 @@ struct FileAttachmentBuilderTests {
         #expect(context?.contains("Treat them as the primary subject of the request unless the user clearly says otherwise.") == true)
         #expect(context?.contains("any extracted `Content:` below is already available for you to use directly") == true)
         #expect(context?.contains("Do not ask the user to locate, reattach, or restate it.") == true)
+        #expect(context?.contains("Writable file path (use this exact value with `write_file.path` only when the user asks you to edit this attached text file): \(url.path)") == true)
         #expect(context?.contains("# Vault Note") == true)
         #expect(context?.contains("spaces in its URL") == true)
     }
@@ -106,6 +107,7 @@ struct FileAttachmentBuilderTests {
         let context = ChatCoordinator.buildFileAttachmentContext(from: [attachment], supportsVision: false)
 
         #expect(context?.contains("Attached file: offline.md") == true)
+        #expect(context?.contains("Writable file path") == false)
         #expect(context?.contains("Cached text from the earlier attachment scan.") == true)
     }
 

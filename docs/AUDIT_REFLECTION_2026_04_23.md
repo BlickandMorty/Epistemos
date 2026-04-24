@@ -766,3 +766,38 @@ R.5 stored permission grants.
   `PhaseRAttachmentBridgeTests`, `PhaseR4DropdownBackfillTests`) -> 43/43 green.
 - `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
   SUCCEEDED after this bridge.
+
+---
+
+## 22. Attachment write-path prompt contract — 2026-04-24
+
+This closes another App Store-safe leg of the attached-write flow: the model now
+gets the exact writable path only when the runtime has enough evidence that the
+resource is actually writable.
+
+### 22.1 What changed
+
+- Live attached notes with explicit `Write` capability add a
+  `Writable attached-note path` line to the context, using the exact
+  vault-relative value expected by `vault_write.path`.
+- Existing attached text / CSV / text-extracted files add a
+  `Writable file path` line to the context, using the exact absolute path
+  expected by `write_file.path`.
+- Offline cached previews do **not** expose a writable path.
+- Image/PDF attachments remain descriptive context only; they are not given a
+  text-file write affordance.
+
+### 22.2 Label impact
+
+- **I-004 / I-005 / I-006 remain PARTIAL but improved**: the app now has
+  manifest, grant, and prompt-path legs in place for Live writable resources.
+- The remaining proof is the end-to-end write execution path: attach note/file
+  -> model/tool write -> verified readback -> disk changes only when Live,
+  granted, and verified.
+
+### 22.3 Verification
+
+- Focused Swift run:
+  `FileAttachmentBuilderTests` + `PipelineServiceTests` -> 32/32 green.
+- `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
+  SUCCEEDED after the prompt-contract change.
