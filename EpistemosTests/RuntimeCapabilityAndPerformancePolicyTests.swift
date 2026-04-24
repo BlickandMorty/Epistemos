@@ -1,4 +1,5 @@
 import Testing
+import CoreGraphics
 @testable import Epistemos
 
 @Suite("Runtime Capability And Performance Policies")
@@ -45,6 +46,43 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
             GraphInteractionRenderPolicy.selectedNodeSampleIntervalFrames(isInteracting: true)
                 > GraphInteractionRenderPolicy.selectedNodeSampleIntervalFrames(isInteracting: false)
         )
+    }
+
+    @Test("large graph overlay caps drawable scale without changing mini mode")
+    func graphDrawableResolutionPolicyCapsOnlyLargeOverlays() {
+        let fullScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false
+        )
+        let miniScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 360, height: 360),
+            backingScale: 2.0,
+            isMiniMode: true,
+            lowPowerMode: false
+        )
+
+        #expect(fullScale < 2.0)
+        #expect(fullScale >= 1.0)
+        #expect(miniScale == 2.0)
+    }
+
+    @Test("drawable resolution policy preserves native scale under budget")
+    func graphDrawableResolutionPolicyLeavesSmallViewsNative() {
+        let scale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 600, height: 400),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false
+        )
+        let drawableSize = GraphDrawableResolutionPolicy.drawableSize(
+            boundsSize: CGSize(width: 600, height: 400),
+            scale: scale
+        )
+
+        #expect(scale == 2.0)
+        #expect(drawableSize == CGSize(width: 1_200, height: 800))
     }
 
     @Test("code editor policy hides semantic refresh work until the sidebar is visible")
