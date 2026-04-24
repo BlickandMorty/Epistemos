@@ -324,7 +324,15 @@ final class DataviewService {
         case "file.path":
             return resolvedFilePath(for: page)
         case "file.size":
-            return "\(page.loadBody(mapped: true).count)"
+            // Phase R.3 partial migration: the sync `loadBody` call
+            // is replaced by `NoteFileStorage.readBody` (the fallback
+            // path inside `SDPage.loadBodyAsyncFromPrimitives`). A
+            // full migration to the R.3 gateway would require making
+            // `resolveField` + `execute` async, which is low value
+            // today because `DataviewService` has zero Swift callers.
+            // When a caller wires up, lift both to async and call
+            // the primitives helper.
+            return "\(NoteFileStorage.readBody(pageId: page.id, mapped: true).count)"
         case "tags":
             return page.tags.joined(separator: ", ")
         case "title":
