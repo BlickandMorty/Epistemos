@@ -2807,6 +2807,12 @@ impl Renderer {
                     continue;
                 }
 
+                // Recoup node radii so edges terminate at the disc
+                // boundary plus a small gap instead of stabbing into the
+                // node centre (v3 motion-overlay spec, task 1).
+                let r0 = world.graph_node[src_index].radius;
+                let r1 = world.graph_node[tgt_index].radius;
+
                 let color = self.classic_edge_instance_color(edge);
                 match edge_geometry_kind {
                     EdgeGeometryKind::Curve => {
@@ -2822,11 +2828,22 @@ impl Renderer {
                         if !edge_intersects_view(view_bounds, p0, p1, c0, c1) {
                             continue;
                         }
-                        self.classic_edge_scratch.push(CurveEdgeInstance {
+                        let Some((p0t, c0t, c1t, p1t)) = crate::edge_trim::trim_curve_endpoints(
                             p0,
                             c0,
                             c1,
                             p1,
+                            r0,
+                            r1,
+                            crate::edge_trim::DEFAULT_EDGE_GAP_PX,
+                        ) else {
+                            continue;
+                        };
+                        self.classic_edge_scratch.push(CurveEdgeInstance {
+                            p0: p0t,
+                            c0: c0t,
+                            c1: c1t,
+                            p1: p1t,
                             color,
                         });
                     }
@@ -2834,8 +2851,17 @@ impl Renderer {
                         if !view_bounds.is_none_or(|view| segment_intersects_bounds(view, p0, p1)) {
                             continue;
                         }
+                        let Some((p0t, p1t)) = crate::edge_trim::trim_line_endpoints(
+                            p0,
+                            p1,
+                            r0,
+                            r1,
+                            crate::edge_trim::DEFAULT_EDGE_GAP_PX,
+                        ) else {
+                            continue;
+                        };
                         self.straight_edge_scratch
-                            .push(LineEdgeInstance { p0, p1, color });
+                            .push(LineEdgeInstance { p0: p0t, p1: p1t, color });
                     }
                 }
                 self.edge_highlight_pairs.push([
