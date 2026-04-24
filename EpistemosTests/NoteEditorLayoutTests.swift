@@ -605,7 +605,10 @@ struct NoteEditorLayoutTests {
         let source = try loadRepoTextFile("Epistemos/Views/Notes/VaultChangesPanel.swift")
 
         #expect(source.contains("private struct DiffPresentationRequest"))
-        #expect(source.contains("NoteWindowManager.shared.editorBody(for: page.id) ?? page.loadBody()"))
+        #expect(source.contains("let pageId = page.id"))
+        #expect(source.contains("NoteWindowManager.shared.editorBody(for: pageId)"))
+        #expect(source.contains("await SDPage.loadBodyAsyncFromPrimitives("))
+        #expect(source.contains("diffRequest = DiffPresentationRequest("))
         #expect(!source.contains("currentBody: page.loadBody()"))
     }
 

@@ -1139,9 +1139,13 @@ struct ThemePairTests {
     @Test("Bundle plist points at the icon composer asset")
     func bundlePlistUsesIconComposerFile() throws {
         let plist = try loadBundlePlist()
-        #expect(plist["CFBundleIdentifier"] as? String == "com.epistemos.app")
+        #expect(plist["CFBundleIdentifier"] as? String == "$(PRODUCT_BUNDLE_IDENTIFIER)")
         #expect(plist["CFBundleIconName"] as? String == "AppIcon")
         #expect(plist["CFBundleIconFile"] == nil)
+
+        let project = try loadProjectFile()
+        #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;"))
+        #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;"))
     }
 
     @Test("Project uses AppIcon.icon as the primary app icon source")

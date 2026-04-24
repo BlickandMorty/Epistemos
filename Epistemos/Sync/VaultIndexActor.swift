@@ -1108,13 +1108,9 @@ actor VaultIndexActor {
 
             // Only preserve in-app body if it's non-empty. A zero-byte note-body
             // (from historical DB reset or write failure) should never win over vault content.
-            // Phase R.3: gateway-first read via the Sendable-primitive helper.
-            let currentBody = await SDPage.loadBodyAsyncFromPrimitives(
-                pageId: page.id,
-                filePath: page.filePath,
-                inlineBody: page.body,
-                mapped: true
-            )
+            // Import rollback needs the managed note snapshot, not the incoming
+            // vault file that the R.3 gateway may resolve from `filePath`.
+            let currentBody = page.loadBody(mapped: true)
             let preserveBody = noteBodyIsNewer && !currentBody.isEmpty
 
             // Skip no-op writes (common for self-originated saves) to avoid UI churn.
