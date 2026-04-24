@@ -96,6 +96,9 @@ struct LandingView: View {
     /// enqueue a fresh drop-impulse choreography even when the tap location
     /// is unchanged (repeat clicks on the same spot).
     @State private var landingWaveDropTrigger: Int = 0
+    /// Focus proxy for the hidden keystroke-capture text field that feeds
+    /// the greeting's inline search prompt.
+    @FocusState private var landingSearchFocused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
     private var showingBrief: Bool { dailyBrief.showDailyBrief }
@@ -196,11 +199,11 @@ struct LandingView: View {
                 .zIndex(0)
 
             // ── Liquid Wave Overlay ──
-            // Replaces the legacy NSPopover path. Renders a Metal ASCII
-            // liquid wave behind a Material 3-inspired search bar that
-            // emerges at the click location. Scope is strictly HomeView
-            // landing; the overlay does not touch any other composer or
-            // input surface.
+            // Full-surface Metal wave + tap-to-dismiss scrim. The search
+            // input itself lives inside `LiquidGreeting` — the greeting
+            // backspaces away, types `search: `, and receives typed text
+            // live. That lets the landing feel like a single continuous
+            // typewriter session rather than a popover over a page.
             if showingSearchPopover {
                 LandingWaveOverlay(
                     isActive: $showingSearchPopover,
@@ -208,26 +211,42 @@ struct LandingView: View {
                     cursorDirection: .zero,
                     dropTrigger: landingWaveDropTrigger,
                     onDismiss: { dismissLandingSearch() }
-                ) {
-                    LandingWaveSearchBar(
-                        text: $landingSearchText,
-                        operatingMode: operatingModeBinding,
-                        isTemporaryChatEnabled: incognitoBinding,
-                        availableOperatingModes: supportedOperatingModes,
-                        onSubmit: { _ in submitLandingSearch() },
-                        onDismiss: { dismissLandingSearch() }
-                    )
-                }
-                .onExitCommand { dismissLandingSearch() }
+                )
                 .transition(.opacity)
                 .zIndex(4)
+
+                // Hidden input capture — receives keystrokes while the
+                // greeting renders the visible prompt. Kept deliberately
+                // tiny and nearly-transparent so focus is stable without
+                // painting over anything.
+                TextField("", text: $landingSearchText)
+                    .textFieldStyle(.plain)
+                    .foregroundColor(.clear)
+                    .tint(.clear)
+                    .disableAutocorrection(true)
+                    .focused($landingSearchFocused)
+                    .frame(width: 2, height: 2)
+                    .opacity(0.02)
+                    .zIndex(5)
+                    .onSubmit { submitLandingSearch() }
+                    .onExitCommand { dismissLandingSearch() }
+                    .onAppear {
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .milliseconds(40))
+                            landingSearchFocused = true
+                        }
+                    }
+                    .accessibilityLabel("Landing search input")
             }
 
             // ── Greeting Mode ──
             // Blurs and fades when Daily Brief or Welcome Back is active.
+            // When the search overlay is active the greeting STAYS fully
+            // visible — it's now the search surface itself (it backspaces
+            // and types `search: ` inline).
             greetingContent
                 .blur(radius: showingOverlay ? 4 : 0)
-                .opacity((showingOverlay || showingSearchPopover) ? 0.7 : 1)
+                .opacity(showingOverlay ? 0.7 : 1)
                 .allowsHitTesting(!showingOverlay && !showingSearchPopover)
                 .zIndex(1)
 
@@ -321,11 +340,32 @@ struct LandingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            VStack(spacing: 36) {
-                LiquidGreeting(retractNow: .constant(false))
+            VStack(spacing: 18) {
+                LiquidGreeting(
+                    retractNow: .constant(false),
+                    searchMode: showingSearchPopover,
+                    searchText: landingSearchText
+                )
+
+                // Inline model picker — only visible while searching, kept
+                // in a monospace design so it matches the retro-terminal
+                // feel of the greeting's backspace-to-cursor transition.
+                // "Implicit": rendered at lower opacity so it's present
+                // without shouting.
+                if showingSearchPopover {
+                    ChatBrainPickerMenu(
+                        operatingMode: operatingModeBinding,
+                        availableOperatingModes: supportedOperatingModes,
+                        isTemporaryChatEnabled: incognitoBinding
+                    )
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .opacity(0.65)
+                    .transition(.opacity.combined(with: .offset(y: -6)))
+                    .allowsHitTesting(true)
+                }
             }
             .padding(.horizontal, Spacing.xxl)
-            .allowsHitTesting(false)
+            .allowsHitTesting(showingSearchPopover)
 
             Spacer()
 

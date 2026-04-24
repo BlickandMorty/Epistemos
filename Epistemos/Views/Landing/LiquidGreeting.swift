@@ -24,6 +24,20 @@ enum LiquidGreetingTiming {
         }
     }
 
+    /// Delay between each character typed in the search prompt. Slightly
+    /// quicker than the greeting-phrase typewriter so the morph feels
+    /// decisive.
+    nonisolated static func searchTypingDelay(forStep step: Int) -> Duration {
+        switch normalizedCycleIndex(forStep: step, count: 3) {
+        case 0: .milliseconds(28)
+        case 1: .milliseconds(36)
+        default: .milliseconds(32)
+        }
+    }
+
+    /// Period of one on/off cycle of the search cursor blink.
+    nonisolated static func cursorBlinkPeriod() -> Duration { .milliseconds(520) }
+
     private nonisolated static func normalizedCycleIndex(forStep step: Int, count: Int) -> Int {
         guard count > 0 else { return 0 }
         return abs(step) % count
@@ -37,13 +51,31 @@ struct LiquidGreeting: View {
     var compact: Bool = false
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
+    /// When true, the greeting backspaces to empty, types the search
+    /// prompt, then stays idle with a blinking cursor. `searchText` is
+    /// appended after the prompt in real time as the user types.
+    var searchMode: Bool = false
+    /// Live query text driven by the hidden input overlay in LandingView.
+    /// Rendered in the same greeting font so it looks like the user is
+    /// typing directly where the greeting used to be. No static prompt
+    /// prefix is auto-typed — after the backspace, the caret waits and
+    /// the user's typed text IS the displayed prompt.
+    var searchText: String = ""
 
     @State private var displayText = Self.restingGreeting
+    @State private var searchReady: Bool = false
+    @State private var cursorVisible: Bool = true
+
     private var theme: EpistemosTheme { ui.theme }
     private var playlist: [LandingGreetingPhrase] { ui.resolvedLandingGreetingPlaylist }
     private var greetingFont: Font { AppDisplayTypography.font(size: compact ? 22 : 44) }
     private var greetingColor: Color {
         theme.fontAccent.opacity(theme.isDark ? 0.94 : 0.9)
+    }
+    /// Block cursor width/height tuned to roughly match the glyph stem of
+    /// the greeting font at each size.
+    private var cursorMetrics: CGSize {
+        compact ? CGSize(width: 9, height: 22) : CGSize(width: 18, height: 40)
     }
 
     private var shouldAnimate: Bool {
@@ -51,14 +83,18 @@ struct LiquidGreeting: View {
     }
 
     private var taskKey: String {
-        "\(shouldAnimate)_\(retractNow)_\(ui.landingGreetingPlaylistSignature)"
+        "\(shouldAnimate)_\(retractNow)_\(searchMode)_\(ui.landingGreetingPlaylistSignature)"
     }
 
     var body: some View {
-        plainGreeting(text: shouldAnimate ? displayText : Self.restingGreeting)
+        displayView
         .frame(height: compact ? 40 : 180)
         .padding(.horizontal, compact ? 20 : 100)
         .task(id: taskKey) {
+            if searchMode {
+                await enterSearchMode()
+                return
+            }
             if retractNow {
                 await retractText()
                 return
@@ -72,6 +108,32 @@ struct LiquidGreeting: View {
             displayText = ""
             guard await pause(LiquidGreetingTiming.startupDelay()) else { return }
             await typewriterLoop()
+        }
+        .task(id: searchReady && searchMode) {
+            // Cursor blink while the search prompt is active. Cheap — one
+            // boolean toggle every ~520ms, gated on searchMode so the task
+            // auto-cancels when search mode turns off.
+            while !Task.isCancelled && searchReady && searchMode {
+                cursorVisible.toggle()
+                do {
+                    try await Task.sleep(for: LiquidGreetingTiming.cursorBlinkPeriod())
+                } catch is CancellationError {
+                    return
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    // MARK: - Display
+
+    @ViewBuilder
+    private var displayView: some View {
+        if searchMode && searchReady {
+            searchLine
+        } else {
+            plainGreeting(text: shouldAnimate ? displayText : Self.restingGreeting)
         }
     }
 
@@ -87,6 +149,29 @@ struct LiquidGreeting: View {
             radius: compact ? 0 : 8
         )
     }
+
+    /// Renders the live query followed by a thick block cursor. When the
+    /// query is empty the line is just the cursor — an empty backspaced
+    /// greeting with a single blinking caret, ready to receive typed text.
+    private var searchLine: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 0) {
+            Text(searchText)
+                .font(greetingFont)
+                .foregroundStyle(greetingColor)
+            Rectangle()
+                .fill(greetingColor)
+                .frame(width: cursorMetrics.width, height: cursorMetrics.height)
+                .opacity(cursorVisible ? 1 : 0)
+                .padding(.leading, searchText.isEmpty ? 0 : 2)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        .shadow(
+            color: compact ? .clear : (theme.isDark ? theme.fontAccent.opacity(0.12) : .clear),
+            radius: compact ? 0 : 8
+        )
+    }
+
+    // MARK: - Lifecycle helpers
 
     private func pause(_ duration: Duration) async -> Bool {
         do {
@@ -112,6 +197,29 @@ struct LiquidGreeting: View {
         }
         guard !Task.isCancelled else { return }
         onRetractComplete?()
+    }
+
+    /// Backspace the greeting to empty, then hand off to the caret. The
+    /// view flips to `searchLine` once `searchReady = true` — at which
+    /// point only the block cursor is visible and any keys the user types
+    /// appear as the prompt itself.
+    @MainActor
+    private func enterSearchMode() async {
+        searchReady = false
+
+        // Backspace the current greeting (if any).
+        while !displayText.isEmpty && !Task.isCancelled {
+            displayText.removeLast()
+            guard await pause(LiquidGreetingTiming.retractDelay()) else { return }
+        }
+        guard !Task.isCancelled else { return }
+
+        // Tiny breath so the empty state registers before the caret
+        // starts blinking — makes the morph feel intentional.
+        guard await pause(.milliseconds(120)) else { return }
+
+        searchReady = true
+        cursorVisible = true
     }
 
     @MainActor
