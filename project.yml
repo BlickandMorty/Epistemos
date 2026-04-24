@@ -142,7 +142,7 @@ targets:
       base:
         PRODUCT_NAME: Epistemos
         PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore
-        INFOPLIST_FILE: Epistemos-Info.plist
+        INFOPLIST_FILE: Epistemos-AppStore-Info.plist
         GENERATE_INFOPLIST_FILE: false
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -317,6 +317,7 @@ targets:
           copy_file "CLAUDE.md"
           copy_file "Epistemos-Bridging-Header.h"
           copy_file "Epistemos-Info.plist"
+          copy_file "Epistemos-AppStore-Info.plist"
           copy_file "project.yml"
           copy_file "Makefile"
           copy_file "TESTING_GUIDE.md"

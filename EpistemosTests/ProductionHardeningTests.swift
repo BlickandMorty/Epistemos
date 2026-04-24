@@ -518,6 +518,7 @@ struct ReleasePackagingHardeningTests {
     @Test("App Store target is sandboxed and excludes direct-distribution entitlements")
     func appStoreTargetUsesSandboxEntitlements() throws {
         let appStoreEntitlements = try loadProductionHardeningRepoTextFile("Epistemos/Epistemos-AppStore.entitlements")
+        let appStoreInfoPlist = try loadProductionHardeningRepoTextFile("Epistemos-AppStore-Info.plist")
         let infoPlist = try loadProductionHardeningRepoTextFile("Epistemos-Info.plist")
         let project = try loadProductionHardeningRepoTextFile("Epistemos.xcodeproj/project.pbxproj")
         let projectSpec = try loadProductionHardeningRepoTextFile("project.yml")
@@ -544,14 +545,40 @@ struct ReleasePackagingHardeningTests {
 
         #expect(infoPlist.contains("$(PRODUCT_BUNDLE_IDENTIFIER)"))
         #expect(infoPlist.contains("$(PRODUCT_NAME)"))
+        #expect(appStoreInfoPlist.contains("$(PRODUCT_BUNDLE_IDENTIFIER)"))
+        #expect(appStoreInfoPlist.contains("$(PRODUCT_NAME)"))
+        #expect(!appStoreInfoPlist.contains("NSAccessibilityUsageDescription"))
+        #expect(!appStoreInfoPlist.contains("NSAppleEventsUsageDescription"))
+        #expect(!appStoreInfoPlist.contains("NSScreenCaptureUsageDescription"))
         #expect(projectSpec.contains("Epistemos-AppStore:"))
         #expect(projectSpec.contains("PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.appstore"))
+        #expect(projectSpec.contains("INFOPLIST_FILE: Epistemos-AppStore-Info.plist"))
         #expect(projectSpec.contains("CODE_SIGN_ENTITLEMENTS: Epistemos/Epistemos-AppStore.entitlements"))
         #expect(projectSpec.contains("EPISTEMOS_APP_STORE MAS_SANDBOX"))
         #expect(project.contains("Epistemos-AppStore"))
         #expect(project.contains("PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;"))
+        #expect(project.contains("INFOPLIST_FILE = \"Epistemos-AppStore-Info.plist\";") ||
+                project.contains("INFOPLIST_FILE = Epistemos-AppStore-Info.plist;"))
         #expect(project.contains("CODE_SIGN_ENTITLEMENTS = \"Epistemos/Epistemos-AppStore.entitlements\";") ||
                 project.contains("CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-AppStore.entitlements;"))
+    }
+
+    @Test("App Store settings hide Pro-only channel skill and automation surfaces")
+    func appStoreSettingsHideProOnlySurfaces() throws {
+        let settings = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let agentSection = try loadProductionHardeningRepoTextFile("Epistemos/Views/Settings/AgentSectionDetailView.swift")
+
+        #expect(settings.contains("#if !EPISTEMOS_APP_STORE"))
+        #expect(settings.contains("categories.append(.automation)"))
+        #expect(settings.contains("sections.append(.channels)"))
+        #expect(settings.contains("sections.append(.knowledgeFusion)"))
+        #expect(settings.contains(".iMessageDriver"))
+        #expect(settings.contains(".skills"))
+        #expect(settings.contains("NotificationCenter.default.publisher(for: .showIMessageDriverSettings)"))
+        #expect(agentSection.contains("#if EPISTEMOS_APP_STORE"))
+        #expect(agentSection.contains("[.authority]"))
+        #expect(agentSection.contains("ForEach(AgentTab.visibleTabs)"))
+        #expect(agentSection.contains("initialTab.isVisibleInCurrentBuild ? initialTab : .authority"))
     }
 
     @Test("debug and test targets default to local signing without removing real signing support")
