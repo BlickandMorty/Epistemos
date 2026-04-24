@@ -585,6 +585,36 @@ enum NoteFileStorage {
     }
 
     @discardableResult
+    nonisolated static func verifyUTF8ReadbackForTesting(
+        _ expectedData: Data,
+        from url: URL,
+        itemLabel: String,
+        readData: (URL) throws -> Data = { try Data(contentsOf: $0) }
+    ) -> Bool {
+        verifyUTF8Readback(expectedData, from: url, itemLabel: itemLabel, readData: readData)
+    }
+
+    @discardableResult
+    private nonisolated static func verifyUTF8Readback(
+        _ expectedData: Data,
+        from url: URL,
+        itemLabel: String,
+        readData: (URL) throws -> Data = { try Data(contentsOf: $0) }
+    ) -> Bool {
+        do {
+            let persistedData = try readData(url)
+            guard persistedData == expectedData else {
+                logger.error("Post-write readback mismatch for \(itemLabel)")
+                return false
+            }
+            return true
+        } catch {
+            logger.error("Failed to read back \(itemLabel): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    @discardableResult
     private nonisolated static func atomicWriteUTF8(_ content: String, to url: URL, itemLabel: String) -> Bool {
         guard let data = content.data(using: .utf8) else {
             logger.error("Failed to encode UTF-8 data for \(itemLabel)")
@@ -646,6 +676,10 @@ enum NoteFileStorage {
             }
         } else {
             logger.error("Failed to open parent directory for \(itemLabel)")
+            return false
+        }
+
+        guard verifyUTF8Readback(data, from: url, itemLabel: itemLabel) else {
             return false
         }
 
