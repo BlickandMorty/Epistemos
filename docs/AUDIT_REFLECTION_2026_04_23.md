@@ -448,12 +448,12 @@ Step 4 of the runway prompt — "R.3 production read-site migration". Completed 
 ### 15.2 Helper enhancement
 
 `SDPage.loadBodyAsyncFromPrimitives` gained an `inlineBody: String` parameter so the helper implements the FULL 4-step fallback chain of legacy `loadBody`:
-1. R.3 gateway (resolve + read) when ready.
-2. `NoteFileStorage.readBody` (managed sidecar file).
+1. `NoteFileStorage.readBody` (managed sidecar file).
+2. R.3 gateway (resolve + read) when ready.
 3. Inline `body` column (pre-migration pages).
 4. Raw vault file via `VaultIndexActor.decodedBodyFromReadableVaultFile`.
 
-This means every migrated call site now matches the legacy `loadBody` behaviour byte-for-byte — just with the gateway consulted first.
+This means every migrated call site now matches the legacy `loadBody` behaviour byte-for-byte while still giving the R.3 gateway the next lookup slot once the managed sidecar is absent.
 
 ### 15.3 Honest label on I-002 / I-003
 
@@ -874,3 +874,35 @@ ordinary user-editor saves separate from agent permission gates.
 - Companion storage run: `NoteFileStorageTests` -> 25/25 green.
 - `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD
   SUCCEEDED after the core note-storage change.
+
+---
+
+## 25. Async body-read audit closure — 2026-04-24
+
+This pass rechecked the manual sync-to-async migration after the earlier R.3 runway. The goal was not to make every read async at any cost; it was to move hot UI/background readers onto the managed-sidecar-first async cascade while leaving sync reads in save/import/editor paths where async would widen state machines or add user-visible lag.
+
+### 25.1 What I rechecked
+
+- Re-ran the repo grep for `page.loadBody`, `.loadBody`, and `NoteFileStorage.readBody` across `Epistemos/`.
+- Found remaining hot readers bypassing `SDPage.loadBodyAsyncFromPrimitives`: `LiveNoteScanner` production scan, `NoteInsightService` reindex/reanalyze, `NoteBacklinksPanel`, `PinnedInspector`, and `NodeInspectorState`.
+- Confirmed the remaining post-pass sync readers are intentional holdouts: `VaultSyncService` save-flow bookkeeping, `VaultIndexActor` import/hash guard paths, `DataviewService` dead-code field, `AppBootstrap` instant-recall snapshot provider, `NoteWindowManager` live-editor-first helper, `DiffSheetView` rollback original-body read, `ProseEditorView` orphan-repair safety read, and `ProseEditorRepresentable2` interactive transclusion edit callback.
+
+### 25.2 What changed
+
+- `LiveNoteScanner.scanForLiveNotes(modelContainer:)` now uses `scanTasksAsync` and `SDPage.loadBodyAsyncFromPrimitives`; the old sync path remains only for compatibility/tests.
+- `NoteInsightService` now stages Sendable page primitives and reads bodies via the async cascade for reindex and reanalyze work.
+- `NoteBacklinksPanel` carries file path + inline body in backlink candidates and scans through the async cascade.
+- `PinnedInspector` and `NodeInspectorState` keep live editor bodies first, then stage SwiftData metadata and read via the async cascade off the immediate UI turn.
+- Corrected stale documentation/comment drift: the canonical fallback order is managed sidecar -> R.3 gateway -> inline body -> raw vault file.
+- Updated the landing search validation to match the current `LandingWaveOverlay` implementation while preserving the same hit-testing guard assertions.
+
+### 25.3 Verification
+
+- `Epistemos-AppStore` Release build with `CODE_SIGNING_ALLOWED=NO` -> BUILD SUCCEEDED.
+- Focused validation run: `NonAgentPruningValidationTests` + `RuntimeValidationTests` -> 283/283 tests green.
+- Result bundle: `build/xcode-results/2026-04-24-083226-25999.xcresult`.
+
+### 25.4 Release label
+
+- **I-002 / I-003 remain PARTIAL but materially improved**: hot read paths are now on one managed-sidecar-first async cascade; the remaining sync reads are classified holdouts, not missed migration work.
+- This does **not** claim final App Store readiness. Per the release-audit workflow, ship readiness still requires manual runtime checks of the built app surfaces and repeated zero-fail validation beyond this async/read-path pass.

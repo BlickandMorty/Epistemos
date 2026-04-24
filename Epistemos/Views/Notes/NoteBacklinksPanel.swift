@@ -8,6 +8,8 @@ struct NoteBacklinksPopover: View {
     private struct BacklinkItem: Identifiable, Sendable, Equatable {
         let id: String
         let title: String
+        var filePath: String? = nil
+        var inlineBody: String = ""
         var edgeType: String? = nil  // semantic edge type (supports, contradicts, etc.)
         var source: BacklinkSource = .wikilink
 
@@ -115,7 +117,12 @@ struct NoteBacklinksPopover: View {
 
         let candidates = allPages.compactMap { page -> BacklinkItem? in
             guard page.title != titleToFind else { return nil }
-            return BacklinkItem(id: page.id, title: page.title)
+            return BacklinkItem(
+                id: page.id,
+                title: page.title,
+                filePath: page.filePath,
+                inlineBody: page.body
+            )
         }
         var results = await Self.findBacklinks(candidates: candidates, target: target)
         let textBacklinkIds = Set(results.map(\.id))
@@ -144,7 +151,7 @@ struct NoteBacklinksPopover: View {
         candidates: [BacklinkItem],
         target: String
     ) async -> [BacklinkItem] {
-        await Task.detached(priority: .utility) {
+        await Task.detached(priority: .utility) { () async -> [BacklinkItem] in
             var results: [BacklinkItem] = []
             results.reserveCapacity(min(candidates.count, 16))
 
@@ -152,7 +159,13 @@ struct NoteBacklinksPopover: View {
                 if Task.isCancelled {
                     return []
                 }
-                let body = NoteFileStorage.readBody(pageId: candidate.id, mapped: true)
+                let body = await SDPage.loadBodyAsyncFromPrimitives(
+                    pageId: candidate.id,
+                    filePath: candidate.filePath,
+                    inlineBody: candidate.inlineBody,
+                    mapped: true,
+                    fast: true
+                )
                 if body.contains(target) {
                     results.append(candidate)
                 }

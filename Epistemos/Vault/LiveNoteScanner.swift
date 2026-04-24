@@ -85,7 +85,7 @@ final class LiveNoteScanner {
 
     /// Production scan path — performs the full fetch/read/parse pipeline off the main actor.
     func scanForLiveNotes(modelContainer: ModelContainer) async -> [LiveNoteTask] {
-        let result: LiveNoteScanResult = await Task.detached(priority: .utility) { () -> LiveNoteScanResult in
+        let result: LiveNoteScanResult = await Task.detached(priority: .utility) { () async -> LiveNoteScanResult in
             let context = ModelContext(modelContainer)
             context.autosaveEnabled = false
             let descriptor = FetchDescriptor<SDPage>(
@@ -101,7 +101,7 @@ final class LiveNoteScanner {
                 return LiveNoteScanResult(tasks: [], pageCount: 0)
             }
             let candidates = pages.map(Self.snapshot(for:))
-            return Self.scanTasks(from: candidates)
+            return await Self.scanTasksAsync(from: candidates)
         }.value
 
         LiveNoteScannerLog.logger.info(
@@ -142,6 +142,27 @@ final class LiveNoteScanner {
         return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
     }
 
+    private nonisolated static func scanTasksAsync(from candidates: [LiveNotePageSnapshot]) async -> LiveNoteScanResult {
+        var tasks: [LiveNoteTask] = []
+        tasks.reserveCapacity(candidates.count)
+
+        for candidate in candidates {
+            let body = await loadBodyAsync(for: candidate)
+            guard body.contains("live_note: true") || body.contains("live_note:true") else {
+                continue
+            }
+
+            let parsed = parseTaskBlocks(
+                from: body,
+                notePath: notePath(for: candidate),
+                noteId: candidate.id
+            )
+            tasks.append(contentsOf: parsed)
+        }
+
+        return LiveNoteScanResult(tasks: tasks, pageCount: candidates.count)
+    }
+
     private nonisolated static func loadBody(for page: LiveNotePageSnapshot) -> String {
         let diskBody = NoteFileStorage.readBody(pageId: page.id, mapped: true, fast: true)
         if !diskBody.isEmpty || page.hasManagedBody {
@@ -158,6 +179,16 @@ final class LiveNoteScanner {
             }
         }
         return ""
+    }
+
+    private nonisolated static func loadBodyAsync(for page: LiveNotePageSnapshot) async -> String {
+        await SDPage.loadBodyAsyncFromPrimitives(
+            pageId: page.id,
+            filePath: page.filePath,
+            inlineBody: page.inlineBody,
+            mapped: true,
+            fast: true
+        )
     }
 
     private nonisolated static func notePath(for page: LiveNotePageSnapshot) -> String {
