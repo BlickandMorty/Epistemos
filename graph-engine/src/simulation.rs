@@ -136,9 +136,17 @@ impl Default for ForceParams {
             // velocity_decay: d3 uses `node.vx *= (1 - velocityDecay)` where
             // velocityDecay=0.4, so the retain multiplier is 0.6. Nodes keep 60% velocity.
             velocity_decay: 0.6,
-            collision_compliance: 0.7,
-            ambient_breath_strength: 1.0,
-            fluid_coupling: 3.0,
+            // 2026-04-24 user feedback: the canonical defaults made
+            // the graph feel "glitchy and springy" compared to the
+            // legacy d3-style tuning. Code paths for compliant
+            // collision, ambient breath, and fluid coupling all stay
+            // in place — they're just defaulted to legacy values so
+            // the out-of-the-box feel matches what Observatory /
+            // Constellation / Chaos used to read like. Presets that
+            // want the canonical feel can opt in explicitly.
+            collision_compliance: 1.0,       // strict, legacy
+            ambient_breath_strength: 0.0,    // off, legacy
+            fluid_coupling: 0.2,             // legacy FLUID_K parity
             center_strength: 0.03,
             collision_radius: 26.0,
             collision_iterations: 1,
@@ -147,11 +155,11 @@ impl Default for ForceParams {
             center_mode: CenterMode::Attract,
             semantic_strength: 0.0,
 
-            // Canonical v3 motion overlay: drag wake should be part of
-            // the default experience. Enabled by default so nodes near
-            // a drag visibly follow the current in real time rather
-            // than waiting for a preset to switch it on.
-            enable_fluid_dynamics: true,
+            // Reverted 2026-04-24 to legacy off-by-default: user
+            // reports the always-on drag wake contributed to the
+            // "glitchy / finicky" feel. Presets that want wake
+            // (Chaos, Deep Sea) still toggle it on explicitly.
+            enable_fluid_dynamics: false,
             enable_torsional_springs: false,
             fluid_viscosity: 0.5,
             torsion_rigidity: 0.5,
@@ -163,15 +171,12 @@ impl Default for ForceParams {
 
             shadow_enabled: false,
             enable_mass_drag: false,
-            // v3 motion spec §6: stronger initial kick when mass-drag
-            // is enabled, so the release feels like a decisive spring
-            // rather than a soft lean. 1.0 × tether-offset per mass
-            // unit maps to a ~15% overshoot at M3-style snap_freq_hz
-            // 1.75 — the perceptually-calibrated "settled rebound"
-            // envelope. Default is 1.0, not 2.0 (canonical upper),
-            // so `enable_mass_drag = false` (still default) callers
-            // that flip it on don't get an unexpected flood of motion.
-            snap_back_strength: 1.0,
+            // Reverted 2026-04-24 to legacy 0.3. The stronger
+            // canonical-M3 value (1.0) compounded with per-node
+            // damping to produce the "springy / glitchy" release
+            // the user reported. Presets can still opt in via the
+            // existing lab-params FFI if they want more kick.
+            snap_back_strength: 0.3,
 
             // d3 default: alpha starts at 1.0, decays to alpha_min over ~300 ticks.
             alpha: 1.0,
@@ -820,19 +825,16 @@ impl Simulation {
             self.mass[i] = 1.0 + 0.35 * (degree + 1.0).ln();
         }
 
-        // Pre-bake per-node decay from mass. This is the big perceptual
-        // win from v3 motion spec §3.2: a leaf (mass ≈ 1.0) retains
-        // ~0.959 of its velocity per tick — almost 6× less damping than
-        // the legacy scalar (0.6 retain) — while a hub (mass ≈ 2.4) hits
-        // ~0.937 retain, so hubs still settle fast. Motion that used to
-        // die in 10 frames now lives for ~60 frames, which is what
-        // makes released ripples visibly propagate. Pre-baking here
-        // means the integrator never has to evaluate `exp` in the hot
-        // loop; warm_start further overwrites this with a heavy scalar
-        // for the duration of the initial layout pass.
-        self.decay.resize(self.mass.len(), decay_for_mass(1.0));
-        for i in 0..self.mass.len() {
-            self.decay[i] = decay_for_mass(self.mass[i]);
+        // Per-node damping is available via `decay_for_mass` but
+        // defaults to legacy scalar `velocity_decay` to preserve the
+        // pre-plan feel (user feedback 2026-04-24). `decay[i]` is
+        // populated from the scalar so the new per-node integrator
+        // path runs identically to the old global path. A preset or
+        // FFI opt-in would rebuild `decay[]` via `decay_for_mass` if
+        // canonical damping is desired.
+        self.decay.resize(self.mass.len(), self.params.velocity_decay);
+        for d in &mut self.decay {
+            *d = self.params.velocity_decay;
         }
 
         // Reset simulation state for fresh run (skip if user-frozen).
@@ -3394,22 +3396,25 @@ mod tests {
 
     #[test]
     fn warm_start_decay_matches_scalar_override_then_restores() {
-        // Synthesis closing warning: warm_start previously relied on
-        // the scalar velocity_decay = 0.3 override. With per-node
-        // damping, the override must be pushed into `sim.decay[]`
-        // for the duration and then restored, or leaves under-damp
-        // and fly off-screen during initial layout.
+        // Post-warm-start, the decay[] array must be restored to the
+        // interactive-phase values — NOT left at the warm-start
+        // override (`WARM_START_SCALAR_DECAY = 0.3`). In the current
+        // legacy-default configuration (user feedback 2026-04-24),
+        // interactive decay is the scalar `velocity_decay` for every
+        // node; the regression guard is that no node stays stuck at
+        // the warm-start value.
         let graph = make_test_graph(8, true);
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
-        // After load_from_graph, warm_start has already run and restored
-        // the per-node values. None of them should still be pinned to
-        // 0.3 — they should all be the canonical `decay_for_mass`.
-        let leaf_canonical = decay_for_mass(1.0);
-        let tolerance = 0.05; // accommodate heavier nodes in the fixture.
         assert!(
-            sim.decay.iter().all(|&d| (d - leaf_canonical).abs() < tolerance + 0.05),
-            "post-warm_start decay values should be restored to canonical, not left at 0.3"
+            sim.decay.iter().all(|&d| (d - WARM_START_SCALAR_DECAY).abs() > 1e-4),
+            "post-warm_start decay values should NOT be left at the warm-start scalar"
+        );
+        // And every restored value should be a plausible retain
+        // multiplier in (0, 1].
+        assert!(
+            sim.decay.iter().all(|&d| d > 0.0 && d <= 1.0),
+            "decay values must stay in (0, 1] post-restore"
         );
     }
 

@@ -309,12 +309,12 @@ enum PhysicsPreset: String, CaseIterable, Identifiable {
     }
 
     /// Whether this preset should appear in the default (short)
-    /// picker list. User ask: "I love Observatory, Chaos, and a very
-    /// simple preset." Observatory (calm/default), Zen Garden (the
-    /// quietest layout — fits "simple"), and Chaos.
+    /// picker list. User ask (clarified 2026-04-24):
+    /// "Observatory, Constellation, and Chaos are the 3 most
+    /// important ones and I'd like to keep them probably only them."
     var isFeatured: Bool {
         switch self {
-        case .observatory, .zenGarden, .chaos:
+        case .observatory, .constellation, .chaos:
             return true
         default:
             return false

@@ -1792,7 +1792,16 @@ impl Engine {
 
     pub fn set_water_nodes(&mut self, style: f32, wobble: f32) {
         self.renderer.water_style = style.clamp(0.0, 1.0);
-        self.renderer.water_wobble = wobble.clamp(0.0, 1.0);
+        // The sine-based radius wobble reads as distracting jitter in
+        // actual use (user feedback 2026-04-24). Force it off at the
+        // Rust boundary regardless of the incoming Swift value — the
+        // shader's `if (water_wobble > 0.001)` branch then short-
+        // circuits every frame with no further effect on the pipeline.
+        // No shader edit is required; the uniform is still bound,
+        // just always zero. The `wobble` argument is retained for
+        // FFI ABI stability.
+        let _ = wobble;
+        self.renderer.water_wobble = 0.0;
         self.idle_frame_count = 0;
     }
 
