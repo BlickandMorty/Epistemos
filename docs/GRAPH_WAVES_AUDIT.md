@@ -122,16 +122,21 @@ Per the synthesis's 10-commit sequence, with my checkbox of what's landed:
 |---|---|---|
 | 1 | Edge trim + draw order | ✅ `4b155757` |
 | 2 | Release velocity inheritance | ✅ `7ffd14c1` (+ `d7f4be40` per-tick scale) |
-| 3 | **Semi-implicit Euler + per-node mass/damping** | ⏭️ next after this audit |
-| 4 | Snap-back spring M3 tuning | ⏳ deferred until integrator lands |
+| 3 | Semi-implicit Euler + per-node mass/damping + compliant collision | ✅ `332d2bbf` |
+| 4 | Snap-back spring M3 tuning (freq 1.75, damping 0.55) | ✅ `6b048238` |
 | 5 | WaveEvent ring | ✅ `93acfcd3` |
-| 6 | DragTracker 40ms wake cadence | ⏳ |
-| 7 | Curl-noise ambient | ⏳ |
-| 8 | FluidGrid coupling boost + Stokes | ⏳ |
-| 9 | **Settings reorganize (rename, not delete)** | ⏭️ after #3 — user asked for it explicitly |
-| 10 | Minimal Grand shader + palette | ⏳ |
+| 6 | 40ms wake cadence during fast drag | ✅ `e62ac243` |
+| 7 | Curl-noise ambient breathing | ✅ `9816f6c2` |
+| 8 | FluidGrid coupling boost + Stokes scaling | ✅ `ffec5312` |
+| 9 | Preset motion-category metadata (keep, don't collapse) | ✅ `b6a14300` |
+| 10 | Minimal-grand palette (additive, renderer integration pending) | ⚡ `NEXT` |
 
-**Priority**: audit commit first (this doc + fixes), then Commit 3 (per-node mass/damping — highest perceptual impact left), then Commit 9 (settings reorganize — user-facing).
+**Status**: 9 of 10 canonical commits shipped as of 2026-04-24.
+Commit 10's data layer (minimal-grand palette on `NodeType::color_minimal_grand`)
+is in place additively; the shader-side integration that actually
+flips the graph to the restrained 2.25D-disc aesthetic is a
+dedicated renderer session — too invasive to bundle into this
+motion sweep without Metal regression risk.
 
 ---
 

@@ -69,6 +69,41 @@ impl NodeType {
         }
     }
 
+    /// Minimal-grand palette per v3 motion spec §7 — "mostly
+    /// monochrome, semantic colour on focus." Collapses the 14-colour
+    /// node taxonomy into three semantic accents (Folder = warm
+    /// stone, Note = deep teal, Chat = indigo-violet) plus neutrals
+    /// for everything else. Returns linear-space RGBA; `is_dark`
+    /// selects between lifted (dark mode) and ink (light mode) tones.
+    ///
+    /// The renderer opts into this palette via a theme switch on the
+    /// Swift side — it does NOT replace the standard `color()` /
+    /// `color_light()` so callers that need full semantic
+    /// differentiation still have it. Intended default once a later
+    /// renderer commit wires the toggle through to the fragment
+    /// shader.
+    pub fn color_minimal_grand(&self, is_dark: bool) -> [f32; 4] {
+        if is_dark {
+            // Dark-mode lifted tones — brighter to stay visible
+            // against near-black background (#111214).
+            match self {
+                Self::Folder => [0.48, 0.42, 0.34, 1.0],  // warm stone
+                Self::Note   => [0.06, 0.56, 0.52, 1.0],  // deep teal, lifted
+                Self::Chat   => [0.43, 0.47, 0.91, 1.0],  // indigo-violet
+                _            => [0.62, 0.64, 0.66, 1.0],  // neutral graphite
+            }
+        } else {
+            // Light-mode ink tones — deeper to stay visible against
+            // off-white background (#F7F6F3).
+            match self {
+                Self::Folder => [0.23, 0.19, 0.16, 1.0],  // warm stone
+                Self::Note   => [0.08, 0.24, 0.22, 1.0],  // deep teal, ink
+                Self::Chat   => [0.15, 0.16, 0.34, 1.0],  // indigo-violet
+                _            => [0.18, 0.18, 0.20, 1.0],  // neutral ink
+            }
+        }
+    }
+
     /// RGBA color for this node type (light mode — strong contrast on light background).
     /// Values are in LINEAR space (pow 2.2 of authored sRGB values — deeper/darker
     /// than pow 1.8 to stay visible when dimmed against the white background).
