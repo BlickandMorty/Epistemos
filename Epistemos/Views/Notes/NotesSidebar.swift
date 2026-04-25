@@ -968,6 +968,9 @@ struct NotesSidebar: View {
                 Text("No results")
                     .font(.epCaption)
                     .foregroundStyle(theme.mutedForeground)
+                Text("Try fewer keywords.")
+                    .font(.epSmall)
+                    .foregroundStyle(theme.textTertiary)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 40)
@@ -2515,6 +2518,9 @@ private struct EmptyTreeState: View {
             }
             .font(.epCaption).fontWeight(.medium)
             .foregroundStyle(theme.resolved.accent.color)
+            Text("Press ⌘N to create your first note.")
+                .font(.epSmall)
+                .foregroundStyle(theme.textTertiary)
         }
         .frame(maxWidth: .infinity)
         .padding(.top, 40)
