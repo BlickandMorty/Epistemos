@@ -795,6 +795,11 @@ final class AppBootstrap {
     /// Hidden behind `EPISTEMOS_RAW_THOUGHTS_V0` env flag; UI hides itself
     /// when `state.isEnabled == false`.
     let rawThoughtsState = RawThoughtsState()
+    /// Patch 7 / AMBIENT_RECALL_WIRING_PLAN.md §5 — Contextual Shadows V0
+    /// state container (recall hits + panel visibility). Hidden behind
+    /// `EPISTEMOS_AMBIENT_RECALL_V0` env flag; UI hides itself when
+    /// `state.isEnabled == false`.
+    let contextualShadowsState = ContextualShadowsState()
     let agentAuthorityStore = AgentAuthorityStore(
         persistence: FileBackedAgentAuthorityPersistence()
     )

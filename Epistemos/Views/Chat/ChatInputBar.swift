@@ -72,6 +72,7 @@ struct ChatInputBar: View {
     @Environment(ChatState.self) private var chat
     @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
+    @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -79,6 +80,11 @@ struct ChatInputBar: View {
     @State private var isFocused = false
     @State private var composerHeight = ChatComposerInputMetrics.minHeight
     @State private var lastConsumedDraftRevision: UInt = 0
+
+    // Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — chat-side recall debounce.
+    // Held inside a small reference box because @State on Task<Void, Never>
+    // would force re-renders on every reassignment.
+    @State private var recallDebounceBox = ChatRecallDebounceBox()
 
     // Notes Mode @-mention dropdown
     @State private var showMentionDropdown = false
@@ -578,6 +584,7 @@ struct ChatInputBar: View {
                 composerTextArea
                     .onChange(of: text) { _, newValue in
                         refreshSlashMenu(for: newValue)
+                        scheduleContextualShadowsRecall(for: newValue)
                     }
                     .popover(isPresented: $showSlashMenu, arrowEdge: .top) {
                         SlashCommandPopover(
@@ -1093,6 +1100,32 @@ struct ChatInputBar: View {
         )
     }
 
+    // MARK: - Contextual Shadows Recall (200ms debounce)
+    // Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — schedule an off-MainActor
+    // recall query 200ms after the last keystroke in the chat composer.
+    // The actual encoder + HNSW search runs inside
+    // `ContextualShadowsState.requestRecall`, which dispatches to
+    // `Task.detached(priority: .utility)`. This hop only applies the 200ms
+    // debounce and captures the snapshot. No-op when the V0 flag is OFF.
+    private func scheduleContextualShadowsRecall(for snapshotText: String) {
+        recallDebounceBox.task?.cancel()
+        guard contextualShadows.isEnabled else { return }
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let instantRecall = bootstrap.instantRecallService
+        let originId = chat.activeChatId.flatMap(UUID.init(uuidString:)) ?? UUID()
+        let state = contextualShadows
+        recallDebounceBox.task = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !Task.isCancelled else { return }
+            let snapshot = RecallContextSnapshot(
+                text: snapshotText,
+                kind: .chat,
+                originId: originId
+            )
+            state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+        }
+    }
+
     private func recentChats() -> [SDChat] {
         var descriptor = SDChat.recentChatsDescriptor
         descriptor.fetchLimit = 20
@@ -1105,6 +1138,16 @@ struct ChatInputBar: View {
             return []
         }
     }
+}
+
+// Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — small reference box that holds
+// the in-flight recall debounce task. Lives as `@State` on the ChatInputBar
+// struct so SwiftUI never tries to diff the Task value on each re-render.
+// Read/write only happens from the @MainActor-isolated composer hook.
+@MainActor
+final class ChatRecallDebounceBox {
+    var task: Task<Void, Never>?
+    init() {}
 }
 
 enum ChatComposerReturnBehavior: Equatable {

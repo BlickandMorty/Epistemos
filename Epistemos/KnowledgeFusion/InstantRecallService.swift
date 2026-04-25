@@ -293,6 +293,62 @@ final class InstantRecallService {
         finishRebuild(summary, candidateCount: notes.count)
     }
 
+    // MARK: - Async search (Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5)
+    // Off-MainActor wrapper around the existing FFI search. The Contextual
+    // Shadows V0 path uses this so the encoder + HNSW query never touches the
+    // @MainActor boundary; only the `currentResults` mutation in the caller's
+    // `await MainActor.run { ... }` block stays on main.
+    //
+    // We do NOT mutate any of the @MainActor metrics fields here — the
+    // ambient hot path runs many times per session and bumping
+    // `searchCount` / `lastSearchLatencyMs` from a detached task would
+    // require either a hop back to main per call (expensive) or unsafe
+    // cross-actor writes. Metrics belong to the explicit `search(...)` path.
+    func searchAsync(query: String, topK: Int = 5) async -> [InstantRecallResult] {
+        ensureInitialized()
+        guard isReady else { return [] }
+        let normalizedQueryText = normalizedQuery(query)
+        guard !normalizedQueryText.isEmpty, topK > 0 else { return [] }
+
+        let handle = self.handle
+        return await Task.detached(priority: .utility) {
+            Self.runSearch(handle: handle, query: normalizedQueryText, topK: topK)
+        }.value
+    }
+
+    nonisolated private static let asyncLog = Logger(subsystem: "com.epistemos.app", category: "InstantRecall")
+
+    private nonisolated static func runSearch(
+        handle: String,
+        query: String,
+        topK: Int
+    ) -> [InstantRecallResult] {
+        let json = instantRecallSearch(handle: handle, queryText: query, topK: UInt32(topK))
+        guard let data = json.data(using: .utf8) else {
+            asyncLog.error("InstantRecall: searchAsync returned non-UTF8 JSON payload")
+            return []
+        }
+        let array: [[String: Any]]
+        do {
+            guard let parsed = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                asyncLog.error("InstantRecall: searchAsync returned unexpected JSON shape")
+                return []
+            }
+            array = parsed
+        } catch {
+            asyncLog.error(
+                "InstantRecall: failed to decode searchAsync payload: \(error.localizedDescription, privacy: .public)"
+            )
+            return []
+        }
+        return array.compactMap { dict -> InstantRecallResult? in
+            guard let docId = dict["doc_id"] as? String,
+                  let text = dict["text"] as? String,
+                  let score = dict["score"] as? Double else { return nil }
+            return InstantRecallResult(id: docId, text: text, score: score)
+        }
+    }
+
     /// Clear the entire index.
     func clearIndex() {
         ensureInitialized()
