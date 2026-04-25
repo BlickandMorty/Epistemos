@@ -219,4 +219,67 @@ struct AppStoreHardeningTests {
             #expect(plist[key] != nil, message)
         }
     }
+
+    // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)
+    //
+    // For files that MUST stay compiled into the MAS binary (i.e. the
+    // ones that cannot be whole-file gated because they expose live
+    // production API used by MAS-reachable callers), assert that the
+    // MAS-visible portion does NOT contain `Process.init(`. The Pro
+    // (non-MAS) branch is allowed to keep the subprocess fallback.
+
+    /// Strip lines inside `#if !EPISTEMOS_APP_STORE ... #endif` blocks
+    /// so the result reflects what the MAS compiler would see for the
+    /// current branch. Handles nested non-MAS-related `#if` directives
+    /// by tracking generic `#if` depth and only acting on the
+    /// `!EPISTEMOS_APP_STORE` ones. Does not interpret `#else` against
+    /// `#if EPISTEMOS_APP_STORE` (callers that need that pattern should
+    /// add it; AudioTranscriber today uses the simpler form).
+    private func masVisibleSource(_ source: String) -> String {
+        var kept: [String] = []
+        var excludeDepth = 0
+        for line in source.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
+                excludeDepth += 1
+                continue
+            }
+            if excludeDepth > 0 {
+                if trimmed.hasPrefix("#endif") {
+                    excludeDepth -= 1
+                }
+                continue
+            }
+            kept.append(line)
+        }
+        return kept.joined(separator: "\n")
+    }
+
+    @Test("AudioTranscriber MAS branch contains no Process.init subprocess launch")
+    func audioTranscriberMASBranchHasNoProcessInit() throws {
+        let url = Self.projectRoot
+            .appendingPathComponent("Epistemos")
+            .appendingPathComponent("KnowledgeFusion")
+            .appendingPathComponent("DataIngestion")
+            .appendingPathComponent("AudioTranscriber.swift")
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        // Sanity: the Pro branch must still keep the subprocess fallback.
+        // Removing all subprocess code from the file entirely is NOT the
+        // goal -- direct/Pro releases need MLX Whisper and whisper.cpp.
+        let proSanity: Comment = "AudioTranscriber.swift no longer contains any Process.init -- the Pro/direct release relies on the mlx-whisper / whisper.cpp fallbacks. If this is intentional, update or remove this test."
+        #expect(source.contains("Process.init("), proSanity)
+
+        // The actual regression: MAS-visible source must be subprocess-free.
+        let masView = masVisibleSource(source)
+        let masMessage: Comment = "AudioTranscriber.swift's MAS branch contains Process.init(. Either a new subprocess call landed outside `#if !EPISTEMOS_APP_STORE`, or an existing gate was removed. The MAS binary must keep Apple Speech only -- no Python, no whisper.cpp."
+        #expect(!masView.contains("Process.init("), masMessage)
+
+        // Also assert the gate marker is still there. If somebody removes
+        // the `#if !EPISTEMOS_APP_STORE` gates entirely, masView would
+        // equal source and the previous expect would catch it -- but a
+        // direct check makes the failure mode obvious.
+        let gateMessage: Comment = "AudioTranscriber.swift no longer contains `#if !EPISTEMOS_APP_STORE`. The Phase S.2 surgical gating was removed; restore it."
+        #expect(source.contains("#if !EPISTEMOS_APP_STORE"), gateMessage)
+    }
 }

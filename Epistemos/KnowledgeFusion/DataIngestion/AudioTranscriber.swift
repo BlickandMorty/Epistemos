@@ -31,15 +31,26 @@ actor AudioTranscriber {
 
     enum TranscriberBackend: Sendable {
         case appleSpeech
+        #if !EPISTEMOS_APP_STORE
         case mlxWhisper
         case whisperCpp
+        #endif
         case unavailable
     }
 
+    #if !EPISTEMOS_APP_STORE
     private let pythonPath: String
+    #endif
 
     init(pythonPath: String = "/usr/bin/python3") {
+        #if !EPISTEMOS_APP_STORE
         self.pythonPath = pythonPath
+        #else
+        // App Store build does not compile the mlx-whisper / whisper.cpp
+        // subprocess fallbacks, so the path is unused. Discard the
+        // parameter so the call-site API stays identical.
+        _ = pythonPath
+        #endif
     }
 
     // MARK: - Public
@@ -54,12 +65,14 @@ actor AudioTranscriber {
         switch backend {
         case .appleSpeech:
             return try await runAppleSpeech(audioURL: audioURL)
+        #if !EPISTEMOS_APP_STORE
         case .mlxWhisper:
             let jsonOutput = try await runMLXWhisper(audioURL: audioURL)
             return try parseWhisperOutput(jsonData: jsonOutput, sourceURL: audioURL)
         case .whisperCpp:
             let jsonOutput = try await runWhisperCpp(audioURL: audioURL)
             return try parseWhisperOutput(jsonData: jsonOutput, sourceURL: audioURL)
+        #endif
         case .unavailable:
             throw AudioTranscriberError.noBackendAvailable
         }
@@ -74,6 +87,7 @@ actor AudioTranscriber {
             return .appleSpeech
         }
 
+        #if !EPISTEMOS_APP_STORE
         // Check mlx-whisper via Python import
         if let _ = try? await runProcess(
             executable: pythonPath,
@@ -89,6 +103,7 @@ actor AudioTranscriber {
         ) {
             return .whisperCpp
         }
+        #endif
 
         return .unavailable
     }
@@ -172,7 +187,8 @@ actor AudioTranscriber {
         }
     }
 
-    // MARK: - MLX Whisper
+    #if !EPISTEMOS_APP_STORE
+    // MARK: - MLX Whisper (Pro / direct release only -- spawns Python)
 
     private func runMLXWhisper(audioURL: URL) async throws -> Data {
         let script = """
@@ -341,6 +357,7 @@ actor AudioTranscriber {
             state.resume(throwing: CancellationError())
         }
     }
+    #endif // !EPISTEMOS_APP_STORE -- end of MLX Whisper / whisper.cpp / runProcess block
 }
 
 enum AudioTranscriberError: Error, LocalizedError {
@@ -351,7 +368,11 @@ enum AudioTranscriberError: Error, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noBackendAvailable:
+            #if EPISTEMOS_APP_STORE
+            return "Apple Speech is unavailable or not authorized. Audio transcription is unavailable."
+            #else
             return "Apple Speech is unavailable or not authorized, and no mlx-whisper or whisper.cpp fallback was found. Audio transcription is unavailable."
+            #endif
         case .invalidOutput:
             return "Failed to parse whisper output as JSON."
         case .processFailed(let msg):
