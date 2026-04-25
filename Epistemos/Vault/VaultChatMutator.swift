@@ -436,11 +436,25 @@ private actor VaultMutationIO {
         )
         try VaultVerifiedFileWriter.writeUTF8(diff.after, to: diff.fileURL)
 
+        #if !EPISTEMOS_APP_STORE
         try await ensureGitRepository(at: diff.repositoryRootURL)
         _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "add", diff.relativePath], in: diff.repositoryRootURL)
         _ = try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "commit", "-m", diff.commitMessage], in: diff.repositoryRootURL)
         return try await runGitOffMain(arguments: ["-C", diff.repositoryRootURL.path, "rev-parse", "HEAD"], in: diff.repositoryRootURL)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/git. The verified
+        // file write above is the durable user-facing effect of approving
+        // the staged mutation -- VaultVerifiedFileWriter has already
+        // landed the new bytes on disk and validated the readback. The
+        // git audit-log layer is a Pro/direct extra; in MAS we skip it
+        // honestly and return a placeholder reference so callers
+        // (`VaultChatMutator.approvePendingDiff` -> stored in
+        // `lastCommitReference`) record the approval without faking a
+        // git SHA. Existing call sites discard the reference (see
+        // `EpistemosApp.swift` -> `_ = try await ... approvePendingDiff()`).
+        return "mas-skipped-\(UUID().uuidString)"
+        #endif
     }
 
     private func proposeMutation(
@@ -639,6 +653,7 @@ private actor VaultMutationIO {
     }
 
     private nonisolated func runGitOffMain(arguments: [String], in currentDirectoryURL: URL) async throws -> String {
+        #if !EPISTEMOS_APP_STORE
         let timeoutSeconds = 15.0
         let state = ThrowingProcessContinuationState<String>()
         return try await withTaskCancellationHandler {
@@ -702,6 +717,18 @@ private actor VaultMutationIO {
             state.terminate()
             state.resume(throwing: CancellationError())
         }
+        #else
+        // Defense-in-depth. The MAS branch of `commit(diff:)` skips
+        // the git layer entirely and returns a placeholder reference,
+        // so this helper is never called in MAS production. Throwing
+        // here protects against a future caller that wires up a path
+        // bypassing the early skip.
+        _ = arguments
+        _ = currentDirectoryURL
+        throw VaultChatMutatorError.gitCommandFailed(
+            "git is not available in the App Store sandbox build; staged vault mutations are committed file-only without a git audit trail."
+        )
+        #endif
     }
 }
 
