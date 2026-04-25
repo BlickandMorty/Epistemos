@@ -1,0 +1,60 @@
+# Epistemos Performance Budgets
+#
+# Canonical performance budget surface per
+# `docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md` Wave 2.5
+# Cross-ref: dpp §1.1 Task 0.5 (deterministic perf plan, Sprint 0)
+#
+# Edit policy: numbers in this file are CONTRACTS. Tightening a budget
+# (lower number) is always allowed. LOOSENING a budget (higher number)
+# requires a commit that explains why with a `# loosened YYYY-MM-DD: <reason>`
+# trailer on the offending line.
+#
+# Parser: scripts/check-perf-budgets.sh (no TOML dependencies; uses awk/grep).
+# CI gate: invoked from .github/workflows/ci.yml after the Patch 9 bundle step.
+#
+# Source-guard test: EpistemosTests/PerfBudgetsTests.swift asserts every
+# canonical key documented here is present at the expected location.
+
+[binary]
+# Per-dylib release-build ceiling (post fat-LTO + strip = "symbols").
+# These gate REGRESSION — measured against the aarch64 release artifact.
+# Current measurements (2026-04-25): listed in trailing comments.
+#
+# Why per-dylib instead of one combined number: a regression in agent_core
+# (HTTP / inference / tools) should not be masked by a savings in omega-ax,
+# and vice versa. Each dylib is an independent compilation unit shipped
+# separately into Pro and (where applicable) MAS variants.
+libagent_core_mb_max     = 16   # actual 14.3
+libepistemos_core_mb_max = 6    # actual 3.8
+libomega_mcp_mb_max      = 4    # actual 2.3
+libomega_ax_mb_max       = 1    # actual 0.4
+
+# substrate-rt is the dpp-Sprint-4 carve-out (Wave 5). Until that crate
+# ships, this budget exists as a TARGET only — the parser must not fail
+# when the dylib is absent. dpp §1.1 Task 0.5 canonical value: 12 MB.
+libsubstrate_rt_mb_max   = 12
+
+[appstore]
+# Patch 9 already gates this in CI via env EPISTEMOS_APPSTORE_BUNDLE_SIZE_LIMIT_MB.
+# Recorded here so the budget surface is one document, not split across CI yaml.
+# Includes MLX models + bundled frameworks; NOT comparable to [binary] entries.
+appstore_bundle_mb_max = 600
+
+[runtime]
+# Aspirational targets per dpp §1.1 Task 0.5. These gate REPORTED metrics
+# from `bench/morning-session.swift` (Wave 2.6, not yet shipped). Until that
+# bench produces a JSON results file the CI parser MUST NOT fail on these
+# — it reports them as "no measurement yet" and continues.
+#
+# Once the bench is wired, the parser fails the build if any p99 exceeds
+# its budget. Cross-reference: dpp §1.1 Task 0.5 verbatim values.
+cold_start_ms_p99    = 800
+frame_ms_p99         = 8.3
+mcp_invoke_ms_p99    = 2.0
+ffi_hot_path_us_p99  = 5.0
+
+[meta]
+# Where the parser looks for runtime measurement output. Wave 2.6 will
+# write this file from the morning-session benchmark; until it exists
+# the runtime budgets are reported but not enforced.
+runtime_results_path = "build/perf-budgets-runtime.json"
