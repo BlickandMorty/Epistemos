@@ -133,6 +133,7 @@ struct ChatView: View {
     @Environment(PipelineState.self) private var pipeline
     @Environment(InferenceState.self) private var inference
     @Environment(OrchestratorState.self) private var orchestrator
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(MainChatOperatingModePreference.defaultsKey)
     private var mainChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var autoFollow = ChatScrollFollowPolicy.defaultAutoFollowState
@@ -279,7 +280,7 @@ struct ChatView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(oledAwareBackground.ignoresSafeArea())
-        .animation(.spring(response: 0.32, dampingFraction: 0.9), value: showBrainPanel)
+        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.9), value: showBrainPanel)
         .onAppear {
             sanitizeStoredOperatingMode()
             syncContextWindowMetrics()
@@ -356,7 +357,7 @@ struct ChatView: View {
 
     private var brainToolbarButton: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                 showBrainPanel.toggle()
             }
         } label: {
@@ -784,6 +785,7 @@ private struct BrainPanelSection<Content: View>: View {
     let theme: EpistemosTheme
     @ViewBuilder let content: () -> Content
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded: Bool?
 
     private var expanded: Bool {
@@ -793,7 +795,7 @@ private struct BrainPanelSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     isExpanded = !expanded
                 }
             } label: {

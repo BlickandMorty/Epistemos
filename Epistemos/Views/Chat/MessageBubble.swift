@@ -103,6 +103,7 @@ struct MessageBubble: View {
     let onResubmit: (String) -> Void
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var copied = false
     @State private var isHovered = false
     @State private var rating: MessageRating? = nil
@@ -333,7 +334,7 @@ struct MessageBubble: View {
                     rating: $rating
                 )
                 .opacity(isHovered ? 1 : 0)
-                .animation(Motion.quick, value: isHovered)
+                .animation(reduceMotion ? nil : Motion.quick, value: isHovered)
             }
         }
         .contentShape(Rectangle())
@@ -617,6 +618,7 @@ struct ToolExecutionPreviewList: View {
 
 private struct ToolExecutionPreviewCard: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let preview: ToolExecutionPreview
     let isStreaming: Bool
@@ -707,7 +709,7 @@ private struct ToolExecutionPreviewCard: View {
                 tone: detailTone,
                 isExpanded: isExpanded,
                 action: {
-                    withAnimation(.snappy(duration: 0.18)) {
+                    withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) {
                         isExpanded.toggle()
                         userManuallyToggled = true
                     }

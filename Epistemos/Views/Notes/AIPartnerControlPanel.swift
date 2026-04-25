@@ -220,7 +220,8 @@ struct AIPartnerControlPanel: View {
     @Binding var configuration: AIPartnerConfiguration
     let onApply: () -> Void
     let onReset: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedPreset: PresetOption = .balanced
     @State private var showAdvanced = false
     
@@ -317,7 +318,7 @@ struct AIPartnerControlPanel: View {
             Spacer()
             
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     showAdvanced.toggle()
                 }
             } label: {

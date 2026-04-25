@@ -186,6 +186,7 @@ struct SuggestionPopoverContent: View {
     let onDismiss: () -> Void
     let onExplain: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showDetails = false
 
     var body: some View {
@@ -267,7 +268,7 @@ struct SuggestionPopoverContent: View {
                 Spacer()
 
                 Button {
-                    withAnimation { showDetails.toggle() }
+                    withAnimation(reduceMotion ? nil : .default) { showDetails.toggle() }
                 } label: {
                     Image(systemName: showDetails ? "chevron.up" : "chevron.down")
                         .font(.system(size: 9))
@@ -298,7 +299,8 @@ struct InlineSuggestionOverlay: View {
     let onAccept: () -> Void
     let onDismiss: () -> Void
     let onViewAlternatives: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
     @State private var showDetails = false
     
@@ -324,7 +326,7 @@ struct InlineSuggestionOverlay: View {
         )
         .shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                 isHovered = hovering
             }
         }
@@ -431,7 +433,7 @@ struct InlineSuggestionOverlay: View {
             
             // Show details toggle
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                     showDetails.toggle()
                 }
             } label: {
@@ -529,7 +531,8 @@ struct RetroAIResponseBox: View {
     let content: String
     let actions: [AIResponseAction]
     let onDismiss: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
     @State private var showTypingEffect = false
     
@@ -573,7 +576,7 @@ struct RetroAIResponseBox: View {
         )
         .shadow(color: .purple.opacity(0.1), radius: 20, x: 0, y: 8)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.3).delay(0.1)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3).delay(0.1)) {
                 showTypingEffect = true
             }
         }

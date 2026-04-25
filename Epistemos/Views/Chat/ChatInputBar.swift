@@ -73,6 +73,7 @@ struct ChatInputBar: View {
     @Environment(InferenceState.self) private var inference
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var text = ""
     @State private var isFocused = false
@@ -543,7 +544,7 @@ struct ChatInputBar: View {
             }
             .frame(height: (chat.pendingAttachments.isEmpty && chat.pendingContextAttachments.isEmpty) ? 0 : nil)
             .clipped()
-            .animation(Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
+            .animation(reduceMotion ? nil : Motion.quick, value: chat.pendingAttachments.count + chat.pendingContextAttachments.count)
 
             // Image attachment warning for text-only models
             if chat.pendingAttachments.contains(where: { $0.type == .image }),

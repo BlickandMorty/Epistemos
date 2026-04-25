@@ -551,6 +551,7 @@ struct NoteDetailWorkspaceView: View {
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var pages: [SDPage]
     @State private var showDiffSheet = false
     @State private var showInfoPopover = false
@@ -1607,10 +1608,12 @@ struct NoteDetailWorkspaceView: View {
             modeSwap()
             let safeHoldTime = holdTime.isFinite ? max(0, holdTime) : 0
             try? await Task.sleep(for: .milliseconds(Int(safeHoldTime * 1000)))
-            withAnimation(.easeOut(duration: 0.35)) {
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.35)) {
                 transitionOpacity = 0
             }
-            try? await Task.sleep(for: .milliseconds(350))
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(350))
+            }
             isTransitioning = false
         }
     }

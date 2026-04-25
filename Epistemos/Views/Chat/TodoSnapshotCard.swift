@@ -11,6 +11,7 @@ import SwiftUI
 /// folded so the progress stays glanceable.
 struct TodoSnapshotCard: View {
     let snapshot: TodoSnapshot
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = true
 
     var body: some View {
@@ -32,7 +33,7 @@ struct TodoSnapshotCard: View {
 
     private var header: some View {
         Button {
-            withAnimation(.snappy(duration: 0.18)) {
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.18)) {
                 isExpanded.toggle()
             }
         } label: {

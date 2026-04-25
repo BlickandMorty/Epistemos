@@ -6,6 +6,7 @@ import SwiftUI
 struct NoteChatSidebar: View {
     @Environment(NoteChatState.self) private var noteChat
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var autoFollow = ScrollAutoFollowState(
         attachThreshold: 24,
         detachThreshold: 72
@@ -52,7 +53,7 @@ struct NoteChatSidebar: View {
                 guard autoFollow.isFollowingBottom else { return }
                 if let last = noteChat.messages.last {
                     autoFollow.markProgrammaticScrollToBottom()
-                    withAnimation(.easeOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
                 }

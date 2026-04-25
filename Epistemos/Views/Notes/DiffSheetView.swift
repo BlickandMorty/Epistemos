@@ -18,6 +18,7 @@ struct DiffSheetView: View {
     @Environment(UIState.self) private var ui
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var liveBody: String
     @State private var versions: [SDPageVersion] = []
@@ -425,10 +426,10 @@ struct DiffSheetView: View {
         NoteFileStorage.notifyBodyChanged(pageId: pageId)
 
         // Show confirmation toast
-        withAnimation(Self.noticeAnimation) { restoredNotice = true }
+        withAnimation(reduceMotion ? nil : Self.noticeAnimation) { restoredNotice = true }
         Task {
             try? await Task.sleep(for: .seconds(3))
-            withAnimation(Self.noticeAnimation) { restoredNotice = false }
+            withAnimation(reduceMotion ? nil : Self.noticeAnimation) { restoredNotice = false }
         }
     }
 
@@ -629,6 +630,8 @@ private struct UnifiedDiffBody: View {
     @Binding var scrollTarget: Int?
     let theme: EpistemosTheme
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.vertical, showsIndicators: true) {
@@ -648,7 +651,7 @@ private struct UnifiedDiffBody: View {
                                 }
                             } else {
                                 CollapsedSectionRow(count: items.count, theme: theme) {
-                                    let _ = withAnimation(DiffSheetView.expandAnimation) {
+                                    let _ = withAnimation(reduceMotion ? nil : DiffSheetView.expandAnimation) {
                                         expandedSections.insert(section.id)
                                     }
                                 }
@@ -660,7 +663,7 @@ private struct UnifiedDiffBody: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 if let target {
-                    withAnimation(DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
+                    withAnimation(reduceMotion ? nil : DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
                     scrollTarget = nil
                 }
             }
@@ -759,6 +762,8 @@ private struct SplitDiffBody: View {
     @Binding var scrollTarget: Int?
     let theme: EpistemosTheme
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         HStack(spacing: 0) {
             sideView(side: .old)
@@ -786,7 +791,7 @@ private struct SplitDiffBody: View {
                                 }
                             } else {
                                 CollapsedSectionRow(count: items.count, theme: theme) {
-                                    let _ = withAnimation(DiffSheetView.expandAnimation) {
+                                    let _ = withAnimation(reduceMotion ? nil : DiffSheetView.expandAnimation) {
                                         expandedSections.insert(section.id)
                                     }
                                 }
@@ -798,7 +803,7 @@ private struct SplitDiffBody: View {
             }
             .onChange(of: scrollTarget) { _, target in
                 if let target {
-                    withAnimation(DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
+                    withAnimation(reduceMotion ? nil : DiffSheetView.scrollAnimation) { proxy.scrollTo(target, anchor: .center) }
                     // Only nil out from one side to avoid double-clearing
                     if side == .old { scrollTarget = nil }
                 }

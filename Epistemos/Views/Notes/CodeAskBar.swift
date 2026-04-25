@@ -280,18 +280,22 @@ final class CodeAskBarService {
             relatedCodeRanges: ranges
         )
         
-        withAnimation(.easeInOut(duration: 0.3)) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.3)) {
             showFocusedPanel = true
         }
     }
-    
+
     func dismissFocusedPanel() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
             showFocusedPanel = false
         }
-        
+
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(300))
+            if !reduceMotion {
+                try? await Task.sleep(for: .milliseconds(300))
+            }
             self.focusedResponse = nil
         }
     }
@@ -350,7 +354,8 @@ final class CodeAskBarService {
     }
     
     func clearInlineAnnotations() {
-        withAnimation(.easeInOut(duration: 0.2)) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
             inlineAnnotations.removeAll()
         }
     }

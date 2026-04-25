@@ -10,6 +10,7 @@ struct ChatSidebarView: View {
     @Environment(UIState.self) private var ui
     @Environment(ChatState.self) private var chat
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var recentChats: [SDChat] = []
     @State private var searchText = ""
@@ -40,7 +41,7 @@ struct ChatSidebarView: View {
             // Filters
             HStack(spacing: 6) {
                 Button {
-                    withAnimation(Motion.quick) {
+                    withAnimation(reduceMotion ? nil : Motion.quick) {
                         showNotesOnly.toggle()
                     }
                 } label: {
@@ -109,7 +110,7 @@ struct ChatSidebarView: View {
 
             if !searchText.isEmpty {
                 Button {
-                    withAnimation(Motion.quick) { searchText = "" }
+                    withAnimation(reduceMotion ? nil : Motion.quick) { searchText = "" }
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .font(.epCaption)

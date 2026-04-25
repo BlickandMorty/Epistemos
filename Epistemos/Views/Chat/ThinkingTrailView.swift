@@ -12,6 +12,7 @@ import SwiftUI
 
 struct ThinkingTrailView: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let content: String
     let durationSeconds: Double?
@@ -32,7 +33,7 @@ struct ThinkingTrailView: View {
                 tone: .thinking,
                 isExpanded: isExpanded,
                 action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    withAnimation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.8)) {
                         isExpanded.toggle()
                     }
                 }

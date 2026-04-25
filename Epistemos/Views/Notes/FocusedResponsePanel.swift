@@ -15,7 +15,8 @@ struct FocusedResponsePanel: View {
     let onDismiss: () -> Void
     let onApplyCode: (String) -> Void
     let onNavigateToLine: (Int) -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedSection: FocusedCodeResponse.ResponseSection.ID?
     @State private var isCopied = false
     
@@ -121,7 +122,7 @@ struct FocusedResponsePanel: View {
                         type: section.type,
                         isSelected: selectedSection == section.id,
                         onTap: {
-                            withAnimation {
+                            withAnimation(reduceMotion ? nil : .default) {
                                 selectedSection = section.id
                             }
                         }

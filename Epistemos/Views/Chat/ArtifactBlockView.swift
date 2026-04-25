@@ -16,6 +16,7 @@ struct ArtifactBlockView: View {
     let artifact: Artifact
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("epistemos.chat.artifactDocumentPresentationMode")
     private var documentPresentationModeRaw = MarkdownDocumentPresentationMode.rendered.rawValue
 
@@ -136,7 +137,7 @@ struct ArtifactBlockView: View {
             .help("Export artifact")
 
             Button {
-                withAnimation(.smooth(duration: 0.2)) { expanded.toggle() }
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { expanded.toggle() }
             } label: {
                 Image(systemName: expanded ? "chevron.up" : "chevron.down")
                     .font(.system(size: 10, weight: .semibold))
