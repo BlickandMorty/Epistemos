@@ -290,7 +290,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
   - Run the Rust `mas-sandbox` tests under `cargo test --manifest-path agent_core/Cargo.toml --features mas-sandbox -- mas_` (deferred for the same disk reason).
   - Add bounded-agent termination tests for the Swift side (`max_turns` ceiling invariants).
   - Security-scoped bookmark round-trip tests after a sandbox-container write cycle.
-- **S.5 perf:** Phase 0 measurement slot already exists with signpost instrumentation landed in `e19037c0`; the Instruments trace capture is the next step.
+- **S.5 perf:** see Section 8 below for the 2026-04-25 audit + GraphPerformanceTests baseline + signpost coverage map + the two added signposts on Phase S verified-write paths. Remaining S.5 follow-ups: Instruments trace capture under typing+streaming load (deferred -- needs a launched-app run), perf gate harness re-run (`scripts/run_reliability_quality_gates.sh perf_diagnostics` from March 2026 archive needs refresh).
 - **S.6 privacy:** `PrivacyInfo.xcprivacy` is already minimal; the only residual is a Settings -> Privacy transparency pane for the end user.
 - **S.7 ASC setup:** pure ops work, not code.
 - **S.8 TestFlight:** not started, open-ended per master plan.
@@ -298,7 +298,63 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
 
 ---
 
-## 8. What this audit explicitly did NOT prove
+## 8. S.5 performance trace evidence (2026-04-25)
+
+**Approach:** log-first / evidence-first. Inspected existing perf infrastructure before any code change.
+
+### 8.1 Existing infrastructure mapped
+
+- `Epistemos/Engine/Log.swift` defines six `OSSignposter` categories: `appPerf`, `notesPerf`, `vaultPerf`, `graphPerf`, `ffiPerf`, `agentStreaming`. Roughly 100 begin/end/event sites across `Epistemos/`.
+- Phase 0 commit `e19037c0` added three intervals on master-plan critical paths: `graph.frame.ms` (MetalGraphView per-frame), `graph.embed.push.ms` (EmbeddingService MainActor FFI push), `chat.exchange.save.ms` (ChatCoordinator persistChatExchange context.save).
+- `scripts/run_reliability_quality_gates.sh` runs `EpistemosTests/GeneratedReliabilityMatrixTests` with `-enablePerformanceTestsDiagnostics YES`, `-enableAddressSanitizer YES`, `-enableThreadSanitizer YES`, `-enableUndefinedBehaviorSanitizer YES`, plus a soak-repeat gate. Last archived run: `artifacts/reliability/20260303-021913/perf_diagnostics.log` -- 6 reliability-matrix tests passed in 31.418 s, all 200-iteration parametric cases (e.g., "benchmark parser throughput envelope", "graph load and traversal budget", "memory growth bounded for repeated query cycles", "soft failure recovery keeps core paths healthy", "malformed inputs are crash resistant", "concurrent parser and diff stress").
+- Standalone perf-test files: `EpistemosTests/GraphPerformanceTests.swift` (22 tests), `EpistemosTests/SearchPerformanceTests.swift`, `EpistemosTests/PerformanceTest.swift`, `EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests.swift`.
+- `Epistemos/State/MainThreadWatchdog.swift` runs a background GCD watchdog with a 500 ms hang threshold and an `onHangDetected` emission callback.
+
+### 8.2 Fresh baseline (2026-04-25, scope-limited)
+
+Ran `EpistemosTests/GraphPerformanceTests` against the Pro target after the Phase S.2 surgical-gate work landed. Raw log + trailing-echo exit capture verified:
+- 22/22 passed in **2.565 s** total. xcodebuild exit `xcodebuild_ok`, `** TEST SUCCEEDED **` in raw log.
+- Largest individual test: "Memory usage during node loading" at 0.757 s.
+- Largest scale-test: "Fuzzy search with 5000 nodes" at 0.351 s; "Load 5000 nodes performance" at 0.254 s.
+- All 100/500/1000/5000-node graph load tests, all BFS/connected/shortestPath tests, all GraphBuilder persist tests pass within fractions of a second.
+
+**Scope of this baseline:** GraphPerformanceTests covers the **graph store / builder / search** layer -- node and edge loading at scale, GraphBuilder persist, BFS/shortestPath traversal, fuzzy-search scoring. It does **NOT** prove `MetalGraphView` render-loop or hover-loop FPS at 60 Hz under realistic vault load -- those need an Instruments trace under a launched-app session, which is not run here. The Phase 0 `graph.frame.ms` signpost is wired (see 8.3) but its p99 has not been measured against the <12 ms budget. Treat the baseline as "graph data layer is healthy", not "graph rendering is healthy".
+
+### 8.3 Signpost coverage map by hot surface
+
+| Hot surface | Coverage state | Sites |
+|---|---|---|
+| Launch / startup | Solid | `Log.appPerf.beginInterval("bootstrapInit")`, `migrateBodiesToFileStorage` (AppBootstrap.swift) |
+| Code editor typing (`Views/Notes/CodeEditorView.swift`) | Solid | `os_signpost("textDidChange")` begin/end + `selectionChanged` event on `perfLog`. This is the syntax-highlighted code editor only. |
+| Prose note editor typing (`ProseEditorView.swift` / `ProseEditorRepresentable2.swift` / `ProseTextView2.swift`) | **Gap** | No `os_signpost` / `OSSignposter` / `Log.notesPerf` calls in any of the three Prose editor files. The Prose editor is the primary user-facing note editor; its typing/insertion/save hot path has no Phase 0 instrumentation. Tracked as an S.5 follow-up. |
+| Note save / verified write | **Was a gap** | Phase S touched `NoteFileStorage.atomicWriteUTF8` and `VaultVerifiedFileWriter.writeUTF8` (added the readback verification step) but neither had a `Log.notesPerf` interval. Fixed in this pass -- see 8.4. |
+| AI streaming / chat | Solid | 18 `Log.agentStreaming` sites: `accAgentSession` interval + per-event begin/end + `chat.exchange.save.ms` Phase 0 interval (ChatCoordinator.swift, StreamingDelegate.swift) |
+| Graph render / hover | Solid | `graph.frame.ms` per-frame, `graph.embed.push.ms`, `loadGraphAsync`, `buildStructuralGraph`, `refreshStructuralDataAsync`, `revealPage`, `graph_engine_pin_node` FFI (Phase 0 + GraphState + HologramController) |
+| Vault sync / file watcher | Solid | `restoreVaultFromBookmark`, `startWatching`, `switchToVaultAsync`, `initialVaultImport`, `initialVaultDiffSync` (VaultSyncService.swift) |
+| FFI boundary (Rust ↔ Swift) | Solid | `executeComputerAction`, `waitForPermission`, `perceiveApp`, `interactWithApp` (StreamingDelegate.swift) + `graph_engine_pin_node` |
+
+### 8.4 Phase S verified-write signposts added (2026-04-25)
+
+The note-save hot path picked up readback-verification overhead during Phase R / Phase S. Two narrow `Log.notesPerf` intervals added so future regressions are visible:
+
+- `NoteFileStorage.atomicWriteUTF8(_:to:itemLabel:)` -- `notes.save.atomicWriteUTF8.ms`. Wraps the full five-step flow: UTF-8 encode, temp write, F_FULLFSYNC of temp, atomic rename, F_FULLFSYNC of parent dir, readback verification.
+- `VaultVerifiedFileWriter.writeUTF8(_:to:readBack:)` -- `notes.save.vaultVerifiedWrite.ms`. Wraps the verified-write contract used by `VaultMutationIO.commit(diff:)` for every approved staged vault mutation -- atomic UTF-8 write + readback verification.
+
+Both signposts are zero-behavior changes (`OSSignposter.beginInterval` / `endInterval` are NOPs when no signpost listener is attached). No test regression expected; the AppStoreHardeningTests Pro slice plus the Epistemos-AppStore MAS build were re-run and verified after the additions.
+
+### 8.5 What S.5 explicitly does NOT prove yet
+
+- **No fresh Instruments trace under realistic load.** Capturing an Instruments `.trace` requires a launched-app session against a representative vault; that is a launched-app dogfood task tracked alongside S.1. Without a trace, the Phase 0 signposts are wired but unmeasured.
+- **No live MetalGraphView render/hover FPS proof.** GraphPerformanceTests covers the graph store/builder/search layer only; the `graph.frame.ms` per-frame signpost has not been exercised against the master-plan <12 ms p99 budget at 60 Hz under realistic vault load.
+- **No prose note editor typing perf proof.** The prose editor (the primary user-facing note typing surface) has no Phase 0 instrumentation today (see 8.3 row). Adding signposts to `ProseEditorView` / `ProseTextView2` is tracked as an S.5 follow-up.
+- **No fresh `run_reliability_quality_gates.sh perf_diagnostics` run.** The March 2026 archive is the most recent quality-gate artifact; a refreshed run would update the soak / sanitizer / perf baseline. Deferred for the same disk reason flagged elsewhere in this doc.
+- **No p99 budget verification for any of the three Phase 0 intervals.** `graph.frame.ms <12 ms p99 @ 60 Hz`, `graph.embed.push.ms <2 ms p99`, `chat.exchange.save.ms <5 ms p99` -- targets named, signposts wired, numbers not yet measured.
+
+S.5 is therefore in a **partial-evidence** state: signpost coverage is broader after this pass (with two new verified-write intervals on Phase S surgical paths), and the graph data-layer baseline is healthy, but the Instruments traces and prose-editor instrumentation needed to call S.5 fully ready remain follow-ups.
+
+---
+
+## 9. What this audit explicitly did NOT prove
 
 This audit is source-level inspection plus one Swift Testing regression. It does NOT constitute App Store submission readiness. Explicit non-claims:
 
