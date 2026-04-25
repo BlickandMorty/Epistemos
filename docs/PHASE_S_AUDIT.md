@@ -117,10 +117,22 @@ The `mas-sandbox` Cargo feature is the compile-time switch that removes Pro-only
 
 Swift side: `Epistemos/App/AppBootstrap.swift:2686 verifyAgentCorePolicyProfile()` runs at launch and fatalError's if the `EPISTEMOS_APP_STORE || MAS_SANDBOX` build flag and the linked Rust profile disagree. This is the single point that catches the link-mismatch drift case.
 
-`EpistemosTests/AppStoreHardeningTests.swift` replicates the check from Swift Testing with two assertions:
+`EpistemosTests/AppStoreHardeningTests.swift` replicates the check from Swift Testing with seven tests (each may contain multiple assertions):
 
 1. `policyProfileReturnsRecognizedValue` -- fails if the FFI returns an unrecognized string (drift catcher for future profile additions).
 2. `policyProfileMatchesBuildFlag` -- fails when `EPISTEMOS_APP_STORE || MAS_SANDBOX` is set but the linked profile is not `"mas_sandbox"`, and vice versa. This is the same invariant the bootstrap check enforces.
+3. `masEntitlementsDeclareRequiredKeys` -- parses `Epistemos/Epistemos-AppStore.entitlements` via `#filePath` and asserts the four keys the MAS archive needs are present (`app-sandbox`, `network.client`, `files.user-selected.read-write`, `files.bookmarks.app-scope`).
+4. `masEntitlementsOmitProOnlyKeys` -- asserts the MAS plist does NOT contain any of the Pro-only review blockers (`allow-unsigned-executable-memory`, `disable-library-validation`, `automation.apple-events`, `temporary-exception.mach-lookup.global-name`, `files.all`, `files.bookmarks.document-scope`).
+5. `proEntitlementsStillCarryProOnlyKeys` -- asserts the Pro plist still carries the Pro-only keys so the MAS forbidden-keys test cannot pass trivially if Pro narrows.
+6. `masInfoPlistDeclaresExportComplianceAnswer` -- asserts the MAS `Info.plist` declares `ITSAppUsesNonExemptEncryption`, so App Store Connect does not prompt the export-compliance questionnaire on every submission.
+7. `masInfoPlistKeepsUsageDescriptionsNonEmpty` -- asserts five usage-description strings (`NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSDocumentsFolderUsageDescription`, `NSDesktopFolderUsageDescription`, `NSDownloadsFolderUsageDescription`) are present and non-empty in the MAS `Info.plist`.
+
+**Runtime characteristic (observed, NOT yet explained):** two consecutive Xcode app-hosted Swift Testing runs of this suite showed a large, escalating wall-clock cost attributed to the first file-I/O test:
+
+- Run 1 (5 tests): total 48.282 s; `masEntitlementsDeclareRequiredKeys` reported 48.259 s; remaining tests 0.001-0.021 s each; xcodebuild exit 0.
+- Run 2 (7 tests, after adding two Info.plist tests): total 250.093 s; `masEntitlementsDeclareRequiredKeys` reported 250.058 s; remaining tests 0.001-0.031 s each; xcodebuild exit 0.
+
+The first test's own work is trivial (parse a plist, check keys), so Swift Testing is attributing some out-of-test cost -- likely Xcode app-hosted runner launch plus test-bundle initialization -- to whichever test runs first. The run-over-run 5x growth is not a stable cold-run cost and is a real Phase S follow-up: before expanding this suite further, profile a cold run to see what is actually consuming the time (Instruments `xcodebuild` trace, or a minimal test that does nothing and measures the attributed cost). Do not take "7/7 green" to mean "cheap to run". Both runs were verified via raw log inspection, not `| head` truncation, and both reported TEST SUCCEEDED.
 
 ---
 
