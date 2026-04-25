@@ -158,46 +158,56 @@ The master plan defines 6 hard exit criteria for Phase S. Current state:
 
 ## 6a. Static-analysis scan for App Review blocker APIs (Phase S.2)
 
-Zero-cost `Grep` sweep of `Epistemos/` Swift sources for a known set of App Review blocker API symbols: `NSTask`, `Process()` (constructor), `dlopen(`, `dlsym(`, `posix_spawn`, `execv[ep]?(`, `fork()`. Two hits, both classified below.
+**Superseded-claim correction 2026-04-24:** an earlier pass of this section used a too-narrow `Process\(\)` regex that only matched the zero-argument call and missed `Process.init(...)` and `Process(launchPath: ...)` forms. A commit messaged "Process() is no longer referenced in the Swift source tree" was based on that narrow sweep and was wrong. This rewrite uses the broader ripgrep pattern and classifies every real hit against the MAS build target honestly.
 
-### Hit 1: `dlopen(nil, RTLD_LAZY)` / `dlsym(...)` -- `Epistemos/Bridge/ChunkedMCPFraming.swift:245, 251`
+### Sweep command (canonical, use this for follow-ups)
 
-```swift
-// line 245
-let fn = unsafeBitCast(dlsym(dlopen(nil, RTLD_LAZY), "shm_open"), to: ShmOpenFn.self)
+```
+rg -n "Process\.init\(|Process\(|NSTask|dlopen\(|dlsym\(|posix_spawn|execv|fork\(" Epistemos --glob '*.swift'
 ```
 
-**Why it is there:** `shm_open` / `shm_unlink` are declared variadic in the Darwin headers, so Swift cannot call them through their `@convention(c)` function pointers directly. The thunk above looks up the symbol in the main executable's address space via `dlopen(nil, ...)` (which does NOT load an external dylib -- it returns a handle to the already-linked process image) and reinterprets it with a fixed ABI.
+After filtering out the RootView `.inProcess(...)` enum cases (substring false positives) and the comment-only mentions in the iMessage Doctor fix, the real hits break down as follows.
 
-**Risk:** low-to-medium. `dlopen(nil, ...)` is sandbox-safe and does not trigger `com.apple.security.cs.disable-library-validation`. App Review has historically accepted this pattern for POSIX-header workarounds. However, a paranoid automated-review pass might still flag `dlopen` / `dlsym` presence. Cleaner long-term: add a `.modulemap` bridge or an Objective-C shim that declares `shm_open` with the fixed three-argument signature, removing the need for the runtime symbol lookup.
+### Category A -- MAS-safe by compile gate (no action needed)
 
-**Phase S action:** log, do not block. Revisit if App Store review rejects on this. Tracked as a Phase S.2 follow-up, not a Phase S.2 blocker.
+- `Epistemos/Omega/Vision/ScreenCaptureService.swift:153` -- `Process.init()` calling `/bin/launchctl kickstart` to restart replayd. The entire file is wrapped at line 1 in `#if !EPISTEMOS_APP_STORE`, so this call is not compiled into the MAS binary.
 
-### Hit 2: `Process()` spawning `/usr/bin/open` -- `Epistemos/Views/Settings/IMessageDriverSettingsView.swift:570-574`
+### Category B -- dlopen / dlsym (POSIX header workaround, no external dylib)
 
-```swift
-let relaunch = DoctorAction(title: "Relaunch Epistemos") {
-    let task = Process()
-    task.launchPath = "/usr/bin/open"
-    task.arguments = ["-n", Bundle.main.bundlePath]
-    try? task.run()
-    NSApp.terminate(nil)
-}
-```
+- `Epistemos/Bridge/ChunkedMCPFraming.swift:245, 251` -- `dlsym(dlopen(nil, RTLD_LAZY), "shm_open" / "shm_unlink")`. Self-handle dlopen, does not load an external dylib. Used to call `shm_open` / `shm_unlink` through a fixed ABI because the Darwin headers declare them variadic. Low-to-medium risk for automated review; cleaner long-term replacement is a modulemap bridge or Objective-C shim with a fixed three-argument `shm_open` declaration. Phase S.2 follow-up, not a blocker.
 
-**Why it is there:** a "Relaunch Epistemos" recovery button used by the Doctor-guidance UI when the iMessage driver hits a Full-Disk-Access / Automation-permission error. Spawns a new copy of the app via `/usr/bin/open` and then terminates the current process.
+### Category C -- in MAS binary today, no compile gate, blocked by sandbox at runtime
 
-**MAS reachability:** the `iMessageDriverDetailView` case is gated at `SettingsView.swift:297-299` with `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`, so the iMessage settings panel is never rendered in the App Store build and this `Process()` closure is never invoked from the UI. HOWEVER: `IMessageDriverSettingsView.swift` itself is NOT listed in the `Epistemos-AppStore` target's source-exclude list in `project.yml`, so the file IS compiled into the MAS binary and the `Process()` call remains as dead-but-present code.
+Every entry below is compiled into the MAS binary (verified: file-top has no `#if !EPISTEMOS_APP_STORE` guard AND the file is not in the `project.yml` `Epistemos-AppStore` exclude list). The sandbox will block the spawn at runtime if the code is ever reached in MAS. A paranoid App Review static scan may flag the symbols regardless of reachability. **Most of these are Pro-only workflows by intent**; the right Phase S fix is to exclude them from the MAS source set, wrap the call sites in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`, or introduce a type that disables the code path at compile time under MAS. Do NOT delete the calls -- the Pro/direct release needs them.
 
-**Risk:** medium. Runtime is safe (dead code, unreachable). Static-analysis risk: an App Review automated scan that flags `Process()` or `task.launchPath = "/usr/bin/open"` presence (regardless of reachability) will require a response. Even if reachable, the MAS sandbox would block the spawn anyway.
+| File | Line | Executable spawned | Purpose | Pro-only? |
+|---|---|---|---|---|
+| `Vault/VaultChatMutator.swift` | 647 | `/usr/bin/git` | `runGitOffMain` for approved staged vault-mutation commits | No -- also used by default Pro flows; MAS path should use a different commit mechanism or be excluded |
+| `Sync/VaultSyncService.swift` | 1261 | `/usr/bin/tmutil` | TimeMachine snapshot prune for recovery snapshots | Likely yes; verify whether MAS needs tmutil |
+| `Omega/Safety/ShadowGitCheckpoint.swift` | 82, 119 | `/usr/bin/git` | Shadow-git checkpoint init + commits for safety | Yes -- shadow checkpoints are part of the full-autonomy surface |
+| `Harness/CompletionChecker.swift` | 207 | `/usr/bin/env` | Harness eval subprocess runner | Yes -- Harness is eval/testing tooling |
+| `Harness/EvalSandbox.swift` | 225 | user-specified | Harness sandboxed command runner | Yes |
+| `Harness/HarnessLab.swift` | 946 | user-specified | Harness proposer-agent subprocess | Yes |
+| `KnowledgeFusion/Training/QLoRATrainer.swift` | 173 | python | QLoRA trainer subprocess | Yes -- Python training |
+| `KnowledgeFusion/Alignment/KTOTrainer.swift` | 86 | python | KTO trainer subprocess | Yes |
+| `KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` | 115 | python | MoLoRA inference subprocess | Yes |
+| `KnowledgeFusion/PythonEnvironmentManager.swift` | 393 | brew / python / pip | Python env bootstrap | Yes |
+| `KnowledgeFusion/DataIngestion/AudioTranscriber.swift` | 292 | ffmpeg / whisper.cpp | Audio transcription pipeline | Yes |
+| `KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift` | 267 | `/usr/sbin/screencapture` | Synthetic-data screen capture | Yes -- synthetic data gen |
+| `KnowledgeFusion/Adapters/AdapterExporter.swift` | 163, 176 | `/usr/bin/ditto` | Adapter zip / unzip | Yes -- adapter export |
 
-**Phase S action (FIXED 2026-04-24):** in-place replacement. The relaunch closure now calls `NSWorkspace.shared.openApplication(at:configuration:completionHandler:)` with `createsNewApplicationInstance = true`, the canonical Epistemos relaunch pattern already used at `AppBootstrap.swift:2430`, `IMessageNativeSetupDoctor.swift:83,99,212`, and `OmegaPermissions.swift:131`. `Process()` is no longer referenced in the Swift source tree (verified by re-running the blocker-API sweep -- only comment mentions remain, which are not linker symbols).
+### Category D -- FIXED this session
 
-Rejected alternatives and why:
-- Adding the file to the project.yml MAS exclude list would work, but leaves `IMessageDriverService`-typed `@Environment` uses in `ChannelsSettingsView.swift` (which is not excluded) dangling in the MAS build.
-- Wrapping the closure body in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` would also work, but leaves the Pro branch on the deprecated `Process()`-based path for no reason.
+- `Epistemos/Views/Settings/IMessageDriverSettingsView.swift:570-574` -- the old iMessage Doctor "Relaunch Epistemos" action used a zero-argument `Process()` then set `launchPath = "/usr/bin/open"` and called `try? task.run()` + `NSApp.terminate(nil)`. This specific call site was replaced with `NSWorkspace.shared.openApplication(at:configuration:completionHandler:)`. Verified by running the broader sweep again: this one call is gone. All Category C sites remain in the tree and are still present in the MAS binary.
 
-Verification: the `AppStoreHardeningTests` suite still passes 7/7 after the change (Run 3 above: 7.485 s, exit 0).
+### Phase S.2 follow-up work (NOT landed in this audit)
+
+1. Add Category C files to the `Epistemos-AppStore` source-exclude list in `project.yml`, file by file, verifying no MAS-reachable type depends on what is being excluded. Some (ShadowGitCheckpoint, MoLoRA, QLoRA, KTO, PythonEnvironmentManager, AudioTranscriber, EmbodiedCaptureService, AdapterExporter, Harness/*) are almost certainly safe to exclude outright. Others (VaultChatMutator, VaultSyncService) have MAS-reachable type surfaces and need surgery inside the file rather than whole-file exclusion.
+2. For VaultChatMutator: the approved staged vault-mutation committer uses `git` to record vault diffs. Under the sandbox this will fail at runtime. Needs a MAS replacement (e.g., direct filesystem writes bypassing git, or a `#if EPISTEMOS_APP_STORE` branch that records diffs some other way) before first MAS submission.
+3. For VaultSyncService: tmutil is used for TimeMachine snapshot prune. Under the sandbox this likely fails. Needs classification: does MAS need tmutil at all? If not, guard the whole helper.
+4. The `ChunkedMCPFraming.swift` dlopen/dlsym (Category B) eventually wants a modulemap bridge, but is not a Phase S.2 blocker.
+
+Tracked as Phase S.2 work items; **none landed in today's commit**. The audit doc change is only the accurate classification.
 
 ---
 
