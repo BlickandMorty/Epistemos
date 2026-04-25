@@ -1456,13 +1456,18 @@ struct LocalAgentLoopTests {
             }
         )
 
-        await #expect(throws: LocalAgentLoopError.self) {
-            try await loop.run(
+        do {
+            _ = try await loop.run(
                 objective: "Keep searching forever.",
                 tools: [sampleTool()],
                 maxTurns: 2,
                 onToken: { _ in }
             )
+            Issue.record("Expected the maxTurns ceiling to fire and throw .maxTurnsExceeded(2).")
+        } catch let error as LocalAgentLoopError {
+            #expect(error == .maxTurnsExceeded(2))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
         }
     }
 
