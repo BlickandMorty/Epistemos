@@ -27,6 +27,7 @@ struct LandingWaveSearchBar: View {
     let onDismiss: () -> Void
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @FocusState private var focused: Bool
 
     private var theme: EpistemosTheme { ui.theme }
@@ -48,8 +49,8 @@ struct LandingWaveSearchBar: View {
             x: 0,
             y: focused ? 8 : 5
         )
-        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: focused)
-        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: trimmed.isEmpty)
+        .animation(reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78), value: focused)
+        .animation(reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78), value: trimmed.isEmpty)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) {
                 focused = true

@@ -268,12 +268,16 @@ struct LandingView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .coordinateSpace(name: LandingCoordinateSpace.root)
-        .animation(Motion.smooth, value: showingBrief)
-        .animation(Motion.smooth, value: showWelcomeBack)
+        .animation(reduceMotion ? nil : Motion.smooth, value: showingBrief)
+        .animation(reduceMotion ? nil : Motion.smooth, value: showWelcomeBack)
         // Landing-wave emergence: snappier spring (response 0.18, damping 0.78)
         // chosen per user feedback that the prior Motion.smooth curve felt
         // "lack luster." Bar pops out, slight overshoot, quick settle.
-        .animation(.spring(response: 0.18, dampingFraction: 0.78), value: showingSearchPopover)
+        // Suppressed entirely under Reduce Motion.
+        .animation(
+            reduceMotion ? nil : .spring(response: 0.18, dampingFraction: 0.78),
+            value: showingSearchPopover
+        )
         .onAppear {
             LandingViewStateSync.reassertHomeSurface(ui)
             sanitizeStoredOperatingMode()
@@ -1202,6 +1206,7 @@ struct LandingCommandRow: View {
     let action: () -> Void
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
 
     private var theme: EpistemosTheme { ui.theme }
@@ -1260,9 +1265,9 @@ struct LandingCommandRow: View {
                     .fill(theme.resolved.foreground.color.opacity(0.06))
             }
         }
-        .animation(Motion.micro, value: isSelected)
+        .animation(reduceMotion ? nil : Motion.micro, value: isSelected)
         .onHover { hovering in
-            withAnimation(Motion.micro) { isHovered = hovering }
+            withAnimation(reduceMotion ? nil : Motion.micro) { isHovered = hovering }
         }
         .contextMenu {
             if !command.contextActions.isEmpty {
@@ -1365,6 +1370,7 @@ private struct HoverRevealCommandHint: View {
     let primaryAction: () -> Void
     let secondaryAction: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
 
     var body: some View {
@@ -1378,7 +1384,7 @@ private struct HoverRevealCommandHint: View {
         }
         .fixedSize(horizontal: true, vertical: false)
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) { isHovered = hovering }
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isHovered = hovering }
         }
     }
 

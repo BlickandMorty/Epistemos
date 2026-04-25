@@ -231,6 +231,7 @@ private struct QuitSaveContent: View {
     let onComplete: (Bool) -> Void
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var saveMode: SaveMode = .saveNew
     @State private var workspaceName = ""
     @State private var sessionNote = ""
@@ -272,7 +273,7 @@ private struct QuitSaveContent: View {
                     HStack(spacing: 8) {
                         ForEach(SaveMode.allCases, id: \.self) { mode in
                             Button {
-                                withAnimation(.easeInOut(duration: 0.15)) { saveMode = mode }
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { saveMode = mode }
                             } label: {
                                 HStack(spacing: 6) {
                                     Image(systemName: mode.icon).font(.system(size: 11, weight: .medium))

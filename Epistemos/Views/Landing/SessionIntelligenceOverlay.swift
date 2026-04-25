@@ -129,6 +129,7 @@ private enum SessionIntelligenceOverlayTiming {
 
 struct SessionIntelligenceOverlay: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPresented: Bool
 
     @State private var windowCards: [WindowCard] = []
@@ -249,7 +250,7 @@ struct SessionIntelligenceOverlay: View {
                 .allowsHitTesting(false)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.2)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { appeared = true }
             buildWindowCards()
             generationTask?.cancel()
             generationTask = Task { @MainActor in
@@ -684,9 +685,13 @@ struct SessionIntelligenceOverlay: View {
     }
 
     private func dismiss() {
-        withAnimation(.easeIn(duration: 0.15)) { appeared = false }
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appeared = false }
         generationTask?.cancel()
         generationTask = nil
+        if reduceMotion {
+            isPresented = false
+            return
+        }
         Task { @MainActor in
             guard await pause(SessionIntelligenceOverlayTiming.dismissDelay()) else { return }
             isPresented = false
