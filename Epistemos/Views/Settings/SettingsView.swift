@@ -3201,11 +3201,11 @@ private struct KFTrainingConfigSection: View {
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 160, alignment: .leading)
-                    .fixedSize(horizontal: true, vertical: false)
                 Text(config)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
+            .fixedSize(horizontal: true, vertical: false)
             VStack(alignment: .leading, spacing: 0) {
                 Text(machine)
                     .font(.caption2.weight(.medium))

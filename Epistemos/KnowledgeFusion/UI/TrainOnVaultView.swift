@@ -370,11 +370,11 @@ struct TrainOnVaultView: View {
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
                     .frame(minWidth: 150, alignment: .leading)
-                    .fixedSize(horizontal: true, vertical: false)
                 Text(config)
                     .font(.caption2.monospacedDigit())
                     .foregroundStyle(.tertiary)
             }
+            .fixedSize(horizontal: true, vertical: false)
             VStack(alignment: .leading, spacing: 0) {
                 Text(machine)
                     .font(.caption2.weight(.medium))
