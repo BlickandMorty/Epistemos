@@ -147,6 +147,15 @@ nonisolated enum VaultVerifiedFileWriter {
         to fileURL: URL,
         readBack: ReadBack = { try String(contentsOf: $0, encoding: .utf8) }
     ) throws {
+        // Phase 0/S.5 signpost: covers the verified-write contract used
+        // by `VaultMutationIO.commit(diff:)` for every approved staged
+        // vault mutation -- atomic UTF-8 write + readback verification.
+        // Lets Instruments / signpost analysis attribute time to this
+        // path so a future regression in either the write or the
+        // readback is visible.
+        let writeInterval = Log.notesPerf.beginInterval("notes.save.vaultVerifiedWrite.ms")
+        defer { Log.notesPerf.endInterval("notes.save.vaultVerifiedWrite.ms", writeInterval) }
+
         try content.write(to: fileURL, atomically: true, encoding: .utf8)
         let persistedContent = try readBack(fileURL)
         guard persistedContent == content else {

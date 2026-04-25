@@ -616,6 +616,14 @@ enum NoteFileStorage {
 
     @discardableResult
     private nonisolated static func atomicWriteUTF8(_ content: String, to url: URL, itemLabel: String) -> Bool {
+        // Phase 0/S.5 signpost: covers the full Phase S verified-write
+        // path -- temp write, F_FULLFSYNC of temp + parent dir, atomic
+        // rename, AND the readback verification step. Lets Instruments
+        // and signpost analysis attribute time to this hot path so a
+        // future regression in any of the five sub-steps is visible.
+        let saveInterval = Log.notesPerf.beginInterval("notes.save.atomicWriteUTF8.ms")
+        defer { Log.notesPerf.endInterval("notes.save.atomicWriteUTF8.ms", saveInterval) }
+
         guard let data = content.data(using: .utf8) else {
             logger.error("Failed to encode UTF-8 data for \(itemLabel)")
             return false
