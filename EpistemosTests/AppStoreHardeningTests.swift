@@ -568,4 +568,43 @@ struct AppStoreHardeningTests {
     func pythonEnvironmentManagerMASBranchHasNoInstallerMarkers() throws {
         try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[4])
     }
+
+    // MARK: - Category B regression (Phase S.2 ChunkedMCPFraming)
+    //
+    // The earlier ChunkedMCPFraming.swift used `dlopen(nil, RTLD_LAZY)` +
+    // `dlsym("shm_open" / "shm_unlink")` to reach the POSIX symbols
+    // because Swift cannot import variadic C functions. That self-handle
+    // dlopen was sandbox-safe but the literal `dlopen` / `dlsym` /
+    // `RTLD_LAZY` strings could attract paranoid App Store review
+    // tooling. The fix replaced the runtime-symbol-lookup with a fixed-
+    // signature C shim (`Epistemos/Bridge/ShmPosixShim.{h,c}`) wired
+    // through `Epistemos-Bridging-Header.h`. This regression asserts
+    // the dlopen / dlsym workaround does not creep back in.
+
+    @Test("ChunkedMCPFraming Swift source has no dlopen/dlsym/RTLD_LAZY in compiled code")
+    func chunkedMCPFramingHasNoDlopenWorkaround() throws {
+        let url = Self.projectRoot
+            .appendingPathComponent("Epistemos")
+            .appendingPathComponent("Bridge")
+            .appendingPathComponent("ChunkedMCPFraming.swift")
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        // Sanity: the C shim is the replacement; the Swift file still
+        // calls into it via the bridging header. If `epistemos_shm_open`
+        // is gone, the shim was deleted and the dlopen workaround is
+        // probably back.
+        let shimSanity: Comment = "ChunkedMCPFraming.swift no longer references epistemos_shm_open. The Phase S.2 Category B C-shim replacement may have been reverted; restore it (Epistemos/Bridge/ShmPosixShim.{h,c}) or update this test."
+        #expect(source.contains("epistemos_shm_open"), shimSanity)
+
+        // The actual regression: dlopen / dlsym / RTLD_LAZY must not
+        // appear in non-comment code. Reuse the existing #if-aware
+        // scanner; for ChunkedMCPFraming there is no `#if !EPISTEMOS_APP_STORE`
+        // gate in this file, so EVERY non-comment occurrence shows up
+        // in `outsideExcludedBlock`. Both flags must be false to pass.
+        for marker in ["dlopen(", "dlsym(", "RTLD_LAZY"] {
+            let scan = scanForMarkerInGateBranches(source: source, marker: marker)
+            let message: Comment = "ChunkedMCPFraming.swift contains `\(marker)` in non-comment code. The dlopen(nil) / dlsym workaround was replaced by the fixed-signature C shim in Epistemos/Bridge/ShmPosixShim.{h,c}; restore the shim path or update this test."
+            #expect(!scan.outsideExcludedBlock && !scan.insideExcludedBlock, message)
+        }
+    }
 }
