@@ -3186,7 +3186,7 @@ private struct KFTrainingConfigSection: View {
                 Spacer()
                 Text("\(value.wrappedValue)")
                     .font(.caption.weight(.semibold).monospacedDigit())
-                    .frame(width: 40, alignment: .trailing)
+                    .frame(minWidth: 40, alignment: .trailing)
                 Stepper("", value: value, in: range, step: step).labelsHidden()
             }
             Text(desc).font(.caption2).foregroundStyle(.tertiary)
@@ -3195,14 +3195,25 @@ private struct KFTrainingConfigSection: View {
     }
 
     private func kfHardwareRow(_ machine: String, _ config: String) -> some View {
-        HStack(spacing: 6) {
-            Text(machine)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 160, alignment: .leading)
-            Text(config)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.tertiary)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Text(machine)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 160, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text(config)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(machine)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text(config)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }

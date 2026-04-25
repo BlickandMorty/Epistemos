@@ -8,6 +8,8 @@ struct TrainingHistoryView: View {
 
     @State private var expandedId: UUID?
 
+    @ScaledMetric(relativeTo: .caption2) private var typeBadgeSize: CGFloat = 20
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Installed Adapters")
@@ -94,7 +96,7 @@ struct TrainingHistoryView: View {
     private func detailRow(_ label: String, _ value: String) -> some View {
         HStack {
             Text(label)
-                .frame(width: 80, alignment: .leading)
+                .frame(minWidth: 80, alignment: .leading)
             Text(value)
                 .foregroundStyle(.primary)
         }
@@ -104,7 +106,7 @@ struct TrainingHistoryView: View {
         Text(type.rawValue.prefix(1).uppercased())
             .font(.caption2.weight(.bold))
             .foregroundStyle(.white)
-            .frame(width: 20, height: 20)
+            .frame(width: typeBadgeSize, height: typeBadgeSize)
             .background(colorForType(type), in: RoundedRectangle(cornerRadius: 4))
     }
 

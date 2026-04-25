@@ -10,6 +10,8 @@ struct TrainOnVaultView: View {
 
     @State private var showAdvanced = true
 
+    @ScaledMetric(relativeTo: .caption) private var descriptionBadgeSize: CGFloat = 20
+
     var body: some View {
         VStack(spacing: 16) {
             headerSection
@@ -114,12 +116,10 @@ struct TrainOnVaultView: View {
 
     private func descriptionRow(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            // Match the surrounding `.caption.weight(.semibold)` title scale so
-            // the glyph and label resize together with Dynamic Type.
             Image(systemName: icon)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.blue)
-                .frame(width: 20, height: 20)
+                .frame(width: descriptionBadgeSize, height: descriptionBadgeSize)
                 .background(Circle().fill(.blue.opacity(0.1)))
 
             VStack(alignment: .leading, spacing: 2) {
@@ -352,7 +352,7 @@ struct TrainOnVaultView: View {
                 Spacer()
                 Text("\(value.wrappedValue)")
                     .font(.caption.weight(.semibold).monospacedDigit())
-                    .frame(width: 40, alignment: .trailing)
+                    .frame(minWidth: 40, alignment: .trailing)
                 Stepper("", value: value, in: range, step: step)
                     .labelsHidden()
             }
@@ -364,14 +364,25 @@ struct TrainOnVaultView: View {
     }
 
     private func hardwareGuideRow(_ machine: String, _ config: String) -> some View {
-        HStack(spacing: 6) {
-            Text(machine)
-                .font(.caption2.weight(.medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 150, alignment: .leading)
-            Text(config)
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.tertiary)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                Text(machine)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 150, alignment: .leading)
+                    .fixedSize(horizontal: true, vertical: false)
+                Text(config)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(machine)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Text(config)
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 
@@ -534,8 +545,6 @@ struct TrainOnVaultView: View {
 
     private func analysisChip(_ text: String, _ icon: String) -> some View {
         HStack(spacing: 4) {
-            // Pair the icon scale with the chip text's `.caption2` so they
-            // resize together under Dynamic Type.
             Image(systemName: icon)
                 .font(.caption2)
             Text(text)
