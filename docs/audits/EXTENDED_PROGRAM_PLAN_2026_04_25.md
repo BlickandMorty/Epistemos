@@ -1,0 +1,175 @@
+# Epistemos Extended Program Plan — 2026-04-25
+
+This extends `MASTER_HARDENING_WIRING_AUDIT.md` and `PATCH_QUEUE.md` to fold in the full 3-program scope from `/Users/jojo/Downloads/workspace/` and `/Users/jojo/Downloads/opt/`.
+
+**Sequencing rule (your call)**: hardening + stability + performance foundations BEFORE features and views.
+
+**Authority cascade** (highest → lowest):
+1. PLAN_V2.md §22 (BoltFFI carve-out, no mass-migration)
+2. CLAUDE.md non-negotiables (preserve thinking blocks, stream everything, no silent backend rerouting)
+3. AGENTS.md golden rules (zero copy-paste, direct communication, performance is architecture, minimal fixes)
+4. This extended plan
+5. Per-wave patch queue entries
+
+## Status anchor
+
+| Tag | Date | What's locked in |
+|---|---|---|
+| `v0-audit-checkpoint-2026-04-25` | today | 13 audit docs |
+| `v0-implementation-checkpoint-2026-04-25` | today | 12 patches + 3 V1 product moments |
+| `v0-mas-hardened-checkpoint-2026-04-25` | **current HEAD** | omega-mcp PTY/osascript stripped from MAS dylib |
+
+## The three programs (re-grouped)
+
+- **Program A** — V1 hardening + wiring + product expression. **DONE this session.**
+- **Program B** — Cognitive Workspace (Documents `.epdoc` + Tiptap, Code-editor syntax-core wiring, ACC full surface). PARTIAL (Raw Thoughts substrate landed; Documents + Patch 6a NOT built).
+- **Program C** — Deterministic Performance Plan (6 sprints / 12 weeks per `EPISTEMOS_DETERMINISTIC_PERF_PLAN.md`). 0% started.
+
+## Extended plan (hardening-first, 6 waves)
+
+Each wave finishes before the next starts. Each wave produces a restorable tag.
+
+### Wave 1 — Finish V1 hardening (1 week)
+**Goal**: close the last V1 ship-gate items so the app is ready for TestFlight.
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W1.1 | Reliability gate **full 5-gate run** (baseline ✅ + ASAN + UBSAN + TSAN + soak_repeat) — record fresh evidence | `PHASE_S_AUDIT.md` | 2 hrs |
+| W1.2 | TestFlight submission prep: App Store Connect metadata, screenshots, App Privacy form, JIT entitlement notes (already drafted at `docs/release/MAS_APP_REVIEW_NOTES.md`) | `V1_SHIP_GATE_DECISION.md` | 4 hrs |
+| W1.3 | CI bundle-size gate (Patch 9) verified in actual GitHub Actions run | already wired | 1 hr |
+| W1.4 | Manual smoke-test plan execution per `BUILD_TEST_VERIFICATION_AUDIT.md` §"Smoke test plan" — 15 user flows | audit doc | 2 hrs |
+| W1.5 | Empty-state/error polish second pass (Patch 13 already covered Notes; chat/graph empty states minor polish) | `STABILITY_ERROR_HANDLING_AUDIT.md` | 2 hrs |
+
+**Exit criteria**: green reliability gate (5/5), TestFlight build uploaded + reviewer notes attached, smoke test passed, CI green.
+**Tag**: `v1-ship-ready-2026-XX-XX`
+
+### Wave 2 — Sprint 0 cheap deterministic wins (1 week)
+**Goal**: instrument + tune SQLite + tighten release profile. No architecture changes. Pure config + signposts. Ships shippable on its own per `EPISTEMOS_DETERMINISTIC_PERF_PLAN.md` §1.4 (stabilization checkpoint).
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W2.1 | Wire `OSSignposter` into hot paths: render frame, MCP tool invoke, GRDB query, every UniFFI call site, MLX inference (`Sources/Telemetry/Sig.swift`) | dpp §1.1 Task 0.1 | 1 day |
+| W2.2 | Build `Tools/Performance.instrpkg` (custom Instruments package with subsystem `io.epistemos.core` + categories render/mcp/graph/ffi/storage/inference) | dpp §1.1 Task 0.2 | 2 hrs |
+| W2.3 | Apply canonical GRDB pragma block: WAL + synchronous=NORMAL + mmap_size=1GB + cache_size=-65536 + page_size=4096 + temp_store=MEMORY + fullfsync=0. Convert all hot queries to `cachedStatement(sql:)`. | dpp §1.1 Task 0.3 | 1 day |
+| W2.4 | Tighten release profile in workspace-root Cargo.toml: `lto="fat"`, `codegen-units=1`, `panic="abort"`, `strip="symbols"`, `opt-level=3`, `overflow-checks=false`. Measure dylib size before/after (target ≥30% reduction). | dpp §1.1 Task 0.4 | 30 min |
+| W2.5 | Define `docs/perf-budgets.toml` (cold_start_ms_p99=800, frame_ms_p99=8.3, mcp_invoke_ms_p99=2.0, ffi_hot_path_us_p99=5.0, binary_size_mb_max=12). Add CI step parsing budgets + asserting them. | dpp §1.1 Task 0.5 | 2 hrs |
+| W2.6 | Synthesize `bench/morning-session.swift`: scripted typical session (cold start → open vault → scroll graph 60s → 100 notes → 10 MCP tools → 5 raw thoughts → 20 searches → close). Replay-able for PGO + CI regression. | dpp §1.1 Task 0.6 | 1 day |
+
+**Exit criteria**: signposts visible in Instruments for all 6 categories. SQLite returns `journal_mode=wal`, `mmap_size=1073741824`. Release dylib ≥30% smaller. perf-budgets.toml CI step active. `bench/morning-session` runs to completion.
+**Tag**: `v-perf-0`
+
+### Wave 3 — Sprint 1 + 2: deterministic substrate (4 weeks)
+**Goal**: replace string-keyed / pointer-chasing patterns with compile-time deterministic dispatch. Foundation for everything else.
+
+#### Wave 3.A — Sprint 1: slotmap + SoA migration (2 weeks)
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W3A.1 | Introduce `crates/substrate-core` with `slotmap::SlotMap<ArtifactKey, ArtifactCore>` + `SecondaryMap<ArtifactKey, T>` columns for titles/bodies/embeddings | dpp §2.1 | 3 days |
+| W3A.2 | Expose `EpiArtifactRef(u64)` via C ABI; integer handles cross FFI, never pointers | dpp §2.3 | 1 day |
+| W3A.3 | Differential dual-write: keep old store + new store; `cargo test --features differential` continuously | dpp §2.4 | 1 day |
+| W3A.4 | Migrate read paths first, then writes, then components, then edges; each step ships independently | dpp §2.5 | 1 week |
+| W3A.5 | Swift `ArtifactRef` newtype wrapping `UInt64`; codemod existing `ArtifactID: String` call sites | dpp §2.6 | 2 days |
+
+**Tag**: `v-perf-1` (or `v-perf-1-partial` per dpp stabilization §2.4)
+
+#### Wave 3.B — Sprint 2: phf registries + Swift macro routing (2 weeks)
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W3B.1 | Add phf to substrate-core; add phf_codegen build-dep | dpp §3.1 | 30 min |
+| W3B.2 | `build.rs` compiles MCP tool registry + edge-kind enum + slash commands into static `phf::Map<&'static str, &'static Tool>` | dpp §3.2 | 1 day |
+| W3B.3 | `@ArtifactView` Swift macro (Sources/EpistemosMacros) — synthesizes exhaustive `static func make(for ref: ArtifactRef) -> some View` switch | dpp §3.3 | 3 days |
+| W3B.4 | `@MCPSchema` Rust proc macro — emits static `&'static SchemaNode` trees, eliminates runtime JSON-schema parse | dpp §3.4 | 2 days |
+| W3B.5 | Audit + migrate `[String: Any]` and `as? AnyView` in render hot paths; cold paths keep dynamic dispatch | dpp §3.5 | 1 week |
+
+**Tag**: `v-perf-2`
+
+### Wave 4 — Sprint 3: Metal binary archive + Tree-sitter SoA (2 weeks)
+**Goal**: eliminate runtime Metal pipeline compilation; Tree-sitter SoA highlight cache.
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W4.1 | Move Metal shader compilation offline: `xcrun metal -O3 -ffast-math` → `.metallib` shipped in bundle | dpp §4.1 | 2 days |
+| W4.2 | Generate `MTLBinaryArchive` (`metal-tt --pipelines pipelines.mtlp`); use it at runtime via `MTLRenderPipelineDescriptor.binaryArchives` | dpp §4.2 | 2 days |
+| W4.3 | Convert graph render path to argument buffers + `MTLStorageMode.shared` (UMA zero-copy) | dpp §4.3 | 3 days |
+| W4.4 | Tree-sitter SoA highlight cache (Rust): `Vec<HighlightSpan>` sorted by start_byte; viewport-scoped FFI returns `&[HighlightSpan]` | dpp §4.4 | 1 week |
+| W4.5 | **Patch 6a** (the BLOCKED item from V1): wire `SyntaxCoreService` into CodeEditSourceEditor's highlight pipeline (custom `HighlightProviding` adapter OR replace SourceEditor binding). 4k-line keystroke benchmark <16ms p99. | `PATCH_QUEUE.md` Patch 6a | 1 week |
+
+**Tag**: `v-perf-3`
+
+### Wave 5 — Sprint 4: zero-copy FFI carve-out (3 weeks, highest variance)
+**Goal**: substrate-rt crate with `repr(C)` SPSC ring buffer for hot-path events. Keep UniFFI for cold/control plane.
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W5.1 | Create `crates/substrate-rt` (staticlib + cdylib) | dpp §5.1 | 1 day |
+| W5.2 | Implement SPSC ring buffer (`EventRing` with cache-line padding for `head`/`tail` atomics, 16384 slots, 64-byte `GraphEvent` POD) | dpp §5.2 | 3 days |
+| W5.3 | Swift module map (`Sources/EpistemosRT/include/`) + `EventDrain` actor draining at frame boundaries | dpp §5.3 | 2 days |
+| W5.4 | Identify 5–10 highest-frequency UniFFI events from Sprint 0 signpost data (cursor moves, edit deltas, layout updates, MCP token chunks, agent frame ticks) | dpp §5.4 | 1 day |
+| W5.5 | Migrate one event per day with differential testing; remove UniFFI fallback only after 7 consecutive green days | dpp §5.5 | 2 weeks |
+| W5.6 | mmap'd raw-thoughts log (already partially landed via Patch 4 Rust emitter; finalize wait-free reader pattern per Cloudflare `mmap-sync`) | dpp §5.6 | 3 days |
+
+**Tag**: `v-perf-4` (or `v-perf-4-partial` per dpp §5.4 stabilization)
+
+### Wave 6 — Sprint 5 + 6: PGO + bumpalo + polish (2 weeks)
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W6.1 | `cargo install cargo-pgo`; instrumented build → run `bench/morning-session` → `cargo pgo optimize build`. Expect ≥5% wall-clock improvement. | dpp §6.1-6.2 | 2 days |
+| W6.2 | Bumpalo per-frame arenas in render + MCP invoke (`Bump::with_capacity(16MB)`, reset per frame) | dpp §6.3 | 3 days |
+| W6.3 | Final perf polish + `xcrun xctrace` reports per `EPISTEMOS_DETERMINISTIC_PERF_PLAN.md` §8 acceptance | dpp §6 | 3 days |
+
+**Tag**: `v-perf-1.0` (full Program C complete)
+
+### Wave 7 — Program B: Documents + ACC + remaining product surfaces (4–6 weeks)
+**Goal**: NOW the deferred feature work, on top of the deterministic perf substrate that makes them safe to add.
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W7.1 | **Documents `.epdoc` MVP**: package format (manifest.json + content.json canonical ProseMirror JSON + shadow.md + search_blocks.jsonl + assets/) | `gpt work 2.md` §"V1 .epdoc package", `raw thoughts.md` | 1 week |
+| W7.2 | **Tiptap + WKWebView document editor**: locally-bundled assets via app-bound, `WKScriptMessageHandler` bridge, prewarm/reuse single WebView, debounced canonical JSON save, block IDs preserved via `UniqueID` extension | `gpt work.md` §"Recommended stack", `raw thoughts.md` §"Document editor stack" | 2 weeks |
+| W7.3 | Markdown shadow projection (GFM via Tiptap; lossy by design; never canonical) + DOCX export-only via Pandoc with `reference.docx` styling | `gpt work 2.md` §"Universal artifact envelope" | 1 week |
+| W7.4 | **Agent Command Center full surface** (PLAN_V2 §4.1): slash commands, at-mentions, capability pills, brain selector, right-side inspector, global shortcut | `PLAN_V2.md` §4.1 | 1 week |
+| W7.5 | Memory diff card + embedded terminal (Pro) + iMessage inbound (Pro) — V1.5+ | `MASTER_PLAN_2026-04-19.md` §GG | 1 week each, Pro-only |
+
+**Tag**: `v1.5-cognitive-workspace`
+
+## Total horizon
+
+- **Wave 1**: 1 week (finish V1 ship)
+- **Waves 2–6**: 12 weeks (Program C, parallel-compatible per dpp §0.6)
+- **Wave 7**: 4–6 weeks (Program B Documents + ACC + Pro features)
+- **Total**: **17–19 weeks** for the full multi-program plan, sequenced hardening-first.
+
+Per `EPISTEMOS_DETERMINISTIC_PERF_PLAN.md` §0.6: "If at any point you are >2 weeks behind on a sprint, invoke the Stabilization Path (§7) and ship what's done. Every sprint produces a shippable improvement on its own."
+
+## Stabilization paths (skip-eligible)
+
+If scope gets messy, the dpp defines three stabilization paths:
+- **Path A** (Wave 2 only) — Sprint 0 + Sprint 1 read paths only + `.metallib` only. ~3 weeks for 25–35% perf win.
+- **Path B** — Skip Sprint 4 (zero-copy FFI carve-out) entirely if it turns into a swamp.
+- **Path C** — Defer the Swift macro work; keep hand-maintained `switch` with `precondition(false, "missing case")` guards.
+
+## Codex-style discipline (what continues working)
+
+Every wave runs the same recursive audit pattern this session proved:
+1. Master auditor dispatches focused sub-agents per patch
+2. Sub-agent returns diff + tests + build evidence
+3. Master auditor INDEPENDENTLY verifies (`xcodebuild build`, `cargo test`, `nm`, etc.)
+4. Reverts out-of-scope drift (xcodeproj edits, etc.) before commit
+5. Commits with full audit trail in message
+6. Tags stabilization checkpoints
+
+Protected surfaces remain absolute: ProseEditor, graph engine internals, Anthropic thinking-block byte preservation, agent_core control-plane sovereignty.
+
+## Decision needed from user
+
+Pick one to start:
+
+- **(a) Wave 1** — finish V1 ship hardening (5 items, ~1 week) — most conservative; gets you to TestFlight.
+- **(b) Wave 2 (Sprint 0)** — cheap deterministic wins (signposts + GRDB pragmas + LTO) — 1 week; safest perf foundation.
+- **(c) Wave 1 + Wave 2 combined** — finish V1 hardening AND lay perf foundation — 2 weeks; shippable + measurable.
+- **(d) Direct to Wave 7 (Documents)** — skip perf foundation, ship Documents on current substrate — fastest user-visible feature, but no perf headroom.
+
+Recommended: **(c)** — the user explicitly said "finish hardening before features" and Wave 2 IS hardening (instrumentation + tuning). Then proceed to Wave 3 (substrate) before Wave 7 (features).
