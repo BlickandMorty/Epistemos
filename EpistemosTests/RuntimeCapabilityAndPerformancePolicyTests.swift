@@ -115,6 +115,21 @@ struct RuntimeCapabilityAndPerformancePolicyTests {
         #expect(cinematicPixels >= 1_500_000)
     }
 
+    @Test("fullscreen drawable cap does not force a fractional CAMetalLayer contents scale")
+    func fullscreenDrawableCapKeepsLayerContentsScaleNative() {
+        let drawableScale = GraphDrawableResolutionPolicy.effectiveScale(
+            boundsSize: CGSize(width: 1_512, height: 982),
+            backingScale: 2.0,
+            isMiniMode: false,
+            lowPowerMode: false,
+            qualityLevel: 0
+        )
+        let layerScale = GraphDrawableResolutionPolicy.layerContentsScale(backingScale: 2.0)
+
+        #expect(drawableScale < 2.0)
+        #expect(layerScale == 2.0)
+    }
+
     @Test("code editor policy hides semantic refresh work until the sidebar is visible")
     func codeEditorPolicyGatesSemanticSidebarWork() {
         #expect(CodeEditorPerformancePolicy.shouldRefreshSemanticContext(isSidebarVisible: true))

@@ -364,8 +364,11 @@ struct GraphPhysicsSettingsAuditTests {
         #expect(overlay.components(separatedBy: "surfaceTintColor(for: theme)").count >= 3)
         #expect(graphState.contains("notifyGraphRenderSettingsChanged()"))
         #expect(graphState.contains("NotificationCenter.default.post(name: .graphRenderSettingsChanged"))
+        #expect(graphState.contains("static let defaultGlobalCameraMagnification: Float = -0.08"))
         #expect(metalGraph.contains("forName: .graphRenderSettingsChanged"))
         #expect(metalGraph.contains("self.needsRender = true"))
+        #expect(metalGraph.contains("graph_engine_zoom_to_fit(engine)"))
+        #expect(!metalGraph.contains("graph_engine_center_camera(engine)"))
     }
 
     @Test("Visual theme defaults to classic when unset")

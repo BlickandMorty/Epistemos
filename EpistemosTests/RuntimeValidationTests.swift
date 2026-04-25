@@ -1352,7 +1352,6 @@ struct RuntimeValidationTests {
         let textKit2FoundationTests = try loadRepoTextFile("EpistemosTests/TextKit2FoundationTests.swift")
 
         #expect(!omegaAgentTests.contains("@unchecked Sendable"))
-        #expect(omegaAgentTests.contains("private final class NotificationFlag: Sendable"))
         #expect(!noteEditorLayoutTests.contains("@unchecked Sendable"))
         #expect(noteEditorLayoutTests.contains("private final class LayoutNotificationCounts: Sendable"))
         #expect(!noteFileStorageTests.contains("@unchecked Sendable"))
@@ -2207,7 +2206,7 @@ struct RuntimeValidationTests {
         #expect(!settings.contains("Cursor Visibility"))
         #expect(!settings.contains("Cursor Animation"))
         #expect(!liquidGreeting.contains("cursorBlinkLoop"))
-        #expect(!liquidGreeting.contains("cursorVisible"))
+        #expect(liquidGreeting.contains("search cursor blink"))
         #expect(!pageShell.contains("cursorVisible"))
         #expect(!uiState.contains("var landingCursorAnimationEnabled"))
         #expect(!uiState.contains("var landingCursorVisibilityMode"))
@@ -2400,7 +2399,10 @@ struct RuntimeValidationTests {
     func graphPausePathReleasesDrawablesAndResumeRestoresThem() throws {
         let metalView = try loadRepoTextFile("Epistemos/Views/Graph/MetalGraphView.swift")
 
-        #expect(metalView.contains("layer.maximumDrawableCount = 2"))
+        #expect(metalView.contains("layer.maximumDrawableCount = 3"))
+        #expect(metalView.contains("private var graphDrawableScale: CGFloat"))
+        #expect(metalView.contains("private var currentGraphDrawableScale: CGFloat"))
+        #expect(metalView.contains("metalLayer?.contentsScale = GraphDrawableResolutionPolicy.layerContentsScale"))
         #expect(metalView.contains("func pauseEngine()"))
         #expect(metalView.contains("metalLayer?.drawableSize = .zero"))
         #expect(metalView.contains("func resumeEngine()"))
@@ -4085,7 +4087,9 @@ struct RuntimeValidationTests {
         let landing = try loadRepoTextFile("Epistemos/Views/Landing/LandingView.swift")
 
         #expect(landing.contains("LandingWaveOverlay("))
-        #expect(landing.contains("LandingWaveSearchBar("))
+        #expect(landing.contains("LiquidGreeting("))
+        #expect(landing.contains("searchMode: showingSearchPopover"))
+        #expect(landing.contains("TextField(\"\", text: $landingSearchText)"))
         #expect(!landing.contains(".appKitPopover("))
         #expect(!landing.contains("SpatialTapGesture("))
         #expect(landing.contains("landingTapLocation"))

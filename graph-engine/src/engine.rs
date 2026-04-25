@@ -96,8 +96,11 @@ pub(crate) fn presettle_limits(node_count: usize, entrance: bool) -> (u16, Durat
     }
 }
 
+const DEFAULT_CAMERA_FIT_PADDING: f32 = 0.85;
+const MIN_CAMERA_FIT_ZOOM: f32 = 0.35;
+
 fn clamp_zoom_for_theme(_theme: VisualTheme, zoom: f32) -> f32 {
-    zoom.clamp(1.0, 10.0)
+    zoom.clamp(MIN_CAMERA_FIT_ZOOM, 10.0)
 }
 
 fn should_update_field_lines(
@@ -1922,7 +1925,7 @@ impl Engine {
         let graph_h = (max_y - min_y).max(1.0);
         let w = self.viewport_width as f32;
         let h = self.viewport_height as f32;
-        let padding = 1.5;
+        let padding = DEFAULT_CAMERA_FIT_PADDING;
         let zoom = (w / graph_w).min(h / graph_h) * padding;
         Some((
             [cx, cy],
@@ -2599,7 +2602,7 @@ mod tests {
         let cy = (min_y + max_y) * 0.5;
         let graph_w = (max_x - min_x).max(1.0);
         let graph_h = (max_y - min_y).max(1.0);
-        let padding = 0.85;
+        let padding = DEFAULT_CAMERA_FIT_PADDING;
         let zoom = (viewport_w / graph_w).min(viewport_h / graph_h) * padding;
 
         assert!(zoom > 0.0, "zoom should be positive");
@@ -3165,9 +3168,17 @@ mod tests {
     }
 
     #[test]
-    fn zoom_clamp_floor_is_one_for_all_themes() {
-        assert_eq!(clamp_zoom_for_theme(VisualTheme::Dialogue, 0.35), 1.0);
-        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.35), 1.0);
+    fn zoom_clamp_floor_allows_wide_opening_for_all_themes() {
+        assert_eq!(
+            clamp_zoom_for_theme(VisualTheme::Dialogue, MIN_CAMERA_FIT_ZOOM * 0.5),
+            MIN_CAMERA_FIT_ZOOM
+        );
+        assert_eq!(
+            clamp_zoom_for_theme(VisualTheme::Classic, MIN_CAMERA_FIT_ZOOM * 0.5),
+            MIN_CAMERA_FIT_ZOOM
+        );
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Dialogue, 0.55), 0.55);
+        assert_eq!(clamp_zoom_for_theme(VisualTheme::Classic, 0.55), 0.55);
     }
 
     #[test]
