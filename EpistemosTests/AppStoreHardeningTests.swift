@@ -230,23 +230,33 @@ struct AppStoreHardeningTests {
 
     /// Strip lines inside `#if !EPISTEMOS_APP_STORE ... #endif` blocks
     /// so the result reflects what the MAS compiler would see for the
-    /// current branch. Handles nested non-MAS-related `#if` directives
-    /// by tracking generic `#if` depth and only acting on the
-    /// `!EPISTEMOS_APP_STORE` ones. Does not interpret `#else` against
-    /// `#if EPISTEMOS_APP_STORE` (callers that need that pattern should
-    /// add it; AudioTranscriber today uses the simpler form).
+    /// current branch.
+    ///
+    /// **Limitation -- simple-shape parser only.** This implementation
+    /// tracks ONLY `#if !EPISTEMOS_APP_STORE` opens and matches them
+    /// against the next `#endif`. It does NOT track other `#if`
+    /// directives. That means: an unrelated `#if FOO` inside an excluded
+    /// `#if !EPISTEMOS_APP_STORE` block will end on its own `#endif`
+    /// rather than being treated as a nested level, and the next
+    /// `#endif` would then incorrectly re-open the excluded section.
+    /// This is fine for AudioTranscriber today, which uses the simple
+    /// flat `#if !EPISTEMOS_APP_STORE ... #endif` shape with no nested
+    /// `#if` directives. If a future file under this regression mixes
+    /// nested `#if`s inside the gate, upgrade the parser to track
+    /// generic `#if` depth before adding that file to the regression.
+    /// Also does not interpret `#else` (no current call site needs it).
     private func masVisibleSource(_ source: String) -> String {
         var kept: [String] = []
-        var excludeDepth = 0
+        var inExcludedBlock = false
         for line in source.components(separatedBy: .newlines) {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
-                excludeDepth += 1
+                inExcludedBlock = true
                 continue
             }
-            if excludeDepth > 0 {
+            if inExcludedBlock {
                 if trimmed.hasPrefix("#endif") {
-                    excludeDepth -= 1
+                    inExcludedBlock = false
                 }
                 continue
             }
