@@ -1,0 +1,39 @@
+[package]
+name = "epistemos-bench"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Wave 2.6 of the Extended Program Plan
+# (`docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md`,
+#  cross-ref dpp §1.1 Task 0.6).
+#
+# Synthesises a "morning session" workload to produce runtime metrics
+# consumed by the Wave 2.5 perf-budgets gate (scripts/check-perf-budgets.sh
+# reads build/perf-budgets-runtime.json which this binary writes).
+
+[[bin]]
+name = "morning-session"
+path = "src/morning_session.rs"
+
+[dependencies]
+# omega-mcp is the MCP dispatcher (String → String JSON-RPC roundtrip)
+# that exercises the same serialize/parse pattern crossing the UniFFI
+# boundary in shipping builds — perfect proxy for ffi_hot_path + mcp_invoke
+# regression detection without needing a Metal device or live network.
+omega-mcp = { path = "../omega-mcp" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+# Mirror the canonical Wave 2.4 profile so bench measurements reflect
+# the same compiler settings the shipping dylibs use. epistemos-bench
+# has no catch_unwind sites of its own, so panic = "abort" is fine
+# (it never crosses an FFI boundary that needs unwinding).
+panic = "abort"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false

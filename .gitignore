@@ -44,6 +44,8 @@ logseq/
 omega-mcp/target/
 omega-ax/target/
 epistemos-core/target/
+substrate-core/target/
+bench/target/
 build-rust/
 __pycache__/
 
