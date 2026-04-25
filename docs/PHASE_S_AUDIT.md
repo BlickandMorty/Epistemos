@@ -151,6 +151,50 @@ The master plan defines 6 hard exit criteria for Phase S. Current state:
 
 ---
 
+## 6a. Static-analysis scan for App Review blocker APIs (Phase S.2)
+
+Zero-cost `Grep` sweep of `Epistemos/` Swift sources for a known set of App Review blocker API symbols: `NSTask`, `Process()` (constructor), `dlopen(`, `dlsym(`, `posix_spawn`, `execv[ep]?(`, `fork()`. Two hits, both classified below.
+
+### Hit 1: `dlopen(nil, RTLD_LAZY)` / `dlsym(...)` -- `Epistemos/Bridge/ChunkedMCPFraming.swift:245, 251`
+
+```swift
+// line 245
+let fn = unsafeBitCast(dlsym(dlopen(nil, RTLD_LAZY), "shm_open"), to: ShmOpenFn.self)
+```
+
+**Why it is there:** `shm_open` / `shm_unlink` are declared variadic in the Darwin headers, so Swift cannot call them through their `@convention(c)` function pointers directly. The thunk above looks up the symbol in the main executable's address space via `dlopen(nil, ...)` (which does NOT load an external dylib -- it returns a handle to the already-linked process image) and reinterprets it with a fixed ABI.
+
+**Risk:** low-to-medium. `dlopen(nil, ...)` is sandbox-safe and does not trigger `com.apple.security.cs.disable-library-validation`. App Review has historically accepted this pattern for POSIX-header workarounds. However, a paranoid automated-review pass might still flag `dlopen` / `dlsym` presence. Cleaner long-term: add a `.modulemap` bridge or an Objective-C shim that declares `shm_open` with the fixed three-argument signature, removing the need for the runtime symbol lookup.
+
+**Phase S action:** log, do not block. Revisit if App Store review rejects on this. Tracked as a Phase S.2 follow-up, not a Phase S.2 blocker.
+
+### Hit 2: `Process()` spawning `/usr/bin/open` -- `Epistemos/Views/Settings/IMessageDriverSettingsView.swift:570-574`
+
+```swift
+let relaunch = DoctorAction(title: "Relaunch Epistemos") {
+    let task = Process()
+    task.launchPath = "/usr/bin/open"
+    task.arguments = ["-n", Bundle.main.bundlePath]
+    try? task.run()
+    NSApp.terminate(nil)
+}
+```
+
+**Why it is there:** a "Relaunch Epistemos" recovery button used by the Doctor-guidance UI when the iMessage driver hits a Full-Disk-Access / Automation-permission error. Spawns a new copy of the app via `/usr/bin/open` and then terminates the current process.
+
+**MAS reachability:** the `iMessageDriverDetailView` case is gated at `SettingsView.swift:297-299` with `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)`, so the iMessage settings panel is never rendered in the App Store build and this `Process()` closure is never invoked from the UI. HOWEVER: `IMessageDriverSettingsView.swift` itself is NOT listed in the `Epistemos-AppStore` target's source-exclude list in `project.yml`, so the file IS compiled into the MAS binary and the `Process()` call remains as dead-but-present code.
+
+**Risk:** medium. Runtime is safe (dead code, unreachable). Static-analysis risk: an App Review automated scan that flags `Process()` or `task.launchPath = "/usr/bin/open"` presence (regardless of reachability) will require a response. Even if reachable, the MAS sandbox would block the spawn anyway.
+
+**Phase S action:** before first MAS submission, do one of:
+
+1. Add `Views/Settings/IMessageDriverSettingsView.swift` to the `Epistemos-AppStore` target's source-exclude list in `project.yml`, same mechanism that already excludes `ClaudeManagedRuntime.swift` and `LocalRustRuntime.swift`. This removes the `Process()` call from the MAS binary entirely.
+2. Or wrap the relaunch action body in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` with an NSWorkspace-based fallback inside the MAS branch.
+
+Option 1 is closer to the existing split pattern and is the recommended action. Tracked as a Phase S.2 follow-up; non-blocking for this audit but blocking for submission.
+
+---
+
 ## 7. Known follow-ups (non-blocking, scoped by sub-phase)
 
 - **S.1 UX polish:** requires launched-app dogfood time; out of scope for this audit pass.
