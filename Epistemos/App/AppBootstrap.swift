@@ -791,6 +791,10 @@ final class AppBootstrap {
     let mcpBridge = MCPBridge()
     let agentCommandCenterState = AgentCommandCenterState()
     let agentChatState = AgentChatState()
+    /// Patch 5 / USER_WIRING_GAPS G2 — Raw Thoughts V0 sidebar consumer.
+    /// Hidden behind `EPISTEMOS_RAW_THOUGHTS_V0` env flag; UI hides itself
+    /// when `state.isEnabled == false`.
+    let rawThoughtsState = RawThoughtsState()
     let agentAuthorityStore = AgentAuthorityStore(
         persistence: FileBackedAgentAuthorityPersistence()
     )

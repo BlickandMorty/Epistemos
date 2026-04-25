@@ -425,6 +425,14 @@ private struct ModelVaultSidebarRow: View {
             .padding(.trailing, 10)
             .padding(.top, 6)
             .padding(.bottom, 4)
+
+            // Patch 5 / U3: Raw Thoughts artifact entry, file-type-driven and
+            // scoped to this model vault. Hides itself when
+            // EPISTEMOS_RAW_THOUGHTS_V0 is unset.
+            RawThoughtsSection(
+                vaultRoot: entry.url,
+                providerHint: entry.subtitle
+            )
         }
         .padding(.bottom, 8)
     }
