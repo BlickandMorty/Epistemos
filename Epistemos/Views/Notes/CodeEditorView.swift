@@ -1158,45 +1158,47 @@ struct CodeCompanionToast: View {
     let message: CompanionMessage
     let onAction: (CompanionMessage.MessageAction) -> Void
     let onDismiss: () -> Void
-    
+
     @State private var isHovered = false
-    
+
+    @ScaledMetric(relativeTo: .body) private var toastWidth: CGFloat = 320
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: message.source.icon)
                     .foregroundStyle(message.source.color)
-                    .font(.system(size: 14))
-                
+                    .font(.body)
+
                 Text(message.source.rawValue)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                
+
                 Spacer()
-                
+
                 Text(message.type.description)
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(message.source.color.opacity(0.15))
                     .foregroundStyle(message.source.color)
                     .cornerRadius(4)
-                
+
                 Button {
                     onDismiss()
                 } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 10))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
-            
+
             Text(message.content)
-                .font(.system(size: 13))
+                .font(.body)
                 .lineSpacing(1.5)
                 .fixedSize(horizontal: false, vertical: true)
-            
+
             HStack(spacing: 8) {
                 ForEach(message.actions.prefix(2), id: \.id) { action in
                     Button {
@@ -1204,9 +1206,9 @@ struct CodeCompanionToast: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: action.icon)
-                                .font(.system(size: 10))
+                                .font(.caption)
                             Text(action.title)
-                                .font(.system(size: 11))
+                                .font(.subheadline)
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 5)
@@ -1219,7 +1221,7 @@ struct CodeCompanionToast: View {
             }
         }
         .padding()
-        .frame(width: 320)
+        .frame(width: toastWidth)
         .background(.ultraThinMaterial)
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 10)
@@ -1246,6 +1248,8 @@ struct CodeEditorView: View {
     @Environment(GraphState.self) private var graphState: GraphState?
     @Environment(TriageService.self) private var triageService: TriageService?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    @ScaledMetric(relativeTo: .body) private var toolbarMenuWidth: CGFloat = 20
 
     @State private var text: String
     @State private var editorState: SourceEditorState = .init()
@@ -1589,9 +1593,9 @@ struct CodeEditorView: View {
                 .foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
-        .frame(width: 20)
+        .frame(width: toolbarMenuWidth)
     }
-    
+
     // MARK: - View Options Menu
     
     private var viewOptionsMenu: some View {
@@ -1607,9 +1611,9 @@ struct CodeEditorView: View {
                 .foregroundStyle(.secondary)
         }
         .menuStyle(.borderlessButton)
-        .frame(width: 20)
+        .frame(width: toolbarMenuWidth)
     }
-    
+
     // MARK: - Hybrid Features
     
     private func initializeCodeContextBridge() {
@@ -2703,6 +2707,8 @@ struct CodeSemanticSidebar: View {
     @State private var showSemanticSearch = false
     @State private var selectedTab: SidebarTab = .insights
     @State private var insightRefreshTask: Task<Void, Never>?
+
+    @ScaledMetric(relativeTo: .body) private var sidebarWidth: CGFloat = 300
     
     enum SidebarTab {
         case insights, related
@@ -2749,7 +2755,7 @@ struct CodeSemanticSidebar: View {
             Divider()
             actionsSection
         }
-        .frame(width: 300)
+        .frame(width: sidebarWidth)
         .background(.ultraThinMaterial)
         .onAppear {
             if bridge.relatedNotes.isEmpty {
@@ -2836,9 +2842,9 @@ struct CodeSemanticSidebar: View {
     private var insightsEmptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 32))
+                .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            
+
             Text("Analyzing code...")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -2943,9 +2949,9 @@ struct CodeSemanticSidebar: View {
     private var emptyStateView: some View {
         VStack(spacing: 12) {
             Image(systemName: "doc.text.magnifyingglass")
-                .font(.system(size: 32))
+                .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            
+
             Text("No related notes found")
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -3032,32 +3038,32 @@ struct CodeSemanticSidebar: View {
 struct RelatedNoteRow: View {
     let match: CodeSemanticMatch
     @State private var isHovered = false
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: match.matchType.icon)
                 .foregroundStyle(match.matchType.color)
-                .font(.system(size: 14))
-            
+                .font(.body)
+
             VStack(alignment: .leading, spacing: 4) {
                 Text(match.title)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.body.weight(.medium))
                     .lineLimit(1)
-                
+
                 Text(match.snippet)
-                    .font(.system(size: 11))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
-                
+
                 HStack(spacing: 4) {
                     Text("\(match.similarityScore.isFinite ? Int(match.similarityScore * 100) : 0)% match")
-                        .font(.system(size: 10))
+                        .font(.caption)
                         .foregroundStyle(match.matchType.color)
-                    
+
                     Spacer()
-                    
+
                     Text(match.matchTypeText)
-                        .font(.system(size: 10))
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -3085,10 +3091,13 @@ extension CodeSemanticMatch {
 struct SemanticCodeSearchSheet: View {
     @ObservedObject var bridge: CodeContextBridge
     @Environment(\.dismiss) private var dismiss
-    
+
     @State private var query = ""
     @State private var results: [CodeSemanticMatch] = []
     @State private var isSearching = false
+
+    @ScaledMetric(relativeTo: .body) private var sheetWidth: CGFloat = 400
+    @ScaledMetric(relativeTo: .body) private var sheetHeight: CGFloat = 500
     
     var body: some View {
         VStack(spacing: 16) {
@@ -3155,10 +3164,10 @@ struct SemanticCodeSearchSheet: View {
                 RelatedNoteRow(match: match)
             }
             .listStyle(.plain)
-            
+
             Spacer()
         }
-        .frame(width: 400, height: 500)
+        .frame(width: sheetWidth, height: sheetHeight)
     }
     
     private func performSearch() {
@@ -3459,7 +3468,9 @@ struct CodeInsightsPanel: View {
     let language: String
     let relatedMatches: [CodeSemanticMatch]
     let onOpenNote: (String) -> Void
-    
+
+    @ScaledMetric(relativeTo: .body) private var panelWidth: CGFloat = 320
+
     init(
         generator: CodeInsightGenerator? = nil,
         code: String,
@@ -3521,7 +3532,7 @@ struct CodeInsightsPanel: View {
                 }
             }
         }
-        .frame(width: 320)
+        .frame(width: panelWidth)
         .background(.ultraThinMaterial)
         .onAppear {
             generator.generateInsights(
@@ -3546,13 +3557,13 @@ struct CodeInsightsPanel: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 32))
+                .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            
+
             Text("No insights yet")
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            
+
             Text("Tap refresh to analyze this code with Apple Intelligence")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
@@ -3577,41 +3588,41 @@ struct InsightCard: View {
             HStack(spacing: 8) {
                 Image(systemName: insight.type.icon)
                     .foregroundStyle(insight.type.color)
-                    .font(.system(size: 14))
-                
+                    .font(.body)
+
                 Text(insight.title)
-                    .font(.system(size: 13, weight: .semibold))
-                
+                    .font(.body.weight(.semibold))
+
                 Spacer()
-                
+
                 // Confidence badge
                 Text(insight.confidence.rawValue)
-                    .font(.system(size: 9))
+                    .font(.caption2)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(insight.confidence.color.opacity(0.15))
                     .foregroundStyle(insight.confidence.color)
                     .cornerRadius(4)
-                
+
                 Button {
                     withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                         isExpanded.toggle()
                     }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 10))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
             }
-            
+
             if isExpanded {
                 Text(insight.content)
-                    .font(.system(size: 12))
+                    .font(.callout)
                     .foregroundStyle(.primary)
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
-                
+
                 // Related notes chips
                 if !insight.relatedNoteIds.isEmpty {
                     CodeInsightFlowLayout(spacing: 6) {
@@ -3621,9 +3632,9 @@ struct InsightCard: View {
                             } label: {
                                 HStack(spacing: 4) {
                                     Image(systemName: "doc.text")
-                                        .font(.system(size: 9))
+                                        .font(.caption2)
                                     Text("Related Note")
-                                        .font(.system(size: 10))
+                                        .font(.caption)
                                 }
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -3782,14 +3793,16 @@ struct GoToLineSheet: View {
     let totalLines: Int
     let onGoToLine: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
-    
+
     @FocusState private var isFocused: Bool
-    
+
+    @ScaledMetric(relativeTo: .body) private var sheetWidth: CGFloat = 250
+
     var body: some View {
         VStack(spacing: 20) {
             Text("Go to Line")
                 .font(.headline)
-            
+
             HStack {
                 TextField("Line number", text: $lineNumber)
                     .textFieldStyle(.roundedBorder)
@@ -3797,18 +3810,18 @@ struct GoToLineSheet: View {
                     .onSubmit {
                         submit()
                     }
-                    .frame(width: 100)
-                
+                    .frame(minWidth: 100)
+
                 Text("of \(totalLines)")
                     .foregroundStyle(.secondary)
             }
-            
+
             HStack {
                 Button("Cancel") {
                     dismiss()
                 }
                 .keyboardShortcut(.cancelAction)
-                
+
                 Button("Go") {
                     submit()
                 }
@@ -3817,7 +3830,7 @@ struct GoToLineSheet: View {
             }
         }
         .padding()
-        .frame(width: 250)
+        .frame(width: sheetWidth)
         .onAppear {
             isFocused = true
         }
@@ -3843,14 +3856,14 @@ struct TabButton: View {
     let icon: String
     let isSelected: Bool
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 11))
+                    .font(.subheadline)
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.subheadline.weight(.medium))
             }
             .padding(.vertical, 6)
             .padding(.horizontal, 12)
