@@ -173,6 +173,7 @@ struct MiniChatView: View {
 private struct MiniChatThread: View {
     @Environment(UIState.self) private var ui
     @Environment(ThreadState.self) private var threadState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let chatID: String
 
@@ -270,7 +271,7 @@ private struct MiniChatThread: View {
                     .onChange(of: miniChatThread?.messages.count) { _, _ in
                         guard autoFollow.isFollowingBottom else { return }
                         autoFollow.markProgrammaticScrollToBottom()
-                        withAnimation(Motion.quick) {
+                        withAnimation(reduceMotion ? nil : Motion.quick) {
                             proxy.scrollTo("bottom", anchor: .bottom)
                         }
                     }

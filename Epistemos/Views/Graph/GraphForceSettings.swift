@@ -30,6 +30,7 @@ private enum GraphForceSettingsSection: String, CaseIterable, Identifiable {
 
 struct GraphForceSettings: View {
     @Environment(GraphState.self) private var graphState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showLaboratory = false
     @State private var showSavePresetAlert = false
@@ -687,7 +688,7 @@ struct GraphForceSettings: View {
 
     private var laboratoryToggle: some View {
         Button {
-            withAnimation(.smooth(duration: 0.2)) { showLaboratory.toggle() }
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { showLaboratory.toggle() }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: showLaboratory ? "chevron.down" : "chevron.right")

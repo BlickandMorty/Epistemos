@@ -180,6 +180,58 @@ final class HologramOverlay {
     private var darkenLayer: NSView?
     private var blurView: NSVisualEffectView?
 
+    /// macOS "Reduce Motion" toggle. Read at each animation site rather
+    /// than cached, so the user can flip the setting and see it take
+    /// effect on the next overlay open without restarting the app.
+    private var reduceMotionEnabled: Bool {
+        NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+
+    /// Animate a window's alphaValue, OR — under Reduce Motion — set it
+    /// directly without entering NSAnimationContext / animator() at all,
+    /// then fire `completion` synchronously. The companion `setWindowFrame`
+    /// helper below has the same shape for setFrame animations. Both
+    /// exist so Reduce Motion bypasses AppKit animation infrastructure
+    /// entirely. NSPanel passes through these helpers unchanged because
+    /// it inherits NSWindow.
+    private func setWindowAlpha(
+        _ window: NSWindow,
+        to alpha: CGFloat,
+        duration: TimeInterval,
+        timing: CAMediaTimingFunctionName = .easeOut,
+        completion: (() -> Void)? = nil
+    ) {
+        if reduceMotionEnabled {
+            window.alphaValue = alpha
+            completion?()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: timing)
+            window.animator().alphaValue = alpha
+        }, completionHandler: completion)
+    }
+
+    private func setWindowFrame(
+        _ window: NSWindow,
+        to frame: NSRect,
+        duration: TimeInterval,
+        timing: CAMediaTimingFunctionName = .easeInEaseOut,
+        completion: (() -> Void)? = nil
+    ) {
+        if reduceMotionEnabled {
+            window.setFrame(frame, display: true)
+            completion?()
+            return
+        }
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = duration
+            ctx.timingFunction = CAMediaTimingFunction(name: timing)
+            window.animator().setFrame(frame, display: true)
+        }, completionHandler: completion)
+    }
+
     // Note window frame for anchor positioning (page mode only).
     private var noteWindowFrame: NSRect?
     // Observation tokens for tracking note window movement.
@@ -279,11 +331,7 @@ final class HologramOverlay {
             syncImmersivePointerPassthrough(for: window)
             window.orderFrontRegardless()
             metalView.resumeEngine()
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                window.animator().alphaValue = 1.0
-            }, completionHandler: { [weak self] in
+            setWindowAlpha(window, to: 1.0, duration: 0.2) { [weak self] in
                 MainActor.assumeIsolated {
                     guard let self, let window = self.window, let metalView = self.metalView else { return }
                     self.syncImmersivePointerPassthrough(for: window)
@@ -298,7 +346,7 @@ final class HologramOverlay {
                     }
                     self.startPinnedPanelTimer()
                 }
-            })
+            }
             return
         }
 
@@ -334,10 +382,12 @@ final class HologramOverlay {
         // create Metal pipelines, load graph data, and run the initial commit.
         // This hides the initialization freeze behind a smooth transition.
         // Subsequent opens reuse the cached engine and skip this delay.
+        // Under Reduce Motion both the synthetic delay and the AppKit fade
+        // are skipped — the window appears at full opacity immediately and
+        // the same completion handler runs synchronously.
         let isFirstOpen = !hasShownBefore
         hasShownBefore = true
-        let fadeDelay: TimeInterval = isFirstOpen ? 0.6 : 0.0
-
+        let fadeDelay: TimeInterval = (reduceMotionEnabled || !isFirstOpen) ? 0.0 : 0.6
         let fadeDuration = isFirstOpen ? 0.5 : 0.3
         fadeInTask?.cancel()
         fadeInTask = Task { @MainActor [weak self, weak window] in
@@ -345,11 +395,7 @@ final class HologramOverlay {
                 try? await Task.sleep(for: .seconds(fadeDelay))
             }
             guard !Task.isCancelled, let window, let self else { return }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = fadeDuration
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                window.animator().alphaValue = 1.0
-            }, completionHandler: { [weak self] in
+            self.setWindowAlpha(window, to: 1.0, duration: fadeDuration) { [weak self] in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     guard let window = self.window else {
@@ -377,7 +423,7 @@ final class HologramOverlay {
                     }
                     self.fadeInTask = nil
                 }
-            })
+            }
         }
     }
 
@@ -434,31 +480,23 @@ final class HologramOverlay {
         case .teardownImmediately:
             // Minimized: fade out the mini panel and do full teardown.
             guard let miniPanel else { teardown(); return }
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                miniPanel.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
+            setWindowAlpha(miniPanel, to: 0, duration: 0.2, timing: .easeIn) { [weak self] in
                 MainActor.assumeIsolated {
                     self?.teardown()
                 }
-            })
+            }
         case .pauseThenTeardownAfterDelay:
             guard let window else { return }
 
             // Soft hide: pause engine + hide window, keep engine alive briefly for fast re-show.
             window.ignoresMouseEvents = true
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-                window.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
+            setWindowAlpha(window, to: 0, duration: 0.2, timing: .easeIn) { [weak self] in
                 MainActor.assumeIsolated {
                     window.orderOut(nil)
                     self?.metalView?.pauseEngine()
                     self?.scheduleHiddenTeardown()
                 }
-            })
+            }
         }
     }
 
@@ -535,11 +573,7 @@ final class HologramOverlay {
         contentView.layer?.cornerRadius = 16
         contentView.layer?.masksToBounds = true
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.3
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            window.animator().setFrame(miniFrame, display: true)
-        }
+        setWindowFrame(window, to: miniFrame, duration: 0.3)
 
         addExpandButton(to: window)
 
@@ -606,26 +640,19 @@ final class HologramOverlay {
         window.applyPresentation(.immersiveOverlay)
         guard let screen = NSScreen.main else { return }
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.3
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            window.animator().setFrame(screen.frame, display: true)
-        }
+        setWindowFrame(window, to: screen.frame, duration: 0.3)
 
         window.orderFrontRegardless()
         window.makeFirstResponder(metalView)
 
         // Hide mini inspector if shown
         if let inspector = miniInspectorPanel {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                inspector.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
+            setWindowAlpha(inspector, to: 0, duration: 0.2) { [weak self] in
                 MainActor.assumeIsolated {
                     self?.miniInspectorPanel?.orderOut(nil as NSWindow?)
                     self?.miniInspectorPanel = nil
                 }
-            })
+            }
         }
     }
 
@@ -689,11 +716,7 @@ final class HologramOverlay {
         panel.alphaValue = 0
         panel.orderFront(nil)
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1.0
-        }
+        setWindowAlpha(panel, to: 1.0, duration: 0.25)
 
         // Commit graph data after the panel is laid out.
         Task { @MainActor [weak self] in
@@ -1138,11 +1161,7 @@ final class HologramOverlay {
         self.miniInspectorPanel = panel
         panel.alphaValue = 0
         panel.orderFront(nil)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            panel.animator().alphaValue = 1.0
-        }
+        setWindowAlpha(panel, to: 1.0, duration: 0.25)
     }
 
     /// Resize the mini inspector panel when switching between profile/editor modes.
@@ -1160,28 +1179,21 @@ final class HologramOverlay {
         let clampedX = max(screen.minX + 8, x)
         let clampedY = max(screen.minY + 8, y)
 
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.25
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-            panel.animator().setFrame(
-                NSRect(x: clampedX, y: clampedY, width: newWidth, height: newHeight),
-                display: true
-            )
-        }
+        setWindowFrame(
+            panel,
+            to: NSRect(x: clampedX, y: clampedY, width: newWidth, height: newHeight),
+            duration: 0.25
+        )
     }
 
     private func hideMiniInspector() {
         guard let panel = miniInspectorPanel else { return }
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.2
-            ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            panel.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
+        setWindowAlpha(panel, to: 0, duration: 0.2, timing: .easeIn) { [weak self] in
             MainActor.assumeIsolated {
                 self?.miniInspectorPanel?.orderOut(nil)
                 self?.miniInspectorPanel = nil
             }
-        })
+        }
     }
 
     // MARK: - Notification Observers

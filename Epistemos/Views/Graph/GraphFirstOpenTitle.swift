@@ -12,6 +12,7 @@ struct GraphFirstOpenTitle: View {
     /// Theme resolved externally so the title matches light/dark overlay.
     let isDark: Bool
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var displayText: String = ""
     @State private var blurRadius: CGFloat = 14
     @State private var opacity: Double = 0
@@ -52,6 +53,18 @@ struct GraphFirstOpenTitle: View {
 
     @MainActor
     private func runAnimation() async {
+        // Reduce Motion: skip blur-in, typewriter, and blur-out dissolve.
+        // Show the title statically for the same hold duration so the
+        // user has time to read it, then snap-fade out without scaling.
+        if reduceMotion {
+            displayText = fullText
+            opacity = 1.0
+            blurRadius = 0
+            try? await Task.sleep(for: .milliseconds(900))
+            opacity = 0
+            return
+        }
+
         // Initial fade/blur-in — the title materializes out of blur.
         withAnimation(.easeOut(duration: 0.55)) {
             opacity = 1.0
