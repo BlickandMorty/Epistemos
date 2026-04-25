@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import os
 
@@ -577,3 +578,4 @@ enum HarnessError: Error, LocalizedError {
         }
     }
 }
+#endif // !EPISTEMOS_APP_STORE -- Harness registry depends on gated subprocess eval suite

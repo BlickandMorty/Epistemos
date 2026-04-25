@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import os
 
@@ -252,3 +253,4 @@ final class HarnessIntegration {
         activeTaskType = .coding
     }
 }
+#endif // !EPISTEMOS_APP_STORE -- Harness integration depends on gated subprocess checkers
