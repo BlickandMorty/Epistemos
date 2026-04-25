@@ -8,6 +8,7 @@ import SwiftUI
 
 struct TimeMachineView: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPresented: Bool
 
     @State private var timeline: [EventStore.SnapshotMeta] = []
@@ -126,7 +127,7 @@ struct TimeMachineView: View {
                 .allowsHitTesting(false)
         }
         .onAppear {
-            withAnimation(.easeOut(duration: 0.2)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { appeared = true }
             loadTimeline()
         }
         .onDisappear {
@@ -384,7 +385,11 @@ struct TimeMachineView: View {
     }
 
     private func dismiss() {
-        withAnimation(.easeIn(duration: 0.15)) { appeared = false }
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appeared = false }
+        if reduceMotion {
+            isPresented = false
+            return
+        }
         Task { @MainActor in
             do {
                 try await Task.sleep(for: .milliseconds(150))

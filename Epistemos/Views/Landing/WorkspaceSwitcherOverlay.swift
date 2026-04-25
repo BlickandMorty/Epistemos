@@ -11,6 +11,7 @@ private enum WorkspaceSwitcherOverlayTiming {
 
 struct WorkspaceSwitcherOverlay: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Binding var isPresented: Bool
 
     @State private var workspaces: [SDWorkspace] = []
@@ -85,7 +86,7 @@ struct WorkspaceSwitcherOverlay: View {
                         }
                         .frame(maxHeight: 320)
                         .onChange(of: selectedIndex) { _, newIndex in
-                            withAnimation(.easeOut(duration: 0.1)) {
+                            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.1)) {
                                 proxy.scrollTo(newIndex, anchor: .center)
                             }
                         }
@@ -131,7 +132,7 @@ struct WorkspaceSwitcherOverlay: View {
         }
         .onAppear {
             refreshWorkspaces()
-            withAnimation(.easeOut(duration: 0.2)) { appeared = true }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { appeared = true }
         }
     }
 
@@ -187,7 +188,12 @@ struct WorkspaceSwitcherOverlay: View {
     }
 
     private func performAfterDismiss(_ action: (@MainActor () -> Void)? = nil) {
-        withAnimation(.easeIn(duration: 0.15)) { appeared = false }
+        withAnimation(reduceMotion ? nil : .easeIn(duration: 0.15)) { appeared = false }
+        if reduceMotion {
+            action?()
+            isPresented = false
+            return
+        }
         Task { @MainActor in
             guard await pause(WorkspaceSwitcherOverlayTiming.dismissDelay()) else { return }
             action?()

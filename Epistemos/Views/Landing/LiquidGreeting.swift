@@ -48,6 +48,7 @@ struct LiquidGreeting: View {
     nonisolated static let restingGreeting = "Greetings, Learner"
 
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var compact: Bool = false
     @Binding var retractNow: Bool
     var onRetractComplete: (() -> Void)? = nil
@@ -191,7 +192,7 @@ struct LiquidGreeting: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .animation(
-            .spring(response: 0.22, dampingFraction: 0.82),
+            reduceMotion ? nil : .spring(response: 0.22, dampingFraction: 0.82),
             value: dynamicSearchFontSize
         )
         .shadow(
