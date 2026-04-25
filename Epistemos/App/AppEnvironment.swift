@@ -46,5 +46,6 @@ extension View {
             .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
             .environment(bootstrap.rawThoughtsState)
+            .environment(bootstrap.contextualShadowsState)
     }
 }

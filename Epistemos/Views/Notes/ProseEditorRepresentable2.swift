@@ -263,6 +263,11 @@ extension ProseEditorRepresentable2 {
         // Data detection
         private var dataDetectionTask: Task<Void, Never>?
 
+        // Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — Contextual Shadows recall
+        // debounce. Cancelled on every keystroke so a fresh request always
+        // supersedes the previous one (plan §7: never queue, always supersede).
+        var recallDebounceTask: Task<Void, Never>?
+
         // BTK: block edit translator for real-time block tracking
         var blockEditTranslator: BlockEditTranslator?
 
@@ -746,6 +751,8 @@ extension ProseEditorRepresentable2 {
             // fires mid-dismantle and writes to the binding during teardown.
             bindingSyncTask?.cancel()
             bindingSyncTask = nil
+            recallDebounceTask?.cancel()
+            recallDebounceTask = nil
             scrollOverlayRefreshCoalescer.cancel()
 
             // Strip ephemeral content before any save reads.
@@ -899,6 +906,46 @@ extension ProseEditorRepresentable2 {
 
             scheduleTableAlignment(tv)
             scheduleDataDetection(newText)
+            scheduleContextualShadowsRecall(newText)
+        }
+
+        // MARK: - Contextual Shadows Recall (200ms debounce)
+        // Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5 — schedule an off-MainActor
+        // recall query 200ms after the last keystroke. The actual encoder +
+        // HNSW search runs inside `ContextualShadowsState.requestRecall`,
+        // which dispatches to `Task.detached(priority: .utility)`. This hop
+        // exists only to apply the 200ms debounce + capture the snapshot.
+        // No-op when the V0 flag is OFF (state.isEnabled gates the request).
+        private func scheduleContextualShadowsRecall(_ snapshotText: String) {
+            recallDebounceTask?.cancel()
+            // Skip the work entirely when the V0 flag is unset — saves the
+            // 200ms hop on the steady-state hot path. AppBootstrap is the
+            // single source for the state object.
+            guard let bootstrap = AppBootstrap.shared else { return }
+            let state = bootstrap.contextualShadowsState
+            guard state.isEnabled else { return }
+            let instantRecall = bootstrap.instantRecallService
+            let pageId = currentPageId
+            // Use a deterministic UUID derived from the page id when possible
+            // so recall results filter the originating note out (plan §5
+            // "click opens note in current vault context"). Falls back to a
+            // random UUID for non-UUID-shaped page ids — recall still works,
+            // origin filter just becomes a no-op for that snapshot.
+            let originId = UUID(uuidString: pageId) ?? UUID()
+            recallDebounceTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(200))
+                guard !Task.isCancelled, let self else { return }
+                // Re-read the live snapshot text — the user may have typed
+                // more during the debounce window. Falls back to the
+                // captured value if the textView has gone away.
+                let liveText = self.textView?.string ?? snapshotText
+                let snapshot = RecallContextSnapshot(
+                    text: liveText,
+                    kind: .note,
+                    originId: originId
+                )
+                state.requestRecall(snapshot: snapshot, instantRecall: instantRecall)
+            }
         }
 
         func textViewDidChangeSelection(_ notification: Notification) {
