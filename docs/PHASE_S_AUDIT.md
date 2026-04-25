@@ -117,7 +117,7 @@ The `mas-sandbox` Cargo feature is the compile-time switch that removes Pro-only
 
 Swift side: `Epistemos/App/AppBootstrap.swift:2686 verifyAgentCorePolicyProfile()` runs at launch and fatalError's if the `EPISTEMOS_APP_STORE || MAS_SANDBOX` build flag and the linked Rust profile disagree. This is the single point that catches the link-mismatch drift case.
 
-`EpistemosTests/AppStoreHardeningTests.swift` replicates the check from Swift Testing with seven tests (each may contain multiple assertions):
+`EpistemosTests/AppStoreHardeningTests.swift` replicates the check from Swift Testing with eight tests (each may contain multiple assertions):
 
 1. `policyProfileReturnsRecognizedValue` -- fails if the FFI returns an unrecognized string (drift catcher for future profile additions).
 2. `policyProfileMatchesBuildFlag` -- fails when `EPISTEMOS_APP_STORE || MAS_SANDBOX` is set but the linked profile is not `"mas_sandbox"`, and vice versa. This is the same invariant the bootstrap check enforces.
@@ -126,6 +126,7 @@ Swift side: `Epistemos/App/AppBootstrap.swift:2686 verifyAgentCorePolicyProfile(
 5. `proEntitlementsStillCarryProOnlyKeys` -- asserts the Pro plist still carries the Pro-only keys so the MAS forbidden-keys test cannot pass trivially if Pro narrows.
 6. `masInfoPlistDeclaresExportComplianceAnswer` -- asserts the MAS `Info.plist` declares `ITSAppUsesNonExemptEncryption`, so App Store Connect does not prompt the export-compliance questionnaire on every submission.
 7. `masInfoPlistKeepsUsageDescriptionsNonEmpty` -- asserts five usage-description strings (`NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSDocumentsFolderUsageDescription`, `NSDesktopFolderUsageDescription`, `NSDownloadsFolderUsageDescription`) are present and non-empty in the MAS `Info.plist`.
+8. `audioTranscriberMASBranchHasNoProcessInit` -- per-file MAS-branch regression for `AudioTranscriber.swift`. Strips lines inside `#if !EPISTEMOS_APP_STORE ... #endif` to simulate what the MAS compiler sees, then asserts the MAS-visible source contains no `Process.init(`. Also asserts the gate marker is still present and the Pro-visible source still contains `Process.init(` so a future change that deletes the subprocess fallback entirely is flagged (the Pro/direct release needs MLX Whisper + whisper.cpp).
 
 **Runtime characteristic (observed, highly variable):** three consecutive Xcode app-hosted Swift Testing runs of this suite show the wall-clock cost attributed to the first file-I/O test swings across two orders of magnitude. No causal explanation has been proven.
 
@@ -180,6 +181,7 @@ Files wrapped at file-top with `#if !EPISTEMOS_APP_STORE` / `#endif`, so raw-tre
 - `Epistemos/Harness/HarnessRegistry.swift` -- no raw Process.init in this file, but `saveCandidateScores(...)` takes an `EvalSuiteResult` parameter (defined in the now-gated `HarnessLab.swift`). Gated with `#if !EPISTEMOS_APP_STORE` for the same reason.
 - `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift:82, 119` -- `Process.init()` calling `/usr/bin/git` for shadow-git checkpoint init and commit. Self-contained actor, zero external references in non-test MAS-compiled code. Gated at file-top.
 - `Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift:267` -- `Process.init()` calling `/usr/sbin/screencapture` for synthetic-data trajectory capture. Audit confirmed zero type-level references anywhere in `Epistemos/` or `EpistemosTests/`; only source-text reads via `loadRepoTextFile` / `loadProductionHardeningRepoTextFile` (which are unaffected by compile gating because they read the file as text). MOHAWK Python scripts and JSON data files that mention the name are in the already-MAS-excluded `MOHAWK/**` directory. Gated at file-top.
+- `Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift:292` -- `Process.init()` powering the `runProcess` helper used by `runMLXWhisper` (Python) and `runWhisperCpp` (`/usr/local/bin/whisper`). Whole-file gating was rejected -- the file's `AudioTranscriber` actor + `AudioSegment` / `TranscribedAudio` / `AudioTranscriberError` types are live API used by `Engine/ComposerVoiceInputService.swift` and `Views/Capture/QuickCaptureView.swift` in MAS. **Surgical gate** applied instead: `#if !EPISTEMOS_APP_STORE` wraps (a) the `.mlxWhisper` and `.whisperCpp` enum cases, (b) the matching switch arms in `transcribe()`, (c) the fallback detection branches in `detectBackend()`, (d) `runMLXWhisper` + `runWhisperCpp` + `runProcess` methods, (e) the `pythonPath` stored field (replaced with a `_ = pythonPath` discard in MAS init so callers' API stays unchanged). The MAS error description for `AudioTranscriberError.noBackendAvailable` is also gated -- MAS reports "Apple Speech is unavailable or not authorized. Audio transcription is unavailable." (no false promise of mlx-whisper / whisper.cpp), Pro keeps the original three-tool description.
 
 The five gated Harness files were validated as a closed internal dependency set: grepping every Harness-exported type that comes from one of the gated files against the full Swift source tree showed zero references from MAS-compiled code outside `Harness/`. External references to Harness types from MAS-compiled code are only against `TraceCollector` (used by `Engine/TextCapturePipeline.swift`), which stays ungated because it does not use subprocess-launch APIs or depend on any gated type. `ShadowGitCheckpoint` is likewise self-contained -- only RuntimeValidationTests loads the file as raw text (not by symbol reference) so gating does not affect test compilation.
 
@@ -199,7 +201,6 @@ Every entry below is compiled into the MAS binary (verified: file-top has no `#i
 | `KnowledgeFusion/Alignment/KTOTrainer.swift` | 86 | python | KTO trainer subprocess | Yes |
 | `KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` | 115 | python | MoLoRA inference subprocess | Yes |
 | `KnowledgeFusion/PythonEnvironmentManager.swift` | 393 | brew / python / pip | Python env bootstrap | Yes |
-| `KnowledgeFusion/DataIngestion/AudioTranscriber.swift` | 292 | ffmpeg / whisper.cpp | Audio transcription pipeline | Yes |
 | `KnowledgeFusion/Adapters/AdapterExporter.swift` | 163, 176 | `/usr/bin/ditto` | Adapter zip / unzip | Yes -- adapter export |
 
 ### Category D -- FIXED across this and the prior Phase S.2 session
@@ -208,6 +209,7 @@ Every entry below is compiled into the MAS binary (verified: file-top has no `#i
 - `Epistemos/Harness/{CompletionChecker,EvalSandbox,HarnessLab,HarnessIntegration,HarnessRegistry}.swift` -- five files wrapped at file-top with `#if !EPISTEMOS_APP_STORE` / `#endif`. The three Process.init subprocess-launch sites move from Category C to Category A; the two dependent files (HarnessIntegration, HarnessRegistry) are gated alongside them because they reference gated types (`CompletionResult`, `CompletionCheckerRegistry`, `EvalSuiteResult`). MAS build validation: `xcodebuild -scheme Epistemos-AppStore -configuration Debug build` -> `** BUILD SUCCEEDED **` with 0 compile errors (raw-log verification; the "(2 failures)" at the tail is pre-existing SwiftLint noise on the CodeEditSourceEditor + CodeEditTextView SPM deps, not a build failure).
 - `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift` -- file-top gated in a follow-on batch. Two `Process.init()` sites (lines 82 and 119, both calling `/usr/bin/git`) move from Category C to Category A. MAS build re-verified: `** BUILD SUCCEEDED **` with `xcodebuild_ok` exit, 0 compile errors.
 - `Epistemos/KnowledgeFusion/SyntheticData/EmbodiedCaptureService.swift` -- file-top gated in a follow-on batch after a corrected per-file dependency audit (the earlier cluster-audit that lumped 7 KnowledgeFusion files together was rejected because several of them have live UI/scheduler/user-capture references). EmbodiedCaptureService is the only one of the seven that is safe in isolation: zero type-level external refs, only source-text test reads. MAS build re-verified: `xcodebuild_ok` + `** BUILD SUCCEEDED **` + 0 compile errors.
+- `Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift` -- **surgical** gate (the file is NOT whole-file gated because its public types are live MAS API used by composer/quick-capture). Subprocess fallbacks (`mlx-whisper` Python, `/usr/local/bin/whisper`, `/usr/bin/which whisper`) and the `runProcess` helper they share are wrapped in `#if !EPISTEMOS_APP_STORE`. MAS keeps Apple Speech transcription only and reports an honest "Apple Speech only" no-backend error. Pro keeps the full three-backend ladder. Verification: MAS build `BUILD SUCCEEDED` + `xcodebuild_ok`; Pro test slice 8/8 green including a new `audioTranscriberMASBranchHasNoProcessInit` regression test that strips `#if !EPISTEMOS_APP_STORE` blocks and asserts the MAS-visible source contains no `Process.init(`.
 
 Category C sites NOT landed in this batch are still present in the MAS binary -- see the remaining Category C table above.
 
@@ -218,6 +220,7 @@ Category C sites NOT landed in this batch are still present in the MAS binary --
 - Harness subprocess-launch gating (5 files listed in Category D).
 - ShadowGitCheckpoint gating (Category D).
 - EmbodiedCaptureService gating (Category D, after a rejected bulk-gate attempt).
+- AudioTranscriber surgical gating (Category D, MAS-vs-Pro split with a new regression test).
 - iMessage Doctor relaunch replacement (Category D).
 
 **Corrected dependency model (required for the rest of the KnowledgeFusion cluster):**
@@ -226,12 +229,11 @@ An earlier cluster-audit that grouped all 7 KnowledgeFusion subprocess-launch fi
 
 **Still outstanding, tracked (per-file closure required, NOT bulk):**
 
-1. `AudioTranscriber.swift` -- production-referenced by `Engine/ComposerVoiceInputService.swift` and `Views/Capture/QuickCaptureView.swift`. Do not whole-file gate. Prefer keeping its Apple Speech / public type surface available and gating only the subprocess fallback paths (`mlx-whisper` / `whisper.cpp`) for MAS, OR introducing a MAS-safe stub that falls back to Apple Speech-only transcription.
-2. `QLoRATrainer.swift`, `KTOTrainer.swift`, `PythonEnvironmentManager.swift`, `AdapterExporter.swift` -- referenced by KnowledgeFusion UI / scheduler surfaces (`KnowledgeFusionViewModel`, `TrainOnVaultView`, `TrainingHistoryView`, `TrainingScheduler`, `AutoresearchLoop`). Whole-file gating breaks MAS unless the dependent UI / scheduler surfaces are gated together or receive MAS-safe disabled / no-op paths. Design decision required before gating: is KnowledgeFusion training reachable from the MAS UI at all? If no, gate the entire UI cluster plus these files as one set. If yes, carve the Process-using methods into a Pro-only extension and leave the rest.
-3. `MoLoRAInferenceService.swift` -- referenced from routing/inference surfaces; treat as unsafe until its dependency chain is mapped.
-4. `VaultChatMutator.swift` -- approved staged vault-mutation committer uses `git` to record vault diffs. MAS-reachable type surface; needs in-file surgery (e.g., `#if EPISTEMOS_APP_STORE` branch that records diffs some other way) before first MAS submission.
-5. `VaultSyncService.swift` -- tmutil used for TimeMachine snapshot prune. Under the sandbox this likely fails. Needs classification: does MAS need tmutil at all? If not, guard the whole helper.
-6. `ChunkedMCPFraming.swift` dlopen/dlsym (Category B) eventually wants a modulemap bridge, but is not a Phase S.2 blocker.
+1. `QLoRATrainer.swift`, `KTOTrainer.swift`, `PythonEnvironmentManager.swift`, `AdapterExporter.swift` -- referenced by KnowledgeFusion UI / scheduler surfaces (`KnowledgeFusionViewModel`, `TrainOnVaultView`, `TrainingHistoryView`, `TrainingScheduler`, `AutoresearchLoop`). Whole-file gating breaks MAS unless the dependent UI / scheduler surfaces are gated together or receive MAS-safe disabled / no-op paths. Design decision required before gating: is KnowledgeFusion training reachable from the MAS UI at all? If no, gate the entire UI cluster plus these files as one set. If yes, carve the Process-using methods into a Pro-only extension or apply the same surgical pattern AudioTranscriber now uses.
+2. `MoLoRAInferenceService.swift` -- referenced from routing/inference surfaces; treat as unsafe until its dependency chain is mapped.
+3. `VaultChatMutator.swift` -- approved staged vault-mutation committer uses `git` to record vault diffs. MAS-reachable type surface; needs in-file surgery (e.g., `#if EPISTEMOS_APP_STORE` branch that records diffs some other way) before first MAS submission.
+4. `VaultSyncService.swift` -- tmutil used for TimeMachine snapshot prune. Under the sandbox this likely fails. Needs classification: does MAS need tmutil at all? If not, guard the whole helper.
+5. `ChunkedMCPFraming.swift` dlopen/dlsym (Category B) eventually wants a modulemap bridge, but is not a Phase S.2 blocker.
 
 ---
 
