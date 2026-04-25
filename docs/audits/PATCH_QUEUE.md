@@ -366,7 +366,9 @@ Dependencies: Patch 6 (syntax-core path doesn't conflict).
 
 ---
 
-## Patch 12: MLXInferenceService LocalMLXClient → off MainActor
+## Patch 12: MLXInferenceService LocalMLXClient → off MainActor — **DEFERRED to V1.5 (2026-04-25)**
+
+Closure (2026-04-25): Per `V1_SHIP_GATE_DECISION.md`, `LocalMLXClient`'s `MainActor.run` fences for setup/teardown are an acceptable Apple pattern (not a per-token hot loop). Architectural rework deferred to V1.5; risk class is HIGH and the model lifecycle is sensitive. No V1 blocker.
 
 Priority: **P1 (LOW–MEDIUM)** — slip-eligible to V1.5
 
@@ -444,7 +446,9 @@ Dependencies: none.
 
 ---
 
-## Patch 15: Reliability gate baseline re-run + evidence
+## Patch 15: Reliability gate baseline re-run + evidence — **EFFECTIVELY CLOSED (2026-04-25)**
+
+Closure (2026-04-25): Recent commits a6f0fa99 (docs(S.5): record full reliability gate green evidence), 4a35105b (timestamp protected reliability DerivedData roots), and d46594c8 (decouple reliability DerivedData from RESULT_ROOT and record /tmp baseline green) constitute the most recent baseline evidence. Per the long Codex audit transcript pasted into this session, baseline + ASAN + UBSAN + TSAN + soak-repeat all completed green outside protected `~/Downloads` paths. New rerun deferred to next session as part of pre-submission validation.
 
 Priority: **P1 (MEDIUM)**
 
