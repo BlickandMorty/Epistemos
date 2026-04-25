@@ -45,6 +45,7 @@ pub mod storage {
     pub mod memory_classifier;
     pub mod memory_decay;
     pub mod neural_cache;
+    pub mod raw_thoughts;
     pub mod recipe_cache;
     pub mod session_graph;
     pub mod session_store;

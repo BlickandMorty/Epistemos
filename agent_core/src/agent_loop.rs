@@ -11,6 +11,7 @@ use crate::provider::{AgentProvider, StreamEvent};
 use crate::reasoning_metrics::{compute_trajectory_metrics, ReasoningTrajectoryMetrics};
 use crate::routing::contains_any;
 use crate::session::GlobalSessions;
+use crate::storage::raw_thoughts::{RawThoughtsEmitter, RawThoughtsEvent, RawThoughtsStatus};
 use crate::storage::session_store::{ToolCallRecord, TraceEvent, TranscriptTurn};
 use crate::tools::registry::{RiskLevel, ToolRegistry};
 use crate::types::{ContentBlock, Message, StopReason, TokenUsage, ToolResult, ToolResultContent};
@@ -160,6 +161,28 @@ pub async fn run_agent_loop(
     let mut total_usage = TokenUsage::default();
     let mut trajectory_tool_calls: Vec<(String, String, String, bool)> = Vec::new();
     let max_turns = config.max_turns.unwrap_or(25);
+
+    // Raw Thoughts V0 — per-run artifact emitter. Always constructed so
+    // the rest of the loop is branch-free; it is a no-op unless the user
+    // sets EPISTEMOS_RAW_THOUGHTS_V0=1 AND a vault root is configured.
+    // All writes go through a BufWriter so the streaming hot path is not
+    // blocked on disk I/O per delta. `Arc` lets the parallel tool
+    // executors record `tool_use` / `tool_result` events without
+    // ceremony; `record` and `finish` both take `&self`.
+    let raw_thoughts_emitter: Arc<RawThoughtsEmitter> = {
+        let vault_root_path = config
+            .vault_root
+            .as_ref()
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(std::path::PathBuf::new);
+        Arc::new(RawThoughtsEmitter::new(
+            &vault_root_path,
+            provider.name(),
+            provider.name(),
+            &session_id,
+            None,
+        ))
+    };
     let smart_approval = Arc::new(SmartApproval::new(
         SmartApprovalConfig::default(),
         config.vault_root.as_ref().map(std::path::PathBuf::from),
@@ -237,10 +260,12 @@ pub async fn run_agent_loop(
         if turn_count > max_turns {
             let error = AgentError::MaxTurnsExceeded(max_turns);
             delegate.on_error(error.to_string());
+            let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Errored, None);
             return Err(error);
         }
 
         if cancel.is_cancelled() {
+            let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Cancelled, None);
             return Err(AgentError::Cancelled);
         }
 
@@ -292,12 +317,13 @@ pub async fn run_agent_loop(
 
         while let Some(event_result) = stream.next().await {
             if cancel.is_cancelled() {
+                let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Cancelled, None);
                 return Err(AgentError::Cancelled);
             }
 
             event_count += 1;
             match event_result? {
-                StreamEvent::ThinkingDelta { text, .. } => {
+                StreamEvent::ThinkingDelta { text, index } => {
                     if !ttft_recorded {
                         let ttft_ms = turn_stream_start.elapsed().as_millis() as u64;
                         tracing::info!(
@@ -307,14 +333,22 @@ pub async fn run_agent_loop(
                         );
                         ttft_recorded = true;
                     }
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::ThinkingDelta {
+                        index: index as u32,
+                        text: text.clone(),
+                    });
                     delegate.on_thinking_delta(text);
                 }
-                StreamEvent::TextDelta { text, .. } => {
+                StreamEvent::TextDelta { text, index } => {
                     if !ttft_recorded {
                         let ttft_ms = turn_stream_start.elapsed().as_millis() as u64;
                         tracing::info!(turn = turn_count, ttft_ms, "time_to_first_token (text)");
                         ttft_recorded = true;
                     }
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::TextDelta {
+                        index: index as u32,
+                        text: text.clone(),
+                    });
                     delegate.on_text_delta(text);
                 }
                 StreamEvent::InputJsonDelta {
@@ -323,11 +357,21 @@ pub async fn run_agent_loop(
                 } => {
                     delegate.on_tool_input_delta(index as u32, partial_json);
                 }
-                StreamEvent::SignatureDelta { .. } => {}
+                StreamEvent::SignatureDelta { index, signature } => {
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::SignatureDelta {
+                        index: index as u32,
+                        signature,
+                    });
+                }
                 StreamEvent::ContentBlockComplete { block } => {
                     if let ContentBlock::ToolUse { id, name, input } = &block {
                         let input_json = serde_json::to_string(input)
                             .map_err(|error| AgentError::Serialization(error.to_string()))?;
+                        let _ = raw_thoughts_emitter.record(RawThoughtsEvent::ToolUse {
+                            id: id.clone(),
+                            name: name.clone(),
+                            input: input.clone(),
+                        });
                         delegate.on_tool_started(id.clone(), name.clone(), input_json);
                     }
                     response_blocks.push(block);
@@ -336,6 +380,15 @@ pub async fn run_agent_loop(
                     stop_reason: reason,
                     usage,
                 } => {
+                    let stop_reason_str = match reason {
+                        StopReason::EndTurn => "end_turn",
+                        StopReason::StopSequence => "stop_sequence",
+                        StopReason::ToolUse => "tool_use",
+                        StopReason::MaxTokens => "max_tokens",
+                    };
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::MessageStop {
+                        stop_reason: stop_reason_str.to_string(),
+                    });
                     stop_reason = reason;
                     turn_usage = usage;
                     break;
@@ -387,6 +440,7 @@ pub async fn run_agent_loop(
                 );
                 GlobalSessions::append_transcript_turn(&session_id, transcript_turn);
                 messages.push(Message::assistant(response_blocks));
+                let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Completed, None);
                 return Ok(AgentResult {
                     final_content: vec![ContentBlock::Text { text: msg }],
                     full_history: messages,
@@ -417,6 +471,7 @@ pub async fn run_agent_loop(
                     total_usage.input_tokens,
                     total_usage.output_tokens,
                 );
+                let _ = raw_thoughts_emitter.finish(RawThoughtsStatus::Completed, None);
                 return Ok(AgentResult {
                     final_content: response_blocks,
                     full_history: messages,
@@ -464,6 +519,11 @@ pub async fn run_agent_loop(
                         })
                         .collect::<Vec<_>>()
                         .join("");
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::ToolResult {
+                        tool_use_id: result.tool_use_id.clone(),
+                        output: result_text.clone(),
+                        is_error: result.is_error,
+                    });
                     delegate.on_tool_completed(
                         result.tool_use_id.clone(),
                         result_text,
