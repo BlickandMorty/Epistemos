@@ -219,7 +219,7 @@ struct AgentControlDetailView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         HStack(alignment: .top, spacing: 10) {
                             Image(systemName: row.systemImage)
-                                .font(.system(size: 12, weight: .semibold))
+                                .font(.caption.weight(.semibold))
                                 .foregroundStyle(.blue)
                                 .frame(width: 16, alignment: .center)
 
@@ -265,7 +265,7 @@ struct AgentControlDetailView: View {
                 ForEach(rustBackedGrants, id: \.grantId) { grant in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: "lock.shield")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.purple)
                             .frame(width: 16, alignment: .center)
 
