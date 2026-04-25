@@ -2879,6 +2879,25 @@ private struct AppearanceDetailContainer: View {
                 currentMode: ui.displayMode,
                 onToggle: onSelectDisplayMode
             )
+            AppearanceEditorSection()
+        }
+    }
+}
+
+private struct AppearanceEditorSection: View {
+    // Same key as the per-editor View Options menu in CodeEditorView so
+    // toggling either surface reflects in the other immediately.
+    @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
+
+    var body: some View {
+        Section {
+            Toggle("Show Line Numbers", isOn: $showLineGutter)
+                .toggleStyle(.switch)
+            Text("Adds a subtle right-side gutter to the code editor. Numbers track the active theme and Dynamic Type.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("Editor")
         }
     }
 }

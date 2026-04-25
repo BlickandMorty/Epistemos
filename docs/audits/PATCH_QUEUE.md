@@ -232,9 +232,11 @@ Dependencies: Patch 2 (sync rebuildIndex deprecated first).
 
 ## Patch 8: MetalGraphView batch payload pre-allocation audit
 
-Priority: **P1 (MEDIUM)**
+Priority: **P1 (MEDIUM)** — **CLOSED 2026-04-25, NO-CHANGE-NEEDED**
 
-Goal: Audit `GraphNodeBatchPayload` / `GraphEdgeBatchPayload` mutation sites; reuse buffers.
+Audit verdict (2026-04-25): both call sites are guarded — `commitGraphData()` at `MetalGraphView.swift:940/947` only fires on `lastGraphDataVersion != graphState.graphDataVersion` bumps; `commitIncrementalAdds()` at `:1056/1063` only fires when `pendingNodeAdds`/`pendingEdgeAdds` are non-empty. Neither is per-frame. Both `makeVisibleNodeBatchPayload` and `makeVisibleEdgeBatchPayload` already use `reserveCapacity(...)` discipline before `append` loops. The Rust reference pattern in `renderer.rs:3018+3212` addresses GPU scratch buffers, which is a different concern. No code change required. Audit retained as a regression-watch; if a future change moves either function into the per-frame render path, this patch must be reopened.
+
+Goal (original): Audit `GraphNodeBatchPayload` / `GraphEdgeBatchPayload` mutation sites; reuse buffers.
 
 Files:
 - audit: `Epistemos/Views/Graph/MetalGraphView.swift`
