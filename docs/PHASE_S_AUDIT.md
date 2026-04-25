@@ -178,8 +178,9 @@ Files wrapped at file-top with `#if !EPISTEMOS_APP_STORE` / `#endif`, so raw-tre
 - `Epistemos/Harness/HarnessLab.swift:947` -- `Process.init()` proposer-agent subprocess. File-top gate added 2026-04-24.
 - `Epistemos/Harness/HarnessIntegration.swift` -- no raw Process.init in this file, but it references `CompletionResult` and `CompletionCheckerRegistry` from the now-gated `CompletionChecker.swift`. Gated with the same `#if !EPISTEMOS_APP_STORE` so the MAS build does not try to resolve those symbols.
 - `Epistemos/Harness/HarnessRegistry.swift` -- no raw Process.init in this file, but `saveCandidateScores(...)` takes an `EvalSuiteResult` parameter (defined in the now-gated `HarnessLab.swift`). Gated with `#if !EPISTEMOS_APP_STORE` for the same reason.
+- `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift:82, 119` -- `Process.init()` calling `/usr/bin/git` for shadow-git checkpoint init and commit. Self-contained actor, zero external references in non-test MAS-compiled code. Gated at file-top.
 
-The five gated Harness files were validated as a closed internal dependency set: grepping every Harness-exported type that comes from one of the gated files against the full Swift source tree showed zero references from MAS-compiled code outside `Harness/`. External references to Harness types from MAS-compiled code are only against `TraceCollector` (used by `Engine/TextCapturePipeline.swift`), which stays ungated because it does not use subprocess-launch APIs or depend on any gated type.
+The five gated Harness files were validated as a closed internal dependency set: grepping every Harness-exported type that comes from one of the gated files against the full Swift source tree showed zero references from MAS-compiled code outside `Harness/`. External references to Harness types from MAS-compiled code are only against `TraceCollector` (used by `Engine/TextCapturePipeline.swift`), which stays ungated because it does not use subprocess-launch APIs or depend on any gated type. `ShadowGitCheckpoint` is likewise self-contained -- only RuntimeValidationTests loads the file as raw text (not by symbol reference) so gating does not affect test compilation.
 
 ### Category B -- dlopen / dlsym (POSIX header workaround, no external dylib)
 
@@ -193,7 +194,6 @@ Every entry below is compiled into the MAS binary (verified: file-top has no `#i
 |---|---|---|---|---|
 | `Vault/VaultChatMutator.swift` | 647 | `/usr/bin/git` | `runGitOffMain` for approved staged vault-mutation commits | No -- also used by default Pro flows; MAS path should use a different commit mechanism or be excluded |
 | `Sync/VaultSyncService.swift` | 1261 | `/usr/bin/tmutil` | TimeMachine snapshot prune for recovery snapshots | Likely yes; verify whether MAS needs tmutil |
-| `Omega/Safety/ShadowGitCheckpoint.swift` | 82, 119 | `/usr/bin/git` | Shadow-git checkpoint init + commits for safety | Yes -- shadow checkpoints are part of the full-autonomy surface |
 | `KnowledgeFusion/Training/QLoRATrainer.swift` | 173 | python | QLoRA trainer subprocess | Yes -- Python training |
 | `KnowledgeFusion/Alignment/KTOTrainer.swift` | 86 | python | KTO trainer subprocess | Yes |
 | `KnowledgeFusion/MoLoRA/MoLoRAInferenceService.swift` | 115 | python | MoLoRA inference subprocess | Yes |
@@ -206,19 +206,21 @@ Every entry below is compiled into the MAS binary (verified: file-top has no `#i
 
 - `Epistemos/Views/Settings/IMessageDriverSettingsView.swift:570-574` -- the old iMessage Doctor "Relaunch Epistemos" action used a zero-argument `Process()` + `launchPath = "/usr/bin/open"` + `try? task.run()` + `NSApp.terminate(nil)`. Replaced with `NSWorkspace.shared.openApplication(at:configuration:completionHandler:)`.
 - `Epistemos/Harness/{CompletionChecker,EvalSandbox,HarnessLab,HarnessIntegration,HarnessRegistry}.swift` -- five files wrapped at file-top with `#if !EPISTEMOS_APP_STORE` / `#endif`. The three Process.init subprocess-launch sites move from Category C to Category A; the two dependent files (HarnessIntegration, HarnessRegistry) are gated alongside them because they reference gated types (`CompletionResult`, `CompletionCheckerRegistry`, `EvalSuiteResult`). MAS build validation: `xcodebuild -scheme Epistemos-AppStore -configuration Debug build` -> `** BUILD SUCCEEDED **` with 0 compile errors (raw-log verification; the "(2 failures)" at the tail is pre-existing SwiftLint noise on the CodeEditSourceEditor + CodeEditTextView SPM deps, not a build failure).
+- `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift` -- file-top gated in a follow-on batch. Two `Process.init()` sites (lines 82 and 119, both calling `/usr/bin/git`) move from Category C to Category A. MAS build re-verified: `** BUILD SUCCEEDED **` with `xcodebuild_ok` exit, 0 compile errors.
 
 Category C sites NOT landed in this batch are still present in the MAS binary -- see the remaining Category C table above.
 
 ### Phase S.2 follow-up work (landed in this batch + still outstanding)
 
-**Landed in this batch:**
+**Landed across Phase S.2 so far:**
 
 - Harness subprocess-launch gating (5 files listed in Category D).
+- ShadowGitCheckpoint gating (Category D).
 - iMessage Doctor relaunch replacement (Category D).
 
 **Still outstanding, tracked:**
 
-1. Add the remaining Category C files to the `Epistemos-AppStore` source-exclude list in `project.yml`, or wrap them with `#if !EPISTEMOS_APP_STORE` in the same style Harness now uses, file by file, verifying no MAS-reachable type depends on what is being excluded. Candidates that are almost certainly safe to exclude outright: ShadowGitCheckpoint, MoLoRA, QLoRA, KTO, PythonEnvironmentManager, AudioTranscriber, EmbodiedCaptureService, AdapterExporter. Others (VaultChatMutator, VaultSyncService) have MAS-reachable type surfaces and need surgery inside the file rather than whole-file exclusion.
+1. Wrap the remaining Category C files with `#if !EPISTEMOS_APP_STORE` in the same style Harness and ShadowGitCheckpoint now use, file by file, verifying no MAS-reachable type depends on what is being excluded. Candidates that are almost certainly safe to gate: MoLoRA, QLoRA, KTO, PythonEnvironmentManager, AudioTranscriber, EmbodiedCaptureService, AdapterExporter. Others (VaultChatMutator, VaultSyncService) have MAS-reachable type surfaces and need surgery inside the file rather than whole-file exclusion.
 2. For VaultChatMutator: the approved staged vault-mutation committer uses `git` to record vault diffs. Under the sandbox this will fail at runtime. Needs a MAS replacement (e.g., direct filesystem writes bypassing git, or a `#if EPISTEMOS_APP_STORE` branch that records diffs some other way) before first MAS submission.
 3. For VaultSyncService: tmutil is used for TimeMachine snapshot prune. Under the sandbox this likely fails. Needs classification: does MAS need tmutil at all? If not, guard the whole helper.
 4. The `ChunkedMCPFraming.swift` dlopen/dlsym (Category B) eventually wants a modulemap bridge, but is not a Phase S.2 blocker.
