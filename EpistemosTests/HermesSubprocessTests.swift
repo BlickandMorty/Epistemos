@@ -2,6 +2,14 @@ import Testing
 @testable import Epistemos
 import Foundation
 
+// Retained for reference while the legacy Hermes subprocess manager is
+// absent from the live app. These tests should come back only when the
+// Phase Omega-2 Swift-side Hermes health-check bridge is wired (per
+// docs/audits/PATCH_QUEUE.md and AGENT_PROGRESS.md). Until then this
+// suite must NOT be re-enabled — most of the symbols it references no
+// longer exist and the subprocess lifecycle has been replaced by the
+// Rust agent runtime. Do not delete: the tests document the contract
+// that any future re-introduction must honor.
 #if false
 
 // MARK: - HermesConfig Tests

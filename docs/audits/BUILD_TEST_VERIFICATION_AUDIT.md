@@ -42,17 +42,26 @@ Date: 2026-04-25
 
 ## Disabled tests (TRUSTWORTHINESS GAP)
 
-| File | Lines | Status |
-|---|---|---|
-| `EpistemosTests/InstantRecallTests.swift` | 306 | `#if false` wrapped — entire suite disabled |
-| `EpistemosTests/HermesSubprocessTests.swift` | 1697 | `#if false` wrapped — entire suite disabled |
-| `EpistemosTests/ExecutionContextTests.swift` | 136 | `#if false` — legacy; type absent |
-| `EpistemosTests/HermesBridgeIntegrationTests.swift` | unknown | `#if false` wrapped |
-| `EpistemosTests/RuntimeValidationTests.swift` | 6 conditional `#if false` blocks | non-blocking; gates 6 specific tests |
+CORRECTION 2026-04-25: direct verification (`head` of each file) shows three test
+files are disabled, not four. `InstantRecallTests.swift` is active (has `@Suite`
+and `@Test` at top, calls into the service). Earlier parallel-agent count of
+~2,140 disabled lines was approximate.
 
-**Total disabled**: ~2,140 lines with no documented re-enable plan or condition.
+| File | Lines | Status (verified 2026-04-25) | Re-enable reason annotated? |
+|---|---|---|---|
+| `EpistemosTests/InstantRecallTests.swift` | 306 | **ACTIVE** — has `@Suite("InstantRecall — Service")` + `@Test` blocks at top | n/a (active) |
+| `EpistemosTests/HermesSubprocessTests.swift` | 1697 | DISABLED at `:5` `#if false`; **annotated 2026-04-25** with explicit re-enable plan (Phase Omega-2) | YES (Patch 14a) |
+| `EpistemosTests/ExecutionContextTests.swift` | 136 | DISABLED at `:4` `#if false`; pre-existing reason comment ("legacy ExecutionContext type absent") | YES (already) |
+| `EpistemosTests/HermesBridgeIntegrationTests.swift` | unknown | DISABLED at `:10` `#if false`; pre-existing reason comment ("legacy HermesRuntimeRoute bridge absent") | YES (already) |
+| `EpistemosTests/RuntimeValidationTests.swift` | 6 conditional `#if false` blocks | non-blocking; gates 6 specific tests | n/a (intentional sub-block gates) |
 
-**Severity**: HIGH. CI cannot regress these paths. If any of InstantRecall / HermesSubprocess is critical for V1, this is a real coverage gap.
+**Total disabled (corrected)**: ~1,830 lines across 3 files. All three have
+explicit re-enable rationale comments.
+
+**Severity**: MEDIUM (down from HIGH after correction). The trustworthiness gap is
+documented; the disabled code is gated by absent legacy types/bridges and would
+not compile if re-enabled today. Re-introduction would require the
+corresponding feature returning first.
 
 **Recommendation**: For each disabled block, either (a) re-enable with current code, (b) delete code if intentionally deprecated, or (c) annotate with explicit re-enable date / condition + linked issue.
 
