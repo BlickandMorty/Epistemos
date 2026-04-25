@@ -54,8 +54,23 @@ name = "graph_ffi_baselines"
 harness = false
 
 [profile.release]
-opt-level = "z"        # Optimize for size
-lto = true             # Full LTO (was "thin")
-codegen-units = 1      # Single codegen unit
-strip = "symbols"      # Strip debug symbols
-panic = "abort"
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# SAFETY: graph-engine MUST use panic = "unwind". src/lib.rs,
+# src/markdown.rs, src/bolt_bridge.rs, and src/engine.rs all wrap
+# every FFI entry point in std::panic::catch_unwind via the
+# `ffi_catch_unwind!` / `ffi_catch_unwind_or!` macros so a Rust
+# panic returns a safe sentinel to Swift. With panic = "abort" the
+# whole process would terminate before catch_unwind ever ran.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 0

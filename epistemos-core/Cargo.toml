@@ -53,6 +53,20 @@ tempfile = "3"
 uniffi = { version = "0.28", features = ["build"] }
 
 [profile.release]
-opt-level = 3
-lto = "thin"
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# epistemos-core does NOT call std::panic::catch_unwind anywhere,
+# so panic = "abort" is safe here and yields the smallest dylib by
+# stripping the unwind tables.
 panic = "abort"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 0
