@@ -338,7 +338,7 @@ private struct SettingsSidebarRow: View {
                 .padding(.top, 2)
             VStack(alignment: .leading, spacing: 2) {
                 Text(section.rawValue)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                 Text(section.rowDescription)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -861,7 +861,7 @@ private struct LandingGreetingEditorRow: View {
 
             HStack(spacing: 8) {
                 Text("Duration")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
 
                 TextField(
@@ -875,7 +875,7 @@ private struct LandingGreetingEditorRow: View {
                 .frame(width: 54)
 
                 Text("s")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(.secondary)
 
                 Stepper(
@@ -892,7 +892,7 @@ private struct LandingGreetingEditorRow: View {
                 Spacer()
 
                 Text(greeting.isEnabled ? "Enabled" : "Disabled")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(greeting.isEnabled ? .secondary : .tertiary)
             }
         }
@@ -1082,19 +1082,19 @@ private struct InferenceDetailView: View {
                 )
                 LabeledContent("Hardware") {
                     Text(localModelManager.hardwareSummary)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                 }
                 LabeledContent("Availability") {
                     Text(inference.localModelInstallStateSummary.displayName)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.caption.weight(.medium))
                 }
                 LabeledContent("Runtime Status") {
                     VStack(alignment: .trailing, spacing: 2) {
                         Text(inference.localRuntimeStatusSummary)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.caption.weight(.medium))
                         if let detail = inference.localRuntimeStatusDetail {
                             Text(detail)
-                                .font(.system(size: 11, design: .monospaced))
+                                .font(.system(.caption2, design: .monospaced))
                                 .foregroundStyle(.secondary)
                         }
                     }
@@ -1102,12 +1102,12 @@ private struct InferenceDetailView: View {
                 if let lastRunSummary = inference.localRuntimeLastRunSummary {
                     LabeledContent("Last Local Run") {
                         Text(lastRunSummary)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(.caption2, design: .monospaced))
                     }
                 }
                 LabeledContent("Storage") {
                     Text(ByteCountFormatter.string(fromByteCount: localModelManager.totalInstalledStorageBytes, countStyle: .file))
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.system(.caption, design: .monospaced))
                 }
 
                 Picker(
@@ -1245,7 +1245,7 @@ private struct InferenceDetailView: View {
                                 .toggleStyle(.checkbox)
                                 .labelsHidden()
                             Text(tokenCapEnabled ? "\(tokenCapDraft)" : "Unlimited")
-                                .font(.system(size: 12))
+                                .font(.caption)
                                 .foregroundStyle(tokenCapEnabled ? .primary : .secondary)
                             if tokenCapEnabled {
                                 Stepper("", value: $tokenCapDraft, in: 500...32000, step: 500)
@@ -2423,25 +2423,25 @@ private struct LocalModelRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {
                     Text(descriptor.displayName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                     if descriptor.id == localModelManager.recommendedTextModelID {
                         Text("Recommended")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     if descriptor.id == localModelManager.constrainedFallbackTextModelID {
                         Text("Fallback")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                     if let model = LocalTextModelID(rawValue: descriptor.id),
                        model.isExperimentalForEpistemos {
                         Text("Experimental")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.orange)
                     }
                     Text(state.title)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption2.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
 
@@ -2458,7 +2458,7 @@ private struct LocalModelRow: View {
                         Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
                     }
                 }
-                .font(.system(size: 10, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
 
                 if case .installing(let progress) = state {
@@ -2559,7 +2559,7 @@ private struct LocalModelRow: View {
             .controlSize(.small)
         } else if !inference.hardwareCapabilitySnapshot.supports(descriptor: descriptor) {
             Label("Unsupported", systemImage: "exclamationmark.triangle")
-                .font(.system(size: 11, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
         }
     }
@@ -2757,7 +2757,7 @@ private struct VaultDetailView: View {
                 if let url = vaultSync.vaultURL {
                     LabeledContent("Path") {
                         Text(url.path)
-                            .font(.system(size: 11, design: .monospaced))
+                            .font(.system(.caption2, design: .monospaced))
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
@@ -2767,7 +2767,7 @@ private struct VaultDetailView: View {
                                 .fill(vaultSync.isWatching ? Color.green : Color.red)
                                 .frame(width: 8, height: 8)
                             Text(vaultSync.isWatching ? "Connected" : "Disconnected")
-                                .font(.system(size: 12))
+                                .font(.caption)
                         }
                     }
                     HStack(spacing: Spacing.md) {
