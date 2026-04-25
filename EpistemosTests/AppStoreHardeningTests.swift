@@ -620,7 +620,7 @@ struct AppStoreHardeningTests {
         )
         let engine = AgentQueryEngine(config: config)
 
-        // Turn 1 — turnCount becomes 1, NOT greater than maxTurns=1, so the
+        // Turn 1 -- turnCount becomes 1, NOT greater than maxTurns=1, so the
         // engine resolves the backend and drives one execute() call. The
         // recording backend yields `.complete(...)` immediately so the turn
         // ends with `.success`.
@@ -644,7 +644,7 @@ struct AppStoreHardeningTests {
             Issue.record("Expected .success on turn 1, got: \(String(describing: turn1Result))")
         }
 
-        // Turn 2 — turnCount becomes 2, 2 > 1 fires the ceiling. The engine
+        // Turn 2 -- turnCount becomes 2, 2 > 1 fires the ceiling. The engine
         // must yield `.errorMaxTurns(turns: 2)` and must NOT call execute()
         // again. This is the invariant Phase S.4 was added to lock down.
         var turn2Result: AgentQueryEngineResult?
@@ -676,7 +676,7 @@ struct AppStoreHardeningTests {
 /// Actor-protected counter for backend execute() invocations. Lives outside
 /// the suite struct because Swift Testing requires `@Test` methods to be
 /// instance-bound but the recording backend protocol is `nonisolated Sendable`
-/// — the actor lets the backend's execute() bump a counter without sharing
+/// -- the actor lets the backend's execute() bump a counter without sharing
 /// mutable state.
 private actor RecordingMaxTurnsBackendStats {
     private var count: Int = 0
@@ -687,7 +687,7 @@ private actor RecordingMaxTurnsBackendStats {
 /// Minimal `AgentBackend` that records every execute() call into the shared
 /// stats actor and yields a single immediate `.complete` event so the engine's
 /// turn loop terminates cleanly. The unique `identifier` prevents collisions
-/// with backends registered by app bootstrap or other test runs — there is no
+/// with backends registered by app bootstrap or other test runs -- there is no
 /// global unregister API, and this avoids needing one.
 private struct RecordingMaxTurnsBackend: AgentBackend {
     let identifier: String

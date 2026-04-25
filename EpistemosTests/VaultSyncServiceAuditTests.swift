@@ -1785,7 +1785,7 @@ struct VaultSyncServiceAuditTests {
         #expect(!ecoMaintenance.manifestRefreshActive)
     }
 
-    // MARK: - Phase S.4 — security-scoped bookmark + write-cycle round-trip
+    // MARK: - Phase S.4 -- security-scoped bookmark + write-cycle round-trip
     //
     // Phase S.4 acceptance criterion (PHASE_S_AUDIT.md §7, §10):
     // "Security-scoped bookmark round-trip tests after a sandbox-container
@@ -1805,7 +1805,7 @@ struct VaultSyncServiceAuditTests {
     //
     // Honest non-claim: this is an in-process re-resolve + write-cycle proof
     // for the test bundle's host process. It does NOT prove cross-relaunch
-    // persistence under a real MAS sandbox container — that requires the
+    // persistence under a real MAS sandbox container -- that requires the
     // signed `Epistemos-AppStore.app` running under its sandbox profile and
     // is the TestFlight gate (Phase S.8). `startAccessingSecurityScopedResource()`
     // is exercised only conditionally: a temp-dir URL inside the unit-test
@@ -1828,8 +1828,22 @@ struct VaultSyncServiceAuditTests {
         // calls `URL.bookmarkData(options: .withSecurityScope, ...)` and
         // falls back to a plain bookmark if security-scope creation fails
         // (e.g., on filesystems that don't support it). Either branch is
-        // acceptable here — we only require that *some* bookmark is stored.
+        // acceptable here -- we only require that *some* bookmark is stored.
         service.persistVaultSelection(vaultURL)
+
+        // Production startup-validation evidence. Must run BEFORE any
+        // re-resolve / write-cycle in the test so we are checking exactly
+        // what the launched app would see on next start: bookmark exists,
+        // resolves cleanly enough for an automatic restore, no failure
+        // reason. If this fails in the unit-test host, the slice halts
+        // here -- do not weaken or paper over the assertion.
+        let startupValidation = service.startupBookmarkValidation()
+        #expect(startupValidation.bookmarkExists,
+                "startupBookmarkValidation must report bookmarkExists after persistVaultSelection")
+        #expect(startupValidation.isReadyForAutomaticRestore,
+                "startupBookmarkValidation must report isReadyForAutomaticRestore for a freshly persisted bookmark")
+        #expect(startupValidation.failureReason == nil,
+                "startupBookmarkValidation must report nil failureReason for a freshly persisted bookmark")
 
         let storedBookmark = isolatedDefaults.data(forKey: vaultBookmarkKey)
         #expect(storedBookmark != nil, "persistVaultSelection must store a bookmark in the isolated defaults")
@@ -1863,7 +1877,7 @@ struct VaultSyncServiceAuditTests {
         // `SDPage.bodyHash(latestAvailableBody(...))` and re-schedules the
         // page if they disagree, so the override must honestly export the
         // page's current content. This matches what the production
-        // `VaultIndexActor.exportPage` does — it writes the page body to
+        // `VaultIndexActor.exportPage` does -- it writes the page body to
         // disk and returns the matching hash.
         let pageBody = "phase-s4 round-trip sentinel body"
         let page = insertDirtyPage(
@@ -1888,7 +1902,10 @@ struct VaultSyncServiceAuditTests {
 
         service.setExportPageOverrideForTesting { _, vaultDir in
             let target = vaultDir.appendingPathComponent("phase-s4-sentinel-\(pageID).md")
-            try pageBody.data(using: .utf8)!.write(to: target, options: .atomic)
+            guard let payload = pageBody.data(using: .utf8) else {
+                throw CocoaError(.fileWriteInapplicableStringEncoding)
+            }
+            try payload.write(to: target, options: .atomic)
             return (target.path, SDPage.bodyHash(pageBody))
         }
 
@@ -1907,7 +1924,7 @@ struct VaultSyncServiceAuditTests {
             return
         }
         #expect(savedPage.needsVaultSync == false,
-                "Successful export must clear needsVaultSync — proves the write cycle reached completion")
+                "Successful export must clear needsVaultSync -- proves the write cycle reached completion")
 
         // (4) Post-write-cycle re-resolve. The bookmark stored in step (1)
         // must still point at the same vault URL with isStale == false
