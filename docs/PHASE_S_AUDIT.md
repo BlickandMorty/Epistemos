@@ -285,6 +285,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
 ## 7. Known follow-ups (non-blocking, scoped by sub-phase)
 
 - **S.1 UX polish:** requires launched-app dogfood time; out of scope for this audit pass.
+- **S.3 accessibility + localization:** see Section 9 for the 2026-04-25 inventory. Reduce Motion is in good shape (54 sites). Dynamic Type has a 786-site fixed-font gap; localization is structurally absent (0 sites). Both punch-list items are deferred to a focused S.3 commit pass; the inventory in Section 9 is the size of the work.
 - **S.2 (this doc):** run `codesign -d --entitlements -` on an actual built `Epistemos-AppStore.app` and attach output. Requires a clean release build, deferred because disk is tight (13 GB free at audit time; `agent_core/target` is 50 GB and another feature-set compile would add 1-3 GB).
 - **S.4 tests:**
   - Run the Rust `mas-sandbox` tests under `cargo test --manifest-path agent_core/Cargo.toml --features mas-sandbox -- mas_` (deferred for the same disk reason).
@@ -354,7 +355,53 @@ S.5 is therefore in a **partial-evidence** state: signpost coverage is broader a
 
 ---
 
-## 9. What this audit explicitly did NOT prove
+## 9. S.3 accessibility + localization inventory (2026-04-25)
+
+**Approach:** log-first / evidence-first, doc-only audit pass. No code changes in this slice -- the S.3 plan in `IMPLEMENTATION_PLAN_FROM_ADVICE.md` describes a 1-week dedicated pass, which is bigger than fits a single commit. The inventory below sizes the work honestly so a future S.3 pass can follow a precise punch-list.
+
+### 9.1 Surface counts (raw `grep` over `Epistemos/`, Swift sources only)
+
+| Surface | Sites | Acceptance criterion (S.3 plan) | Honest read |
+|---|---|---|---|
+| `.accessibilityLabel(...)` | 79 | "Every UI element has accessibilityLabel + Hint + Value where applicable" | Coverage exists but is partial; 79 is well below the SwiftUI element count of the codebase. Quality of existing labels looks reasonable on a sample (`"Back to Home"`, `"Chat title"`, `"\(modelName) model"`), not placeholder text. |
+| `.accessibilityHint(...)` | 7 | Same row | **Sparse.** Most labels lack the supplemental hint that VoiceOver speaks after the label. |
+| `.accessibilityValue(...)` | 0 | Same row | **Zero.** No element exposes a current value (toggles, sliders, progress states). |
+| `.accessibilityIdentifier(...)` | 0 | UI testing hook (orthogonal to VoiceOver) | **Zero.** Not strictly required by S.3 but worth noting -- the AppStoreHardeningTests source-text scanner cannot also verify UI-test reachability without identifiers. |
+| `.accessibilityElement(...)` / `.accessibilityAddTraits(...)` | 5 | Same row | Minimal -- combined-element grouping and trait declarations are largely absent. |
+| `@Environment(\.accessibilityReduceMotion)` / `reduceMotion` | 54 | "Honor `isReduceMotionEnabled`; no RepeatForever animations without check" | **Strong.** `Theme/GlassModifiers.swift` etc. consume the environment value and gate animations. This row appears done. |
+| `@Environment(\.dynamicTypeSize)` / `DynamicTypeSize` / `@ScaledMetric` | **0** | "UI scales from xSmall to accessibility5; no clipped text" | **Zero explicit handling.** SwiftUI's relative-font fonts (`Font.body`, `.callout`, `.headline`, etc.) are present in 294 sites and scale automatically -- but the codebase ALSO has 786 sites of `.font(.system(size: <fixed>))` which do NOT scale. See 9.2. |
+| `@FocusState` / `.focusable` / `.focused` | 26 | "Every interactive element reachable via Tab" | Partial. Substantial use exists, but full Tab-reachability is a launched-app verification, not a static count. |
+| `String(localized: ...)` | 0 | "First-tier locales (EN/ES/FR/DE/JA/ZH) localized" | **Zero.** Strings are inline literals everywhere. |
+| `Localizable.strings` / `*.xcstrings` catalogs | 0 | Same row | **Zero catalogs.** The app ships English-only today. |
+
+### 9.2 Dynamic Type gap quantified
+
+The biggest single S.3 finding is the Dynamic Type gap. SwiftUI scales relative fonts (`Font.body`, `Font.callout`, `Font.headline`, `Font.title`, `Font.caption`, `Font.footnote`, `Font.system(.body, design:)` etc.) automatically with the user's chosen text size; explicit fixed point sizes do NOT scale.
+
+- 294 sites use a relative font shape and will scale.
+- **786 sites use `.font(.system(size: <fixed>))`** and will NOT scale.
+
+A representative sample from `KnowledgeFusion/UI/TrainOnVaultView.swift` shows the pattern: `.font(.system(size: 32))`, `.font(.system(size: 11, weight: .semibold))`, `.font(.system(size: 9))`. None of these honor user accessibility text size. The right replacement shape is either `.font(.system(.body))` etc. (fully relative) or `.font(.system(size: 14, weight: .semibold)).dynamicTypeSize(...)` with a min/max range, depending on whether the layout can grow.
+
+The 786-site rewrite is the largest S.3 punch-list item and is not landed in this audit pass; it needs a focused S.3 commit (or several) and visual QA against an actually launched app.
+
+### 9.3 Localization gap
+
+Zero localization sites + zero `.strings` / `.xcstrings` catalogs + zero `String(localized:)` calls = the app is structurally English-only. The S.3 plan asks for first-tier-locale coverage for navigation + error messages. That is a structural change touching essentially every visible `Text(...)`, alert message, error description, and menu label across the codebase. Not landed in this pass.
+
+### 9.4 What this S.3 inventory does NOT prove
+
+- **No live VoiceOver session.** All counts are static `grep` results; the actual VoiceOver navigation flow has not been exercised. A real S.3 pass needs Xcode's Accessibility Inspector pointed at a launched app.
+- **No Dynamic Type visual QA.** The 786-site finding is a code-shape inventory, not "how the UI actually looks at accessibility5". Some fixed-size fonts may be in surfaces (e.g., a debug overlay) where scaling is intentionally not desired; the punch-list will need per-site review.
+- **No keyboard navigation walk.** Tab-reachability requires launched-app testing.
+- **No RTL screenshot diff.** RTL layout correctness needs an Arabic/Hebrew locale setup, not a grep.
+- **No localization plan.** Adding `Localizable.xcstrings` plus migrating ~thousands of inline literals is the bulk of an S.3 calendar week.
+
+S.3 is therefore in an **inventory-only** state after this pass. Reduce Motion is in good shape; the remaining four S.3 rows (VoiceOver hints/values, Dynamic Type, keyboard, RTL, localization) are punch-list items for a later commit.
+
+---
+
+## 10. What this audit explicitly did NOT prove
 
 This audit is source-level inspection plus one Swift Testing regression. It does NOT constitute App Store submission readiness. Explicit non-claims:
 
