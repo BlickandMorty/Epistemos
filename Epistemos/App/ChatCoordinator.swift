@@ -4618,7 +4618,12 @@ final class ChatCoordinator {
     }
 
     do {
+      // Signpost interval — feeds Phase 0 perf budget (chat.exchange.save.ms).
+      // Master plan target: <5 ms p99 per save. Save runs once per exchange
+      // (user+assistant pair), not per token — confirmed by audit 2026-04-24.
+      let saveInterval = Log.agentStreaming.beginInterval("chat.exchange.save.ms")
       try context.save()
+      Log.agentStreaming.endInterval("chat.exchange.save.ms", saveInterval)
       Log.db.info("Persisted chat \(chatId, privacy: .public): user + assistant messages")
 
       let transcriptContext = ModelContext(modelContainer)
