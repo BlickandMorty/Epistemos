@@ -354,11 +354,13 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     func onTextDelta(delta: String) {
         // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / ffi).
         // Wraps the highest-frequency UniFFI text-delta callback (per-token).
-        // Per dpp §1.1 Task 0.1.
-        Sig.interval(Sig.ffi, "poll_event") {
-            Log.agentStreaming.emitEvent("delegate.textDelta", "\(delta.count) chars")
-            continuation.yield(.textDelta(delta))
-        }
+        // Per dpp §1.1 Task 0.1. begin/defer-end pattern for TSAN safety.
+        let signpostId = Sig.ffi.makeSignpostID()
+        let state = Sig.ffi.beginInterval("poll_event", id: signpostId)
+        defer { Sig.ffi.endInterval("poll_event", state) }
+
+        Log.agentStreaming.emitEvent("delegate.textDelta", "\(delta.count) chars")
+        continuation.yield(.textDelta(delta))
     }
 
     func onToolInputDelta(index: UInt32, partialJson: String) {

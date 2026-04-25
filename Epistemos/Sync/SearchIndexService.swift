@@ -405,12 +405,14 @@ actor SearchIndexService {
     nonisolated func search(query: String, limit: Int = 50) throws -> [SearchResult] {
         // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / storage).
         // Wraps the FTS5 page search dispatch. Per dpp §1.1 Task 0.1.
-        try Sig.interval(Sig.storage, "search") {
-            let terms = Self.normalizedSearchTerms(query)
-            guard !terms.isEmpty else { return [] }
+        // begin/defer-end pattern (not closure wrapper) for TSAN safety.
+        let signpostId = Sig.storage.makeSignpostID()
+        let state = Sig.storage.beginInterval("search", id: signpostId)
+        defer { Sig.storage.endInterval("search", state) }
 
-            return try searchPages(terms: terms, limit: limit)
-        }
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
+        return try searchPages(terms: terms, limit: limit)
     }
 
     func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
