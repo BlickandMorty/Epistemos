@@ -35,7 +35,7 @@ struct TrainOnVaultView: View {
     private var headerSection: some View {
         VStack(spacing: 8) {
             Image(systemName: "brain.head.profile.fill")
-                .font(.system(size: 32))
+                .font(.largeTitle)
                 .foregroundStyle(.secondary)
 
             Text("Knowledge Fusion (Experimental)")
@@ -114,8 +114,10 @@ struct TrainOnVaultView: View {
 
     private func descriptionRow(icon: String, title: String, detail: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
+            // Match the surrounding `.caption.weight(.semibold)` title scale so
+            // the glyph and label resize together with Dynamic Type.
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.blue)
                 .frame(width: 20, height: 20)
                 .background(Circle().fill(.blue.opacity(0.1)))
@@ -532,8 +534,10 @@ struct TrainOnVaultView: View {
 
     private func analysisChip(_ text: String, _ icon: String) -> some View {
         HStack(spacing: 4) {
+            // Pair the icon scale with the chip text's `.caption2` so they
+            // resize together under Dynamic Type.
             Image(systemName: icon)
-                .font(.system(size: 9))
+                .font(.caption2)
             Text(text)
                 .font(.caption2.weight(.medium))
         }
