@@ -340,6 +340,27 @@ struct ReleaseScriptAuditTests {
         #expect(chatSession.contains("c = .kvcache(injectedCache.consume())"))
     }
 
+    @Test("reliability quality gates script supports DERIVED_DATA_ROOT and protected-folder defaulting")
+    func reliabilityQualityGatesScriptSupportsDerivedDataRootAndProtectedFolderDefaulting() throws {
+        let script = try loadReleaseScript("scripts/run_reliability_quality_gates.sh")
+
+        #expect(script.contains("set -euo pipefail"))
+        #expect(script.contains("scripts/xcodebuild_epistemos.sh"))
+        #expect(script.contains("CODE_SIGNING_ALLOWED=NO"))
+        #expect(script.contains("-derivedDataPath"))
+        #expect(script.contains("RESULT_ROOT="))
+        #expect(script.contains("DERIVED_DATA_ROOT="))
+        #expect(script.contains("DERIVED_DATA_ROOT:-${protected_root_default}"))
+        #expect(script.contains("${home_real}/Downloads"))
+        #expect(script.contains("${home_real}/Desktop"))
+        #expect(script.contains("${home_real}/Documents"))
+        #expect(script.contains("${TMPDIR:-/tmp}/epistemos-reliability-derived-data"))
+        #expect(script.contains("mkdir -p \"${DERIVED_DATA_ROOT}\""))
+        #expect(script.contains("local derived_data=\"${DERIVED_DATA_ROOT}/derived-data-${name}\""))
+        #expect(script.contains("Artifacts: ${out_dir}"))
+        #expect(script.contains("DerivedData: ${DERIVED_DATA_ROOT}"))
+    }
+
     @Test("syntax core viewport highlighter stays warning free around unused rope helpers")
     func syntaxCoreViewportHighlighterStaysWarningFree() throws {
         let highlight = try loadReleaseScript("syntax-core/src/highlight.rs")
