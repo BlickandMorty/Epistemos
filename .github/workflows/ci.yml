@@ -186,11 +186,17 @@ jobs:
             echo "::warning title=App Store bundle approaching size limit::Epistemos.app is ${size_mb} MB which is above the ${warn_mb} MB early-warning band (limit ${limit_mb} MB)."
           fi
 
+      # Wave 2.6: build + run bench/morning-session to produce
+      # build/perf-budgets-runtime.json. Must run BEFORE the
+      # check-perf-budgets step below so [runtime] budgets get measured
+      # data instead of the "no measurement yet" graceful skip.
+      - name: Run morning-session bench (Wave 2.6)
+        run: ./scripts/run-morning-session.sh
+
       # Wave 2.5: parse docs/perf-budgets.toml and enforce every measurable
       # budget. Runs after every Rust crate has been built --release above
-      # (binary budgets need the dylibs on disk). Runtime budgets are
-      # informational until Wave 2.6 (bench/morning-session.swift) ships
-      # the producer that writes build/perf-budgets-runtime.json.
+      # (binary budgets need the dylibs on disk) and after the morning-session
+      # bench has written runtime measurements.
       - name: Check perf budgets (docs/perf-budgets.toml)
         run: ./scripts/check-perf-budgets.sh
 

@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+# rlib added (Wave 2.6) so internal Rust binaries — notably the
+# bench/ morning-session workload that produces runtime metrics for
+# docs/perf-budgets.toml — can depend on omega-mcp via a path dep.
+# Additive: cdylib (UniFFI Swift bridge) and staticlib (link into
+# the macOS app) keep their existing outputs untouched.
+crate-type = ["cdylib", "staticlib", "rlib"]
 name = "omega_mcp"
 
 [features]
