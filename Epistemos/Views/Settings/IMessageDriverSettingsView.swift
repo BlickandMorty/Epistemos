@@ -567,10 +567,18 @@ struct IMessageDriverSettingsView: View {
             }
         }
         let relaunch = DoctorAction(title: "Relaunch Epistemos") {
-            let task = Process()
-            task.launchPath = "/usr/bin/open"
-            task.arguments = ["-n", Bundle.main.bundlePath]
-            try? task.run()
+            // Use NSWorkspace (sandbox-safe) instead of Process() spawning
+            // /usr/bin/open. Works identically in Pro and keeps the MAS
+            // binary free of `Process()` symbol presence, which App Review
+            // static scans treat as a subprocess-spawn signal. Matches the
+            // canonical relaunch pattern used elsewhere in the codebase
+            // (AppBootstrap.swift, IMessageNativeSetupDoctor.swift).
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.createsNewApplicationInstance = true
+            NSWorkspace.shared.openApplication(
+                at: Bundle.main.bundleURL,
+                configuration: configuration
+            ) { _, _ in }
             NSApp.terminate(nil)
         }
 

@@ -127,12 +127,17 @@ Swift side: `Epistemos/App/AppBootstrap.swift:2686 verifyAgentCorePolicyProfile(
 6. `masInfoPlistDeclaresExportComplianceAnswer` -- asserts the MAS `Info.plist` declares `ITSAppUsesNonExemptEncryption`, so App Store Connect does not prompt the export-compliance questionnaire on every submission.
 7. `masInfoPlistKeepsUsageDescriptionsNonEmpty` -- asserts five usage-description strings (`NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `NSDocumentsFolderUsageDescription`, `NSDesktopFolderUsageDescription`, `NSDownloadsFolderUsageDescription`) are present and non-empty in the MAS `Info.plist`.
 
-**Runtime characteristic (observed, NOT yet explained):** two consecutive Xcode app-hosted Swift Testing runs of this suite showed a large, escalating wall-clock cost attributed to the first file-I/O test:
+**Runtime characteristic (observed, highly variable):** three consecutive Xcode app-hosted Swift Testing runs of this suite show the wall-clock cost attributed to the first file-I/O test swings across two orders of magnitude. No causal explanation has been proven.
 
-- Run 1 (5 tests): total 48.282 s; `masEntitlementsDeclareRequiredKeys` reported 48.259 s; remaining tests 0.001-0.021 s each; xcodebuild exit 0.
-- Run 2 (7 tests, after adding two Info.plist tests): total 250.093 s; `masEntitlementsDeclareRequiredKeys` reported 250.058 s; remaining tests 0.001-0.031 s each; xcodebuild exit 0.
+| Run | Tests | Total | First-I/O test (`masEntitlementsDeclareRequiredKeys`) | Other tests | Exit |
+|---|---|---|---|---|---|
+| 1 | 5 | 48.282 s | 48.259 s | 0.001-0.021 s each | 0 |
+| 2 | 7 | 250.093 s | 250.058 s | 0.001-0.031 s each | 0 |
+| 3 | 7 | **7.485 s** | **7.451 s** | 0.001-0.028 s each | 0 |
 
-The first test's own work is trivial (parse a plist, check keys), so Swift Testing is attributing some out-of-test cost -- likely Xcode app-hosted runner launch plus test-bundle initialization -- to whichever test runs first. The run-over-run 5x growth is not a stable cold-run cost and is a real Phase S follow-up: before expanding this suite further, profile a cold run to see what is actually consuming the time (Instruments `xcodebuild` trace, or a minimal test that does nothing and measures the attributed cost). Do not take "7/7 green" to mean "cheap to run". Both runs were verified via raw log inspection, not `| head` truncation, and both reported TEST SUCCEEDED.
+Run 3 used the same 7 tests as Run 2 (same suite, same code), so the cost delta is NOT caused by test contents. Plausible explanations (none measured): thermal throttling on the Macbook after sustained CPU use in a prior run, concurrent background indexing competing for file-system resources, test-harness caching behavior, or variance in app-hosted runner launch time. `IDETestOperationsObserverDebug` reports the same wall clock as the first test (Run 3: 16.698 s elapsed total including build).
+
+**Operational posture:** cold runs CAN be cheap (~7 s) but are not guaranteed to be. Expect highly variable cost. Do not assume "7/7 green" means "cheap to run"; do not panic at a 250 s run either. Before expanding this suite with file-I/O-heavy tests, measure; if a profiling run is warranted, the test-harness cost question is a Phase S follow-up, not a blocker on Phase S.2 drift testing.
 
 ---
 
@@ -186,12 +191,13 @@ let relaunch = DoctorAction(title: "Relaunch Epistemos") {
 
 **Risk:** medium. Runtime is safe (dead code, unreachable). Static-analysis risk: an App Review automated scan that flags `Process()` or `task.launchPath = "/usr/bin/open"` presence (regardless of reachability) will require a response. Even if reachable, the MAS sandbox would block the spawn anyway.
 
-**Phase S action:** before first MAS submission, do one of:
+**Phase S action (FIXED 2026-04-24):** in-place replacement. The relaunch closure now calls `NSWorkspace.shared.openApplication(at:configuration:completionHandler:)` with `createsNewApplicationInstance = true`, the canonical Epistemos relaunch pattern already used at `AppBootstrap.swift:2430`, `IMessageNativeSetupDoctor.swift:83,99,212`, and `OmegaPermissions.swift:131`. `Process()` is no longer referenced in the Swift source tree (verified by re-running the blocker-API sweep -- only comment mentions remain, which are not linker symbols).
 
-1. Add `Views/Settings/IMessageDriverSettingsView.swift` to the `Epistemos-AppStore` target's source-exclude list in `project.yml`, same mechanism that already excludes `ClaudeManagedRuntime.swift` and `LocalRustRuntime.swift`. This removes the `Process()` call from the MAS binary entirely.
-2. Or wrap the relaunch action body in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` with an NSWorkspace-based fallback inside the MAS branch.
+Rejected alternatives and why:
+- Adding the file to the project.yml MAS exclude list would work, but leaves `IMessageDriverService`-typed `@Environment` uses in `ChannelsSettingsView.swift` (which is not excluded) dangling in the MAS build.
+- Wrapping the closure body in `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` would also work, but leaves the Pro branch on the deprecated `Process()`-based path for no reason.
 
-Option 1 is closer to the existing split pattern and is the recommended action. Tracked as a Phase S.2 follow-up; non-blocking for this audit but blocking for submission.
+Verification: the `AppStoreHardeningTests` suite still passes 7/7 after the change (Run 3 above: 7.485 s, exit 0).
 
 ---
 
