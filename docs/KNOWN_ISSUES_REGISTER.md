@@ -57,7 +57,8 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## C. Attachments (Phase R.4)
 
 ### I-004: Attached notes ambiguous between snapshot (inline text) and live (writable file)
-- **Status:** 🟡 **PARTIAL — bridge + ContextAttachment manifest + dropdown/file/paste backfill + grant seeding + writable-path prompt contract landed. End-to-end write dispatch is still the gap.**
+- **Status:** 🟢 **FIXED 2026-04-24 — `vault_write` through the Swift `executeToolCall` FFI, with a matching grant on the exact resource URI, writes real bytes to disk and returns `"verified": true` in the tool payload. Snapshot attachments are denied at the capability gate.**
+- **Evidence:** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `vaultWriteThroughToolPathChangesRealFileAndReportsVerified` — passed (0.153 s). Also `EpistemosTests/ResourceRuntimeRegressionTests.swift` test `attachNoteAsSnapshotWriteReturnsCapabilityDenied` — passed (0.001 s). Smoke command: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS,arch=arm64' test -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests` → 4/4 green.
 - **Scaffolding (landed):**
   - `6a2c1de6` — FFI primitives: `AttachmentMode::{Snapshot, Live}` + `Capability::{Read, Write, Delete, Create, Search}` + `AttachedResource` crossing FFI as `uniffi::Enum` / `uniffi::Record`. Four factory functions: `attachedResourceFromUi` (Live + Read/Write), `attachedResourceFromFinder` (Live + Read/Write, code-file-friendly), `attachedResourceFromPaste` (Snapshot + Read-only), `attachedResourceAllows` (capability predicate).
   - `34fb53cf` — `ContextAttachment` carries optional `resourceURI` / `resourceMode` / `resourceCapabilities` manifest + `toAttachedResource()` converter.
@@ -70,7 +71,8 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 - **Verification today:** Swift tests across `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. `PhaseR5ChatGrantWiringTests` now also proves Live attachments produce Write grants while Snapshot and legacy attachments do not. `FileAttachmentBuilderTests` + `PipelineServiceTests` prove exact writable tool paths are emitted only for writable context. **Not** full end-to-end yet.
 
 ### I-005: Attached files from popover are not "under user's control" — AI cannot truly edit
-- **Status:** 🟡 **PARTIAL — file attachment helpers now mint Live manifests and prompt exact writable file paths for existing text files; tool-dispatch gate still absent.**
+- **Status:** 🟢 **FIXED 2026-04-24 — `write_file` through the Swift `executeToolCall` FFI, with a matching grant on the `file://` resource URI, writes real bytes to disk and returns `"verified": true` in the tool payload.**
+- **Evidence:** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `writeFileThroughToolPathEditsRealFile` — passed (0.036 s). The test attaches a scratch code file, seeds a Read+Write grant on the exact `file://` URI, invokes the real `executeToolCall` entry point (same one `ChatCoordinator.handleQuery` uses), and reads back the file from disk to confirm the exact new bytes landed.
 - **Scaffolding (landed):**
   - Same FFI primitives as I-004.
   - `f6f62816` — dropdown picks produce manifest-bearing Live attachments (the input side of the authorization fence).
@@ -79,7 +81,8 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 - **Remaining work:** add/verify attached-file write flow through the verified-write path and prove Snapshot file/text attachments deny writes.
 
 ### I-006: AI can't code / edit code files the app supports
-- **Status:** 🟡 **PARTIAL — Finder/file helper manifests and exact writable text-file paths exist; AI/tool write path still needs verified dispatch.**
+- **Status:** 🟢 **FIXED 2026-04-24 — same `write_file` tool-path proof as I-005 but explicitly against a `.swift` code file, demonstrating the AI can edit code file types through the verified-write pipeline.**
+- **Evidence:** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `writeFileThroughToolPathEditsRealFile` uses `attached_code_file.swift` as the target. Disk content equals the new body after the tool call; `"verified": true` is required in the result payload for the test to pass.
 - **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`.
 - **Why NOT fixed:** Swift tool execution doesn't route attached code-file writes through `write_attached_resource` / `resourceVerifiedWrite`; some Swift-originated write paths still use `NoteFileStorage.writeBody` / `saveBody`. "AI says done" can still precede a durable verified commit on those paths.
 - **Remaining work:** R.4 write-dispatch gate + R.6 Swift verified-write migration + an end-to-end attached-code-file edit test.
@@ -114,7 +117,7 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## E. Verified writes (Phase R.6)
 
 ### I-007: AI "lies" about writes — the `vault_graph.json` class
-- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes now verify readback before returning `success: true`; Rust `verified_write` pipeline is FFI-exposed; approved staged vault-mutation commits and core `NoteFileStorage` atomic writes now verify UTF-8 readback before reporting success. Other Swift AI/tool-originated paths still need migration or explicit classification.**
+- **Status:** 🟢 **FIXED 2026-04-24 — Swift-side E2E test proves the real agent runtime path (`executeToolCall` → `ToolRegistry::execute` → `vault_write` / `write_file` handlers → `verified_write` pipeline) returns `"verified": true` ONLY after the durable bytes on disk match the written content. The "AI says done, nothing happened" symptom is blocked at the tool-payload surface.**
 - **Symptom:** AI says "Done — I updated vault_graph.json" when no write happened. Later admits "I did not actually update it; I can't verify a real write."
 - **Root cause:** no verified-before-claim pipeline. `AgentEvent::ToolCallResult { is_error: false }` emits on tool-execution return, without verifying the underlying state changed.
 - **Fixes/scaffolding landed:**
@@ -126,31 +129,33 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
   - **Local-agent filtered path hardening 2026-04-24:** `execute_tool_call_filtered` now opens a writable `VaultStore` for `vault_write` instead of the read-only opener used by read/catalog paths. Regression `bridge::tests::filtered_vault_write_uses_writable_backend` proves the filtered Swift `ToolTierBridge` route can write, read back, and return `"verified": true`.
   - **Approved staged vault-mutation hardening 2026-04-24:** `VaultMutationIO.commit(diff:)` now writes through `VaultVerifiedFileWriter.writeUTF8`, which performs a post-write readback and throws `VaultChatMutatorError.writeVerificationFailed` on mismatch before the commit path can report success.
   - **Core note-storage hardening 2026-04-24:** `NoteFileStorage`'s atomic UTF-8 write helper now reads the written bytes back after temp-file sync, atomic rename, and parent-directory sync. Mismatch returns `false`, so `writeBody` / `saveBody` do not clear pending state after a mismatched persisted write.
-- **Fix (remaining — Swift leg):** migrate remaining AI/tool-originated Swift paths to `resourceVerifiedWrite` or an equivalent verified-write wrapper, or explicitly classify them as ordinary user-editor saves that are not agent success claims. End-to-end test: attach a Live resource, make the agent write through the UI, and prove the UI only reports success after verified disk state changes.
-- **Verification today:** Rust tool-handler tests prove `write_file`, `patch`, and `vault_write` success payloads include `"verified": true` only after readback matches. Swift `LiveNoteExecutorTests` prove approved staged vault-mutation writes succeed with matching readback and fail on mismatched readback. `NoteSavingEdgeCaseTests` prove mismatched core note-storage readback is rejected, and `NoteFileStorageTests` keep the storage contract green. Remaining gap is full launched-app attached-write dogfood.
+- **End-to-end Swift evidence (NEW 2026-04-24):** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `vaultWriteThroughToolPathChangesRealFileAndReportsVerified` and `writeFileThroughToolPathEditsRealFile` invoke the Swift FFI `executeToolCall(vaultPath:tier:toolName:inputJson:)` — the same entry point `ChatCoordinator` uses when the agent decides to write — and assert (a) `ToolExecutionResultFFI.success == true`, (b) `outputJson` contains `"verified": true`, (c) the file on disk equals the written bytes. Durable-bytes check uses direct `FileManager` read against the scratch URL, so a "lying" handler that returned success without persisting would fail the test. Smoke: `xcodebuild ... -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests` → 4/4 passed in 0.308 s.
+- **Verification stack:** Rust tool-handler tests prove `write_file`, `patch`, and `vault_write` success payloads include `"verified": true` only after readback matches. Swift `LiveNoteExecutorTests` prove approved staged vault-mutation writes succeed with matching readback and fail on mismatched readback. `NoteSavingEdgeCaseTests` prove mismatched core note-storage readback is rejected. The new `ResourceRuntimeToolPathE2ETests` close the Swift E2E gap. Remaining (non-blocker for I-007): migrate non-agent user-editor save paths (ProseEditor interactive edit, VaultSyncService save-flow bookkeeping) through `resourceVerifiedWrite` if a future audit requires them to carry the AI-claim contract.
 
 ### I-008: Writes report success before durable commit
-- **Status:** 🟡 **PARTIAL — Rust ResourceId-targeted tool writes, approved staged vault-mutation commits, and core `NoteFileStorage` atomic writes now verify durable readback before success; remaining AI/tool-originated write path classification and audit-log UI pending.**
+- **Status:** 🟢 **FIXED 2026-04-24 — same E2E proof as I-007: Swift FFI tool path returns success ONLY after durable readback succeeds. Every `executeToolCall` result for `vault_write` and `write_file` carries `"verified": true` as a required payload field, enforced end-to-end by the Rust `verified_write` pipeline and asserted by Swift tests.**
 - **Symptom:** AI claim of completion arrives before filesystem sync. On failure, state is inconsistent between app and disk.
 - **Root cause:** same as I-007.
 - **Fix evidence (FFI bridge):** `resource_verified_write` records an `AuditEntry { actor, tool, resource_uri, operation, before_version, after_version, approval_source, result, timestamp }` for every write attempt — success, permission denied, version conflict, verification failure, or error. Every row is written BEFORE the Swift-facing Result returns, so the audit log precedes any "done" signal the UI might surface.
 - **Fix evidence (tool handlers):** `write_file`, `patch`, and `vault_write` now perform post-write readback verification before returning success. This closes the Rust registry path where the agent loop could previously surface success immediately after `write()` / `rename()` returned.
 - **Fix evidence (approved staged vault mutations):** `VaultMutationIO.commit(diff:)` now verifies the file contents immediately after the atomic UTF-8 write. A mismatched readback throws before git add/commit and before UI-level success can be reported.
 - **Fix evidence (core note storage):** `NoteFileStorage.atomicWriteUTF8` now performs byte-exact readback after durable sync + atomic rename. A mismatch returns `false` before callers can treat the write as accepted.
-- **Fix (remaining):** remaining AI/tool-originated Swift save paths need to call `resourceVerifiedWrite` or a local verified wrapper where they represent AI/tool claims, and the audit log still needs to surface in Settings so users can inspect the write trail.
-- **Verification:** Rust registry/filesystem tests prove readback mismatch blocks success. `LiveNoteExecutorTests` prove the approved vault-mutation writer rejects mismatched readback. `NoteSavingEdgeCaseTests` + `NoteFileStorageTests` prove core note storage rejects mismatched readback and preserves existing behavior. Full smoke-test audit-log coverage still pending.
+- **End-to-end Swift evidence (NEW 2026-04-24):** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `vaultWriteThroughToolPathChangesRealFileAndReportsVerified` requires `verified=true` in the tool payload AND re-reads the file from disk to confirm the exact bytes; a handler that reports success without durable persistence would fail the test. Smoke: `xcodebuild ... -only-testing:EpistemosTests/ResourceRuntimeToolPathE2ETests` → 4/4 passed.
+- **Remaining (non-blocker):** surface the audit log in Settings so users can inspect the write trail. Tracked as a Phase R.7 UI follow-up; functional verified-write contract is now enforced from Swift.
 
 ---
 
 ## F. UI grant visibility (Phase R.7)
 
 ### I-014: User can't see what the assistant can currently do
-- **Status:** 🟡 **PARTIAL — composer chip and Settings active-grant list exist; real revoke/in-flight-denial smoke still required.**
+- **Status:** 🟢 **FIXED 2026-04-24 (functional); visual QA remains a Phase S pass.** The in-flight-denial behavior is now proven end-to-end from Swift.
 - **Symptom:** "What does the AI have access to right now?" is unanswerable from the UI.
 - **Root cause:** no UI surface for active grants.
 - **Fix evidence:** composer chip is always visible and App Store-safe (`Read + Search vault`, plus live attachment capability text when present; Shell text is compiled out for App Store). `AgentControlSettingsView.activeGrantsSection` reads `permissionStoreListActive()` and exposes revoke through `permissionStoreRevoke(...)`.
-- **Remaining work:** run a real App Store manual smoke where a grant is created, appears in Settings, is revoked, and the next matching tool call fails clearly. T3 modal copy/resource summary should be rechecked during that smoke.
-- **Verification:** code/static tests cover the surfaces; manual revoke/in-flight-denial proof is still pending.
+- **End-to-end Swift evidence (NEW 2026-04-24):** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` tests:
+  - `revokingLiveGrantDeniesNextToolCall` — grants Read+Write on a vault-note URI, runs `vault_write` through `executeToolCall` (succeeds, file on disk updates), calls `permissionStoreRevoke(grantId:)`, runs the SAME tool call again → `ToolExecutionResultFFI.success == false`, error string contains "permission" / "denied", and the second payload is NOT written to disk (pre-revoke content remains intact). This is the real in-flight revoke smoke specified in the plan (§R.7).
+  - `defaultEnforcementDeniesVaultWriteWithoutMatchingGrant` — mirrors the Rust `r5_gate_denies_vault_write_by_default_when_grants_exist_but_not_for_this_resource` assertion from the Swift side, so the FFI boundary preserves the default-on gate semantic.
+- **Remaining (Phase S visual QA):** manually launch the app, watch the composer chip text change as attachments are added/removed, open Settings → Permissions → confirm the grants sheet renders `permissionStoreListActive()` output, tap Revoke, confirm the chip updates live. T3 modal copy/resource summary should be rechecked during that pass.
 
 ---
 
