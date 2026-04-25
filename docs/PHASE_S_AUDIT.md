@@ -379,7 +379,7 @@ Both signposts are zero-behavior changes (`OSSignposter.beginInterval` / `endInt
 - **No fresh Instruments trace under realistic load.** Capturing an Instruments `.trace` requires a launched-app session against a representative vault; that is a launched-app dogfood task tracked alongside S.1. Without a trace, the Phase 0 signposts are wired but unmeasured.
 - **No live MetalGraphView render/hover FPS proof.** GraphPerformanceTests covers the graph store/builder/search layer only; the `graph.frame.ms` per-frame signpost has not been exercised against the master-plan <12 ms p99 budget at 60 Hz under realistic vault load.
 - **No prose note editor typing perf proof.** The prose editor (the primary user-facing note typing surface) has no Phase 0 instrumentation today (see 8.3 row). Adding signposts to `ProseEditorView` / `ProseTextView2` is tracked as an S.5 follow-up.
-- ~~**No fresh `run_reliability_quality_gates.sh perf_diagnostics` run.**~~ **Resolved as of S.5 evidence pass (2026-04-25).** A single-gate refresh landed at `artifacts/reliability/20260425-053639/perf_diagnostics.xcresult`; see §8.6 below. The remaining 5 gates (`baseline`, `asan`, `tsan`, `ubsan`, `soak_repeat`) were attempted in a follow-up 5-gate run (artifact `artifacts/reliability/20260425-063404/`); the `baseline` gate hit an xcodebuild test-runner connection hang and the script's `set -euo pipefail` halted before `asan`/`tsan`/`ubsan`/`soak_repeat` could run. None of the five produced TEST SUCCEEDED evidence in this pass. Classified as an infrastructure/tooling failure rather than a code regression (no test in the suite was actually executed). See §8.7 for the exact log line and disk footprint. A clean-state baseline-only retry was attempted shortly after and hung again with the same shape; see §8.8. The failure is now treated as reproducible on this machine, not a one-off flake. Re-running the sanitizer + soak gates remains gated on diagnosing the test-runner-launch failure.
+- ~~**No fresh `run_reliability_quality_gates.sh perf_diagnostics` run.**~~ **Resolved as of S.5 evidence pass (2026-04-25).** A single-gate refresh landed at `artifacts/reliability/20260425-053639/perf_diagnostics.xcresult`; see §8.6 below. The remaining 5 gates (`baseline`, `asan`, `tsan`, `ubsan`, `soak_repeat`) were attempted in a follow-up 5-gate run (artifact `artifacts/reliability/20260425-063404/`); the `baseline` gate hit an xcodebuild test-runner connection hang and the script's `set -euo pipefail` halted before `asan`/`tsan`/`ubsan`/`soak_repeat` could run. A clean-state baseline-only retry was attempted shortly after and hung again with the same shape; see §8.8. Read-only diagnostics in §8.9 narrowed the failure to a TCC protected-folder / system-policy consent class fired against the freshly-spawned test host launched from `~/Downloads/...`. A subsequent controlled baseline run with both `RESULT_ROOT` and DerivedData relocated to `/tmp` produced **TEST SUCCEEDED** in 44.277 s (6 / 6 reliability-matrix tests, 1200 sub-cases, 0 failures); see §8.10. **Status update:** `baseline` now has green evidence only when the test host is launched from outside `~/Downloads/~/Desktop/~/Documents`; `asan`, `tsan`, `ubsan`, `soak_repeat` remain open with no green evidence in this pass.
 - **No p99 budget verification for any of the three Phase 0 intervals.** `graph.frame.ms <12 ms p99 @ 60 Hz`, `graph.embed.push.ms <2 ms p99`, `chat.exchange.save.ms <5 ms p99` -- targets named, signposts wired, numbers not yet measured.
 
 S.5 is therefore in a **partial-evidence** state: signpost coverage is broader after this pass (with two new verified-write intervals on Phase S surgical paths), and the graph data-layer baseline is healthy, but the Instruments traces and prose-editor instrumentation needed to call S.5 fully ready remain follow-ups.
@@ -539,9 +539,53 @@ Sandbox `deny` events in the same window are background-system, not the test hos
 
 This matches the existing hint in §9.5 slice 2: that commit explicitly hardened `AppStoreHardeningTests` source-file reads to the DerivedData mirror "instead of `#filePath` (which pointed at `~/Downloads/Epistemos` and could hang on macOS TCC under xcodebuild test)." The §8.7 / §8.8 hangs reproduce the same TCC protected-folder / system-policy class of failure at the test-host-launch boundary — first run captured `DownloadsFolder` prompting, second run captured `AllFiles` code-requirement mismatch — not at a `#filePath` read site, so the slice 2 mitigation was necessary but not sufficient for the reliability-matrix gate.
 
-**This sub-section is evidence-only.** No fix is landed here. Candidate next moves (none chosen yet, all gated behind further evidence): run the `baseline` gate from a derived-data dir outside `~/Downloads` (e.g., `~/Library/Developer/Xcode/DerivedData/...` or a `/tmp` scratch); pre-grant Downloads to `xcodebuild` / `Terminal` via System Settings → Privacy & Security → Files & Folders; codesign the test host with a stable Developer ID identity so its TCC consent caches across rebuilds; or move the reliability artifacts root out of `~/Downloads` entirely. Each candidate has its own tradeoffs (CI portability, security posture, signing-identity availability) and needs its own scope decision before any change lands. S.5 stays **open**.
+**This sub-section is evidence-only.** No fix is landed here. Candidate next moves (the first was exercised next; see §8.10): (a) run the `baseline` gate with both `RESULT_ROOT` and the `xcodebuild -derivedDataPath` outside `~/Downloads` (e.g., `~/Library/Developer/Xcode/DerivedData/...` or a `/tmp` scratch); (b) pre-grant Downloads to `xcodebuild` / `Terminal` via System Settings → Privacy & Security → Files & Folders; (c) codesign the test host with a stable Developer ID identity so its TCC consent caches across rebuilds; (d) move the reliability artifacts root out of `~/Downloads` entirely. Each candidate has its own tradeoffs (CI portability, security posture, signing-identity availability) and needs its own scope decision before any further change lands. S.5 stays **open**.
 
 ---
+
+### 8.10 Reliability baseline green outside `~/Downloads` (2026-04-25, /tmp run)
+
+After §8.9 narrowed the hang to a TCC protected-folder class against a freshly-spawned test host under `~/Downloads/...`, the §8.9 candidate (a) was exercised with **no source / project / entitlements change**: both `RESULT_ROOT` and the `xcodebuild -derivedDataPath` were relocated to `/tmp` for one controlled `baseline`-only run.
+
+```
+RESULT_ROOT=/tmp/epistemos-reliability GATES=baseline scripts/run_reliability_quality_gates.sh
+```
+
+Result: **TEST SUCCEEDED**.
+
+| Field | Value |
+|---|---|
+| Artifact dir | `/tmp/epistemos-reliability/20260425-073340/` |
+| Log | `/tmp/epistemos-reliability/20260425-073340/baseline.log` |
+| xcresult | `/tmp/epistemos-reliability/20260425-073340/baseline.xcresult` |
+| Suite | `Generated Reliability Matrix` — passed after **44.277 s** |
+| Test run | 6 tests in 1 suite — passed after **44.278 s**, "** TEST SUCCEEDED **" in raw log |
+| xcresult summary | `result Passed`, `totalTestCount 6`, `passedTests 6`, `failedTests 0`, `skippedTests 0` |
+| Device summary | `passedTests 1200`, `skippedTests 0`, `failedTests 0` (statistic: "6 tests ran with dynamic parameters" / "1200 test runs") |
+| `xcodebuild test` operation | **51.838 s** elapsed |
+| Disk footprint | 8.4 GB (single derived-data + log + xcresult under `/tmp`) |
+
+TCC / launchservices fingerprint for the green run, captured via `log show` (test host PID `32506`):
+
+- Test host launched from `/private/tmp/epistemos-reliability/20260425-073340/derived-data-baseline/.../Epistemos.app`.
+- `tccd` still logged a `kTCCServiceSystemPolicyAllFiles` request and a code-requirement mismatch at 07:37:28.771 / 07:37:28.783 attributed to PID 32506.
+- **No** `kTCCServiceSystemPolicyDownloadsFolder` `AUTHREQ_PROMPTING` line was captured for PID 32506 in the 07:37:20–07:38:20 window.
+- `launchservices` recorded the test-host process death at 07:38:14.815 with `LSExitStatus=0`.
+
+**Reading.**
+1. The reliability-matrix `baseline` suite itself is green when the test host is launched from outside `~/Downloads`. The 6 / 200-case parametric tests execute cleanly and the xctest <-> test-host XPC handshake completes within a normal launch budget.
+2. The §8.7 / §8.8 hangs are isolated to the TCC `kTCCServiceSystemPolicyDownloadsFolder` (protected-folder) prompt path that fired against a `~/Downloads/Epistemos/artifacts/...`-hosted test bundle. Removing that protected-folder hosting eliminates the prompt path and the runner-launch handshake completes.
+3. The `kTCCServiceSystemPolicyAllFiles` `AUTHREQ_CTX` + code-requirement mismatch lines still appear in this green run, so the `AllFiles` mismatch alone is **non-fatal** in practice. It is the `DownloadsFolder` prompt fork (which has no foreground host under `xcodebuild test`) that produced the unbounded wait, not the `AllFiles` mismatch.
+4. This run does NOT prove that all TCC checks disappear. It isolates the prior hang to the Downloads protected-folder prompt path; the `AllFiles` mismatch shape persists and is documented honestly here as a residual-but-nonfatal observation, not a closed item.
+
+**Hardening landed in this S.5 slice (script-level, no source / project / entitlements changes).** `scripts/run_reliability_quality_gates.sh` now decouples `xcodebuild -derivedDataPath` from `RESULT_ROOT` via a new `DERIVED_DATA_ROOT` env var, and auto-defaults DerivedData to `${TMPDIR}/epistemos-reliability-derived-data/` when `ROOT_DIR` resolves under `~/Downloads`, `~/Desktop`, or `~/Documents`. `RESULT_ROOT` still hosts the log + xcresult artifacts. The script prints both `Artifacts: ${out_dir}` and `DerivedData: ${DERIVED_DATA_ROOT}` at completion. Coverage was added to `EpistemosTests/ReleaseScriptAuditTests` (test name "reliability quality gates script supports DERIVED_DATA_ROOT and protected-folder defaulting") so the contract is guarded against future regressions. The `/tmp/epistemos-reliability/20260425-073340/` artifact dir remains **local evidence only**, NOT staged or committed.
+
+**Honest non-claims (S.5 still open).** This green baseline run does NOT close S.5 on its own:
+
+- `asan`, `tsan`, `ubsan`, `soak_repeat` still have no green evidence in this audit pass. The script-level hardening lets them be retried with the same `RESULT_ROOT=/tmp/...` invocation, but no such run was executed in this slice.
+- The Instruments trace under launched-app load and the prose-editor typing perf proof from §8.5 remain separate, still-open S.5 follow-ups.
+- This pass does NOT make any ProseEditor regression claim; ProseEditor was not touched and was not exercised by the reliability suite.
+- The residual `kTCCServiceSystemPolicyAllFiles` `AUTHREQ_CTX` + code-requirement mismatch shape against the linker-signed-only test host (per §8.9 diagnostic 1) is unchanged. It was non-fatal in this green run; whether to address it (e.g., a stable Developer ID identity for the test host so TCC consent caches across rebuilds) is a separate scope decision.
 
 ## 9. S.3 accessibility + localization -- active implementation work (2026-04-25)
 
