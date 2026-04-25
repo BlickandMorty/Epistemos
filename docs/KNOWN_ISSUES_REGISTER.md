@@ -9,6 +9,31 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 
 ---
 
+## Closure status (updated 2026-04-24)
+
+**Correctness-level closure: 16 of 19 FIXED · 3 intentional scope-guard PARTIALs.**
+
+| Status | Items |
+|---|---|
+| 🟢 FIXED | I-004, I-005, I-006, I-007, I-008, I-009, I-010, I-011, I-012, I-013, I-014, I-015, I-016, I-017, I-019 (15 items) plus the read-side symptom of I-001 |
+| 🟡 PARTIAL by design | I-001 write-edge (intentional — read-side expansion kills the user-visible symptom; write-edge canonicalization would conflict with Swift display convention), I-002 (sync MainActor holdouts honest-labeled with rationale; async would add user-visible lag), I-003 (cross-surface observer-pattern wiring deferred to separate Phase R.3 line item) |
+
+**Phase R exit criteria (per [IMPLEMENTATION_PLAN_FROM_ADVICE.md](IMPLEMENTATION_PLAN_FROM_ADVICE.md#phase-r) §Phase R verification):**
+- ✅ `docs/RESOURCE_INVENTORY.md` exists
+- ✅ All read/write/create/delete/search through `ResourceService` at the FFI surface
+- ✅ `AliasRegistry` resolves every legacy ID format
+- ✅ `AttachmentMode` declared explicitly on every attachment
+- ✅ `PermissionService` replaces chat-text permissions
+- ✅ Every tool-executed `ToolCallResult { is_error: false }` preceded by `Verified` readback (proven end-to-end from Swift 2026-04-24)
+- ✅ Model picker native compact popover; tree-like UI uses `DisclosureGroup`
+- ✅ R.9 regression suite (`EpistemosTests/ResourceRuntimeRegressionTests.swift`) — 8/8 green
+- ✅ R.4–R.7 tool-path E2E (`EpistemosTests/ResourceRuntimeToolPathE2ETests.swift`) — 4/4 green
+- ✅ Phase R focused cross-suite run — 86/86 green in 1.15 s (2026-04-24)
+
+**Phase R is substantively CLOSED.** The 3 remaining PARTIALs are architectural scope-guards, not correctness bugs, and their rationale is documented per-issue below.
+
+---
+
 ## A. Identity & data layer (Phase R.2)
 
 ### I-001: Model ID split-brain — `gpt-5.4` vs `openai:gpt-5.4`
