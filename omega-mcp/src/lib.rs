@@ -14,8 +14,10 @@ pub mod trace_logger;
 pub mod dataset_formatter;
 pub mod quality_filter;
 pub mod orchestrator;
+#[cfg(not(feature = "mas-sandbox"))]
 pub mod osascript;
 pub mod catalog;
+#[cfg(not(feature = "mas-sandbox"))]
 pub mod pty;
 pub mod transport;
 pub mod vault;

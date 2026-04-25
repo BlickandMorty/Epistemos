@@ -60,7 +60,7 @@
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
-		57F63CBF79B9214731AD2154 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GGUFRuntimeBridge; path = LocalPackages/GGUFRuntimeBridge; sourceTree = SOURCE_ROOT; };
 		8FD4DAC7BF81680458A6AF28 /* mlx-swift-lm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mlx-swift-lm"; path = "LocalPackages/mlx-swift-lm"; sourceTree = SOURCE_ROOT; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
@@ -71,14 +71,27 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */ = {
+		28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				OmegaFFI.h,
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
 				omega_ax.swift,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */ = {
+		37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
@@ -88,42 +101,23 @@
 				KnowledgeFusion/MOHAWK/.last_pod_id,
 				KnowledgeFusion/MOHAWK/campus_sort.py,
 				KnowledgeFusion/MOHAWK/compose_training_mix.py,
+				KnowledgeFusion/MOHAWK/composed_training_data,
 				KnowledgeFusion/MOHAWK/composed_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/mix_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data,
 				KnowledgeFusion/MOHAWK/embodied_data/app_code_graph.json,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_epistemos.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl,
-				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/general_macos_instructions.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/generation_report.json,
 				KnowledgeFusion/MOHAWK/embodied_data/predictions_template.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
+				KnowledgeFusion/MOHAWK/epistemos_training_data,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/01_code_graph.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/02_symbol_qa.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/03_ax_atlas.jsonl,
@@ -131,8 +125,8 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/05_tool_calls.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/06_negative.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/09_scroll_gesture.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/10_axpress_schema.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/11_code_grounded.jsonl,
@@ -142,6 +136,30 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/15_error_diagnosis.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
 				KnowledgeFusion/MOHAWK/eval_bfcl.py,
 				KnowledgeFusion/MOHAWK/fill_training_gaps.py,
 				KnowledgeFusion/MOHAWK/generate_advanced_training_data.py,
@@ -175,7 +193,26 @@
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */ = {
+		6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				OmegaFFI.h,
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
+			);
+			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
+		};
+		C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
@@ -185,42 +222,23 @@
 				KnowledgeFusion/MOHAWK/.last_pod_id,
 				KnowledgeFusion/MOHAWK/campus_sort.py,
 				KnowledgeFusion/MOHAWK/compose_training_mix.py,
+				KnowledgeFusion/MOHAWK/composed_training_data,
 				KnowledgeFusion/MOHAWK/composed_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/mix_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data,
 				KnowledgeFusion/MOHAWK/embodied_data/app_code_graph.json,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_epistemos.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl,
-				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/general_macos_instructions.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/generation_report.json,
 				KnowledgeFusion/MOHAWK/embodied_data/predictions_template.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
+				KnowledgeFusion/MOHAWK/epistemos_training_data,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/01_code_graph.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/02_symbol_qa.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/03_ax_atlas.jsonl,
@@ -228,8 +246,8 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/05_tool_calls.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/06_negative.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/09_scroll_gesture.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/10_axpress_schema.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/11_code_grounded.jsonl,
@@ -239,6 +257,30 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/15_error_diagnosis.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
 				KnowledgeFusion/MOHAWK/eval_bfcl.py,
 				KnowledgeFusion/MOHAWK/fill_training_gaps.py,
 				KnowledgeFusion/MOHAWK/generate_advanced_training_data.py,
@@ -277,26 +319,15 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		16352B1B20A1DA1DA6055D05 /* EpistemosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
 		};
-		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */,
-			);
-			path = "build-rust/swift-bindings";
-			sourceTree = "<group>";
-		};
-		DC577E252B5002D94779881E /* Epistemos */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */,
-				37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */,
-			);
-			path = Epistemos;
-			sourceTree = "<group>";
-		};
+		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = "build-rust/swift-bindings"; sourceTree = "<group>"; };
+		DC577E252B5002D94779881E /* Epistemos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Epistemos; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -355,7 +386,7 @@
 		21C2583A1AFD8B5552357491 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				57F63CBF79B9214731AD2154 /* Epistemos.app */,
+				57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */,
 				C76D402546734270F3EE1008 /* Epistemos.app */,
 				0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */,
 			);
@@ -440,8 +471,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 				DC577E252B5002D94779881E /* Epistemos */,
+				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 			);
 			name = Epistemos;
 			packageProductDependencies = (
@@ -476,8 +507,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 				DC577E252B5002D94779881E /* Epistemos */,
+				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 			);
 			name = "Epistemos-AppStore";
 			packageProductDependencies = (
@@ -492,7 +523,7 @@
 				4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */,
 			);
 			productName = "Epistemos-AppStore";
-			productReference = 57F63CBF79B9214731AD2154 /* Epistemos.app */;
+			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -589,7 +620,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\"";
 		};
 		4E337C83B228C8BF01D9A6D2 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -759,14 +790,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -888,14 +912,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -926,15 +943,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -962,15 +971,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;

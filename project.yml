@@ -186,7 +186,7 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX"
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
