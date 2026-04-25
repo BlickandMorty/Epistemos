@@ -68,6 +68,45 @@ run_gate() {
     > "${log_file}" 2>&1
 }
 
+run_soak_repeat_gate() {
+  local name="soak_repeat"
+  local log_file="${out_dir}/${name}.log"
+  local result_dir="${out_dir}/${name}.xcresults"
+  local derived_data="${DERIVED_DATA_ROOT}/derived-data-${name}"
+
+  echo "=== ${name} ==="
+  echo "log: ${log_file}"
+  echo "xcresults: ${result_dir}"
+  echo "derivedData: ${derived_data}"
+
+  mkdir -p "${result_dir}"
+  : > "${log_file}"
+
+  # Keep the soak bounded in shell instead of relying on xcodebuild's repetition
+  # mode, which can start a second batch after reporting an 8-iteration pass.
+  for iteration in 1 2 3 4 5 6 7 8; do
+    local iteration_id
+    iteration_id="$(printf '%02d' "${iteration}")"
+    local result_bundle="${result_dir}/iteration-${iteration_id}.xcresult"
+
+    {
+      echo "=== soak_repeat iteration ${iteration}/8 ==="
+      echo "xcresult: ${result_bundle}"
+      "${XCODEBUILD_WRAPPER}" test \
+        -project "${PROJECT}" \
+        -scheme "${SCHEME}" \
+        -destination "${DESTINATION}" \
+        -derivedDataPath "${derived_data}" \
+        CODE_SIGNING_ALLOWED=NO \
+        -resultBundlePath "${result_bundle}" \
+        -collect-test-diagnostics on-failure \
+        -only-testing:"${SUITE_ID}" \
+        -test-timeouts-enabled YES \
+        -maximum-test-execution-time-allowance 180
+    } >> "${log_file}" 2>&1
+  done
+}
+
 gate_enabled() {
   local name="$1"
   [[ ",${GATES}," == *",${name},"* ]]
@@ -86,7 +125,12 @@ if gate_enabled asan; then
 fi
 
 if gate_enabled tsan; then
-  run_gate tsan -enableThreadSanitizer YES
+  # TSAN links the full app with Swift, ObjC/C++, and Rust exception personalities.
+  # Disabling compact-unwind generation avoids ld's personality-routine cap while
+  # preserving ThreadSanitizer instrumentation.
+  run_gate tsan \
+    'OTHER_LDFLAGS=$(inherited) -Wl,-no_compact_unwind' \
+    -enableThreadSanitizer YES
 fi
 
 if gate_enabled ubsan; then
@@ -94,12 +138,7 @@ if gate_enabled ubsan; then
 fi
 
 if gate_enabled soak_repeat; then
-  run_gate soak_repeat \
-    -test-iterations 8 \
-    -run-tests-until-failure \
-    -test-repetition-relaunch-enabled YES \
-    -test-timeouts-enabled YES \
-    -maximum-test-execution-time-allowance 180
+  run_soak_repeat_gate
 fi
 
 echo
