@@ -16,6 +16,7 @@ struct QuickCaptureView: View {
     @Environment(TextCapturePipeline.self) private var pipeline
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var captureText = ""
     @State private var isProcessing = false
@@ -358,7 +359,7 @@ struct QuickCaptureView: View {
                     result.graphWriteSummary.skippedReason ?? "note was not persisted"
                 )
             }
-            withAnimation(.spring(duration: 0.4)) {
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                 captureResult = result
             }
         } catch let error as TextCaptureError {
@@ -384,7 +385,7 @@ struct QuickCaptureView: View {
                         result.graphWriteSummary.skippedReason ?? "note was not persisted"
                     )
                 }
-                withAnimation(.spring(duration: 0.4)) {
+                withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                     captureResult = result
                 }
             } catch {

@@ -78,12 +78,13 @@ private struct RelationshipGroup: Identifiable {
 private struct RelationshipSection: View {
     let group: RelationshipGroup
     let onNavigate: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.smooth(duration: 0.2)) { isExpanded.toggle() }
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { isExpanded.toggle() }
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: group.edgeType.icon)

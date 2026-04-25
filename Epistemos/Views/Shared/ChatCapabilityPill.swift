@@ -16,6 +16,8 @@ struct ChatCapabilityPill: View {
     let capability: ChatCapability
     let detail: String?
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     init(capability: ChatCapability, detail: String? = nil) {
         self.capability = capability
         self.detail = detail
@@ -59,7 +61,7 @@ struct ChatCapabilityPill: View {
                     ?? "\(capability.displayName) — \(capability.shortExplanation)"
             )
         )
-        .animation(.easeOut(duration: 0.18), value: detail)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: detail)
     }
 
     private var tint: Color {

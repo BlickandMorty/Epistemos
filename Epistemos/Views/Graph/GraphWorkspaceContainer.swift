@@ -4,6 +4,7 @@ import SwiftData
 struct GraphWorkspaceContainer: View {
     @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Injected by the surrounding HologramOverlayHostedViewBuilder
     @Environment(\.modelContext) private var modelContext
@@ -39,7 +40,7 @@ struct GraphWorkspaceContainer: View {
                 }
             }
         }
-        .animation(.snappy(duration: 0.3, extraBounce: 0.1), value: graphState.currentRoute)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.3, extraBounce: 0.1), value: graphState.currentRoute)
     }
 
     private var graphPageBackdrop: some View {

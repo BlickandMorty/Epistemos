@@ -142,6 +142,7 @@ struct HologramSearchSidebar: View {
     @Environment(GraphState.self) private var graphState
     @Environment(InferenceState.self) private var inference
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("epistemos.graphChatOperatingMode")
     private var graphChatOperatingModeRaw = EpistemosOperatingMode.fast.rawValue
     @State private var activeTab: SidebarTab = .notes
@@ -219,12 +220,12 @@ struct HologramSearchSidebar: View {
         }
         .onChange(of: queryEngine.currentResult?.nodes.count) { _, newCount in
             if let newCount, newCount > 0 {
-                withAnimation(.smooth(duration: 0.2)) { activeTab = .query }
+                withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { activeTab = .query }
             }
         }
         .onChange(of: inspectorState.isChatStreaming) { _, isStreaming in
             guard isStreaming else { return }
-            withAnimation(.smooth(duration: 0.2)) { activeTab = .chat }
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { activeTab = .chat }
         }
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
@@ -248,7 +249,7 @@ struct HologramSearchSidebar: View {
 
     private func tabButton(_ label: String, icon: String, tab: SidebarTab) -> some View {
         Button {
-            withAnimation(.smooth(duration: 0.2)) { activeTab = tab }
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) { activeTab = tab }
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: icon)
@@ -338,7 +339,7 @@ struct HologramSearchSidebar: View {
     private func folderRow(_ folder: GraphNodeRecord, indent: Int, noteCount: Int) -> some View {
         let isExpanded = expandedFolders.contains(folder.id)
         return Button {
-            withAnimation(.smooth(duration: 0.2)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.2)) {
                 if expandedFolders.contains(folder.id) {
                     expandedFolders.remove(folder.id)
                 } else {

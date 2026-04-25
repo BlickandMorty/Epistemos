@@ -10,8 +10,9 @@ import SwiftData
 struct GraphInspectModeView: View {
     @Environment(GraphState.self) private var graphState
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let modelContext: ModelContext
-    
+
     @State private var isActive = false
     @State private var exitScale: CGFloat = 1.0
     
@@ -51,11 +52,13 @@ struct GraphInspectModeView: View {
                     HStack {
                         Spacer()
                         Button {
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.8)) {
                                 exitScale = 0.95
                             }
                             Task { @MainActor in
-                                try? await Task.sleep(for: .milliseconds(100))
+                                if !reduceMotion {
+                                    try? await Task.sleep(for: .milliseconds(100))
+                                }
                                 deactivateInspectMode()
                             }
                         } label: {
@@ -74,7 +77,7 @@ struct GraphInspectModeView: View {
         .onChange(of: graphState.selectedNodeId) { _, newId in
             if newId != nil && !isActive {
                 // Auto-enter inspect mode when selecting a node
-                withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.85)) {
                     isActive = true
                 }
             } else if newId == nil && isActive {
@@ -106,11 +109,11 @@ struct GraphInspectModeView: View {
                 .opacity(opacity)
                 .scaleEffect(isActive ? scale : 0.5)
         }
-        .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isActive)
+        .animation(reduceMotion ? nil : .spring(response: 0.6, dampingFraction: 0.8), value: isActive)
     }
-    
+
     private func deactivateInspectMode() {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.4, dampingFraction: 0.85)) {
             isActive = false
             exitScale = 1.0
         }

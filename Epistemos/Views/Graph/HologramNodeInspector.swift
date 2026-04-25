@@ -10,6 +10,7 @@ import NaturalLanguage
 struct HologramNodeInspector: View {
     @Environment(UIState.self) private var ui
     @Environment(GraphState.self) private var graphState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let inspectorState: NodeInspectorState
     let modelContext: ModelContext
 
@@ -94,7 +95,7 @@ struct HologramNodeInspector: View {
             }
         }
         .frame(width: inspectorWidth)
-        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
+        .animation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: inspectorWidth)
         .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .onChange(of: expandedSection) { _, newSection in
             guard newSection == .summary else { return }
@@ -111,7 +112,7 @@ struct HologramNodeInspector: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .onChange(of: inspectorState.inspectorMode) { _, newMode in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.85)) {
                 isEditorExpanded = (newMode == .editor)
             }
         }
@@ -524,7 +525,7 @@ struct HologramNodeInspector: View {
 
     private func sectionHeader(_ section: Section, icon: String, title: String, preview: String) -> some View {
         Button {
-            withAnimation(.smooth(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .smooth(duration: 0.25)) {
                 expandedSection = section
             }
         } label: {
