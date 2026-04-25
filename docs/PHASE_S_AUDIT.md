@@ -291,7 +291,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
   - Rust `mas-sandbox` test run via `cargo test --manifest-path agent_core/Cargo.toml --features mas-sandbox -- mas_` -> **9 passed / 0 failed** in <0.01 s after a 23 s feature-set recompile. Disk pressure that originally deferred this run (13 GB free at audit time) has cleared (155 GiB free now); `agent_core/target` stayed at ~50 GB and the `mas-sandbox` feature compile stayed under that ceiling. The 6 named MAS-runtime tests from §4 plus `mas_runtime_allows_explicit_bounded_internal_mutation` and `mas_runtime_requires_grant_for_file_write` all pass; 3 incidental provider-schema tests matched the substring filter.
   - Bounded-agent `max_turns` ceiling on the Swift side covered in **two layers**: `EpistemosTests/LocalAgentLoopTests.swift::localLoopStopsWhenToolCallsNeverConverge` tightened from `LocalAgentLoopError.self` to a strict `error == .maxTurnsExceeded(2)` assertion (matching the existing `localLoopStopsAfterRepeatedInvisibleRepairTurns` shape); and a new `EpistemosTests/AppStoreHardeningTests.swift::agentQueryEngineHaltsAtMaxTurnsCeiling` that exercises the parallel ceiling on the Swift `AgentQueryEngine` harness with `maxTurns: 1`, asserts turn 1 yields `.success` and turn 2 yields `.errorMaxTurns(turns: 2)`, and uses an actor-counted recording backend with a per-call unique identifier to assert the engine does NOT call the backend again after the ceiling fires.
   - Security-scoped bookmark + write-cycle in-process round-trip covered by the new `EpistemosTests/VaultSyncServiceAuditTests.swift::securityScopedBookmarkRoundTripsAcrossWriteCycle`. Real `persistVaultSelection(_:)` (no `setBookmarkDataWriterForTesting` mock), then production `service.startupBookmarkValidation()` is asserted in-process: `bookmarkExists == true`, `isReadyForAutomaticRestore == true`, `failureReason == nil` -- the same shape the launched app sees on next start. After that, bookmark read-back via the production `URL(resolvingBookmarkData:options:relativeTo:bookmarkDataIsStale:)` path with security-scope-then-plain fallback, real `saveAllDirtyPages()` cycle that uses the existing `setExportPageOverrideForTesting` seam to write a sentinel file under the resolved vault URL with a hash-aligned page body so `runDirtySaveLoop`'s post-export hash check matches cleanly, then a second bookmark re-resolve confirms `isStale == false` and the URL still matches. **Non-claim**: this is an in-process re-resolve + write-cycle proof for the test bundle's host process, NOT cross-relaunch persistence under a real MAS sandbox container — that gate is TestFlight (Phase S.8). `startAccessingSecurityScopedResource()` is exercised conditionally (balanced start/stop only when start returned true). Stale-after-rename intentionally NOT asserted (platform/file-system dependent; existing stale/corrupt recovery tests cover the messaging path).
-- **S.5 perf:** see Section 8 below for the 2026-04-25 audit + GraphPerformanceTests baseline + signpost coverage map + the two added signposts on Phase S verified-write paths. Remaining S.5 follow-ups: Instruments trace capture under typing+streaming load (deferred -- needs a launched-app run), perf gate harness re-run (`scripts/run_reliability_quality_gates.sh perf_diagnostics` from March 2026 archive needs refresh).
+- **S.5 perf:** see Section 8 below for the 2026-04-25 audit + GraphPerformanceTests baseline + signpost coverage map + the two added signposts on Phase S verified-write paths. Status update from the 2026-04-25 S.5 evidence pass: the `perf_diagnostics` reliability gate has been refreshed (artifact `artifacts/reliability/20260425-053639/`, see §8.6); the four standalone perf suites have a refreshed cross-suite baseline (see §8.2b). Remaining S.5 follow-ups: Instruments trace capture under typing+streaming load (still deferred -- needs a launched-app run), and re-runs of the other five quality gates `baseline`, `asan`, `tsan`, `ubsan`, `soak_repeat` (intentionally not re-run in this pass to limit disk impact; the perf_diagnostics-only run consumed ~8.4 GB of derived-data).
 - **S.6 privacy:** `PrivacyInfo.xcprivacy` is already minimal; the only residual is a Settings -> Privacy transparency pane for the end user.
 - **S.7 ASC setup:** pure ops work, not code.
 - **S.8 TestFlight:** not started, open-ended per master plan.
@@ -307,7 +307,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
 
 - `Epistemos/Engine/Log.swift` defines six `OSSignposter` categories: `appPerf`, `notesPerf`, `vaultPerf`, `graphPerf`, `ffiPerf`, `agentStreaming`. Roughly 100 begin/end/event sites across `Epistemos/`.
 - Phase 0 commit `e19037c0` added three intervals on master-plan critical paths: `graph.frame.ms` (MetalGraphView per-frame), `graph.embed.push.ms` (EmbeddingService MainActor FFI push), `chat.exchange.save.ms` (ChatCoordinator persistChatExchange context.save).
-- `scripts/run_reliability_quality_gates.sh` runs `EpistemosTests/GeneratedReliabilityMatrixTests` with `-enablePerformanceTestsDiagnostics YES`, `-enableAddressSanitizer YES`, `-enableThreadSanitizer YES`, `-enableUndefinedBehaviorSanitizer YES`, plus a soak-repeat gate. Last archived run: `artifacts/reliability/20260303-021913/perf_diagnostics.log` -- 6 reliability-matrix tests passed in 31.418 s, all 200-iteration parametric cases (e.g., "benchmark parser throughput envelope", "graph load and traversal budget", "memory growth bounded for repeated query cycles", "soft failure recovery keeps core paths healthy", "malformed inputs are crash resistant", "concurrent parser and diff stress").
+- `scripts/run_reliability_quality_gates.sh` runs `EpistemosTests/GeneratedReliabilityMatrixTests` with `-enablePerformanceTestsDiagnostics YES`, `-enableAddressSanitizer YES`, `-enableThreadSanitizer YES`, `-enableUndefinedBehaviorSanitizer YES`, plus a soak-repeat gate. The prior `perf_diagnostics` run before this S.5 refresh is `artifacts/reliability/20260303-021913/perf_diagnostics.log` -- 6 reliability-matrix tests passed in 31.418 s, all 200-iteration parametric cases (e.g., "benchmark parser throughput envelope", "graph load and traversal budget", "memory growth bounded for repeated query cycles", "soft failure recovery keeps core paths healthy", "malformed inputs are crash resistant", "concurrent parser and diff stress"). The 2026-04-25 refresh of this gate is recorded in §8.6.
 - Standalone perf-test files: `EpistemosTests/GraphPerformanceTests.swift` (22 tests), `EpistemosTests/SearchPerformanceTests.swift`, `EpistemosTests/PerformanceTest.swift`, `EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests.swift`.
 - `Epistemos/State/MainThreadWatchdog.swift` runs a background GCD watchdog with a 500 ms hang threshold and an `onHangDetected` emission callback.
 
@@ -320,6 +320,37 @@ Ran `EpistemosTests/GraphPerformanceTests` against the Pro target after the Phas
 - All 100/500/1000/5000-node graph load tests, all BFS/connected/shortestPath tests, all GraphBuilder persist tests pass within fractions of a second.
 
 **Scope of this baseline:** GraphPerformanceTests covers the **graph store / builder / search** layer -- node and edge loading at scale, GraphBuilder persist, BFS/shortestPath traversal, fuzzy-search scoring. It does **NOT** prove `MetalGraphView` render-loop or hover-loop FPS at 60 Hz under realistic vault load -- those need an Instruments trace under a launched-app session, which is not run here. The Phase 0 `graph.frame.ms` signpost is wired (see 8.3) but its p99 has not been measured against the <12 ms budget. Treat the baseline as "graph data layer is healthy", not "graph rendering is healthy".
+
+### 8.2b Refreshed standalone-suite perf baseline (2026-04-25, S.5 evidence pass)
+
+After S.4 acceptance, re-ran the four standalone perf test suites against the Pro target via:
+
+```
+xcodebuild -project Epistemos.xcodeproj -scheme Epistemos \
+    -destination 'platform=macOS' test \
+    -only-testing:EpistemosTests/GraphPerformanceTests \
+    -only-testing:EpistemosTests/SearchPerformanceTests \
+    -only-testing:EpistemosTests/PerformanceTest \
+    -only-testing:EpistemosTests/RuntimeCapabilityAndPerformancePolicyTests
+```
+
+Result: **59 passed / 0 failed**, `** TEST SUCCEEDED **`, total wall clock **4.156 s**. Per-suite breakdown reported by the raw log (four named suites):
+- Graph Performance: 2.678 s.
+- Search Performance: 1.313 s.
+- Performance and Speed: 0.161 s.
+- Runtime Capability And Performance Policies: 0.002 s.
+
+Top 5 slowest individual tests in the refreshed run:
+
+| Test | Time |
+|---|---|
+| "Memory usage during node loading" | 0.818 s |
+| "Prefix search performance" | 0.370 s |
+| "Fuzzy search with 5000 nodes" | 0.350 s |
+| "Load 5000 nodes performance" | 0.282 s |
+| "GraphBuilder persist with large changes" | 0.252 s |
+
+Same scope caveat as 8.2 applies: graph data-layer + search ranking + capability-policy resolution are healthy; this run does NOT prove `MetalGraphView` render/hover FPS at 60 Hz, prose editor typing latency, or any signpost p99 budget.
 
 ### 8.3 Signpost coverage map by hot surface
 
@@ -348,10 +379,44 @@ Both signposts are zero-behavior changes (`OSSignposter.beginInterval` / `endInt
 - **No fresh Instruments trace under realistic load.** Capturing an Instruments `.trace` requires a launched-app session against a representative vault; that is a launched-app dogfood task tracked alongside S.1. Without a trace, the Phase 0 signposts are wired but unmeasured.
 - **No live MetalGraphView render/hover FPS proof.** GraphPerformanceTests covers the graph store/builder/search layer only; the `graph.frame.ms` per-frame signpost has not been exercised against the master-plan <12 ms p99 budget at 60 Hz under realistic vault load.
 - **No prose note editor typing perf proof.** The prose editor (the primary user-facing note typing surface) has no Phase 0 instrumentation today (see 8.3 row). Adding signposts to `ProseEditorView` / `ProseTextView2` is tracked as an S.5 follow-up.
-- **No fresh `run_reliability_quality_gates.sh perf_diagnostics` run.** The March 2026 archive is the most recent quality-gate artifact; a refreshed run would update the soak / sanitizer / perf baseline. Deferred for the same disk reason flagged elsewhere in this doc.
+- ~~**No fresh `run_reliability_quality_gates.sh perf_diagnostics` run.**~~ **Resolved as of S.5 evidence pass (2026-04-25).** A single-gate refresh landed at `artifacts/reliability/20260425-053639/perf_diagnostics.xcresult`; see §8.6 below. The remaining 5 gates (`baseline`, `asan`, `tsan`, `ubsan`, `soak_repeat`) were intentionally NOT re-run in this pass to limit disk impact (the perf_diagnostics-only refresh consumed 8.4 GB of derived-data plus log + xcresult; the full 6-gate matrix would be ~50 GB). Re-running the sanitizer + soak gates is a separate follow-up.
 - **No p99 budget verification for any of the three Phase 0 intervals.** `graph.frame.ms <12 ms p99 @ 60 Hz`, `graph.embed.push.ms <2 ms p99`, `chat.exchange.save.ms <5 ms p99` -- targets named, signposts wired, numbers not yet measured.
 
 S.5 is therefore in a **partial-evidence** state: signpost coverage is broader after this pass (with two new verified-write intervals on Phase S surgical paths), and the graph data-layer baseline is healthy, but the Instruments traces and prose-editor instrumentation needed to call S.5 fully ready remain follow-ups.
+
+### 8.6 Reliability quality-gate refresh (2026-04-25, perf_diagnostics only)
+
+`scripts/run_reliability_quality_gates.sh` was invoked with `GATES=perf_diagnostics` (single gate) so the disk impact stayed bounded. Command:
+
+```
+GATES=perf_diagnostics scripts/run_reliability_quality_gates.sh
+```
+
+Result: `** TEST SUCCEEDED **`, the `Generated Reliability Matrix` suite ran **6 tests / 1 suite** with 200 parametric cases per test (1200 sub-cases total), wall-clock **47.482 s**. Per-test breakdown from `artifacts/reliability/20260425-053639/perf_diagnostics.log`:
+
+| Reliability-matrix test | Refreshed run (200 cases) |
+|---|---|
+| benchmark parser throughput envelope | 3.629 s |
+| graph load and traversal budget | 4.622 s |
+| memory growth bounded for repeated query cycles | 29.459 s |
+| malformed inputs are crash resistant | 0.229 s |
+| soft failure recovery keeps core paths healthy | 2.364 s |
+| concurrent parser and diff stress | 7.172 s |
+
+Comparison vs the prior archived run at `artifacts/reliability/20260303-021913/perf_diagnostics.log` (cited in 8.1): the older log reports **31.418 s** total wall clock for the same six tests; the 2026-04-25 refresh reports **47.482 s** -- ~51% slower in wall clock. Honest read of the delta:
+
+- **Not enough evidence to call a regression; treat as a follow-up measurement question.** No per-test wall-clock budget is asserted by the harness today (the 6 tests assert correctness invariants over 200 randomized inputs each, not timing budgets), and the two runs were taken on different machine states under different workloads months apart, with no controlled environment. A real regression read would need a stable baseline harness with named per-test budgets and a controlled run environment (no concurrent indexing, fixed thermal headroom). None of those controls existed for either log.
+- **Older log shape limits per-test diff.** Early-March Swift Testing logs report per-test "passed after X" using a cumulative-from-suite-start clock for several tests, which prevents per-test deltas. The 2026-04-25 log reports clean per-test timings (see the table above), but the asymmetry means we cannot pinpoint which test or tests account for the wall-clock increase.
+- **Codebase has grown between the two runs.** Agent-harness, graph-engine, and Phase R/S work has accumulated; the parametric tests exercise integration paths that grew with those phases. Some of the wall-clock increase reflects more code under test, not regressed code -- but again, this is not a measured claim, just a plausible structural factor.
+
+**Follow-up:** if a future S.5 pass wants to read wall-clock deltas as regression signals, it needs named per-test budgets in the reliability-matrix harness (or a separate Instruments trace) plus a controlled run environment before any "regression" call is justified.
+
+Disk impact of this refresh (all under `artifacts/reliability/20260425-053639/`):
+- `derived-data-perf_diagnostics/`: 8.4 GB.
+- `perf_diagnostics.log`: 5.0 MB.
+- `perf_diagnostics.xcresult`: 10 MB.
+
+The artifact directory remains **local evidence only** and is NOT staged or committed in this S.5 evidence pass. The derived-data bundle, the log, and the xcresult are all left on local disk for reproducibility; this audit doc records the paths and results so they can be re-located against a future re-run. (`.git/info/exclude` provides local protection against an accidental `git add`; that is a local-only ignore, not a tracked repo change.)
 
 ---
 
