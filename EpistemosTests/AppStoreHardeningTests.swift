@@ -293,6 +293,66 @@ struct AppStoreHardeningTests {
         #expect(source.contains("#if !EPISTEMOS_APP_STORE"), gateMessage)
     }
 
+    /// Result of `scanForMarkerInGateBranches(source:marker:)`.
+    private struct GateMarkerScan {
+        /// True if `marker` was seen inside a `#if !EPISTEMOS_APP_STORE`
+        /// block (i.e., compiled into Pro but not MAS).
+        var insideExcludedBlock: Bool
+        /// True if `marker` was seen outside any `#if !EPISTEMOS_APP_STORE`
+        /// block (i.e., compiled into both MAS and Pro).
+        var outsideExcludedBlock: Bool
+    }
+
+    /// Walk a Swift source string line by line, track `#if
+    /// !EPISTEMOS_APP_STORE` open / `#else` / `#endif` boundaries (the
+    /// shape used by surgical S.2 gates), and report whether `marker`
+    /// substring was seen inside the excluded block, outside, or both.
+    /// Comment-only lines (starting with `//`) are skipped.
+    ///
+    /// Limitation: this helper, like `masVisibleSource`, only tracks
+    /// `#if !EPISTEMOS_APP_STORE` opens. Other `#if` directives (e.g.
+    /// `#if DEBUG`) inside the gated region are not recognized. Today's
+    /// VaultSyncService and VaultChatMutator surgical gates use the
+    /// simple flat shape; if a future call site mixes nested `#if`s
+    /// inside the gate, upgrade this helper before adding the file to
+    /// the regression set.
+    private func scanForMarkerInGateBranches(
+        source: String,
+        marker: String
+    ) -> GateMarkerScan {
+        var inExcludedBlock = false
+        var insideExcludedBlock = false
+        var outsideExcludedBlock = false
+        for line in source.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
+                inExcludedBlock = true
+                continue
+            }
+            if inExcludedBlock {
+                if trimmed.hasPrefix("#endif") || trimmed.hasPrefix("#else") {
+                    // `#else` of `#if !EPISTEMOS_APP_STORE` opens the
+                    // MAS-visible branch; treat it the same as `#endif`
+                    // for the purpose of "are we still inside the
+                    // excluded block".
+                    inExcludedBlock = false
+                    continue
+                }
+                if line.contains(marker) && !trimmed.hasPrefix("//") {
+                    insideExcludedBlock = true
+                }
+            } else {
+                if line.contains(marker) && !trimmed.hasPrefix("//") {
+                    outsideExcludedBlock = true
+                }
+            }
+        }
+        return GateMarkerScan(
+            insideExcludedBlock: insideExcludedBlock,
+            outsideExcludedBlock: outsideExcludedBlock
+        )
+    }
+
     @Test("VaultSyncService MAS branch contains no tmutil Process.init")
     func vaultSyncServiceMASBranchHasNoTMUtilProcessInit() throws {
         let url = Self.projectRoot
@@ -308,49 +368,51 @@ struct AppStoreHardeningTests {
         let proSanity: Comment = "VaultSyncService.swift no longer contains Process.init -- the Pro/direct release relies on /usr/bin/tmutil for APFS safety snapshots. If this is intentional, update or remove this test."
         #expect(source.contains("Process.init("), proSanity)
 
-        // The Phase S.2 regression: the body of `runTMUtilCommand` is
-        // gated with `#if !EPISTEMOS_APP_STORE` / `#else` (where the
-        // `#else` branch throws an NSError indicating tmutil is
-        // unavailable in the sandbox). The simple-shape masVisibleSource
-        // parser does not interpret `#else`, so the strip alone is not
-        // enough to assert what MAS sees. Use a tighter check: the
-        // ONLY `Process.init(` occurrence in the file must be inside a
-        // `#if !EPISTEMOS_APP_STORE` block.
-        var inExcludedBlock = false
-        var sawProcessInitInsideExcluded = false
-        var sawProcessInitOutsideExcluded = false
-        for line in source.components(separatedBy: .newlines) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
-                inExcludedBlock = true
-                continue
-            }
-            if inExcludedBlock {
-                if trimmed.hasPrefix("#endif") {
-                    inExcludedBlock = false
-                    continue
-                }
-                if trimmed.hasPrefix("#else") {
-                    // `#else` of `#if !EPISTEMOS_APP_STORE` opens the
-                    // MAS-visible branch; we have left the excluded
-                    // block.
-                    inExcludedBlock = false
-                    continue
-                }
-                if line.contains("Process.init(") && !trimmed.hasPrefix("//") {
-                    sawProcessInitInsideExcluded = true
-                }
-            } else {
-                if line.contains("Process.init(") && !trimmed.hasPrefix("//") {
-                    sawProcessInitOutsideExcluded = true
-                }
-            }
-        }
+        let scan = scanForMarkerInGateBranches(source: source, marker: "Process.init(")
 
         let outsideMessage: Comment = "VaultSyncService.swift contains a Process.init( call OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot spawn /usr/bin/tmutil; this leaks subprocess launch into the MAS binary."
-        #expect(!sawProcessInitOutsideExcluded, outsideMessage)
+        #expect(!scan.outsideExcludedBlock, outsideMessage)
 
         let insideMessage: Comment = "VaultSyncService.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
-        #expect(sawProcessInitInsideExcluded, insideMessage)
+        #expect(scan.insideExcludedBlock, insideMessage)
+    }
+
+    @Test("VaultChatMutator MAS branch contains no /usr/bin/git Process.init or git-launch arguments")
+    func vaultChatMutatorMASBranchHasNoGitProcessInit() throws {
+        let url = Self.projectRoot
+            .appendingPathComponent("Epistemos")
+            .appendingPathComponent("Vault")
+            .appendingPathComponent("VaultChatMutator.swift")
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        // Sanity: the Pro branch must still keep the git subprocess
+        // implementation. Removing git from the file entirely is not
+        // the goal -- the Pro/direct release uses git to record an
+        // audit trail of approved staged vault mutations.
+        let proSanity: Comment = "VaultChatMutator.swift no longer contains Process.init -- the Pro/direct release relies on /usr/bin/git for the staged-mutation audit trail. If this is intentional, update or remove this test."
+        #expect(source.contains("Process.init("), proSanity)
+
+        // First marker: the literal Process.init( allocation. Catches a
+        // direct subprocess-spawn primitive.
+        let processScan = scanForMarkerInGateBranches(source: source, marker: "Process.init(")
+        let processOutsideMessage: Comment = "VaultChatMutator.swift contains a Process.init( call OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot spawn /usr/bin/git; this leaks subprocess launch into the MAS binary. Approved staged mutations must still durable-write the file via VaultVerifiedFileWriter (already unconditional), but the git layer must stay Pro-only."
+        #expect(!processScan.outsideExcludedBlock, processOutsideMessage)
+        let processInsideMessage: Comment = "VaultChatMutator.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
+        #expect(processScan.insideExcludedBlock, processInsideMessage)
+
+        // Second marker: the git-launch argument list. Catches the case
+        // where someone keeps `Process.init` gated but moves the
+        // git-specific configuration (`process.arguments = ["git"] + ...`)
+        // outside the gate -- which would silently make MAS prepare a
+        // git command even if it cannot run it. Both halves must agree
+        // on the gate.
+        let gitArgsScan = scanForMarkerInGateBranches(
+            source: source,
+            marker: "process.arguments = [\"git\"]"
+        )
+        let gitArgsOutsideMessage: Comment = "VaultChatMutator.swift contains `process.arguments = [\"git\"]` OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. Even if Process.init( is gated, leaking the git-specific argv prep is a sign that the surgical gate has drifted."
+        #expect(!gitArgsScan.outsideExcludedBlock, gitArgsOutsideMessage)
+        let gitArgsInsideMessage: Comment = "VaultChatMutator.swift no longer has `process.arguments = [\"git\"]` inside a `#if !EPISTEMOS_APP_STORE` block, but the file still contains the substring elsewhere. The Pro git-launch shape may have been refactored away; restore it or update this test."
+        #expect(gitArgsScan.insideExcludedBlock, gitArgsInsideMessage)
     }
 }
