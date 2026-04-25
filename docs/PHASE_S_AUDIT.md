@@ -485,6 +485,62 @@ Classification update: a single hang is consistent with a transient flake; two h
 
 **Honest non-claims (updated)**: S.5 remains NOT closed. The five reliability gates (`baseline`, `asan`, `tsan`, `ubsan`, `soak_repeat`) still have no green evidence under this audit. The next investigative step is no longer "just retry"; it is to diagnose why the test-runner cannot connect for this scheme/suite combination on this machine (e.g. inspect xctestrun, scheme test-host configuration, derived-data scheme, recent macOS / Xcode update interactions). The Instruments trace under launched-app load and the prose-editor typing perf proof from §8.5 remain separate, still-open S.5 follow-ups.
 
+### 8.9 Read-only diagnostics on the two hung baseline runs (2026-04-25, evidence only)
+
+After §8.8 was committed, three read-only diagnostics were run against the two hung-runner artifact dirs (`20260425-053639/`, `20260425-063404/`, `20260425-065331/`) plus the local source tree. **No source / project / entitlements edits were made.** Findings (one row per diagnostic):
+
+**(1) `codesign -dv --entitlements - --requirements -`** against `Epistemos.app` and the embedded `EpistemosTests.xctest` in all three derived-data dirs returns the same shape on every bundle:
+
+```
+Format=app bundle with Mach-O thin (arm64)
+CodeDirectory v=20400 ... flags=0x20002(adhoc,linker-signed) ...
+Signature=adhoc
+Info.plist=not bound
+TeamIdentifier=not set
+Sealed Resources=none
+# designated => cdhash H"<cdhash>"
+```
+
+`--entitlements -` returns **no embedded entitlements blob** on any of the six bundles, and `--requirements -` returns no Designated Requirement other than the cdhash fallback. Reading: `xcodebuild test-without-building` for the Debug `Epistemos` scheme is producing a linker-signed-only bundle, with the configured `CODE_SIGN_ENTITLEMENTS = Epistemos/Epistemos-Debug.entitlements` (line 951 of `Epistemos.xcodeproj/project.pbxproj`) effectively not embedded into the test-host binary. This is consistent with how Xcode's automatic-signing path treats `CODE_SIGN_IDENTITY = "-"` for a Debug build with `app-sandbox = false` — the post-link sign step is short-circuited and only the linker's adhoc signature survives — and it is not in itself a sandbox / hardened-runtime block (no hardened-runtime flag is set, the Debug entitlements explicitly disable app-sandbox), but it does mean every rebuild presents a fresh cdhash to TCC, defeating per-binary consent caching. (See diagnostic 3 below for the consent-cache consequence.)
+
+**(2) `git log --since=2026-04-22` against the entitlements / Info.plist / xcodeproj paths.** Touching commits, all in the App Store target work plus the unrelated landing-wave feature:
+
+| Commit | Date | Subject | Touched |
+|---|---|---|---|
+| `ec4d6b73` | 2026-04-24 07:54 | feat(landing-wave): Metal liquid-wave search with flat-bar emergence | `project.pbxproj` |
+| `0ab57d80` | 2026-04-24 00:17 | fix(release): compile bounded agent core for app store | `project.pbxproj` |
+| `f763fbce` | 2026-04-23 23:47 | fix(release): stub native computer use in app store build | `project.pbxproj` |
+| `5be4067a` | 2026-04-23 23:30 | fix(release): scrub app store runtime script assets | `project.pbxproj` |
+| `e87fbb6d` | 2026-04-23 23:17 | fix(release): gate pro settings from app store profile | `project.pbxproj` |
+| `ae62c93e` | 2026-04-23 23:05 | scaffold(release): add sandboxed app store target | `project.pbxproj` + new `Epistemos-AppStore.entitlements` |
+| `40bcd115` | 2026-04-23 16:03 | fix(R.2): wire AliasRegistry to Swift sidebar; fix I-001 gpt-5.4 split-brain | `project.pbxproj` |
+
+`Epistemos/Epistemos.entitlements` and `Epistemos/Epistemos-Debug.entitlements` themselves were NOT modified in this window. The new `Epistemos-AppStore.entitlements` is bound only to the `Epistemos-AppStore` target/configurations (lines 747, 875 of `project.pbxproj`); it is not bound to the `Epistemos` Debug config used by the failing `baseline` reliability gate. Reading: nothing in the recent entitlements / Info.plist / project history explains the runner-hang regression for the Pro `Epistemos` Debug test target.
+
+**(3) `log show` for `process == "sandboxd" OR process == "syspolicyd"` and TCC / spindump events around 2026-04-25 06:34–07:13.** The two consecutive hangs in §8.7 (PID 21860) and §8.8 (PID 26228) trace to the same fingerprint:
+
+| Event | First hang (run 063404) | Second hang (run 065331) |
+|---|---|---|
+| Test host launch | 06:38:25 — `launchd: Successfully spawned Epistemos[21860]` from `…/20260425-063404/derived-data-baseline/Build/Products/Debug/Epistemos.app/Contents/MacOS/Epistemos` | (analogous spawn at 06:53 from `20260425-065331` artifact path) |
+| TCC prompt fires | 06:38:28.529 — `tccd: AUTHREQ_PROMPTING msgID=21819.9, service=kTCCServiceSystemPolicyDownloadsFolder, subject={com.epistemos.app}Resp:{TCCDProcess: identifier=Epistemos, pid=21860, binary_path=/Users/jojo/Downloads/Epistemos/artifacts/reliability/20260425-063404/derived-data-baseline/Build/Products/Debug/Epistemos.app/Contents/MacOS/Epistemos}` | (same shape under run 2) |
+| testmanagerd watchdog | 06:43:45.323 — `testmanagerd: Requesting spindump to be generated for Epistemos [21860]` (≈ 5 min 20 s after launch) | 07:02:20.552 — `testmanagerd: Requesting spindump to be generated for Epistemos [26228]` (matches the 354.322 s figure in §8.8) |
+| spindump reaped | 06:44:27.476 — `spindump: Epistemos [21860]: generate spindump: saved report (requested by testmanagerd [83200])` | 07:02:39.067 — same shape |
+| Concurrent system memory pressure | `kernel: process spotlightknowled [21997] crossed memory high watermark (45 MB); EXC_RESOURCE` at 06:43:38; many `memorystatus_update_jetsam_snapshot_entry_locked: failed` errors across PIDs 16265–17143 in the 06:36 window | `kernel: process fileproviderd [95580] crossed memory high watermark (20 MB); EXC_RESOURCE` at 06:53:21; `kernel: process contactsd [17885] crossed memory high watermark` at 07:04:09 |
+
+Sandbox `deny` events in the same window are background-system, not the test host: `linkd(73039) deny file-issue-extension target:/Applications/Epistemos.app extension-class:com.apple.app-sandbox.read` (Spotlight document-linker indexing the unrelated `/Applications/Epistemos.app` install) and `spindump(22066) deny file-read-data /Users/jojo/Downloads/Epistemos/build-rust/libgraph_engine.a / libsyntax_core.a` (the spindump child blocked from reading the Rust archives — the spindump's own sandbox profile, not the test host's). Neither denies anything to the test host process itself.
+
+**Reading.** The reproducible failure shape is:
+
+1. The test host launches from `~/Downloads/Epistemos/artifacts/.../Epistemos.app`, which lives under `kTCCServiceSystemPolicyDownloadsFolder` protection.
+2. macOS TCC fires `AUTHREQ_PROMPTING` for Downloads-folder access against the just-spawned test host. Under `xcodebuild test-without-building` running from a non-foreground Terminal session, the prompt has no foreground hosting and no automatic-grant mechanism, and the test host blocks waiting for a consent decision that does not arrive.
+3. Because the test-host bundle is `Signature=adhoc`, `Sealed Resources=none`, no Designated Requirement, every rebuild presents a fresh cdhash to TCC and any prior consent for an older cdhash does not transfer — the prompt re-fires on every fresh artifact directory.
+4. The xctest <-> test-host XPC handshake never completes; testmanagerd's runner-launch watchdog elapses at ≈ 354–382 s and fires `XCTDSpindumpProvider`, producing the `The test runner hung before establishing connection.` line in `baseline.log`.
+5. Concurrent system-wide memory-watermark reaps of unrelated daemons (`spotlightknowledged`, `fileproviderd`, `contactsd`) are consistent with the 16 GB-Mac baseline and aggravate the timing window but are not themselves the proximate cause.
+
+This matches the existing hint in §9.5 slice 2: that commit explicitly hardened `AppStoreHardeningTests` source-file reads to the DerivedData mirror "instead of `#filePath` (which pointed at `~/Downloads/Epistemos` and could hang on macOS TCC under xcodebuild test)." The §8.7 / §8.8 hangs reproduce that same TCC-Downloads class of failure at the test-host-launch boundary, not at a `#filePath` read site, so the slice 2 mitigation was necessary but not sufficient for the reliability-matrix gate.
+
+**This sub-section is evidence-only.** No fix is landed here. Candidate next moves (none chosen yet, all gated behind further evidence): run the `baseline` gate from a derived-data dir outside `~/Downloads` (e.g., `~/Library/Developer/Xcode/DerivedData/...` or a `/tmp` scratch); pre-grant Downloads to `xcodebuild` / `Terminal` via System Settings → Privacy & Security → Files & Folders; codesign the test host with a stable Developer ID identity so its TCC consent caches across rebuilds; or move the reliability artifacts root out of `~/Downloads` entirely. Each candidate has its own tradeoffs (CI portability, security posture, signing-identity availability) and needs its own scope decision before any change lands. S.5 stays **open**.
+
 ---
 
 ## 9. S.3 accessibility + localization -- active implementation work (2026-04-25)
