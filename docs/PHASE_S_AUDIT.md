@@ -285,7 +285,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
 ## 7. Known follow-ups (non-blocking, scoped by sub-phase)
 
 - **S.1 UX polish:** requires launched-app dogfood time; out of scope for this audit pass.
-- **S.3 accessibility + localization:** see Section 9 for the 2026-04-25 inventory. Reduce Motion is in good shape (54 sites). Dynamic Type has a 786-site fixed-font gap; localization is structurally absent (0 sites). Both punch-list items are deferred to a focused S.3 commit pass; the inventory in Section 9 is the size of the work.
+- **S.3 accessibility + localization:** see Section 9 for the 2026-04-25 inventory. Reduce Motion is partial -- continuous-effect / `repeatForever` risk looks low (0 active usages by static scan), but 99+53 one-shot `withAnimation` / `.animation(...)` sites are mostly not visibly gated by `reduceMotion`; full compliance needs launched-app / manual review. Dynamic Type has a 786-site fixed-font gap. Localization: zero catalogs + zero `String(localized:)` calls = English-only shipping state at runtime, even though SwiftUI `Text("...")` literals are syntactically localization-ready. All three punch-list items deferred to a focused S.3 commit pass; the inventory in Section 9 is the size of the work.
 - **S.2 (this doc):** run `codesign -d --entitlements -` on an actual built `Epistemos-AppStore.app` and attach output. Requires a clean release build, deferred because disk is tight (13 GB free at audit time; `agent_core/target` is 50 GB and another feature-set compile would add 1-3 GB).
 - **S.4 tests:**
   - Run the Rust `mas-sandbox` tests under `cargo test --manifest-path agent_core/Cargo.toml --features mas-sandbox -- mas_` (deferred for the same disk reason).
@@ -368,11 +368,11 @@ S.5 is therefore in a **partial-evidence** state: signpost coverage is broader a
 | `.accessibilityValue(...)` | 0 | Same row | **Zero.** No element exposes a current value (toggles, sliders, progress states). |
 | `.accessibilityIdentifier(...)` | 0 | UI testing hook (orthogonal to VoiceOver) | **Zero.** Not strictly required by S.3 but worth noting -- the AppStoreHardeningTests source-text scanner cannot also verify UI-test reachability without identifiers. |
 | `.accessibilityElement(...)` / `.accessibilityAddTraits(...)` | 5 | Same row | Minimal -- combined-element grouping and trait declarations are largely absent. |
-| `@Environment(\.accessibilityReduceMotion)` / `reduceMotion` | 54 | "Honor `isReduceMotionEnabled`; no RepeatForever animations without check" | **Strong.** `Theme/GlassModifiers.swift` etc. consume the environment value and gate animations. This row appears done. |
+| `@Environment(\.accessibilityReduceMotion)` / `reduceMotion` | 54 | "Honor `isReduceMotionEnabled`; no RepeatForever animations without check" | **Partial.** Continuous-effect coverage is solid: 0 active `repeatForever` usages (the 2 grep hits are explicit `// NO .repeatForever` warning comments in `Theme/EpistemosTheme.swift` + `Theme/PhysicsModifiers.swift`), and `PhysicsModifiers.swift` documents that all continuous effects pause under `accessibilityReduceMotion`. **However**, the codebase has 99 `withAnimation(...)` sites + 53 `.animation(...)` modifier sites, and only 1 of them appears within 5 lines of a `reduceMotion` check by static scan. Most one-shot animations are not visibly gated. Static scan rates the continuous-effect / repeatForever risk as low; full reduce-motion compliance still needs a launched-app / manual review of the one-shot animations. |
 | `@Environment(\.dynamicTypeSize)` / `DynamicTypeSize` / `@ScaledMetric` | **0** | "UI scales from xSmall to accessibility5; no clipped text" | **Zero explicit handling.** SwiftUI's relative-font fonts (`Font.body`, `.callout`, `.headline`, etc.) are present in 294 sites and scale automatically -- but the codebase ALSO has 786 sites of `.font(.system(size: <fixed>))` which do NOT scale. See 9.2. |
 | `@FocusState` / `.focusable` / `.focused` | 26 | "Every interactive element reachable via Tab" | Partial. Substantial use exists, but full Tab-reachability is a launched-app verification, not a static count. |
-| `String(localized: ...)` | 0 | "First-tier locales (EN/ES/FR/DE/JA/ZH) localized" | **Zero.** Strings are inline literals everywhere. |
-| `Localizable.strings` / `*.xcstrings` catalogs | 0 | Same row | **Zero catalogs.** The app ships English-only today. |
+| `String(localized: ...)` calls | 0 | "First-tier locales (EN/ES/FR/DE/JA/ZH) localized" | **Zero explicit `String(localized:)` call sites.** Note: SwiftUI `Text("Some literal")` uses `LocalizedStringKey` by default, so existing `Text(...)` literals ARE localization-ready call sites at the syntax level -- they just lack a catalog to look the key up against. The 0 count here is for the explicit `String(localized:)` API only. |
+| `Localizable.strings` / `*.xcstrings` catalogs | 0 | Same row | **Zero catalogs.** Combined with 0 explicit `String(localized:)` calls, the app's effective shipping state is English-only at runtime regardless of the latent localization-readiness of `Text(...)` initializers. |
 
 ### 9.2 Dynamic Type gap quantified
 
@@ -387,7 +387,12 @@ The 786-site rewrite is the largest S.3 punch-list item and is not landed in thi
 
 ### 9.3 Localization gap
 
-Zero localization sites + zero `.strings` / `.xcstrings` catalogs + zero `String(localized:)` calls = the app is structurally English-only. The S.3 plan asks for first-tier-locale coverage for navigation + error messages. That is a structural change touching essentially every visible `Text(...)`, alert message, error description, and menu label across the codebase. Not landed in this pass.
+The app's effective shipping state is **English-only at runtime**. Static evidence:
+
+- 0 `Localizable.strings` / `*.xcstrings` catalogs in the project.
+- 0 explicit `String(localized:)` call sites.
+
+Note: SwiftUI's `Text("Some literal")` initializer uses `LocalizedStringKey` by default, so the existing `Text(...)` literals across the codebase ARE syntactically localization-ready call sites -- adding a catalog with matching keys would localize them automatically at runtime. The structural gap is the catalog (and a translation pass for first-tier locales), plus migrating non-`Text` strings (alert messages, error descriptions, menu labels passed as `String`) to `String(localized:)`. Both are deferred to a focused S.3 commit pass.
 
 ### 9.4 What this S.3 inventory does NOT prove
 
@@ -397,7 +402,7 @@ Zero localization sites + zero `.strings` / `.xcstrings` catalogs + zero `String
 - **No RTL screenshot diff.** RTL layout correctness needs an Arabic/Hebrew locale setup, not a grep.
 - **No localization plan.** Adding `Localizable.xcstrings` plus migrating ~thousands of inline literals is the bulk of an S.3 calendar week.
 
-S.3 is therefore in an **inventory-only** state after this pass. Reduce Motion is in good shape; the remaining four S.3 rows (VoiceOver hints/values, Dynamic Type, keyboard, RTL, localization) are punch-list items for a later commit.
+S.3 is therefore in an **inventory-only** state after this pass. Reduce Motion is partial -- continuous / `repeatForever` risk is low by static scan, one-shot animations need manual review. The remaining S.3 rows (VoiceOver hints/values, Dynamic Type, keyboard, RTL, localization-catalog) are punch-list items for a later commit.
 
 ---
 
