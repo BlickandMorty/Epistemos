@@ -160,6 +160,7 @@ nonisolated struct AdapterExporter: Sendable {
     }
 
     private func createZip(from sourceDir: URL, to destination: URL) throws {
+        #if !EPISTEMOS_APP_STORE
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-c", "-k", "--sequesterRsrc", sourceDir.path, destination.path]
@@ -170,9 +171,19 @@ nonisolated struct AdapterExporter: Sendable {
         guard process.terminationStatus == 0 else {
             throw AdapterExporterError.zipFailed
         }
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/ditto. Adapter
+        // export/import is a Pro/direct-only feature; AppBootstrap and
+        // SettingsView already gate the KnowledgeFusion entry points
+        // out of MAS, so this surgical body gate is defense-in-depth.
+        _ = sourceDir
+        _ = destination
+        throw AdapterExporterError.zipFailed
+        #endif
     }
 
     private func extractZip(from zipPath: URL, to destination: URL) throws {
+        #if !EPISTEMOS_APP_STORE
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
         process.arguments = ["-x", "-k", zipPath.path, destination.path]
@@ -183,6 +194,12 @@ nonisolated struct AdapterExporter: Sendable {
         guard process.terminationStatus == 0 else {
             throw AdapterExporterError.unzipFailed
         }
+        #else
+        // Same MAS rationale as createZip(...).
+        _ = zipPath
+        _ = destination
+        throw AdapterExporterError.unzipFailed
+        #endif
     }
 }
 

@@ -170,6 +170,7 @@ actor QLoRATrainer {
             arguments.append(contentsOf: ["--replay_path", replayPath.path])
         }
 
+        #if !EPISTEMOS_APP_STORE
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
@@ -251,6 +252,18 @@ actor QLoRATrainer {
         }
         let metadataData = try Data(contentsOf: metadataPath)
         return try JSONDecoder().decode(AdapterMetadata.self, from: metadataData)
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/python3 to run
+        // the QLoRA training script. Pro/direct release keeps the
+        // training path; AppBootstrap and SettingsView already gate
+        // the KnowledgeFusion entry points out of MAS, so this
+        // surgical body gate is defense-in-depth.
+        _ = arguments
+        _ = progressHandler
+        throw QLoRATrainerError.trainingFailed(
+            "QLoRA training is not available in the App Store sandbox build."
+        )
+        #endif
     }
 }
 
