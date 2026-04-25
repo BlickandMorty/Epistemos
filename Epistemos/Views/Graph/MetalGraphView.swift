@@ -184,6 +184,11 @@ nonisolated enum GraphDrawableResolutionPolicy {
         return min(backingScale, max(1.0, cappedScale))
     }
 
+    static func layerContentsScale(backingScale: CGFloat) -> CGFloat {
+        guard backingScale.isFinite, backingScale > 0 else { return 1.0 }
+        return backingScale
+    }
+
     static func drawableSize(
         boundsSize: CGSize,
         scale: CGFloat
@@ -507,6 +512,7 @@ final class MetalGraphNSView: NSView {
     nonisolated(unsafe) private var engine: OpaquePointer?
     nonisolated(unsafe) private var activeDisplayLink: CADisplayLink?
     private var metalLayer: CAMetalLayer?
+    private var graphDrawableScale: CGFloat = 2.0
     private nonisolated(unsafe) var backingPropertiesObserver: (any NSObjectProtocol)?
     private nonisolated(unsafe) var occlusionObserver: (any NSObjectProtocol)?
     private nonisolated(unsafe) var powerModeObserver: (any NSObjectProtocol)?
@@ -517,7 +523,7 @@ final class MetalGraphNSView: NSView {
     private let framePending = Atomic<Bool>(false)
 
     /// Double-buffer in-flight semaphore: allows up to 2 frames queued
-    /// between CPU and GPU, matching maximumDrawableCount=2. Without
+    /// between CPU and GPU, below maximumDrawableCount=3. Without
     /// this, the atomic bool drops frames instead of pipelining them.
     private let inFlightSemaphore = DispatchSemaphore(value: 2)
 
@@ -658,6 +664,10 @@ final class MetalGraphNSView: NSView {
     private(set) var isCommitted = false
 
     var currentEngineHandle: OpaquePointer? { engine }
+
+    private var currentGraphDrawableScale: CGFloat {
+        graphDrawableScale.isFinite && graphDrawableScale > 0 ? graphDrawableScale : 1.0
+    }
 
     /// When true, uses transparent clear color so blur shows through (hologram overlay mode).
     /// Setting this automatically applies the transparent clear color to the Rust engine.
@@ -1225,13 +1235,12 @@ final class MetalGraphNSView: NSView {
         guard let engine else { return }
         if animated {
             graph_engine_zoom_to_fit(engine)
-            graph_engine_center_camera(engine)
         } else {
             graph_engine_snap_camera_to_fit(engine)
         }
         // Pad the default global frame so the graph doesn't fill the viewport
         // edge-to-edge when the user opens or resets the full canvas.
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let cx = Float(bounds.width * 0.5 * scale)
         let cy = Float(bounds.height * 0.5 * scale)
         graph_engine_magnify(engine, cx, cy, GraphOverlayPhysicsPolicy.defaultGlobalCameraMagnification)
@@ -1248,7 +1257,7 @@ final class MetalGraphNSView: NSView {
     func zoomInClose() {
         guard let engine else { return }
         graph_engine_zoom_to_fit(engine)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let cx = Float(bounds.width * 0.5 * scale)
         let cy = Float(bounds.height * 0.5 * scale)
         graph_engine_magnify(engine, cx, cy, 1.5)
@@ -1274,7 +1283,7 @@ final class MetalGraphNSView: NSView {
     /// Pass the note window's screen rect to the Rust engine for anchor-based positioning.
     func setAnchorRect(_ rect: NSRect) {
         guard let engine else { return }
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         graph_engine_set_anchor_rect(
             engine,
             Float(rect.origin.x * scale),
@@ -1326,7 +1335,7 @@ final class MetalGraphNSView: NSView {
         )
 
         // In-flight tracking: acquire a slot. The semaphore allows up to
-        // 2 frames in the GPU pipeline (matching maximumDrawableCount=2).
+        // 2 frames in the GPU pipeline, leaving one spare drawable.
         // Use a short timeout instead of .now() to avoid dropping frames
         // that just need one more millisecond to finish presenting.
         guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(waitTimeoutMS)) == .success else { return }
@@ -1547,7 +1556,7 @@ final class MetalGraphNSView: NSView {
                     graph_engine_node_screen_pos(engine, ptr, &posBuf)
                 }
                 if found != 0 {
-                    let scale = metalLayer?.contentsScale ?? 2.0
+                    let scale = currentGraphDrawableScale
                     let pt = CGPoint(
                         x: CGFloat(posBuf[0]) / scale,
                         y: bounds.height - CGFloat(posBuf[1]) / scale
@@ -1614,14 +1623,14 @@ final class MetalGraphNSView: NSView {
         // In connection mode, don't start drag/pan — handle in mouseUp.
         if let graphState, graphState.isConnecting {
             let loc = convert(event.locationInWindow, from: nil)
-            let scale = metalLayer?.contentsScale ?? 2.0
+            let scale = currentGraphDrawableScale
             graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
             return
         }
 
         let loc = convert(event.locationInWindow, from: nil)
         mouseDownLocation = loc
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let shift: UInt8 = event.modifierFlags.contains(.shift) ? 1 : 0
         pendingPointerUpdate = nil
         graph_engine_mouse_down(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale), shift)
@@ -1663,7 +1672,7 @@ final class MetalGraphNSView: NSView {
         }
 
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         // Ensure the engine knows the mouse locus so we can grab the accurate hovered node
         graph_engine_mouse_moved(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
 
@@ -1734,7 +1743,7 @@ final class MetalGraphNSView: NSView {
         }
 
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         pendingPointerUpdate = SIMD2<Float>(screenX, screenY)
@@ -1771,7 +1780,7 @@ final class MetalGraphNSView: NSView {
         }
 
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         pendingPointerUpdate = nil
         graph_engine_mouse_up(engine, Float(loc.x * scale), Float((bounds.height - loc.y) * scale))
 
@@ -1816,7 +1825,7 @@ final class MetalGraphNSView: NSView {
 
         // Move hover to click location so Rust knows which node is under the cursor.
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         graph_engine_mouse_moved(engine, screenX, screenY)
@@ -1909,7 +1918,7 @@ final class MetalGraphNSView: NSView {
     override func mouseMoved(with event: NSEvent) {
         guard let engine else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let screenX = Float(loc.x * scale)
         let screenY = Float((bounds.height - loc.y) * scale)
         graph_engine_mouse_moved(engine, screenX, screenY)
@@ -1957,7 +1966,7 @@ final class MetalGraphNSView: NSView {
 
     override func scrollWheel(with event: NSEvent) {
         guard engine != nil else { return }
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         let loc = convert(event.locationInWindow, from: nil)
         let sx = Float(loc.x * scale)
         let sy = Float((bounds.height - loc.y) * scale)
@@ -1999,7 +2008,7 @@ final class MetalGraphNSView: NSView {
             switch event.charactersIgnoringModifiers {
             case "=", "+":
                 // Cmd+= → zoom in toward center.
-                let scale = metalLayer?.contentsScale ?? 2.0
+                let scale = currentGraphDrawableScale
                 let cx = Float(bounds.width * 0.5 * scale)
                 let cy = Float(bounds.height * 0.5 * scale)
                 graph_engine_magnify(engine, cx, cy, 0.15)
@@ -2007,7 +2016,7 @@ final class MetalGraphNSView: NSView {
                 return
             case "-":
                 // Cmd+- → zoom out from center.
-                let scale = metalLayer?.contentsScale ?? 2.0
+                let scale = currentGraphDrawableScale
                 let cx = Float(bounds.width * 0.5 * scale)
                 let cy = Float(bounds.height * 0.5 * scale)
                 graph_engine_magnify(engine, cx, cy, -0.15)
@@ -2028,7 +2037,7 @@ final class MetalGraphNSView: NSView {
     override func magnify(with event: NSEvent) {
         guard engine != nil else { return }
         let loc = convert(event.locationInWindow, from: nil)
-        let scale = metalLayer?.contentsScale ?? 2.0
+        let scale = currentGraphDrawableScale
         pendingPinchZoomAnchor = SIMD2<Float>(
             Float(loc.x * scale),
             Float((bounds.height - loc.y) * scale)
@@ -2117,7 +2126,8 @@ final class MetalGraphNSView: NSView {
             lowPowerMode: PowerGuard.shared.shouldThrottleRendering,
             qualityLevel: graphState?.qualityLevel ?? 0
         )
-        metalLayer?.contentsScale = effectiveScale
+        graphDrawableScale = effectiveScale
+        metalLayer?.contentsScale = GraphDrawableResolutionPolicy.layerContentsScale(backingScale: backingScale)
         metalLayer?.drawableSize = GraphDrawableResolutionPolicy.drawableSize(
             boundsSize: bounds.size,
             scale: effectiveScale

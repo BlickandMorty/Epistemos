@@ -31,7 +31,7 @@ enum GraphOverlayPhysicsPolicy {
     static let chaosDelaySeconds: TimeInterval = 4
     static let interactionMotionHoldSeconds: TimeInterval = 30
     static let interactionMotionAlphaTarget: Float = 0.015
-    static let defaultGlobalCameraMagnification: Float = 0.72
+    static let defaultGlobalCameraMagnification: Float = -0.08
     static let legacyDefaultTimelineSignature: [(Double, String)] = [
         (0.0, "crystal"),
         (3.0, "constellation"),
