@@ -187,15 +187,33 @@ actor SearchIndexService {
     private nonisolated static func databaseConfiguration() -> Configuration {
         var config = Configuration()
         config.prepareDatabase { db in
-            // Current durability stance: we still use system SQLite here. On macOS,
-            // `synchronous = FULL` may not flush as strongly as a bundled
-            // `SQLITE_HAVE_FULLFSYNC=1` build, so verified note-body storage and
-            // startup integrity checks remain the compensating controls until that
-            // SQLite bundling decision is implemented.
-            try db.execute(sql: "PRAGMA journal_mode = WAL")
-            try db.execute(sql: "PRAGMA synchronous = FULL")
-            try db.execute(sql: "PRAGMA wal_autocheckpoint = 1000")
-            try db.execute(sql: "PRAGMA foreign_keys = ON")
+            // Wave 2.3 canonical GRDB pragma block (dpp §1.1 Task 0.3).
+            //
+            // ZERO_CORRUPTION_SPEC interaction (FINAL DOCS/1. CORRUPTION §1.1):
+            // The spec mandates F_FULLFSYNC (fcntl 51) for ACID-critical writes, and
+            // notes that Apple's bundled SQLite silently replaces F_FULLFSYNC with
+            // F_BARRIERFSYNC even when `PRAGMA fullfsync = ON` is set — i.e. system
+            // SQLite cannot deliver true power-loss durability regardless of the
+            // pragma. This SearchIndexService is a *derivative* full-text index
+            // rebuildable from SwiftData + the vault (`rebuildFromSwiftData`,
+            // `diffSync`); source-of-truth durability lives in the atomic file-write
+            // layer per ZERO_CORRUPTION §1.2, not in this FTS5 cache. We therefore
+            // adopt the dpp NORMAL/fullfsync=0 profile here for ~3–5× write
+            // throughput; the spec's FULL+F_FULLFSYNC requirement still applies to
+            // any future store that owns user source-of-truth bytes.
+            try db.execute(sql: """
+                PRAGMA journal_mode = WAL;
+                PRAGMA synchronous = NORMAL;
+                PRAGMA temp_store = MEMORY;
+                PRAGMA mmap_size = 1073741824;
+                PRAGMA cache_size = -65536;
+                PRAGMA page_size = 4096;
+                PRAGMA foreign_keys = ON;
+                PRAGMA wal_autocheckpoint = 1000;
+                PRAGMA optimize;
+                PRAGMA fullfsync = 0;
+                PRAGMA checkpoint_fullfsync = 0;
+            """)
 
             let journalMode = try String.fetchOne(db, sql: "PRAGMA journal_mode")?.lowercased()
             guard journalMode == "wal" else {
@@ -446,23 +464,26 @@ actor SearchIndexService {
 
     nonisolated func upsertBlock(blockId: String, pageId: String, content: String) throws {
         try dbPool.write { db in
-            try db.execute(
-                sql: """
-                    INSERT INTO indexed_blocks (block_id, page_id, content)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(block_id) DO UPDATE SET
-                        page_id = excluded.page_id,
-                        content = excluded.content
-                """,
-                arguments: [blockId, pageId, content]
-            )
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
+            let stmt = try db.cachedStatement(sql: """
+                INSERT INTO indexed_blocks (block_id, page_id, content)
+                VALUES (?, ?, ?)
+                ON CONFLICT(block_id) DO UPDATE SET
+                    page_id = excluded.page_id,
+                    content = excluded.content
+            """)
+            stmt.setUncheckedArguments([blockId, pageId, content])
+            try stmt.execute()
         }
         Self.notifyIndexChanged([.searchBlocks])
     }
 
     nonisolated func deleteBlock(blockId: String) throws {
         try dbPool.write { db in
-            try db.execute(sql: "DELETE FROM indexed_blocks WHERE block_id = ?", arguments: [blockId])
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
+            let stmt = try db.cachedStatement(sql: "DELETE FROM indexed_blocks WHERE block_id = ?")
+            stmt.setUncheckedArguments([blockId])
+            try stmt.execute()
         }
         Self.notifyIndexChanged([.searchBlocks])
     }
@@ -471,18 +492,18 @@ actor SearchIndexService {
 
     nonisolated func upsert(id: String, title: String, body: String, tags: String, updatedAt: Date) throws {
         try dbPool.write { db in
-            try db.execute(
-                sql: """
-                    INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON CONFLICT(id) DO UPDATE SET
-                        title = excluded.title,
-                        body = excluded.body,
-                        tags = excluded.tags,
-                        updatedAt = excluded.updatedAt
-                """,
-                arguments: [id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate]
-            )
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
+            let stmt = try db.cachedStatement(sql: """
+                INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    body = excluded.body,
+                    tags = excluded.tags,
+                    updatedAt = excluded.updatedAt
+            """)
+            stmt.setUncheckedArguments([id, title, body, tags, updatedAt.timeIntervalSinceReferenceDate])
+            try stmt.execute()
         }
         Self.notifyIndexChanged([.searchPages])
     }
@@ -493,25 +514,25 @@ actor SearchIndexService {
         guard !pages.isEmpty else { return }
 
         try dbPool.write { db in
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement reused across batch.
+            let stmt = try db.cachedStatement(sql: """
+                INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    title = excluded.title,
+                    body = excluded.body,
+                    tags = excluded.tags,
+                    updatedAt = excluded.updatedAt
+            """)
             for page in pages {
-                try db.execute(
-                    sql: """
-                        INSERT INTO indexed_pages (id, title, body, tags, updatedAt)
-                        VALUES (?, ?, ?, ?, ?)
-                        ON CONFLICT(id) DO UPDATE SET
-                            title = excluded.title,
-                            body = excluded.body,
-                            tags = excluded.tags,
-                            updatedAt = excluded.updatedAt
-                    """,
-                    arguments: [
-                        page.id,
-                        page.title,
-                        page.body,
-                        page.tags,
-                        page.updatedAt.timeIntervalSinceReferenceDate,
-                    ]
-                )
+                stmt.setUncheckedArguments([
+                    page.id,
+                    page.title,
+                    page.body,
+                    page.tags,
+                    page.updatedAt.timeIntervalSinceReferenceDate,
+                ])
+                try stmt.execute()
             }
         }
         Self.notifyIndexChanged([.searchPages])
@@ -519,9 +540,30 @@ actor SearchIndexService {
 
     nonisolated func delete(pageId: String) throws {
         try dbPool.write { db in
-            try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [pageId])
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement (hot path).
+            let stmt = try db.cachedStatement(sql: "DELETE FROM indexed_pages WHERE id = ?")
+            stmt.setUncheckedArguments([pageId])
+            try stmt.execute()
         }
         Self.notifyIndexChanged([.searchPages])
+    }
+
+    // MARK: - Test Hooks
+
+    /// Read a connection-scoped PRAGMA value through the live pool. Test-only
+    /// surface for verifying the canonical pragma block (Wave 2.3).
+    nonisolated func testReadPragmaInt(_ pragma: String) throws -> Int64 {
+        try dbPool.read { db in
+            try Int64.fetchOne(db, sql: "PRAGMA \(pragma)") ?? 0
+        }
+    }
+
+    /// Read a connection-scoped PRAGMA value as String through the live pool.
+    /// Test-only surface for verifying the canonical pragma block (Wave 2.3).
+    nonisolated func testReadPragmaString(_ pragma: String) throws -> String? {
+        try dbPool.read { db in
+            try String.fetchOne(db, sql: "PRAGMA \(pragma)")
+        }
     }
 
     // MARK: - Maintenance
@@ -655,8 +697,11 @@ actor SearchIndexService {
     /// Delete a set of page IDs from the GRDB index.
     private nonisolated func deletePages(ids: Set<String>) throws {
         try dbPool.write { db in
+            // Wave 2.3 dpp §1.1 Task 0.3 — cached prepared statement reused across batch.
+            let stmt = try db.cachedStatement(sql: "DELETE FROM indexed_pages WHERE id = ?")
             for id in ids {
-                try db.execute(sql: "DELETE FROM indexed_pages WHERE id = ?", arguments: [id])
+                stmt.setUncheckedArguments([id])
+                try stmt.execute()
             }
         }
     }
