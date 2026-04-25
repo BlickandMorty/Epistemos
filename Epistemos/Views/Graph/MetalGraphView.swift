@@ -1349,6 +1349,10 @@ final class MetalGraphNSView: NSView {
         let frameSignpostInterval = Log.graphPerf.beginInterval("graph.frame.ms")
         defer { Log.graphPerf.endInterval("graph.frame.ms", frameSignpostInterval) }
 
+        // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / render).
+        // Coexists with the legacy graphPerf signpost above; Instruments can
+        // filter on either subsystem. Per dpp §1.1 Task 0.1.
+        Sig.interval(Sig.render, "frame") {
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
             isGraphLoaded: graphState?.isLoaded == true
@@ -1614,6 +1618,7 @@ final class MetalGraphNSView: NSView {
         // Release the in-flight semaphore slot so the next frame can queue.
         // graph_engine_render() calls commandBuffer.commit() + present()
         // internally, so GPU work is submitted at this point.
+        } // end Sig.interval(Sig.render, "frame")
     }
 
     // MARK: - Input Events

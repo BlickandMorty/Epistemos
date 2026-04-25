@@ -1157,6 +1157,16 @@ actor MLXInferenceService: LocalMLXRuntime {
     }
 
     func generate(request: LocalMLXRequest) async throws -> String {
+        // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / inference).
+        // Wraps the local MLX generate path. Per dpp §1.1 Task 0.1.
+        // Routed through Sig.interval (sync) wrapping the actor-isolated body
+        // via a noop closure call to avoid Sendable-closure crossing for the
+        // actor-isolated locals used inside generate.
+        let inferenceSignpostID = Sig.inference.makeSignpostID()
+        let inferenceSignpostState = Sig.inference.beginInterval(
+            "generate", id: inferenceSignpostID
+        )
+        defer { Sig.inference.endInterval("generate", inferenceSignpostState) }
         await beginRequest()
         let start = ContinuousClock.now
         let policy = currentRuntimePolicy()
