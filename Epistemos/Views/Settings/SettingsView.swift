@@ -274,6 +274,9 @@ struct SettingsView: View {
                     Image(systemName: "sidebar.left")
                 }
                 .help("Toggle Sidebar")
+                // `.help` is hover-only on macOS; VoiceOver needs an
+                // explicit label since this is icon-only.
+                .accessibilityLabel("Toggle sidebar")
             }
         }
     }
@@ -446,6 +449,8 @@ private struct SettingsHelpHeader<PopoverContent: View>: View {
             .popover(isPresented: $isPresented, arrowEdge: .bottom) {
                 popoverContent()
             }
+            .accessibilityLabel("Show help for \(title)")
+            .accessibilityHint("Opens an explanation of this section.")
             Spacer(minLength: 0)
         }
     }
@@ -613,6 +618,8 @@ private struct GeneralDetailView: View {
                             }
                             .buttonStyle(.borderless)
                             .controlSize(.small)
+                            .accessibilityLabel("Delete workspace \(workspace.name)")
+                            .accessibilityHint("Permanently removes this saved workspace.")
                         }
                     }
                 }
@@ -821,6 +828,19 @@ private struct LandingGreetingEditorRow: View {
         LandingGreetingEntry.minimumDurationSeconds...LandingGreetingEntry.maximumDurationSeconds
     }
 
+    private var accessibilitySnippet: String {
+        let trimmed = greeting.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "(empty)" }
+        if trimmed.count <= 32 {
+            return trimmed
+        }
+        return String(trimmed.prefix(32)) + "…"
+    }
+
+    private var formattedDurationSeconds: String {
+        String(format: "%.1f", greeting.durationSeconds)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .center, spacing: 10) {
@@ -832,6 +852,7 @@ private struct LandingGreetingEditorRow: View {
                     )
                 )
                 .labelsHidden()
+                .accessibilityLabel("Enable greeting \(accessibilitySnippet)")
 
                 TextField(
                     "Greeting text",
@@ -840,23 +861,30 @@ private struct LandingGreetingEditorRow: View {
                         set: { ui.updateLandingGreetingText(id: greeting.id, text: $0) }
                     )
                 )
+                .accessibilityLabel("Greeting text")
 
                 Button(action: { ui.moveLandingGreeting(id: greeting.id, by: -1) }) {
                     Image(systemName: "arrow.up")
                 }
                 .buttonStyle(.borderless)
                 .disabled(isFirst)
+                .accessibilityLabel("Move greeting up")
+                .accessibilityHint("Reorders \(accessibilitySnippet) one position earlier in the rotation.")
 
                 Button(action: { ui.moveLandingGreeting(id: greeting.id, by: 1) }) {
                     Image(systemName: "arrow.down")
                 }
                 .buttonStyle(.borderless)
                 .disabled(isLast)
+                .accessibilityLabel("Move greeting down")
+                .accessibilityHint("Reorders \(accessibilitySnippet) one position later in the rotation.")
 
                 Button(role: .destructive, action: { ui.removeLandingGreeting(id: greeting.id) }) {
                     Image(systemName: "trash")
                 }
                 .buttonStyle(.borderless)
+                .accessibilityLabel("Remove greeting \(accessibilitySnippet)")
+                .accessibilityHint("Deletes this greeting from the rotation.")
             }
 
             // Compact controls + status; stacked fallback at large sizes.
@@ -890,6 +918,7 @@ private struct LandingGreetingEditorRow: View {
             Text("Duration")
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             TextField(
                 "",
@@ -900,10 +929,13 @@ private struct LandingGreetingEditorRow: View {
                 format: .number.precision(.fractionLength(1))
             )
             .frame(minWidth: 54, idealWidth: 64)
+            .accessibilityLabel("Greeting duration")
+            .accessibilityValue("\(formattedDurationSeconds) seconds")
 
             Text("s")
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
 
             Stepper(
                 "",
@@ -915,6 +947,8 @@ private struct LandingGreetingEditorRow: View {
                 step: 0.2
             )
             .labelsHidden()
+            .accessibilityLabel("Greeting duration stepper")
+            .accessibilityValue("\(formattedDurationSeconds) seconds")
         }
     }
 
@@ -2485,6 +2519,8 @@ private struct LocalModelRow: View {
                     badgesAndStateRow
                 }
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(titleAndBadgesAccessibilityLabel)
 
             Text(descriptor.summary)
                 .font(.caption)
@@ -2505,11 +2541,15 @@ private struct LocalModelRow: View {
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(metaAccessibilityLabel)
 
             if case .installing(let progress) = state {
                 ProgressView(value: progress)
                     .controlSize(.small)
                     .frame(maxWidth: 200)
+                    .accessibilityLabel("\(descriptor.displayName) install progress")
+                    .accessibilityValue("\(safePercent(progress)) percent")
             } else if case .prepared = state {
                 Text("Prepared runtime assets are already available for this tier. Install the snapshot only if you want a separate fallback copy.")
                     .font(.caption)
@@ -2579,6 +2619,39 @@ private struct LocalModelRow: View {
         }
     }
 
+    private var titleAndBadgesAccessibilityLabel: String {
+        var parts: [String] = [descriptor.displayName]
+        if descriptor.id == localModelManager.recommendedTextModelID {
+            parts.append("Recommended")
+        }
+        if descriptor.id == localModelManager.constrainedFallbackTextModelID {
+            parts.append("Fallback")
+        }
+        if let model = LocalTextModelID(rawValue: descriptor.id),
+           model.isExperimentalForEpistemos {
+            parts.append("Experimental")
+        }
+        parts.append(state.title)
+        return parts.joined(separator: ", ")
+    }
+
+    private var metaAccessibilityLabel: String {
+        var parts: [String] = [descriptor.familyName, descriptor.approximateDownloadLabel]
+        if let model = LocalTextModelID(rawValue: descriptor.id) {
+            parts.append("Chat minimum \(model.minimumRecommendedInteractiveMemoryGB) gigabytes")
+        } else {
+            parts.append("Minimum \(descriptor.minimumRecommendedMemoryGB) gigabytes")
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    // Guards isFinite — Int(Double) traps on NaN/Infinity.
+    private func safePercent(_ progress: Double) -> Int {
+        guard progress.isFinite else { return 0 }
+        let clamped = min(max(progress, 0), 1)
+        return Int((clamped * 100).rounded())
+    }
+
     @ViewBuilder
     private var actionsView: some View {
         switch state {
@@ -2601,6 +2674,8 @@ private struct LocalModelRow: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .accessibilityLabel("Reinstall \(descriptor.displayName)")
+                .accessibilityHint("Removes and re-downloads this local model.")
                 Button("Delete") {
                     do {
                         try localModelManager.uninstall(modelID: descriptor.id)
@@ -2610,6 +2685,8 @@ private struct LocalModelRow: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .accessibilityLabel("Delete \(descriptor.displayName)")
+                .accessibilityHint("Removes the installed local model files from disk.")
             }
         case .prepared:
             Button("Install Snapshot") {
@@ -2623,9 +2700,12 @@ private struct LocalModelRow: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
+            .accessibilityLabel("Install snapshot of \(descriptor.displayName)")
+            .accessibilityHint("Adds a separate fallback copy alongside prepared runtime assets.")
         case .installing:
             ProgressView()
                 .controlSize(.small)
+                .accessibilityLabel("Installing \(descriptor.displayName)")
         case .blocked:
             blockedAction
         case .available:
@@ -2640,6 +2720,8 @@ private struct LocalModelRow: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
+            .accessibilityLabel("Install \(descriptor.displayName)")
+            .accessibilityHint("Downloads and prepares this local model.")
         }
     }
 
