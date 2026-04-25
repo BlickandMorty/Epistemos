@@ -67,7 +67,19 @@ final class InstantRecallService {
         guard !hasHydratedInitialSnapshot else { return }
         hasHydratedInitialSnapshot = true
         guard let initialSnapshotProvider else { return }
-        rebuildIndex(notes: initialSnapshotProvider())
+        // The provider closure is MainActor-isolated by virtue of being installed
+        // by the AppBootstrap (also @MainActor). We must invoke it here on the
+        // current actor so SwiftData reads stay safe, but the heavy FFI rebuild
+        // — which dominates wall-clock for 1000+ note vaults — runs off-main on
+        // a detached utility task. The final state mutation hops back to main.
+        let snapshot = initialSnapshotProvider()
+        let handle = self.handle
+        Task.detached(priority: .utility) { [weak self] in
+            let summary = Self.rebuildSnapshot(handle: handle, notes: snapshot)
+            await MainActor.run {
+                self?.finishRebuild(summary, candidateCount: snapshot.count)
+            }
+        }
     }
 
     func configureInitialSnapshotProvider(
@@ -256,6 +268,10 @@ final class InstantRecallService {
 
     /// Replace the entire index with a fresh note snapshot.
     func rebuildIndex(notes: [(id: String, text: String)]) {
+        #if DEBUG
+        let caller = Thread.callStackSymbols.dropFirst().first ?? "unknown"
+        log.warning("InstantRecall: sync rebuildIndex called — prefer rebuildIndexAsync. Caller: \(caller, privacy: .public)")
+        #endif
         ensureInitialized()
         guard isReady else { return }
         hasHydratedInitialSnapshot = true
