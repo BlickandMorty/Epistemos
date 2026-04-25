@@ -10,10 +10,15 @@ struct SetupAssistantView: View {
 
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(InferenceState.self) private var inference
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var currentStep: SetupStep = .welcome
 
     let onComplete: () -> Void
+
+    private var stepTransitionAnimation: Animation? {
+        reduceMotion ? nil : Self.stepTransition
+    }
 
     private var selectedCloudSetupProvider: CloudModelProvider {
         inference.activeCloudProvider ?? .google
@@ -71,7 +76,7 @@ struct SetupAssistantView: View {
                 .multilineTextAlignment(.center)
             Spacer()
             Button("Get Started") {
-                withAnimation(Self.stepTransition) { currentStep = .vault }
+                withAnimation(stepTransitionAnimation) { currentStep = .vault }
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
@@ -109,13 +114,13 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .model } }
+                Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
                     .buttonStyle(.bordered)
                 Button(vaultSync.vaultURL != nil ? "Change Vault" : "Select Vault Folder") {
                     selectVaultFolder()
                 }
                 .buttonStyle(.borderedProminent)
-                Button("Next") { withAnimation(Self.stepTransition) { currentStep = .model } }
+                Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .model } }
                     .buttonStyle(.borderedProminent)
                     .disabled(vaultSync.vaultURL == nil)
             }
@@ -161,7 +166,7 @@ struct SetupAssistantView: View {
             Spacer()
 
             HStack(spacing: 12) {
-                Button("Skip") { withAnimation(Self.stepTransition) { currentStep = .agentRuntime } }
+                Button("Skip") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
                     .buttonStyle(.bordered)
                 if !hasModel {
                     Button("Open Settings → Inference") {
@@ -170,7 +175,7 @@ struct SetupAssistantView: View {
                     .buttonStyle(.borderedProminent)
                 }
                 if hasModel {
-                    Button("Next") { withAnimation(Self.stepTransition) { currentStep = .agentRuntime } }
+                    Button("Next") { withAnimation(stepTransitionAnimation) { currentStep = .agentRuntime } }
                         .buttonStyle(.borderedProminent)
                 }
             }
@@ -220,12 +225,12 @@ struct SetupAssistantView: View {
 
             HStack(spacing: 12) {
                 Button("Skip") {
-                    withAnimation(Self.stepTransition) { currentStep = .done }
+                    withAnimation(stepTransitionAnimation) { currentStep = .done }
                 }
                 .buttonStyle(.bordered)
 
                 Button("Next") {
-                    withAnimation(Self.stepTransition) { currentStep = .done }
+                    withAnimation(stepTransitionAnimation) { currentStep = .done }
                 }
                 .buttonStyle(.borderedProminent)
             }
