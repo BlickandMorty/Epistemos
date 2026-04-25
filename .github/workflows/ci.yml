@@ -186,6 +186,14 @@ jobs:
             echo "::warning title=App Store bundle approaching size limit::Epistemos.app is ${size_mb} MB which is above the ${warn_mb} MB early-warning band (limit ${limit_mb} MB)."
           fi
 
+      # Wave 2.5: parse docs/perf-budgets.toml and enforce every measurable
+      # budget. Runs after every Rust crate has been built --release above
+      # (binary budgets need the dylibs on disk). Runtime budgets are
+      # informational until Wave 2.6 (bench/morning-session.swift) ships
+      # the producer that writes build/perf-budgets-runtime.json.
+      - name: Check perf budgets (docs/perf-budgets.toml)
+        run: ./scripts/check-perf-budgets.sh
+
       - name: Cache SPM packages
         uses: actions/cache@v4
         with:
