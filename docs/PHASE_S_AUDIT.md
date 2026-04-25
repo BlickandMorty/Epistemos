@@ -285,7 +285,7 @@ _None as of 2026-04-25. The ChunkedMCPFraming dlopen/dlsym workaround was replac
 ## 7. Known follow-ups (non-blocking, scoped by sub-phase)
 
 - **S.1 UX polish:** requires launched-app dogfood time; out of scope for this audit pass.
-- **S.3 accessibility + localization:** see Section 9 for the 2026-04-25 inventory. Reduce Motion is partial -- continuous-effect / `repeatForever` risk looks low (0 active usages by static scan), but 99+53 one-shot `withAnimation` / `.animation(...)` sites are mostly not visibly gated by `reduceMotion`; full compliance needs launched-app / manual review. Dynamic Type has a 786-site fixed-font gap. Localization: zero catalogs + zero `String(localized:)` calls = English-only shipping state at runtime, even though SwiftUI `Text("...")` literals are syntactically localization-ready. All three punch-list items deferred to a focused S.3 commit pass; the inventory in Section 9 is the size of the work.
+- **S.3 accessibility + localization:** active implementation -- see Section 9 (especially 9.5 prioritized slice list) for the 2026-04-25 inventory and execution plan. Each slice ships small, ProseEditor excluded by hard constraint until last. Not "defer by default".
 - **S.2 (this doc):** run `codesign -d --entitlements -` on an actual built `Epistemos-AppStore.app` and attach output. Requires a clean release build, deferred because disk is tight (13 GB free at audit time; `agent_core/target` is 50 GB and another feature-set compile would add 1-3 GB).
 - **S.4 tests:**
   - Run the Rust `mas-sandbox` tests under `cargo test --manifest-path agent_core/Cargo.toml --features mas-sandbox -- mas_` (deferred for the same disk reason).
@@ -355,9 +355,11 @@ S.5 is therefore in a **partial-evidence** state: signpost coverage is broader a
 
 ---
 
-## 9. S.3 accessibility + localization inventory (2026-04-25)
+## 9. S.3 accessibility + localization -- active implementation work (2026-04-25)
 
-**Approach:** log-first / evidence-first, doc-only audit pass. No code changes in this slice -- the S.3 plan in `IMPLEMENTATION_PLAN_FROM_ADVICE.md` describes a 1-week dedicated pass, which is bigger than fits a single commit. The inventory below sizes the work honestly so a future S.3 pass can follow a precise punch-list.
+**Status:** active implementation, NOT defer-by-default. The 2026-04-25 inventory below is the size-of-work, but the red-flag findings (fixed-size fonts, missing accessibility hints/values, keyboard reachability gaps, reduce-motion one-shot gaps, English-only shipping state) are now treated as prioritized implementation tasks, not "documented and shelved". Work proceeds in small, surgical slices ranked by release risk and blast radius.
+
+**Hard constraint:** ProseEditor (`ProseEditorView.swift`, `ProseEditorRepresentable2.swift`, `ProseTextView2.swift`) is the most polished surface in the app. S.3 work avoids ProseEditor by default. Any future ProseEditor touch -- even instrumentation -- must (1) state exactly which behaviors are unchanged (undo semantics, `isFlushingTokens`, 300 ms binding debounce, AI streaming callbacks, divider protection, IME composition, text storage flow), (2) avoid restructuring or debounce/timing changes, (3) run focused build + tests, (4) show a tight diff, (5) not claim no-regression without evidence. Prefer implementing S.3 Dynamic Type / a11y upgrades first in lower-risk SwiftUI surfaces outside ProseEditor.
 
 ### 9.1 Surface counts (raw `grep` over `Epistemos/`, Swift sources only)
 
@@ -402,7 +404,19 @@ Note: SwiftUI's `Text("Some literal")` initializer uses `LocalizedStringKey` by 
 - **No RTL screenshot diff.** RTL layout correctness needs an Arabic/Hebrew locale setup, not a grep.
 - **No localization plan.** Adding `Localizable.xcstrings` plus migrating ~thousands of inline literals is the bulk of an S.3 calendar week.
 
-S.3 is therefore in an **inventory-only** state after this pass. Reduce Motion is partial -- continuous / `repeatForever` risk is low by static scan, one-shot animations need manual review. The remaining S.3 rows (VoiceOver hints/values, Dynamic Type, keyboard, RTL, localization-catalog) are punch-list items for a later commit.
+S.3 is therefore in **active implementation** state after this pass. Reduce Motion is partial -- continuous / `repeatForever` risk is low by static scan, one-shot animations need manual review. The remaining S.3 rows (VoiceOver hints/values, Dynamic Type, keyboard, RTL, localization-catalog) are prioritized implementation tasks, not deferred punch-list items.
+
+### 9.5 Implementation prioritization (release risk x blast radius)
+
+Slices are ordered by `(impact on release readiness) x (1 / blast radius)`. ProseEditor is excluded by hard constraint (see 9 header). The first three slices below are the safest starting wedges; deeper work proceeds slice-by-slice with verification between each.
+
+1. **Settings + Toolbar Dynamic Type pass.** Replace fixed-size `.font(.system(size: <fixed>))` calls with relative-font shapes (`.font(.system(.body))`, `.font(.callout)`, etc.) in Settings views and the main app toolbar. Visible in BOTH MAS and Pro. Self-contained SwiftUI surfaces; no AppKit bridges; no streaming or text-storage flow. Lowest-risk wedge to land first.
+2. **Settings + Toolbar accessibility hint/value pass.** Audit the 79 existing `accessibilityLabel` sites for missing `accessibilityHint` (currently 7) and `accessibilityValue` (currently 0). Add hints to interactive elements where the label alone is ambiguous; add values to toggles, sliders, progress states. Same low-risk surfaces.
+3. **Reduce-motion one-shot animation pass.** Walk the 99 + 53 `withAnimation(...)` / `.animation(...)` sites and gate each by `@Environment(\.accessibilityReduceMotion)` where the animation is decorative. Skip animations that are functionally required (e.g., a confirmation flash). Same low-risk surfaces first.
+4. **Localization catalog scaffold + first batch.** Add an `Localizable.xcstrings` catalog with English as base; migrate a small high-traffic batch of `Text(...)` literals to verify the pipeline; defer the bulk migration to subsequent commits. Translation work itself is out of scope for the code pass.
+5. **KnowledgeFusion UI Dynamic Type pass.** TrainOnVaultView, TrainingHistoryView, KnowledgeFusionViewModel-backed Settings UIs. Pro-only by definition (gated out of MAS at the SettingsView entry), so MAS-blast-radius is zero; Pro release-risk benefits from the cleanup.
+6. **Code editor Dynamic Type pass.** Lower priority because CodeEditorView's text rendering is sized for monospaced layout where fixed sizes are arguably intentional; will need per-site review.
+7. **ProseEditor (LAST, by hard constraint).** Only after the lower-risk surfaces ship and the patterns are proven. Even then, follow the 5-step ProseEditor protocol in 9 header.
 
 ---
 
