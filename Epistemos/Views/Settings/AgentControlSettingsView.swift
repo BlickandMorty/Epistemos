@@ -222,6 +222,7 @@ struct AgentControlDetailView: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(.blue)
                                 .frame(width: 16, alignment: .center)
+                                .accessibilityHidden(true)
 
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(row.title)
@@ -230,6 +231,8 @@ struct AgentControlDetailView: View {
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("\(row.title). \(row.detail)")
 
                             Spacer()
 
@@ -239,8 +242,11 @@ struct AgentControlDetailView: View {
                                 }
                                 .buttonStyle(.borderless)
                                 .font(.caption.weight(.semibold))
+                                .accessibilityLabel("Revoke grant for \(row.title)")
+                                .accessibilityHint("Removes this active grant from the current chat.")
                             } else {
                                 ChannelStatusPill(title: "Automatic", tint: .secondary)
+                                    .accessibilityLabel("Automatic grant — cannot be revoked here")
                             }
                         }
 
@@ -268,6 +274,7 @@ struct AgentControlDetailView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.purple)
                             .frame(width: 16, alignment: .center)
+                            .accessibilityHidden(true)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(rustGrantTitle(for: grant))
@@ -278,6 +285,8 @@ struct AgentControlDetailView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(rustGrantTitle(for: grant)). \(rustGrantDetail(for: grant))")
 
                         Spacer()
 
@@ -287,6 +296,10 @@ struct AgentControlDetailView: View {
                         .buttonStyle(.borderless)
                         .font(.caption.weight(.semibold))
                         .disabled(isRevokingGrantId == grant.grantId)
+                        .accessibilityLabel(isRevokingGrantId == grant.grantId
+                            ? "Revoking grant for \(rustGrantTitle(for: grant))"
+                            : "Revoke grant for \(rustGrantTitle(for: grant))")
+                        .accessibilityHint("Removes this stored permission grant.")
                     }
 
                     if grant.grantId != rustBackedGrants.last?.grantId {
@@ -434,10 +447,13 @@ struct AgentControlDetailView: View {
                                     Button("Load") {
                                         customToolDraftJSON = tool.jsonText
                                     }
+                                    .accessibilityLabel("Load \(tool.name) into the tool spec editor")
                                     Button("Delete") {
                                         Task { await deleteCustomTool(named: tool.name, vaultPath: vaultPath) }
                                     }
                                     .foregroundStyle(.orange)
+                                    .accessibilityLabel("Delete custom tool \(tool.name)")
+                                    .accessibilityHint("Permanently removes this custom tool spec.")
                                     Text(tool.commandTemplate)
                                         .font(.caption.monospaced())
                                         .foregroundStyle(.tertiary)
@@ -682,6 +698,7 @@ struct AgentControlDetailView: View {
                             .foregroundStyle(tint)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(kind == .allowlist ? "allowlist" : "blocklist") pattern \(pattern.pattern)")
                 }
             }
         }

@@ -117,6 +117,7 @@ private struct OverseerFactRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(width: 18)
+                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
                     .font(.caption2.weight(.semibold))
@@ -127,6 +128,8 @@ private struct OverseerFactRow: View {
             }
             Spacer()
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 
@@ -277,6 +280,8 @@ private struct OverseerMetric: View {
                 .textCase(.uppercase)
                 .tracking(0.3)
         }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(label): \(value)")
     }
 }
 

@@ -65,25 +65,14 @@ struct AppStoreHardeningTests {
     // gets added to the MAS plist (blocking App Review) or where the
     // MAS plist loses `app-sandbox` (making the MAS archive unshippable).
     //
-    // Uses #filePath to resolve the source-tree path so the tests
-    // work regardless of xcodebuild derived-data layout or CWD.
-
-    /// Resolve the project root by walking up from this test file.
-    /// This file lives at `<repo>/EpistemosTests/AppStoreHardeningTests.swift`,
-    /// so two `deletingLastPathComponent()` calls give `<repo>`.
-    ///
-    /// Uses `#filePath` (absolute) rather than `#file` (which is now a
-    /// compressed identifier in recent Swift and cannot be opened).
-    private static var projectRoot: URL {
-        URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-    }
+    // Reads from the test bundle's `SourceMirror/` (populated by the
+    // EpistemosTests "Bundle Test Source Mirror" preBuildScript) rather
+    // than `#filePath`. The mirror lives in DerivedData; using `#filePath`
+    // pointed at `~/Downloads/Epistemos`, which can hang on macOS TCC
+    // protected-folder prompts under xcodebuild test.
 
     private func loadEntitlements(named name: String) throws -> [String: Any] {
-        let url = Self.projectRoot
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent(name)
+        let url = try sourceMirrorURL(for: "Epistemos/\(name)")
         let data = try Data(contentsOf: url)
         guard let dict = try PropertyListSerialization.propertyList(
             from: data,
@@ -150,7 +139,7 @@ struct AppStoreHardeningTests {
     // MARK: - Info.plist drift tests (Phase S.2)
 
     private func loadInfoPlist(named name: String) throws -> [String: Any] {
-        let url = Self.projectRoot.appendingPathComponent(name)
+        let url = try sourceMirrorURL(for: name)
         let data = try Data(contentsOf: url)
         guard let dict = try PropertyListSerialization.propertyList(
             from: data,
@@ -267,11 +256,9 @@ struct AppStoreHardeningTests {
 
     @Test("AudioTranscriber MAS branch contains no Process.init subprocess launch")
     func audioTranscriberMASBranchHasNoProcessInit() throws {
-        let url = Self.projectRoot
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent("KnowledgeFusion")
-            .appendingPathComponent("DataIngestion")
-            .appendingPathComponent("AudioTranscriber.swift")
+        let url = try sourceMirrorURL(
+            for: "Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift"
+        )
         let source = try String(contentsOf: url, encoding: .utf8)
 
         // Sanity: the Pro branch must still keep the subprocess fallback.
@@ -355,10 +342,7 @@ struct AppStoreHardeningTests {
 
     @Test("VaultSyncService MAS branch contains no tmutil Process.init")
     func vaultSyncServiceMASBranchHasNoTMUtilProcessInit() throws {
-        let url = Self.projectRoot
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent("Sync")
-            .appendingPathComponent("VaultSyncService.swift")
+        let url = try sourceMirrorURL(for: "Epistemos/Sync/VaultSyncService.swift")
         let source = try String(contentsOf: url, encoding: .utf8)
 
         // Sanity: the Pro branch must still keep the tmutil subprocess
@@ -379,10 +363,7 @@ struct AppStoreHardeningTests {
 
     @Test("VaultChatMutator MAS branch contains no /usr/bin/git Process.init or git-launch arguments")
     func vaultChatMutatorMASBranchHasNoGitProcessInit() throws {
-        let url = Self.projectRoot
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent("Vault")
-            .appendingPathComponent("VaultChatMutator.swift")
+        let url = try sourceMirrorURL(for: "Epistemos/Vault/VaultChatMutator.swift")
         let source = try String(contentsOf: url, encoding: .utf8)
 
         // Sanity: the Pro branch must still keep the git subprocess
@@ -529,10 +510,8 @@ struct AppStoreHardeningTests {
     ]
 
     private func runKFMASGateRegression(_ spec: KFMASGateSpec) throws {
-        var url = Self.projectRoot.appendingPathComponent("Epistemos")
-        for component in spec.pathComponents {
-            url = url.appendingPathComponent(component)
-        }
+        let relativePath = (["Epistemos"] + spec.pathComponents).joined(separator: "/")
+        let url = try sourceMirrorURL(for: relativePath)
         let source = try String(contentsOf: url, encoding: .utf8)
         let label = spec.pathComponents.last ?? "KF source"
 
@@ -583,10 +562,7 @@ struct AppStoreHardeningTests {
 
     @Test("ChunkedMCPFraming Swift source has no dlopen/dlsym/RTLD_LAZY in compiled code")
     func chunkedMCPFramingHasNoDlopenWorkaround() throws {
-        let url = Self.projectRoot
-            .appendingPathComponent("Epistemos")
-            .appendingPathComponent("Bridge")
-            .appendingPathComponent("ChunkedMCPFraming.swift")
+        let url = try sourceMirrorURL(for: "Epistemos/Bridge/ChunkedMCPFraming.swift")
         let source = try String(contentsOf: url, encoding: .utf8)
 
         // Sanity: the C shim is the replacement; the Swift file still
