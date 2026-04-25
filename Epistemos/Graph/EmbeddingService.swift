@@ -406,12 +406,17 @@ final class EmbeddingService {
             }
 
             // FFI push (mutates embedding_store) must stay on MainActor.
+            // Signpost interval — feeds Phase 0 perf budget (graph.embed.push.ms).
+            // Master plan target: <2 ms p99; ceiling 4 ms. If this exceeds budget,
+            // move the push off MainActor with a Rust-side mutex audit first.
+            let pushInterval = Log.graphPerf.beginInterval("graph.embed.push.ms")
             await MainActor.run {
                 guard Self.prepareEngineEmbeddingStore(engineHandle.raw, dimension: dim) else {
                     return
                 }
                 Self.sendEmbeddingBatch(payload, to: engineHandle.raw)
             }
+            Log.graphPerf.endInterval("graph.embed.push.ms", pushInterval)
 
             // KNN recompute is O(n²) — run off main thread to avoid beach ball.
             // The Rust side uses a Mutex to install the result, so the render

@@ -722,6 +722,9 @@ final class MetalGraphNSView: NSView {
         layer.framebufferOnly = false      // Required for transparent compositing.
         layer.isOpaque = false             // Allow blur to show through.
         layer.maximumDrawableCount = 3     // Fullscreen water shading needs a spare drawable to avoid visible hitching.
+        // NOTE: presentsWithTransaction intentionally left at default (false). Enabling
+        // it would require coordinating commit+waitUntilScheduled+present on the Rust
+        // renderer side (graph-engine/src/renderer.rs) — see Phase H follow-up.
         layer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2.0
         self.metalLayer = layer
         return layer
@@ -1340,6 +1343,11 @@ final class MetalGraphNSView: NSView {
         // that just need one more millisecond to finish presenting.
         guard inFlightSemaphore.wait(timeout: .now() + .milliseconds(waitTimeoutMS)) == .success else { return }
         defer { inFlightSemaphore.signal() }
+
+        // Per-frame signpost — feeds Phase 0 perf budget (graph.frame.ms).
+        // Master plan target: <12 ms p99 @ 60 Hz, <6 ms @ 120 Hz.
+        let frameSignpostInterval = Log.graphPerf.beginInterval("graph.frame.ms")
+        defer { Log.graphPerf.endInterval("graph.frame.ms", frameSignpostInterval) }
 
         switch graphInitialRenderBootstrapState(
             isCommitted: isCommitted,
