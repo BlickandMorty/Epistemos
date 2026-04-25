@@ -236,20 +236,24 @@ enum PipeBufferConstants {
 // Segment naming matches the Rust ShmPool convention (/ep_{session}_{seq})
 // so the existing ChunkedMCPFrameAccumulator SHM resolver can read them.
 
-// shm_open is declared variadic in Darwin headers, making it unavailable in Swift.
-// This thunk wraps the underlying C call with a fixed signature.
+// shm_open / shm_unlink are declared variadic in the Darwin headers, which
+// Swift cannot import directly. The thunks below forward to the C shim in
+// Epistemos/Bridge/ShmPosixShim.{h,c}, which exposes the actual fixed ABI
+// (3 args for open, 1 arg for unlink). The shim is declared in the
+// bridging header, so `epistemos_shm_open` / `epistemos_shm_unlink` are
+// visible here as ordinary C functions.
+//
+// History: an earlier version reached the symbols at runtime via
+// `dlopen(nil, RTLD_LAZY)` + `dlsym`. That self-handle dlopen was sandbox-
+// safe, but the literal `dlopen` / `dlsym` / `RTLD_LAZY` strings in
+// MAS-visible source can attract paranoid App Store review tooling. The
+// C shim has the same runtime behavior and removes the markers entirely.
 private func posixShmOpen(_ name: UnsafePointer<CChar>, _ oflag: Int32, _ mode: mode_t) -> Int32 {
-    // SAFETY: shm_open is a POSIX standard function. The variadic declaration in
-    // Darwin is an artifact of the C header — the actual ABI is fixed (3 args).
-    typealias ShmOpenFn = @convention(c) (UnsafePointer<CChar>, Int32, mode_t) -> Int32
-    let fn = unsafeBitCast(dlsym(dlopen(nil, RTLD_LAZY), "shm_open"), to: ShmOpenFn.self)
-    return fn(name, oflag, mode)
+    return epistemos_shm_open(name, oflag, mode)
 }
 
 private func posixShmUnlink(_ name: UnsafePointer<CChar>) -> Int32 {
-    typealias ShmUnlinkFn = @convention(c) (UnsafePointer<CChar>) -> Int32
-    let fn = unsafeBitCast(dlsym(dlopen(nil, RTLD_LAZY), "shm_unlink"), to: ShmUnlinkFn.self)
-    return fn(name)
+    return epistemos_shm_unlink(name)
 }
 
 enum ShmWriter {
