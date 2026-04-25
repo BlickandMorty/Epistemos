@@ -16,16 +16,24 @@ mkdir -p "${out_dir}"
 
 # DerivedData root is decoupled from RESULT_ROOT so logs/xcresult artifacts can
 # remain under a project- or repo-relative path while the test host bundle is
-# spawned from a location outside macOS TCC protected folders. The test-runner
-# launch handshake hangs when the host bundle lives under ~/Downloads / ~/Desktop
-# / ~/Documents because tccd surfaces a SystemPolicyDownloadsFolder /
-# SystemPolicyAllFiles consent prompt against the freshly-spawned PID and there
-# is no foreground app to host the prompt; see docs/PHASE_S_AUDIT.md §8.9 / §8.10.
+# spawned from a location outside macOS TCC protected folders. The §8.9 hang
+# evidence isolated a single proximate cause: the unhosted protected-folder
+# (SystemPolicyDownloadsFolder / Desktop / Documents) consent-prompt path that
+# tccd raises against the freshly-spawned test-host PID when the bundle lives
+# under ~/Downloads / ~/Desktop / ~/Documents and `xcodebuild test` runs without
+# a foreground app to host the prompt. The SystemPolicyAllFiles code-requirement
+# mismatch line can still appear in the green /tmp run (see §8.10) and was
+# non-fatal there; it is the unhosted protected-folder prompt fork specifically
+# that produced the unbounded test-runner-launch handshake wait. The protected
+# default below also includes the run timestamp so two back-to-back invocations
+# never reuse the same DerivedData tree, which would risk cross-run cdhash /
+# cache collisions while diagnosing TCC behavior. See docs/PHASE_S_AUDIT.md §8.9
+# / §8.10.
 home_real="$(cd "${HOME}" && pwd)"
 root_real="$(cd "${ROOT_DIR}" && pwd)"
 case "${root_real}" in
-  "${home_real}/Downloads"/*|"${home_real}/Desktop"/*|"${home_real}/Documents"/*)
-    protected_root_default="${TMPDIR:-/tmp}/epistemos-reliability-derived-data"
+  "${home_real}/Downloads"|"${home_real}/Downloads"/*|"${home_real}/Desktop"|"${home_real}/Desktop"/*|"${home_real}/Documents"|"${home_real}/Documents"/*)
+    protected_root_default="${TMPDIR:-/tmp}/epistemos-reliability-derived-data/${timestamp}"
     ;;
   *)
     protected_root_default="${out_dir}"
