@@ -602,6 +602,15 @@ final class ChatCoordinator {
 
     let accSessionInterval = Log.agentStreaming.beginInterval("accAgentSession")
     let resolvedAgentModelLabel = self.inferenceState.effectiveModelLabel(for: .agent)
+    // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / mcp).
+    // Wraps the agent session consumption loop. Per dpp §1.1 Task 0.1.
+    // Uses begin/end+defer to avoid Sendable-closure crossing for the
+    // actor-isolated locals mutated inside the for-await loop.
+    let mcpAgentSignpostID = Sig.mcp.makeSignpostID()
+    let mcpAgentSignpostState = Sig.mcp.beginInterval(
+        "agent_session", id: mcpAgentSignpostID, "provider=\(providerName)"
+    )
+    defer { Sig.mcp.endInterval("agent_session", mcpAgentSignpostState) }
     for await event in stream {
       switch event {
       case .thinkingDelta(let text):

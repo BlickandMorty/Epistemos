@@ -352,8 +352,13 @@ nonisolated final class StreamingDelegate: AgentStreamEventDelegate, @unchecked 
     }
 
     func onTextDelta(delta: String) {
-        Log.agentStreaming.emitEvent("delegate.textDelta", "\(delta.count) chars")
-        continuation.yield(.textDelta(delta))
+        // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / ffi).
+        // Wraps the highest-frequency UniFFI text-delta callback (per-token).
+        // Per dpp §1.1 Task 0.1.
+        Sig.interval(Sig.ffi, "poll_event") {
+            Log.agentStreaming.emitEvent("delegate.textDelta", "\(delta.count) chars")
+            continuation.yield(.textDelta(delta))
+        }
     }
 
     func onToolInputDelta(index: UInt32, partialJson: String) {

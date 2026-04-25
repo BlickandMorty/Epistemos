@@ -403,10 +403,14 @@ actor SearchIndexService {
     // nonisolated: DatabasePool is Sendable and let-bound, safe to access without actor hop.
 
     nonisolated func search(query: String, limit: Int = 50) throws -> [SearchResult] {
-        let terms = Self.normalizedSearchTerms(query)
-        guard !terms.isEmpty else { return [] }
+        // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / storage).
+        // Wraps the FTS5 page search dispatch. Per dpp §1.1 Task 0.1.
+        try Sig.interval(Sig.storage, "search") {
+            let terms = Self.normalizedSearchTerms(query)
+            guard !terms.isEmpty else { return [] }
 
-        return try searchPages(terms: terms, limit: limit)
+            return try searchPages(terms: terms, limit: limit)
+        }
     }
 
     func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
