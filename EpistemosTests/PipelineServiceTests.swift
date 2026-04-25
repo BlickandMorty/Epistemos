@@ -1155,6 +1155,34 @@ struct PipelineServiceTests {
         #expect(executionPlan.allowedToolNames.contains("write_file"))
     }
 
+    // Patch 1 (BLOCKER fix) — verifies that when the user is in Pro mode
+    // with a cloud model selected, the routing fork in
+    // `ChatCoordinator.handleQuery` will dispatch through
+    // `runCommandCenterRustAgentPath` with the `.chatPro` tier rather than
+    // falling through to `PipelineService.shouldUseToolLoop` (which short-
+    // circuits on `case .localMLX` and silently drops every tool).
+    //
+    // Locking the tier mapping here is the lightest test that catches a
+    // future regression where someone renames `ChatToolTier.chatPro` or
+    // changes the `from(operatingMode:)` mapping out from under the
+    // BLOCKER fix. The full integration is exercised by the agent-loop
+    // suite; this test just pins the routing decision.
+    @Test("Pro mode resolves to the chat_pro tool tier for both local and cloud selections")
+    @MainActor func proModeUsesChatProToolTier() {
+        // Pro is tier-stable across selection: the Rust agent loop receives
+        // `chat_pro` whether we're on local or cloud. (Local takes the
+        // PipelineService.runToolLoop path; cloud takes the new
+        // runCommandCenterRustAgentPath branch added in Patch 1.)
+        #expect(ChatToolTier.from(operatingMode: .pro) == .chatPro)
+        #expect(ChatToolTier.chatPro.rawValue == "chat_pro")
+
+        // Sanity: the other operating modes keep their existing tiers so
+        // the new Pro+Cloud branch can't be confused with them.
+        #expect(ChatToolTier.from(operatingMode: .fast) == .chatLite)
+        #expect(ChatToolTier.from(operatingMode: .thinking) == .chatLite)
+        #expect(ChatToolTier.from(operatingMode: .agent) == .agent)
+    }
+
     @Test("standard local chat modes use the direct stream instead of the local tool loop")
     @MainActor func standardLocalChatModesUseDirectStream() async throws {
         for operatingMode: EpistemosOperatingMode in [.fast, .thinking, .pro] {

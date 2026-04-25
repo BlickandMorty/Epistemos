@@ -390,6 +390,28 @@ final class ChatCoordinator {
               message: "The selected tools brain is unavailable: \(reason)."
             )
           }
+        } else if effectiveOperatingMode == .pro,
+                  case .cloud(let provider, _) = compiled.resolvedRuntime.resolved {
+          // Patch 1 (BLOCKER fix): Pro mode + cloud model now routes through
+          // the Rust agent loop with the ChatPro tool tier so the user can
+          // actually invoke vault_search / vault_read / vault_write / patch /
+          // memory. Without this branch the call falls through to
+          // PipelineService.shouldUseToolLoop, which short-circuits on
+          // `case .localMLX` and silently leaves Pro+Cloud with zero tools.
+          // Local Pro keeps its existing PipelineService.runToolLoop path
+          // (which already maps .pro → ChatToolTier.chatPro via
+          // ChatToolTier.from(operatingMode:)).
+          try await self.runCommandCenterRustAgentPath(
+            compiled: compiled,
+            providerName: self.resolveRustProviderName(
+              explicitProviderRawValue: provider
+            ),
+            conversationHistory: conversationHistory,
+            agentChat: agentChat,
+            accState: accState,
+            executionPlan: executionPlan,
+            toolTier: .chatPro
+          )
         } else {
           // Standard pipeline for fast/thinking/pro — pass resolved
           // notes context so @-mentions actually reach the model.
@@ -492,7 +514,8 @@ final class ChatCoordinator {
     conversationHistory: String?,
     agentChat: AgentChatState,
     accState: AgentCommandCenterState,
-    executionPlan: OverseerComplexityRouter.ExecutionPlan
+    executionPlan: OverseerComplexityRouter.ExecutionPlan,
+    toolTier: ChatToolTier = .agent
   ) async throws {
     let sessionId = UUID().uuidString
     var receivedAgentContent = false
@@ -534,7 +557,7 @@ final class ChatCoordinator {
       vaultPath: vaultPath,
       enableBash: enableBash,
       enableWebSearch: enableWebSearch,
-      toolTier: "agent",
+      toolTier: toolTier.rawValue,
       allowedToolNames: Array(allowedTools).sorted()
     )
 
