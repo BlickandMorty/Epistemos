@@ -292,4 +292,65 @@ struct AppStoreHardeningTests {
         let gateMessage: Comment = "AudioTranscriber.swift no longer contains `#if !EPISTEMOS_APP_STORE`. The Phase S.2 surgical gating was removed; restore it."
         #expect(source.contains("#if !EPISTEMOS_APP_STORE"), gateMessage)
     }
+
+    @Test("VaultSyncService MAS branch contains no tmutil Process.init")
+    func vaultSyncServiceMASBranchHasNoTMUtilProcessInit() throws {
+        let url = Self.projectRoot
+            .appendingPathComponent("Epistemos")
+            .appendingPathComponent("Sync")
+            .appendingPathComponent("VaultSyncService.swift")
+        let source = try String(contentsOf: url, encoding: .utf8)
+
+        // Sanity: the Pro branch must still keep the tmutil subprocess
+        // implementation. Removing tmutil from the file entirely is not
+        // the goal -- the Pro/direct release uses APFS safety snapshots
+        // for recovery.
+        let proSanity: Comment = "VaultSyncService.swift no longer contains Process.init -- the Pro/direct release relies on /usr/bin/tmutil for APFS safety snapshots. If this is intentional, update or remove this test."
+        #expect(source.contains("Process.init("), proSanity)
+
+        // The Phase S.2 regression: the body of `runTMUtilCommand` is
+        // gated with `#if !EPISTEMOS_APP_STORE` / `#else` (where the
+        // `#else` branch throws an NSError indicating tmutil is
+        // unavailable in the sandbox). The simple-shape masVisibleSource
+        // parser does not interpret `#else`, so the strip alone is not
+        // enough to assert what MAS sees. Use a tighter check: the
+        // ONLY `Process.init(` occurrence in the file must be inside a
+        // `#if !EPISTEMOS_APP_STORE` block.
+        var inExcludedBlock = false
+        var sawProcessInitInsideExcluded = false
+        var sawProcessInitOutsideExcluded = false
+        for line in source.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("#if !EPISTEMOS_APP_STORE") {
+                inExcludedBlock = true
+                continue
+            }
+            if inExcludedBlock {
+                if trimmed.hasPrefix("#endif") {
+                    inExcludedBlock = false
+                    continue
+                }
+                if trimmed.hasPrefix("#else") {
+                    // `#else` of `#if !EPISTEMOS_APP_STORE` opens the
+                    // MAS-visible branch; we have left the excluded
+                    // block.
+                    inExcludedBlock = false
+                    continue
+                }
+                if line.contains("Process.init(") && !trimmed.hasPrefix("//") {
+                    sawProcessInitInsideExcluded = true
+                }
+            } else {
+                if line.contains("Process.init(") && !trimmed.hasPrefix("//") {
+                    sawProcessInitOutsideExcluded = true
+                }
+            }
+        }
+
+        let outsideMessage: Comment = "VaultSyncService.swift contains a Process.init( call OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot spawn /usr/bin/tmutil; this leaks subprocess launch into the MAS binary."
+        #expect(!sawProcessInitOutsideExcluded, outsideMessage)
+
+        let insideMessage: Comment = "VaultSyncService.swift no longer has Process.init( inside any `#if !EPISTEMOS_APP_STORE` block, but the file does still contain Process.init(. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
+        #expect(sawProcessInitInsideExcluded, insideMessage)
+    }
 }

@@ -921,6 +921,15 @@ final class VaultSyncService {
 
     private func createAPFSSafetySnapshotIfPossible(reason: String) {
         guard let manifestURL = apfsSnapshotManifestURL() else { return }
+        #if EPISTEMOS_APP_STORE
+        // The App Store sandbox cannot spawn /usr/bin/tmutil. APFS
+        // safety snapshots are an optional Pro/direct maintenance
+        // layer on top of the file-copy recovery snapshots, which
+        // remain active in MAS. Skip silently here; tests that wire
+        // a custom `TMUtilCommandRunner` go through a different code
+        // path, so this early return does not affect them.
+        if tmutilCommandRunnerOverride == nil { return }
+        #endif
         let commandRunner = tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
 
         Task.detached(priority: .utility) {
@@ -942,6 +951,10 @@ final class VaultSyncService {
               FileManager.default.fileExists(atPath: manifestURL.path) else {
             return
         }
+        #if EPISTEMOS_APP_STORE
+        // Same MAS-sandbox rationale as createAPFSSafetySnapshotIfPossible.
+        if tmutilCommandRunnerOverride == nil { return }
+        #endif
         let commandRunner = tmutilCommandRunnerOverride ?? Self.runTMUtilCommand
 
         Task.detached(priority: .utility) {
@@ -1258,6 +1271,7 @@ final class VaultSyncService {
     }
 
     private nonisolated static func runTMUtilCommand(_ arguments: [String]) throws -> String {
+        #if !EPISTEMOS_APP_STORE
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/tmutil")
         process.arguments = arguments
@@ -1286,6 +1300,25 @@ final class VaultSyncService {
         }
 
         return output
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/tmutil. APFS
+        // safety snapshots are a Pro/direct maintenance feature, not
+        // part of core vault sync; `createAPFSSafetySnapshotIfPossible`
+        // and `pruneAPFSSafetySnapshotsIfNeeded` early-return under
+        // EPISTEMOS_APP_STORE before reaching this helper, so this
+        // throw is defense-in-depth in case a future caller wires up
+        // a path that bypasses those guards. Tests that need real
+        // tmutil semantics inject a custom `TMUtilCommandRunner` via
+        // `setTMUtilCommandRunnerForTesting` and never hit this branch.
+        _ = arguments
+        throw NSError(
+            domain: "VaultSyncService.TMUtil",
+            code: -1,
+            userInfo: [
+                NSLocalizedDescriptionKey: "tmutil is not available in the App Store sandbox build; APFS safety snapshots are skipped.",
+            ]
+        )
+        #endif
     }
 
     private nonisolated static func parseAPFSSnapshotID(from line: String) -> String? {
