@@ -19,6 +19,22 @@ core-graphics = "0.24"
 uniffi = { version = "0.28", features = ["build"] }
 
 [profile.release]
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# SAFETY: omega-ax MUST use panic = "unwind" because
+# uniffi_exports::ax_tree_walk wraps the AX tree walker in
+# std::panic::catch_unwind and falls back to a sparse snapshot if
+# the system AX query panics. panic = "abort" would silently abort
+# the host process whenever an AX call faults.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
 opt-level = 3
-lto = "thin"
-panic = "abort"
+debug = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 0

@@ -56,14 +56,24 @@ which = "6.0"
 uuid = { version = "1.11", features = ["serde", "v4"] }
 
 [profile.release]
-# SAFETY: agent_core MUST use "unwind" so catch_unwind can intercept panics
-# and return typed AgentErrorFFI to Swift instead of aborting the process.
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# SAFETY: agent_core MUST use panic = "unwind" so catch_unwind in
+# bridge.rs / tools/registry.rs can intercept panics and return typed
+# AgentErrorFFI to Swift instead of aborting the host process. Switching
+# to "abort" would silently turn every catch_unwind into a no-op crash.
 panic = "unwind"
-# Binary size optimizations — target: 8-12MB stripped
-opt-level = "z"        # Optimize for size (smallest binary)
-lto = true             # Link-time optimization across all crates
-codegen-units = 1      # Single codegen unit for maximum LTO effectiveness
-strip = "symbols"      # Strip debug symbols from release binary
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 0
 
 [build-dependencies]
 uniffi = { version = "0.28", features = ["build"] }

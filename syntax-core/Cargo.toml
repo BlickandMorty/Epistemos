@@ -30,3 +30,23 @@ criterion = { version = "0.5", features = ["html_reports"] }
 [[bench]]
 name = "parse_baselines"
 harness = false
+
+[profile.release]
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# SAFETY: syntax-core MUST use panic = "unwind" because
+# src/ffi.rs wraps every C entry point in std::panic::catch_unwind
+# via the `syntax_catch!` macro so tree-sitter panics surface as a
+# Swift-safe sentinel instead of aborting the process.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
+
+[profile.release.package."*"]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 0
