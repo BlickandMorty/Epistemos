@@ -1,6 +1,7 @@
 // Ω18 — Instant Recall Tests
 // Tests for the binary-quantized vector index and two-phase retrieval.
 
+import Foundation
 import Testing
 @testable import Epistemos
 
@@ -153,7 +154,7 @@ struct InstantRecallServiceTests {
     }
 
     @Test("Service hydrates the initial snapshot on first search")
-    @MainActor func serviceHydratesInitialSnapshotOnFirstSearch() {
+    @MainActor func serviceHydratesInitialSnapshotOnFirstSearch() async {
         let service = InstantRecallService()
         service.configureInitialSnapshotProvider {
             [
@@ -162,11 +163,72 @@ struct InstantRecallServiceTests {
             ]
         }
 
+        // First call kicks off the off-MainActor hydration but returns
+        // before the detached task can populate the index.
+        _ = service.search(queryText: "posterior decoding", topK: 5)
+
+        // Wait until the background hydration drains into MainActor state.
+        try? await waitUntilHydrated(service: service, expectedCount: 2)
+
         let results = service.search(queryText: "posterior decoding", topK: 5)
 
         #expect(service.isReady)
         #expect(service.documentCount == 2)
         #expect(results.first?.docId == "doc-seeded")
+    }
+
+    @Test("Initial snapshot hydration completes asynchronously off the MainActor")
+    @MainActor func initialSnapshotHydrationRunsOffMainActor() async {
+        // Stress the detached task with enough notes that the FFI rebuild
+        // dominates the wait window — proves the heavy work is genuinely
+        // off-main. (Single-note vaults can race the MainActor continuation
+        // and finish before the next statement runs.)
+        let snapshot: [(id: String, text: String)] = (0..<200).map { idx in
+            (id: "doc-\(idx)",
+             text: "Posterior decoding sample \(idx) with Bayesian evidence and longer body so the FFI encoder has real work to do per document for instant recall hydration latency observability.")
+        }
+
+        let service = InstantRecallService()
+        service.configureInitialSnapshotProvider { snapshot }
+
+        // First search must NOT block on the heavy FFI rebuild. Capture the
+        // call duration; even a 200-doc vault should return immediately from
+        // the empty live index.
+        let searchStart = CFAbsoluteTimeGetCurrent()
+        let firstResults = service.search(queryText: "posterior decoding", topK: 5)
+        let searchElapsedMs = (CFAbsoluteTimeGetCurrent() - searchStart) * 1000.0
+
+        #expect(searchElapsedMs < 50.0,
+                "first search must not stall MainActor on the FFI rebuild (took \(searchElapsedMs)ms)")
+        #expect(firstResults.isEmpty,
+                "before async hydration drains, the index is empty so the first search returns no results")
+
+        // Drive the runloop so the detached Task.detached(.utility) can finish
+        // and its MainActor.run continuation can execute finishRebuild.
+        try? await waitUntilHydrated(service: service, expectedCount: snapshot.count)
+
+        #expect(service.documentCount == snapshot.count,
+                "after async hydration drains, documentCount reflects the seeded snapshot")
+
+        // A second search after hydration drains returns real results.
+        let secondResults = service.search(queryText: "posterior decoding", topK: 5)
+        #expect(!secondResults.isEmpty,
+                "after async hydration completes, recall searches return populated results")
+    }
+
+    /// Polls until the InstantRecall service has finished its async hydration.
+    /// Returns once `documentCount` reaches `expectedCount` or after `attempts`
+    /// 50ms ticks (~5s default).
+    @MainActor
+    private func waitUntilHydrated(
+        service: InstantRecallService,
+        expectedCount: Int,
+        attempts: Int = 100
+    ) async throws {
+        for _ in 0..<attempts {
+            if service.documentCount >= expectedCount { return }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
     }
 
     @Test("Service treats empty note bodies as removals")

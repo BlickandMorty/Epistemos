@@ -167,9 +167,35 @@ Dependencies: Patch 4.
 
 ## Patch 6: syntax-core viewport-scoped path ON by default for code files
 
-Priority: **P1 (HIGH)**
+Priority: **P1 (HIGH)** — **BLOCKED 2026-04-25, REQUIRES PATCH 6a FIRST**
 
-Goal: Wire syntax-core for code-file-shaped notes; ensure 4k-line files stay fluid.
+Audit verdict (2026-04-25): the main `CodeEditorView` does NOT consume `SyntaxCoreService` at all. The only call site repo-wide is `CodeSyntaxHighlighter.apply` at `CodeEditorView.swift:2286`, used only by `CodeInspectorPreview` (`:2262`) and `CodeInspectorEditor` (`:2559+:2586`) — both NSTextView-based graph-inspector views, NOT the main editor. The main editor uses `SourceEditor(...)` from CodeEditSourceEditor at `:1503`, which owns its own internal `MultiStorageDelegate` + tree-sitter via `CodeEditLanguages`. There is no `highlightProvider` injection point bridging syntax-core into that path (grep across `Epistemos/` for `highlightProvider|setHighlightProvider|TreeSitterClient|HighlightProviding` returns zero matches).
+
+Flipping the default would NOT improve 4k-line fluidity because the main editor doesn't consume syntax-core today. Patch 6 is therefore deferred until Patch 6a lands.
+
+### Patch 6a: Wire SyntaxCoreService into CodeEditSourceEditor's highlight pipeline (NEW)
+
+Priority: **P1.5 (HIGH, post-V1)** — significant editor rework; slip-eligible to V1.5
+
+Goal: Make `SyntaxCoreService` the actual syntax provider for CodeEditorView's main `SourceEditor`. Either:
+1. Add a custom `HighlightProviding` adapter to CodeEditSourceEditor that delegates to `SyntaxCoreService.tokensForViewport(...)` + `applies as NSAttributedString` attributes on viewport-visible ranges; OR
+2. Replace the SourceEditor binding with a custom NSTextStorage path that calls `SyntaxCoreService.edit(...)` from `textViewDidChangeText` with real byte deltas.
+
+Both options are non-trivial and may run into the same MultiStorageDelegate ownership issue that previously caused the custom-NSTextStorage path to be reverted (per CODE_EDITOR_FEATURE_AUDIT.md history).
+
+Files:
+- `Epistemos/Engine/SyntaxCoreService.swift` (existing)
+- `Epistemos/Views/Notes/CodeEditorView.swift` (consumer)
+- LocalPackages/CodeEditSourceEditor/* — DO NOT modify directly; if the highlight provider extension point doesn't exist, file an upstream issue instead
+
+Risk: HIGH (touches the editor hot path). Requires:
+- Integration test asserting viewport tokens are applied as foreground-color `NSAttributedString` attributes after a keystroke
+- 4k-line keystroke benchmark with <16ms p99 acceptance
+- Visual parity test (screenshot-diff or color-palette assertion) so the new path matches the existing CodeEditSourceEditor color scheme
+
+Until Patch 6a lands, the syntax-core scaffolding remains useful for the inspector path and as ground for later work. Patch 6 cannot land standalone.
+
+Goal (original): Wire syntax-core for code-file-shaped notes; ensure 4k-line files stay fluid.
 
 Files:
 - modify: `Epistemos/Views/Notes/CodeEditorView.swift:2118-2170+2254` — flip `EPISTEMOS_USE_SYNTAX_CORE` default to ON for code MIME types
