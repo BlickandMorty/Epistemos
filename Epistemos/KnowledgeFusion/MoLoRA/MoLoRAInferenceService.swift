@@ -112,6 +112,7 @@ final class MoLoRAInferenceService {
             arguments.append(contentsOf: ["--centroids_path", centroids.path])
         }
 
+        #if !EPISTEMOS_APP_STORE
         let proc = Process.init()
         proc.executableURL = URL(fileURLWithPath: pythonPath)
         proc.arguments = arguments
@@ -145,6 +146,18 @@ final class MoLoRAInferenceService {
             state = .error(String(errorMsg))
             stop()
         }
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/python3 to run
+        // the MoLoRA inference script. Pro/direct release keeps the
+        // routing path; AppBootstrap and SettingsView already gate
+        // the KnowledgeFusion entry points out of MAS, so this
+        // surgical body gate is defense-in-depth. The state machine
+        // settles into .error so any caller that bypasses the entry-
+        // point gates fails honestly without spawning a process.
+        _ = arguments
+        _ = pythonPath
+        state = .error("MoLoRA inference is not available in the App Store sandbox build.")
+        #endif
     }
 
     /// Stop the inference subprocess.

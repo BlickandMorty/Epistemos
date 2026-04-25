@@ -83,6 +83,7 @@ actor KTOTrainer {
             arguments.append(contentsOf: ["--adapter_path", adapterPath.path])
         }
 
+        #if !EPISTEMOS_APP_STORE
         let process = Process.init()
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = arguments
@@ -155,5 +156,16 @@ actor KTOTrainer {
             finalLoss: nil,
             newAdapterPath: outputPath
         )
+        #else
+        // The App Store sandbox cannot spawn /usr/bin/python3 to run
+        // the KTO trainer script. Pro/direct release keeps the
+        // training path; AppBootstrap and SettingsView already gate
+        // the KnowledgeFusion entry points out of MAS, so this
+        // surgical body gate is defense-in-depth.
+        _ = arguments
+        throw QLoRATrainerError.trainingFailed(
+            "KTO training is not available in the App Store sandbox build."
+        )
+        #endif
     }
 }

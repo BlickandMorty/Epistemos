@@ -415,4 +415,157 @@ struct AppStoreHardeningTests {
         let gitArgsInsideMessage: Comment = "VaultChatMutator.swift no longer has `process.arguments = [\"git\"]` inside a `#if !EPISTEMOS_APP_STORE` block, but the file still contains the substring elsewhere. The Pro git-launch shape may have been refactored away; restore it or update this test."
         #expect(gitArgsScan.insideExcludedBlock, gitArgsInsideMessage)
     }
+
+    // MARK: - KnowledgeFusion subprocess-marker regressions (Phase S.2)
+    //
+    // The five files below all live inside KnowledgeFusion/. The KF
+    // settings entry is already UI-gated out of MAS in
+    // `Views/Settings/SettingsView.swift` (`#if !(EPISTEMOS_APP_STORE
+    // || MAS_SANDBOX)` around `sections.append(.knowledgeFusion)` and
+    // around `case .knowledgeFusion: KnowledgeFusionDetailView()`),
+    // and AppBootstrap's three calls into `KnowledgeFusionViewModel
+    // .shared` are wrapped in `#if !EPISTEMOS_APP_STORE`. So the
+    // training/inference/export pipeline is already unreachable in
+    // MAS at the UI and bootstrap layers. The surgical gates below
+    // make that honest at the binary layer too: every Process.init,
+    // every executable URL setup, and every launch argv assignment
+    // inside the five files lives inside `#if !EPISTEMOS_APP_STORE`.
+
+    /// Convenience: scan `source` for each marker and assert that
+    /// the marker appears ONLY inside `#if !EPISTEMOS_APP_STORE`
+    /// blocks. Each marker also gets a "still present somewhere"
+    /// sanity check so a future change that rips out the Pro path
+    /// entirely is flagged.
+    private func assertMarkerIsMASGated(
+        source: String,
+        fileLabel: String,
+        marker: String
+    ) {
+        let scan = scanForMarkerInGateBranches(source: source, marker: marker)
+        let outsideMessage: Comment = "\(fileLabel) contains `\(marker)` OUTSIDE a `#if !EPISTEMOS_APP_STORE` block. The MAS sandbox cannot launch subprocesses; this leaks a launch marker into the MAS binary."
+        #expect(!scan.outsideExcludedBlock, outsideMessage)
+        let insideMessage: Comment = "\(fileLabel) no longer has `\(marker)` inside any `#if !EPISTEMOS_APP_STORE` block, but the file still contains the substring elsewhere. The Pro branch may have been moved or deleted; restore the gating shape so MAS stays subprocess-free here."
+        #expect(scan.insideExcludedBlock, insideMessage)
+    }
+
+    /// Per-file MAS-branch marker spec for the KnowledgeFusion
+    /// surgical gates added in Phase S.2. Table-driven so adding
+    /// another file (or another marker per file) is a one-line
+    /// edit, not another copy-pasted @Test method.
+    private struct KFMASGateSpec {
+        /// Path components after `Epistemos/`, e.g.
+        /// `["KnowledgeFusion", "Adapters", "AdapterExporter.swift"]`.
+        let pathComponents: [String]
+        /// Substrings that must appear ONLY inside `#if !EPISTEMOS_APP_STORE`
+        /// blocks in the file. Each substring is checked by
+        /// `assertMarkerIsMASGated`. Process API markers (`Process.init(`,
+        /// `process.executableURL`, `process.arguments`, `try process.run()`)
+        /// catch the Process Foundation API; literal markers
+        /// (`/usr/bin/ditto`, `/bin/bash`, etc.) catch the executable
+        /// paths the Pro path uses to spawn subprocesses.
+        let markers: [String]
+    }
+
+    private static let knowledgeFusionMASGateSpecs: [KFMASGateSpec] = [
+        // Variable name `process` (default for files using
+        // Foundation.Process directly): Process API markers cover
+        // `.init(`, `.executableURL`, `.arguments`, and `.run()`.
+        KFMASGateSpec(
+            pathComponents: ["KnowledgeFusion", "Adapters", "AdapterExporter.swift"],
+            markers: [
+                "Process.init(",
+                "process.executableURL",
+                "process.arguments",
+                "try process.run()",
+                "/usr/bin/ditto",
+            ]
+        ),
+        KFMASGateSpec(
+            pathComponents: ["KnowledgeFusion", "Alignment", "KTOTrainer.swift"],
+            markers: [
+                "Process.init(",
+                "process.executableURL",
+                "process.arguments",
+                "try process.run()",
+            ]
+        ),
+        KFMASGateSpec(
+            pathComponents: ["KnowledgeFusion", "Training", "QLoRATrainer.swift"],
+            markers: [
+                "Process.init(",
+                "process.executableURL",
+                "process.arguments",
+                "try process.run()",
+            ]
+        ),
+        // MoLoRAInferenceService uses `proc` as the Process variable
+        // name, so the property/method markers are `proc.*`, not
+        // `process.*`.
+        KFMASGateSpec(
+            pathComponents: ["KnowledgeFusion", "MoLoRA", "MoLoRAInferenceService.swift"],
+            markers: [
+                "Process.init(",
+                "proc.executableURL",
+                "proc.arguments",
+                "try proc.run()",
+            ]
+        ),
+        // PythonEnvironmentManager has the Process API markers AND
+        // the installer-pipeline literals (Homebrew installer, brew
+        // install, env-which python sweep).
+        KFMASGateSpec(
+            pathComponents: ["KnowledgeFusion", "PythonEnvironmentManager.swift"],
+            markers: [
+                "Process.init(",
+                "process.executableURL",
+                "process.arguments",
+                "try process.run()",
+                "/bin/bash",
+                "curl",
+                "/opt/homebrew/bin/brew",
+                "/usr/bin/env",
+            ]
+        ),
+    ]
+
+    private func runKFMASGateRegression(_ spec: KFMASGateSpec) throws {
+        var url = Self.projectRoot.appendingPathComponent("Epistemos")
+        for component in spec.pathComponents {
+            url = url.appendingPathComponent(component)
+        }
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let label = spec.pathComponents.last ?? "KF source"
+
+        let proSanity: Comment = "\(label) no longer contains Process.init -- the Pro/direct release relies on subprocess launch for this surface. If this is intentional, update or remove this test."
+        #expect(source.contains("Process.init("), proSanity)
+
+        for marker in spec.markers {
+            assertMarkerIsMASGated(source: source, fileLabel: label, marker: marker)
+        }
+    }
+
+    @Test("AdapterExporter MAS branch contains no /usr/bin/ditto launch markers")
+    func adapterExporterMASBranchHasNoDittoLaunchMarkers() throws {
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[0])
+    }
+
+    @Test("KTOTrainer MAS branch contains no python subprocess launch markers")
+    func ktoTrainerMASBranchHasNoPythonLaunchMarkers() throws {
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[1])
+    }
+
+    @Test("QLoRATrainer MAS branch contains no python subprocess launch markers")
+    func qLoRATrainerMASBranchHasNoPythonLaunchMarkers() throws {
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[2])
+    }
+
+    @Test("MoLoRAInferenceService MAS branch contains no python subprocess launch markers")
+    func moLoRAInferenceServiceMASBranchHasNoPythonLaunchMarkers() throws {
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[3])
+    }
+
+    @Test("PythonEnvironmentManager MAS branch contains no installer launch markers")
+    func pythonEnvironmentManagerMASBranchHasNoInstallerMarkers() throws {
+        try runKFMASGateRegression(Self.knowledgeFusionMASGateSpecs[4])
+    }
 }

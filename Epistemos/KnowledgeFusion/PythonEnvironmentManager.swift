@@ -153,6 +153,7 @@ final class PythonEnvironmentManager {
             state = .settingUp(phase: "Checking Python 3.10+ (ML runtime)...", progress: 0.08)
             let systemPython = try await ensureModernPython()
 
+            #if !EPISTEMOS_APP_STORE
             // Step 3: Create isolated virtual environment
             state = .settingUp(phase: "Creating isolated training environment...", progress: 0.15)
             try fm.createDirectory(at: baseDir, withIntermediateDirectories: true)
@@ -220,6 +221,22 @@ final class PythonEnvironmentManager {
             // Write marker
             try Data("ok".utf8).write(to: markerFile, options: .atomic)
             state = .ready
+            #else
+            // The App Store sandbox cannot create venvs, run pip,
+            // install ML packages, deploy training scripts, or run
+            // mlx import verification. Steps 1-2 above already throw
+            // PythonEnvError.noPythonFound under MAS, so this branch
+            // is defense-in-depth: it removes the pip/venv install
+            // launch argv strings (`-m venv`, `-m pip install
+            // --upgrade pip`, `install <package>`) from MAS-visible
+            // source so review tooling that scans for them does not
+            // flag the binary. Steps 7-8 + marker write are also
+            // gated so MAS has no compiled code after this `return`.
+            _ = systemPython
+            _ = fm
+            state = .failed(error: "Python environment management is not available in the App Store sandbox build.")
+            return
+            #endif
 
         } catch {
             state = .failed(error: error.localizedDescription)
@@ -239,6 +256,7 @@ final class PythonEnvironmentManager {
 
     /// Ensure Homebrew is installed. If not, install it automatically.
     private func ensureHomebrew() async throws {
+        #if !EPISTEMOS_APP_STORE
         if FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/brew") { return }
         if FileManager.default.isExecutableFile(atPath: "/usr/local/bin/brew") { return }
 
@@ -248,6 +266,14 @@ final class PythonEnvironmentManager {
             executable: "/bin/bash",
             arguments: ["-c", "NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""]
         )
+        #else
+        // The App Store sandbox cannot fetch and run arbitrary bash
+        // installers. The entire Homebrew probe + bootstrap is
+        // intentionally absent from MAS-visible source so review
+        // tooling that scans for the brew/bash/curl-install pattern
+        // does not flag the binary.
+        throw PythonEnvError.noPythonFound
+        #endif
     }
 
     /// Ensure Python 3.10+ is available. Installs via Homebrew if needed.
@@ -276,6 +302,7 @@ final class PythonEnvironmentManager {
             }
         }
 
+        #if !EPISTEMOS_APP_STORE
         // No modern Python found — install via Homebrew
         state = .settingUp(phase: "Installing Python 3.12 (required for ML)...", progress: 0.10)
         let brewPath = FileManager.default.isExecutableFile(atPath: "/opt/homebrew/bin/brew")
@@ -296,9 +323,16 @@ final class PythonEnvironmentManager {
         }
 
         throw PythonEnvError.noPythonFound
+        #else
+        // The App Store sandbox cannot run brew. The Homebrew install
+        // path AND the last-resort homebrew Python lookup are
+        // intentionally absent from MAS-visible source.
+        throw PythonEnvError.noPythonFound
+        #endif
     }
 
     private func findSystemPython() async throws -> String {
+        #if !EPISTEMOS_APP_STORE
         // Use `which python3` to find the user's active Python (respects PATH, pyenv, etc.)
         if let whichPath = try? await runProcessCapture(
             executable: "/usr/bin/env",
@@ -310,6 +344,7 @@ final class PythonEnvironmentManager {
                 return trimmed
             }
         }
+        #endif
 
         // Prefer Homebrew python3 (3.11+), skip Xcode's bundled python3
         let candidates = [
@@ -384,6 +419,7 @@ final class PythonEnvironmentManager {
         captureStdout: Bool,
         captureStderr: Bool
     ) async throws -> PythonProcessExecution {
+        #if !EPISTEMOS_APP_STORE
         let timeoutSeconds = 120.0
         let state = ThrowingProcessContinuationState<PythonProcessExecution>()
 
@@ -472,6 +508,24 @@ final class PythonEnvironmentManager {
             state.terminate()
             state.resume(throwing: CancellationError())
         }
+        #else
+        // The App Store sandbox cannot spawn arbitrary executables
+        // (python, brew, pip, bash, curl, env, etc.). Pro/direct
+        // release keeps the full Python environment bootstrapper;
+        // AppBootstrap and SettingsView already gate the
+        // KnowledgeFusion entry points out of MAS, so this surgical
+        // body gate is defense-in-depth. Throwing an unavailable
+        // error keeps any bypassing caller honest -- they will see
+        // a clean failure instead of a sandbox-blocked partial spawn.
+        _ = executable
+        _ = arguments
+        _ = captureStdout
+        _ = captureStderr
+        throw PythonEnvError.processExitCode(
+            -1,
+            detail: "Python environment management is not available in the App Store sandbox build."
+        )
+        #endif
     }
 }
 
