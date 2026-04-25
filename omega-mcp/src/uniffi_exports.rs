@@ -115,37 +115,77 @@ pub fn evaluate_risk_confirmation(risk_level: String) -> String {
 }
 
 // ── Tool Execution via Rust Layer (Anchor 5 compliance) ──────────────────────
+//
+// The osascript + PTY entry points below are exported via UniFFI so the
+// generated Swift surface stays binary-stable across MAS and Pro builds.
+// Under `--features mas-sandbox` the underlying `osascript` and `pty`
+// modules are not compiled (see lib.rs gates), so the MAS dylib contains
+// zero `std::process::Command`, `nix::pty::openpty`, `nix::unistd::Fork*`,
+// or `nix::sys::signal` symbols originating from this crate. The MAS
+// stubs below never call any subprocess primitive — they return an inert
+// JSON sentinel so any accidental Swift call fails loudly.
 
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute open_url tool via Rust osascript wrapper.
 pub fn tool_open_url(url: String) -> String {
     let result = crate::osascript::tool_open_url(&url);
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_open_url(_url: String) -> String {
+    mas_sandbox_unavailable("tool_open_url")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute get_page_url tool via Rust osascript wrapper.
 pub fn tool_get_page_url() -> String {
     let result = crate::osascript::tool_get_page_url();
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_get_page_url() -> String {
+    mas_sandbox_unavailable("tool_get_page_url")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute get_page_title tool via Rust osascript wrapper.
 pub fn tool_get_page_title() -> String {
     let result = crate::osascript::tool_get_page_title();
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_get_page_title() -> String {
+    mas_sandbox_unavailable("tool_get_page_title")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute get_page_text tool via Rust osascript wrapper.
 pub fn tool_get_page_text(max_length: u32) -> String {
     let result = crate::osascript::tool_get_page_text(max_length);
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_get_page_text(_max_length: u32) -> String {
+    mas_sandbox_unavailable("tool_get_page_text")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute search_web tool via Rust osascript wrapper.
 pub fn tool_search_web(query: String) -> String {
     let result = crate::osascript::tool_search_web(&query);
     serde_json::to_string(&result).unwrap_or_default()
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_search_web(_query: String) -> String {
+    mas_sandbox_unavailable("tool_search_web")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute run_command tool via Rust with allow-list enforcement.
 pub fn tool_run_command(command: String, allowed_commands_csv: String) -> String {
     let allowed: Vec<&str> = if allowed_commands_csv.is_empty() {
@@ -155,6 +195,11 @@ pub fn tool_run_command(command: String, allowed_commands_csv: String) -> String
     };
     let result = crate::osascript::tool_run_command(&command, &allowed);
     serde_json::to_string(&result).unwrap_or_default()
+}
+
+#[cfg(feature = "mas-sandbox")]
+pub fn tool_run_command(_command: String, _allowed_commands_csv: String) -> String {
+    mas_sandbox_unavailable("tool_run_command")
 }
 
 /// Get confidence action for a given confidence score.
@@ -171,6 +216,7 @@ pub fn evaluate_confidence(confidence: f64) -> String {
 
 // ── Persistent PTY Exports (Ω-HAS) ────────────────────────────────────────
 
+#[cfg(not(feature = "mas-sandbox"))]
 /// Spawn a persistent PTY shell session.
 /// Returns a JSON with {"pty_id": "..."} on success, or {"error": "..."} on failure.
 pub fn pty_spawn_session(session_id: String, shell: String, initial_dir: String) -> String {
@@ -186,6 +232,12 @@ pub fn pty_spawn_session(session_id: String, shell: String, initial_dir: String)
     }
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn pty_spawn_session(_session_id: String, _shell: String, _initial_dir: String) -> String {
+    mas_sandbox_unavailable("pty_spawn_session")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Execute a command in a persistent PTY session.
 /// Returns JSON: {"stdout": "...", "exit_hint": "ok|error(N)|unknown",
 ///   "working_dir": "...", "duration_ms": N}
@@ -203,19 +255,49 @@ pub fn pty_execute_command(pty_id: String, command: String, timeout_ms: u64) -> 
     }
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn pty_execute_command(_pty_id: String, _command: String, _timeout_ms: u64) -> String {
+    mas_sandbox_unavailable("pty_execute_command")
+}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Close a persistent PTY session.
 pub fn pty_close_session(pty_id: String) {
     crate::pty::PtyPool::close(&pty_id);
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn pty_close_session(_pty_id: String) {}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Close all PTY sessions for a given session ID (cascade cleanup).
 pub fn pty_close_all(session_id: String) {
     crate::pty::PtyPool::close_all_for_session(&session_id);
 }
 
+#[cfg(feature = "mas-sandbox")]
+pub fn pty_close_all(_session_id: String) {}
+
+#[cfg(not(feature = "mas-sandbox"))]
 /// Get active PTY session count.
 pub fn pty_active_session_count() -> u32 {
     crate::pty::PtyPool::active_count() as u32
+}
+
+#[cfg(feature = "mas-sandbox")]
+pub fn pty_active_session_count() -> u32 {
+    0
+}
+
+/// MAS-sandbox sentinel returned by gated subprocess wrappers. Kept private to
+/// this module; never references `std::process::Command` or `nix::*`.
+#[cfg(feature = "mas-sandbox")]
+fn mas_sandbox_unavailable(name: &str) -> String {
+    serde_json::json!({
+        "error": "unavailable_in_mas_sandbox",
+        "tool": name,
+    })
+    .to_string()
 }
 
 /// Execute a Mixture-of-Agents pool in parallel via Rust's rayon thread pool.

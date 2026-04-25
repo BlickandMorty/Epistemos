@@ -7,6 +7,15 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib"]
 name = "omega_mcp"
 
+[features]
+default = []
+# When enabled, gates out PTY + osascript modules so the MAS-linked
+# libomega_mcp.dylib ships zero `nix::pty`, `nix::unistd::Fork*`,
+# `std::process::Command`, or `openpty` symbols. UniFFI surface stays
+# (Swift bindings unchanged) but the gated wrappers return an inert
+# "unavailable in this build" JSON.
+mas-sandbox = []
+
 [dependencies]
 uniffi = { version = "0.28", features = ["cli", "bindgen"] }
 serde = { version = "1", features = ["derive"] }
