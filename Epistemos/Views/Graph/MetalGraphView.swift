@@ -2172,6 +2172,7 @@ final class MetalGraphNSView: NSView {
         case .note, .chat: 2
         case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
         case .tag, .block: 4
+        case .run, .rawThought, .toolTrace: 3  // Patch 5: Raw Thoughts artifacts at idea/source depth
         }
     }
 

@@ -219,6 +219,9 @@ extension GraphNodeType {
         case .decision: return Color(red: 0.83, green: 0.20, blue: 0.18)  // red
         case .event:    return Color(red: 0.98, green: 0.56, blue: 0.27)  // coral
         case .resource: return Color(red: 0.14, green: 0.55, blue: 0.52)  // sea green
+        case .run:        return Color(red: 0.42, green: 0.42, blue: 0.78)  // indigo (Patch 5: Run)
+        case .rawThought: return Color(red: 0.74, green: 0.58, blue: 0.92)  // lavender (Patch 5: RawThought)
+        case .toolTrace:  return Color(red: 0.46, green: 0.50, blue: 0.55)  // slate (Patch 5: ToolTrace)
         }
     }
 }

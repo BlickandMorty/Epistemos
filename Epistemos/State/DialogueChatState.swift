@@ -157,6 +157,7 @@ struct DialogueNodeInsight: Sendable, Equatable {
         case .note, .chat: 2
         case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
         case .tag, .block: 4
+        case .run, .rawThought, .toolTrace: 3
         }
         let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedNodeCount) * 0.04)
         return DialogueNodeInsight(
@@ -443,6 +444,10 @@ struct DialogueNodeProfile: Sendable, Equatable {
             }
             return .guide
         case .note, .idea, .block, .person, .project, .topic, .decision, .event, .resource:
+            break
+        case .run, .rawThought, .toolTrace:
+            // Raw Thoughts artifact types are not part of the dialogue persona
+            // routing surface — fall through to the heuristic block below.
             break
         }
 

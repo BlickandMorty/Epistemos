@@ -1,8 +1,13 @@
 import Foundation
 
 // MARK: - GraphNodeType
-// 14 graph node categories shared with the Rust renderer.
-// 8 structural types plus 6 semantic entity types.
+// 14 FFI graph node categories shared with the Rust renderer (rustIndex 0-13)
+// plus app-level Raw Thoughts artifact types (run, rawThought, toolTrace) that
+// are NEVER sent through the Rust FFI batch payloads. To keep the FFI contract
+// tests stable (`FFIVersionSyncTests`/`GraphTypesTests` assert exactly 14
+// contiguous indices), `allCases` returns only the FFI cases. The Raw
+// Thoughts artifact types are accessible via `appLevelCases` and individual
+// case references.
 
 nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     // Structural types (original 8)
@@ -22,6 +27,26 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case decision     // notes in Decisions/ folder
     case event        // notes in Events/ folder
     case resource     // notes in Resources/ folder
+
+    // Raw Thoughts artifact types (Patch 5 / USER_WIRING_GAPS G2).
+    // App-level only — not bridged to the Rust graph engine. Excluded from
+    // `allCases` so the FFI contract (14 contiguous u8 indices) stays intact.
+    case run          // one agent run, parent of its rawThoughts + toolTraces
+    case rawThought   // a single thinking_delta / signature pair from a run
+    case toolTrace    // a single tool_use + tool_result pair from a run
+
+    /// FFI-bridged cases (rustIndex 0-13). Hand-implemented to preserve the
+    /// strict 14-case contract enforced by `FFIVersionSyncTests`. The Raw
+    /// Thoughts artifact types are intentionally excluded.
+    static var allCases: [GraphNodeType] {
+        [
+            .note, .chat, .idea, .source, .folder, .quote, .tag, .block,
+            .person, .project, .topic, .decision, .event, .resource,
+        ]
+    }
+
+    /// App-level Raw Thoughts artifact types. Not sent through the FFI.
+    static let appLevelCases: [GraphNodeType] = [.run, .rawThought, .toolTrace]
 
     /// Node types visible in the graph UI (excludes block — blocks are internal structure).
     static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
@@ -47,60 +72,71 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     /// Human-readable display name for the graph UI.
     var displayName: String {
         switch self {
-        case .note:     return "Note"
-        case .chat:     return "Chat"
-        case .idea:     return "Idea"
-        case .source:   return "Source"
-        case .folder:   return "Folder"
-        case .quote:    return "Quote"
-        case .tag:      return "Tag"
-        case .block:    return "Block"
-        case .person:   return "Person"
-        case .project:  return "Project"
-        case .topic:    return "Topic"
-        case .decision: return "Decision"
-        case .event:    return "Event"
-        case .resource: return "Resource"
+        case .note:       return "Note"
+        case .chat:       return "Chat"
+        case .idea:       return "Idea"
+        case .source:     return "Source"
+        case .folder:     return "Folder"
+        case .quote:      return "Quote"
+        case .tag:        return "Tag"
+        case .block:      return "Block"
+        case .person:     return "Person"
+        case .project:    return "Project"
+        case .topic:      return "Topic"
+        case .decision:   return "Decision"
+        case .event:      return "Event"
+        case .resource:   return "Resource"
+        case .run:        return "Run"
+        case .rawThought: return "Raw Thought"
+        case .toolTrace:  return "Tool Trace"
         }
     }
 
     /// SF Symbol name for node rendering.
     var icon: String {
         switch self {
-        case .note:     return "doc.text"
-        case .chat:     return "bubble.left"
-        case .idea:     return "lightbulb"
-        case .source:   return "link"
-        case .folder:   return "folder"
-        case .quote:    return "text.quote"
-        case .tag:      return "number"
-        case .block:    return "text.line.first.and.arrowtriangle.forward"
-        case .person:   return "person"
-        case .project:  return "hammer"
-        case .topic:    return "text.book.closed"
-        case .decision: return "checkmark.seal"
-        case .event:    return "calendar"
-        case .resource: return "archivebox"
+        case .note:       return "doc.text"
+        case .chat:       return "bubble.left"
+        case .idea:       return "lightbulb"
+        case .source:     return "link"
+        case .folder:     return "folder"
+        case .quote:      return "text.quote"
+        case .tag:        return "number"
+        case .block:      return "text.line.first.and.arrowtriangle.forward"
+        case .person:     return "person"
+        case .project:    return "hammer"
+        case .topic:      return "text.book.closed"
+        case .decision:   return "checkmark.seal"
+        case .event:      return "calendar"
+        case .resource:   return "archivebox"
+        case .run:        return "play.rectangle"
+        case .rawThought: return "brain"
+        case .toolTrace:  return "wrench.and.screwdriver"
         }
     }
 
     /// Index matching Rust NodeType enum (0–13) for FFI.
+    /// App-level Raw Thoughts cases (run/rawThought/toolTrace) are NOT bridged
+    /// to the Rust graph engine; they fall back to `.note`'s index (0) defensively
+    /// so a misuse cannot read off the end of the FFI enum table. They should
+    /// never reach the FFI batch payload in practice.
     var rustIndex: UInt8 {
         switch self {
-        case .note:     return 0
-        case .chat:     return 1
-        case .idea:     return 2
-        case .source:   return 3
-        case .folder:   return 4
-        case .quote:    return 5
-        case .tag:      return 6
-        case .block:    return 7
-        case .person:   return 8
-        case .project:  return 9
-        case .topic:    return 10
-        case .decision: return 11
-        case .event:    return 12
-        case .resource: return 13
+        case .note:       return 0
+        case .chat:       return 1
+        case .idea:       return 2
+        case .source:     return 3
+        case .folder:     return 4
+        case .quote:      return 5
+        case .tag:        return 6
+        case .block:      return 7
+        case .person:     return 8
+        case .project:    return 9
+        case .topic:      return 10
+        case .decision:   return 11
+        case .event:      return 12
+        case .resource:   return 13
+        case .run, .rawThought, .toolTrace: return 0
         }
     }
 
@@ -128,7 +164,10 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
 }
 
 // MARK: - GraphEdgeType
-// 12 relationship types: 8 structural + 4 semantic.
+// 12 FFI relationship types (8 structural + 4 semantic) shared with Rust,
+// plus app-level Raw Thoughts edges that are NEVER sent through the FFI.
+// `allCases` is hand-implemented to return only the FFI cases so the strict
+// 12-case contract (`FFIVersionSyncTests`/`GraphTypesTests`) stays intact.
 
 nonisolated enum GraphEdgeType: String, Codable, Sendable, CaseIterable {
     case reference
@@ -143,6 +182,28 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable, CaseIterable {
     case contradicts   // Note A contradicts claims in Note B
     case expands       // Note A expands on ideas in Note B
     case questions     // Note A raises questions about Note B
+
+    // Raw Thoughts artifact edges (Patch 5 / USER_WIRING_GAPS G2). App-level
+    // only — not bridged to the Rust graph engine.
+    case producedDuring   // artifact -> Run that produced it
+    case generatedBy      // artifact -> Run that generated it (alias of producedDuring at the canon level)
+    case derivedFrom      // Document -> Prose source it derived from
+    case summarizes       // Run summary -> Run
+
+    /// FFI-bridged cases (rustIndex 0-11). Hand-implemented to preserve the
+    /// strict 12-case contract enforced by `FFIVersionSyncTests`.
+    static var allCases: [GraphEdgeType] {
+        [
+            .reference, .contains, .tagged, .mentions, .cites,
+            .authored, .related, .quotes, .supports, .contradicts,
+            .expands, .questions,
+        ]
+    }
+
+    /// App-level Raw Thoughts artifact edges. Not sent through the FFI.
+    static let appLevelCases: [GraphEdgeType] = [
+        .producedDuring, .generatedBy, .derivedFrom, .summarizes,
+    ]
 
     /// Migration from legacy 23-type system.
     init(legacy rawValue: String) {
@@ -170,20 +231,26 @@ nonisolated enum GraphEdgeType: String, Codable, Sendable, CaseIterable {
     }
 
     /// Index matching Rust EdgeType enum (0-11) for FFI.
+    /// App-level Raw Thoughts edges fall back to `.reference`'s index (0)
+    /// defensively; they should never reach the FFI batch payload in practice.
     var rustIndex: UInt8 {
         switch self {
-        case .reference:   return 0
-        case .contains:    return 1
-        case .tagged:      return 2
-        case .mentions:    return 3
-        case .cites:       return 4
-        case .authored:    return 5
-        case .related:     return 6
-        case .quotes:      return 7
-        case .supports:    return 8
-        case .contradicts: return 9
-        case .expands:     return 10
-        case .questions:   return 11
+        case .reference:      return 0
+        case .contains:       return 1
+        case .tagged:         return 2
+        case .mentions:       return 3
+        case .cites:          return 4
+        case .authored:       return 5
+        case .related:        return 6
+        case .quotes:         return 7
+        case .supports:       return 8
+        case .contradicts:    return 9
+        case .expands:        return 10
+        case .questions:      return 11
+        case .producedDuring,
+             .generatedBy,
+             .derivedFrom,
+             .summarizes:     return 0
         }
     }
 }

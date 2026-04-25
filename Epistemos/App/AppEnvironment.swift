@@ -45,5 +45,6 @@ extension View {
             .environment(bootstrap.agentChatState)
             .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
+            .environment(bootstrap.rawThoughtsState)
     }
 }
