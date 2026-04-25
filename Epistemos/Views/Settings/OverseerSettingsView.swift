@@ -114,15 +114,15 @@ private struct OverseerFactRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(tint)
                 .frame(width: 18)
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Text(value)
-                    .font(.system(size: 13, weight: .regular, design: .monospaced))
+                    .font(.system(.footnote, design: .monospaced))
                     .textSelection(.enabled)
             }
             Spacer()
@@ -142,7 +142,7 @@ private struct OverseerAuditEntryCard: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     Text(entry.headline)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.footnote.weight(.medium))
                         .lineLimit(2)
                         .foregroundStyle(.primary)
                     Spacer()
@@ -156,7 +156,7 @@ private struct OverseerAuditEntryCard: View {
                     OverseerMetric(label: "Output tokens", value: "\(entry.plan.plan.depthBudget.maxOutputTokens)")
                     Spacer()
                     Text(entry.recordedAt.formatted(date: .omitted, time: .shortened))
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(.system(.caption2, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
 
@@ -165,7 +165,7 @@ private struct OverseerAuditEntryCard: View {
                     content: { detailSection },
                     label: {
                         Text(isExpanded ? "Hide plan detail" : "Show plan detail")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
                     }
                 )
@@ -223,13 +223,13 @@ private struct OverseerAuditEntryCard: View {
     private func factBlock(title: String, rows: [String]) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(.system(size: 11, weight: .semibold))
+                .font(.caption2.weight(.semibold))
                 .foregroundStyle(.secondary)
                 .textCase(.uppercase)
                 .tracking(0.3)
             ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                 Text(row)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.system(.caption, design: .monospaced))
                     .foregroundStyle(.primary.opacity(0.85))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -246,7 +246,7 @@ private struct OverseerRoutePill: View {
 
     var body: some View {
         Text(label)
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .font(.system(.caption2, design: .rounded).weight(.semibold))
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(tint.opacity(0.12), in: Capsule())
@@ -270,9 +270,9 @@ private struct OverseerMetric: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(value)
-                .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                .font(.system(.footnote, design: .monospaced).weight(.semibold))
             Text(label)
-                .font(.system(size: 9, weight: .medium))
+                .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
                 .tracking(0.3)
