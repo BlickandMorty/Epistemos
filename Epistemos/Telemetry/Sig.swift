@@ -12,9 +12,23 @@ import Foundation
 /// signposters under subsystem `com.epistemos` continue to work unchanged.
 /// `Sig.*` adds a parallel canonical surface for the deterministic perf plan.
 ///
-/// `nonisolated` so callers in any actor context (including `nonisolated`
-/// functions and background actors) can wrap intervals without an actor hop.
-/// `OSSignposter` is `Sendable`.
+/// Designed to be TSAN-safe: exposes only the 6 `OSSignposter` instances
+/// (which are Sendable per Apple) and lets every call site use the
+/// `beginInterval`/`endInterval` + `defer` pattern directly. We do not
+/// expose closure-wrapping helpers because closure parameters that capture
+/// `@MainActor`-isolated or non-`Sendable` state (e.g. `OpaquePointer`
+/// engine handles in MetalGraphView) trip Swift 6 strict-concurrency
+/// checking under `-enableThreadSanitizer YES`.
+///
+/// Usage pattern at call sites:
+///
+///     let id = Sig.render.makeSignpostID()
+///     let state = Sig.render.beginInterval("frame", id: id, "nodes=\(count)")
+///     defer { Sig.render.endInterval("frame", state) }
+///     // ... existing call ...
+///
+/// `nonisolated` so callers in any actor context can read the static
+/// signposter without an actor hop. `OSSignposter` itself is Sendable.
 nonisolated public enum Sig {
     public static let render    = OSSignposter(subsystem: "io.epistemos.core", category: "render")
     public static let mcp       = OSSignposter(subsystem: "io.epistemos.core", category: "mcp")
@@ -22,32 +36,4 @@ nonisolated public enum Sig {
     public static let ffi       = OSSignposter(subsystem: "io.epistemos.core", category: "ffi")
     public static let storage   = OSSignposter(subsystem: "io.epistemos.core", category: "storage")
     public static let inference = OSSignposter(subsystem: "io.epistemos.core", category: "inference")
-
-    @inlinable
-    public static func interval<T>(
-        _ poster: OSSignposter,
-        _ name: StaticString,
-        _ message: @autoclosure () -> String = "",
-        _ body: () throws -> T
-    ) rethrows -> T {
-        let id = poster.makeSignpostID()
-        let evaluatedMessage = message()
-        let state = poster.beginInterval(name, id: id, "\(evaluatedMessage)")
-        defer { poster.endInterval(name, state) }
-        return try body()
-    }
-
-    @inlinable
-    public static func intervalAsync<T>(
-        _ poster: OSSignposter,
-        _ name: StaticString,
-        _ message: @autoclosure () -> String = "",
-        _ body: () async throws -> T
-    ) async rethrows -> T {
-        let id = poster.makeSignpostID()
-        let evaluatedMessage = message()
-        let state = poster.beginInterval(name, id: id, "\(evaluatedMessage)")
-        defer { poster.endInterval(name, state) }
-        return try await body()
-    }
 }

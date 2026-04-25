@@ -8,11 +8,17 @@ import Testing
 // Sprint 0 (Wave 2.1) signpost facade tests.
 // Per docs/EPISTEMOS_DETERMINISTIC_PERF_PLAN.md §1.1 Task 0.1.
 //
+// Wave 2.1.1 update: removed closure-wrapper tests (Sig.interval /
+// Sig.intervalAsync) because the closure-wrapping API was dropped to
+// keep TSAN green — closure params capturing non-Sendable engine
+// pointers (e.g. MetalGraphView's OpaquePointer) trip Swift 6 strict-
+// concurrency under -enableThreadSanitizer YES. Sig now exposes only
+// the 6 OSSignposter instances; call sites use begin/defer-end pattern
+// directly.
+//
 // Covers:
 // - Sig defines all 6 canonical OSSignposters (render/mcp/graph/ffi/storage/inference)
-// - Sig.interval forwards the body's return value
-// - Sig.intervalAsync forwards the body's return value with async support
-// - Sig.swift source file exists at the canonical path
+// - Sig.swift source file exists at the canonical path with the canonical subsystem
 
 @Suite("Sig signpost facade")
 nonisolated struct SigTests {
@@ -32,36 +38,14 @@ nonisolated struct SigTests {
         #expect(Bool(true), "All six Sig categories must be reachable")
     }
 
-    // MARK: - Interval body forwarding
+    // MARK: - begin/end roundtrip (TSAN-safe pattern)
 
-    @Test func intervalReturnsBodyValue() {
-        let result = Sig.interval(Sig.storage, "search") { 42 }
-        #expect(result == 42)
-    }
-
-    @Test func intervalForwardsThrows() {
-        struct E: Error {}
-        #expect(throws: E.self) {
-            try Sig.interval(Sig.ffi, "poll_event") { () throws -> Int in
-                throw E()
-            }
-        }
-    }
-
-    @Test func intervalAsyncReturnsBodyValue() async {
-        let result = await Sig.intervalAsync(Sig.inference, "generate") {
-            return "ok"
-        }
-        #expect(result == "ok")
-    }
-
-    @Test func intervalAsyncForwardsThrows() async {
-        struct E: Error {}
-        await #expect(throws: E.self) {
-            try await Sig.intervalAsync(Sig.mcp, "agent_session") { () async throws -> Int in
-                throw E()
-            }
-        }
+    @Test func beginEndRoundtripWorks() {
+        let id = Sig.storage.makeSignpostID()
+        let state = Sig.storage.beginInterval("search", id: id)
+        // ... body would go here ...
+        Sig.storage.endInterval("search", state)
+        #expect(Bool(true), "begin/end roundtrip must complete without error")
     }
 
     // MARK: - Source guard
@@ -87,5 +71,23 @@ nonisolated struct SigTests {
         }
         #expect(source.contains("io.epistemos.core"),
                 "Sig.swift must use canonical subsystem `io.epistemos.core`")
+    }
+
+    @Test func sigDoesNotExposeClosureWrappers() throws {
+        // Wave 2.1.1: the closure-wrapper API (Sig.interval, Sig.intervalAsync)
+        // was removed because @Sendable closure constraints conflicted with
+        // call sites that capture non-Sendable engine pointers. This guards
+        // against accidental re-introduction.
+        let here = URL(fileURLWithPath: #filePath)
+        let repoRoot = here.deletingLastPathComponent().deletingLastPathComponent()
+        let sigURL = repoRoot
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("Telemetry", isDirectory: true)
+            .appendingPathComponent("Sig.swift", isDirectory: false)
+        let source = try String(contentsOf: sigURL, encoding: .utf8)
+        #expect(!source.contains("func interval<"),
+                "Sig.swift must NOT expose closure-wrapper API (TSAN-incompatible)")
+        #expect(!source.contains("func intervalAsync<"),
+                "Sig.swift must NOT expose async closure-wrapper API (TSAN-incompatible)")
     }
 }
