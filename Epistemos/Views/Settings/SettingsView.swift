@@ -859,23 +859,18 @@ private struct LandingGreetingEditorRow: View {
                 .buttonStyle(.borderless)
             }
 
-            // Duration row: ViewThatFits keeps the inline HStack at
-            // small Dynamic Type sizes; falls back to a stacked layout
-            // (controls row above, status text below) at large sizes
-            // where the labels would otherwise crush the TextField and
-            // Stepper. The TextField uses minWidth (not fixed width)
-            // so the digits can grow with Dynamic Type instead of
-            // clipping inside a 54pt cage.
+            // Compact controls + status; stacked fallback at large sizes.
+            // `.fixedSize` on the compact controls block trips ViewThatFits
+            // when the labels would otherwise silently compress.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
                     durationControls
+                        .fixedSize(horizontal: true, vertical: false)
                     Spacer()
                     durationStatusText
                 }
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        durationControls
-                    }
+                    durationControls
                     durationStatusText
                 }
             }
@@ -883,36 +878,44 @@ private struct LandingGreetingEditorRow: View {
         .padding(.vertical, 4)
     }
 
-    @ViewBuilder
+    // Explicit HStack rather than a `@ViewBuilder` that returned a TupleView
+    // of four siblings. Returning a TupleView meant `.fixedSize(...)` applied
+    // at the call site had ambiguous sibling-layout semantics inside the outer
+    // HStack — the modifier wraps each child individually. With a real HStack
+    // here, `.fixedSize(horizontal: true, vertical: false)` predictably
+    // forces the whole control cluster to its intrinsic width, which is what
+    // the outer ViewThatFits compact candidate needs to trip the fallback.
     private var durationControls: some View {
-        Text("Duration")
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+            Text("Duration")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
 
-        TextField(
-            "",
-            value: Binding(
-                get: { greeting.durationSeconds },
-                set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
-            ),
-            format: .number.precision(.fractionLength(1))
-        )
-        .frame(minWidth: 54)
+            TextField(
+                "",
+                value: Binding(
+                    get: { greeting.durationSeconds },
+                    set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+                ),
+                format: .number.precision(.fractionLength(1))
+            )
+            .frame(minWidth: 54, idealWidth: 64)
 
-        Text("s")
-            .font(.caption2.weight(.medium))
-            .foregroundStyle(.secondary)
+            Text("s")
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
 
-        Stepper(
-            "",
-            value: Binding(
-                get: { greeting.durationSeconds },
-                set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
-            ),
-            in: durationRange,
-            step: 0.2
-        )
-        .labelsHidden()
+            Stepper(
+                "",
+                value: Binding(
+                    get: { greeting.durationSeconds },
+                    set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+                ),
+                in: durationRange,
+                step: 0.2
+            )
+            .labelsHidden()
+        }
     }
 
     @ViewBuilder
@@ -2442,12 +2445,11 @@ private struct LocalModelRow: View {
     }
 
     var body: some View {
-        // Outer ViewThatFits picks the compact horizontal row when the
-        // row + actions fit; otherwise falls back to a vertical stack
-        // that puts the trailing actions BELOW the leading content.
-        // SwiftUI's HStack does not wrap, so without this fallback the
-        // trailing buttons would push the badge/meta text horizontally
-        // off-screen at large Dynamic Type sizes.
+        // Stacked fallback when actions push leading content too narrow.
+        // `.fixedSize` on the leading column's intrinsic-width markers
+        // (in `leadingColumn`) is what makes ViewThatFits actually trip
+        // here; without it, Text inside the compact HStack would silently
+        // wrap and the fallback would be decorative.
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: 12) {
                 leadingColumn
@@ -2465,22 +2467,22 @@ private struct LocalModelRow: View {
     @ViewBuilder
     private var leadingColumn: some View {
         VStack(alignment: .leading, spacing: 4) {
-            // Title + badges row: ViewThatFits keeps the inline HStack
-            // when it fits horizontally; falls back to a stacked layout
-            // (display name on its own line, badges on the next line)
-            // at large Dynamic Type. Without this fallback, the inline
-            // HStack would clip at large sizes because SwiftUI HStack
-            // does not wrap.
+            // Title + badges row.
+            // Compact HStack uses `.fixedSize(horizontal: true, vertical: false)`
+            // so it reports its single-line natural width; ViewThatFits
+            // then trips reliably to the stacked fallback at large
+            // Dynamic Type. The fallback ALSO wraps the inner badges row
+            // in a second ViewThatFits because three inline badges + a
+            // state title can themselves overflow at extreme sizes.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
                     titleAndBadges
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(descriptor.displayName)
                         .font(.footnote.weight(.semibold))
-                    HStack(spacing: 6) {
-                        badgesAndState
-                    }
+                    badgesAndStateRow
                 }
             }
 
@@ -2488,11 +2490,13 @@ private struct LocalModelRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            // Footer meta row: same compact-or-stacked pattern.
+            // Footer meta row: compact HStack pinned to its natural
+            // width, stacked fallback at large sizes.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
                     metaItems
                 }
+                .fixedSize(horizontal: true, vertical: false)
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
                 VStack(alignment: .leading, spacing: 2) {
@@ -2523,6 +2527,22 @@ private struct LocalModelRow: View {
         Text(descriptor.displayName)
             .font(.footnote.weight(.semibold))
         badgesAndState
+    }
+
+    // Compact-or-stacked badges + state title. Used inside the
+    // leadingColumn's stacked fallback so badges themselves can wrap
+    // to their own column at extreme Dynamic Type.
+    @ViewBuilder
+    private var badgesAndStateRow: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                badgesAndState
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 2) {
+                badgesAndState
+            }
+        }
     }
 
     @ViewBuilder
