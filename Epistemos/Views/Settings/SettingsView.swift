@@ -859,44 +859,67 @@ private struct LandingGreetingEditorRow: View {
                 .buttonStyle(.borderless)
             }
 
-            HStack(spacing: 8) {
-                Text("Duration")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-
-                TextField(
-                    "",
-                    value: Binding(
-                        get: { greeting.durationSeconds },
-                        set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
-                    ),
-                    format: .number.precision(.fractionLength(1))
-                )
-                .frame(width: 54)
-
-                Text("s")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(.secondary)
-
-                Stepper(
-                    "",
-                    value: Binding(
-                        get: { greeting.durationSeconds },
-                        set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
-                    ),
-                    in: durationRange,
-                    step: 0.2
-                )
-                .labelsHidden()
-
-                Spacer()
-
-                Text(greeting.isEnabled ? "Enabled" : "Disabled")
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(greeting.isEnabled ? .secondary : .tertiary)
+            // Duration row: ViewThatFits keeps the inline HStack at
+            // small Dynamic Type sizes; falls back to a stacked layout
+            // (controls row above, status text below) at large sizes
+            // where the labels would otherwise crush the TextField and
+            // Stepper. The TextField uses minWidth (not fixed width)
+            // so the digits can grow with Dynamic Type instead of
+            // clipping inside a 54pt cage.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    durationControls
+                    Spacer()
+                    durationStatusText
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 8) {
+                        durationControls
+                    }
+                    durationStatusText
+                }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var durationControls: some View {
+        Text("Duration")
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+
+        TextField(
+            "",
+            value: Binding(
+                get: { greeting.durationSeconds },
+                set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+            ),
+            format: .number.precision(.fractionLength(1))
+        )
+        .frame(minWidth: 54)
+
+        Text("s")
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+
+        Stepper(
+            "",
+            value: Binding(
+                get: { greeting.durationSeconds },
+                set: { ui.updateLandingGreetingDuration(id: greeting.id, durationSeconds: $0) }
+            ),
+            in: durationRange,
+            step: 0.2
+        )
+        .labelsHidden()
+    }
+
+    @ViewBuilder
+    private var durationStatusText: some View {
+        Text(greeting.isEnabled ? "Enabled" : "Disabled")
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(greeting.isEnabled ? .secondary : .tertiary)
     }
 }
 
@@ -2419,128 +2442,185 @@ private struct LocalModelRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        // Outer ViewThatFits picks the compact horizontal row when the
+        // row + actions fit; otherwise falls back to a vertical stack
+        // that puts the trailing actions BELOW the leading content.
+        // SwiftUI's HStack does not wrap, so without this fallback the
+        // trailing buttons would push the badge/meta text horizontally
+        // off-screen at large Dynamic Type sizes.
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                leadingColumn
+                Spacer(minLength: 0)
+                actionsView
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                leadingColumn
+                actionsView
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var leadingColumn: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Title + badges row: ViewThatFits keeps the inline HStack
+            // when it fits horizontally; falls back to a stacked layout
+            // (display name on its own line, badges on the next line)
+            // at large Dynamic Type. Without this fallback, the inline
+            // HStack would clip at large sizes because SwiftUI HStack
+            // does not wrap.
+            ViewThatFits(in: .horizontal) {
                 HStack(spacing: 6) {
+                    titleAndBadges
+                }
+                VStack(alignment: .leading, spacing: 2) {
                     Text(descriptor.displayName)
                         .font(.footnote.weight(.semibold))
-                    if descriptor.id == localModelManager.recommendedTextModelID {
-                        Text("Recommended")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                    HStack(spacing: 6) {
+                        badgesAndState
                     }
-                    if descriptor.id == localModelManager.constrainedFallbackTextModelID {
-                        Text("Fallback")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    if let model = LocalTextModelID(rawValue: descriptor.id),
-                       model.isExperimentalForEpistemos {
-                        Text("Experimental")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundStyle(.orange)
-                    }
-                    Text(state.title)
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(.secondary)
                 }
+            }
 
-                Text(descriptor.summary)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Text(descriptor.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
+            // Footer meta row: same compact-or-stacked pattern.
+            ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) {
-                    Text(descriptor.familyName)
-                    Text(descriptor.approximateDownloadLabel)
-                    if let model = LocalTextModelID(rawValue: descriptor.id) {
-                        Text("Chat \(model.minimumRecommendedInteractiveMemoryGB) GB")
-                    } else {
-                        Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
-                    }
+                    metaItems
                 }
                 .font(.caption2.weight(.medium))
                 .foregroundStyle(.tertiary)
-
-                if case .installing(let progress) = state {
-                    ProgressView(value: progress)
-                        .controlSize(.small)
-                        .frame(maxWidth: 200)
-                } else if case .prepared = state {
-                    Text("Prepared runtime assets are already available for this tier. Install the snapshot only if you want a separate fallback copy.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else if case .blocked(let reason) = state {
-                    Text(blockedGuidance(for: reason))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    metaItems
                 }
-
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.tertiary)
             }
 
-            Spacer()
+            if case .installing(let progress) = state {
+                ProgressView(value: progress)
+                    .controlSize(.small)
+                    .frame(maxWidth: 200)
+            } else if case .prepared = state {
+                Text("Prepared runtime assets are already available for this tier. Install the snapshot only if you want a separate fallback copy.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if case .blocked(let reason) = state {
+                Text(blockedGuidance(for: reason))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
 
-            switch state {
-            case .installed:
-                HStack(spacing: 6) {
-                    Button("Reinstall") {
-                        do {
-                            try localModelManager.uninstall(modelID: descriptor.id)
-                        } catch {
-                            settingsViewLogger.error("Failed to uninstall local model \(descriptor.id, privacy: .public) before reinstall: \(error.localizedDescription, privacy: .public)")
-                            return
-                        }
-                        Task {
-                            do {
-                                try await localModelManager.install(modelID: descriptor.id)
-                            } catch {
-                                settingsViewLogger.error("Failed to reinstall local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                            }
-                        }
+    @ViewBuilder
+    private var titleAndBadges: some View {
+        Text(descriptor.displayName)
+            .font(.footnote.weight(.semibold))
+        badgesAndState
+    }
+
+    @ViewBuilder
+    private var badgesAndState: some View {
+        if descriptor.id == localModelManager.recommendedTextModelID {
+            Text("Recommended")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        if descriptor.id == localModelManager.constrainedFallbackTextModelID {
+            Text("Fallback")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.secondary)
+        }
+        if let model = LocalTextModelID(rawValue: descriptor.id),
+           model.isExperimentalForEpistemos {
+            Text("Experimental")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.orange)
+        }
+        Text(state.title)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+    }
+
+    @ViewBuilder
+    private var metaItems: some View {
+        Text(descriptor.familyName)
+        Text(descriptor.approximateDownloadLabel)
+        if let model = LocalTextModelID(rawValue: descriptor.id) {
+            Text("Chat \(model.minimumRecommendedInteractiveMemoryGB) GB")
+        } else {
+            Text("Min \(descriptor.minimumRecommendedMemoryGB) GB")
+        }
+    }
+
+    @ViewBuilder
+    private var actionsView: some View {
+        switch state {
+        case .installed:
+            HStack(spacing: 6) {
+                Button("Reinstall") {
+                    do {
+                        try localModelManager.uninstall(modelID: descriptor.id)
+                    } catch {
+                        settingsViewLogger.error("Failed to uninstall local model \(descriptor.id, privacy: .public) before reinstall: \(error.localizedDescription, privacy: .public)")
+                        return
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    Button("Delete") {
-                        do {
-                            try localModelManager.uninstall(modelID: descriptor.id)
-                        } catch {
-                            settingsViewLogger.error("Failed to delete local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                        }
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            case .prepared:
-                Button("Install Snapshot") {
                     Task {
                         do {
                             try await localModelManager.install(modelID: descriptor.id)
                         } catch {
-                            settingsViewLogger.error("Failed to install prepared local model snapshot \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                            settingsViewLogger.error("Failed to reinstall local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                         }
                     }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-            case .installing:
-                ProgressView()
-                    .controlSize(.small)
-            case .blocked:
-                blockedAction
-            case .available:
-                Button("Install") {
-                    Task {
-                        do {
-                            try await localModelManager.install(modelID: descriptor.id)
-                        } catch {
-                            settingsViewLogger.error("Failed to install local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
-                        }
+                Button("Delete") {
+                    do {
+                        try localModelManager.uninstall(modelID: descriptor.id)
+                    } catch {
+                        settingsViewLogger.error("Failed to delete local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
                     }
                 }
-                .buttonStyle(.borderedProminent)
+                .buttonStyle(.bordered)
                 .controlSize(.small)
             }
+        case .prepared:
+            Button("Install Snapshot") {
+                Task {
+                    do {
+                        try await localModelManager.install(modelID: descriptor.id)
+                    } catch {
+                        settingsViewLogger.error("Failed to install prepared local model snapshot \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        case .installing:
+            ProgressView()
+                .controlSize(.small)
+        case .blocked:
+            blockedAction
+        case .available:
+            Button("Install") {
+                Task {
+                    do {
+                        try await localModelManager.install(modelID: descriptor.id)
+                    } catch {
+                        settingsViewLogger.error("Failed to install local model \(descriptor.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
         }
-        .padding(.vertical, 4)
     }
 
     @ViewBuilder
