@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import CryptoKit
 import os
@@ -171,3 +172,4 @@ actor ShadowGitCheckpoint {
         }
     }
 }
+#endif // !EPISTEMOS_APP_STORE -- ShadowGitCheckpoint spawns /usr/bin/git, not sandbox-safe
