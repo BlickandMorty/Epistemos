@@ -132,5 +132,24 @@ Open ship-gate items for next session:
 
 ## Restore point
 
-This session = `v0-audit-checkpoint-2026-04-25` → 12 patches → commit `2c8facae`.
-To restore: `git checkout 2c8facae` (full app state with Raw Thoughts + Contextual Shadows V0 + Pro+Cloud BLOCKER fix).
+This session = `v0-audit-checkpoint-2026-04-25` → 12 patches → commit `2c8facae` → session summary `7ab63979`.
+To restore: `git checkout v0-implementation-checkpoint-2026-04-25` (full app state with Raw Thoughts + Contextual Shadows V0 + Pro+Cloud BLOCKER fix).
+
+## Patch 5 deeper verification (2026-04-25 follow-up)
+
+After session summary commit, master auditor ran Codex-rigor follow-up checks on Patch 5 (the largest+riskiest implementation slice):
+
+- **Cross-suite regression**: 17/17 tests across `RawThoughtsStateTests` (13) + `DialogueChatStateTests` (4) PASS. No regressions in adjacent suites that Patch 5's switch-exhaustiveness fixes touched.
+- **MAS profile parity**: `xcodebuild ... -scheme Epistemos-AppStore build CODE_SIGNING_ALLOWED=NO` → `** BUILD SUCCEEDED **`. Patch 5 is App Store profile-safe.
+- **Sidebar wiring** (verified by reading `RawThoughtsSection.swift:1-80`):
+  - `if !state.isEnabled { EmptyView() }` flag-respect at `:31`
+  - `DisclosureGroup` per-vault at `:34`
+  - `.sheet(item: $selectedRun) { RawThoughtsInspectorView(run: run) }` at `:54`
+  - `requestRefresh()` on expand at `:45`
+  - `providerHint` filters runs to this model vault at `:26-28`
+  - Brain icon + "Raw Thoughts" label + "Per-run thinking + tools" subtitle at `:65-72`
+  - Run count badge when non-empty at `:76-79`
+- **AppEnvironment wiring** at `AppEnvironment.swift:48`: `.environment(bootstrap.rawThoughtsState)`
+- **Manifest format parity (Rust→Swift)**: created fixture at `/tmp/p5_e2e/Raw Thoughts/anthropic/2026-04-25_run_e2e_test/manifest.json` with exact Rust emitter wire format (snake_case keys: `run_id`, `prompt_id`, `provider`, `model`, `started_at`, `ended_at`, `status`; unix ms timestamps). Format matches `DecodedManifest.CodingKeys` in `RawThoughtsState.swift:50-58`. Fixture cleaned up after verification.
+
+Verdict: Patch 5 is production-ready end-to-end. No follow-up patches required.
