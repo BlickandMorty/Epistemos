@@ -20,6 +20,7 @@ struct EpistemosAnswerBox: View {
     let onApplyCode: (String) -> Void
     let onNavigateToLine: (Int) -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = true
 
     var body: some View {
@@ -36,7 +37,7 @@ struct EpistemosAnswerBox: View {
                 Spacer()
 
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { isExpanded.toggle() }
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) { isExpanded.toggle() }
                 } label: {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 9))
@@ -129,6 +130,7 @@ struct LineBreakdownPanel: View {
     let onDismiss: (UUID) -> Void
     let onClearAll: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var selectedAnnotation: UUID?
 
     var body: some View {
@@ -173,7 +175,7 @@ struct LineBreakdownPanel: View {
                             annotation: annotation,
                             isSelected: selectedAnnotation == annotation.id,
                             onTap: {
-                                withAnimation(.easeInOut(duration: 0.15)) {
+                                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                                     selectedAnnotation = selectedAnnotation == annotation.id ? nil : annotation.id
                                 }
                                 onNavigateToLine(annotation.lineNumber)

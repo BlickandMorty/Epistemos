@@ -12,6 +12,7 @@ import SwiftUI
 
 struct EditorSkillChips: View {
     @Binding var selectedSkill: EditorSkill?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -28,7 +29,7 @@ struct EditorSkillChips: View {
     private func skillChip(_ skill: EditorSkill) -> some View {
         let isSelected = selectedSkill == skill
         return Button {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
+            withAnimation(reduceMotion ? nil : .spring(response: 0.25, dampingFraction: 0.8)) {
                 selectedSkill = (selectedSkill == skill) ? nil : skill
             }
         } label: {

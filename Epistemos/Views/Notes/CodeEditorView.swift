@@ -1245,6 +1245,7 @@ struct CodeEditorView: View {
     @Environment(NoteChatState.self) private var noteChatState: NoteChatState?
     @Environment(GraphState.self) private var graphState: GraphState?
     @Environment(TriageService.self) private var triageService: TriageService?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var text: String
     @State private var editorState: SourceEditorState = .init()
@@ -1421,7 +1422,7 @@ struct CodeEditorView: View {
                 .help("Find (Cmd-F)")
 
                 Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                         showOutlineNavigator.toggle()
                     }
                 } label: {
@@ -3567,6 +3568,7 @@ struct CodeInsightsPanel: View {
 struct InsightCard: View {
     let insight: CodeInsight
     let onOpenNote: (String) -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isExpanded = true
     
     var body: some View {
@@ -3592,7 +3594,7 @@ struct InsightCard: View {
                     .cornerRadius(4)
                 
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                         isExpanded.toggle()
                     }
                 } label: {

@@ -16,7 +16,8 @@ struct InlineResponseHighlighter: View {
     let onHoverAnnotation: (InlineResponseAnnotation?) -> Void
     let onDismissAnnotation: (UUID) -> Void
     let onNavigateToLine: (Int) -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hoveredID: UUID?
     @State private var expandedAnnotation: UUID?
     
@@ -34,7 +35,7 @@ struct InlineResponseHighlighter: View {
                         onHoverAnnotation(isHovered ? annotation : nil)
                     },
                     onTap: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) {
                             if expandedAnnotation == annotation.id {
                                 expandedAnnotation = nil
                             } else {

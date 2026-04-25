@@ -459,6 +459,7 @@ struct NotesSidebar: View {
     @Environment(ChatState.self) private var chatState
     @Environment(GraphState.self) private var graphState
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var bodySearchResults: [SidebarPageItem] = []
     @State private var pendingDeletePage: SidebarPageItem?
@@ -1562,19 +1563,19 @@ struct NotesSidebar: View {
             }
 
         case .toggleFolder(let id):
-            withAnimation(Motion.snap) { notesUI.toggleFolder(id) }
+            withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.toggleFolder(id) }
 
         case .toggleJournalFolder:
-            withAnimation(Motion.snap) { notesUI.isJournalExpanded.toggle() }
+            withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.isJournalExpanded.toggle() }
 
         case .toggleIdeasFolder:
-            withAnimation(Motion.snap) { notesUI.isIdeasExpanded.toggle() }
+            withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.isIdeasExpanded.toggle() }
 
         case .openIdea(let pageId):
             openInEditor(pageId)
 
         case .collapseAll:
-            withAnimation(Motion.snap) { notesUI.collapseAllFolders() }
+            withAnimation(reduceMotion ? nil : Motion.snap) { notesUI.collapseAllFolders() }
 
         case .summarize(let id, let title):
             chatState.loadedNoteIds.insert(id)
@@ -1884,6 +1885,7 @@ private struct FolderRow: View {
 
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isDropTarget = false
     @State private var isRenaming = false
     @State private var renameValue = ""
@@ -1902,7 +1904,7 @@ private struct FolderRow: View {
                         .font(.epSmall).fontWeight(.semibold)
                         .foregroundStyle(theme.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                        .animation(Motion.sharp, value: isExpanded)
+                        .animation(reduceMotion ? nil : Motion.sharp, value: isExpanded)
                         .frame(width: 10)
 
                     Image(
@@ -1972,7 +1974,7 @@ private struct FolderRow: View {
                 }
                 return true
             } isTargeted: { targeted in
-                withAnimation(Motion.quick) { isDropTarget = targeted }
+                withAnimation(reduceMotion ? nil : Motion.quick) { isDropTarget = targeted }
             }
             .contextMenu {
                 Button {

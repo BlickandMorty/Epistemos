@@ -8,6 +8,7 @@ struct ContextWindowIndicator: View {
     let usedTokens: Int
     let maxTokens: Int
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovering = false
 
     var body: some View {
@@ -19,7 +20,7 @@ struct ContextWindowIndicator: View {
                 Capsule()
                     .fill(barColor)
                     .frame(width: max(0, geo.size.width * CGFloat(usageFraction)))
-                    .animation(.easeInOut(duration: 0.3), value: usageFraction)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: usageFraction)
             }
         }
         .frame(height: 3)

@@ -655,14 +655,15 @@ struct CollapsibleOutlineHeader: View {
     let isActive: Bool
     let onToggle: () -> Void
     let onNavigate: () -> Void
-    
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
     
     var body: some View {
         HStack(spacing: 6) {
             // Disclosure triangle
             Button {
-                withAnimation(.easeInOut(duration: 0.15)) {
+                withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.15)) {
                     onToggle()
                 }
             } label: {

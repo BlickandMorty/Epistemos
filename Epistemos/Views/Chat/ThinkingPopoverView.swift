@@ -18,6 +18,7 @@ import SwiftUI
 /// sites already reference it, but it no longer uses a detached popover.
 struct ThinkingPopoverView: View {
     @Environment(UIState.self) private var ui
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     let thinkingContent: String
     let isThinkingActive: Bool
@@ -32,11 +33,11 @@ struct ThinkingPopoverView: View {
         panel
             .onChange(of: isThinkingActive) { _, active in
                 if active {
-                    withAnimation(.easeInOut(duration: 0.18)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                         isExpanded = true
                     }
                 } else {
-                    withAnimation(.easeInOut(duration: 0.22)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.22)) {
                         isExpanded = false
                     }
                 }
@@ -50,7 +51,7 @@ struct ThinkingPopoverView: View {
                 tone: .thinking,
                 isExpanded: isExpanded,
                 action: {
-                    withAnimation(.easeInOut(duration: 0.18)) {
+                    withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.18)) {
                         isExpanded.toggle()
                     }
                 }
@@ -82,7 +83,7 @@ struct ThinkingPopoverView: View {
                             .id("thinkingBottom")
                             .onChange(of: thinkingContent) { _, _ in
                                 guard isThinkingActive else { return }
-                                withAnimation(.easeOut(duration: 0.15)) {
+                                withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) {
                                     proxy.scrollTo("thinkingBottom", anchor: .bottom)
                                 }
                             }

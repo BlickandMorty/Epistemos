@@ -32,6 +32,7 @@ struct DiffPreviewView: View {
     let onApply: () -> Void
     let onReject: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var applied = false
 
     var body: some View {
@@ -76,7 +77,7 @@ struct DiffPreviewView: View {
                 } else {
                     Button {
                         onApply()
-                        withAnimation(.spring(response: 0.3)) { applied = true }
+                        withAnimation(reduceMotion ? nil : .spring(response: 0.3)) { applied = true }
                     } label: {
                         Label("Apply", systemImage: "checkmark")
                             .font(.system(size: 12, weight: .medium))

@@ -106,6 +106,7 @@ struct NoteOutlineOverlay: View {
     let onNavigate: (Int) -> Void
     var externalItems: [TOCItem]? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var items: [TOCItem] = []
     @State private var isHovering = false
 
@@ -141,7 +142,7 @@ struct NoteOutlineOverlay: View {
                             .padding(.trailing, 8)
                     }
                     .onHover { hovering in
-                        withAnimation(.smooth(duration: 0.18)) {
+                        withAnimation(reduceMotion ? nil : .smooth(duration: 0.18)) {
                             isHovering = hovering
                         }
                     }
@@ -149,7 +150,7 @@ struct NoteOutlineOverlay: View {
                     Spacer()
                 }
                 .frame(width: isHovering ? 210 : 6)
-                .animation(.smooth(duration: 0.18), value: isHovering)
+                .animation(reduceMotion ? nil : .smooth(duration: 0.18), value: isHovering)
             }
         }
         .task {
