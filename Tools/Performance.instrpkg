@@ -1,0 +1,280 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<package>
+	<id>io.epistemos.core.performance</id>
+	<title>Epistemos Performance</title>
+	<owner>
+		<name>Epistemos</name>
+	</owner>
+
+	<!--
+	Wave 2.2 of the Extended Program Plan
+	(`docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md`,
+	 cross-ref dpp §1.1 Task 0.2).
+
+	Custom Instruments package that materialises the six OSSignposter
+	categories declared in `Epistemos/Telemetry/Sig.swift` (Wave 2.1)
+	as first-class Instruments tables.
+
+	Subsystem: io.epistemos.core
+	Categories: render, mcp, graph, ffi, storage, inference
+
+	Each category has its own os-signpost-interval-schema so Instruments
+	can group rows by category, and an instrument that displays the
+	merged stream chronologically across all six.
+
+	To install: open this file in Instruments.app once. Instruments
+	registers the package globally for the current user.
+	-->
+
+	<!-- MARK: Schema Definitions -->
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.render-intervals</id>
+		<title>Render Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"render"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.mcp-intervals</id>
+		<title>MCP Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"mcp"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.graph-intervals</id>
+		<title>Graph Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"graph"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.ffi-intervals</id>
+		<title>FFI Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"ffi"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.storage-intervals</id>
+		<title>Storage Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"storage"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<os-signpost-interval-schema>
+		<id>io.epistemos.core.inference-intervals</id>
+		<title>Inference Intervals</title>
+		<subsystem>"io.epistemos.core"</subsystem>
+		<category>"inference"</category>
+		<name>?signpost-name</name>
+		<start-pattern>
+			<message>?metadata</message>
+		</start-pattern>
+		<end-pattern>
+			<message>?metadata</message>
+		</end-pattern>
+		<column>
+			<mnemonic>signpost-name</mnemonic>
+			<title>Signpost</title>
+			<type>string</type>
+			<expression>?signpost-name</expression>
+		</column>
+		<column>
+			<mnemonic>metadata</mnemonic>
+			<title>Metadata</title>
+			<type>string</type>
+			<expression>?metadata</expression>
+		</column>
+	</os-signpost-interval-schema>
+
+	<!-- MARK: Instrument Definitions -->
+
+	<instrument>
+		<id>io.epistemos.core.performance</id>
+		<title>Epistemos Performance</title>
+		<category>Behavior</category>
+		<purpose>All six Epistemos OSSignposter categories merged into one chronological view.</purpose>
+		<icon>Generic</icon>
+
+		<create-table>
+			<id>render-table</id>
+			<schema-ref>io.epistemos.core.render-intervals</schema-ref>
+		</create-table>
+		<create-table>
+			<id>mcp-table</id>
+			<schema-ref>io.epistemos.core.mcp-intervals</schema-ref>
+		</create-table>
+		<create-table>
+			<id>graph-table</id>
+			<schema-ref>io.epistemos.core.graph-intervals</schema-ref>
+		</create-table>
+		<create-table>
+			<id>ffi-table</id>
+			<schema-ref>io.epistemos.core.ffi-intervals</schema-ref>
+		</create-table>
+		<create-table>
+			<id>storage-table</id>
+			<schema-ref>io.epistemos.core.storage-intervals</schema-ref>
+		</create-table>
+		<create-table>
+			<id>inference-table</id>
+			<schema-ref>io.epistemos.core.inference-intervals</schema-ref>
+		</create-table>
+
+		<graph>
+			<title>Render</title>
+			<lane>
+				<title>Render</title>
+				<table-ref>render-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+			<lane>
+				<title>MCP</title>
+				<table-ref>mcp-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+			<lane>
+				<title>Graph</title>
+				<table-ref>graph-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+			<lane>
+				<title>FFI</title>
+				<table-ref>ffi-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+			<lane>
+				<title>Storage</title>
+				<table-ref>storage-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+			<lane>
+				<title>Inference</title>
+				<table-ref>inference-table</table-ref>
+				<plot>
+					<value-from>signpost-name</value-from>
+					<label-format>%s</label-format>
+				</plot>
+			</lane>
+		</graph>
+
+		<list>
+			<title>Intervals</title>
+			<table-ref>render-table</table-ref>
+			<column>signpost-name</column>
+			<column>metadata</column>
+		</list>
+	</instrument>
+</package>
