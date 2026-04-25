@@ -209,6 +209,90 @@ struct AppStoreHardeningTests {
         }
     }
 
+    // MARK: - PrivacyInfo.xcprivacy drift tests (Phase S.6)
+    //
+    // The PrivacyInfo.xcprivacy manifest declares the App Privacy posture
+    // App Store review reads alongside the App Store Connect "App Privacy"
+    // questionnaire. The audit doc PHASE_S_AUDIT.md section 3 (Privacy manifest) documents the
+    // baseline these tests guard:
+    //   NSPrivacyTracking          = false
+    //   NSPrivacyTrackingDomains   = []
+    //   NSPrivacyCollectedDataTypes = []
+    //   NSPrivacyAccessedAPITypes  = 4 required-reason categories
+    //
+    // The Settings -> Privacy transparency pane added in slice S.6 shows
+    // these manifest-backed fields to the user. If the manifest drifts (e.g.,
+    // someone adds a tracking SDK and pushes NSPrivacyTracking to true,
+    // or adds a data collection category) without updating the user-
+    // facing pane in lockstep, App Review's stated posture and the
+    // shipping app's stated posture would disagree. These tests catch
+    // the drift before review does.
+
+    private func loadPrivacyManifest() throws -> [String: Any] {
+        let url = try sourceMirrorURL(for: "Epistemos/Resources/PrivacyInfo.xcprivacy")
+        let data = try Data(contentsOf: url)
+        guard let dict = try PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: nil
+        ) as? [String: Any] else {
+            throw EntitlementsError.notADictionary("PrivacyInfo.xcprivacy")
+        }
+        return dict
+    }
+
+    @Test("PrivacyInfo.xcprivacy declares NSPrivacyTracking == false and no tracking domains")
+    func privacyManifestDeclaresNoTracking() throws {
+        let manifest = try loadPrivacyManifest()
+        let trackingMessage: Comment = "PrivacyInfo.xcprivacy NSPrivacyTracking must be false. Flipping this to true is an App Store posture change that requires updating both the Settings -> Privacy pane and the App Store Connect App Privacy questionnaire in lockstep."
+        #expect((manifest["NSPrivacyTracking"] as? Bool) == false, trackingMessage)
+
+        let domains = manifest["NSPrivacyTrackingDomains"] as? [Any] ?? []
+        let domainsMessage: Comment = "PrivacyInfo.xcprivacy NSPrivacyTrackingDomains must be empty. A non-empty array signals at least one domain doing user tracking and contradicts the user-facing claim that the app has no trackers."
+        #expect(domains.isEmpty, domainsMessage)
+    }
+
+    @Test("PrivacyInfo.xcprivacy declares no NSPrivacyCollectedDataTypes")
+    func privacyManifestCollectsNoData() throws {
+        let manifest = try loadPrivacyManifest()
+        let collected = manifest["NSPrivacyCollectedDataTypes"] as? [Any] ?? []
+        let message: Comment = "PrivacyInfo.xcprivacy NSPrivacyCollectedDataTypes must be empty. Adding a collected-data category is a substantive privacy posture change that needs an explicit user-facing disclosure (Settings -> Privacy pane), an App Store Connect questionnaire update, and a privacy policy URL update."
+        #expect(collected.isEmpty, message)
+    }
+
+    @Test("PrivacyInfo.xcprivacy declares the four expected NSPrivacyAccessedAPITypes with their reason codes")
+    func privacyManifestDeclaresFourAccessedAPITypesWithReasons() throws {
+        let manifest = try loadPrivacyManifest()
+        let accessedAPITypes = manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]] ?? []
+        var observed: [String: [String]] = [:]
+        for entry in accessedAPITypes {
+            guard let category = entry["NSPrivacyAccessedAPIType"] as? String else { continue }
+            let reasons = entry["NSPrivacyAccessedAPITypeReasons"] as? [String] ?? []
+            observed[category] = reasons
+        }
+
+        // The four required-reason API categories the audit doc section 3 records,
+        // each with the exact Apple reason code we ship today. Adding a
+        // fifth category requires updating PHASE_S_AUDIT.md section 3, this test,
+        // and the user-facing Privacy pane together.
+        let expected: [(category: String, reason: String)] = [
+            ("NSPrivacyAccessedAPICategoryFileTimestamp", "C617.1"),
+            ("NSPrivacyAccessedAPICategorySystemBootTime", "35F9.1"),
+            ("NSPrivacyAccessedAPICategoryDiskSpace", "E174.1"),
+            ("NSPrivacyAccessedAPICategoryUserDefaults", "CA92.1"),
+        ]
+
+        let countMessage: Comment = "PrivacyInfo.xcprivacy NSPrivacyAccessedAPITypes must have exactly \(expected.count) entries. Found \(accessedAPITypes.count). Add or remove a required-reason API together with PHASE_S_AUDIT.md section 3 and the Privacy pane."
+        #expect(accessedAPITypes.count == expected.count, countMessage)
+
+        for (category, reason) in expected {
+            let categoryMessage: Comment = "PrivacyInfo.xcprivacy is missing required-reason API category '\(category)'. The audit baseline declares it; restore the entry or update PHASE_S_AUDIT.md section 3."
+            #expect(observed[category] != nil, categoryMessage)
+            let reasonMessage: Comment = "PrivacyInfo.xcprivacy category '\(category)' must list reason '\(reason)' (single-element array). Found \(observed[category] ?? [])."
+            #expect(observed[category] == [reason], reasonMessage)
+        }
+    }
+
     // MARK: - Per-file MAS-branch subprocess-launch regressions (Phase S.2)
     //
     // For files that MUST stay compiled into the MAS binary (i.e. the

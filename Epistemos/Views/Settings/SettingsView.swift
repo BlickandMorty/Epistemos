@@ -86,6 +86,12 @@ struct SettingsView: View {
         case landing = "Landing"
         case appearance = "Appearance"
         case vault = "Vault"
+        /// Phase S.6 transparency pane. Reads from PrivacyInfo.xcprivacy
+        /// and surfaces what stays on the Mac, what leaves it, and the
+        /// fields the App Store App Privacy questionnaire mirrors. Visible
+        /// in both MAS and Pro because the privacy posture is the same in
+        /// both deployment profiles.
+        case privacy = "Privacy"
 
         var id: String { rawValue }
 
@@ -118,6 +124,7 @@ struct SettingsView: View {
                 .landing,
                 .appearance,
                 .vault,
+                .privacy,
             ]
             return sections
         }
@@ -154,6 +161,7 @@ struct SettingsView: View {
             case .landing: "sparkles.rectangle.stack"
             case .appearance: "paintpalette"
             case .vault: "folder"
+            case .privacy: "hand.raised.fill"
             }
         }
 
@@ -179,6 +187,7 @@ struct SettingsView: View {
                  .authority,
                  .overseer:       .automation
             case .vault:          .privacyStore
+            case .privacy:        .privacyStore
             case .general:        .advanced
             }
         }
@@ -218,6 +227,8 @@ struct SettingsView: View {
                 "Theme, graph visuals, physics presets, display mode."
             case .vault:
                 "Vault path, sync service, and retrieval indexes."
+            case .privacy:
+                "What stays on this Mac, what leaves it, and the App Privacy fields."
             }
         }
     }
@@ -317,6 +328,7 @@ struct SettingsView: View {
         case .landing: LandingDetailView()
         case .appearance: AppearanceDetailView()
         case .vault: VaultDetailView()
+        case .privacy: PrivacyDetailView()
         case nil: GeneralDetailView()
         }
     }
