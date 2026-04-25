@@ -583,4 +583,126 @@ struct AppStoreHardeningTests {
             #expect(!scan.outsideExcludedBlock && !scan.insideExcludedBlock, message)
         }
     }
+
+    // MARK: - Bounded-agent termination invariants (Phase S.4)
+    //
+    // Phase S.4 acceptance criterion (PHASE_S_AUDIT.md §7, IMPLEMENTATION_PLAN_FROM_ADVICE.md §S.4):
+    // the agent loop must terminate at the maxTurns ceiling and must NOT
+    // re-enter the backend after the ceiling fires. The local loop's strict
+    // `.maxTurnsExceeded(N)` invariant is asserted directly in
+    // `EpistemosTests/LocalAgentLoopTests.swift::localLoopStopsWhenToolCallsNeverConverge`.
+    // This suite covers the parallel invariant on the Swift `AgentQueryEngine`
+    // harness, which has its own ceiling-check at
+    // `Epistemos/Engine/AgentHarness/AgentQueryEngine.swift:169`:
+    //   if let maxTurns = config.maxTurns, turnCount > maxTurns {
+    //       continuation.yield(.sessionComplete(result: .errorMaxTurns(...)))
+    //       return
+    //   }
+    // The test uses a per-call unique backend identifier so it does not need
+    // a global unregister API, and a recording backend whose execute() bumps
+    // an actor-protected counter so we can assert the engine does NOT call
+    // through after the ceiling fires.
+
+    @Test("AgentQueryEngine emits .errorMaxTurns and stops calling the backend after maxTurns")
+    func agentQueryEngineHaltsAtMaxTurnsCeiling() async {
+        let stats = RecordingMaxTurnsBackendStats()
+        let identifier = "test.AppStoreHardeningTests.maxTurnsCeiling.\(UUID().uuidString)"
+        let backend = RecordingMaxTurnsBackend(identifier: identifier, stats: stats)
+
+        await MainActor.run {
+            BackendRegistry.shared.register(backend)
+        }
+
+        let config = AgentQueryEngineConfig(
+            backendIdentifier: identifier,
+            maxTurns: 1,
+            cwd: FileManager.default.temporaryDirectory.path
+        )
+        let engine = AgentQueryEngine(config: config)
+
+        // Turn 1 — turnCount becomes 1, NOT greater than maxTurns=1, so the
+        // engine resolves the backend and drives one execute() call. The
+        // recording backend yields `.complete(...)` immediately so the turn
+        // ends with `.success`.
+        var turn1Result: AgentQueryEngineResult?
+        do {
+            for try await event in await engine.submitMessage("first") {
+                if case .sessionComplete(let result) = event {
+                    turn1Result = result
+                }
+            }
+        } catch {
+            Issue.record("Turn 1 should not throw, got: \(error)")
+        }
+        let executeCallsAfterTurn1 = await stats.executeCallCount()
+        let turn1ExpectMessage: Comment =
+            "Turn 1 must drive the backend exactly once before the maxTurns ceiling can fire on turn 2 (turnCount becomes 1, 1 > 1 is false)."
+        #expect(executeCallsAfterTurn1 == 1, turn1ExpectMessage)
+        if case .success = turn1Result {
+            // expected branch
+        } else {
+            Issue.record("Expected .success on turn 1, got: \(String(describing: turn1Result))")
+        }
+
+        // Turn 2 — turnCount becomes 2, 2 > 1 fires the ceiling. The engine
+        // must yield `.errorMaxTurns(turns: 2)` and must NOT call execute()
+        // again. This is the invariant Phase S.4 was added to lock down.
+        var turn2Result: AgentQueryEngineResult?
+        do {
+            for try await event in await engine.submitMessage("second") {
+                if case .sessionComplete(let result) = event {
+                    turn2Result = result
+                }
+            }
+        } catch {
+            Issue.record("Turn 2 should not throw, got: \(error)")
+        }
+        let executeCallsAfterTurn2 = await stats.executeCallCount()
+        let turn2BackendCallMessage: Comment =
+            "Backend execute() must NOT be called after the maxTurns ceiling fires on turn 2; expected counter to remain 1, observed \(executeCallsAfterTurn2)."
+        #expect(executeCallsAfterTurn2 == 1, turn2BackendCallMessage)
+        if case .errorMaxTurns(_, let turns) = turn2Result {
+            let turnsMessage: Comment =
+                "Phase S.4 ceiling invariant: AgentQueryEngine reports `turns` from the post-increment turnCount; with maxTurns=1, turn 2 must report turns=2."
+            #expect(turns == 2, turnsMessage)
+        } else {
+            Issue.record("Expected .errorMaxTurns on turn 2, got: \(String(describing: turn2Result))")
+        }
+    }
+}
+
+// MARK: - Test helpers for AgentQueryEngine ceiling test
+
+/// Actor-protected counter for backend execute() invocations. Lives outside
+/// the suite struct because Swift Testing requires `@Test` methods to be
+/// instance-bound but the recording backend protocol is `nonisolated Sendable`
+/// — the actor lets the backend's execute() bump a counter without sharing
+/// mutable state.
+private actor RecordingMaxTurnsBackendStats {
+    private var count: Int = 0
+    func bump() { count += 1 }
+    func executeCallCount() -> Int { count }
+}
+
+/// Minimal `AgentBackend` that records every execute() call into the shared
+/// stats actor and yields a single immediate `.complete` event so the engine's
+/// turn loop terminates cleanly. The unique `identifier` prevents collisions
+/// with backends registered by app bootstrap or other test runs — there is no
+/// global unregister API, and this avoids needing one.
+private struct RecordingMaxTurnsBackend: AgentBackend {
+    let identifier: String
+    let displayName: String = "AppStoreHardening recording backend (max-turns)"
+    let stats: RecordingMaxTurnsBackendStats
+
+    func execute(
+        prompt: String,
+        history: [String],
+        options: AgentExecOptions
+    ) async throws -> AsyncThrowingStream<AgentBackendEvent, Error> {
+        await stats.bump()
+        return AsyncThrowingStream { continuation in
+            continuation.yield(.complete(sessionID: nil, stopReason: "stop"))
+            continuation.finish()
+        }
+    }
 }

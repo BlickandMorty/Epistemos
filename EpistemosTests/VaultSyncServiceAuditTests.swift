@@ -1784,4 +1784,169 @@ struct VaultSyncServiceAuditTests {
         #expect(!ecoMaintenance.versionCaptureActive)
         #expect(!ecoMaintenance.manifestRefreshActive)
     }
+
+    // MARK: - Phase S.4 — security-scoped bookmark + write-cycle round-trip
+    //
+    // Phase S.4 acceptance criterion (PHASE_S_AUDIT.md §7, §10):
+    // "Security-scoped bookmark round-trip tests after a sandbox-container
+    // write cycle." This test exercises the in-process round-trip:
+    // 1) real `persistVaultSelection(_:)` writes a bookmark via the actual
+    //    `URL.bookmarkData(options: .withSecurityScope, ...)` path (no
+    //    `setBookmarkDataWriterForTesting` mock),
+    // 2) the bookmark is read back from isolated UserDefaults and re-resolved
+    //    via `URL(resolvingBookmarkData:options:relativeTo:bookmarkDataIsStale:)`
+    //    using the same security-scope-then-plain fallback shape the
+    //    production `resolveVaultBookmark` helper uses,
+    // 3) a real `saveAllDirtyPages()` cycle runs against the vault directory
+    //    using the existing `setExportPageOverrideForTesting` seam to drive
+    //    a sentinel file write under the resolved URL,
+    // 4) the bookmark is re-resolved AGAIN after the write cycle to confirm
+    //    it still points at the same URL with `isStale == false`.
+    //
+    // Honest non-claim: this is an in-process re-resolve + write-cycle proof
+    // for the test bundle's host process. It does NOT prove cross-relaunch
+    // persistence under a real MAS sandbox container — that requires the
+    // signed `Epistemos-AppStore.app` running under its sandbox profile and
+    // is the TestFlight gate (Phase S.8). `startAccessingSecurityScopedResource()`
+    // is exercised only conditionally: a temp-dir URL inside the unit-test
+    // host may not always require it, so the test asserts balanced
+    // start/stop only when start returns true.
+
+    @Test("security-scoped bookmark round-trips through saveAllDirtyPages write cycle in-process")
+    func securityScopedBookmarkRoundTripsAcrossWriteCycle() async throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = VaultSyncService(modelContainer: container)
+        let isolatedDefaults = makeIsolatedDefaults()
+        let vaultURL = try makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: vaultURL) }
+
+        service.setUserDefaultsForTesting(isolatedDefaults)
+        service.setVaultURLForTesting(vaultURL)
+
+        // (1) Real persist: no bookmark writer mock; the production path
+        // calls `URL.bookmarkData(options: .withSecurityScope, ...)` and
+        // falls back to a plain bookmark if security-scope creation fails
+        // (e.g., on filesystems that don't support it). Either branch is
+        // acceptable here — we only require that *some* bookmark is stored.
+        service.persistVaultSelection(vaultURL)
+
+        let storedBookmark = isolatedDefaults.data(forKey: vaultBookmarkKey)
+        #expect(storedBookmark != nil, "persistVaultSelection must store a bookmark in the isolated defaults")
+        #expect(isolatedDefaults.string(forKey: lastVaultPathKey) == vaultURL.path)
+
+        guard let bookmarkData = storedBookmark else { return }
+
+        // (2) In-process re-resolve. Mirror the production
+        // `resolveVaultBookmark` helper's shape: try `.withSecurityScope`
+        // first, fall back to plain options on error.
+        let preWriteResolved = resolveBookmarkInProcess(bookmarkData)
+        #expect(preWriteResolved != nil, "Stored bookmark must re-resolve in-process before any write cycle")
+        guard let preWrite = preWriteResolved else { return }
+        #expect(!preWrite.isStale, "Freshly persisted bookmark must not report isStale == true on immediate re-resolve")
+        #expect(preWrite.url.standardizedFileURL.path == vaultURL.standardizedFileURL.path,
+                "Re-resolved URL must point at the same vault path the bookmark was created from")
+
+        // Conditional security-scope balance: only assert balanced
+        // start/stop when start returned true. A temp-dir URL inside the
+        // unit-test host may not require security scope at all, in which
+        // case start returns false and there is nothing to balance.
+        let preGained = preWrite.url.startAccessingSecurityScopedResource()
+        if preGained {
+            preWrite.url.stopAccessingSecurityScopedResource()
+        }
+
+        // (3) Real saveAllDirtyPages write cycle. The export override writes
+        // the page's actual body to a real sentinel file under the resolved
+        // vault URL. Returning `SDPage.bodyHash(pageBody)` is required: the
+        // production `runDirtySaveLoop` compares that hash against
+        // `SDPage.bodyHash(latestAvailableBody(...))` and re-schedules the
+        // page if they disagree, so the override must honestly export the
+        // page's current content. This matches what the production
+        // `VaultIndexActor.exportPage` does — it writes the page body to
+        // disk and returns the matching hash.
+        let pageBody = "phase-s4 round-trip sentinel body"
+        let page = insertDirtyPage(
+            in: context,
+            title: "RoundTrip",
+            body: pageBody,
+            lastSyncedHash: "old-roundtrip-hash",
+            lastSyncedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        try context.save()
+        let pageID = page.id
+        let resolvedVaultURL = preWrite.url
+
+        let sentinelGained = resolvedVaultURL.startAccessingSecurityScopedResource()
+        defer {
+            if sentinelGained {
+                resolvedVaultURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        let sentinelURL = resolvedVaultURL.appendingPathComponent("phase-s4-sentinel-\(pageID).md")
+
+        service.setExportPageOverrideForTesting { _, vaultDir in
+            let target = vaultDir.appendingPathComponent("phase-s4-sentinel-\(pageID).md")
+            try pageBody.data(using: .utf8)!.write(to: target, options: .atomic)
+            return (target.path, SDPage.bodyHash(pageBody))
+        }
+
+        let task = service.saveAllDirtyPages()
+        await task?.value
+
+        #expect(FileManager.default.fileExists(atPath: sentinelURL.path),
+                "Export override must have written the sentinel file under the resolved vault URL")
+
+        let sentinelContents = try String(contentsOf: sentinelURL, encoding: .utf8)
+        #expect(sentinelContents == pageBody)
+
+        guard let savedPage = try context.fetch(FetchDescriptor<SDPage>())
+            .first(where: { $0.id == page.id }) else {
+            Issue.record("Page disappeared after saveAllDirtyPages")
+            return
+        }
+        #expect(savedPage.needsVaultSync == false,
+                "Successful export must clear needsVaultSync — proves the write cycle reached completion")
+
+        // (4) Post-write-cycle re-resolve. The bookmark stored in step (1)
+        // must still point at the same vault URL with isStale == false
+        // after a real disk write inside that vault.
+        let postWriteResolved = resolveBookmarkInProcess(bookmarkData)
+        #expect(postWriteResolved != nil,
+                "Stored bookmark must still re-resolve after the saveAllDirtyPages write cycle")
+        guard let postWrite = postWriteResolved else { return }
+        #expect(!postWrite.isStale, "Bookmark must not become stale after a write inside the same vault directory")
+        #expect(postWrite.url.standardizedFileURL.path == vaultURL.standardizedFileURL.path,
+                "Re-resolved URL post-write-cycle must still match the original vault path")
+    }
+
+    /// In-process re-resolve helper that mirrors the production
+    /// `VaultSyncService.resolveVaultBookmark` two-step shape (security-scope
+    /// first, plain fallback). Returns the resolved URL plus the staleness
+    /// flag the test asserts on.
+    private func resolveBookmarkInProcess(_ bookmarkData: Data) -> (url: URL, isStale: Bool)? {
+        var isStale = false
+        do {
+            let resolvedURL = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: .withSecurityScope,
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            return (resolvedURL, isStale)
+        } catch {
+            do {
+                let resolvedURL = try URL(
+                    resolvingBookmarkData: bookmarkData,
+                    options: [],
+                    relativeTo: nil,
+                    bookmarkDataIsStale: &isStale
+                )
+                return (resolvedURL, isStale)
+            } catch {
+                return nil
+            }
+        }
+    }
 }
