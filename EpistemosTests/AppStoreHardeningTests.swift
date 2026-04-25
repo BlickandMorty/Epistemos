@@ -147,6 +147,58 @@ struct AppStoreHardeningTests {
         }
     }
 
+    // MARK: - Info.plist drift tests (Phase S.2)
+
+    private func loadInfoPlist(named name: String) throws -> [String: Any] {
+        let url = Self.projectRoot.appendingPathComponent(name)
+        let data = try Data(contentsOf: url)
+        guard let dict = try PropertyListSerialization.propertyList(
+            from: data,
+            options: [],
+            format: nil
+        ) as? [String: Any] else {
+            throw EntitlementsError.notADictionary(name)
+        }
+        return dict
+    }
+
+    /// Usage-description keys the MAS Info.plist must keep non-empty.
+    /// Each corresponds to a capability the app actually exercises; an
+    /// empty or missing description is an automatic App Review hold.
+    private static let masRequiredUsageDescriptionKeys: [String] = [
+        "NSMicrophoneUsageDescription",
+        "NSSpeechRecognitionUsageDescription",
+        "NSDocumentsFolderUsageDescription",
+        "NSDesktopFolderUsageDescription",
+        "NSDownloadsFolderUsageDescription",
+    ]
+
+    @Test("MAS Info.plist answers the export-compliance question")
+    func masInfoPlistDeclaresExportComplianceAnswer() throws {
+        // `ITSAppUsesNonExemptEncryption` must be present in Info.plist
+        // or App Store Connect asks the export-compliance questionnaire
+        // on every submission. Setting it statically (true or false)
+        // skips the questionnaire. Epistemos uses only standard
+        // HTTPS/TLS so `false` is the correct answer; the test just
+        // asserts the key is present so the drift that deletes it is
+        // caught.
+        let plist = try loadInfoPlist(named: "Epistemos-AppStore-Info.plist")
+        let message: Comment = "MAS Info.plist is missing ITSAppUsesNonExemptEncryption. Without it App Store Connect will prompt the export-compliance questionnaire on every submission."
+        #expect(plist["ITSAppUsesNonExemptEncryption"] != nil, message)
+    }
+
+    @Test("MAS Info.plist keeps required usage-description strings non-empty")
+    func masInfoPlistKeepsUsageDescriptionsNonEmpty() throws {
+        let plist = try loadInfoPlist(named: "Epistemos-AppStore-Info.plist")
+        for key in Self.masRequiredUsageDescriptionKeys {
+            let value = plist[key] as? String
+            let missingMessage: Comment = "MAS Info.plist is missing '\(key)'. Without it, App Store review holds the submission pending a reason string."
+            #expect(value != nil, missingMessage)
+            let emptyMessage: Comment = "MAS Info.plist '\(key)' is empty. Must be a user-facing sentence; empty strings are an auto-reject."
+            #expect(value?.isEmpty == false, emptyMessage)
+        }
+    }
+
     @Test("Pro entitlements plist still carries the Pro-only keys")
     func proEntitlementsStillCarryProOnlyKeys() throws {
         // Sanity check: if the Pro plist ever loses the Pro-only keys
