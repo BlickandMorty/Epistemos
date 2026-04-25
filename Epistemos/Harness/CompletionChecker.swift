@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import os
 
@@ -256,3 +257,4 @@ func runCommand(
         state.resume(returning: cancellationResult)
     }
 }
+#endif // !EPISTEMOS_APP_STORE -- Harness completion checker (subprocess spawning, Pro-only)

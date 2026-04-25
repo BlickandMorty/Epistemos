@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import os
 import GRDB
@@ -1558,3 +1559,4 @@ actor TraceMaterializer {
         return String(name.unicodeScalars.map { allowed.contains($0) ? Character($0) : "_" })
     }
 }
+#endif // !EPISTEMOS_APP_STORE -- Harness eval lab (subprocess spawning, Pro-only)
