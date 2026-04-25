@@ -1,3 +1,4 @@
+#if !EPISTEMOS_APP_STORE
 import Foundation
 import AppKit
 import os
@@ -367,3 +368,4 @@ struct EmbodiedTrajectory: Codable, Sendable {
     let success: Bool
     let timestamp: Date
 }
+#endif // !EPISTEMOS_APP_STORE -- EmbodiedCaptureService spawns /usr/sbin/screencapture, not sandbox-safe
