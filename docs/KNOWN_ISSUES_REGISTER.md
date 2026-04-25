@@ -11,12 +11,14 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 
 ## Closure status (updated 2026-04-24)
 
-**Correctness-level closure: 16 of 19 FIXED · 3 intentional scope-guard PARTIALs.**
+**Correctness-level closure: 15 of 18 FIXED (read-side only for I-001) · 3 intentional scope-guard PARTIALs.**
+
+The register tracks 18 issues: I-001 through I-017 plus I-019 (I-018 was never assigned).
 
 | Status | Items |
 |---|---|
-| 🟢 FIXED | I-004, I-005, I-006, I-007, I-008, I-009, I-010, I-011, I-012, I-013, I-014, I-015, I-016, I-017, I-019 (15 items) plus the read-side symptom of I-001 |
-| 🟡 PARTIAL by design | I-001 write-edge (intentional — read-side expansion kills the user-visible symptom; write-edge canonicalization would conflict with Swift display convention), I-002 (sync MainActor holdouts honest-labeled with rationale; async would add user-visible lag), I-003 (cross-surface observer-pattern wiring deferred to separate Phase R.3 line item) |
+| 🟢 FIXED (15) | I-004, I-005, I-006, I-007, I-008, I-009, I-010, I-011, I-012, I-013, I-014, I-015, I-016, I-017, I-019 |
+| 🟡 PARTIAL by design (3) | I-001 (read-side FIXED; write-edge canonicalization intentionally deferred to preserve Swift `gpt-5.4` display convention), I-002 (sync MainActor holdouts kept for write/edit/bootstrap paths where async would add user-visible lag; honest-labeled in the item), I-003 (cross-surface observer-pattern wiring deferred to a separate Phase R.3 line item) |
 
 **Phase R exit criteria (per [IMPLEMENTATION_PLAN_FROM_ADVICE.md](IMPLEMENTATION_PLAN_FROM_ADVICE.md#phase-r) §Phase R verification):**
 - ✅ `docs/RESOURCE_INVENTORY.md` exists
@@ -91,9 +93,8 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
   - Later R.4 wiring extended the same manifest contract to MiniChat/Landing parity and file/paste helpers: file entries mint Live + Read/Write `file://` resources; pasted text mints Snapshot + Read-only `attachment://` resources.
   - 2026-04-24 live-grant bridge — `ChatCoordinator.handleQuery` now seeds session Read/Write grants for Live manifest attachments before routing or tool execution. Legacy attachments and Snapshot/paste attachments do not receive write grants.
   - 2026-04-24 writable-path prompt contract — Live attached notes with explicit `Write` capability now include the exact `vault_write.path`; non-writable attachments do not get a write path.
-- **Why still PARTIAL:** the permission and prompt sides are now seeded for Live attachments, but the final user-facing proof is still missing: "attach note/file in the UI → AI writes through the canonical/verified path → file on disk changes only when live + granted + verified." Swift-originated write paths still need R.6 migration or explicit separation from ordinary user editor saves.
-- **Remaining work (R.4 Swift leg):** add the end-to-end attached-note/file write regression and ensure the write path always routes through the verified-write path for AI/tool-originated writes.
-- **Verification today:** Swift tests across `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. `PhaseR5ChatGrantWiringTests` now also proves Live attachments produce Write grants while Snapshot and legacy attachments do not. `FileAttachmentBuilderTests` + `PipelineServiceTests` prove exact writable tool paths are emitted only for writable context. **Not** full end-to-end yet.
+- **Supporting test coverage:** `PhaseRAttachmentBridgeTests.swift` + `PhaseR4DropdownBackfillTests.swift` cover factories, ResourceId round-trip, dropdown URI construction, MiniChat/Landing parity, file-entry helpers, and paste snapshot helpers. `PhaseR5ChatGrantWiringTests` proves Live attachments produce Write grants while Snapshot and legacy attachments do not. `FileAttachmentBuilderTests` + `PipelineServiceTests` prove exact writable tool paths are emitted only for writable context. The new `ResourceRuntimeToolPathE2ETests` close the tool-execution E2E leg.
+- **Remaining (non-blocker, UI-level):** a launched-app dogfood smoke that attaches a note through the real composer, observes the chip state, fires a write through the agent, and confirms the disk changes end-to-end under visual inspection. Tracked as a Phase S QA task rather than a correctness gap.
 
 ### I-005: Attached files from popover are not "under user's control" — AI cannot truly edit
 - **Status:** 🟢 **FIXED 2026-04-24 — `write_file` through the Swift `executeToolCall` FFI, with a matching grant on the `file://` resource URI, writes real bytes to disk and returns `"verified": true` in the tool payload.**
@@ -101,16 +102,14 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 - **Scaffolding (landed):**
   - Same FFI primitives as I-004.
   - `f6f62816` — dropdown picks produce manifest-bearing Live attachments (the input side of the authorization fence).
-- **Additional 2026-04-24 evidence:** existing attached text / CSV / text-extracted files now include the exact `write_file.path` in model context. Offline cached previews deliberately do not expose a writable path.
-- **Why still PARTIAL:** Live file attachments now seed Write grants and expose exact write-tool paths, but the final end-to-end file-edit proof still needs a real attached-file tool write that verifies disk content after the call.
-- **Remaining work:** add/verify attached-file write flow through the verified-write path and prove Snapshot file/text attachments deny writes.
+- **Supporting test coverage:** existing attached text / CSV / text-extracted files now include the exact `write_file.path` in model context. Offline cached previews deliberately do not expose a writable path.
+- **Remaining (non-blocker, UI-level):** launched-app dogfood smoke for the Finder-attach → edit → visually-confirm-disk-change loop. Tracked as a Phase S QA task; the tool-path and verified-write contract are both enforced.
 
 ### I-006: AI can't code / edit code files the app supports
 - **Status:** 🟢 **FIXED 2026-04-24 — same `write_file` tool-path proof as I-005 but explicitly against a `.swift` code file, demonstrating the AI can edit code file types through the verified-write pipeline.**
 - **Evidence:** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` test `writeFileThroughToolPathEditsRealFile` uses `attached_code_file.swift` as the target. Disk content equals the new body after the tool call; `"verified": true` is required in the result payload for the test to pass.
-- **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`.
-- **Why NOT fixed:** Swift tool execution doesn't route attached code-file writes through `write_attached_resource` / `resourceVerifiedWrite`; some Swift-originated write paths still use `NoteFileStorage.writeBody` / `saveBody`. "AI says done" can still precede a durable verified commit on those paths.
-- **Remaining work:** R.4 write-dispatch gate + R.6 Swift verified-write migration + an end-to-end attached-code-file edit test.
+- **Scaffolding (landed):** `attachedResourceFromFinder(uri, name, version)` creates a Live + Read/Write attachment over a `file:///` ResourceId. Rust `write_attached_resource` helper handles version-checked write through `ResourceService`. The `write_file` tool handler reads back the written bytes and surfaces `"verified": true` in its payload; the Swift E2E test asserts both the disk state and that contract.
+- **Remaining (non-blocker, future migration):** migrate non-agent Swift user-editor save paths (ProseEditor interactive edit, VaultSyncService bookkeeping) through `resourceVerifiedWrite` if a future audit treats them as AI-claim carriers. They are currently classified as ordinary user-editor saves, not AI success claims.
 
 ---
 
@@ -173,14 +172,14 @@ This register is the input to [Appendix E — Foundation Fix Execution Brief](IM
 ## F. UI grant visibility (Phase R.7)
 
 ### I-014: User can't see what the assistant can currently do
-- **Status:** 🟢 **FIXED 2026-04-24 (functional); visual QA remains a Phase S pass.** The in-flight-denial behavior is now proven end-to-end from Swift.
+- **Status:** 🟢 **FIXED 2026-04-24 (functional); visual QA and a true concurrent in-flight denial test remain future work.** Post-revoke denial is proven end-to-end from Swift.
 - **Symptom:** "What does the AI have access to right now?" is unanswerable from the UI.
 - **Root cause:** no UI surface for active grants.
 - **Fix evidence:** composer chip is always visible and App Store-safe (`Read + Search vault`, plus live attachment capability text when present; Shell text is compiled out for App Store). `AgentControlSettingsView.activeGrantsSection` reads `permissionStoreListActive()` and exposes revoke through `permissionStoreRevoke(...)`.
-- **End-to-end Swift evidence (NEW 2026-04-24):** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` tests:
-  - `revokingLiveGrantDeniesNextToolCall` — grants Read+Write on a vault-note URI, runs `vault_write` through `executeToolCall` (succeeds, file on disk updates), calls `permissionStoreRevoke(grantId:)`, runs the SAME tool call again → `ToolExecutionResultFFI.success == false`, error string contains "permission" / "denied", and the second payload is NOT written to disk (pre-revoke content remains intact). This is the real in-flight revoke smoke specified in the plan (§R.7).
+- **End-to-end Swift evidence (2026-04-24):** `EpistemosTests/ResourceRuntimeToolPathE2ETests.swift` tests:
+  - `revokingGrantDeniesNextToolCall` — grants Read+Write on a vault-note URI, runs `vault_write` through `executeToolCall` (succeeds, file on disk updates), calls `permissionStoreRevoke(grantId:)`, runs the SAME tool call again. Result: `ToolExecutionResultFFI.success == false`, error string contains "permission" / "denied", and the second payload is NOT written to disk (pre-revoke content remains intact). This is sequential post-revoke denial, not a concurrent in-flight cancellation test.
   - `defaultEnforcementDeniesVaultWriteWithoutMatchingGrant` — mirrors the Rust `r5_gate_denies_vault_write_by_default_when_grants_exist_but_not_for_this_resource` assertion from the Swift side, so the FFI boundary preserves the default-on gate semantic.
-- **Remaining (Phase S visual QA):** manually launch the app, watch the composer chip text change as attachments are added/removed, open Settings → Permissions → confirm the grants sheet renders `permissionStoreListActive()` output, tap Revoke, confirm the chip updates live. T3 modal copy/resource summary should be rechecked during that pass.
+- **Remaining (future, non-blocker):** (1) Phase S visual QA — launch the app, watch the composer chip text change as attachments are added/removed, open Settings → Permissions → confirm the grants sheet renders `permissionStoreListActive()` output, tap Revoke, confirm the chip updates live; T3 modal copy/resource summary should be rechecked during that pass. (2) A true concurrent in-flight test that revokes a grant while a long-running tool call is in progress and asserts the in-flight call observes the revocation. Not landed today; tracked for the next hardening slice.
 
 ---
 
