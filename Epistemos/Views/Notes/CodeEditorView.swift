@@ -1272,6 +1272,10 @@ struct CodeEditorView: View {
     @AppStorage("codeEditor.fontSize") private var fontSize: Double = 15
     @AppStorage("codeEditor.useSpaces") private var useSpaces = true
     @AppStorage("codeEditor.tabWidth") private var tabWidth = 4
+    // Right-side line-number gutter. Default ON; toggleable from the
+    // editor View Options menu and Settings → Appearance → Editor.
+    // Theme-aware (uses derived gutter tokens, not hard-coded colors).
+    @AppStorage("epistemos.codeEditor.showLineGutter") private var showLineGutter = true
     
     // MARK: - UI State
 
@@ -1308,6 +1312,7 @@ struct CodeEditorView: View {
                 bindNoteChatContext(with: text)
                 showSemanticSidebar = false
                 scheduleOutlineRefresh(for: text, immediate: true)
+                applyGutterPreferences()
             }
             .onDisappear {
                 outlineRefreshTask?.cancel()
@@ -1324,6 +1329,25 @@ struct CodeEditorView: View {
             .onChange(of: cursorLine) { _, newLine in
                 updateBreadcrumbs()
             }
+            .onChange(of: showLineGutter) { _, enabled in
+                sourceEditorCoordinator?.setLineGutterEnabled(enabled)
+            }
+            .onChange(of: fontSize) { _, _ in
+                applyGutterPreferences()
+            }
+            .onChange(of: ui.theme) { _, _ in
+                applyGutterPreferences()
+            }
+    }
+
+    /// Pushes gutter visibility, theme tokens, and font into the AppKit
+    /// coordinator. Cheap; called on appear and whenever a relevant
+    /// preference changes.
+    private func applyGutterPreferences() {
+        guard let coordinator = sourceEditorCoordinator else { return }
+        coordinator.setLineGutterEnabled(showLineGutter)
+        coordinator.applyGutterTokens(ui.theme.editorGutterTokens())
+        coordinator.applyEditorBodyFont(.monospacedSystemFont(ofSize: fontSize, weight: .regular))
     }
 
     private func bindNoteChatContext(with text: String) {
@@ -1604,6 +1628,7 @@ struct CodeEditorView: View {
                 Toggle("Word Wrap", isOn: $wrapLines)
                 Toggle("Outline Navigator", isOn: $showOutlineNavigator)
                 Toggle("Show Invisibles", isOn: $showInvisibles)
+                Toggle("Show Line Numbers", isOn: $showLineGutter)
             }
 
         } label: {
@@ -1821,7 +1846,21 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private weak var textController: TextViewController?
     private var lastText: String = ""
     private var indentationGuideRefreshTask: Task<Void, Never>?
-    
+
+    // Line-number gutter (right-side, theme-aware). Modeled on the
+    // indentation guide: a subview of the textView with scroll offset
+    // applied at draw time. Hidden when `showGutter == false`.
+    private weak var gutterView: CodeLineGutterView?
+    private var showGutter: Bool = true
+    private var gutterTokens: CodeLineGutterTokens = CodeLineGutterTokens(
+        foreground: NSColor.tertiaryLabelColor,
+        activeForeground: NSColor.labelColor,
+        background: .clear,
+        separator: NSColor.separatorColor
+    )
+    private var gutterDigitCount: Int = 2
+    private var lastTotalLines: Int = 0
+
     // Selection tracking for code explanation
     var onSelectionChange: ((String) -> Void)?
 
@@ -1840,6 +1879,121 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 
     func prepareCoordinator(controller: TextViewController) {
         setupIndentationGuides(controller: controller)
+        setupLineGutter(controller: controller)
+    }
+
+    /// Installs the right-side line-number gutter. Mirrors the
+    /// indent-guide setup so both views share the same scroll bridge.
+    private func setupLineGutter(controller: TextViewController) {
+        guard let tv = controller.textView else { return }
+
+        let gutter = CodeLineGutterView()
+        let bodyPointSize = tv.font.pointSize
+        gutter.lineHeight = bodyPointSize * 1.35
+        gutter.applyFont(.monospacedDigitSystemFont(
+            ofSize: CodeLineGutterPolicy.gutterFontSize(forBodyPointSize: bodyPointSize),
+            weight: .regular
+        ))
+        gutter.applyTokens(gutterTokens)
+        gutter.gutterWidth = CodeLineGutterView.preferredWidth(
+            digitCount: gutterDigitCount,
+            font: gutter.font
+        )
+        gutter.autoresizingMask = [.minXMargin, .height]
+        gutter.frame = NSRect(
+            x: tv.bounds.maxX - gutter.gutterWidth,
+            y: tv.bounds.minY,
+            width: gutter.gutterWidth,
+            height: tv.bounds.height
+        )
+        gutter.isHidden = !showGutter
+
+        tv.addSubview(gutter)
+        gutter.layer?.zPosition = 500  // above text background, below carets
+        self.gutterView = gutter
+
+        // Initial population
+        gutter.updateLineCount(lastTotalLines)
+        gutter.updateActiveLine(cursorLine)
+    }
+
+    /// Called from the SwiftUI view whenever the toggle changes. Cheap.
+    func setLineGutterEnabled(_ enabled: Bool) {
+        guard showGutter != enabled else { return }
+        showGutter = enabled
+        gutterView?.isHidden = !enabled
+        if enabled, let tv = textController?.textView {
+            gutterView?.frame = gutterFrame(in: tv)
+            updateGutterScrollOffset()
+        }
+    }
+
+    /// Re-applies the gutter color tokens. Call when the active theme
+    /// changes; cheap (one redraw, no allocation).
+    func applyGutterTokens(_ next: CodeLineGutterTokens) {
+        gutterTokens = next
+        gutterView?.applyTokens(next)
+    }
+
+    /// Re-applies the body font. Resizes the gutter accordingly.
+    func applyEditorBodyFont(_ next: NSFont) {
+        guard let gutter = gutterView else { return }
+        gutter.lineHeight = next.pointSize * 1.35
+        let gutterFont = NSFont.monospacedDigitSystemFont(
+            ofSize: CodeLineGutterPolicy.gutterFontSize(forBodyPointSize: next.pointSize),
+            weight: .regular
+        )
+        gutter.applyFont(gutterFont)
+        gutter.gutterWidth = CodeLineGutterView.preferredWidth(
+            digitCount: gutterDigitCount,
+            font: gutterFont
+        )
+        if let tv = textController?.textView {
+            gutter.frame = gutterFrame(in: tv)
+        }
+    }
+
+    private func gutterFrame(in tv: NSView) -> NSRect {
+        let width = gutterView?.gutterWidth ?? 28
+        return NSRect(
+            x: tv.bounds.maxX - width,
+            y: tv.bounds.minY,
+            width: width,
+            height: tv.bounds.height
+        )
+    }
+
+    private func updateGutterScrollOffset() {
+        guard let gutter = gutterView,
+              let tv = textController?.textView,
+              !gutter.isHidden else { return }
+        let scrollOffset: CGFloat
+        if let scrollView = tv.enclosingScrollView {
+            scrollOffset = -scrollView.documentVisibleRect.origin.y
+        } else {
+            scrollOffset = 0
+        }
+        // Keep the gutter pinned to the right edge as the textView width
+        // changes (e.g. window resize, wrap toggle).
+        gutter.frame = gutterFrame(in: tv)
+        gutter.updateScrollOffset(scrollOffset)
+    }
+
+    private func updateGutterLineCount(_ count: Int) {
+        lastTotalLines = count
+        guard let gutter = gutterView else { return }
+        gutter.updateLineCount(count)
+        let nextDigits = CodeLineGutterPolicy.digitCount(for: count)
+        if nextDigits != gutterDigitCount {
+            gutterDigitCount = nextDigits
+            gutter.gutterWidth = CodeLineGutterView.preferredWidth(
+                digitCount: nextDigits,
+                font: gutter.font
+            )
+            if let tv = textController?.textView {
+                gutter.frame = gutterFrame(in: tv)
+            }
+        }
     }
     
     /// Sets up VS Code-style segmented indentation guide overlay
@@ -1879,6 +2033,10 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
     private var scrollDebounceTask: Task<Void, Never>?
     
     @objc private func textViewDidScroll() {
+        // Gutter must follow scroll without debounce — line numbers feel
+        // broken if they lag the cursor. Cheap (one needsDisplay).
+        updateGutterScrollOffset()
+
         scrollDebounceTask?.cancel()
         scrollDebounceTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: CodeEditorPerformancePolicy.scrollGuideRefreshDelay)
@@ -1982,6 +2140,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         
         // Cursor moves should only retarget the active guide, not reparse the document.
         updateActiveIndentationGuideLevel()
+        gutterView?.updateActiveLine(cursorLine)
     }
 
     func textViewDidChangeText(controller: TextViewController) {
@@ -1989,9 +2148,11 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
 
         let newText = controller.textView.string
         lastText = newText
-        
+
         // Fast line counting without array allocation
-        totalLines = fastLineCount(newText)
+        let lineCount = fastLineCount(newText)
+        totalLines = lineCount
+        updateGutterLineCount(lineCount)
 
         // Debounce content change callback (500ms)
         contentChangeTask?.cancel()
@@ -2000,7 +2161,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
             guard !Task.isCancelled else { return }
             onContentChange?(newText)
         }
-        
+
         scheduleIndentationGuideRefresh(for: newText)
 
         os_signpost(.end, log: Self.perfLog, name: "textDidChange")
@@ -2025,6 +2186,7 @@ final class EpistemosEditorCoordinator: NSObject, TextViewCoordinator {
         indentationGuideRefreshTask?.cancel()
         NotificationCenter.default.removeObserver(self)
         indentGuideView?.removeFromSuperview()
+        gutterView?.removeFromSuperview()
     }
 }
 
