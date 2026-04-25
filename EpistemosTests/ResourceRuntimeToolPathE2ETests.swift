@@ -2,49 +2,55 @@ import Foundation
 import Testing
 @testable import Epistemos
 
-// MARK: - Phase R.4–R.7 — End-to-End Tool-Path Runtime Regressions
+// MARK: - Phase R.4-R.7 -- End-to-End Tool-Path Runtime Regressions
 //
-// These are the real-runtime E2E proofs the user asked for:
-// * I-004 / I-005 / I-006 — Live attachment writes through the actual
+// Real-runtime E2E proofs for the Swift side of the tool pipeline:
+// - I-004 / I-005 / I-006: Live attachment writes through the actual
 //   tool execution path, not a direct ResourceService.write() call.
-// * I-007 / I-008 — "AI lies about writes" / "success before durable
-//   commit" — proven at the tool-execute surface by asserting the
-//   returned payload has `"verified": true` AND the disk bytes match.
-// * I-014 — real revoke / in-flight-denial smoke: grant → succeed →
-//   revoke → same tool call denied, all through the Swift-facing
-//   `executeToolCall` FFI (the same entry point ChatCoordinator uses).
+// - I-007 / I-008: "AI lies about writes" / "success before durable
+//   commit" -- proven at the tool-execute surface by asserting the
+//   returned payload has `"verified": true` and the disk bytes match.
+// - I-014: post-revoke denial smoke. Grant -> tool call succeeds ->
+//   revoke -> the NEXT tool call on the same resource is denied.
+//   This is a sequential check, not a true concurrent in-flight
+//   cancellation test. A separate concurrency test could later prove
+//   revocation seen by an already-executing call; that is out of
+//   scope for this regression.
 //
 // Why a separate file from ResourceRuntimeRegressionTests:
 // R.9 covers the 8 canonical ResourceService-level assertions. This
-// file covers the TOOL EXECUTION path — i.e. `execute_tool_call`
-// reaching `ToolRegistry::execute` reaching the R.5 gate reaching
+// file covers the tool execution path: `execute_tool_call` reaching
+// `ToolRegistry::execute` reaching the R.5 gate reaching
 // `write_file` / `patch` / `vault_write` handlers reaching the Phase
-// R.6 verified_write pipeline. That is the whole runtime chain the
-// agent loop walks when it wants to edit a note, and it needs its
-// own regression file so a future refactor of the tool registry
-// surfaces here, not inside R.9.
+// R.6 verified_write pipeline. A future refactor of the tool
+// registry should surface here, not inside R.9.
 //
-// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md §Phase R.4–R.7 ·
+// Plan refs: docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md Phase R.4-R.7,
 // docs/KNOWN_ISSUES_REGISTER.md I-004, I-005, I-006, I-007, I-008, I-014.
 //
-// IMPORTANT: the permission store is a process-local singleton. Every
-// test here seeds a unique vault dir + unique resource URI so its
-// grants do not collide with residue from other suites running in the
-// same xctest process. Revoke at the end of every test so subsequent
+// Note: the permission store is a process-local singleton. Every test
+// here seeds a unique vault dir and unique resource URI so its grants
+// do not collide with residue from other suites running in the same
+// xctest process. Revoke at the end of every test so subsequent
 // r5_gate / default-enforcement assertions remain stable.
 
-@Suite("Phase R.4–R.7 — Tool Path E2E")
+@Suite("Phase R.4-R.7 -- Tool Path E2E")
 struct ResourceRuntimeToolPathE2ETests {
 
     // MARK: - Scratch vault helper
 
     /// Matches the Rust pattern in `agent_core/src/tools/registry.rs`
-    /// tests: the vault_id baked into the grant URI is the LAST
+    /// tests: the vault_id baked into the grant URI is the last
     /// component of vault_root. `VaultStore::open` derives the same
-    /// value, so the URI format stays stable across Rust/Swift paths.
+    /// value, so the URI format stays stable across Rust and Swift.
     private struct ScratchVault {
         let rootURL: URL
         let vaultId: String
+    }
+
+    enum E2EError: Error {
+        case grantFailed
+        case jsonEncodingFailed(String)
     }
 
     private func makeScratchVault(label: String) throws -> ScratchVault {
@@ -65,18 +71,36 @@ struct ResourceRuntimeToolPathE2ETests {
         "vault://\(vault.vaultId)/note/\(relativePath)"
     }
 
-    private func vaultWriteInputJSON(relativePath: String, content: String) -> String {
+    /// Safely encode a JSON object to a UTF-8 string. Throws instead
+    /// of force-unwrapping so a future dictionary shape that cannot be
+    /// serialized surfaces as a test failure message, not a crash.
+    private func encodeJSONObject(_ obj: [String: Any]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys])
+        guard let str = String(data: data, encoding: .utf8) else {
+            throw E2EError.jsonEncodingFailed("JSON data was not valid UTF-8")
+        }
+        return str
+    }
+
+    private func vaultWriteInputJSON(relativePath: String, content: String) throws -> String {
         // Matches the shape the Rust tool handler accepts in
-        // `agent_core/src/tools/registry.rs` (see fn vault_write_input
-        // at ~L3068). `skip_contradiction_check` avoids wiring the
+        // `agent_core/src/tools/registry.rs` (fn vault_write_input at
+        // about L3068). `skip_contradiction_check` avoids wiring the
         // learning protocol into this plain E2E regression.
         let obj: [String: Any] = [
             "path": relativePath,
             "content": content,
             "skip_contradiction_check": true,
         ]
-        let data = try! JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys])
-        return String(data: data, encoding: .utf8)!
+        return try encodeJSONObject(obj)
+    }
+
+    private func writeFileInputJSON(path: String, content: String) throws -> String {
+        let obj: [String: Any] = [
+            "path": path,
+            "content": content,
+        ]
+        return try encodeJSONObject(obj)
     }
 
     private func seedGrant(uri: String, capabilities: [String]) async throws -> String {
@@ -92,13 +116,11 @@ struct ResourceRuntimeToolPathE2ETests {
         return grantID
     }
 
-    enum E2EError: Error { case grantFailed }
-
     // MARK: - I-004 / I-005 / I-006 / I-007 / I-008
-    //         Live vault note write succeeds AND the file on disk changes
-    //         AND the tool payload reports verified=true.
+    //         Live vault note write succeeds and the file on disk
+    //         changes and the tool payload reports verified=true.
 
-    @Test("vault_write through executeToolCall changes real file and reports verified=true (I-004–I-008)")
+    @Test("vault_write through executeToolCall changes real file and reports verified=true (I-004..I-008)")
     func vaultWriteThroughToolPathChangesRealFileAndReportsVerified() async throws {
         let vault = try makeScratchVault(label: "vault-write-ok")
         defer { cleanup(vault) }
@@ -106,7 +128,7 @@ struct ResourceRuntimeToolPathE2ETests {
         let relativePath = "Inbox/Granted-\(UUID().uuidString).md"
         let uri = vaultNoteURI(vault, relativePath: relativePath)
 
-        // Grant Write on the EXACT resource the tool will target.
+        // Grant Write on the exact resource the tool will target.
         let grantID = try await seedGrant(uri: uri, capabilities: ["Read", "Write"])
 
         // Fire the real tool path ChatCoordinator uses.
@@ -115,13 +137,13 @@ struct ResourceRuntimeToolPathE2ETests {
             vaultPath: vault.rootURL.path,
             tier: "agent",
             toolName: "vault_write",
-            inputJson: vaultWriteInputJSON(relativePath: relativePath, content: payload)
+            inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: payload)
         )
 
-        #expect(result.success, "tool must report success for granted write — error=\(result.error ?? "nil")")
+        #expect(result.success, "tool must report success for granted write, error=\(result.error ?? "nil")")
         #expect(result.error == nil, "no error on granted write")
 
-        // Tool-payload contract: the handler now returns `"verified": true`
+        // Tool-payload contract: the handler returns `"verified": true`
         // after reading back the durable bytes (I-007/I-008 fix).
         if let json = result.outputJson.data(using: .utf8),
            let parsed = try? JSONSerialization.jsonObject(with: json) as? [String: Any] {
@@ -139,16 +161,17 @@ struct ResourceRuntimeToolPathE2ETests {
         #expect(onDiskText.contains(payload),
                 "real file must reflect the body written by the tool")
 
-        // Housekeeping — do not leak grants into sibling tests.
+        // Housekeeping: do not leak grants into sibling tests.
         _ = await permissionStoreRevoke(grantId: grantID)
     }
 
-    // MARK: - I-014
-    //         Grant → tool call succeeds. Revoke mid-flight. Same tool
-    //         call now fails with a permission error. No second write.
+    // MARK: - I-014 post-revoke denial
+    //         Grant -> tool call succeeds. Revoke. The NEXT tool call
+    //         fails with a permission error and leaves disk unchanged.
+    //         This is sequential, not a concurrent in-flight test.
 
-    @Test("revoking a live grant denies the next tool call clearly (I-014 in-flight revoke)")
-    func revokingLiveGrantDeniesNextToolCall() async throws {
+    @Test("revoking a grant denies the next tool call on the same resource (I-014 post-revoke denial)")
+    func revokingGrantDeniesNextToolCall() async throws {
         let vault = try makeScratchVault(label: "revoke-denies")
         defer { cleanup(vault) }
 
@@ -163,7 +186,7 @@ struct ResourceRuntimeToolPathE2ETests {
             vaultPath: vault.rootURL.path,
             tier: "agent",
             toolName: "vault_write",
-            inputJson: vaultWriteInputJSON(relativePath: relativePath, content: firstPayload)
+            inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: firstPayload)
         )
         #expect(firstCall.success, "first call with grant must succeed: \(firstCall.error ?? "nil")")
         let firstOnDisk = try String(
@@ -172,17 +195,17 @@ struct ResourceRuntimeToolPathE2ETests {
         )
         #expect(firstOnDisk.contains(firstPayload))
 
-        // In-flight revoke.
+        // Revoke between calls (sequential, not concurrent).
         let revoked = await permissionStoreRevoke(grantId: grantID)
         #expect(revoked, "revoke must succeed for a valid active grant id")
 
-        // Second call — same tool, same resource, now with no grant.
-        let secondPayload = "second body AFTER revoke — must not land"
+        // Second call: same tool, same resource, no grant.
+        let secondPayload = "second body after revoke must not land"
         let secondCall = try await executeToolCall(
             vaultPath: vault.rootURL.path,
             tier: "agent",
             toolName: "vault_write",
-            inputJson: vaultWriteInputJSON(relativePath: relativePath, content: secondPayload)
+            inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: secondPayload)
         )
 
         #expect(!secondCall.success, "revoked grant must deny the follow-up write")
@@ -195,7 +218,7 @@ struct ResourceRuntimeToolPathE2ETests {
                     "error must name the permission/denial class, got: \(err)")
         }
 
-        // Durable-bytes proof: the second payload MUST NOT be on disk.
+        // Durable-bytes proof: the second payload must not be on disk.
         let finalOnDisk = try String(
             contentsOf: vault.rootURL.appendingPathComponent(relativePath),
             encoding: .utf8
@@ -206,11 +229,11 @@ struct ResourceRuntimeToolPathE2ETests {
                 "pre-revoke content must remain intact")
     }
 
-    // MARK: - I-014 / I-009
-    //         Default-on enforcement — tool call denied when no grant
+    // MARK: - I-014 / I-009 default-on gate
+    //         Default-on enforcement: tool call denied when no grant
     //         exists for the target resource. Mirrors the Rust test
-    //         `r5_gate_denies_vault_write_by_default_when_grants_exist
-    //         _but_not_for_this_resource` at agent_core/src/tools/
+    //         r5_gate_denies_vault_write_by_default_when_grants_exist_
+    //         but_not_for_this_resource at agent_core/src/tools/
     //         registry.rs:3114 so the Swift FFI path surfaces the
     //         same semantic.
 
@@ -221,7 +244,7 @@ struct ResourceRuntimeToolPathE2ETests {
 
         let relativePath = "Inbox/NoGrant-\(UUID().uuidString).md"
 
-        // Seed a grant on an UNRELATED resource — this is the exact
+        // Seed a grant on an unrelated resource. This is the exact
         // scenario where early drafts of the gate would incorrectly
         // allow (any grant treated as a blanket "store is not empty"
         // pass). The default-on flip fixed that.
@@ -232,7 +255,7 @@ struct ResourceRuntimeToolPathE2ETests {
             vaultPath: vault.rootURL.path,
             tier: "agent",
             toolName: "vault_write",
-            inputJson: vaultWriteInputJSON(relativePath: relativePath, content: "should not land")
+            inputJson: try vaultWriteInputJSON(relativePath: relativePath, content: "should not land")
         )
 
         #expect(!result.success,
@@ -242,7 +265,7 @@ struct ResourceRuntimeToolPathE2ETests {
                     "denial error must name permission/denied, got: \(err)")
         }
 
-        // File must not exist or must not contain the rejected payload.
+        // File must not exist, or must not contain the rejected payload.
         let onDiskURL = vault.rootURL.appendingPathComponent(relativePath)
         if FileManager.default.fileExists(atPath: onDiskURL.path) {
             let text = try String(contentsOf: onDiskURL, encoding: .utf8)
@@ -255,13 +278,13 @@ struct ResourceRuntimeToolPathE2ETests {
 
     // MARK: - I-005 / I-006
     //         write_file tool (distinct from vault_write) for an
-    //         attached FILE (Finder-drag) / code file. Proves the
+    //         attached file (Finder-drag) or code file. Proves the
     //         file:// branch of the tool-path pipeline hardens the
     //         same way as the vault-note branch.
 
     @Test("write_file through executeToolCall edits real file when granted (I-005/I-006)")
     func writeFileThroughToolPathEditsRealFile() async throws {
-        // Scratch dir (not a vault — arbitrary file target, like a
+        // Scratch dir (not a vault; arbitrary file target, like a
         // Finder-attached code file the user dropped into the composer).
         let tmp = FileManager.default.temporaryDirectory
             .appendingPathComponent("e2e-write-file-\(UUID().uuidString)")
@@ -274,15 +297,8 @@ struct ResourceRuntimeToolPathE2ETests {
         let fileURI = "file://\(targetURL.path)"
         let grantID = try await seedGrant(uri: fileURI, capabilities: ["Read", "Write"])
 
-        let newContent = "// edited by the tool path — \(UUID().uuidString)\n"
-        let inputJSON: String = {
-            let obj: [String: Any] = [
-                "path": targetURL.path,
-                "content": newContent,
-            ]
-            let data = try! JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys])
-            return String(data: data, encoding: .utf8)!
-        }()
+        let newContent = "// edited by the tool path -- \(UUID().uuidString)\n"
+        let inputJSON = try writeFileInputJSON(path: targetURL.path, content: newContent)
 
         let result = try await executeToolCall(
             vaultPath: tmp.path,
@@ -291,7 +307,7 @@ struct ResourceRuntimeToolPathE2ETests {
             inputJson: inputJSON
         )
 
-        #expect(result.success, "granted write_file must succeed — error=\(result.error ?? "nil")")
+        #expect(result.success, "granted write_file must succeed, error=\(result.error ?? "nil")")
         #expect(result.error == nil)
 
         // Disk-truth proof.
