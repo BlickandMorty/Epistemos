@@ -178,6 +178,114 @@ nonisolated struct EpdocQueryTests {
         #expect(!EpdocQueryEvaluator.evaluate(q, row: row))
     }
 
+    // MARK: - W7.13.d named-rule registry
+
+    @Test("EpdocBuiltInRules.allRuleNames advertises the V1 catalogue (auto-complete + parser source)")
+    func ruleCatalogueExposed() {
+        let names = Set(EpdocBuiltInRules.allRuleNames)
+        let expected: Set<String> = [
+            "has-property", "is-empty",
+            "recently-updated", "older-than",
+            "has-attached-thoughts",
+            "complexity-above", "complexity-below",
+        ]
+        #expect(names == expected,
+                "the slash-menu + parser MUST see the same rule list; got \(names.sorted())")
+    }
+
+    @Test(".rule is-empty matches rows with zero typed properties")
+    func ruleIsEmpty() throws {
+        let withProps = try Self.row(id: "p", title: "x", props: ["status": .select("doing")])
+        let bare      = try Self.row(id: "b", title: "y", props: [:])
+        let q: EpdocQueryAST = .rule(name: "is-empty", args: [])
+        #expect(!EpdocQueryEvaluator.evaluate(q, row: withProps))
+        #expect(EpdocQueryEvaluator.evaluate(q, row: bare))
+    }
+
+    @Test(".rule recently-updated <days> + .rule older-than <days> partition rows around the wall clock")
+    func ruleRecentlyUpdatedAndOlderThan() throws {
+        let yesterday = try Self.row(id: "y", title: "y", props: [:], createdAtOffsetDays: -1)
+        let lastMonth = try Self.row(id: "m", title: "m", props: [:], createdAtOffsetDays: -45)
+
+        // recently-updated 7 → yesterday yes, lastMonth no
+        let recent7: EpdocQueryAST = .rule(name: "recently-updated",
+                                            args: [.titleContains("7")])
+        #expect(EpdocQueryEvaluator.evaluate(recent7, row: yesterday))
+        #expect(!EpdocQueryEvaluator.evaluate(recent7, row: lastMonth))
+
+        // older-than 7 → yesterday no, lastMonth yes
+        let stale7: EpdocQueryAST = .rule(name: "older-than",
+                                          args: [.titleContains("7")])
+        #expect(!EpdocQueryEvaluator.evaluate(stale7, row: yesterday))
+        #expect(EpdocQueryEvaluator.evaluate(stale7, row: lastMonth))
+    }
+
+    @Test(".rule has-attached-thoughts reads the W7.15 metadata key")
+    func ruleHasAttachedThoughts() throws {
+        let m = EpdocManifest(
+            id: "x",
+            createdAt: 0,
+            updatedAt: 0,
+            title: "x",
+            contentHash: "",
+            provenance: EpdocProvenance(producer: .human),
+            metadata: ["attached-thoughts": "run-1,run-2"]
+        )
+        let withThoughts = EpdocDatabaseRow(manifest: m)
+        let bare = try Self.row(id: "b", title: "b", props: [:])
+
+        let q: EpdocQueryAST = .rule(name: "has-attached-thoughts", args: [])
+        #expect(EpdocQueryEvaluator.evaluate(q, row: withThoughts))
+        #expect(!EpdocQueryEvaluator.evaluate(q, row: bare))
+    }
+
+    @Test(".rule complexity-above + complexity-below read the W7.12 metadata key")
+    func ruleComplexityThresholds() throws {
+        let mAt08 = EpdocManifest(
+            id: "x",
+            createdAt: 0,
+            updatedAt: 0,
+            title: "x",
+            contentHash: "",
+            provenance: EpdocProvenance(producer: .human),
+            metadata: ["complexity": "0.8"]
+        )
+        let highComplexity = EpdocDatabaseRow(manifest: mAt08)
+
+        let above05: EpdocQueryAST = .rule(name: "complexity-above",
+                                           args: [.titleContains("0.5")])
+        #expect(EpdocQueryEvaluator.evaluate(above05, row: highComplexity))
+
+        let below05: EpdocQueryAST = .rule(name: "complexity-below",
+                                           args: [.titleContains("0.5")])
+        #expect(!EpdocQueryEvaluator.evaluate(below05, row: highComplexity))
+
+        // Missing complexity metadata → both rules return false (rule
+        // failure, NOT a panic; the user expects "no match" not a crash)
+        let bare = try Self.row(id: "b", title: "b", props: [:])
+        #expect(!EpdocQueryEvaluator.evaluate(above05, row: bare))
+        #expect(!EpdocQueryEvaluator.evaluate(below05, row: bare))
+    }
+
+    @Test("Built-in rules tolerate malformed args by returning false (defensive evaluation)")
+    func ruleArgCoercionDefensive() throws {
+        let row = try Self.row(id: "x", title: "x", props: [:])
+
+        // recently-updated with no arg → false
+        #expect(!EpdocQueryEvaluator.evaluate(
+            .rule(name: "recently-updated", args: []), row: row))
+
+        // recently-updated with non-numeric arg → false
+        #expect(!EpdocQueryEvaluator.evaluate(
+            .rule(name: "recently-updated", args: [.titleContains("forever")]),
+            row: row))
+
+        // complexity-above with non-numeric threshold → false
+        #expect(!EpdocQueryEvaluator.evaluate(
+            .rule(name: "complexity-above", args: [.titleContains("zero")]),
+            row: row))
+    }
+
     // MARK: - End-to-end via EpdocDatabase
 
     @Test("EpdocDatabase.rows(matching:) projects + filters in one call")

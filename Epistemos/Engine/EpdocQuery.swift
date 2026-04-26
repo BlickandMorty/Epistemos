@@ -198,26 +198,155 @@ nonisolated public enum EpdocQueryEvaluator {
     }
 }
 
-// MARK: - Built-in rules registry (W7.13.d hook)
+// MARK: - Built-in rules registry (W7.13.d)
 
-/// Named rule registry. W7.13.a ships the dispatcher hook + an empty
-/// rule table; W7.13.d will populate it with the `parent` /
-/// `class-extends` / `has-property` / etc. predicates Logseq lifts to
-/// `rules.cljc:1-366`. Keeping the dispatcher in this file means
-/// W7.13.b's parser can safely emit `.rule(name:args:)` AST nodes
-/// today and they'll start matching as soon as W7.13.d registers
-/// real handlers.
+/// Named rule registry — Logseq's `rules.cljc:1-366` ported to Swift.
+/// Each rule is a small predicate over a single `EpdocDatabaseRow`.
+/// Rules are addressable by name from the query DSL via
+/// `(rule <name> <args>...)`. Unknown rule names safely return false
+/// so an out-of-date query never matches more than the user expects.
+///
+/// V1 rules (this commit ships 7; the W7.14 graph follow-up adds
+/// the `.parent`, `.classExtends`, `.subjectOf` graph-traversal
+/// rules once the SDGraphNode index is populated):
+///
+///   has-property <propertyID>
+///       True iff the row has any value for the given property id.
+///       Sugar shape: `(rule has-property (property foo (select x)))`
+///       — the value inside the .property argument is ignored; only
+///       the id matters. This matches Logseq's
+///       `(has-property ?b :propertyID)` predicate exactly.
+///
+///   is-empty
+///       True iff the row has zero typed properties at all (i.e. no
+///       properties.* keys in the manifest metadata bag). Useful as a
+///       "show me docs that haven't been categorised yet" filter.
+///
+///   recently-updated <days>
+///       True iff manifest.updatedAt is within the last N days of now.
+///       The days arg is encoded as an .alwaysTrue/.alwaysFalse leaf
+///       carrying the integer in a recognised form, OR as a bare
+///       (titleContains) AST node whose body is the integer string —
+///       see `extractIntArg(_:)`.
+///
+///   older-than <days>
+///       True iff manifest.updatedAt is more than N days behind now.
+///       Mirror of recently-updated.
+///
+///   has-attached-thoughts
+///       True iff the row's `manifest.metadata["attached-thoughts"]`
+///       count is non-zero (this metadata key is populated by the
+///       W7.15 ThoughtAttachmentBridge integration). Surfaces the
+///       Notion-like "show me docs that have backlinks" filter.
+///
+///   complexity-above <threshold>
+///       True iff `manifest.metadata["complexity"]` (W7.12 scalar) is
+///       greater than `threshold` (a Double in [0, 1]). Sugar over
+///       reading + parsing the metadata value.
+///
+///   complexity-below <threshold>
+///       True iff complexity scalar is less than `threshold`.
+///
 nonisolated public enum EpdocBuiltInRules {
+
+    /// Every rule name the registry knows. Surfacing this list lets
+    /// the W7.17 slash menu offer auto-complete + the W7.13.b parser
+    /// emit a typed parse error on a typo'd rule name.
+    public static let allRuleNames: [String] = [
+        "has-property",
+        "is-empty",
+        "recently-updated",
+        "older-than",
+        "has-attached-thoughts",
+        "complexity-above",
+        "complexity-below",
+    ]
+
     public static func evaluate(name: String, args: [EpdocQueryAST], row: EpdocDatabaseRow) -> Bool {
         switch name {
         case "has-property":
-            // (rule has-property propertyID) → true iff the row has a
-            // value for that property id at all.
             guard case .property(let id, _) = args.first else { return false }
             return row.value(forPropertyID: id) != nil
+
+        case "is-empty":
+            return row.properties.isEmpty
+
+        case "recently-updated":
+            guard let days = extractIntArg(args.first), days >= 0 else { return false }
+            return isUpdatedWithinDays(row.manifest.updatedAt, days: days)
+
+        case "older-than":
+            guard let days = extractIntArg(args.first), days >= 0 else { return false }
+            return !isUpdatedWithinDays(row.manifest.updatedAt, days: days)
+
+        case "has-attached-thoughts":
+            // W7.15 bridge writes `attached-thoughts` into the metadata
+            // bag as a comma-separated id list. Empty / missing → false.
+            guard let raw = row.manifest.metadata?["attached-thoughts"] else { return false }
+            return raw.split(separator: ",").contains(where: { !$0.isEmpty })
+
+        case "complexity-above":
+            guard let threshold = extractDoubleArg(args.first) else { return false }
+            guard let complexity = parseComplexity(from: row.manifest) else { return false }
+            return complexity > threshold
+
+        case "complexity-below":
+            guard let threshold = extractDoubleArg(args.first) else { return false }
+            guard let complexity = parseComplexity(from: row.manifest) else { return false }
+            return complexity < threshold
+
         default:
             return false
         }
+    }
+
+    // MARK: - Argument coercion
+
+    /// Read a numeric arg the parser packed into a `.titleContains` or
+    /// `.property(_, .number(_))` AST shape. Why those two shapes:
+    /// the W7.13.b parser doesn't know rule signatures so it lowers
+    /// every bare token to .titleContains; explicit `(property _ (number N))`
+    /// is the typed escape hatch.
+    static func extractIntArg(_ node: EpdocQueryAST?) -> Int? {
+        guard let node else { return nil }
+        switch node {
+        case .titleContains(let s):
+            return Int(s)
+        case .property(_, .number(let d)):
+            return Int(d)
+        default:
+            return nil
+        }
+    }
+
+    static func extractDoubleArg(_ node: EpdocQueryAST?) -> Double? {
+        guard let node else { return nil }
+        switch node {
+        case .titleContains(let s):
+            return Double(s)
+        case .property(_, .number(let d)):
+            return d
+        default:
+            return nil
+        }
+    }
+
+    /// Read the `manifest.metadata["complexity"]` value as a Double.
+    /// Returns nil when the key is missing or unparseable. The W7.12
+    /// EpdocComplexityCalculator writer emits a stringified
+    /// `String(scalar)` so `Double(_:)` round-trips it cleanly.
+    static func parseComplexity(from manifest: EpdocManifest) -> Double? {
+        guard let raw = manifest.metadata?["complexity"] else { return nil }
+        return Double(raw)
+    }
+
+    /// True iff `updatedAtMs` (Unix milliseconds) is within `days`
+    /// days of now. `now` is sampled per-call against the system clock
+    /// so the rule tracks the wall clock from query to query.
+    private static func isUpdatedWithinDays(_ updatedAtMs: Int64, days: Int) -> Bool {
+        let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+        let windowMs = Int64(days) * 24 * 60 * 60 * 1000
+        return (nowMs - updatedAtMs) <= windowMs
     }
 }
 
