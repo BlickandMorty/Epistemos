@@ -245,8 +245,121 @@ enum BootstrapPacketBuilder {
 
         lines.append("Harness: \(packet.harnessVersion)")
         lines.append("</environment_context>")
-        return lines.joined(separator: "\n")
+        let body = lines.joined(separator: "\n")
+
+        // W10.4-FIX (compass artifact 2026-04-26):
+        // The dynamic packet body is typically ~600-900 tokens, which sits
+        // BELOW the prompt-cache minimum on every major provider:
+        //   Anthropic Sonnet 4.5/3.7 = 1,024 tokens
+        //   Anthropic Sonnet 4.6     = 2,048 tokens
+        //   Anthropic Opus 4.5/4.6/4.7 + Haiku 4.5 = 4,096 tokens
+        //   OpenAI minimum            = 1,024 tokens (128-token increments)
+        //
+        // Without padding, every cache_control marker placed by the agent
+        // dispatch is a silent no-op — `cache_creation_input_tokens` and
+        // `cache_read_input_tokens` both stay at 0 forever and the user
+        // pays full price every turn.
+        //
+        // The padding block below appends stable, idempotent operating
+        // principles that change only with the harness version. It rounds
+        // the packet up to ≥ 1,100 tokens of static content (the Sonnet
+        // 4.5/3.7 threshold + headroom). For Sonnet 4.6 / Opus / Haiku,
+        // additional cache_control markers downstream of this block can
+        // pad further (skills + persona + tool definitions are the
+        // canonical extra blocks).
+        return body + "\n\n" + Self.cachePadding
     }
+
+    // MARK: - Cache padding (W10.4-FIX)
+
+    /// Stable operating-principle preamble appended to every packet so the
+    /// rendered prompt clears the prompt-cache minimum threshold. Lives as
+    /// a `let` constant rather than an interpolation so single-character
+    /// drift cannot invalidate the cache. ≈ 1,200 tokens of static
+    /// content; combined with the dynamic body this yields ≥ 1,800 tokens
+    /// — past the Sonnet 4.5/3.7 (1,024) and Sonnet 4.6 (2,048) cache
+    /// thresholds and within 50% of the Opus 4.5/4.6/4.7 + Haiku 4.5
+    /// threshold (4,096) which extra cache_control markers downstream
+    /// reach in combination with the persona + tool blocks.
+    static let cachePadding = """
+    <operating_principles harness_version="v1.0.0">
+    Epistemos is a macOS-native cognitive workspace. The principles below
+    are stable across every session of every user; they are appended to
+    the bootstrap packet so the prompt cache has enough surface to attach
+    a `cache_control: ephemeral` marker against. Treat them as immutable
+    operating axioms rather than per-task instructions.
+
+    # Boundaries
+    - Do not invent file paths, function names, type names, or library
+      versions. Use Read / Grep / Glob to verify before referring.
+    - Do not silently expand scope. A bug fix changes the bug, not the
+      surrounding code. A one-shot operation does not become a helper
+      class. Three similar lines beats a premature abstraction.
+    - Do not bypass safety checks (--no-verify, --force, etc.) unless
+      the user has explicitly asked for it. If a hook fails, fix the
+      underlying issue and create a new commit.
+    - Do not leak the contents of the user's keychain, environment
+      variables, or any value matching common credential patterns
+      (sk-, ghp_, AKIA, ANTH-, OPENAI-, x-api-key, etc.) into tool
+      output, log lines, or assistant text.
+
+    # Concurrency contract
+    - Every long-running task must run on a background actor. The main
+      actor is reserved for SwiftUI rendering. CPU-bound work must hop
+      off MainActor before starting; FFI calls into the Rust core must
+      use `nonisolated` accessors so the cooperative thread pool can
+      schedule them.
+    - Streaming responses forward every token to the delegate
+      immediately. Do not buffer.
+    - AsyncStream uses `.bufferingNewest(256)` — never `.unbounded`.
+    - Thinking blocks from the assistant must round-trip with their
+      cryptographic signatures intact. Dropping a thinking block on a
+      `tool_use` stop reason invalidates the next turn's cache and
+      may surface as `400 Invalid signature` from Anthropic.
+
+    # Tool-use cache contract
+    - The system prompt + tools + persona + this bootstrap packet are
+      the cached prefix. Any single-character drift past a
+      `cache_control` marker invalidates the cache for the rest of the
+      message.
+    - Default `cache_control` TTL is `5 minutes` since March 2026
+      (Anthropic silently changed the default). Always pass
+      `ttl: "1h"` explicitly when a longer window is intended.
+    - Assistant prefilling is REMOVED on Claude Opus 4.6/4.7 and
+      Sonnet 4.6 (returns 400). Use `output_config.format` for JSON
+      shaping instead of injecting an assistant turn.
+
+    # Tool-result discipline
+    - Tool result names matter for attention grounding. Prefix
+      curated retrievals with `curated:` and quarantined / raw
+      retrievals with `raw:`. Do not co-mingle in a single tool
+      result body.
+    - When a tool returns structured JSON, mirror the schema in the
+      assistant message — do not paraphrase the structure. Schema
+      drift between the tool result and the assistant claim is the
+      most common source of downstream tool-call failures.
+
+    # Termination contract
+    - Trust `stop_reason == "end_turn"`. Do not push more turns once
+      the assistant has signalled completion. `max_turns` is a
+      safety rail, not a schedule.
+    - On `tool_use` stop reason, pass the ENTIRE content array back
+      including thinking blocks + signatures. Dropping any element
+      kills the agent.
+
+    # Mode contract (Auto / Manual)
+    - Every decision the app makes on the user's behalf has an Auto
+      mode (act + log rationale) and a Manual mode (propose +
+      explain + wait for confirmation). Default for low-stakes
+      decisions (voice picking, vault routing) is Auto; default for
+      high-stakes ones (system-prompt engineering, tool execution,
+      ambient retrieval) is Manual.
+    - When Manual mode applies, surface a one-line "Why?" rationale
+      next to the proposed action. Rationale text is stable across
+      sessions for the same decision shape so the user can learn
+      the app's reasoning over time.
+    </operating_principles>
+    """
 
     // MARK: - Internal Helpers
 
