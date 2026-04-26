@@ -135,6 +135,49 @@ func chunkSession(_ transcript: String, maxTokensPerChunk: Int = 2400)
 }
 ```
 
+### Verified canonical API (per `FoundationModels.swiftinterface` 2026-04-26)
+
+The SDK headers at
+`MacOSX.sdk/System/Library/Frameworks/FoundationModels.framework/...
+arm64e-apple-macos.swiftinterface` confirm the following surface (line
+numbers from that file):
+
+```swift
+// line 524-526
+public struct UseCase : Swift.Sendable, Swift.Equatable {
+    public static let general: SystemLanguageModel.UseCase
+    public static let contentTagging: SystemLanguageModel.UseCase
+}
+
+// line 582
+convenience public init(useCase: SystemLanguageModel.UseCase = .general,
+                        guardrails: SystemLanguageModel.Guardrails = .default)
+
+// LanguageModelSession init — line 339-342
+convenience public init(
+    model: SystemLanguageModel = .default,
+    tools: [any Tool] = [],
+    instructions: String? = nil
+)
+
+// respond(to:generating:) — line 378 (Prompt overload), 382 (String overload)
+final public func respond<Content>(
+    to prompt: String,
+    generating type: Content.Type = Content.self,
+    includeSchemaInPrompt: Bool = true,
+    options: GenerationOptions = GenerationOptions()
+) async throws -> Response<Content> where Content : Generable
+```
+
+**Canonical pattern** (verified 2026-04-26, used by `OntologyClassifier`):
+
+```swift
+let model = SystemLanguageModel(useCase: .contentTagging)  // friendlier guardrails
+let session = LanguageModelSession(model: model, instructions: systemPrompt)
+let response = try await session.respond(to: prompt, generating: OntologyNode.self)
+return response.content   // already typed; no JSON round-trip needed
+```
+
 ### `@Guide` constraint matrix — verified
 
 | Constraint | Type | Notes |

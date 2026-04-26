@@ -205,13 +205,19 @@ public final class OntologyClassifier {
            now.timeIntervalSince(sessionCreatedAt) < sessionLifetime {
             return existing
         }
-        // The default model is used here (the codebase pattern in
-        // AppleIntelligenceService). `.contentTagging` use-case is
-        // marginally friendlier on guardrails per the meta-advice
-        // agent but the API takes (instructions:) not (model:) in
-        // the shipping macOS 26 SDK — verified via grep against
-        // `Epistemos/Engine/AppleIntelligenceService.swift:94`.
-        let s = LanguageModelSession(instructions: Self.systemPrompt)
+        // Canonical API per the macOS 26.4 SDK headers
+        // (FoundationModels.swiftinterface lines 339, 524-526, 582):
+        //   SystemLanguageModel(useCase:) exists with `.contentTagging`
+        //   LanguageModelSession(model:tools:instructions:) is the init
+        //   respond(to:generating:) is `@_disfavoredOverload` on String
+        //
+        // `.contentTagging` is the smaller, friendlier-on-guardrails
+        // model (Wave 13 §"Phase 1" + meta-advice agent verdict).
+        let model = SystemLanguageModel(useCase: .contentTagging)
+        let s = LanguageModelSession(
+            model: model,
+            instructions: Self.systemPrompt
+        )
         session = s
         sessionCreatedAt = now
         return s
@@ -221,26 +227,23 @@ public final class OntologyClassifier {
     private func runAFM(_ text: String) async throws -> OntologyNode {
         let s = ensureSession()
         let prompt = """
-        Classify this input into the ontology schema described in your
-        instructions. Respond with raw JSON matching the OntologyNode
-        shape — no markdown fences, no commentary.
+        Classify this input into one parent domain and one primary child
+        concept. Respond with the OntologyNode schema — the framework
+        will enforce the structure for you.
 
         Input:
         \(text)
         """
         do {
-            // The shipping macOS 26 API takes a String prompt + returns
-            // Response<String>; we JSON-decode the content into
-            // OntologyNode. The `generating: OntologyNode.self`
-            // overload is documented in WWDC25 §286/301 but at the
-            // time of writing has compile-surface drift — match the
-            // pattern used in the existing AppleIntelligenceService.
-            let response = try await s.respond(to: prompt)
-            let content = response.content
-            guard let data = content.data(using: .utf8) else {
-                throw ClassifyError.decodeFailed("response was not UTF-8")
-            }
-            return try JSONDecoder().decode(OntologyNode.self, from: data)
+            // Canonical structured-output path: respond(to:generating:)
+            // returns Response<OntologyNode> with token-level constraint
+            // masking against the @Generable schema. No JSON round-trip
+            // needed; no markdown-fence stripping required.
+            let response = try await s.respond(
+                to: prompt,
+                generating: OntologyNode.self
+            )
+            return response.content
         } catch let error as LanguageModelSession.GenerationError {
             if case .exceededContextWindowSize = error {
                 throw ClassifyError.decodeFailed(
@@ -248,10 +251,6 @@ public final class OntologyClassifier {
                 )
             }
             throw ClassifyError.modelRefused(String(describing: error))
-        } catch let decodeErr as DecodingError {
-            throw ClassifyError.decodeFailed(
-                "JSON decode failed: \(decodeErr.localizedDescription)"
-            )
         } catch {
             throw ClassifyError.decodeFailed(error.localizedDescription)
         }

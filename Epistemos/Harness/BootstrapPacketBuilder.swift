@@ -275,12 +275,15 @@ enum BootstrapPacketBuilder {
     /// Stable operating-principle preamble appended to every packet so the
     /// rendered prompt clears the prompt-cache minimum threshold. Lives as
     /// a `let` constant rather than an interpolation so single-character
-    /// drift cannot invalidate the cache. ≈ 1,200 tokens of static
-    /// content; combined with the dynamic body this yields ≥ 1,800 tokens
-    /// — past the Sonnet 4.5/3.7 (1,024) and Sonnet 4.6 (2,048) cache
-    /// thresholds and within 50% of the Opus 4.5/4.6/4.7 + Haiku 4.5
-    /// threshold (4,096) which extra cache_control markers downstream
-    /// reach in combination with the persona + tool blocks.
+    /// drift cannot invalidate the cache. Padding is ≈ 775 tokens of
+    /// static content (581 words × 0.75 word-to-token ratio for English
+    /// markdown); combined with the typical 600–900-token dynamic body
+    /// the rendered packet lands ≈ 1,375–1,675 tokens — comfortably
+    /// past Sonnet 4.5/3.7 (1,024) and within reach of Sonnet 4.6 (2,048)
+    /// once the downstream skills + persona blocks are appended via
+    /// additional `cache_control` markers. Opus 4.5/4.6/4.7 + Haiku 4.5
+    /// (4,096) require all four `cache_control` slots to combine
+    /// (bootstrap + tools + persona + stable-conversation).
     static let cachePadding = """
     <operating_principles harness_version="v1.0.0">
     Epistemos is a macOS-native cognitive workspace. The principles below
