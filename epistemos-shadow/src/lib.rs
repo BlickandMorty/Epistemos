@@ -37,9 +37,11 @@
 //! Wave 2.1 (subsystem `io.epistemos.core`, category `storage` for
 //! the index path, `ffi` for the C ABI surface).
 
+pub mod backend;
 pub mod error;
 pub mod state;
 
+pub use backend::ShadowBackend;
 pub use error::ShadowError;
 
 // ---------------------------------------------------------------------------

@@ -10,17 +10,30 @@ name = "epistemos_shadow"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-# Light deps for the W8.1 base scaffold. The full backend deps
-# (usearch 2.25, tantivy 0.22, tokenizers 0.20, memmap2 0.9, rayon 1.10)
-# are pinned in the reference implementation at ambient/epistemos_shadow.rs
-# and land in W8.4 once the FFI surface + tests + controller wiring
-# are green. Splitting keeps the W8.1 build under 30 seconds.
+# Light deps for the W8.1 base scaffold.
 parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
 
+# W8.4.a — real backend deps. Versions match other workspace crates
+# so cargo resolves a single copy of each:
+#   - tantivy 0.22  matches agent_core (production usage at
+#     agent_core/src/storage/vault.rs)
+#   - usearch 2.24  matches graph-engine (production usage at
+#     graph-engine/src/retrieval_index.rs with M=16, ef_add=128,
+#     ef_search=64)
+#   - model2vec-rs 0.1.4  matches the W8.4 day-1 spike at
+#     bench/src/model2vec_bench.rs (p99 = 286-607µs on M-series,
+#     8× under the plan's 5ms budget; commit 7c867f55)
+tantivy = "0.22"
+usearch = "2.24"
+model2vec-rs = "0.1.4"
+once_cell = "1"        # OnceLock<Embedder> + Lazy ergonomics
+rustc-hash = "2"       # FxHashMap for the doc_id ↔ row_key hot maps
+
 [dev-dependencies]
+tempfile = "3"         # MmapDirectory + .usearch sidecar persistence tests (W8.4.f)
 
 [profile.release]
 # Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
