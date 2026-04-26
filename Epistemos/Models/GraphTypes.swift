@@ -35,9 +35,28 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     case rawThought   // a single thinking_delta / signature pair from a run
     case toolTrace    // a single tool_use + tool_result pair from a run
 
+    // Wave 3.3 typed cognitive-artifact graph types (Extended Program Plan
+    // §Wave 3.3, cross-ref COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md §2).
+    // App-level only — these mirror the new `ArtifactKind` taxonomy
+    // (Wave 3.2) and use the `mapsToArtifactKind()` bridge below for
+    // typed routing. Excluded from FFI for the same reason as the Raw
+    // Thoughts cases.
+    //
+    // Naming choice: existing `.note` and `.source` cases stay as the
+    // legacy SwiftData-backed ontology entries. `.proseNote` is the
+    // first-class Wave 3.3 case for ProseMirror JSON documents — when
+    // the cognitive workspace overtakes the legacy notes surface
+    // `.note` becomes a thin alias that delegates display + routing
+    // to `.proseNote`.
+    case proseNote    // ProseMirror JSON document (ArtifactKind.proseNote)
+    case document     // .epdoc rich package (ArtifactKind.document)
+    case code         // source code file (ArtifactKind.code)
+    case output       // captured terminal/REPL/build output (ArtifactKind.output)
+
     /// FFI-bridged cases (rustIndex 0-13). Hand-implemented to preserve the
-    /// strict 14-case contract enforced by `FFIVersionSyncTests`. The Raw
-    /// Thoughts artifact types are intentionally excluded.
+    /// strict 14-case contract enforced by `FFIVersionSyncTests`. The
+    /// app-level cases (Raw Thoughts + Wave 3.3 typed artifacts) are
+    /// intentionally excluded.
     static var allCases: [GraphNodeType] {
         [
             .note, .chat, .idea, .source, .folder, .quote, .tag, .block,
@@ -45,8 +64,12 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         ]
     }
 
-    /// App-level Raw Thoughts artifact types. Not sent through the FFI.
-    static let appLevelCases: [GraphNodeType] = [.run, .rawThought, .toolTrace]
+    /// App-level cases — Raw Thoughts (Patch 5) + Wave 3.3 typed
+    /// cognitive-artifact types. Not sent through the FFI.
+    static let appLevelCases: [GraphNodeType] = [
+        .run, .rawThought, .toolTrace,
+        .proseNote, .document, .code, .output,
+    ]
 
     /// Node types visible in the graph UI (excludes block — blocks are internal structure).
     static let visibleCases: [GraphNodeType] = allCases.filter { $0 != .block }
@@ -89,6 +112,10 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .run:        return "Run"
         case .rawThought: return "Raw Thought"
         case .toolTrace:  return "Tool Trace"
+        case .proseNote:  return "Prose Note"
+        case .document:   return "Document"
+        case .code:       return "Code"
+        case .output:     return "Output"
         }
     }
 
@@ -112,6 +139,10 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .run:        return "play.rectangle"
         case .rawThought: return "brain"
         case .toolTrace:  return "wrench.and.screwdriver"
+        case .proseNote:  return "doc.richtext"
+        case .document:   return "doc.append"
+        case .code:       return "chevron.left.forwardslash.chevron.right"
+        case .output:     return "terminal"
         }
     }
 
@@ -136,7 +167,8 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
         case .decision:   return 11
         case .event:      return 12
         case .resource:   return 13
-        case .run, .rawThought, .toolTrace: return 0
+        case .run, .rawThought, .toolTrace,
+             .proseNote, .document, .code, .output: return 0
         }
     }
 
@@ -160,6 +192,50 @@ nonisolated enum GraphNodeType: String, Codable, Sendable, CaseIterable {
     static func from(displayName: String) -> GraphNodeType? {
         let lower = displayName.lowercased()
         return allCases.first { $0.displayName.lowercased() == lower || $0.rawValue.lowercased() == lower }
+    }
+
+    // MARK: - ArtifactKind bridge (Wave 3.3)
+
+    /// Map a GraphNodeType to its corresponding ArtifactKind, when one
+    /// exists. Returns `nil` for legacy graph types that don't have a
+    /// cognitive-artifact counterpart yet (idea / folder / quote / tag /
+    /// block / person / project / topic / decision / event / resource /
+    /// chat / toolTrace).
+    ///
+    /// Per `docs/architecture/COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md` §2:
+    /// "the new code path uses `ArtifactKind` for typed routing".
+    /// Use this on legacy node visits to upgrade them into the typed
+    /// pipeline without rewriting the call sites.
+    var mapsToArtifactKind: ArtifactKind? {
+        switch self {
+        case .proseNote, .note: return .proseNote
+        case .document:         return .document
+        case .source:           return .source
+        case .code:             return .code
+        case .output:           return .output
+        case .run:              return .run
+        case .rawThought:       return .rawThought
+        case .chat,
+             .idea, .folder, .quote, .tag, .block,
+             .person, .project, .topic, .decision, .event, .resource,
+             .toolTrace:
+            return nil
+        }
+    }
+
+    /// Reverse bridge: pick the canonical GraphNodeType for an
+    /// ArtifactKind. Used when the typed-routing path needs to materialise
+    /// a graph node from a freshly-decoded artifact header.
+    init(from artifactKind: ArtifactKind) {
+        switch artifactKind {
+        case .proseNote:  self = .proseNote
+        case .document:   self = .document
+        case .rawThought: self = .rawThought
+        case .source:     self = .source
+        case .code:       self = .code
+        case .run:        self = .run
+        case .output:     self = .output
+        }
     }
 }
 
