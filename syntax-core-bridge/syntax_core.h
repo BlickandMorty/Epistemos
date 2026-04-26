@@ -161,6 +161,29 @@ uint32_t syntax_document_tokens_for_viewport(
     uint32_t max_tokens
 );
 
+/// Resolve a `kind_id` (assigned by the per-document `TokenRegistry`)
+/// back into the original tree-sitter capture name (e.g. "comment",
+/// "string", "function.def").
+///
+/// The capture name is written to `out_buf` as UTF-8 *without* a
+/// null terminator. The caller MUST use the returned length, not
+/// `strlen`.
+///
+/// @param doc          Non-null document pointer.
+/// @param kind_id      Kind ID from a SyntaxTokenSpan.
+/// @param out_buf      Pre-allocated buffer for the UTF-8 name bytes.
+/// @param out_buf_cap  Capacity of out_buf in bytes.
+/// @return Number of bytes written. 0 on error, missing registration,
+///         or insufficient buffer (truncation is refused — silently
+///         truncating UTF-8 would corrupt the Swift-side String).
+///         `kind_id == 0` returns the literal name "unknown" (7 bytes).
+uint32_t syntax_document_kind_name(
+    const SyntaxDocument* doc,
+    uint16_t kind_id,
+    uint8_t* out_buf,
+    uint32_t out_buf_cap
+);
+
 #ifdef __cplusplus
 }
 #endif
