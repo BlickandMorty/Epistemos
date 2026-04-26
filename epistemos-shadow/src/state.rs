@@ -16,8 +16,51 @@ use std::time::Instant;
 
 use parking_lot::RwLock;
 
+use crate::backend::ShadowBackend;
 use crate::error::ShadowError;
 use crate::{ShadowDocument, ShadowHit, ShadowStats};
+
+impl Default for ShadowState {
+    /// Build a fresh in-memory backend. The trait-conformance test in
+    /// `backend::tests` uses this to verify the W8.4.a contract; the
+    /// production singleton at `shadow_state()` still goes through
+    /// `ShadowState::new()`.
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// W8.4.a — `ShadowState` (W8.1 stub) satisfies the new
+/// `ShadowBackend` trait so the FFI surface in lib.rs can dispatch
+/// through `&dyn ShadowBackend` once W8.4.e flips the singleton.
+/// Today the `shadow_state()` singleton still returns the concrete
+/// type; this impl just unblocks the trait-object swap.
+impl ShadowBackend for ShadowState {
+    fn insert_document(&self, doc: ShadowDocument) -> Result<(), ShadowError> {
+        ShadowState::insert_document(self, doc)
+    }
+
+    fn remove_document(&self, doc_id: &str) -> Result<(), ShadowError> {
+        ShadowState::remove_document(self, doc_id)
+    }
+
+    fn search(
+        &self,
+        query: &str,
+        domain: &str,
+        limit: usize,
+    ) -> Result<Vec<ShadowHit>, ShadowError> {
+        ShadowState::search(self, query, domain, limit)
+    }
+
+    fn flush(&self) -> Result<(), ShadowError> {
+        ShadowState::flush(self)
+    }
+
+    fn stats(&self) -> Result<ShadowStats, ShadowError> {
+        ShadowState::stats(self)
+    }
+}
 
 /// The Wave 8.1 stub backend — an in-memory HashMap of doc_id →
 /// document. Search is a naive substring scan, scored by snippet
