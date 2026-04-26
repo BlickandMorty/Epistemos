@@ -1,4 +1,5 @@
 import AppKit
+import CryptoKit
 import Foundation
 import UniformTypeIdentifiers
 
@@ -120,9 +121,18 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
                 userInfo: [NSLocalizedDescriptionKey: "Unrecognised type: \(typeName)"]
             )
         }
-        // Refresh updated_at + delegate the directory-wrapper encode
-        // to the W7.1 bridge.
+        // Refresh updated_at AND recompute content_hash so the manifest
+        // pins the bytes we're about to persist.
+        //
+        // COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md §3 specifies the
+        // hash field as `blake3::Hash`. Adding a blake3 SPM dep is a
+        // separate decision (matches the W9.7 reconciliation rationale —
+        // both Swift sides currently lean on CryptoKit's built-in
+        // SHA-256). Until the blake3 swap, SHA-256(contentJSON) is the
+        // canonical content_hash and the manifest field doubles as a
+        // versioning + tamper-evidence anchor.
         let now = Int64(Date().timeIntervalSince1970 * 1000)
+        let contentHash = Self.contentHash(of: package.contentJSON)
         let updated = EpdocManifest(
             id: package.manifest.id,
             kind: package.manifest.kind,
@@ -130,12 +140,21 @@ public final class EpdocDocument: NSDocument, @unchecked Sendable {
             createdAt: package.manifest.createdAt,
             updatedAt: now,
             title: package.manifest.title,
-            contentHash: package.manifest.contentHash,
+            contentHash: contentHash,
             provenance: package.manifest.provenance
         )
         var pkgCopy = package
         pkgCopy.manifest = updated
         return try pkgCopy.makeFileWrapper()
+    }
+
+    /// Lowercase-hex SHA-256 of the canonical content bytes. Used by
+    /// `fileWrapper(ofType:)` to seed `manifest.contentHash` on every
+    /// save; downstream tools rely on this field to detect divergence
+    /// between an in-memory editor view and the on-disk truth.
+    nonisolated static func contentHash(of data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Mutation helpers

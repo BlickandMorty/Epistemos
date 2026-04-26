@@ -131,6 +131,42 @@ struct EpdocDocumentTests {
                 "fileWrapper(ofType:) must refresh updated_at to the write moment so external sync sees the change")
     }
 
+    @Test("fileWrapper(ofType:) recomputes manifest.contentHash from the canonical contentJSON")
+    func writeRecomputesContentHash() throws {
+        let doc = EpdocDocument()
+        // Default init seeds manifest.contentHash to "" (no hash yet
+        // because the body is the empty {"type":"doc","content":[]} shell).
+        #expect(doc.package.manifest.contentHash == "",
+                "fresh EpdocDocument should start with empty contentHash; first save populates it")
+
+        // Mutate to a known body so we can assert the exact hex.
+        let body = #"{"type":"doc","content":[{"type":"paragraph"}]}"#.data(using: .utf8)!
+        doc.setContentJSON(body)
+
+        let wrapper = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded = try EpdocPackage(fileWrapper: wrapper)
+        let actualHash = decoded.manifest.contentHash
+        #expect(!actualHash.isEmpty,
+                "save MUST populate contentHash so downstream tools can detect divergence between memory + disk")
+        #expect(actualHash.count == 64,
+                "SHA-256 hex digest is 64 chars; got \(actualHash.count)")
+        #expect(actualHash.allSatisfy { "0123456789abcdef".contains($0) },
+                "contentHash must be lowercase hex; got \(actualHash)")
+
+        // Determinism — re-saving the same body produces the same hash.
+        let wrapper2 = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded2 = try EpdocPackage(fileWrapper: wrapper2)
+        #expect(decoded.manifest.contentHash == decoded2.manifest.contentHash,
+                "saving the same bytes twice MUST produce the same hash")
+
+        // Sensitivity — changing the body produces a different hash.
+        doc.setContentJSON(#"{"type":"doc","content":[]}"#.data(using: .utf8)!)
+        let wrapper3 = try doc.fileWrapper(ofType: "com.epistemos.epdoc")
+        let decoded3 = try EpdocPackage(fileWrapper: wrapper3)
+        #expect(decoded.manifest.contentHash != decoded3.manifest.contentHash,
+                "changing the content body MUST change contentHash")
+    }
+
     @Test("fileWrapper(ofType:) rejects unknown UTI")
     func writeRejectsUnknownUTI() {
         let doc = EpdocDocument()
