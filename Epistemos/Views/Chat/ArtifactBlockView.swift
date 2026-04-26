@@ -282,7 +282,7 @@ enum ArtifactExporter {
         pb.setString(artifact.content, forType: .string)
     }
 
-    static func saveToFile(_ artifact: Artifact, convertTo: ArtifactKind? = nil) {
+    static func saveToFile(_ artifact: Artifact, convertTo: ChatArtifactKind? = nil) {
         let targetKind = convertTo ?? artifact.kind
         let content: String
 
@@ -301,7 +301,7 @@ enum ArtifactExporter {
 
     // MARK: - Conversion
 
-    private static func convert(_ content: String, from: ArtifactKind, to: ArtifactKind) -> String {
+    private static func convert(_ content: String, from: ChatArtifactKind, to: ChatArtifactKind) -> String {
         switch (from, to) {
         case (.json, .yaml):
             return jsonToYAML(content)
@@ -361,7 +361,7 @@ enum ArtifactExporter {
 
     // MARK: - Helpers
 
-    private static func utType(for kind: ArtifactKind) -> UTType {
+    private static func utType(for kind: ChatArtifactKind) -> UTType {
         switch kind {
         case .json: return .json
         case .yaml: return .yaml

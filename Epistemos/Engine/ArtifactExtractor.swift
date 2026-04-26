@@ -36,7 +36,7 @@ nonisolated enum ArtifactExtractor {
                 let lines = content.components(separatedBy: .newlines).count
                 guard lines >= 3 else { continue }
 
-                let kind: ArtifactKind
+                let kind: ChatArtifactKind
                 let title: String
                 switch lang {
                 case "json":
