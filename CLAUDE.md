@@ -33,6 +33,27 @@
 - Test: swift test
 - Lint: swiftlint
 
+## JS Bundle (Tiptap editor)
+- Source: js-editor/ (esbuild bundle for the Epdoc WKWebView editor)
+- Build: bash build-tiptap-bundle.sh — content-hash gated on package-lock.json
+  so unchanged checkouts skip the npm install + bundle steps
+- Output: bundle copied into Epistemos.app/Contents/Resources/Editor/ at
+  build time. NEVER spawn npm at runtime — MAS sandbox + hardened runtime
+  block subprocess execution from a notarized app
+- Health check: Settings → "Editor bundle health" row reads bundle path
+  size + last-build timestamp via EditorBundleHealthRow
+- Setup: a missing npm prints actionable hints (brew install node / nvm).
+  CI must `npm ci` before the Xcode build to keep the lock-hash gate honest
+
+## Halo Shadow index (W8.4 / W8.7)
+- Crate: epistemos-shadow (cdylib — see "Why dylib" in build-epistemos-shadow.sh)
+- Backend: tantivy 0.22 BM25 + usearch 2.24 HNSW + RRF fusion (k=60)
+- FFI: 7 entry points (insert/remove/search/flush/stats/open_at/free_string)
+  bound from Swift via @_silgen_name in RustShadowFFIClient
+- Open: AppBootstrap.initializeShadowBackendIfReady runs RustShadowFFIClient.openAt
+  against `<vault>/.epcache/shadow` and ShadowVaultBootstrapper crawls
+  `<vault>/notes/**/*.md` + `<vault>/chats/**/*.json`
+
 ## DO NOT
 - Edit .xcodeproj directly — use xcodegen
 - Commit model files (.gguf, .safetensors, .mlx)
@@ -107,6 +128,23 @@
 - Visual verify: Epistemos/Omega/Vision/VisualVerifyLoop.swift
 - Screen capture: Epistemos/Omega/Vision/ScreenCaptureService.swift
 - AX fusion: Epistemos/Omega/Vision/Screen2AXFusion.swift
+
+### Swift Halo (W8 — Contextual Shadows)
+- Controller: Epistemos/Engine/HaloController.swift
+- Search service: Epistemos/Engine/ShadowSearchService.swift
+- Indexing service: Epistemos/Engine/ShadowIndexingService.swift
+- Stub FFI: Epistemos/Engine/ShadowFFIClient.swift (StubShadowFFIClient)
+- Production FFI: Epistemos/Engine/RustShadowFFIClient.swift (@_silgen_name)
+- Vault crawl: Epistemos/Engine/ShadowVaultBootstrapper.swift (W8.7)
+- UI: Epistemos/Views/Halo/HaloButton.swift + ShadowPanel.swift + ShadowPanelContent.swift
+
+### Swift Epdoc (W7.17 — Tiptap chrome)
+- Chrome: Epistemos/Views/Epdoc/EpdocEditorChromeView.swift
+- Toolbar: Epistemos/Views/Epdoc/EpdocEditorToolbar.swift
+- Floating panels: Epistemos/Views/Epdoc/Epdoc{Slash,Bubble,KaTeX,BlockContext,InsertLink,BlockGutter,ComplexityMeter,ThoughtAttachedBadge}*
+- Paste classifier: Epistemos/Engine/EpdocPasteClassifier.swift
+- Block templates: Epistemos/Engine/EpdocBlockTemplateStore.swift
+- JS bundle source: js-editor/
 
 ### App Bootstrap
 - Bootstrap: Epistemos/App/AppBootstrap.swift
