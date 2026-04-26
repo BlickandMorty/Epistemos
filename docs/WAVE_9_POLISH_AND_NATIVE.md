@@ -140,6 +140,32 @@ three need design before code.
 | W11.1 | **App Intents + Spotlight first-class**    | M      | macOS 26 Spotlight surfaces App Intents directly. "Capture brain dump", "attach thought to current chat", "recall active thesis", "open raw-thought sandbox", "delegate to agent" — all should be Spotlight / Shortcuts / Siri reachable. "Stops being an app I open and starts being part of how the Mac thinks with me." Biggest unexplored Apple-native moat. |
 | W11.2 | **Trust architecture** (permission UX)     | M      | Accessibility, Screen Recording, Microphone, Speech Recognition all carry user anxiety. Need: clear local-vs-cloud badges, explicit permission rationales, reversible toggles, visible audit history of "what acted and why", "manual mode" that explains intended actions before executing. **Permissions are product design, not plumbing.** |
 | W11.3 | **Evaluation lab**                         | M      | Xcode Playgrounds + measurable tests for ontology extraction quality, note-to-concept nesting, session summary faithfulness, depth marker stability, memory retrieval relevance, permission UX success. **The moat is reliable intelligence under stress, not just clever architecture.** |
+| W11.4 | **Auto / Manual Mode Machine + Rationale Layer** (user request 2026-04-26) | S | Every decision the app makes on the user's behalf — system-prompt engineering, model-vault routing, tool selection, voice persona, ontology classification, ambient-retrieval toggling — has BOTH an Auto mode (the app decides + acts) AND a Manual mode (the app proposes + waits for confirmation). **A rationale string is rendered in Settings AND inline wherever a decision is proposed**, explaining what was chosen, why, and what the alternatives were. Closes the Doc 2 trust gap from the *user's* angle: "make it feel magical rather than scary by making the reasoning visible." Plumbs through as a per-decision `DecisionMode = .auto / .manualWithRationale` enum so any new feature inherits the contract by default. |
+
+### W11.4 design notes — Auto / Manual Mode Machine
+
+The mode applies **at every decision boundary** the app exposes:
+
+| Surface                     | Auto mode                                                | Manual mode (proposes with rationale)                     |
+| --------------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
+| System-prompt engineering   | Auto-builds from harness + capability manifest + model profile | Shows assembled prompt + diff vs prior turn; user accepts |
+| Model-vault routing         | Auto picks active vault per current model profile        | Shows ranked vault candidates + match score; user picks   |
+| Tool selection per turn     | Auto-selects tools from tier + intent classification     | Shows allowlist + reasoning; user toggles                 |
+| Voice persona (W9.1.b)      | Auto-picks Premium-quality voice per model               | Shows voice options grouped by quality; user assigns      |
+| Ontology classification (W10.1) | Classifier writes `{parent_domain, child_concept}` directly | Shows top-3 classifications + confidence; user picks      |
+| Ambient-retrieval toggle (W10.15) | Auto-enables on creative-task heuristic            | Always-explicit toggle in chat header                     |
+
+**Rationale rendering contract**: every Settings row exposing a Mode
+toggle shows a 1-line "Why?" link that expands to a 2-3 sentence
+explanation of what Auto would do, what Manual adds, and which
+default Apple recommends for similar capabilities. Inline rationales
+(in chat, in note editor, in agent inspector) follow the same
+template so the language stays consistent across surfaces.
+
+**Persistence**: the Mode is per-decision (not a global flag) so the
+user can accept Auto for low-stakes decisions (voice picking, vault
+routing) and demand Manual for high-stakes ones (system-prompt
+engineering, tool execution, ambient retrieval).
 
 ### Wave 11 — top 3 to ship first (per Doc 2 strategic frame)
 
