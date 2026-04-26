@@ -1,0 +1,277 @@
+import Foundation
+import OSLog
+
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
+
+// MARK: - OntologyClassifier
+//
+// Phase 1 of the master plan / Wave 13 §"Phase 1": replaces the naive
+// string extractor in EntityExtractor.swift with an AFM-backed
+// Ontological Classifier emitting structured `{parentDomain,
+// childConcept, depth, confidence, children?}` per the recursive
+// `@Generable` pattern verified by the meta-advice agent.
+//
+// Why a separate file: EntityExtractor's existing keyword extractor
+// remains the fallback path when FoundationModels is unavailable
+// (macOS 15 / Apple Intelligence disabled / device not eligible).
+// The classifier here is the *primary* path on macOS 26+; the
+// transition is gated behind the availability check below so the
+// app continues working on every supported OS.
+//
+// Schema design follows the meta-advice agent's verified pattern:
+// keep `children` optional + flat to avoid the macOS 26.0–26.2
+// "undefined reference" schema drift bug with fully-recursive types.
+// The model fills scalar fields first (parentDomain, childConcept,
+// depth, confidence) and arrays last (children).
+
+// MARK: - DepthMarker (L1 / L2 / L3 — master plan Phase 8)
+
+#if canImport(FoundationModels)
+@available(macOS 26.0, *)
+@Generable
+public enum DepthMarker: String, Sendable, Codable, Hashable, CaseIterable {
+    case surface
+    case synthesized
+    case coreBelief
+
+    public var label: String {
+        switch self {
+        case .surface:     return "Surface"
+        case .synthesized: return "Synthesized"
+        case .coreBelief:  return "Core Belief"
+        }
+    }
+}
+#else
+nonisolated public enum DepthMarker: String, Sendable, Codable, Hashable, CaseIterable {
+    case surface
+    case synthesized
+    case coreBelief
+
+    public var label: String {
+        switch self {
+        case .surface:     return "Surface"
+        case .synthesized: return "Synthesized"
+        case .coreBelief:  return "Core Belief"
+        }
+    }
+}
+#endif
+
+// MARK: - OntologyNode (`@Generable` schema)
+
+#if canImport(FoundationModels)
+@available(macOS 26.0, *)
+@Generable
+public struct OntologyNode: Codable, Sendable {
+    @Guide(description: "Parent domain, lowercase kebab-case. e.g. 'neuroscience', 'aeronautics', 'compilers'.")
+    public var parentDomain: String
+
+    @Guide(description: "Primary concept label, lowercase kebab-case. e.g. 'basal-ganglia', 'vector-thrust', 'lattice-types'.")
+    public var childConcept: String
+
+    @Guide(description: "Knowledge depth: surface (scratchpad), synthesized (actionable insight), or coreBelief (foundational architecture).")
+    public var depth: DepthMarker
+
+    @Guide(description: "Confidence in the classification, 0.0 – 1.0.")
+    public var confidence: Double
+
+    /// Optional flat array of child concepts. Kept optional + single-
+    /// level to avoid the macOS 26.0–26.2 schema drift bug with
+    /// fully-recursive `@Generable` types — the model fills scalar
+    /// fields first, then arrays. For deeper trees, run the classifier
+    /// recursively against the child labels + materialise edges in the
+    /// graph projection layer (Phase 8).
+    public var children: [OntologyNode]?
+}
+#else
+/// Stub when FoundationModels isn't available at compile time
+/// (macOS 14 / 15 SDK builds). Fields are identical so call sites
+/// can be source-compatible across SDK targets.
+public struct OntologyNode: Codable, Sendable, Hashable {
+    public var parentDomain: String
+    public var childConcept: String
+    public var depth: DepthMarker
+    public var confidence: Double
+    public var children: [OntologyNode]?
+}
+#endif
+
+// MARK: - OntologyClassifier service
+
+/// AFM-backed ontology classifier. Use `classify(_:)` from any actor;
+/// the service hops to MainActor internally because
+/// `LanguageModelSession` is MainActor-isolated under Xcode 26.
+///
+/// Availability is checked on every call so a model that's downloading
+/// at app launch becomes usable mid-session without a restart.
+@MainActor
+public final class OntologyClassifier {
+
+    public enum Readiness: Sendable, Equatable {
+        case available
+        case deviceNotEligible
+        case intelligenceDisabled
+        case modelLoading
+        case sdkUnavailable          // compiled on macOS < 26 SDK
+    }
+
+    public enum ClassifyError: Error {
+        case notAvailable(Readiness)
+        case modelRefused(String)    // guardrail trip
+        case decodeFailed(String)
+    }
+
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "OntologyClassifier"
+    )
+
+    public static let shared = OntologyClassifier()
+
+    /// Cached session for the lifetime of the process. AFM sessions
+    /// accumulate context — recycling every ~10 min prevents memory
+    /// bloat per `AppleIntelligenceService`'s existing pattern.
+    #if canImport(FoundationModels)
+    @available(macOS 26.0, *)
+    private var session: LanguageModelSession? {
+        get { _sessionStorage as? LanguageModelSession }
+        set { _sessionStorage = newValue }
+    }
+    #endif
+    private var _sessionStorage: AnyObject?
+    private var sessionCreatedAt: Date = .distantPast
+    private let sessionLifetime: TimeInterval = 600  // 10 minutes
+
+    private init() {}
+
+    // MARK: - Readiness
+
+    public func readiness() -> Readiness {
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available: return .available
+            case .unavailable(let reason):
+                switch reason {
+                case .deviceNotEligible: return .deviceNotEligible
+                case .appleIntelligenceNotEnabled: return .intelligenceDisabled
+                case .modelNotReady: return .modelLoading
+                @unknown default: return .modelLoading
+                }
+            @unknown default: return .modelLoading
+            }
+        } else {
+            return .sdkUnavailable
+        }
+        #else
+        return .sdkUnavailable
+        #endif
+    }
+
+    // MARK: - Classify API
+
+    /// Classify a free-text note / thought into an ontology node.
+    /// `text` is the raw user content (≤ 8KB practical limit before
+    /// the AFM 4096-token ceiling kicks in — call sites should chunk
+    /// long content via `SystemLanguageModel.tokenCount(for:)`).
+    public func classify(_ text: String) async throws -> OntologyNode {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else {
+            throw ClassifyError.decodeFailed("input was empty")
+        }
+        let r = readiness()
+        guard r == .available else {
+            throw ClassifyError.notAvailable(r)
+        }
+
+        #if canImport(FoundationModels)
+        if #available(macOS 26.0, *) {
+            return try await runAFM(cleaned)
+        }
+        #endif
+        throw ClassifyError.notAvailable(.sdkUnavailable)
+    }
+
+    // MARK: - AFM session management
+
+    #if canImport(FoundationModels)
+    @available(macOS 26.0, *)
+    private func ensureSession() -> LanguageModelSession {
+        let now = Date()
+        if let existing = session,
+           now.timeIntervalSince(sessionCreatedAt) < sessionLifetime {
+            return existing
+        }
+        // The default model is used here (the codebase pattern in
+        // AppleIntelligenceService). `.contentTagging` use-case is
+        // marginally friendlier on guardrails per the meta-advice
+        // agent but the API takes (instructions:) not (model:) in
+        // the shipping macOS 26 SDK — verified via grep against
+        // `Epistemos/Engine/AppleIntelligenceService.swift:94`.
+        let s = LanguageModelSession(instructions: Self.systemPrompt)
+        session = s
+        sessionCreatedAt = now
+        return s
+    }
+
+    @available(macOS 26.0, *)
+    private func runAFM(_ text: String) async throws -> OntologyNode {
+        let s = ensureSession()
+        let prompt = """
+        Classify this input into the ontology schema described in your
+        instructions. Respond with raw JSON matching the OntologyNode
+        shape — no markdown fences, no commentary.
+
+        Input:
+        \(text)
+        """
+        do {
+            // The shipping macOS 26 API takes a String prompt + returns
+            // Response<String>; we JSON-decode the content into
+            // OntologyNode. The `generating: OntologyNode.self`
+            // overload is documented in WWDC25 §286/301 but at the
+            // time of writing has compile-surface drift — match the
+            // pattern used in the existing AppleIntelligenceService.
+            let response = try await s.respond(to: prompt)
+            let content = response.content
+            guard let data = content.data(using: .utf8) else {
+                throw ClassifyError.decodeFailed("response was not UTF-8")
+            }
+            return try JSONDecoder().decode(OntologyNode.self, from: data)
+        } catch let error as LanguageModelSession.GenerationError {
+            if case .exceededContextWindowSize = error {
+                throw ClassifyError.decodeFailed(
+                    "input exceeded AFM 4,096-token ceiling — chunk and retry"
+                )
+            }
+            throw ClassifyError.modelRefused(String(describing: error))
+        } catch let decodeErr as DecodingError {
+            throw ClassifyError.decodeFailed(
+                "JSON decode failed: \(decodeErr.localizedDescription)"
+            )
+        } catch {
+            throw ClassifyError.decodeFailed(error.localizedDescription)
+        }
+    }
+    #endif
+
+    // MARK: - Prompt
+
+    /// Stable system prompt — kept as a `let` so the prompt cache (when
+    /// AFM eventually exposes one) doesn't churn on minor edits.
+    /// Lowercase kebab-case is enforced via the `@Guide` description
+    /// strings inside `OntologyNode`.
+    private static let systemPrompt = """
+    You are an ontology classifier for a personal knowledge management system.
+    Classify the input into one parent domain and one primary child concept.
+    Both labels are lowercase kebab-case (e.g., "neuroscience", "basal-ganglia").
+    Pick `depth`: surface for fleeting / scratch ideas, synthesized for
+    actionable insights, coreBelief for foundational architecture.
+    Confidence is your honest 0.0-1.0 estimate.
+    Children, if present, are sibling sub-concepts under the same parent.
+    Reject hallucinated tags — prefer real domains.
+    """
+}

@@ -637,6 +637,24 @@ call stops returning "Operation not permitted" silently.
 
 ---
 
+## Cross-cutting — UniFFI status as of 2026-04-26
+
+**Verified 2026-04-26:** the codebase currently pins `uniffi = "0.28"`
+across all Rust crates (`agent_core`, `epistemos-core`, `omega-mcp`,
+`omega-ax`). `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` IS active
+(`project.yml:11`). Issue #2818 (open since Feb 11, 2026) **is already
+mitigated** by `patch-uniffi-bindings.py` — a 4-fix post-processor that:
+
+1. Marks the rustCall `pointer` as `nonisolated(unsafe)`
+2. Snapshots the object pointer into a nonisolated(unsafe) local before deinit free
+3. Marks `errorDescription` (`LocalizedError` conformance) as `nonisolated`
+4. Marks generated wrapper declarations as `nonisolated` / `nonisolated(unsafe)`
+
+Compass recommended bumping to 0.29.5 for the
+`experimental_sendable_value_types` flag. The bump itself is a
+high-risk change (0.29 has API surface changes vs 0.28); risk
+assessment + bindings re-test should be a dedicated session.
+
 ## Cross-cutting — UniFFI 0.29.5 + Issue #2818 (Swift 6.2 / Xcode 26)
 
 The compass artifact pinned `uniffi = "0.29.5"`. Issue #2818 (open
