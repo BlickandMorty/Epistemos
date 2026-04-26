@@ -72,6 +72,24 @@ final class SDModelProfile {
     /// Whether this is a cloud model (no fine-tuning available).
     var isCloudModel: Bool = false
 
+    // MARK: - Voice (W9.1.b — per-model TTS persona)
+
+    /// AVSpeechSynthesisVoice identifier picked by the user for this
+    /// profile (e.g., `com.apple.voice.premium.en-US.Zoe`). Nil falls
+    /// back to the system-wide premium > enhanced > default chain in
+    /// `EpistemosSpeechSynthesizer.preferredVoice()`. Persisting per-
+    /// profile lets each model speak with a distinct persona — Claude
+    /// in one voice, GPT in another, the local Qwen in a third.
+    var voiceIdentifier: String?
+
+    /// Speech rate multiplier in the [0.0, 1.0] AVSpeechUtteranceRate
+    /// range. Defaults to AVSpeechUtteranceDefaultSpeechRate (≈ 0.5).
+    /// Stored as Double so SwiftData round-trips it cleanly.
+    var voiceRate: Double = 0.5
+
+    /// Pitch multiplier in [0.5, 2.0]. Defaults to 1.0 (natural).
+    var voicePitch: Double = 1.0
+
     // MARK: - Metadata
 
     var createdAt: Date = Date.now
