@@ -18,7 +18,7 @@ architectural rewrites.
 | ID    | Item                                       | Source / status                       |
 | ----- | ------------------------------------------ | ------------------------------------- |
 | W9.1  | AVSpeechSynthesizer read-aloud             | Apple-native gap; 8 frameworks integrated, this one missing entirely |
-| W9.2  | GRDB pragmas + OSSignposter scaffold       | EPISTEMOS_DETERMINISTIC_PERF_PLAN Sprint 0 — 20–40 % perceived-perf foundation |
+| W9.2  | ~~GRDB pragmas + OSSignposter scaffold~~ ✅ already shipped | `Epistemos/Sync/SearchIndexService.swift:204` (canonical W2.3 pragma block) + `Epistemos/Telemetry/Sig.swift` (6-category OSSignposter facade) |
 | W9.3  | Reasoning Trajectory Badge                 | `agent_core/src/reasoning_metrics.rs` already classifies Efficient/Hesitating/Stuck — no UI |
 | W9.4  | Empty-state messaging                      | HomeView / ChatView / SessionListView blank on cold open |
 | W9.5  | Streaming token-count badge                | `Views/Chat` already streams; cost transparency |
@@ -52,6 +52,34 @@ architectural rewrites.
 | W9.18 | Dependency-aware query invalidation        |
 | W9.19 | Slotmap + structure-of-arrays entity store |
 | W9.20 | phf perfect-hash MCP / tool registries     |
+
+## Tier 5 — Novel coding patterns (deep-research deep dive)
+
+Surfaced by the deep-nest research pass on the Downloads corpus
+(`arc8.txt`, `sw.txt`, `Metal Mamba 2 Research Prompt.txt`,
+`MLX Constrained Decoding Research.md`, `EPISTEMOS_HERMES_MANIFESTO.md`,
+`Epistemos Graph Engine Optimal Performance Roadmap.md`,
+`vector quant.md`). These are 2026 production techniques distilled
+from the user's own corpus, not generic best practices — each is a
+genuinely rare pattern.
+
+| ID    | Pattern                                                          | Source quote location                                                  | Effort | Wins                                                                    |
+| ----- | ---------------------------------------------------------------- | ---------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------ |
+| W9.21 | **Honest FFI** — `Arc::into_raw` + `~Copyable` wrappers          | `arc8.txt`                                                             | M      | Eliminates UniFFI HandleMap mutex; zero-cost identity mapping            |
+| W9.22 | **Typestate Islands** — `~Copyable` for MLX/subprocess lifecycles | `arc8.txt`                                                             | M      | Compile-time prevention of use-after-free on MLX sessions + Hermes proc |
+| W9.23 | **Bit-packed circuit breaker** — AtomicU64 + popcnt              | `arc8.txt`                                                             | S      | Lock-free, zero-alloc resilience; 8 bytes per breaker; cache-line padded |
+| W9.24 | **Metal zero-copy graph buffers** — `makeBuffer(bytesNoCopy:)`   | `sw.txt`                                                               | M      | Page-aligned Rust alloc → Metal binding; 120 Hz on 10 K-node graph       |
+| W9.25 | **Grammar-constrained logit masking** — MLXLMCommon LogitProcessor | `MLX Constrained Decoding Research.md`                                 | L      | 100 % JSON / tool-call validity from local Qwen 7-8 B; no retry loops    |
+| W9.26 | **B-tree text rope** — `crop` crate + UTF-16 metrics             | `sw.txt`                                                               | L      | O(log n) edits in code editor; no lag at 100 KB+ files                   |
+| W9.27 | **Append-only OpLog + replay** — event-sourced graph             | `Epistemos_ Audit, Research, Design.md`                                | M      | Time-machine debugging; perfect undo; multi-user audit trail             |
+| W9.28 | **Blelloch scan in Metal** — Mamba-2 prefill parallelism         | `Metal Mamba 2 Research Prompt.txt`                                    | L      | 5 s prefill on 100 K tokens; unlocks "vault as memory" vision            |
+| W9.29 | **Thermal-aware breaker throttling** — global supervisor         | `arc8.txt`                                                             | S      | Pre-empt thermal hardware throttle by tightening breaker thresholds     |
+| W9.30 | **KIVI per-channel/per-token KV quantisation**                   | `vector quant.md`                                                      | M      | 60 % KV memory cut; 2-bit Key + per-token Value asymmetric quant         |
+
+### Top 3 from Tier 5 to ship first
+- **W9.21 Honest FFI** — biggest concurrency bottleneck removed; foundation for everything else
+- **W9.25 Grammar-constrained logits** — makes local-model tool-calling reliable enough to ship
+- **W9.28 Blelloch scan** — required to actually cash in the Mamba-2 vault vision
 
 ## Pre-TestFlight ship gates (orthogonal to Wave 9)
 
