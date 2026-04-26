@@ -273,4 +273,168 @@ nonisolated struct ProseMirrorMarkdownProjectorTests {
         #expect(out.contains("data"),
                 "unknown node types must emit their text content (lossy by design)")
     }
+
+    // MARK: - W7.7 — Math (KaTeX)
+
+    @Test("math_inline emits $formula$ from attrs.formula")
+    func mathInlineFromAttrs() {
+        let d = Self.doc([Self.para([
+            Self.text("Pythagoras: "),
+            ProseMirrorNode(type: "math_inline", attrs: ProseMirrorAttrs(formula: "a^2 + b^2 = c^2")),
+            Self.text("."),
+        ])])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("$a^2 + b^2 = c^2$"),
+                "math_inline MUST wrap the formula in single dollar signs; got: \(out)")
+    }
+
+    @Test("math_inline falls back to child text when attrs.formula is missing")
+    func mathInlineFromTextFallback() {
+        let d = Self.doc([Self.para([
+            ProseMirrorNode(type: "math_inline", content: [Self.text("x = 1")]),
+        ])])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("$x = 1$"))
+    }
+
+    @Test("math_display emits $$ … $$ as a standalone block")
+    func mathDisplayBlock() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "math_display",
+                attrs: ProseMirrorAttrs(formula: "\\int_0^1 x^2\\,dx = \\tfrac{1}{3}")
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("$$\n\\int_0^1 x^2\\,dx = \\tfrac{1}{3}\n$$"),
+                "math_display MUST be wrapped in $$ on its own lines; got: \(out)")
+    }
+
+    // MARK: - W7.8 — markdown plugin nodes
+
+    @Test("highlight mark wraps text in ==…==")
+    func highlightMark() {
+        let d = Self.doc([Self.para([
+            Self.text("ordinary "),
+            Self.text("important", marks: [ProseMirrorMark(type: "highlight")]),
+            Self.text(" rest"),
+        ])])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("==important=="),
+                "highlight mark MUST wrap in == per markdown-it-mark; got: \(out)")
+    }
+
+    @Test("task_list emits - [ ] / - [x] markers per task_item.attrs.checked")
+    func taskListMarkers() {
+        let d = Self.doc([
+            ProseMirrorNode(type: "task_list", content: [
+                ProseMirrorNode(
+                    type: "task_item",
+                    attrs: ProseMirrorAttrs(checked: false),
+                    content: [Self.para([Self.text("write spec")])]
+                ),
+                ProseMirrorNode(
+                    type: "task_item",
+                    attrs: ProseMirrorAttrs(checked: true),
+                    content: [Self.para([Self.text("ship spec")])]
+                ),
+            ])
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("- [ ] write spec"), "got: \(out)")
+        #expect(out.contains("- [x] ship spec"), "got: \(out)")
+    }
+
+    @Test("callout emits :::kind / body / ::: fence (markdown-it-container syntax)")
+    func calloutFence() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "callout",
+                attrs: ProseMirrorAttrs(kind: "warning"),
+                content: [Self.para([Self.text("be careful here")])]
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains(":::warning"), "callout MUST open with :::<kind>; got: \(out)")
+        #expect(out.contains("be careful here"), "callout body must be present; got: \(out)")
+        #expect(out.hasSuffix(":::\n") || out.contains(":::\n\n"), "callout MUST close with `:::`; got: \(out)")
+    }
+
+    @Test("callout defaults missing kind to 'info' so the fence is never bare `:::`")
+    func calloutDefaultKind() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "callout",
+                content: [Self.para([Self.text("note")])]
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains(":::info"), "missing kind MUST fall back to :::info; got: \(out)")
+    }
+
+    @Test("footnote_reference emits [^id] inline + footnote node renders def at end of doc")
+    func footnoteReferenceAndDef() {
+        let d = Self.doc([
+            Self.para([
+                Self.text("First "),
+                ProseMirrorNode(type: "footnote_reference", attrs: ProseMirrorAttrs(id: "1")),
+                Self.text("."),
+            ]),
+            // The footnote definition node lives somewhere in the doc;
+            // the projector collects + emits it at the end.
+            ProseMirrorNode(
+                type: "footnote",
+                attrs: ProseMirrorAttrs(id: "1"),
+                content: [Self.para([Self.text("the definition body")])]
+            ),
+            Self.para([Self.text("after")]),
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("First [^1]."), "inline footnote ref MUST be [^id]; got: \(out)")
+        #expect(out.contains("[^1]: the definition body"),
+                "footnote definition MUST render as `[^id]: body` at end of doc; got: \(out)")
+
+        // The definition must NOT appear inline at its declaration position
+        // — verify by confirming the def follows the body paragraphs.
+        if let defRange = out.range(of: "[^1]:"),
+           let bodyRange = out.range(of: "after") {
+            #expect(defRange.lowerBound > bodyRange.lowerBound,
+                    "footnote definition MUST appear AFTER the body; got: \(out)")
+        } else {
+            #expect(Bool(false), "expected both `[^1]:` and `after` in output; got: \(out)")
+        }
+    }
+
+    @Test("multiple footnote definitions render in declaration order")
+    func multipleFootnotes() {
+        let d = Self.doc([
+            Self.para([Self.text("ref a"), ProseMirrorNode(type: "footnote_reference", attrs: ProseMirrorAttrs(id: "a"))]),
+            ProseMirrorNode(type: "footnote", attrs: ProseMirrorAttrs(id: "a"), content: [Self.para([Self.text("first")])]),
+            Self.para([Self.text("ref b"), ProseMirrorNode(type: "footnote_reference", attrs: ProseMirrorAttrs(id: "b"))]),
+            ProseMirrorNode(type: "footnote", attrs: ProseMirrorAttrs(id: "b"), content: [Self.para([Self.text("second")])]),
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        guard let firstIdx = out.range(of: "[^a]: first")?.lowerBound,
+              let secondIdx = out.range(of: "[^b]: second")?.lowerBound else {
+            #expect(Bool(false), "both definitions must render; got: \(out)")
+            return
+        }
+        #expect(firstIdx < secondIdx, "footnote definitions MUST render in declaration order; got: \(out)")
+    }
+
+    // MARK: - W7.9 — Mermaid
+
+    @Test("mermaid node emits ```mermaid fence so any markdown reader shows source")
+    func mermaidFence() {
+        let d = Self.doc([
+            ProseMirrorNode(
+                type: "mermaid",
+                content: [Self.text("graph TD\nA --> B")]
+            )
+        ])
+        let out = ProseMirrorMarkdownProjector.project(d)
+        #expect(out.contains("```mermaid"), "mermaid MUST open with ```mermaid; got: \(out)")
+        #expect(out.contains("graph TD"), "mermaid body must be present; got: \(out)")
+        #expect(out.hasSuffix("```\n"), "mermaid MUST close with ```; got: \(out)")
+    }
 }

@@ -68,23 +68,45 @@ nonisolated public struct ProseMirrorMark: Codable, Sendable, Hashable {
 
 /// Heterogeneous attribute bag — ProseMirror uses arbitrary JSON values.
 /// We capture only the keys we actually project (level for headings,
-/// href for links, language for code blocks).
+/// href for links, language for code blocks). Optional fields keep the
+/// `Codable` derivation tolerant of older / newer documents that omit
+/// or add keys we don't yet model.
 nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
     public let level: Int?
     public let href: String?
     public let language: String?
     public let title: String?
+    /// W7.7 — Math node (KaTeX). The LaTeX source string for both
+    /// `math_inline` (`$x=1$`) and `math_display` (`$$…$$`).
+    public let formula: String?
+    /// W7.8 — Footnote / callout / heading anchor identifier. For
+    /// `footnote_reference` this is the marker (e.g. `1` → `[^1]`);
+    /// for `callout` it's a slug used by the heading-anchor extension.
+    public let id: String?
+    /// W7.8 — Task item state. true → `- [x]`, false → `- [ ]`.
+    public let checked: Bool?
+    /// W7.8 — Callout type discriminant (`tip` / `info` / `warning` /
+    /// `danger` / `details`). Drives the `:::<kind>` fence.
+    public let kind: String?
 
     public init(
         level: Int? = nil,
         href: String? = nil,
         language: String? = nil,
-        title: String? = nil
+        title: String? = nil,
+        formula: String? = nil,
+        id: String? = nil,
+        checked: Bool? = nil,
+        kind: String? = nil
     ) {
         self.level = level
         self.href = href
         self.language = language
         self.title = title
+        self.formula = formula
+        self.id = id
+        self.checked = checked
+        self.kind = kind
     }
 }
 
@@ -95,19 +117,49 @@ nonisolated public struct ProseMirrorAttrs: Codable, Sendable, Hashable {
 /// text export. Round-trip back to ProseMirror is NOT guaranteed.
 nonisolated public enum ProseMirrorMarkdownProjector {
 
+    /// Mutable accumulator passed through every `visit` call. Carries
+    /// the running output buffer + side-collected footnote definitions
+    /// (which must appear after the main flow regardless of where they
+    /// were declared in the ProseMirror tree).
+    fileprivate struct State {
+        var out: String = ""
+        /// Per-doc footnote definitions, indexed in declaration order.
+        /// Each tuple is `(id, body)` — `id` is the user-visible
+        /// marker (`"1"`, `"long-marker"`); `body` is the rendered
+        /// content of the `footnote` node.
+        var footnoteDefs: [(id: String, body: String)] = []
+    }
+
     /// Project a parsed ProseMirror tree to GFM Markdown.
     public static func project(_ doc: ProseMirrorNode) -> String {
-        var out = ""
-        visit(doc, into: &out, listDepth: 0)
+        var state = State()
+        visit(doc, state: &state, listDepth: 0)
+        // Append collected footnote definitions at the end of the doc
+        // per GFM convention (`[^id]: body`). One blank line between
+        // the body and the first definition; one blank line between
+        // each definition.
+        if !state.footnoteDefs.isEmpty {
+            if !state.out.hasSuffix("\n") { state.out.append("\n") }
+            state.out.append("\n")
+            for (idx, def) in state.footnoteDefs.enumerated() {
+                let body = def.body.trimmingCharacters(in: .whitespacesAndNewlines)
+                state.out.append("[^\(def.id)]: \(body)")
+                if idx < state.footnoteDefs.count - 1 {
+                    state.out.append("\n\n")
+                } else {
+                    state.out.append("\n")
+                }
+            }
+        }
         // Trim a trailing extra newline that block visitors emit
         // for paragraph separation.
-        while out.hasSuffix("\n\n") {
-            out.removeLast()
+        while state.out.hasSuffix("\n\n") {
+            state.out.removeLast()
         }
-        if !out.hasSuffix("\n") && !out.isEmpty {
-            out.append("\n")
+        if !state.out.hasSuffix("\n") && !state.out.isEmpty {
+            state.out.append("\n")
         }
-        return out
+        return state.out
     }
 
     /// Convenience: parse JSON bytes and project in one call. Returns
@@ -123,115 +175,235 @@ nonisolated public enum ProseMirrorMarkdownProjector {
 
     // MARK: - Visitor
 
-    private static func visit(_ node: ProseMirrorNode, into out: inout String, listDepth: Int) {
+    private static func visit(_ node: ProseMirrorNode, state: inout State, listDepth: Int) {
         switch node.type {
         case "doc":
-            visitChildren(node, into: &out, listDepth: listDepth)
+            visitChildren(node, state: &state, listDepth: listDepth)
 
         case "paragraph":
-            visitChildren(node, into: &out, listDepth: listDepth)
-            out.append("\n\n")
+            visitChildren(node, state: &state, listDepth: listDepth)
+            state.out.append("\n\n")
 
         case "heading":
             let level = max(1, min(6, node.attrs?.level ?? 1))
-            out.append(String(repeating: "#", count: level))
-            out.append(" ")
-            visitChildren(node, into: &out, listDepth: listDepth)
-            out.append("\n\n")
+            state.out.append(String(repeating: "#", count: level))
+            state.out.append(" ")
+            visitChildren(node, state: &state, listDepth: listDepth)
+            state.out.append("\n\n")
 
         case "bullet_list":
-            visitListChildren(node, into: &out, listDepth: listDepth, ordered: false)
+            visitListChildren(node, state: &state, listDepth: listDepth, ordered: false)
             if listDepth == 0 {
-                out.append("\n")
+                state.out.append("\n")
             }
 
         case "ordered_list":
-            visitListChildren(node, into: &out, listDepth: listDepth, ordered: true)
+            visitListChildren(node, state: &state, listDepth: listDepth, ordered: true)
             if listDepth == 0 {
-                out.append("\n")
+                state.out.append("\n")
             }
 
         case "list_item":
             // Caller (visitListChildren) already prefixed bullet/number.
-            visitChildren(node, into: &out, listDepth: listDepth)
+            visitChildren(node, state: &state, listDepth: listDepth)
 
         case "blockquote":
-            // Project children into a buffer, then prefix every line.
-            var inner = ""
-            visitChildren(node, into: &inner, listDepth: listDepth)
-            for line in inner.split(separator: "\n", omittingEmptySubsequences: false) {
-                out.append("> ")
-                out.append(String(line))
-                out.append("\n")
+            // Project children into a sub-state, then prefix every line.
+            var inner = State()
+            visitChildren(node, state: &inner, listDepth: listDepth)
+            for line in inner.out.split(separator: "\n", omittingEmptySubsequences: false) {
+                state.out.append("> ")
+                state.out.append(String(line))
+                state.out.append("\n")
             }
-            out.append("\n")
+            // Footnotes inside a blockquote bubble up to the doc level
+            // — their definitions render at the end of the doc, not
+            // mid-quote.
+            state.footnoteDefs.append(contentsOf: inner.footnoteDefs)
+            state.out.append("\n")
 
         case "code_block":
             let lang = node.attrs?.language ?? ""
-            out.append("```\(lang)\n")
+            state.out.append("```\(lang)\n")
             for child in node.content ?? [] {
-                if let t = child.text { out.append(t) }
+                if let t = child.text { state.out.append(t) }
             }
-            out.append("\n```\n\n")
+            state.out.append("\n```\n\n")
 
         case "horizontal_rule":
-            out.append("---\n\n")
+            state.out.append("---\n\n")
 
         case "hard_break":
-            out.append("  \n")
+            state.out.append("  \n")
 
         case "text":
             let body = node.text ?? ""
-            out.append(applyMarks(to: body, marks: node.marks ?? []))
+            state.out.append(applyMarks(to: body, marks: node.marks ?? []))
+
+        // MARK: - W7.7 — Math (KaTeX) inline + display
+
+        case "math_inline":
+            // Per Alexandrie's `katex.ts` the inline syntax is `$…$`.
+            // Pandoc reads this natively too so the .docx export gets
+            // proper math without a writer change.
+            let formula = node.attrs?.formula ?? extractTextContent(node)
+            state.out.append("$\(formula)$")
+
+        case "math_display":
+            // Display math sits as its own block: blank-line / `$$…$$`
+            // / blank-line so paragraphs around it don't fuse.
+            let formula = node.attrs?.formula ?? extractTextContent(node)
+            state.out.append("$$\n\(formula)\n$$\n\n")
+
+        // MARK: - W7.8 — Markdown plugin nodes (footnote / task / callout)
+
+        case "callout":
+            // markdown-it-container syntax: `:::<kind>\n…\n:::`. Default
+            // to "info" if the kind attr is missing so we never emit a
+            // bare `:::` (which markdown-it-container rejects).
+            let kind = node.attrs?.kind?.lowercased() ?? "info"
+            var inner = State()
+            visitChildren(node, state: &inner, listDepth: listDepth)
+            // Trim trailing blank lines from the inner block so the
+            // closing fence sits flush.
+            var body = inner.out
+            while body.hasSuffix("\n\n") { body.removeLast() }
+            state.out.append(":::\(kind)\n")
+            state.out.append(body)
+            if !body.hasSuffix("\n") { state.out.append("\n") }
+            state.out.append(":::\n\n")
+            state.footnoteDefs.append(contentsOf: inner.footnoteDefs)
+
+        case "task_list":
+            // GFM task lists are bullet lists where each item starts
+            // with `[ ]` or `[x]`. Render via the bullet pipeline but
+            // tag the marker with the task state.
+            visitTaskListChildren(node, state: &state, listDepth: listDepth)
+            if listDepth == 0 {
+                state.out.append("\n")
+            }
+
+        case "task_item":
+            // Caller (visitTaskListChildren) renders the marker.
+            visitChildren(node, state: &state, listDepth: listDepth)
+
+        case "footnote_reference":
+            // Inline `[^id]` reference. The matching `footnote`
+            // definition node (sibling somewhere else in the doc)
+            // contributes the body via the footnoteDefs collector.
+            let id = node.attrs?.id ?? "1"
+            state.out.append("[^\(id)]")
+
+        case "footnote":
+            // Collect the definition into the doc-level footnotes
+            // list — DON'T emit at the call site. The body renders
+            // at the end of the doc per GFM convention.
+            let id = node.attrs?.id ?? String(state.footnoteDefs.count + 1)
+            var inner = State()
+            visitChildren(node, state: &inner, listDepth: 0)
+            state.footnoteDefs.append((id: id, body: inner.out))
+
+        // MARK: - W7.9 — Mermaid diagram fenced block
+
+        case "mermaid":
+            // Mermaid fences are language-tagged code blocks: any
+            // markdown reader that doesn't speak Mermaid still shows
+            // the source verbatim. Tiptap stores the diagram body as
+            // a single text child (same shape as code_block).
+            state.out.append("```mermaid\n")
+            for child in node.content ?? [] {
+                if let t = child.text { state.out.append(t) }
+            }
+            state.out.append("\n```\n\n")
 
         default:
             // Unknown node — emit raw text content if any, then recurse.
             if let t = node.text {
-                out.append(t)
+                state.out.append(t)
             }
-            visitChildren(node, into: &out, listDepth: listDepth)
+            visitChildren(node, state: &state, listDepth: listDepth)
         }
     }
 
-    private static func visitChildren(_ node: ProseMirrorNode, into out: inout String, listDepth: Int) {
+    /// Drain the immediate text descendants of a node into a single
+    /// string. Used by math_inline / math_display when the formula
+    /// arrived as a child text node instead of a `formula` attr.
+    private static func extractTextContent(_ node: ProseMirrorNode) -> String {
+        if let direct = node.text { return direct }
+        var buf = ""
         for child in node.content ?? [] {
-            visit(child, into: &out, listDepth: listDepth)
+            if let t = child.text { buf.append(t) }
+            else { buf.append(extractTextContent(child)) }
+        }
+        return buf
+    }
+
+    private static func visitChildren(_ node: ProseMirrorNode, state: inout State, listDepth: Int) {
+        for child in node.content ?? [] {
+            visit(child, state: &state, listDepth: listDepth)
         }
     }
 
-    private static func visitListChildren(_ node: ProseMirrorNode, into out: inout String, listDepth: Int, ordered: Bool) {
+    private static func visitListChildren(_ node: ProseMirrorNode, state: inout State, listDepth: Int, ordered: Bool) {
         let children = node.content ?? []
         let indent = String(repeating: "  ", count: listDepth)
         for (idx, item) in children.enumerated() {
-            // For each list_item, render its inline content + nested lists.
-            // Compute its marker and render the item body.
             let marker = ordered ? "\(idx + 1). " : "- "
 
-            // Visit the item's children separately so we can prefix the
-            // first paragraph with the marker and indent the rest.
-            var itemBuf = ""
-            visit(item, into: &itemBuf, listDepth: listDepth + 1)
+            var itemState = State()
+            visit(item, state: &itemState, listDepth: listDepth + 1)
 
-            // Strip a trailing single newline that paragraph appends.
-            while itemBuf.hasSuffix("\n\n") {
-                itemBuf.removeLast()
+            while itemState.out.hasSuffix("\n\n") {
+                itemState.out.removeLast()
             }
 
-            let lines = itemBuf.split(separator: "\n", omittingEmptySubsequences: false)
+            let lines = itemState.out.split(separator: "\n", omittingEmptySubsequences: false)
             for (lineIdx, line) in lines.enumerated() {
                 if lineIdx == 0 {
-                    out.append(indent)
-                    out.append(marker)
-                    out.append(String(line))
-                    out.append("\n")
+                    state.out.append(indent)
+                    state.out.append(marker)
+                    state.out.append(String(line))
+                    state.out.append("\n")
                 } else if !line.isEmpty {
                     let nestedIndent = String(repeating: " ", count: marker.count)
-                    out.append(indent)
-                    out.append(nestedIndent)
-                    out.append(String(line))
-                    out.append("\n")
+                    state.out.append(indent)
+                    state.out.append(nestedIndent)
+                    state.out.append(String(line))
+                    state.out.append("\n")
                 }
             }
+            // Footnotes from inside the list item bubble up.
+            state.footnoteDefs.append(contentsOf: itemState.footnoteDefs)
+        }
+    }
+
+    /// Specialised list walker for `task_list`. Each child is a
+    /// `task_item` whose `attrs.checked` decides whether to emit
+    /// `- [x]` or `- [ ]`.
+    private static func visitTaskListChildren(_ node: ProseMirrorNode, state: inout State, listDepth: Int) {
+        let indent = String(repeating: "  ", count: listDepth)
+        for item in node.content ?? [] {
+            let checked = item.attrs?.checked ?? false
+            let marker = checked ? "- [x] " : "- [ ] "
+            var itemState = State()
+            visit(item, state: &itemState, listDepth: listDepth + 1)
+            while itemState.out.hasSuffix("\n\n") { itemState.out.removeLast() }
+            let lines = itemState.out.split(separator: "\n", omittingEmptySubsequences: false)
+            for (lineIdx, line) in lines.enumerated() {
+                if lineIdx == 0 {
+                    state.out.append(indent)
+                    state.out.append(marker)
+                    state.out.append(String(line))
+                    state.out.append("\n")
+                } else if !line.isEmpty {
+                    let nestedIndent = String(repeating: " ", count: marker.count)
+                    state.out.append(indent)
+                    state.out.append(nestedIndent)
+                    state.out.append(String(line))
+                    state.out.append("\n")
+                }
+            }
+            state.footnoteDefs.append(contentsOf: itemState.footnoteDefs)
         }
     }
 
@@ -240,9 +412,10 @@ nonisolated public enum ProseMirrorMarkdownProjector {
     private static func applyMarks(to text: String, marks: [ProseMirrorMark]) -> String {
         var output = text
         // Apply marks in a deterministic order so the wrapping is
-        // canonical: link wraps innermost, then code, then em, then strong.
-        // (Markdown wrapping order does matter for some renderers.)
-        let priority: [String] = ["link", "code", "em", "strong"]
+        // canonical: link wraps innermost, then code, then em, then
+        // strong, then highlight (W7.8). Markdown wrapping order does
+        // matter for some renderers.
+        let priority: [String] = ["link", "code", "em", "strong", "highlight"]
         let sorted = marks.sorted { lhs, rhs in
             (priority.firstIndex(of: lhs.type) ?? Int.max) <
                 (priority.firstIndex(of: rhs.type) ?? Int.max)
@@ -259,6 +432,10 @@ nonisolated public enum ProseMirrorMarkdownProjector {
                 if let href = mark.attrs?.href {
                     output = "[\(output)](\(href))"
                 }
+            // W7.8 — markdown-it-mark `==text==` highlight syntax,
+            // mirrors Alexandrie's `markdown-it-mark` plugin.
+            case "highlight":
+                output = "==\(output)=="
             default:
                 break  // unknown marks pass through unchanged
             }
