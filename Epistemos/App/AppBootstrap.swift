@@ -1664,6 +1664,27 @@ final class AppBootstrap {
         // fails on day one. Idempotent on repeat launches.
         initializeShadowBackendIfReady()
 
+        // W10.10-FIX — register the NightBrain LaunchAgent so the 3 AM
+        // consolidation pass survives the main app being quit. Failure
+        // is logged + swallowed (e.g. helper executable target not yet
+        // present in this build, or user has not approved Login Item).
+        do {
+            try NightBrainScheduler.register()
+        } catch {
+            Log.app.warning(
+                "W10.10 NightBrain LaunchAgent register failed — \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        // Fallback for missed nights (M-series laptop on battery, lid
+        // closed): if launchd skipped > 36 h, run the in-process
+        // consolidation inline now while the user is foreground.
+        if NightBrainScheduler.shouldRunFallbackInline() {
+            Task.detached(priority: .utility) { [weak self] in
+                await self?._nightBrain?.start()
+                await MainActor.run { NightBrainScheduler.recordSuccessfulRun() }
+            }
+        }
+
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
         // async, user can switch vaults, tests seed new vault URLs).
