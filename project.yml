@@ -115,6 +115,8 @@ targets:
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
+      - package: SwiftTreeSitter
+      - package: CodeEditLanguages
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -214,6 +216,8 @@ targets:
       - package: GGUFRuntimeBridge
         product: GGUFRuntimeBridge
       - package: CodeEditSourceEditor
+      - package: SwiftTreeSitter
+      - package: CodeEditLanguages
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -403,6 +407,19 @@ packages:
   CodeEditSourceEditor:
     url: https://github.com/CodeEditApp/CodeEditSourceEditor
     from: "0.15.2"
+  # Wave 9.6 follow-up — SwiftTreeSitter + CodeEditLanguages must be
+  # DIRECT package deps (not just transitive through CodeEditSourceEditor)
+  # so SwiftTreeSitterLiveHighlighter.swift can `import SwiftTreeSitter`
+  # + `import CodeEditLanguages`. Without these, transitive symbols
+  # (Language, CodeLanguage) compile-resolve to "no member" because
+  # SPM only exposes directly-declared package products to the importing
+  # target.
+  SwiftTreeSitter:
+    url: https://github.com/ChimeHQ/SwiftTreeSitter.git
+    from: "0.25.0"
+  CodeEditLanguages:
+    url: https://github.com/CodeEditApp/CodeEditLanguages.git
+    from: "0.1.20"
 
 schemes:
   Epistemos:
