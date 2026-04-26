@@ -41,6 +41,49 @@
 	<array>
 		<string>com.epistemos.openNote</string>
 	</array>
+	<!-- Wave 7 follow-up: register .epdoc as a Finder-visible package
+	     type so EpdocDocument (NSDocument subclass) drives Open / Save /
+	     Versions / Restore / Share Sheet for free. Conforms to
+	     com.apple.package so the bundle shows as a single Finder icon
+	     instead of a folder. -->
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.epistemos.epdoc</string>
+			<key>UTTypeDescription</key>
+			<string>Epistemos Document</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>com.apple.package</string>
+				<string>public.composite-content</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>epdoc</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Epistemos Document</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>com.epistemos.epdoc</string>
+			</array>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>NSDocumentClass</key>
+			<string>$(PRODUCT_MODULE_NAME).EpdocDocument</string>
+		</dict>
+	</array>
 	<key>INIntentsSupported</key>
 	<array>
 		<string>CreateNoteIntent</string>
