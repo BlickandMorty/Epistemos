@@ -32,6 +32,7 @@ nonisolated struct CargoReleaseProfileTests {
         "omega-ax",
         "syntax-core",
         "substrate-rt",  // Wave 5: ering_* C ABI wraps every entry in catch_unwind
+        "epistemos-shadow",  // Wave 8: shadow_* C ABI wraps every entry in catch_unwind
     ]
 
     /// Crates that have no `catch_unwind` site in their source tree and

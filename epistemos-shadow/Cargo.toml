@@ -1,0 +1,37 @@
+[package]
+name = "epistemos-shadow"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Contextual Shadows engine — Model2Vec + usearch HNSW + tantivy BM25 + RRF fusion. The V1 differentiator (per docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md Wave 8 + ambient/EPISTEMOS_V1_DECISION.md)."
+
+[lib]
+name = "epistemos_shadow"
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Light deps for the W8.1 base scaffold. The full backend deps
+# (usearch 2.25, tantivy 0.22, tokenizers 0.20, memmap2 0.9, rayon 1.10)
+# are pinned in the reference implementation at ambient/epistemos_shadow.rs
+# and land in W8.4 once the FFI surface + tests + controller wiring
+# are green. Splitting keeps the W8.1 build under 30 seconds.
+parking_lot = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+
+[profile.release]
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).
+# SAFETY: epistemos-shadow MUST use panic = "unwind" because the C ABI
+# surface (shadow_insert / shadow_remove / shadow_search / shadow_flush /
+# shadow_stats) wraps every entry in std::panic::catch_unwind so a
+# panic in the indexing or search path can't tear down the Swift host.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
