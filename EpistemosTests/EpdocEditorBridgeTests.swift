@@ -78,26 +78,118 @@ nonisolated struct EpdocEditorBridgeTests {
         #expect(EpdocBridgeMessage.decode(messageBody: ["type": "error"]) == nil)
     }
 
-    // MARK: - Swift → JS commands
+    // MARK: - W7.17 inbound decode (caretChanged / requestSlashMenu / requestBubbleMenu)
 
-    @Test("setContent emits the canonical Tiptap command expression")
-    func setContentEmitsTiptapCommand() {
+    @Test("caretChanged decodes the rect + selection payload")
+    func caretChangedDecodes() {
+        let body: [String: Any] = [
+            "type": "caretChanged",
+            "rect": ["x": 12.5, "y": 34.0, "w": 1.0, "h": 18.0],
+            "selection": ["from": 5, "to": 5, "empty": true],
+        ]
+        guard case let .caretChanged(rect, selection) = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "expected .caretChanged")
+            return
+        }
+        #expect(rect.x == 12.5)
+        #expect(rect.y == 34.0)
+        #expect(rect.width == 1.0)
+        #expect(rect.height == 18.0)
+        #expect(selection.from == 5)
+        #expect(selection.to == 5)
+        #expect(selection.isEmpty == true)
+    }
+
+    @Test("requestSlashMenu decodes query + anchor")
+    func requestSlashMenuDecodes() {
+        let body: [String: Any] = [
+            "type": "requestSlashMenu",
+            "query": "head",
+            "anchor": ["x": 100, "y": 200, "w": 1, "h": 18],
+        ]
+        guard case let .requestSlashMenu(query, anchor) = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "expected .requestSlashMenu")
+            return
+        }
+        #expect(query == "head")
+        #expect(anchor.x == 100)
+        #expect(anchor.y == 200)
+    }
+
+    @Test("requestBubbleMenu decodes selection + anchor")
+    func requestBubbleMenuDecodes() {
+        let body: [String: Any] = [
+            "type": "requestBubbleMenu",
+            "selection": ["from": 10, "to": 25, "empty": false],
+            "anchor": ["x": 50, "y": 60, "w": 200, "h": 18],
+        ]
+        guard case let .requestBubbleMenu(selection, anchor) = EpdocBridgeMessage.decode(messageBody: body) else {
+            #expect(Bool(false), "expected .requestBubbleMenu")
+            return
+        }
+        #expect(selection.from == 10)
+        #expect(selection.to == 25)
+        #expect(selection.isEmpty == false)
+        #expect(anchor.width == 200)
+    }
+
+    @Test("malformed W7.17 payloads return nil (defensive decoder)")
+    func w717MalformedReturnsNil() {
+        // caretChanged missing rect
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "caretChanged",
+                                                       "selection": ["from": 0, "to": 0, "empty": true]]) == nil)
+        // requestSlashMenu missing query
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "requestSlashMenu",
+                                                       "anchor": ["x": 0, "y": 0, "w": 0, "h": 0]]) == nil)
+        // requestBubbleMenu with non-bool empty
+        #expect(EpdocBridgeMessage.decode(messageBody: ["type": "requestBubbleMenu",
+                                                       "selection": ["from": 0, "to": 0, "empty": "true"],
+                                                       "anchor": ["x": 0, "y": 0, "w": 0, "h": 0]]) == nil)
+    }
+
+    // MARK: - Swift → JS commands (W7.17 namespaced surface)
+
+    @Test("setContent routes through window.epistemos.setContent with stringified JSON")
+    func setContentRoutesThroughEpistemosNamespace() {
         let json = #"{"type":"doc","content":[]}"#.data(using: .utf8)!
         let cmd = EpdocEditorCommand.setContent(json: json)
         let expr = cmd.javaScriptExpression()
-        #expect(expr == #"window.epdocEditor.commands.setContent({"type":"doc","content":[]})"#,
-                "setContent must call Tiptap's commands.setContent with the JSON inlined as a JS object literal; got: \(expr)")
+        #expect(expr == #"window.epistemos.setContent("{\"type\":\"doc\",\"content\":[]}")"#,
+                "setContent must call window.epistemos.setContent(jsonString); got: \(expr)")
     }
 
-    @Test("focusStart emits the canonical focus command")
-    func focusStartCommand() {
-        let cmd = EpdocEditorCommand.focusStart
-        #expect(cmd.javaScriptExpression() == "window.epdocEditor.commands.focus('start')")
+    @Test("focusStart + focusEnd route through window.epistemos.focus*")
+    func focusCommands() {
+        #expect(EpdocEditorCommand.focusStart.javaScriptExpression() == "window.epistemos.focusStart()")
+        #expect(EpdocEditorCommand.focusEnd.javaScriptExpression() == "window.epistemos.focusEnd()")
     }
 
-    @Test("focusEnd emits the canonical focus command")
-    func focusEndCommand() {
-        let cmd = EpdocEditorCommand.focusEnd
-        #expect(cmd.javaScriptExpression() == "window.epdocEditor.commands.focus('end')")
+    @Test("dismissSlashMenu + dismissBubbleMenu emit the canonical no-arg calls")
+    func dismissCommands() {
+        #expect(EpdocEditorCommand.dismissSlashMenu.javaScriptExpression() == "window.epistemos.dismissSlashMenu()")
+        #expect(EpdocEditorCommand.dismissBubbleMenu.javaScriptExpression() == "window.epistemos.dismissBubbleMenu()")
+    }
+
+    @Test("insertSlashChoice emits the canonical block-type call (string-literal escaped)")
+    func insertSlashChoiceCommand() {
+        let cmd = EpdocEditorCommand.insertSlashChoice(blockType: "heading-1")
+        #expect(cmd.javaScriptExpression() == #"window.epistemos.insertSlashChoice("heading-1")"#)
+    }
+
+    @Test("runCommand spreads the JSON args array")
+    func runCommandSpreadArgs() {
+        let argsJSON = "[{\"level\":2}]".data(using: .utf8)!
+        let cmd = EpdocEditorCommand.runCommand(name: "toggleHeading", argsJSON: argsJSON)
+        #expect(cmd.javaScriptExpression() == #"window.epistemos.runCommand("toggleHeading", ...[{"level":2}])"#)
+    }
+
+    @Test("jsStringLiteral escapes the dangerous JS literal characters")
+    func jsStringLiteralEscapes() {
+        #expect(jsStringLiteral("plain") == "\"plain\"")
+        #expect(jsStringLiteral(#"with "quote""#) == #""with \"quote\"""#)
+        #expect(jsStringLiteral("with\nnewline") == "\"with\\nnewline\"")
+        #expect(jsStringLiteral("with\\backslash") == "\"with\\\\backslash\"")
+        // U+2028 / U+2029 are JS string-terminators inside literals — escape them
+        #expect(jsStringLiteral("a\u{2028}b") == "\"a\\u2028b\"")
     }
 }
