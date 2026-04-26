@@ -244,6 +244,250 @@ memory / FFI-latency thresholds, and deliberation on alternatives.
 - **Mamba history**: master plan explicitly notes prior Mamba/SSM attempts failed; Phase 2 stays on standard Transformers. Tier 5 W9.28 (Blelloch scan) remains a research item, NOT a hard plan dependency.
 - **Hermes locality**: per master plan Prompt 6, the user's 16 GB Mac cannot run the largest Hermes locally; cloud Hermes is the executive in the Hybrid-Brain split (Phase 5).
 
+## Wave 12 — Implementation Contract (compass artifact integration, DRAFT)
+
+The compass artifact (`/Users/jojo/Downloads/compass_artifact_wf-0d84391a-...md`,
+946 lines) is the most technically grounded research yet — version-pinned
+crates, verified APIs, concrete reality-checks against shipping releases as of
+**2026-04-26** (Apple Foundation Models, MLX-Swift 0.31.x, mlx-swift-lm 3.31.x,
+UniFFI 0.29.5, Swift 6.2 / Xcode 26, macOS 26.4 "Tahoe" RC). It supersedes
+ambiguity in earlier docs.
+
+### Compass strategic verdict — ship-first set
+
+> "Ship phases **1, 2, 8, 12, and one of {3 or 5}** first. They produce
+> the highest demo-to-effort ratio, feed every other phase's data
+> substrate, and align directly with Apple Design Award judging
+> patterns (native API depth, distinctive viewpoint, on-device privacy)."
+
+| Priority | Phase | Type | ADA category fit |
+| -------- | ----- | ---- | ---------------- |
+| 1 | **Phase 8** — live dynamic Metal graph (sqlite-vec + petgraph) | Demo + Infra | **Innovation / Visuals & Graphics** |
+| 2 | **Phase 2** — organic decay (FSRS-6 + tiered quantisation cascade) | Demo + Infra | Innovation |
+| 3 | **Phase 1** — `@Generable` ontology classifier | Infra (powers everything) | Innovation |
+| 4 | **Phase 12** — JSON sidecar files (`vim`-able, dual representation) | Infra (trust moat) | Inclusivity / Innovation |
+| 5 | **Phase 5** — hybrid brain (AFM 3B + MLX Qwen3 0.6B subconscious) | Infra | Innovation |
+
+**Defer to v1.5**: Phase 10 NightBrain LoRA (highest infra moat,
+nearly impossible to demo live), Phase 11 voice (commodity), Phase 16
+stenographer (overlaps with Granola).
+**Treat Phase 6 as a feasibility fence**: pause-mid-stream-and-inject
+does not exist on any cloud API and **must** be replaced with
+tool-use retrieval.
+
+### Compass reality-checks — CRITICAL FIXES TO EXISTING WAVES
+
+These are platform truths that contradict assumptions earlier in the
+plan. The fixes are not yet shipped (per the user's "don't finalize"
+instruction) but are tagged `[Compass-FIX-NEEDED]` so the next session
+can land them as code.
+
+| ID | Existing item | Compass reality | Action |
+| -- | ------------- | --------------- | ------ |
+| W10.4-FIX | BootstrapPacket wire-up (committed 87c5b9bc) | "Your 800-token bootstrap is BELOW the cache minimum on every major provider. Anthropic minimums: Sonnet 4.5/3.7 = **1,024**, Sonnet 4.6 = **2,048**, Opus 4.5/4.6/4.7 + Haiku 4.5 = **4,096**." | **Pad packet to ≥1,100 tokens of stable content**; verify cache hits via `cache_creation_input_tokens` / `cache_read_input_tokens` telemetry. **Without padding the W10.4 wire-up provides ZERO caching benefit.** |
+| W10.4-FIX-b | TTL on `cache_control` markers | "Anthropic silently changed default ephemeral TTL from 1 h to 5 min in March 2026 — always pass `ttl` explicitly." | Pass `ttl: "1h"` explicitly on cache markers. |
+| W10.4-FIX-c | Assistant prefilling for JSON shaping | "Assistant prefilling is REMOVED on Claude Opus 4.6/4.7, Sonnet 4.6, Mythos Preview — returns 400." | Switch to `output_config.format` for JSON shaping. |
+| W10.10-FIX | Night Brain 3 AM cron via `BGTaskScheduler` | "**`BGTaskScheduler` does NOT exist on macOS** (`API_UNAVAILABLE(macos)` in SDK headers). `NSBackgroundActivityScheduler` only runs while app is alive — useless for 3 AM wake if user quits the app." | Use `SMAppService.agent(plistName:)` + launchd `StartCalendarInterval`. **Only mechanism that wakes from sleep + coalesces missed runs.** Plist must be Team-ID-signed or `SMAppService.register()` fails silently. |
+| W10.10-FIX-b | M-series battery deferral | "M-series laptop on battery + lid closed may defer 3 AM jobs by hours" | Fallback fire on next launch if `last_consolidation > 36 h`. |
+| W10.5-FIX | "Hybrid Brain" ANE + MLX speculation | "**MLX does NOT use ANE** (MLX is GPU-only on M2). AFM's daemon does." Doc 1's Mirror-SD is technically correct but MLX itself runs on GPU; ANE-based draft model needs Core ML, not MLX. | Update W10.5 to reflect MLX = GPU-only. For ANE-based draft model: Core ML routes (ANEMLL, john-rocky/CoreML-LLM achieve 47–62 tok/s for 1B at ~2 W vs ~20 W GPU). |
+| W10.5-FIX-b | Local subconscious model choice | "Recommendation: **Qwen3 0.6B 4-bit, NOT SmolLM2 1.7B**. RAM @ 4k ctx = ~600 MB vs ~1.4 GB. Top pick for subconscious on M2 Pro 18 GB." | Pin `mlx-community/Qwen3-0.6B-4bit` as the canonical local subconscious. |
+| W10.6-FIX | Mid-generation prompt surgery | (Already amended by Doc 2.) Compass adds: "Read Claude's `thinking_delta` events YES (summarized; **observe only, cannot steer**); raw thinking trace requires Anthropic sales contact. **Inject context mid-thought via tool use** is the only real mechanism. Cancel + re-call breaks thinking-block signatures (Claude rejects)." | Update W10.6 to be tool-use-only, with `epistemos_retrieve` as cached part of system+tools prefix; interleaved thinking auto-on for Sonnet/Opus 4.6+. |
+| W11.x-FIX | UniFFI + Swift 6.2 / Xcode 26 | "**Issue #2818 open since Feb 11, 2026, no fix shipped.** With `SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor` (Xcode 26 default), uniffi-bindgen generated Swift fails to compile because `deinit` cannot be MainActor-isolated." | Pin `uniffi = "0.29.5"` (NOT 0.30 / 0.31 — method-checksum changes). Place generated bindings in **separate SwiftPM target with `defaultIsolation(nil)`** (nonisolated). |
+| W11.x-FIX-b | Swift `Task.cancel()` cancelling Rust futures | "Does not — UniFFI issue #2771, open. Without explicit handling, Rust's tokio runtime keeps running AFM to completion, wasting CPU/battery." | Ship explicit `CancellationToken` handle objects; Swift must call `handle.cancel()` in `continuation.onTermination`. |
+
+### Compass-verified concrete tech stack (to pin in Cargo.toml + Package.swift)
+
+| Crate / Framework | Version | Purpose | Source |
+| ----------------- | ------- | ------- | ------ |
+| `FoundationModels` | macOS 26+ | `@Generable` + `@Guide` ontology / structured outputs | Apple, OS daemon (zero RAM cost to app) |
+| `mlx-swift` | `0.31.3` | Local subconscious | Apple, ~23 Mar 2026 |
+| `mlx-swift-lm` | `3.31.3` | LLM/VLM/Embedder runtime | Apple, 15 Apr 2026 |
+| `uniffi` | `0.29.5` (PINNED) | Rust↔Swift FFI | Mozilla — DO NOT bump to 0.30/0.31 |
+| `sqlite-vec` | `0.1.9` | Vector KNN inside GRDB SQLite (sub-50 ms @ 100k) | Alex Garcia, 165 KB extension |
+| `petgraph` | `0.8.2` | StableDiGraph for in-memory property graph projection | bluss/petgraph |
+| `fsrs` | `5.2.0` | FSRS-6 spaced repetition (BSD-3, Anki's lead dev + Jarrett Ye, Burn-based, no libtorch) | open-spaced-repetition |
+| `tokio-cron-scheduler` | `0.15.1` | In-process cron | mvniekerk |
+| `apalis` | `1.0.0-rc.7` | Production job queue with SQLite backend (no Redis) | geofmureithi |
+| `notify` | `8.2.0` | FSEvents file watching | notify-rs |
+| `notify-debouncer-full` | `0.7.0` | Coalesces rename pairs + tracks inode IDs across renames | notify-rs |
+| `ignore` | `0.4.25` | Codebase exclusion (BurntSushi/ripgrep) for ETL | BurntSushi |
+| `twox-hash` | `2.x` (xxh3-128) | Change detection (31 GB/s, 128-bit space) | shepmaster |
+| `BLAKE3` | latest | Cryptographic integrity (signed exports, 8.4 GB/s multi-threaded) | BLAKE3-team |
+| `pty-process` | `0.5.3` | PTY spawning (Tokio-native AsyncRead/Write) for CLI bridge | doy |
+| `anstream` | `0.6` | ANSI stripping for CLI output | rust-cli |
+| `hdbscan` | `0.12` | Unsupervised cluster discovery for ontology | mhrjedi |
+| `schemars` | `0.8` | JSON Schema export from Rust structs | GREsau |
+| `rmcp` | `0.16` | MCP server (target spec **`2025-06-18`** — broadest client support) | model context protocol |
+| `candle-core` | latest | GGUF Q-types (Q8_0, Q4_K, Q2_K) for tier-cascade quantisation | huggingface |
+| `LLMLingua-2` | latest | 2-20× compression via BERT-class encoder; sidecar Python or Core ML port | microsoft |
+
+### Compass-verified concrete schemas
+
+**Phase 1 — `@Generable OntologyNode`** (recursive nesting works; **property declaration order is semantically significant** — model fills fields sequentially, dependents must follow referents):
+
+```swift
+@Generable struct OntologyNode {
+    @Guide(description: "Canonical concept, lowercase kebab-case") let concept: String
+    @Guide(description: "Knowledge depth marker") let depth: DepthMarker
+    @Guide(.count(0...8)) let children: [OntologyNode]   // recursive
+}
+@Generable enum DepthMarker { case surface, synthesized, coreBelief }
+```
+
+**Phase 8 — graph schema (sqlite-vec + petgraph)**:
+
+```sql
+CREATE TABLE node (
+  id TEXT PRIMARY KEY, kind TEXT NOT NULL,
+  depth INTEGER NOT NULL,                   -- 1=surface, 2=synthesized, 3=core-belief
+  title TEXT NOT NULL, body TEXT,
+  created_at INTEGER, updated_at INTEGER, sidecar_path TEXT
+);
+CREATE TABLE edge (
+  src TEXT, dst TEXT, rel TEXT,             -- parent_of, derived_from, contradicts, supports, session_of
+  weight REAL DEFAULT 1.0, meta JSON,
+  PRIMARY KEY (src, dst, rel)
+);
+CREATE VIRTUAL TABLE vec_node USING vec0(
+  node_id TEXT PRIMARY KEY, embedding float[384]
+);
+```
+
+Hysteresis on dynamic edge inference: `τ_add = 0.80`, `τ_remove = 0.65` (prevents oscillation as user iterates). Existing edges decay `weight *= 0.97^days` via Phase 2 cron.
+
+**Phase 12 — sidecar struct**:
+
+```rust
+#[derive(Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+struct EpistemosSidecar {
+    schema_version: u16,
+    entity_id: Ulid,
+    depth: DepthMarker,
+    parent_domain: Option<String>,
+    derived_from: Vec<Ulid>,
+    embeddings: Option<EmbeddingRef>,
+    cognitive_meta: CognitiveMeta,
+    annotations: Vec<Annotation>,
+}
+```
+
+### Compass-verified Apple Foundation Models hard limits
+
+- **4,096 tokens combined input + output.** `LanguageModelGenerationError.exceededContextWindowSize`. Use `model.tokenCount(for:)` (macOS 26.4+) to budget.
+- **No multimodal input** as of 26.4 (text-only).
+- **Guardrails are mandatory and cannot be disabled.**
+- Streaming is via `T.PartiallyGenerated` snapshots — **no token-level callbacks exposed.**
+- **PCC is never used.** Apple DTS engineer confirmed: "Currently the Foundation Models framework only has access to the on-device model. PCC is never used. Ever." Zero cloud egress; no fallback if on-device too small.
+- **Cold start: 1–3 seconds.** Use `session.prewarm(promptPrefix:)` on app launch.
+- **Adapters**: `.fmadapter` packages ~160 MB, LoRA rank 32. **Production deployment requires Foundation Models Framework Adapter Entitlement** (request via Apple Developer Account Holder). Adapter ID regex `/fmadapter-\w+-\w+/` — undocumented; **hyphens in adapter names break loading**.
+- **macOS 15 Sequoia ships NO model assets.** Require macOS 26 Tahoe minimum; gate via `SystemLanguageModel.default.availability`.
+
+### Compass-verified hybrid-brain memory budget (M2 Pro 18 GB)
+
+| Component | Owner | Resident |
+| --------- | ----- | -------- |
+| macOS + WindowServer + daemons | OS | ~3.5–4 GB |
+| **AFM 3B (`generativeexperiences`d)** | OS daemon | **~2 GB, OS process — does NOT count against app** |
+| Swift heap + UI + SQLite + sqlite-vec hot pages | App | ~1.5–2 GB |
+| Rust core (UniFFI) + tokenizers | App | ~300–500 MB |
+| **MLX subconscious (Qwen3 0.6B 4-bit)** | App | **~600–800 MB** |
+| MLX KV cache headroom (8K ctx) | App | ~300 MB |
+| GPU/Metal heaps | App | ~200–400 MB |
+| **App total** | | **~3.5–5 GB** |
+
+### Compass concurrency policy (heart of Phase 5)
+
+```swift
+private func canRunMLX() -> Bool {
+    let pi = ProcessInfo.processInfo
+    if pi.isLowPowerModeEnabled { return false }
+    if pi.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue { return false }
+    if PowerSource.isOnBattery && PowerSource.currentCharge < 0.50 { return false }
+    if Date.now.timeIntervalSince(idleSince) < 2.0 { return false }
+    if afmSession.isResponding { return false }   // yield GPU to AFM
+    return true
+}
+```
+
+Cap MLX RSS via `MLX.GPU.set(memoryLimit: 6 * 1024 * 1024 * 1024)`. Monitor `ProcessInfo.thermalStateDidChangeNotification` and `.NSProcessInfoPowerStateDidChange`.
+
+### Compass per-CLI verified flag matrix (Phase 3)
+
+| CLI | Headless | JSON stream | Auth | MCP support | Reality |
+| --- | -------- | ----------- | ---- | ----------- | ------- |
+| **Claude Code** | `claude -p "..." --output-format stream-json --verbose --include-partial-messages [--bare]` | NDJSON: `system`, `stream_event`, `result`. `--json-schema` for constrained output. `--continue` / `--resume <session_id>` | `ANTHROPIC_API_KEY` | `claude mcp add`; can act as MCP server via `claude mcp serve` | Best supported |
+| **OpenAI Codex** | `codex exec --json "..."` (Rust binary, **source-available** `openai/codex`) | JSONL: `thread.started`, `turn.{started,completed,failed}`, `item.{started,updated,completed}`. `--output-schema` for constrained output. | ChatGPT OAuth or `OPENAI_API_KEY` | `codex mcp add`, `codex mcp serve` | **Stable; can vendor `codex-rs` directly as Cargo dep** |
+| **Kimi CLI** (`MoonshotAI/kimi-cli` v1.39) | `kimi --print -p "..."` | `--output-format=stream-json` (OpenAI Message format) | OAuth or API key | `kimi mcp add` | macOS+Linux only |
+| **Hermes Agent** (Nous Research) | `hermes chat -q "..."` | **No first-class JSONL flag**. Spawn `hermes api-server` once and stream via SSE on `/v1/chat/completions`. Or `hermes acp` (Agent Client Protocol) over stdio | OAuth via `hermes auth` | `hermes mcp serve` | **Treat as a service, not a one-shot CLI** |
+
+### Compass Hermes pricing (April 2026)
+
+| Model | Provider | Input / 1M | Output / 1M |
+| ----- | -------- | ---------- | ----------- |
+| **Hermes 4 70B** | Nous Portal / OpenRouter | **$0.13** | **$0.40** |
+| Hermes 4 405B | Nous Portal | $1.00 | $3.00 |
+| Hermes 4 405B | Nebius FP8 (via OpenRouter) | $0.60 | $1.90 |
+| Hermes 3 405B | OpenRouter free tier | $0 | $0 |
+| Claude Sonnet 4.6 | Anthropic | $3.00 | $15.00 |
+| Kimi K2 | Moonshot | $0.15 | ~$2.50 |
+
+**Hermes 70B as orchestrator vs Claude Sonnet 4.6 ≈ 3.2× cheaper end-to-end** ($0.038 vs $0.12 per 5-step session).
+
+### Compass token-usage decision tree
+
+| Pattern | When to use | Savings |
+| ------- | ----------- | ------- |
+| Anthropic 5-min cache | Static across requests | **~90 %** on cached tokens (1.25× write cost) |
+| Anthropic 1-h cache | Stable system+tools | ~90 % on cached tokens (2× write; break-even ≈ 2 hits) |
+| OpenAI cache | Newest models | **50 %** baseline (up to 90 %) |
+| Kimi cache | Moonshot models | **75–83 %** input cost |
+| LLMLingua-2 compression | Long bloated text | 2–20× token reduction; ~50–80 % input cost |
+| Tool-use retrieval vs full-context | Large but only sometimes needed | **~99 % input reduction on retrieved part** |
+| LoRA persona vs system prompt | Stable persona/style + self-host | Eliminates 500–2,000 tokens *every* call |
+
+**What does NOT work**: raw embeddings as conversational input (no commercial provider supports), hot-swap system prompts (single-character drift = full miss), pause-and-inject mid-stream (no provider exposes the primitive).
+
+### Compass build order — 12-month plan
+
+> Optimised for **ADA submission March 2026 → June 2026 reveal**.
+> Featuring nominations open ~3 months before WWDC; June 8–12 is WWDC
+> 2026; ADA reveal expected late May / first week June 2026.
+
+**Months 1–3 (foundation)**: Phase 1 (AFM `@Generable` ontology) → Phase 8 (sqlite-vec + petgraph + Metal graph) → Phase 12 (sidecars + notify + ignore) → Phase 4 (bootstrap with **cache padding to 1100+ tokens**) → Phase 5 (hybrid brain orchestrator with thermal/battery/GPU-contention policy).
+
+**Months 4–6 (sensory + structure)**: Phase 14 (intake valve with <500 ms target, explicit cancellation token) → Phase 15 (two-DB quarantine) → Phase 11 (SpeechAnalyzer + Metal waveform) → Phase 2 (FSRS-6 + candle Q-types tier cascade + launchd LaunchAgent).
+
+**Months 7–9 (orchestration + intelligence)**: Phase 3 (CLI bridge with pty-process) → Phase 6 (**tool-use retrieval, NOT pause-and-inject**) → Phase 9 (`@Generable SessionTelemetry`) → Phase 16 (real-time stenographer).
+
+**Months 10–12 (defensibility + polish)**: Phase 7 (Hermes Chief of Staff via rmcp 0.16) → Phase 13 (apalis-sqlite ETL with xxh3) → Phase 10 (NightBrain LoRA — quietly, with in-context fallback always engaged) → ADA polish (Liquid Glass, App Intents, Quick Look, accessibility audit).
+
+### Compass — three things to do first this week
+
+1. **Pin `uniffi = "0.29.5"`** + stand up Issue #2818 mitigation (separate SwiftPM target with `nonisolated` defaults). Without this, every other Swift 6 build is broken on Xcode 26.
+2. **Build benchmark harness** measuring (a) AFM `@Generable` round-trip latency, (b) MLX Qwen3 0.6B 4-bit tok/s under thermal pressure, (c) sqlite-vec KNN at 100 k vectors, (d) UniFFI callback throughput. **Numbers in this report are estimates; measure the actual stack.**
+3. **Pad the W10.4 BootstrapPacket to ≥1,100 tokens** of stable content; verify cache hits via `cache_creation_input_tokens` / `cache_read_input_tokens` telemetry. **Without padding, W10.4 has zero caching benefit.**
+
+### Compass ADA strategic frame
+
+- **2026 ADA winners not yet announced** (WWDC June 8–12, ADA reveal late May / first week June 2026). Any "2026 ADA winner" claim is fabricated.
+- **Apple has skipped pure-genAI apps two years running** — they prefer apps that *use* AFM to enhance a non-AI core experience.
+- **Apple PR'd 7 AFM-using apps in Sept 2025** (SmartGym, Stoic, VLLO, Grammo, Stuff, CellWalk, Lil Artist) — going hard on AFM is aligned with Apple's 2026 marketing priorities.
+- **Recommended ADA category for Epistemos: Innovation (primary), Visuals & Graphics (backup)**.
+- **No public ADA submission form**; apps must be on App Store; selection by Apple's editorial team. Visibility levers: App Store Connect Featuring Nominations ~3 months before WWDC, Today/Discover, dev relations.
+- **Required engineering polish for editor's eye**: Liquid Glass adoption, App Intents, Spotlight integration, Quick Look for sidecar files, Shortcuts actions, VoiceOver + Dynamic Type + Reduce Motion *actually working*.
+
+### Compass demo video structure (60–90 sec)
+
+1. 0:00–0:05 Cold open: live Metal graph animation, ~1000 nodes pulsing
+2. 0:05–0:35 Native moment: type a thought → AFM streams → graph node materialises → connects. 60 fps.
+3. 0:35–0:55 Decay moment: time-lapse of unused notes physically dimming and shrinking.
+4. 0:55–1:15 Privacy moment: airplane mode ON, everything still works. Activity Monitor shows AFM on Neural Engine.
+5. 1:15–1:25 Open `.epistemos.json` in TextEdit. *"Your data, your files. Forever."*
+6. 1:25–1:30 Logo.
+
+**Hide**: Rust ("performance core"), cloud LLMs (de-emphasise, lead on-device), multi-agent CLI orchestration (powerful but reads as chaotic — save for hackathons).
+
 ## Sources
 
 - `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`, `docs/AGENT_PROGRESS.md`, `docs/KNOWN_ISSUES_REGISTER.md`
