@@ -19,6 +19,14 @@ import os
 final class HarnessIntegration {
     private static let log = Logger(subsystem: "com.epistemos", category: "HarnessIntegration")
 
+    /// W10.4 — process-wide singleton so the agent runtime call site
+    /// (ChatCoordinator) can wire `prepareSession(...)` without
+    /// owning a separate instance per session. Sessions are processed
+    /// serially per `activeSessionId`; the shared instance survives
+    /// across runs and accumulates `sessionCounter` for continuation
+    /// detection per the master-plan Phase 4 contract.
+    static let shared = HarnessIntegration()
+
     // MARK: - State
 
     /// The current harness version (for trace correlation).

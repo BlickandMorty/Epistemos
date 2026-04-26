@@ -2154,13 +2154,37 @@ final class ChatCoordinator {
       allowedToolNames: Array(allowedTools).sorted()
     )
 
+    // W10.4 — inject the BootstrapPacket as the first hidden system
+    // message, per master-plan Phase 4. The harness already exists
+    // (Epistemos/Harness/BootstrapPacketBuilder.swift); the gap was
+    // the call site. `prepareSession` returns the augmented prompt
+    // (base + bootstrap + mode instructions); we use it as the
+    // canonical systemPrompt for the agent runtime so the model
+    // explicitly acknowledges its OS context + past session failures
+    // before generating a single token.
+    let baseSystemPrompt = systemParts.joined(separator: "\n\n")
+    let resolvedSystemPrompt: String
+    #if !EPISTEMOS_APP_STORE
+    resolvedSystemPrompt = HarnessIntegration.shared.prepareSession(
+        sessionId: sessionId,
+        objective: objective,
+        workingDirectory: URL(fileURLWithPath: vaultPath),
+        baseSystemPrompt: baseSystemPrompt,
+        availableTools: Array(allowedTools).sorted(),
+        activeCapability: providerName,
+        activeVault: vaultSync.vaultURL?.lastPathComponent
+    )
+    #else
+    resolvedSystemPrompt = baseSystemPrompt
+    #endif
+
     let agentConfig = AgentConfigFFI(
       maxTurns: maxTurns,
       maxOutputTokens: 16384,
       contextThreshold: UInt32(chatState.maxContextTokens),
       enableThinking: surfaceOperatingMode.capturesReasoningTrace,
       effort: rustAgentEffort(for: surfaceOperatingMode),
-      systemPrompt: systemParts.joined(separator: "\n\n"),
+      systemPrompt: resolvedSystemPrompt,
       autoApproveReads: false,
       autoApproveWrites: false,
       promptMode: nil  // auto-detect from objective keywords
