@@ -78,7 +78,7 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/omega_axFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
@@ -93,7 +93,7 @@ targets:
           ENABLE_HARDENED_RUNTIME: true
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -174,7 +174,7 @@ targets:
           - "@executable_path"
           - "@executable_path/../Frameworks"
           - "@loader_path/../Frameworks"
-        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core
+        OTHER_LDFLAGS: -L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index
         SWIFT_INCLUDE_PATHS: $(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI
       configs:
         Debug:
@@ -188,7 +188,7 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) EPISTEMOS_APP_STORE MAS_SANDBOX"
     preBuildScripts:
       - name: Build Rust Engine
-        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\""
+        script: "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\""
         basedOnDependencyAnalysis: false
     postBuildScripts:
       - name: Bundle Runtime Assets
@@ -356,6 +356,8 @@ targets:
           copy_file "build-omega-ax.sh"
           copy_file "build-epistemos-core.sh"
           copy_file "build-agent-core.sh"
+          copy_file "build-epistemos-shadow.sh"
+          copy_file "build-epistemos-code-index.sh"
         basedOnDependencyAnalysis: false
       - name: Bundle Adapter Audit Sources
         script: |
