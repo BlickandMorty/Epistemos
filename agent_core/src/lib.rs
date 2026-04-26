@@ -1,5 +1,6 @@
 pub mod agent_loop;
 pub mod approval;
+pub mod artifacts;
 pub mod bridge;
 pub mod channel_relay;
 pub mod command_center;

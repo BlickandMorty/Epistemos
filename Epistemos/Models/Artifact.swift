@@ -11,7 +11,7 @@ import Foundation
 
 // MARK: - Artifact Kind
 
-nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
+nonisolated enum ChatArtifactKind: String, Codable, Sendable, CaseIterable {
     case json
     case yaml
     case csv
@@ -61,7 +61,7 @@ nonisolated enum ArtifactKind: String, Codable, Sendable, CaseIterable {
 
 nonisolated struct Artifact: Identifiable, Codable, Sendable {
     let id: String
-    let kind: ArtifactKind
+    let kind: ChatArtifactKind
     let title: String
     let language: String?
     let content: String
@@ -70,7 +70,7 @@ nonisolated struct Artifact: Identifiable, Codable, Sendable {
 
     init(
         id: String = UUID().uuidString,
-        kind: ArtifactKind,
+        kind: ChatArtifactKind,
         title: String,
         language: String? = nil,
         content: String,
