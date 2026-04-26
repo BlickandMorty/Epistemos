@@ -47,6 +47,7 @@ epistemos-core/target/
 substrate-core/target/
 substrate-rt/target/
 epistemos-shadow/target/
+epistemos-code-index/target/
 bench/target/
 build-rust/
 __pycache__/
