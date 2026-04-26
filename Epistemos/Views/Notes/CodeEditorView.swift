@@ -1450,7 +1450,19 @@ struct CodeEditorView: View {
                 state: $editorState,
                 coordinators: sourceEditorCoordinator.map { [$0] } ?? []
             )
-            
+            // Wave 4.5 / Patch 6a deferred: passing `highlightProviders:
+            // [SyntaxCoreHighlightProvider(...)]` here is the canonical
+            // wiring, but CodeEditSourceEditor's HighlightProviding
+            // protocol crosses the @preconcurrency import boundary,
+            // and the conformance is visible differently from this
+            // call site than from where the adapter is declared. The
+            // adapter ships in Engine/SyntaxCoreHighlightProvider.swift
+            // and the inspector preview path in CodeEditorView.swift
+            // already exercises SyntaxCoreService directly. The remaining
+            // step — wiring the adapter into the SourceEditor's
+            // highlightProviders parameter — is tracked as a follow-up
+            // pending a clean Swift 6 strict-concurrency resolution.
+
             searchBarOverlay
         }
         .background(NoteWorkspaceSurfaceStyle.canvasBackground(for: ui.theme))
