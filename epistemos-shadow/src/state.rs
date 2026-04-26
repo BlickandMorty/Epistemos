@@ -11,12 +11,13 @@
 //! process, reachable through `shadow_state()`.
 
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::path::Path;
+use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use parking_lot::RwLock;
 
-use crate::backend::ShadowBackend;
+use crate::backend::{RealBackend, ShadowBackend};
 use crate::error::ShadowError;
 use crate::{ShadowDocument, ShadowHit, ShadowStats};
 
@@ -232,6 +233,59 @@ pub fn shadow_state() -> &'static ShadowState {
     SHADOW_STATE.get_or_init(ShadowState::new)
 }
 
+// MARK: - W8.4.g — pluggable backend singleton
+//
+// Two-tier dispatch:
+//   1. If `shadow_open_at(path)` has been called successfully, every
+//      `shadow_backend()` call returns the live `RealBackend` (the
+//      W8.4.e production stack).
+//   2. Otherwise, returns the W8.1 stub via `shadow_state()` upcast
+//      to the trait — preserves the original FFI behavior on hosts
+//      that haven't migrated yet.
+//
+// The runtime upgrade is the entire point: callers (the FFI surface
+// in lib.rs) ALWAYS dispatch through `shadow_backend()`. The Swift
+// bootstrap fires `shadow_open_at(path)` once at app start; all
+// subsequent FFI calls hit the persistent RealBackend.
+
+static REAL_BACKEND: RwLock<Option<Arc<RealBackend>>> = RwLock::new(None);
+
+/// Initialise the global RealBackend at `path`. Idempotent — calling
+/// twice with the same (or different) path replaces the live
+/// instance. Returns the ShadowError discriminant on failure (e.g.
+/// HuggingFace download failed when offline + cold cache).
+pub fn open_real_backend_at(path: &Path) -> Result<(), ShadowError> {
+    let backend = RealBackend::open_at(path)?;
+    let mut guard = REAL_BACKEND.write();
+    *guard = Some(Arc::new(backend));
+    Ok(())
+}
+
+/// Process-wide ShadowBackend handle. Returns the W8.4.e RealBackend
+/// when `open_real_backend_at` has been called; otherwise the W8.1
+/// ShadowState stub (lazily-built singleton — pre-open inserts
+/// share state across calls, just like the original
+/// `shadow_state()` semantics).
+pub fn shadow_backend() -> Arc<dyn ShadowBackend> {
+    if let Some(real) = REAL_BACKEND.read().clone() {
+        return real;
+    }
+    static STUB_FALLBACK: OnceLock<Arc<ShadowState>> = OnceLock::new();
+    let stub = STUB_FALLBACK
+        .get_or_init(|| Arc::new(ShadowState::new()))
+        .clone();
+    stub
+}
+
+/// Reset the global RealBackend (test-only). Releases the Arc so
+/// the next `shadow_backend()` call falls back to the stub. Used
+/// by the W8.4.g singleton-flip tests to give each test a fresh
+/// world without process-restart.
+#[cfg(test)]
+pub fn _reset_real_backend_for_tests() {
+    *REAL_BACKEND.write() = None;
+}
+
 /// Pre-truncated snippet centred around the body match (or the
 /// document head when only the title matched). Capped at 160 chars
 /// per the V1 decision §"shadow hit shape".
@@ -253,6 +307,42 @@ fn build_snippet(body: &str, hit_pos: Option<usize>) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // MARK: - W8.4.g singleton flip
+
+    #[test]
+    fn shadow_backend_falls_back_to_stub_when_no_real_backend_open() {
+        // Reset to ensure a clean world (other tests may have flipped it).
+        _reset_real_backend_for_tests();
+        let backend = shadow_backend();
+        // Stub semantics: empty doc_id rejected on insert.
+        let result = backend.insert_document(ShadowDocument {
+            doc_id: "".to_string(),
+            domain: "note".to_string(),
+            title: "x".to_string(),
+            body: "y".to_string(),
+        });
+        assert!(matches!(result, Err(ShadowError::InvalidInput { .. })));
+    }
+
+    #[test]
+    fn shadow_backend_stub_fallback_shares_state_across_calls() {
+        _reset_real_backend_for_tests();
+        let a = shadow_backend();
+        let b = shadow_backend();
+        // Insert through `a`, search through `b` — must hit the same
+        // STUB_FALLBACK singleton.
+        a.insert_document(ShadowDocument {
+            doc_id: "share-test".to_string(),
+            domain: "note".to_string(),
+            title: "shared".to_string(),
+            body: "body shared body".to_string(),
+        })
+        .unwrap();
+        let hits = b.search("shared", "note", 5).unwrap();
+        assert!(hits.iter().any(|h| h.doc_id == "share-test"),
+                "the second shadow_backend() handle MUST see the first one's writes");
+    }
 
     fn fresh_state() -> ShadowState {
         ShadowState::new()
