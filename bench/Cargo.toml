@@ -16,6 +16,13 @@ publish = false
 name = "morning-session"
 path = "src/morning_session.rs"
 
+# Wave 8.4 day-1 spike — measure model2vec-rs encode latency on the
+# user's hardware before committing to the multi-week Halo backend
+# build. Standalone bin so cargo run --bin model2vec-bench works.
+[[bin]]
+name = "model2vec-bench"
+path = "src/model2vec_bench.rs"
+
 [dependencies]
 # omega-mcp is the MCP dispatcher (String → String JSON-RPC roundtrip)
 # that exercises the same serialize/parse pattern crossing the UniFFI
@@ -24,6 +31,13 @@ path = "src/morning_session.rs"
 omega-mcp = { path = "../omega-mcp" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+# Wave 8.4 day-1 spike — pure-Rust Model2Vec encoder. Pinned at
+# 0.1.4; HuggingFace Hub auto-download via hf-hub is the convenience
+# path the bench uses. Adding this dep here (not in epistemos-shadow
+# yet) keeps the spike isolated from the production crate's compile
+# graph until the W8.4 follow-up actually wires the encoder in.
+model2vec-rs = "0.1.4"
 
 [profile.release]
 # Mirror the canonical Wave 2.4 profile so bench measurements reflect
