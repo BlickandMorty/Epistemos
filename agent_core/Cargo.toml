@@ -35,8 +35,13 @@ regex = "1.10"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 rusqlite = { version = "0.32", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["raw_value"] }
 serde_yaml = "0.9"
+# Wave 6 base: per-frame arena allocator. Thread-local Bump per worker
+# so the MCP dispatch + render hot paths can allocate scratch space
+# (parsed JSON sub-trees, format buffers) without touching the system
+# allocator on every call. Reset is O(1) (bump-pointer rewind).
+bumpalo = { version = "3.16", features = ["collections"] }
 sha2 = "0.10"
 similar = "2"
 tantivy = "0.22"
@@ -74,6 +79,19 @@ opt-level = 3
 
 [profile.release.build-override]
 opt-level = 0
+
+# Wave 6.1 / W6 PGO profile per dpp §6.1-6.2.
+# CRITICAL: lto = "thin", NOT "fat". The Apple ld64 LTO pass discards
+# the `__llvm_prf_*` PGO instrumentation sections silently when fat LTO
+# is enabled — verified against rust-lang/rust#119016. Thin LTO retains
+# them so the cargo-pgo cycle's profile data is preserved.
+#
+# Used by scripts/pgo-cycle.sh during the manual PGO sweep.
+# Not active in normal release builds; the canonical [profile.release]
+# above keeps lto = "fat" for non-PGO release artifacts.
+[profile.release-pgo]
+inherits = "release"
+lto = "thin"
 
 [build-dependencies]
 uniffi = { version = "0.28", features = ["build"] }
