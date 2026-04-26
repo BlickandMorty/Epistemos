@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    W10.10-FIX (compass artifact 2026-04-26)
+
+    NightBrain LaunchAgent — wakes the helper executable at 03:00
+    local time even if the main Epistemos app has been quit.
+
+    Why a LaunchAgent and not BGTaskScheduler / NSBackgroundActivityScheduler:
+      - BGTaskScheduler does NOT exist on macOS (`API_UNAVAILABLE(macos)`
+        in SDK headers).
+      - NSBackgroundActivityScheduler only runs while the host app is
+        alive — useless for 3 AM wake if the user quits.
+      - launchd `StartCalendarInterval` is the only mechanism that wakes
+        from sleep AND coalesces missed runs.
+
+    Registration: SMAppService.agent(plistName:) reads this file from
+    the app bundle's Contents/Library/LaunchAgents/. The plist MUST be
+    Team-ID-signed (codesigned as part of the app bundle); otherwise
+    SMAppService.register() returns `Operation not permitted` silently.
+
+    Battery / thermal pre-flight is enforced inside the helper itself
+    (see `Epistemos/State/PowerGate.swift`) — do NOT add Conditions
+    here, because the kernel's deferral semantics for those keys
+    differ between macOS major versions.
+
+    M-series caveat: a laptop on battery + lid closed may defer the
+    3 AM job by hours. The Swift `NightBrainScheduler.fallbackIfStale`
+    fires the helper on the next foreground launch if
+    `last_consolidation > 36 h`.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.epistemos.nightbrain</string>
+
+    <!-- Path is resolved relative to the embedding app bundle. The
+         helper must be a separate executable target in the .app bundle
+         at Contents/MacOS/NightBrainHelper. xcodegen target wiring is
+         a follow-up commit; this plist is the contract the helper
+         target will satisfy. -->
+    <key>BundleProgram</key>
+    <string>Contents/MacOS/NightBrainHelper</string>
+
+    <!-- 03:00 local time daily. launchd treats Hour as 24-h. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- ProcessType.Background lowers the helper's priority enough
+         that the Activity Monitor "Energy Impact" reads as low and
+         macOS's thermal governor will throttle the helper before the
+         user-facing app. -->
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!-- LowPriorityIO ensures the helper's SQLite writes don't
+         contend with the main app's UI-driven I/O if both are
+         awake at the same time (e.g. user opens the app at 03:01). -->
+    <key>LowPriorityIO</key>
+    <true/>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/com.epistemos.nightbrain.err.log</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/com.epistemos.nightbrain.out.log</string>
+</dict>
+</plist>
