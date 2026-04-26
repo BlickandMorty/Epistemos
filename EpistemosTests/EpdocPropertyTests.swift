@@ -139,15 +139,117 @@ nonisolated struct EpdocPropertyTests {
             id: "01HMV5K2K9PROPDEF",
             name: "Status",
             kind: .select,
-            options: ["todo", "doing", "done"],
+            options: [
+                PropertyOption.newOption(value: "todo"),
+                PropertyOption.newOption(value: "doing"),
+                PropertyOption.newOption(value: "done"),
+            ],
             defaultValueJSON: #"{"kind":"select","value":"todo"}"#
         )
         let data = try JSONEncoder().encode(def)
         let json = String(data: data, encoding: .utf8) ?? ""
         #expect(json.contains("\"default_value_json\""),
                 "PropertyDef wire keys MUST be snake_case; got \(json)")
+        #expect(json.contains("\"options_v2\""),
+                "PropertyDef MUST encode the W7.13.c canonical options_v2 key; got \(json)")
+        #expect(!json.contains("\"options\":"),
+                "writers MUST NOT emit the legacy options:[String] field")
 
         let decoded = try JSONDecoder().decode(PropertyDef.self, from: data)
         #expect(decoded == def)
+    }
+
+    // MARK: - W7.13.c PropertyOption stable ids
+
+    @Test("PropertyOption.newOption mints a non-empty Crockford-base32 id")
+    func newOptionMintsID() {
+        let opt = PropertyOption.newOption(value: "doing")
+        #expect(!opt.id.isEmpty, "newOption MUST mint a non-empty id; got \(opt.id)")
+        #expect(opt.value == "doing")
+        // Crockford base32 alphabet: 0–9, A–Z minus I L O U.
+        // The id must be entirely within that alphabet.
+        let alphabet = Set("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
+        for c in opt.id {
+            #expect(alphabet.contains(c),
+                    "newOption id MUST use Crockford base32 only; got '\(c)' in '\(opt.id)'")
+        }
+    }
+
+    @Test("Two newOption calls for the same value mint DIFFERENT ids (random, not deterministic)")
+    func newOptionIsRandom() {
+        let a = PropertyOption.newOption(value: "doing")
+        let b = PropertyOption.newOption(value: "doing")
+        #expect(a.id != b.id,
+                "two newOption calls MUST mint distinct ids so Add Option creates a fresh row")
+    }
+
+    @Test("PropertyOption.migratingFromLegacy is deterministic across calls (so two clients converge)")
+    func migrationIDIsDeterministic() {
+        let a = PropertyOption.migratingFromLegacy("doing")
+        let b = PropertyOption.migratingFromLegacy("doing")
+        #expect(a.id == b.id,
+                "same legacy value MUST produce the same migration id (so two clients reading same JSON converge); got \(a.id) vs \(b.id)")
+        #expect(a.value == "doing")
+
+        let c = PropertyOption.migratingFromLegacy("done")
+        #expect(c.id != a.id,
+                "different legacy values MUST produce different ids; got \(c.id) == \(a.id)")
+    }
+
+    @Test("PropertyDef effectiveOptions auto-migrates legacy [String] options on read")
+    func effectiveOptionsAutoMigrates() throws {
+        // Construct a legacy-shaped JSON (pre-W7.13.c writer)
+        let legacyJSON = #"""
+        {
+            "id": "prop-1",
+            "name": "Status",
+            "kind": "select",
+            "options": ["todo", "doing", "done"]
+        }
+        """#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PropertyDef.self, from: legacyJSON)
+        let effective = decoded.effectiveOptions
+        #expect(effective?.count == 3)
+        #expect(effective?.map(\.value) == ["todo", "doing", "done"],
+                "effectiveOptions MUST preserve display values; got \(effective?.map(\.value) ?? [])")
+        // Migration ids are deterministic → re-decoding the same JSON
+        // produces identical ids. Spot-check the first entry against
+        // the canonical migration helper.
+        let expectedFirstID = PropertyOption.migratingFromLegacy("todo").id
+        #expect(effective?.first?.id == expectedFirstID,
+                "auto-migrated id MUST match PropertyOption.migratingFromLegacy(_:); got \(effective?.first?.id ?? "nil")")
+    }
+
+    @Test("PropertyDef encoder upgrades legacy options to options_v2 on the next write (write-time migration)")
+    func encodeUpgradesLegacyShape() throws {
+        let legacyJSON = #"""
+        {
+            "id": "prop-1",
+            "name": "Status",
+            "kind": "select",
+            "options": ["todo", "doing"]
+        }
+        """#.data(using: .utf8)!
+        let decoded = try JSONDecoder().decode(PropertyDef.self, from: legacyJSON)
+        let reEncoded = try JSONEncoder().encode(decoded)
+        let reJSON = String(data: reEncoded, encoding: .utf8) ?? ""
+        #expect(reJSON.contains("\"options_v2\""),
+                "next write MUST emit options_v2; got \(reJSON)")
+        #expect(!reJSON.contains("\"options\":"),
+                "next write MUST drop the legacy options:[String] field")
+    }
+
+    @Test("PropertyOption.color round-trips through Codable when set + omits when nil")
+    func colorOptionalRoundTrip() throws {
+        let withColor = PropertyOption(id: "x", value: "todo", color: "#3a86ff")
+        let dataC = try JSONEncoder().encode(withColor)
+        let backC = try JSONDecoder().decode(PropertyOption.self, from: dataC)
+        #expect(backC == withColor)
+
+        let plain = PropertyOption(id: "x", value: "todo")
+        let dataP = try JSONEncoder().encode(plain)
+        let backP = try JSONDecoder().decode(PropertyOption.self, from: dataP)
+        #expect(backP == plain)
+        #expect(backP.color == nil)
     }
 }

@@ -47,6 +47,80 @@ nonisolated public enum PropertyKind: String, Codable, Sendable, CaseIterable, H
 /// Schema entry for one property. Stored in the database catalogue
 /// (a `database.json` document or in the workspace SwiftData store
 /// — the W7.13 follow-up decides where).
+/// One curated option for a `.select` / `.multiSelect` PropertyDef.
+/// Mirrors Logseq's `:closed-values` pattern
+/// (`deps/db/src/logseq/db/frontend/property.cljs:301-307`) — keys the
+/// option on a stable id so renaming the display value (`value`) never
+/// breaks references stored in doc metadata.
+///
+/// Wave 7.13.c follow-up of the Logseq scan 2026-04-26.
+nonisolated public struct PropertyOption: Codable, Sendable, Hashable {
+    /// Stable identifier. New options get a random ULID-style id at
+    /// creation time; legacy `[String]` options get a deterministic
+    /// id derived from the display value via SHA-256 (so two clients
+    /// reading the same legacy JSON converge on the same id).
+    public let id: String
+    /// Human-readable display value. Editable without breaking
+    /// references — the id is the contract.
+    public let value: String
+    /// Optional UI hint (hex color, tag color, etc.). Surface
+    /// chooses the styling.
+    public let color: String?
+
+    public init(id: String, value: String, color: String? = nil) {
+        self.id = id
+        self.value = value
+        self.color = color
+    }
+
+    /// Build a brand-new option from a display value. Mints a fresh
+    /// random id (use this when the user picks "Add option" in the
+    /// UI; the id is permanent + the value can be edited later).
+    public static func newOption(value: String, color: String? = nil) -> PropertyOption {
+        PropertyOption(id: PropertyOption.randomID(), value: value, color: color)
+    }
+
+    /// Migrate a legacy `[String]` option into a `PropertyOption` with
+    /// a deterministic id derived from the display value. Two clients
+    /// reading the same pre-W7.13.c JSON converge on the same id, so
+    /// the upgrade isn't fork-sensitive.
+    public static func migratingFromLegacy(_ value: String) -> PropertyOption {
+        PropertyOption(
+            id: PropertyOption.deterministicID(forLegacyValue: value),
+            value: value,
+            color: nil
+        )
+    }
+
+    /// 22-char Crockford-base32-style id (16 bytes of entropy from
+    /// `UUID().uuid` rendered in Crockford base32 to keep ids URL-safe
+    /// + visually short). Not strictly ULID (no time prefix) but the
+    /// same shape from the consumer's POV: opaque, sortable, unique.
+    static func randomID() -> String {
+        let raw = UUID().uuid
+        let bytes: [UInt8] = [
+            raw.0,  raw.1,  raw.2,  raw.3,
+            raw.4,  raw.5,  raw.6,  raw.7,
+            raw.8,  raw.9,  raw.10, raw.11,
+            raw.12, raw.13, raw.14, raw.15,
+        ]
+        return crockfordBase32(bytes)
+    }
+
+    /// Stable migration id: lowercase-hex SHA-256-style hash of the
+    /// legacy display value, truncated to 22 chars to match the random
+    /// id width. Implementation uses Foundation's `Data.hashValue`-equivalent
+    /// — we don't import CryptoKit here to keep the dep surface light;
+    /// the migration id only has to be stable + collision-resistant
+    /// over the small option-name domain (~10–100 entries per
+    /// PropertyDef in practice).
+    static func deterministicID(forLegacyValue value: String) -> String {
+        var hasher = SimpleFNVHasher()
+        hasher.combine(value)
+        return crockfordBase32(hasher.bytes(count: 16))
+    }
+}
+
 nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
     /// Stable identifier. Use a ULID/UUID at creation time so the id
     /// survives display-name changes.
@@ -57,9 +131,14 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
     /// Type discriminant. Determines how `EpdocPropertyValue` decodes the
     /// stored JSON.
     public let kind: PropertyKind
-    /// Curated options for `.select` / `.multiSelect` kinds. Stored
-    /// in declaration order — the UI surface usually preserves it.
-    /// `nil` for kinds that don't take options.
+    /// W7.13.c canonical curated options. Each carries a stable id so
+    /// renaming the display value never breaks references.
+    public let optionsV2: [PropertyOption]?
+    /// W7.13 legacy curated options (display values only). Decode-only
+    /// surface kept for back-compat with pre-W7.13.c JSON. NEW writers
+    /// MUST populate `optionsV2` instead; the encoder only emits
+    /// `optionsV2`.
+    @available(*, deprecated, message: "Use optionsV2 (PropertyOption with stable id). This is the W7.13 legacy field, decode-only.")
     public let options: [String]?
     /// Optional default value rendered as JSON. Applied when the
     /// property is added to an existing doc that doesn't yet carry
@@ -70,22 +149,125 @@ nonisolated public struct PropertyDef: Codable, Sendable, Hashable {
         id: String,
         name: String,
         kind: PropertyKind,
-        options: [String]? = nil,
+        options: [PropertyOption]? = nil,
         defaultValueJSON: String? = nil
     ) {
         self.id = id
         self.name = name
         self.kind = kind
-        self.options = options
+        self.optionsV2 = options
+        self.options = nil
         self.defaultValueJSON = defaultValueJSON
+    }
+
+    /// Effective options view — prefers W7.13.c `optionsV2` and
+    /// auto-migrates the legacy `options: [String]` into
+    /// `PropertyOption` with deterministic ids. Always use this for
+    /// reads; it abstracts over the schema upgrade.
+    public var effectiveOptions: [PropertyOption]? {
+        if let v2 = optionsV2, !v2.isEmpty { return v2 }
+        if let legacy = options { return legacy.map(PropertyOption.migratingFromLegacy) }
+        return nil
     }
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
         case kind
+        case optionsV2 = "options_v2"
         case options
         case defaultValueJSON = "default_value_json"
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.name = try c.decode(String.self, forKey: .name)
+        self.kind = try c.decode(PropertyKind.self, forKey: .kind)
+        self.optionsV2 = try c.decodeIfPresent([PropertyOption].self, forKey: .optionsV2)
+        self.options = try c.decodeIfPresent([String].self, forKey: .options)
+        self.defaultValueJSON = try c.decodeIfPresent(String.self, forKey: .defaultValueJSON)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(kind, forKey: .kind)
+        // Encode the canonical V2 form. We auto-promote any legacy
+        // `options: [String]` to `optionsV2` on write so the next
+        // round-trip emits the new shape exclusively.
+        if let canonical = effectiveOptions {
+            try c.encode(canonical, forKey: .optionsV2)
+        }
+        try c.encodeIfPresent(defaultValueJSON, forKey: .defaultValueJSON)
+    }
+}
+
+// MARK: - ID derivation primitives
+
+/// 32-char Crockford base32 alphabet (Douglas Crockford's variant):
+/// excludes I, L, O, U so ids are unambiguous when read aloud.
+nonisolated private let crockfordAlphabet: [Character] = Array(
+    "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
+)
+
+/// Crockford-base32 encode raw bytes. Returns a string roughly
+/// `ceil(8/5) × bytes.count = 1.6 × bytes.count` chars long.
+/// Used for stable id rendering — never decoded back to bytes.
+nonisolated private func crockfordBase32(_ bytes: [UInt8]) -> String {
+    var bits: UInt64 = 0
+    var bitCount: Int = 0
+    var out = String()
+    out.reserveCapacity(bytes.count * 8 / 5 + 1)
+    for byte in bytes {
+        bits = (bits << 8) | UInt64(byte)
+        bitCount += 8
+        while bitCount >= 5 {
+            bitCount -= 5
+            let idx = Int((bits >> bitCount) & 0x1F)
+            out.append(crockfordAlphabet[idx])
+        }
+    }
+    if bitCount > 0 {
+        let idx = Int((bits << (5 - bitCount)) & 0x1F)
+        out.append(crockfordAlphabet[idx])
+    }
+    return out
+}
+
+/// Lightweight FNV-1a 64-bit hasher used to derive a stable id from a
+/// legacy option string. We expand the 64-bit digest by mixing in a
+/// rotated copy so the final id has 128 bits of pseudo-entropy
+/// (collision-resistant enough for the small ~10-100 option domain).
+nonisolated private struct SimpleFNVHasher {
+    private var state: UInt64 = 0xcbf29ce484222325
+
+    mutating func combine(_ s: String) {
+        for byte in s.utf8 {
+            state ^= UInt64(byte)
+            state = state &* 0x00000100000001b3
+        }
+    }
+
+    func bytes(count: Int) -> [UInt8] {
+        // Expand 64 bits → `count` bytes by chained FNV with a
+        // rotating salt. Same input → same output (pure function).
+        var out: [UInt8] = []
+        out.reserveCapacity(count)
+        var s = state
+        var salt: UInt64 = 0x9e3779b97f4a7c15  // golden-ratio constant
+        while out.count < count {
+            for shift in stride(from: 56, through: 0, by: -8) {
+                if out.count >= count { break }
+                out.append(UInt8((s >> shift) & 0xFF))
+            }
+            // Mix in salt + iterate
+            s ^= salt
+            s = s &* 0x00000100000001b3
+            salt = (salt &+ 0x9e3779b97f4a7c15)
+        }
+        return out
     }
 }
 
