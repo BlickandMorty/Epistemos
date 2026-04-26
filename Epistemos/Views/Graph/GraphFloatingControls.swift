@@ -222,6 +222,14 @@ extension GraphNodeType {
         case .run:        return Color(red: 0.42, green: 0.42, blue: 0.78)  // indigo (Patch 5: Run)
         case .rawThought: return Color(red: 0.74, green: 0.58, blue: 0.92)  // lavender (Patch 5: RawThought)
         case .toolTrace:  return Color(red: 0.46, green: 0.50, blue: 0.55)  // slate (Patch 5: ToolTrace)
+        // Wave 3.3 typed cognitive-artifact graph types — pick colors that
+        // sit alongside their semantic peers: proseNote near .note (teal),
+        // document slightly darker, code near .chat (orange/code-symbol),
+        // output near .toolTrace (slate, terminal-y).
+        case .proseNote:  return Color(red: 0.34, green: 0.78, blue: 0.74)  // dim teal
+        case .document:   return Color(red: 0.27, green: 0.62, blue: 0.60)  // deeper teal
+        case .code:       return Color(red: 0.85, green: 0.55, blue: 0.18)  // amber
+        case .output:     return Color(red: 0.40, green: 0.44, blue: 0.50)  // dark slate
         }
     }
 }

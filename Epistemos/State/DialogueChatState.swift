@@ -158,6 +158,11 @@ struct DialogueNodeInsight: Sendable, Equatable {
         case .idea, .source, .quote, .person, .project, .topic, .decision, .event, .resource: 3
         case .tag, .block: 4
         case .run, .rawThought, .toolTrace: 3
+        // Wave 3.3 typed cognitive-artifact graph types — same depth tier
+        // as note (proseNote/document) and source (code/output) so the
+        // dialogue summariser treats them as content-bearing artifacts.
+        case .proseNote, .document: 2
+        case .code, .output: 3
         }
         let prominence = min(1.0, Double(contentWords) / 1800.0 + Double(linkedNodeCount) * 0.04)
         return DialogueNodeInsight(
@@ -448,6 +453,11 @@ struct DialogueNodeProfile: Sendable, Equatable {
         case .run, .rawThought, .toolTrace:
             // Raw Thoughts artifact types are not part of the dialogue persona
             // routing surface — fall through to the heuristic block below.
+            break
+        case .proseNote, .document, .code, .output:
+            // Wave 3.3 typed cognitive-artifact graph types — also fall
+            // through to the heuristic block (persona is content-driven,
+            // not type-driven, for the new typed surface).
             break
         }
 
