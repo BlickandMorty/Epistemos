@@ -2,6 +2,7 @@
 // Provides the tool infrastructure for Epistemos Omega agent system.
 // Separate from graph-engine (rendering) and epistemos-core (training).
 
+pub mod arena;
 pub mod types;
 pub mod registry;
 pub mod logger;
