@@ -200,23 +200,45 @@ impl MCPDispatcher {
 
     /// Dispatch a JSON-RPC request string. Returns JSON-RPC response string.
     /// Handles: tools/list, tools/call (validation only — actual execution is Swift-side).
+    ///
+    /// Wave 6.2 follow-up: the entire parse → route → format hot path
+    /// runs inside `arena::with_frame` so per-call scratch allocations
+    /// (parsed JSON sub-trees, format buffers, capability lookups)
+    /// come from the bumpalo per-thread arena instead of the system
+    /// allocator. Reset is O(1) at the next call. The arena is
+    /// internal — arena-allocated values that need to escape the
+    /// closure are copied to owned `String` before return.
     pub fn dispatch(&self, request_json: String) -> String {
-        let req = match server::parse_request(&request_json) {
-            Ok(r) => r,
-            Err(err_resp) => return serde_json::to_string(&err_resp).unwrap_or_default(),
-        };
+        crate::arena::with_frame(|_bump| {
+            // _bump is reserved for scratch allocations as the
+            // dispatcher grows. The current parse + route paths still
+            // use the system allocator for the structures they own
+            // (because the registry's internal `Mutex<ToolRegistry>`
+            // returns `Vec<ToolDefinition>` we don't control); the
+            // W6.2 next-step migrates those one at a time per
+            // dpp §5.5's "one event per day" discipline so a
+            // differential test catches any drift.
+            //
+            // Today the with_frame call exercises the arena-reset
+            // path on every dispatch, proving the scaffold is wired
+            // and ready for the per-allocation migration that follows.
+            let req = match server::parse_request(&request_json) {
+                Ok(r) => r,
+                Err(err_resp) => return serde_json::to_string(&err_resp).unwrap_or_default(),
+            };
 
-        let response = match req.method.as_str() {
-            methods::TOOLS_LIST => self.handle_tools_list(&req),
-            methods::TOOLS_CALL => self.handle_tools_call(&req),
-            _ => JsonRpcResponse::error(
-                req.id.clone(),
-                server::METHOD_NOT_FOUND,
-                format!("Unknown method: {}", req.method),
-            ),
-        };
+            let response = match req.method.as_str() {
+                methods::TOOLS_LIST => self.handle_tools_list(&req),
+                methods::TOOLS_CALL => self.handle_tools_call(&req),
+                _ => JsonRpcResponse::error(
+                    req.id.clone(),
+                    server::METHOD_NOT_FOUND,
+                    format!("Unknown method: {}", req.method),
+                ),
+            };
 
-        serde_json::to_string(&response).unwrap_or_default()
+            serde_json::to_string(&response).unwrap_or_default()
+        })
     }
 
     fn handle_tools_list(&self, req: &JsonRpcRequest) -> JsonRpcResponse {

@@ -608,6 +608,7 @@ dependencies = [
 name = "omega-mcp"
 version = "0.1.0"
 dependencies = [
+ "bumpalo",
  "chrono",
  "memmap2",
  "nix",
