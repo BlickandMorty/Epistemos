@@ -132,7 +132,7 @@ extension EpdocPackage {
     /// `content.pm.json` is written verbatim from `contentJSON` (no
     /// re-serialization — preserves byte-equal canonical bytes across
     /// load → save round-trips).
-    public func makeFileWrapper(jsonEncoder: JSONEncoder = .epdocCanonical) throws -> FileWrapper {
+    nonisolated public func makeFileWrapper(jsonEncoder: JSONEncoder = .epdocCanonical) throws -> FileWrapper {
         var topLevel: [String: FileWrapper] = [:]
 
         let manifestData = try jsonEncoder.encode(manifest)
@@ -186,7 +186,7 @@ extension EpdocPackage {
     /// either is an error. Any other top-level file or unrecognised
     /// projection is preserved (in `extraProjections` for projections,
     /// dropped at the package root).
-    public init(
+    nonisolated public init(
         fileWrapper: FileWrapper,
         jsonDecoder: JSONDecoder = .epdocCanonical
     ) throws {
@@ -272,7 +272,7 @@ extension EpdocPackage {
 public extension JSONEncoder {
     /// Canonical encoder for `.epdoc` packages: pretty-printed +
     /// sorted keys so the on-disk manifest is diff-friendly.
-    static var epdocCanonical: JSONEncoder {
+    nonisolated static var epdocCanonical: JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return encoder
@@ -283,7 +283,7 @@ public extension JSONDecoder {
     /// Canonical decoder for `.epdoc` packages. Tolerates extra keys
     /// (forward compatibility) by default — JSONDecoder's default
     /// behaviour is to ignore unknown keys, which is what we want.
-    static var epdocCanonical: JSONDecoder {
+    nonisolated static var epdocCanonical: JSONDecoder {
         JSONDecoder()
     }
 }
