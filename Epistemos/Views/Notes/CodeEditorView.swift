@@ -440,21 +440,25 @@ actor MetalComputeEngine {
         }
         
         let commandQueue = device.makeCommandQueue()
-        
-        // Load compute pipelines from embedded Metal source
-        let library = try? device.makeLibrary(source: metalSource, options: nil)
-        
+
+        // Wave 4.1: load compute pipelines from the precompiled
+        // default.metallib (compiled offline by Xcode's Metal build phase
+        // from Epistemos/Shaders/CodeEditorEmbedding.metal). Eliminates
+        // the multi-millisecond runtime compile cost the inline-source
+        // path used to pay on every CodeEditorView instantiation.
+        let library = device.makeDefaultLibrary()
+
         var cosineSimilarityPipeline: MTLComputePipelineState?
         var batchNormalizePipeline: MTLComputePipelineState?
-        
+
         if let cosineFunc = library?.makeFunction(name: "cosineSimilarityBatch") {
             cosineSimilarityPipeline = try? device.makeComputePipelineState(function: cosineFunc)
         }
-        
+
         if let normalizeFunc = library?.makeFunction(name: "batchNormalize") {
             batchNormalizePipeline = try? device.makeComputePipelineState(function: normalizeFunc)
         }
-        
+
         return (device, commandQueue, cosineSimilarityPipeline, batchNormalizePipeline)
     }
     
@@ -602,71 +606,10 @@ actor MetalComputeEngine {
     
     // MARK: - Metal Shaders
     
-    private static let metalSource = """
-    #include <metal_stdlib>
-    using namespace metal;
-    
-    // GPU-accelerated cosine similarity for batch semantic search
-    kernel void cosineSimilarityBatch(
-        device const float* query     [[buffer(0)]],
-        device const float* documents [[buffer(1)]],
-        device float* output          [[buffer(2)]],
-        constant uint& dim            [[buffer(3)]],
-        constant uint& numDocs        [[buffer(4)]],
-        uint gid                      [[thread_position_in_grid]]
-    ) {
-        if (gid >= numDocs) return;
-        
-        float dotProduct = 0.0;
-        float queryNorm = 0.0;
-        float docNorm = 0.0;
-        
-        // Unrolled loop for common embedding dimensions (768, 1024, 1536)
-        #pragma unroll(4)
-        for (uint i = 0; i < dim; i++) {
-            float q = query[i];
-            float d = documents[gid * dim + i];
-            dotProduct += q * d;
-            queryNorm += q * q;
-            docNorm += d * d;
-        }
-        
-        float similarity = 0.0;
-        if (queryNorm > 0.0 && docNorm > 0.0) {
-            similarity = dotProduct / (sqrt(queryNorm) * sqrt(docNorm));
-        }
-        
-        output[gid] = similarity;
-    }
-    
-    // L2 normalization for embedding preprocessing
-    kernel void batchNormalize(
-        device const float* input     [[buffer(0)]],
-        device float* output          [[buffer(1)]],
-        constant uint& dim            [[buffer(2)]],
-        constant uint& numVectors     [[buffer(3)]],
-        uint gid                      [[thread_position_in_grid]]
-    ) {
-        if (gid >= numVectors) return;
-        
-        float sumSquares = 0.0;
-        uint offset = gid * dim;
-        
-        #pragma unroll(4)
-        for (uint i = 0; i < dim; i++) {
-            float val = input[offset + i];
-            sumSquares += val * val;
-        }
-        
-        float norm = sqrt(sumSquares);
-        float invNorm = (norm > 0.0) ? (1.0 / norm) : 0.0;
-        
-        #pragma unroll(4)
-        for (uint i = 0; i < dim; i++) {
-            output[offset + i] = input[offset + i] * invNorm;
-        }
-    }
-    """
+    // Wave 4.1: the inline `metalSource` string was lifted into
+    // `Epistemos/Shaders/CodeEditorEmbedding.metal`. Xcode's Metal
+    // build phase compiles it offline into `default.metallib`; the
+    // setupGPU() path above loads from there via makeDefaultLibrary().
 }
 
 // MARK: - Concurrent Analysis Queue
