@@ -882,6 +882,13 @@ final class AppBootstrap {
     /// `initializeRustResourceServiceIfReady()` and its failure path.
     private var lastR3InitializedVaultPath: String?
 
+    /// W8.7 — Halo's persistent indexer + the most recent vault path
+    /// it was opened against. Stored so the actor isn't GC'd mid-crawl
+    /// and so a `.vaultChanged` notification can short-circuit when
+    /// the user re-opens the same vault.
+    private var shadowIndexer: ShadowIndexingService?
+    private var lastShadowIndexedVaultPath: String?
+
     private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
     private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
     private nonisolated static let deferredRuntimeServicesDelay: Duration = .milliseconds(250)
@@ -1649,6 +1656,13 @@ final class AppBootstrap {
         // replaced by the subsequent init and thus lose the row.
         initializeRustPermissionStoreIfReady()
         verifyAgentCorePolicyProfile()
+
+        // W8.7 — open the persistent Halo Shadow backend at the
+        // current vault and run the first-launch crawl. Without this,
+        // every first-launch user opens Halo to an empty panel and
+        // the V1 "type a sentence, see a related thought appear" demo
+        // fails on day one. Idempotent on repeat launches.
+        initializeShadowBackendIfReady()
 
         // Phase R.3 reactive re-init — subscribe to `.vaultChanged` so
         // the gateway tracks vault switches (bookmark restore lands
@@ -2636,6 +2650,70 @@ final class AppBootstrap {
         }
     }
 
+    /// W8.7 — Open the persistent Halo Shadow backend at
+    /// `<vault>/.epcache/shadow` and run the first-launch crawl so
+    /// Halo is not empty on day one. Idempotent: re-running for the
+    /// same vault path is a no-op; switching vaults rotates the
+    /// backend and re-crawls.
+    ///
+    /// Runs off-main via `Task.detached` because:
+    ///   - `shadow_open_at` synchronously opens tantivy + usearch
+    ///     handles + may trigger a Model2Vec download on first launch
+    ///     (HF network round-trip).
+    ///   - `ShadowVaultBootstrapper.bootstrap()` walks the vault
+    ///     directory tree and reads every `.md` / `.json` file.
+    ///
+    /// Errors are logged and swallowed — Halo gracefully degrades to
+    /// an empty result set instead of taking down the rest of the
+    /// app's startup path.
+    private func initializeShadowBackendIfReady() {
+        guard let vaultURL = vaultSync.vaultURL else {
+            Log.app.info("W8.7 shadow: skipping init — no active vault URL yet")
+            return
+        }
+        let vaultPath = vaultURL.path
+        if vaultPath == lastShadowIndexedVaultPath, shadowIndexer != nil {
+            return
+        }
+        lastShadowIndexedVaultPath = vaultPath
+
+        let shadowRoot = vaultURL
+            .appendingPathComponent(".epcache", isDirectory: true)
+            .appendingPathComponent("shadow", isDirectory: true)
+
+        Task.detached(priority: .utility) { [weak self] in
+            do {
+                try FileManager.default.createDirectory(
+                    at: shadowRoot,
+                    withIntermediateDirectories: true
+                )
+                try RustShadowFFIClient.openAt(path: shadowRoot.path)
+            } catch {
+                Log.app.error(
+                    "W8.7 shadow: open_at failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                )
+                await MainActor.run { self?.lastShadowIndexedVaultPath = nil }
+                return
+            }
+
+            let client = RustShadowFFIClient()
+            let indexer = ShadowIndexingService(client: client)
+            let bootstrapper = ShadowVaultBootstrapper(
+                vaultRoot: vaultURL,
+                indexer: indexer
+            )
+            await MainActor.run { self?.shadowIndexer = indexer }
+            await bootstrapper.bootstrap()
+            await indexer.flushNow()
+            await MainActor.run {
+                EditorBundleHealthRow.recordHaloOpened(at: shadowRoot.path)
+            }
+            Log.app.info(
+                "W8.7 shadow: bootstrap complete at \(shadowRoot.path, privacy: .public)"
+            )
+        }
+    }
+
     /// Phase R.5 persistence boot activation — migrate the Rust
     /// permission store from its default in-memory fallback to an
     /// on-disk SQLite file at a container-safe path. After this call
@@ -2727,6 +2805,7 @@ final class AppBootstrap {
             switch event {
             case .vaultChanged:
                 self.initializeRustResourceServiceIfReady()
+                self.initializeShadowBackendIfReady()
             default:
                 break
             }
