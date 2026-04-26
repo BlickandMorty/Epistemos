@@ -11,7 +11,13 @@
 //!     source into RAG-friendly windows, computing Model2Vec
 //!     embeddings, building a per-vault usearch HNSW index for the
 //!     agent-grep API (W9.9), populating each file's
-//!     `<vault>/.epcache/code/<sha256>.epcode.json` sidecar
+//!     `<vault>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json`
+//!     sidecar — bit-for-bit compatible with Swift's
+//!     `CodeSidecarPath.sidecarURL(forVaultRoot:vaultRelativePath:)`.
+//!     The hash is over the *vault-relative path* (so a file rename
+//!     re-binds on the next index pass), NOT the file body. The
+//!     reference implementation lives in `sidecar.rs` with a fixture
+//!     test pinning the exact hex digest Swift produces.
 //!
 //! ## W9.7 base scope
 //!
@@ -21,9 +27,11 @@
 //! Model2Vec + usearch + tree-sitter pipeline is the W9.7 follow-up.
 
 pub mod error;
+pub mod sidecar;
 pub mod state;
 
 pub use error::CodeIndexError;
+pub use sidecar::{path_hash, sidecar_path, CACHE_ROOT, CODE_SUBDIR, SIDECAR_SUFFIX};
 
 use std::ffi::{c_char, CStr, CString};
 use std::ptr;
