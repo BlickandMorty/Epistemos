@@ -131,7 +131,7 @@ pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
             }
             .as_code(),
         };
-        match state::shadow_state().insert_document(doc) {
+        match state::shadow_backend().insert_document(doc) {
             Ok(()) => 0,
             Err(error) => error.as_code(),
         }
@@ -158,7 +158,7 @@ pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
             }
             .as_code(),
         };
-        match state::shadow_state().remove_document(id) {
+        match state::shadow_backend().remove_document(id) {
             Ok(()) => 0,
             Err(error) => error.as_code(),
         }
@@ -184,7 +184,7 @@ pub unsafe extern "C" fn shadow_search_json(
         }
         let q = unsafe { CStr::from_ptr(query) }.to_str().ok()?;
         let d = unsafe { CStr::from_ptr(domain) }.to_str().ok()?;
-        let hits = state::shadow_state().search(q, d, limit as usize).ok()?;
+        let hits = state::shadow_backend().search(q, d, limit as usize).ok()?;
         let json = serde_json::to_string(&hits).ok()?;
         CString::new(json).ok()
     });
@@ -197,7 +197,7 @@ pub unsafe extern "C" fn shadow_search_json(
 /// Persist any pending writes to disk. Returns 0 on success.
 #[unsafe(no_mangle)]
 pub extern "C" fn shadow_flush() -> i32 {
-    let result = std::panic::catch_unwind(|| match state::shadow_state().flush() {
+    let result = std::panic::catch_unwind(|| match state::shadow_backend().flush() {
         Ok(()) => 0,
         Err(error) => error.as_code(),
     });
@@ -209,7 +209,7 @@ pub extern "C" fn shadow_flush() -> i32 {
 #[unsafe(no_mangle)]
 pub extern "C" fn shadow_stats_json() -> *mut c_char {
     let result = std::panic::catch_unwind(|| -> Option<CString> {
-        let stats = state::shadow_state().stats().ok()?;
+        let stats = state::shadow_backend().stats().ok()?;
         let json = serde_json::to_string(&stats).ok()?;
         CString::new(json).ok()
     });
@@ -230,4 +230,43 @@ pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
         // SAFETY: caller contract.
         let _ = unsafe { CString::from_raw(ptr) };
     });
+}
+
+/// W8.4.g — initialise the global RealBackend rooted at `path`. The
+/// Swift bootstrap calls this once at app start
+/// (typically `~/Library/Application Support/Epistemos/shadow`).
+/// Subsequent FFI calls (`shadow_insert_json`, `shadow_search_json`,
+/// `shadow_flush`, `shadow_stats_json`) hit the persistent
+/// RealBackend instead of the W8.1 stub. Idempotent — calling twice
+/// replaces the live instance. Returns 0 on success, the
+/// `ShadowError` discriminant (e.g. -4 Backend on HF download
+/// failure) otherwise.
+///
+/// SAFETY: `path` must be a valid NUL-terminated UTF-8 C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn shadow_open_at(path: *const c_char) -> i32 {
+    let result = std::panic::catch_unwind(|| {
+        if path.is_null() {
+            return ShadowError::InvalidInput {
+                detail: "path was null".into(),
+            }
+            .as_code();
+        }
+        // SAFETY: caller contract.
+        let cstr = unsafe { std::ffi::CStr::from_ptr(path) };
+        let path_str = match cstr.to_str() {
+            Ok(s) => s,
+            Err(_) => {
+                return ShadowError::InvalidInput {
+                    detail: "path was not valid UTF-8".into(),
+                }
+                .as_code();
+            }
+        };
+        match state::open_real_backend_at(std::path::Path::new(path_str)) {
+            Ok(()) => 0,
+            Err(error) => error.as_code(),
+        }
+    });
+    result.unwrap_or(ShadowError::Panic.as_code())
 }
