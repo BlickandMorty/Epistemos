@@ -5,7 +5,15 @@ import os
 ///
 /// Owns an opaque `SyntaxDocument` pointer and provides viewport-scoped
 /// token generation via the C FFI. Behind `EPISTEMOS_USE_SYNTAX_CORE` flag.
-final class SyntaxCoreService: @unchecked Sendable {
+///
+/// `nonisolated` so non-MainActor consumers (e.g. the W9.6
+/// SyntaxCoreLiveHighlighter, which conforms to the nonisolated
+/// `LiveHighlighter` protocol) can call into it without an isolation
+/// hop. The `@unchecked Sendable` conformance puts the burden on the
+/// caller to avoid concurrent `edit()` mutations on the same instance —
+/// the only existing call sites today are single-threaded so this is
+/// a safe contract.
+nonisolated final class SyntaxCoreService: @unchecked Sendable {
 
     static let useSyntaxCore: Bool = {
         ProcessInfo.processInfo.environment["EPISTEMOS_USE_SYNTAX_CORE"] == "1"
@@ -69,6 +77,26 @@ final class SyntaxCoreService: @unchecked Sendable {
             syntax_document_edit(doc, byteStart, oldLen, ptr, UInt32(newText.utf8.count))
         }
         return delta
+    }
+
+    /// Resolve a `kind_id` (assigned by the per-document `TokenRegistry`)
+    /// back to its tree-sitter capture name (e.g. `"comment"`,
+    /// `"string"`, `"function.def"`).
+    ///
+    /// Returns `nil` when the id isn't registered for this document.
+    /// `id == 0` returns the literal string `"unknown"`.
+    func kindName(for id: UInt16) -> String? {
+        guard let doc = document else { return nil }
+        // 64 bytes is comfortably larger than every capture name
+        // syntax-core's GENERIC_HIGHLIGHTS_QUERY emits today
+        // (longest is "function.call" at 13 bytes).
+        var buffer = [UInt8](repeating: 0, count: 64)
+        let n = buffer.withUnsafeMutableBufferPointer { ptr -> UInt32 in
+            guard let base = ptr.baseAddress else { return 0 }
+            return syntax_document_kind_name(doc, id, base, UInt32(ptr.count))
+        }
+        guard n > 0 else { return nil }
+        return String(bytes: buffer.prefix(Int(n)), encoding: .utf8)
     }
 
     /// Generate syntax tokens for the given byte range (typically the visible viewport).
