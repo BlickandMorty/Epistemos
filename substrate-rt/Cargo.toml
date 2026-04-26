@@ -1,0 +1,49 @@
+[package]
+name = "substrate-rt"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "Zero-copy hot-path event ring (SPSC) for the Swift host. Carve-out from Sprint 4 of the deterministic perf plan."
+
+# Wave 5 of the Extended Program Plan
+# (`docs/audits/EXTENDED_PROGRAM_PLAN_2026_04_25.md` Wave 5,
+#  cross-ref dpp §5.1-5.6 Sprint 4 zero-copy FFI carve-out).
+#
+# The Swift host loads this as a cdylib at runtime; static linking is
+# also kept available for unit tests and for the App Store sandboxed
+# build that prefers a single binary surface.
+
+[lib]
+crate-type = ["staticlib", "cdylib", "rlib"]
+name = "substrate_rt"
+
+[dependencies]
+# rtrb 0.3.x — canonical 2026 SPSC ring buffer for real-time
+# producer→consumer handoff (audio + UI thread). Lock-free, correctly
+# uses Acquire/Release ordering internally; published crate avoids
+# hand-rolled fence mistakes per the research finding.
+rtrb = "0.3"
+
+# crossbeam-utils for CachePadded — auto-detects Apple Silicon's
+# 128-byte L2 cache line alignment so head/tail atomics don't false-share.
+# Hand-rolled `#[repr(align(64))]` would be wrong on aarch64.
+crossbeam-utils = "0.8"
+
+# libc for the C ABI numeric types.
+libc = "0.2"
+
+[dev-dependencies]
+# Cross-thread coordination only used in tests.
+
+[profile.release]
+# Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4) — but with
+# panic = "unwind" because the FFI surface (ering_try_push / ering_drain)
+# wraps every entry point in std::panic::catch_unwind so a panic in a
+# tool callback can't tear down the Swift host.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
+debug = false
+overflow-checks = false
