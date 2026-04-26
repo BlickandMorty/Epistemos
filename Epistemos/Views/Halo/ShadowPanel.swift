@@ -1,0 +1,133 @@
+import AppKit
+import SwiftUI
+
+// MARK: - ShadowPanel
+//
+// Wave 8.5 of the Extended Program Plan
+// (cross-ref `ambient/EPISTEMOS_V1_DECISION.md` §"UI" + §"Concurrency").
+//
+// AppKit panel that hosts the SwiftUI Halo content. Per the V1 decision:
+//   - `.nonactivatingPanel` style mask so clicking the panel does NOT
+//     steal main-window status from the editor — the editor keeps the
+//     caret + key focus while the user interacts with the Halo.
+//   - `becomesKeyOnlyIfNeeded = true` for inline edit affordances.
+//   - `canBecomeMain = false` permanently.
+//   - Hosts SwiftUI content via NSHostingView.
+//
+// Default size 360×480 matches the reference at
+// `ambient/HaloController.swift` and the V1 budget that caps panel
+// width at 480 px to keep ultraThinMaterial blur cost under 2 ms/frame.
+
+/// Generic NSPanel container for the Halo's SwiftUI content.
+@MainActor
+public final class ShadowPanel<Content: View>: NSPanel {
+
+    public init(
+        rect: NSRect = NSRect(x: 0, y: 0, width: 360, height: 480),
+        @ViewBuilder content: () -> Content
+    ) {
+        super.init(
+            contentRect: rect,
+            styleMask: [.nonactivatingPanel, .titled, .closable, .resizable, .fullSizeContentView],
+            backing: .buffered,
+            defer: false
+        )
+        self.titlebarAppearsTransparent = true
+        self.titleVisibility = .hidden
+        self.isFloatingPanel = true
+        self.level = .floating
+        self.hidesOnDeactivate = false
+        self.becomesKeyOnlyIfNeeded = true
+        self.animationBehavior = .utilityWindow
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.isMovableByWindowBackground = true
+        self.contentView = NSHostingView(rootView: content())
+    }
+
+    /// Allow the panel to become key (so inline TextEditors inside it
+    /// receive keyboard input) while NEVER becoming main (so the editor
+    /// behind it keeps `keyWindow` status).
+    public override var canBecomeKey: Bool { true }
+    public override var canBecomeMain: Bool { false }
+}
+
+// MARK: - ShadowPanelController
+//
+// Owns the lifecycle of the Halo panel + the global mouse-down event
+// monitor that dismisses it on outside click. Per the V1 decision
+// §"Concurrency": @MainActor — touches NSPanel + NSEvent which require
+// it.
+
+/// Controller that shows / hides the Halo's `ShadowPanel`. The panel
+/// itself is created lazily on first `show(...)` and reused for the
+/// lifetime of the controller.
+@MainActor
+public final class ShadowPanelController {
+
+    private var panel: NSPanel?
+    private var globalMouseMonitor: Any?
+    private let onOutsideClick: @MainActor () -> Void
+
+    public init(onOutsideClick: @MainActor @escaping () -> Void) {
+        self.onOutsideClick = onOutsideClick
+    }
+
+    /// Whether the panel is currently visible. Surfaced for tests +
+    /// the developer panel.
+    public var isVisible: Bool {
+        panel?.isVisible == true
+    }
+
+    /// Show the panel, lazily creating it from the supplied view
+    /// builder on first call. Subsequent calls reuse the same panel
+    /// (so its position + size persist across opens).
+    public func show<Content: View>(@ViewBuilder content: () -> Content) {
+        if panel == nil {
+            let p = ShadowPanel(content: content)
+            p.center()
+            panel = p
+        }
+        panel?.makeKeyAndOrderFront(nil)
+        attachOutsideClickMonitor()
+    }
+
+    /// Hide the panel and detach the outside-click monitor.
+    public func hide() {
+        panel?.orderOut(nil)
+        detachOutsideClickMonitor()
+    }
+
+    /// Tear down the panel entirely (used at app shutdown / window close).
+    public func dismiss() {
+        hide()
+        panel = nil
+    }
+
+    deinit {
+        // NSEvent.removeMonitor must run on the main thread. The
+        // `globalMouseMonitor` is an opaque token; it's safe to leave
+        // it dangling at process death because the event loop tears
+        // down with the process.
+    }
+
+    // MARK: - Outside click monitor
+
+    private func attachOutsideClickMonitor() {
+        detachOutsideClickMonitor()
+        let callback = onOutsideClick
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { _ in
+            Task { @MainActor in
+                callback()
+            }
+        }
+    }
+
+    private func detachOutsideClickMonitor() {
+        if let monitor = globalMouseMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMouseMonitor = nil
+        }
+    }
+}
