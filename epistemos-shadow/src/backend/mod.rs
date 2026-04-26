@@ -26,6 +26,7 @@ pub mod lexical_index;
 pub mod rrf;
 pub mod vector_index;
 
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, RwLock};
 use std::time::Instant;
 
@@ -81,14 +82,19 @@ pub struct RealBackend {
     /// emit `snippet` + `title` without re-querying tantivy.
     docs: RwLock<FxHashMap<String, ShadowDocument>>,
     last_flush: Mutex<Instant>,
+    /// Optional persistence root. `None` for the in-memory variant
+    /// (test fixtures + the `new()` constructor). When set, `flush()`
+    /// writes the tantivy + usearch sidecars under this path so the
+    /// next `open(path)` call restores the index in place.
+    persistence_root: Option<PathBuf>,
 }
 
 impl RealBackend {
-    /// Construct a fresh RealBackend wired to `Embedder::global()`.
-    /// Triggers HuggingFace download on first call (~30 MB cached
-    /// at ~/.cache/huggingface/hub/). The Swift bootstrap should
-    /// fire `shadow_warm()` (forthcoming FFI extension) at app start
-    /// so this cost lands off the typing hot path.
+    /// Construct a fresh in-memory RealBackend. Triggers HuggingFace
+    /// download on first call (~30 MB cached at
+    /// ~/.cache/huggingface/hub/). For production use,
+    /// `open_at(path)` is the canonical constructor — that variant
+    /// persists across app restarts.
     pub fn new() -> Result<Self, ShadowError> {
         let embedder = Embedder::global()?;
         let lexical = LexicalIndex::new()?;
@@ -98,6 +104,73 @@ impl RealBackend {
             vectors: RwLock::new(FxHashMap::default()),
             docs: RwLock::new(FxHashMap::default()),
             last_flush: Mutex::new(Instant::now()),
+            persistence_root: None,
+        })
+    }
+
+    /// Open (or create) a RealBackend rooted at `path`. The vault
+    /// layout under `path` is:
+    ///
+    ///   path/
+    ///     tantivy/                    MmapDirectory for BM25
+    ///     vectors/<domain>.usearch    HNSW sidecar per domain
+    ///     vectors/<domain>.mapping.json   doc_id ↔ row_key map
+    ///     docs.json                   snippet hydration cache
+    ///
+    /// On startup, all four are loaded back into memory so the next
+    /// `search()` call hits a hot index. First-launch (path didn't
+    /// exist) returns an empty backend ready for inserts.
+    pub fn open_at(path: &Path) -> Result<Self, ShadowError> {
+        let embedder = Embedder::global()?;
+        std::fs::create_dir_all(path).map_err(|e| ShadowError::Io {
+            detail: format!("create_dir_all({path:?}) failed: {e}"),
+        })?;
+        let tantivy_path = path.join("tantivy");
+        let lexical = LexicalIndex::open_at(&tantivy_path)?;
+
+        // Restore docs side map (snippet hydration). First-launch path
+        // → no docs.json → empty map.
+        let docs_path = path.join("docs.json");
+        let docs: FxHashMap<String, ShadowDocument> = if docs_path.exists() {
+            let bytes = std::fs::read(&docs_path).map_err(|e| ShadowError::Io {
+                detail: format!("read({docs_path:?}) failed: {e}"),
+            })?;
+            serde_json::from_slice(&bytes).map_err(|e| ShadowError::Backend {
+                detail: format!("docs.json decode failed: {e}"),
+            })?
+        } else {
+            FxHashMap::default()
+        };
+
+        // Restore per-domain vector indices. Walk the lexical's stored
+        // doc_ids to discover which domains exist, then load each one's
+        // sidecar pair (vectors + mapping).
+        let mut vectors: FxHashMap<String, VectorIndex> = FxHashMap::default();
+        let observed = lexical.iter_doc_ids()?;
+        let mut domains: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for (_doc_id, domain) in &observed {
+            domains.insert(domain.clone());
+        }
+        let vectors_dir = path.join("vectors");
+        for domain in domains {
+            let usearch_path = vectors_dir.join(format!("{domain}.usearch"));
+            let mapping_path = vectors_dir.join(format!("{domain}.mapping.json"));
+            if !usearch_path.exists() || !mapping_path.exists() {
+                continue;
+            }
+            let index = VectorIndex::new(embedder::EMBED_DIM)?;
+            index.load_from(&usearch_path)?;
+            index.load_mapping_from(&mapping_path)?;
+            vectors.insert(domain, index);
+        }
+
+        Ok(Self {
+            embedder,
+            lexical,
+            vectors: RwLock::new(vectors),
+            docs: RwLock::new(docs),
+            last_flush: Mutex::new(Instant::now()),
+            persistence_root: Some(path.to_path_buf()),
         })
     }
 
@@ -248,8 +321,32 @@ impl ShadowBackend for RealBackend {
     }
 
     fn flush(&self) -> Result<(), ShadowError> {
-        // V1 has nothing to flush (RAM-only); record the instant for
-        // stats. W8.4.f wires real disk persistence.
+        if let Some(root) = self.persistence_root.as_ref() {
+            // Persist docs side map for snippet hydration.
+            let docs = self.docs.read().expect("docs lock poisoned");
+            let docs_path = root.join("docs.json");
+            let bytes = serde_json::to_vec(&*docs).map_err(|e| ShadowError::Backend {
+                detail: format!("docs.json encode failed: {e}"),
+            })?;
+            std::fs::write(&docs_path, bytes).map_err(|e| ShadowError::Io {
+                detail: format!("write({docs_path:?}) failed: {e}"),
+            })?;
+
+            // Persist each per-domain vector index pair.
+            let vectors_dir = root.join("vectors");
+            std::fs::create_dir_all(&vectors_dir).map_err(|e| ShadowError::Io {
+                detail: format!("create_dir_all({vectors_dir:?}) failed: {e}"),
+            })?;
+            let vectors = self.vectors.read().expect("vectors lock poisoned");
+            for (domain, index) in vectors.iter() {
+                let usearch_path = vectors_dir.join(format!("{domain}.usearch"));
+                let mapping_path = vectors_dir.join(format!("{domain}.mapping.json"));
+                index.save_to(&usearch_path)?;
+                index.save_mapping_to(&mapping_path)?;
+            }
+            // tantivy commits per-insert (manual reload), so the
+            // MmapDirectory is already on disk; nothing to flush there.
+        }
         let mut last = self.last_flush.lock().expect("flush lock poisoned");
         *last = Instant::now();
         Ok(())
@@ -338,6 +435,39 @@ mod tests {
         // Fused source — the doc shows up in BOTH dense (semantic
         // similarity) and lexical (exact "revenue" match) channels.
         assert_eq!(hits[0].source, "rrf");
+    }
+
+    #[test]
+    #[ignore = "requires Model2Vec download (~30MB); run with --include-ignored"]
+    fn real_backend_persistence_round_trips_search_results() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let path = dir.path().to_path_buf();
+
+        // Build at the path, insert + flush
+        {
+            let backend = RealBackend::open_at(&path).expect("first-open at empty path must succeed");
+            backend
+                .insert_document(ShadowDocument {
+                    doc_id: "doc-1".to_string(),
+                    domain: "note".to_string(),
+                    title: "Persistent quarterly".to_string(),
+                    body: "Revenue grew 12 percent across all regions.".to_string(),
+                })
+                .unwrap();
+            backend.flush().unwrap();
+        }
+
+        // Re-open at the same path and verify search works
+        {
+            let restored =
+                RealBackend::open_at(&path).expect("second-open of populated path must succeed");
+            let hits = restored.search("revenue", "note", 5).unwrap();
+            assert_eq!(hits.len(), 1, "restored backend MUST find the doc");
+            assert_eq!(hits[0].doc_id, "doc-1");
+            // Stats survive too
+            let stats = restored.stats().unwrap();
+            assert_eq!(stats.note_count, 1);
+        }
     }
 
     #[test]
