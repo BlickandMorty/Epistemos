@@ -21,11 +21,12 @@
 //! the Swift caller never sees `-1 InvalidInput` for what looks like
 //! normal typing.
 
+use std::path::Path;
 use std::sync::Mutex;
 
 use tantivy::{
     collector::TopDocs,
-    directory::RamDirectory,
+    directory::{MmapDirectory, RamDirectory},
     doc,
     query::{BooleanQuery, Occur, Query, QueryParser, TermQuery},
     schema::{Field, IndexRecordOption, Schema, STORED, STRING, TEXT, Value},
@@ -60,9 +61,64 @@ pub struct LexicalHit {
 }
 
 impl LexicalIndex {
-    /// Build a fresh in-memory tantivy index. V1 — W8.4.f swaps the
-    /// RamDirectory for MmapDirectory + a path argument.
+    /// Build a fresh in-memory tantivy index. Useful for tests +
+    /// short-lived builds. Production uses `open_at(&path)` to back
+    /// the index by an MmapDirectory under
+    /// `<vault>/.epistemos/shadow/tantivy/`.
     pub fn new() -> Result<Self, ShadowError> {
+        Self::build_from_directory(Box::new(RamDirectory::create()))
+    }
+
+    /// Open (or create) an MmapDirectory-backed tantivy index at the
+    /// given path. The directory is created if it doesn't exist.
+    /// W8.4.f canonical persistence path.
+    pub fn open_at(path: &Path) -> Result<Self, ShadowError> {
+        std::fs::create_dir_all(path).map_err(|e| ShadowError::Io {
+            detail: format!("create_dir_all({path:?}) failed: {e}"),
+        })?;
+        let directory = MmapDirectory::open(path).map_err(|e| ShadowError::Io {
+            detail: format!("MmapDirectory::open({path:?}) failed: {e}"),
+        })?;
+        Self::build_from_directory(Box::new(directory))
+    }
+
+    /// Walk every stored document and emit `(doc_id, domain)` pairs.
+    /// Used at startup to rebuild the doc_id ↔ row_key map for the
+    /// VectorIndex (usearch persists vectors but not the mapping).
+    /// Caps at 1M docs per Halo's V1 vault budget — adjust if a vault
+    /// genuinely exceeds that.
+    pub fn iter_doc_ids(&self) -> Result<Vec<(String, String)>, ShadowError> {
+        use tantivy::query::AllQuery;
+        const MAX_DOCS: usize = 1_000_000;
+        let searcher = self.reader.searcher();
+        let total = searcher.num_docs() as usize;
+        if total == 0 {
+            return Ok(Vec::new());
+        }
+        let limit = total.min(MAX_DOCS);
+        let top = searcher
+            .search(&AllQuery, &TopDocs::with_limit(limit))
+            .map_err(|e| ShadowError::Backend {
+                detail: format!("tantivy iter_doc_ids search failed: {e}"),
+            })?;
+        let mut out = Vec::with_capacity(top.len());
+        for (_score, address) in top {
+            let document: TantivyDocument =
+                searcher.doc(address).map_err(|e| ShadowError::Backend {
+                    detail: format!("tantivy doc fetch failed: {e}"),
+                })?;
+            let doc_id = stored_text(&document, self.field_doc_id);
+            let domain = stored_text(&document, self.field_domain);
+            if !doc_id.is_empty() {
+                out.push((doc_id, domain));
+            }
+        }
+        Ok(out)
+    }
+
+    fn build_from_directory(
+        directory: Box<dyn tantivy::Directory>,
+    ) -> Result<Self, ShadowError> {
         let mut schema_builder = Schema::builder();
         let field_doc_id = schema_builder.add_text_field("doc_id", STRING | STORED);
         let field_domain = schema_builder.add_text_field("domain", STRING | STORED);
@@ -70,7 +126,6 @@ impl LexicalIndex {
         let field_body = schema_builder.add_text_field("body", TEXT | STORED);
         let schema = schema_builder.build();
 
-        let directory = RamDirectory::create();
         let index = Index::open_or_create(directory, schema).map_err(|e| ShadowError::Backend {
             detail: format!("tantivy::Index::open_or_create failed: {e}"),
         })?;

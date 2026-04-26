@@ -24,6 +24,7 @@
 //! key space; new inserts pull from the free list before incrementing
 //! `next_key`.
 
+use std::path::Path;
 use std::sync::RwLock;
 
 use rustc_hash::FxHashMap;
@@ -64,6 +65,17 @@ pub struct VectorIndex {
 struct MappingState {
     doc_to_key: FxHashMap<String, u64>,
     key_to_doc: FxHashMap<u64, String>,
+    free_keys: Vec<u64>,
+    next_key: u64,
+    reserved_capacity: usize,
+}
+
+/// Disk-serializable form of MappingState — FxHashMap doesn't impl
+/// Serialize directly so we flatten to a Vec of pairs for the JSON
+/// sidecar (W8.4.f).
+#[derive(serde::Serialize, serde::Deserialize)]
+struct MappingSnapshot {
+    doc_to_key: Vec<(String, u64)>,
     free_keys: Vec<u64>,
     next_key: u64,
     reserved_capacity: usize,
@@ -208,6 +220,83 @@ impl VectorIndex {
         (key, false)
     }
 
+    // MARK: - Disk persistence (W8.4.f)
+
+    /// Persist the HNSW vectors to a `.usearch` sidecar at `path`.
+    /// usearch's native serializer; round-trips losslessly. The
+    /// caller MUST also persist the doc_id ↔ row_key mapping (we
+    /// emit it as a sibling JSON file via `save_mapping_to`).
+    pub fn save_to(&self, path: &Path) -> Result<(), ShadowError> {
+        let path_str = path.to_string_lossy().to_string();
+        self.index.save(&path_str).map_err(|e| ShadowError::Backend {
+            detail: format!("usearch::save({path_str}) failed: {e}"),
+        })
+    }
+
+    /// Load HNSW vectors from a previously-saved sidecar. Replaces
+    /// the in-memory index. The mapping side (`load_mapping_from`)
+    /// is the caller's responsibility — call them as a pair on
+    /// startup.
+    pub fn load_from(&self, path: &Path) -> Result<(), ShadowError> {
+        let path_str = path.to_string_lossy().to_string();
+        self.index.load(&path_str).map_err(|e| ShadowError::Backend {
+            detail: format!("usearch::load({path_str}) failed: {e}"),
+        })?;
+        // After loading, refresh the search expansion in case the
+        // sidecar was saved with a different ef_search.
+        self.index
+            .change_expansion_search(HNSW_EXPANSION_SEARCH);
+        Ok(())
+    }
+
+    /// Persist the doc_id ↔ row_key mapping as JSON. Sibling to
+    /// the `.usearch` sidecar. Without this, a usearch reload sees
+    /// the vectors but can't translate row keys back to doc ids on
+    /// search.
+    pub fn save_mapping_to(&self, path: &Path) -> Result<(), ShadowError> {
+        let guard = self.state.read().expect("vector index lock poisoned");
+        let mapping: Vec<(String, u64)> = guard
+            .doc_to_key
+            .iter()
+            .map(|(doc_id, key)| (doc_id.clone(), *key))
+            .collect();
+        let payload = MappingSnapshot {
+            doc_to_key: mapping,
+            free_keys: guard.free_keys.clone(),
+            next_key: guard.next_key,
+            reserved_capacity: guard.reserved_capacity,
+        };
+        let bytes = serde_json::to_vec_pretty(&payload).map_err(|e| ShadowError::Backend {
+            detail: format!("vector mapping JSON encode failed: {e}"),
+        })?;
+        std::fs::write(path, bytes).map_err(|e| ShadowError::Io {
+            detail: format!("vector mapping write to {path:?} failed: {e}"),
+        })
+    }
+
+    /// Restore the doc_id ↔ row_key mapping from a sibling JSON file.
+    /// Pair with `load_from` on startup.
+    pub fn load_mapping_from(&self, path: &Path) -> Result<(), ShadowError> {
+        let bytes = std::fs::read(path).map_err(|e| ShadowError::Io {
+            detail: format!("vector mapping read from {path:?} failed: {e}"),
+        })?;
+        let snapshot: MappingSnapshot =
+            serde_json::from_slice(&bytes).map_err(|e| ShadowError::Backend {
+                detail: format!("vector mapping JSON decode failed: {e}"),
+            })?;
+        let mut guard = self.state.write().expect("vector index lock poisoned");
+        guard.doc_to_key.clear();
+        guard.key_to_doc.clear();
+        for (doc_id, key) in snapshot.doc_to_key {
+            guard.doc_to_key.insert(doc_id.clone(), key);
+            guard.key_to_doc.insert(key, doc_id);
+        }
+        guard.free_keys = snapshot.free_keys;
+        guard.next_key = snapshot.next_key;
+        guard.reserved_capacity = snapshot.reserved_capacity;
+        Ok(())
+    }
+
     /// Grow the underlying usearch reserved capacity in 2× chunks
     /// when a write would cross the boundary. usearch panics if you
     /// add past `reserve()` without growing — this guard mirrors
@@ -304,6 +393,58 @@ mod tests {
         let v = fixed_vec(8, 1.0);
         idx.add("doc-A", &v).unwrap();
         assert!(idx.search(&v, 0).is_empty());
+    }
+
+    #[test]
+    fn save_and_load_round_trips_vectors_plus_mapping() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let usearch_path = dir.path().join("vectors.usearch");
+        let mapping_path = dir.path().join("vectors.mapping.json");
+
+        // Build + populate
+        let original = VectorIndex::new(8).unwrap();
+        let v1 = fixed_vec(8, 1.0);
+        let v2 = fixed_vec(8, 0.5);
+        original.add("doc-A", &v1).unwrap();
+        original.add("doc-B", &v2).unwrap();
+        original.save_to(&usearch_path).unwrap();
+        original.save_mapping_to(&mapping_path).unwrap();
+
+        // Restore into a fresh instance + verify search works
+        let restored = VectorIndex::new(8).unwrap();
+        restored.load_from(&usearch_path).unwrap();
+        restored.load_mapping_from(&mapping_path).unwrap();
+        assert_eq!(restored.len(), 2);
+
+        let hits = restored.search(&v1, 4);
+        assert_eq!(hits.len(), 2, "restored index MUST find both vectors");
+        // doc-A should rank first against its own embedding
+        assert_eq!(hits[0].0, "doc-A");
+    }
+
+    #[test]
+    fn load_mapping_preserves_free_key_recycling() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let usearch_path = dir.path().join("vectors.usearch");
+        let mapping_path = dir.path().join("vectors.mapping.json");
+
+        let original = VectorIndex::new(8).unwrap();
+        original.add("a", &fixed_vec(8, 1.0)).unwrap();
+        original.add("b", &fixed_vec(8, 0.5)).unwrap();
+        original.add("c", &fixed_vec(8, 0.25)).unwrap();
+        original.remove("b").unwrap();   // key 1 → free_keys
+        original.save_to(&usearch_path).unwrap();
+        original.save_mapping_to(&mapping_path).unwrap();
+
+        let restored = VectorIndex::new(8).unwrap();
+        restored.load_from(&usearch_path).unwrap();
+        restored.load_mapping_from(&mapping_path).unwrap();
+
+        // Insert a new doc — should reuse key 1 from the restored free list
+        restored.add("d", &fixed_vec(8, 0.8)).unwrap();
+        let guard = restored.state.read().unwrap();
+        assert_eq!(guard.doc_to_key.get("d").copied(), Some(1),
+                   "free-key recycling MUST survive persistence round-trip");
     }
 
     #[test]
