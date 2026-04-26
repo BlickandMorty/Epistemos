@@ -132,8 +132,72 @@ Each wave finishes before the next starts. Each wave produces a restorable tag.
 | W7.3 | Markdown shadow projection (GFM via Tiptap; lossy by design; never canonical) + DOCX export-only via Pandoc with `reference.docx` styling | `gpt work 2.md` §"Universal artifact envelope" | 1 week |
 | W7.4 | **Agent Command Center full surface** (PLAN_V2 §4.1): slash commands, at-mentions, capability pills, brain selector, right-side inspector, global shortcut | `PLAN_V2.md` §4.1 | 1 week |
 | W7.5 | Memory diff card + embedded terminal (Pro) + iMessage inbound (Pro) — V1.5+ | `MASTER_PLAN_2026-04-19.md` §GG | 1 week each, Pro-only |
+| W7.6 | **EpdocManifest free-form `metadata`**: optional `[String: String]` field for theme / icon / display-mode / color-hex without bumping schema_version. Forward-compat decode (older readers ignore unknown keys) | Alexandrie scan (2026-04-26) — `nodes.metadata JSON` column equivalent | 1 day |
+| W7.7 | **Math (KaTeX) Tiptap node**: register `math_inline` (`$x=1$`) + `math_display` (`$$…$$`) Tiptap node; client-side KaTeX 0.16.45 render; mhchem extension for chemistry equations; ProseMirrorMarkdownProjector round-trips both syntaxes; Pandoc reads `$…$` natively so DOCX/PDF needs no writer change | Alexandrie `frontend/app/helpers/markdown/katex.ts`; verdict line on Tiptap math extensions | 3 days |
+| W7.8 | **Markdown plugin Tiptap nodes** (4): `footnote` (`[^id]` ref + def), `highlight` mark (`==text==`), `task_item` (`- [ ] / - [x]`), `callout` container node (`:::tip / :::warning / :::danger / :::info / :::details`). Each round-trips through ProseMirrorMarkdownProjector and reads back via markdown-it on the JS side | Alexandrie `helpers/markdown/{container,colors,other,checkbox}.ts` (decorative `cards/panels/frames` explicitly skipped) | 1 week |
+| W7.9 | **Mermaid diagram Tiptap node**: register `mermaid` node (extends fenced code-block-with-language); bundle `mermaid.min.js` (~2 MB) under `Resources/Editor/`; ProseMirrorMarkdownProjector emits ` ```mermaid\n…\n``` ` so the projection round-trips through any markdown reader. Alexandrie does NOT ship Mermaid; we add it because it's the most-requested diagram format in 2026 docs tooling | New (Alexandrie scan delta) | 3 days |
+| W7.10 | **KaTeX slash-menu snippets**: port Alexandrie's `katex-snippets.ts` autocomplete dictionary (hundreds of macros) to a Swift `KaTeXSnippets` data source; surface from the editor's slash-menu so `/sqrt`, `/sum`, `/integral`, `/matrix` etc. expand to the right LaTeX. Pure data file, no logic | Alexandrie `frontend/app/components/MarkdownEditor/katex-snippets.ts` | 1 day |
+| W7.11 | **Image upload paste/drop handler**: paste/drop image events into the Tiptap WKWebView trigger an upload that writes the bytes to the `.epdoc` package's `assets/` directory and inserts a relative-path `![alt](assets/<filename>)` node. Mirrors Alexandrie's `editorUploads.ts` pattern but writes into the package bundle (not S3) per the `.epdoc` offline-first contract | Alexandrie `frontend/app/components/MarkdownEditor/modules/editorUploads.ts` | 3 days |
 
 **Tag**: `v1.5-cognitive-workspace`
+
+> **W7.6–W7.11 provenance** — Borrowed from a 2026-04-26 scan of
+> [Smaug6739/Alexandrie](https://github.com/Smaug6739/Alexandrie) (Nuxt 4 + Go + MySQL self-hosted wiki). The
+> agent's full report + line-cited recommendations live in the session's
+> chapter "Grounding pass — verify state vs canonical truth". Decorative
+> features intentionally skipped: the `card`/`panel`/`frame` academic
+> blocks (Tiptap blockquote covers the use case), the entire CodeMirror
+> split-pane editor (we're committed to Tiptap WYSIWYG), the OIDC/SSO
+> stack (single-user macOS), and MySQL FULLTEXT search (Halo Shadow is
+> generations ahead).
+
+#### Wave 7 — Notion × Obsidian × Craft tier (W7.12–W7.16)
+
+> **Why this tier exists.** The 2026-04-26 user direction:
+> > "I want it to be like I have a whole Notion as one of the text
+> > editors in my app — so the document mode literally has a whole
+> > multi-database thing where it also shows up in the graph where
+> > nest things are weighted with a particular complexity scale, then
+> > the graph reflects the complexity of the documents, and then the
+> > documents are attached to all thoughts in the pro system… literally
+> > like Notion times Obsidian times Craft."
+>
+> W7.6–W7.11 close the editor-feature gap (math, callouts, footnotes,
+> Mermaid). W7.12–W7.16 close the **systems-integration** gap: every
+> `.epdoc` becomes a first-class node in the graph engine, carries
+> typed properties / database queries (Notion), backlinks bi-directionally
+> with thoughts and other docs (Obsidian), and renders with a complexity-
+> aware visual weight in the Metal graph view (Craft).
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W7.12 | **DocComplexityMetric**: scalar 0.0–1.0 computed per `.epdoc` from word count, heading depth, code-block count, link-out count, math-block count, mermaid-block count, embed/transclusion count. Cached in `manifest.metadata["complexity"]` on every save (W7.6 substrate). Drives graph node radius + edge weight in W7.14. Includes `EpdocComplexityCalculator.swift` + `ComplexityWeights.swift` config struct + a Swift Testing source-guard with 12 fixtures spanning min/max/typical | New (user direction 2026-04-26) | 3 days |
+| W7.13 | **DocPropertiesDB (Notion-like)**: typed property schema on top of `manifest.metadata` — `properties: [PropertyDef]` where each `PropertyDef` is `{ id, name, kind: select/multiSelect/date/number/checkbox/relation/url/email/file/formula/rollup, options?, formula? }`. New `EpdocProperty.swift` model + `EpdocDatabase.swift` query engine that reads + writes typed values to `manifest.metadata["properties.<id>"]`. The query engine reuses the existing structured-query AST from `Epistemos/Engine/QueryAST.swift` | New (Notion-like multi-database) | 1 week |
+| W7.14 | **EpdocGraphProjector**: extends [GraphBuilder.swift](Epistemos/Graph/GraphBuilder.swift) so every `.epdoc` package emits one graph `SDGraphNode` (kind=`.document`, weight = W7.12 complexity scalar, label = manifest.title, id = manifest.id) on first index pass + on every save. Edge emission: every `EpdocProvenance.derivedFrom`/`sourceArtifacts`/`outputArtifacts` becomes a directed `SDGraphEdge` with `kind = .derivation` and `weight = 1.0`; every Tiptap `[[wikilink]]` becomes a `kind = .reference` edge | New (Obsidian-style backlinks + the user's "documents in the graph" ask) | 1 week |
+| W7.15 | **ThoughtAttachmentBridge**: bidirectional binding between `RawThought` (Wave 3.1) and `.epdoc` packages. (a) When an agent run produces a doc, the doc's `EpdocProvenance.generatedByRun` already records the run id; W7.15 ADDS the reverse: when a thought references a doc id, write a `RawThought.attachedDocs: [String]` field that the indexer cross-references. (b) `Epistemos/Models/SDPage.swift` gets an `attachedThoughts: [String]` mirror so the doc inspector shows "this doc was generated by N thoughts" + click-through. Migrations + foreign-key validation tests included | New (user direction: "documents are attached to all thoughts in the pro system") | 1 week |
+| W7.16 | **Complexity-weighted Metal graph rendering**: extend [graph-engine](graph-engine/src/renderer.rs) so node radius scales by `weight ∈ [0,1]` (the W7.12 complexity scalar), edge thickness scales by `kind`-typed weight, and the SDF label atlas font size also scales modestly with complexity. Visually: simple notes are small clean nodes; complex docs are large luminous nodes with thicker derivation edges. Performance budget: rendering 10K nodes at 60Hz must not regress (existing `bench_tests.rs` budget ceiling) | New (user direction: "graph reflects the complexity of the documents") | 1 week |
+
+**Cross-cutting tests added with W7.12–W7.16:**
+- `EpdocComplexityCalculatorTests` — 12 fixtures
+- `EpdocDatabaseQueryEngineTests` — 8+ scenarios across each PropertyKind
+- `EpdocGraphProjectorTests` — 6+ doc-to-graph projection round-trips
+- `ThoughtAttachmentBridgeTests` — bidirectional binding + dangling-reference detection
+- `graph-engine` benchmark gate — 10K-node render p99 budget unchanged
+
+**Tag (after W7.16)**: `v2-cognitive-substrate-cosmic`
+
+> **W7.12–W7.16 provenance + ambition** — The user's framing on
+> 2026-04-26: "literally like Notion times Obsidian times Craft… a
+> really interesting complex and very, very, very useful note-taking
+> but not just note-taking — thought analysis and thought ontology
+> system." This tier is what makes the `.epdoc` system the **thought
+> ontology surface** the user wants: every doc is a graph node, every
+> graph node carries semantic + structural complexity, every thought
+> binds to the docs it touched, and queries cross from typed properties
+> through the unified graph back to source thoughts. Audit gate before
+> the `v2-cognitive-substrate-cosmic` tag drops: 7-layer audit per the
+> stabilization pattern (build / test / unsafe-grep / drift-check /
+> dead-code / runtime perf / cross-tier review).
 
 ### Wave 8 — Contextual Shadows + Halo (V1 differentiator, 4 weeks)
 **Goal**: ship the V1 decision's defining feature per `ambient/EPISTEMOS_V1_DECISION.md`. "Type a sentence, see a related thought appear, can't remember a time before it worked that way."

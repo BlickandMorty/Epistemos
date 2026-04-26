@@ -110,6 +110,20 @@ nonisolated public struct EpdocManifest: Codable, Sendable, Hashable {
     /// out-of-band edits to the canonical file.
     public let contentHash: String
     public let provenance: EpdocProvenance
+    /// Wave 7.6 follow-up — free-form metadata bag for theme name,
+    /// icon name, accent color hex, display mode, etc. Optional, so
+    /// older readers tolerate its absence; newer readers can extend
+    /// the convention without bumping `schema_version`.
+    ///
+    /// Keys are app-defined (no schema enforcement here). Stringified
+    /// values keep the `Codable` derivation trivial — booleans become
+    /// `"true"`/`"false"`, numbers become decimal strings. If a future
+    /// caller needs nested structure, store JSON-encoded text in the
+    /// value and decode at the call site.
+    ///
+    /// Borrowed from Smaug6739/Alexandrie's `nodes.metadata JSON`
+    /// column pattern (2026-04-26 scan).
+    public let metadata: [String: String]?
 
     public static let currentSchemaVersion: UInt32 = 1
 
@@ -121,7 +135,8 @@ nonisolated public struct EpdocManifest: Codable, Sendable, Hashable {
         updatedAt: Int64,
         title: String,
         contentHash: String,
-        provenance: EpdocProvenance
+        provenance: EpdocProvenance,
+        metadata: [String: String]? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -131,6 +146,7 @@ nonisolated public struct EpdocManifest: Codable, Sendable, Hashable {
         self.title = title
         self.contentHash = contentHash
         self.provenance = provenance
+        self.metadata = metadata
     }
 
     enum CodingKeys: String, CodingKey {
@@ -142,6 +158,7 @@ nonisolated public struct EpdocManifest: Codable, Sendable, Hashable {
         case title
         case contentHash = "content_hash"
         case provenance
+        case metadata
     }
 }
 

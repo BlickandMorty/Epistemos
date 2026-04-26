@@ -95,6 +95,63 @@ nonisolated struct EpdocPackageTests {
                 "manifest must round-trip identical through Codable")
     }
 
+    @Test("EpdocManifest free-form metadata round-trips and stays absent in JSON when nil (W7.6 follow-up)")
+    func manifestMetadataRoundTrip() throws {
+        let withMeta = EpdocManifest(
+            id: "01HMV5K2K9XJ4N0METAVAR",
+            kind: .document,
+            schemaVersion: EpdocManifest.currentSchemaVersion,
+            createdAt: Self.unixMs,
+            updatedAt: Self.unixMs,
+            title: "Themed",
+            contentHash: "deadbeef",
+            provenance: EpdocProvenance(producer: .human),
+            metadata: [
+                "theme": "solarized-dark",
+                "icon": "rocket",
+                "accent_color": "#3a86ff",
+                "display_mode": "wide",
+            ]
+        )
+        let encoder = JSONEncoder.epdocCanonical
+        let data = try encoder.encode(withMeta)
+        let json = String(data: data, encoding: .utf8) ?? ""
+        #expect(json.contains("\"metadata\""), "metadata key MUST appear when populated")
+        #expect(json.contains("solarized-dark"), "metadata values MUST round-trip verbatim")
+
+        let decoder = JSONDecoder.epdocCanonical
+        let decoded = try decoder.decode(EpdocManifest.self, from: data)
+        #expect(decoded.metadata?["theme"] == "solarized-dark")
+        #expect(decoded.metadata?["accent_color"] == "#3a86ff")
+        #expect(decoded == withMeta, "metadata must round-trip identical")
+
+        // Forward-compat: a manifest WITHOUT the metadata key (older
+        // pre-W7.6 writers) must still decode successfully and surface
+        // metadata == nil. ArtifactKind is repr(UInt8) — `.document`
+        // serialises as the raw int 2 (mirrors the Rust enum
+        // discriminant).
+        let legacyJSON = #"""
+        {
+            "id": "01HMV5K2K9XJ4N0METAVAR",
+            "kind": 2,
+            "schema_version": 1,
+            "created_at": \#(Self.unixMs),
+            "updated_at": \#(Self.unixMs),
+            "title": "Legacy",
+            "content_hash": "deadbeef",
+            "provenance": {
+                "producer": "human",
+                "derived_from": [],
+                "source_artifacts": [],
+                "output_artifacts": []
+            }
+        }
+        """#.data(using: .utf8)!
+        let legacy = try decoder.decode(EpdocManifest.self, from: legacyJSON)
+        #expect(legacy.metadata == nil,
+                "older pre-W7.6 manifests MUST decode with metadata == nil (forward compat)")
+    }
+
     @Test("EpdocManifest decodes ArtifactKind via the unified Wave 3.2 enum")
     func manifestDecodesArtifactKind() throws {
         let original = Self.sampleManifest()
