@@ -1,0 +1,401 @@
+import Foundation
+import OSLog
+
+// MARK: - EpistemosSidecar
+//
+// Phase 12 of the master plan / Wave 13 §"Phase 12": adds a
+// machine-readable JSON sidecar layer next to the user's
+// human-readable source files (markdown notes, chat exports, etc.).
+//
+// Doc 2 amendment (canonical Wave 9-11 §"Doc 2 plan-corrections"):
+// the sidecar is **additive** to markdown — never a replacement.
+// Notes stay legible, exportable, `vim`-able. Epistemos *adds*
+// `[entity-id].epistemos.json` alongside each note file. The moat
+// is dual representation without user pain.
+//
+// Wire format mirrors the Rust struct documented in Wave 13:
+//
+//   #[derive(Serialize, Deserialize, JsonSchema)]
+//   #[serde(deny_unknown_fields, rename_all = "camelCase")]
+//   struct EpistemosSidecar {
+//       schema_version: u16,
+//       entity_id: Ulid,
+//       depth: DepthMarker,
+//       parent_domain: Option<String>,
+//       derived_from: Vec<Ulid>,
+//       embeddings: Option<EmbeddingRef>,
+//       cognitive_meta: CognitiveMeta,
+//       annotations: Vec<Annotation>,
+//   }
+//
+// The Swift type below is the source-of-truth on the Swift side;
+// the Rust ETL (Phase 13, follow-up) reads/writes the same JSON
+// shape via its own struct mirror. `schema_version` is per-row so
+// individual sidecars can migrate independently.
+//
+// **Code-file exclusion rule** (master plan §13 + Wave 9 §safety):
+// the sidecar generation MUST never touch source-code files. The
+// hardcoded suffix list lives in `EpistemosSidecarPolicy` below
+// and is enforced by the only public mint / write entry points.
+
+// MARK: - Sidecar payload
+
+nonisolated public struct EpistemosSidecar: Codable, Sendable, Equatable {
+
+    /// Schema version for forward-compatible migrations. Bump when
+    /// adding/renaming fields with semantic meaning. Reserve `0` for
+    /// "schema-less stub" sidecars (not yet enriched by AFM).
+    public var schemaVersion: UInt16
+
+    /// ULID identity for the entity this sidecar describes. Stable
+    /// across renames of the source file (the sidecar tracks the
+    /// entity, not the path). Encode as the canonical 26-char Crockford
+    /// base32 string — readable + URL-safe + lexicographically-time-
+    /// orderable.
+    public var entityId: String
+
+    /// Knowledge depth marker (L1 / L2 / L3 — master plan Phase 8).
+    /// Mirrors `DepthMarker` from `OntologyClassifier.swift` so the
+    /// classifier can write directly into a sidecar.
+    public var depth: DepthMarker
+
+    /// Parent domain in the ontology — emitted by the W10.1 classifier
+    /// as a lowercase kebab-case string (e.g. "neuroscience").
+    /// Optional because user-created notes may not be classified yet.
+    public var parentDomain: String?
+
+    /// Other entity IDs this sidecar was derived from (note merges,
+    /// summarisations, transclusions). Empty for primary user notes.
+    public var derivedFrom: [String]
+
+    /// Optional reference to an embedding cached elsewhere (Halo
+    /// Shadow index keyspace). Future versions may inline a quantised
+    /// vector here for offline use; kept as a reference today to keep
+    /// sidecars small + diff-friendly.
+    public var embeddings: EmbeddingRef?
+
+    /// Cognitive metadata — author intent, emotional valence,
+    /// timestamp chains, etc. The shape evolves with the ontology;
+    /// schema version gates what's expected.
+    public var cognitiveMeta: CognitiveMeta
+
+    /// Free-form annotations the AFM classifier or user can append
+    /// without invalidating the schema. Each annotation is timestamped
+    /// + author-tagged so the audit trail survives merges.
+    public var annotations: [Annotation]
+
+    public init(
+        schemaVersion: UInt16 = Self.currentSchemaVersion,
+        entityId: String,
+        depth: DepthMarker,
+        parentDomain: String? = nil,
+        derivedFrom: [String] = [],
+        embeddings: EmbeddingRef? = nil,
+        cognitiveMeta: CognitiveMeta = CognitiveMeta(),
+        annotations: [Annotation] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.entityId = entityId
+        self.depth = depth
+        self.parentDomain = parentDomain
+        self.derivedFrom = derivedFrom
+        self.embeddings = embeddings
+        self.cognitiveMeta = cognitiveMeta
+        self.annotations = annotations
+    }
+
+    /// Current schema version. Bump when fields are added/renamed
+    /// with semantic meaning so writes always carry the latest tag.
+    public static let currentSchemaVersion: UInt16 = 1
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case entityId = "entity_id"
+        case depth
+        case parentDomain = "parent_domain"
+        case derivedFrom = "derived_from"
+        case embeddings
+        case cognitiveMeta = "cognitive_meta"
+        case annotations
+    }
+}
+
+// MARK: - EmbeddingRef
+
+nonisolated public struct EmbeddingRef: Codable, Sendable, Equatable, Hashable {
+    /// Halo Shadow index identifier — the doc_id this entity is
+    /// addressable as in the lexical + dense layers.
+    public var shadowDocId: String
+
+    /// Embedding dimensionality (e.g. 384 for the W8 default).
+    /// Tracked so a future re-embedding pass knows whether the
+    /// reference is still valid against the current model.
+    public var dim: UInt16
+
+    /// Provenance string — which embedding model produced this. Useful
+    /// when the user upgrades the embedder and needs to invalidate
+    /// stale references.
+    public var source: String
+
+    public init(shadowDocId: String, dim: UInt16, source: String) {
+        self.shadowDocId = shadowDocId
+        self.dim = dim
+        self.source = source
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case shadowDocId = "shadow_doc_id"
+        case dim
+        case source
+    }
+}
+
+// MARK: - CognitiveMeta
+
+nonisolated public struct CognitiveMeta: Codable, Sendable, Equatable {
+    /// ISO-8601 string for when the source content was first ingested.
+    public var firstSeenAt: String?
+
+    /// ISO-8601 string for when the AFM classifier last enriched the
+    /// sidecar (separate from the source file's mtime).
+    public var lastClassifiedAt: String?
+
+    /// Confidence the classifier had in the parent_domain assignment,
+    /// 0.0–1.0. Used by the W11.4 Manual mode to decide whether to
+    /// surface the classification proposal vs accept silently.
+    public var classificationConfidence: Double?
+
+    /// Optional emotional-valence anchor (W10.16 conversation state +
+    /// master plan Phase 11 brain dumps). Range -1.0 (negative) to
+    /// 1.0 (positive); nil when not yet measured.
+    public var emotionalValence: Double?
+
+    /// Number of times the user has explicitly accessed this entity
+    /// since ingestion — feeds the W10.2 / W10.15 retrieval-prior
+    /// decay (NOT vector quantisation, per the Doc 2 amendment:
+    /// "decay retrieval priors over time, rehydrate when relevant").
+    public var accessCount: UInt64
+
+    public init(
+        firstSeenAt: String? = nil,
+        lastClassifiedAt: String? = nil,
+        classificationConfidence: Double? = nil,
+        emotionalValence: Double? = nil,
+        accessCount: UInt64 = 0
+    ) {
+        self.firstSeenAt = firstSeenAt
+        self.lastClassifiedAt = lastClassifiedAt
+        self.classificationConfidence = classificationConfidence
+        self.emotionalValence = emotionalValence
+        self.accessCount = accessCount
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case firstSeenAt = "first_seen_at"
+        case lastClassifiedAt = "last_classified_at"
+        case classificationConfidence = "classification_confidence"
+        case emotionalValence = "emotional_valence"
+        case accessCount = "access_count"
+    }
+}
+
+// MARK: - Annotation
+
+nonisolated public struct Annotation: Codable, Sendable, Equatable {
+    /// ISO-8601 timestamp of when this annotation was written.
+    public var at: String
+
+    /// Author tag — `"user"`, `"afm"`, `"hermes"`, `"claude-code"` etc.
+    /// Lets the UI show provenance and lets future merges dedupe by
+    /// author + content.
+    public var author: String
+
+    /// Free-form annotation body. Markdown-friendly so the same field
+    /// renders cleanly in a `vim` view of the sidecar AND in the
+    /// SwiftUI inspector.
+    public var body: String
+
+    public init(at: String, author: String, body: String) {
+        self.at = at
+        self.author = author
+        self.body = body
+    }
+}
+
+// MARK: - Code-file exclusion policy
+
+/// Enforces the master-plan Phase 12 / Wave 9 safety constraint:
+/// **`.epistemos.json` sidecar generation MUST never touch source-code
+/// files.** The exclusion list is hardcoded; future additions require a
+/// commit + review (no runtime config).
+nonisolated public enum EpistemosSidecarPolicy {
+
+    /// File extensions the sidecar engine MUST refuse to touch. Bias
+    /// toward over-exclusion: a programming language being missed
+    /// here means corrupting the user's source code, which is
+    /// catastrophic; over-excluding a markdown variant means a note
+    /// doesn't get a sidecar, which is benign.
+    public static let excludedExtensions: Set<String> = [
+        // Compiled / source languages
+        "swift", "rs", "py", "go", "java", "kt", "kts", "scala",
+        "c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx",
+        "m", "mm", "ts", "tsx", "js", "jsx", "mjs", "cjs",
+        "rb", "php", "lua", "pl", "pm", "elm", "ex", "exs",
+        "cs", "fs", "fsi", "vb", "rb", "erl", "hrl",
+        // Build / config / lock
+        "json", "toml", "yaml", "yml", "lock", "xml", "plist",
+        "gradle", "cmake", "ninja", "bazel", "bzl",
+        // Shell / scripts
+        "sh", "bash", "zsh", "fish", "ps1", "psm1",
+        // Project / IDE
+        "pbxproj", "xcconfig", "xcscheme", "entitlements",
+        // GPU / shaders
+        "metal", "wgsl", "glsl", "hlsl",
+    ]
+
+    /// Path patterns that the ETL crawler MUST skip even if the file
+    /// extension wasn't on the excluded list. Hardcoded so a custom
+    /// `.pkmignore` can't accidentally allow them in.
+    public static let excludedPathSegments: Set<String> = [
+        ".git", ".build", "build", "DerivedData", "target",
+        "node_modules", ".venv", "venv", "__pycache__",
+        ".idea", ".vscode", "Pods", ".cocoapods", "xcuserdata",
+        ".swiftpm", ".cache", ".tox", ".pytest_cache", ".mypy_cache",
+    ]
+
+    /// Returns true when the given URL is allowed to receive a sidecar.
+    /// The check is conservative — both extension AND path segments
+    /// must clear the exclusion list.
+    public static func isEligible(_ url: URL) -> Bool {
+        let ext = url.pathExtension.lowercased()
+        if excludedExtensions.contains(ext) { return false }
+        for component in url.pathComponents {
+            if excludedPathSegments.contains(component) { return false }
+        }
+        return true
+    }
+}
+
+// MARK: - Sidecar I/O
+
+/// Sidecar filename convention: `<source-stem>.epistemos.json` placed
+/// next to the source file. Stable JSON encoding (sortedKeys +
+/// prettyPrinted) so `git diff` is human-readable.
+nonisolated public enum EpistemosSidecarStore {
+
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "EpistemosSidecar"
+    )
+
+    public enum SidecarError: Error {
+        case ineligibleSource(URL)
+        case readFailed(URL, Error)
+        case writeFailed(URL, Error)
+        case decodeFailed(URL, Error)
+        case encodeFailed(URL, Error)
+    }
+
+    /// Resolve the canonical sidecar URL for a source file. Returns
+    /// nil for ineligible sources (code files, build dirs, etc.).
+    public static func sidecarURL(for source: URL) -> URL? {
+        guard EpistemosSidecarPolicy.isEligible(source) else { return nil }
+        let stem = source.deletingPathExtension().lastPathComponent
+        let dir = source.deletingLastPathComponent()
+        return dir.appendingPathComponent("\(stem).epistemos.json")
+    }
+
+    /// Read + decode the sidecar for `source`, if one exists. Returns
+    /// nil when the source has no sidecar yet (caller decides whether
+    /// to mint a new one).
+    public static func read(for source: URL) throws -> EpistemosSidecar? {
+        guard let url = sidecarURL(for: source) else {
+            throw SidecarError.ineligibleSource(source)
+        }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return nil
+        }
+        let data: Data
+        do { data = try Data(contentsOf: url) }
+        catch { throw SidecarError.readFailed(url, error) }
+        do { return try Self.decoder.decode(EpistemosSidecar.self, from: data) }
+        catch { throw SidecarError.decodeFailed(url, error) }
+    }
+
+    /// Atomically write `sidecar` for `source`. Encoding is
+    /// deterministic so re-saving an unchanged sidecar is a no-op
+    /// at the byte level (git-friendly).
+    public static func write(_ sidecar: EpistemosSidecar, for source: URL) throws {
+        guard let url = sidecarURL(for: source) else {
+            throw SidecarError.ineligibleSource(source)
+        }
+        let data: Data
+        do { data = try Self.encoder.encode(sidecar) }
+        catch { throw SidecarError.encodeFailed(url, error) }
+        do { try data.write(to: url, options: [.atomic]) }
+        catch { throw SidecarError.writeFailed(url, error) }
+        log.debug(
+            "Wrote sidecar (\(data.count, privacy: .public)B) for \(source.lastPathComponent, privacy: .public)"
+        )
+    }
+
+    /// Mint a fresh sidecar stub for a source file with an unset
+    /// schema (`schemaVersion = 0`). The classifier upgrades the
+    /// schema later when AFM finishes enriching the entity.
+    public static func mintStub(for source: URL, depth: DepthMarker = .surface) -> EpistemosSidecar {
+        EpistemosSidecar(
+            schemaVersion: 0,
+            entityId: Self.makeEntityId(),
+            depth: depth,
+            cognitiveMeta: CognitiveMeta(
+                firstSeenAt: ISO8601DateFormatter().string(from: Date())
+            )
+        )
+    }
+
+    /// Generate a 26-char Crockford-base32 ULID for an `entity_id`.
+    /// We don't pull in a ULID dep yet — this function is a
+    /// hand-rolled time-prefixed Crockford-base32 random ID that
+    /// matches ULID spec semantics (lexicographic time-orderability
+    /// + collision-resistant random suffix). Bump to `Ulid` crate if
+    /// performance ever matters.
+    static func makeEntityId() -> String {
+        let crockford = Array("0123456789ABCDEFGHJKMNPQRSTVWXYZ")
+        let nowMs = UInt64(Date().timeIntervalSince1970 * 1000)
+        var time = nowMs
+        var timePart = Array(repeating: "0", count: 10)
+        for i in (0..<10).reversed() {
+            timePart[i] = String(crockford[Int(time & 0x1F)])
+            time >>= 5
+        }
+        var rand = [UInt8](repeating: 0, count: 16)
+        _ = SystemRandomNumberGenerator.fillRandom(&rand)
+        var randPart = ""
+        randPart.reserveCapacity(16)
+        for byte in rand.prefix(16) {
+            randPart.append(crockford[Int(byte & 0x1F)])
+        }
+        return timePart.joined() + randPart
+    }
+
+    private static let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        e.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return e
+    }()
+
+    private static let decoder = JSONDecoder()
+}
+
+// MARK: - SystemRandomNumberGenerator helper
+
+nonisolated extension SystemRandomNumberGenerator {
+    /// Fill the buffer with cryptographically random bytes.
+    fileprivate static func fillRandom(_ buf: inout [UInt8]) -> Bool {
+        var rng = SystemRandomNumberGenerator()
+        for i in 0..<buf.count {
+            buf[i] = UInt8.random(in: 0...UInt8.max, using: &rng)
+        }
+        return true
+    }
+}
