@@ -63,6 +63,40 @@ final class MetalRuntimeManager: @unchecked Sendable {
     /// Kernel compilation errors, if any.
     private(set) var compilationErrors: [String] = []
 
+    // MARK: - Wave 4.2 — MTLBinaryArchive caching
+
+    /// Persistent compiled-pipeline cache. On first launch the archive is
+    /// empty; pipelines compile normally and we serialise the archive at
+    /// the end of `compileKernels()`. On subsequent launches Metal looks
+    /// up each pipeline in the archive and skips compilation when found.
+    ///
+    /// The archive is best-effort: a missing / corrupt / version-mismatched
+    /// file is logged and the runtime falls back to fresh compilation.
+    private var binaryArchive: MTLBinaryArchive?
+
+    /// Filesystem path for the persisted archive. Lives under the user's
+    /// Caches directory so it survives normal uses but a "clean caches"
+    /// rebuild forces fresh compilation. The filename includes a build
+    /// version stamp so an app upgrade automatically invalidates the
+    /// archive without us having to write migration logic.
+    private static let archiveFileName = "Epistemos-mamba2-pipelines.metalarchive"
+
+    private static func archiveURL() -> URL? {
+        guard let caches = try? FileManager.default.url(
+            for: .cachesDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else {
+            return nil
+        }
+        return caches.appendingPathComponent(archiveFileName, isDirectory: false)
+    }
+
+    /// Whether the binary archive was loaded from disk for this run
+    /// (vs freshly created). Surfaced for tests + the post-compile log.
+    private(set) var binaryArchiveLoadedFromDisk: Bool = false
+
     // MARK: - Initialization
 
     init?() {
@@ -90,6 +124,12 @@ final class MetalRuntimeManager: @unchecked Sendable {
             Self.log.error("No default Metal library — check that .metal files are included in build target")
             return
         }
+
+        // Wave 4.2: open or create the binary archive BEFORE compiling
+        // pipelines so each pipeline can attach the archive via its
+        // descriptor. Missing / corrupt archives degrade silently into
+        // fresh compilation; we log but do not fail.
+        loadOrCreateBinaryArchive()
 
         var errors: [String] = []
 
@@ -119,7 +159,11 @@ final class MetalRuntimeManager: @unchecked Sendable {
         isReady = errors.isEmpty
 
         if isReady {
-            Self.log.info("All 14 Mamba-2 kernels compiled successfully")
+            Self.log.info("All 14 Mamba-2 kernels compiled successfully (archive loaded from disk: \(self.binaryArchiveLoadedFromDisk, privacy: .public))")
+            // Wave 4.2: persist the populated archive so the next launch
+            // can skip pipeline compilation. Best-effort — a write
+            // failure does not affect this run.
+            persistBinaryArchive()
         } else {
             Self.log.warning("Kernel compilation had \(errors.count) error(s): \(errors.joined(separator: "; "), privacy: .public)")
         }
@@ -136,7 +180,30 @@ final class MetalRuntimeManager: @unchecked Sendable {
             return nil
         }
         do {
-            let pipeline = try device.makeComputePipelineState(function: function)
+            let pipeline: MTLComputePipelineState
+            if let archive = binaryArchive {
+                // Wave 4.2: descriptor path lets Metal look up the
+                // function in the archive and skip compilation when
+                // the cached binary matches.
+                let descriptor = MTLComputePipelineDescriptor()
+                descriptor.computeFunction = function
+                descriptor.binaryArchives = [archive]
+                pipeline = try device.makeComputePipelineState(
+                    descriptor: descriptor,
+                    options: [],
+                    reflection: nil
+                )
+                // Add this descriptor to the archive so future runs hit
+                // the cache. addComputePipelineFunctions is a no-op
+                // when the entry already exists.
+                do {
+                    try archive.addComputePipelineFunctions(descriptor: descriptor)
+                } catch {
+                    Self.log.debug("archive.add for '\(name, privacy: .public)' failed: \(error.localizedDescription, privacy: .public)")
+                }
+            } else {
+                pipeline = try device.makeComputePipelineState(function: function)
+            }
             Self.log.debug("Compiled kernel '\(name, privacy: .public)' — maxThreads=\(pipeline.maxTotalThreadsPerThreadgroup)")
             return pipeline
         } catch {
@@ -144,6 +211,53 @@ final class MetalRuntimeManager: @unchecked Sendable {
             errors.append(msg)
             Self.log.error("Failed to compile kernel '\(name, privacy: .public)': \(error.localizedDescription, privacy: .public)")
             return nil
+        }
+    }
+
+    // MARK: - Wave 4.2 — binary archive helpers
+
+    private func loadOrCreateBinaryArchive() {
+        guard let url = Self.archiveURL() else {
+            Self.log.warning("Cannot resolve caches directory for binary archive — pipelines will compile fresh every launch")
+            return
+        }
+
+        let descriptor = MTLBinaryArchiveDescriptor()
+        if FileManager.default.fileExists(atPath: url.path) {
+            descriptor.url = url
+            do {
+                binaryArchive = try device.makeBinaryArchive(descriptor: descriptor)
+                binaryArchiveLoadedFromDisk = true
+                Self.log.info("Loaded Metal binary archive from \(url.path, privacy: .public)")
+                return
+            } catch {
+                // Stale / corrupt / version-mismatched archive — fall
+                // through to fresh creation. Don't delete the bad file
+                // here; the next persistBinaryArchive() will overwrite.
+                Self.log.warning("Could not load binary archive from \(url.path, privacy: .public): \(error.localizedDescription, privacy: .public). Creating fresh.")
+            }
+        }
+
+        descriptor.url = nil
+        do {
+            binaryArchive = try device.makeBinaryArchive(descriptor: descriptor)
+            binaryArchiveLoadedFromDisk = false
+            Self.log.info("Created fresh Metal binary archive (will persist after compileKernels)")
+        } catch {
+            Self.log.warning("Could not create binary archive: \(error.localizedDescription, privacy: .public). Pipelines will compile every launch.")
+            binaryArchive = nil
+        }
+    }
+
+    private func persistBinaryArchive() {
+        guard let archive = binaryArchive, let url = Self.archiveURL() else {
+            return
+        }
+        do {
+            try archive.serialize(to: url)
+            Self.log.info("Serialized Metal binary archive to \(url.path, privacy: .public)")
+        } catch {
+            Self.log.warning("Failed to serialize binary archive: \(error.localizedDescription, privacy: .public)")
         }
     }
 
