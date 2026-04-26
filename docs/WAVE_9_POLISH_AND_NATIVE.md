@@ -89,6 +89,93 @@ These three close out V1 release-readiness; track in `KNOWN_ISSUES_REGISTER.md`:
 - **P0-4** mas-sandbox feature-gating spot-check (`agent_core/src/tools/registry.rs` + `omega-mcp/src/pty.rs`) — ~30 min
 - **P0-3** TestFlight submission metadata (screenshots, App Review notes draft already in `MAS_APP_REVIEW_NOTES.md`) — ~4 hr
 
+## Wave 10 + 11 — DRAFT, awaiting further research
+
+> **STATUS — 2026-04-26:** Sections below are DRAFT. The user has more
+> research arriving. Doc 1 (`Epistemos_ AI Cognitive Partner Analysis.txt`)
+> and Doc 2 (`deep-research-report (2).md`) have been integrated as
+> `[Doc1]` / `[Doc2]` annotations. Do NOT begin Wave 10/11 implementation
+> beyond the wire-ups already shipped (W10.4) until the next research
+> drop closes the open questions flagged below.
+
+### Doc 2 plan-corrections (BRITTLE ITEMS — must redesign before code)
+
+Four master-plan items are **technically brittle** per the deep-research
+review and must be redesigned before any implementation:
+
+| Master-plan item                          | Brittleness                                                    | Corrected pattern                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **W10.10 Model Metabolism / NightBrain** as adapter retraining | Apple Foundation Models adapters are version-locked to base model; "daily user-personalized retraining" is a brittle operational dependency, not a clean user feature | Metabolise into **structured state artifacts** — salience weights, prompt deltas, behavioral profiles, ontology corrections, retrieval priors. Keep adapter training rare, optional, and domain-specific. **"Belief drift as data, not weights."** |
+| **W10.6 JIT Context Injection** mid-generation | Apple Foundation Models sessions are stateful, transcript-based, 4096-token context; mid-stream prompt surgery is the "movie version" of context engineering | **State compaction + tool-gated retrieval**. Carry forward essential instructions, preserve a few transcript entries, summarize the rest, ground the model in external sources of truth via tool-calling — NOT improvisational hot-swapping while a model is already generating. |
+| **W10.2 Organic Decay** as vector quantisation | Lowering vector precision changes storage characteristics; it does **not** model cognition | Keep raw artifacts in **cold storage**, maintain compressed structured summaries, decay **retrieval priors** over time, rehydrate the full raw thought only when current task / concept / emotional trajectory makes it relevant. |
+| **W10.12 `[Entity].epistemos.json`** as markdown replacement | "Abandon markdown entirely" is too extreme — Obsidian/Logseq users value portability, inspectability, longevity | **Dual representation**: human-readable Markdown source layer **PLUS** machine-readable sidecar layer. Notes stay legible/exportable; Epistemos *adds* sidecars (ontology, state files, salience maps, graph metadata). The moat is dual representation without user pain — NOT "no markdown." |
+
+### Doc 1 implementation notes (Mirror-SD specifics for W10.5 Hybrid Brain)
+
+The master-plan Phase 5 (Hybrid Brain ANE + GPU) needs concrete
+implementation guardrails per Doc 1:
+
+- **Draft model on ANE**: Qwen2.5-0.5B or Gemma 4 variants; ~2 W power
+  vs ~20 W when routed through MLX/GPU path
+- **Bypass CoreML's opaque scheduler** via Orion-style private API
+  pattern (Objective-C runtime control over the neural accelerator)
+- **17 undocumented ANE constraints** — concatenation causes silent
+  compiler failure; BLOBFILE weights need 64-byte offset from chunk
+  header or numerical corruption is silent
+- **119-compilation hard cap per process** — use deferred compilation
+  pipelines
+- **fp16 overflow prevention**: rigid activation clamping required
+- **Mirror-SD pipeline**: ANE speculates forward continuations across
+  unified memory; MLX-backed 3B target on GPU validates tokens
+  concurrently without inter-device contention
+
+## Wave 11 — Missing moats (Doc 2 — net-new)
+
+Three architectural moats the master plan barely touches but which
+are explicitly aligned with current Apple platform direction. All
+three need design before code.
+
+| ID    | Item                                       | Effort | Why it matters                                      |
+| ----- | ------------------------------------------ | ------ | --------------------------------------------------- |
+| W11.1 | **App Intents + Spotlight first-class**    | M      | macOS 26 Spotlight surfaces App Intents directly. "Capture brain dump", "attach thought to current chat", "recall active thesis", "open raw-thought sandbox", "delegate to agent" — all should be Spotlight / Shortcuts / Siri reachable. "Stops being an app I open and starts being part of how the Mac thinks with me." Biggest unexplored Apple-native moat. |
+| W11.2 | **Trust architecture** (permission UX)     | M      | Accessibility, Screen Recording, Microphone, Speech Recognition all carry user anxiety. Need: clear local-vs-cloud badges, explicit permission rationales, reversible toggles, visible audit history of "what acted and why", "manual mode" that explains intended actions before executing. **Permissions are product design, not plumbing.** |
+| W11.3 | **Evaluation lab**                         | M      | Xcode Playgrounds + measurable tests for ontology extraction quality, note-to-concept nesting, session summary faithfulness, depth marker stability, memory retrieval relevance, permission UX success. **The moat is reliable intelligence under stress, not just clever architecture.** |
+
+### Wave 11 — top 3 to ship first (per Doc 2 strategic frame)
+
+1. **W11.1 App Intents catalogue** — start with 5 intents: `CaptureBrainDump`, `AttachThoughtToContext`, `RecallActiveThesis`, `OpenRawThoughtSandbox`, `DelegateToAgent`. Each registered with Shortcuts; each surfaceable from Spotlight on macOS 26. Lowest implementation friction, biggest Apple-platform alignment win.
+2. **W11.2 Permission rationale + audit log** — every Accessibility / ScreenCaptureKit / Speech / Bash invocation writes a row to a user-readable audit log. Settings panel shows the log. "Manual mode" toggle gates destructive tool calls behind a confirmation that previews the intended action. Closes the master-plan Trust gap.
+3. **W11.3 Foundation-Models eval harness** — Xcode Playground that exercises the W10.1 Ontological Classifier across a 50-note seed corpus and scores `{parent_domain, child_concept}` accuracy against a hand-labeled ground truth. Becomes the gate for advancing W10.1 from research → ship.
+
+## Doc 2 architectural verdict — the four-layer bet
+
+Per Doc 2, the canonical Epistemos architecture should land as four
+asymmetric layers. **This frame supersedes any earlier "everything
+flows through one model" architecture in the master plan**:
+
+1. **On-device model layer** — Foundation Models for extraction,
+   summarisation, tagging, structured generation. NOT a philosopher
+   king. Use it where Apple says it is strong.
+2. **Memory layer** — **dual format**. Human-readable notes +
+   sidecar state (ontology, depth markers, emotional anchors,
+   salience weights, session summaries, conversation-state files).
+   Raw thoughts in **quarantined archive** by default; ambient
+   retrieval is an **explicit toggleable mode**, not the default
+   runtime.
+3. **Agent layer** — **asymmetrical**. Hermes does reasoning + tool
+   use + scheduling + skill use + multi-agent delegation. Epistemos
+   owns **memory truth, schema truth, UI truth, OS truth**. Prevents
+   Epistemos from becoming a thin Hermes skin.
+4. **OS layer** — **radically native**. App Intents, Spotlight,
+   Shortcuts, Accessibility, ScreenCaptureKit, Speech all as
+   **product surfaces**, not hidden infrastructure.
+
+**Replace "retrain the model every night" with "belief drift as
+data, not weights"** — store thesis changes, persistent corrections,
+preference priors, salience scores, rejected-agent patterns. If
+adapters are ever used: narrow stable domains only, not as the daily
+memory mechanism.
+
 ## Wave 10 — Cognitive Architecture (master-plan integration)
 
 The user-authored master plan (`/Users/jojo/master_plan_doc.md`) defines
@@ -104,17 +191,17 @@ memory / FFI-latency thresholds, and deliberation on alternatives.
 | Phase | Concept                                                    | Existing in repo                                              | Status | Recommended landing |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------- | ------ | ------------------- |
 | 1     | Intelligent Semantic Ontology (parent_domain / child_concept JSON-schema-bounded extractor via Apple Foundation Model) | `Epistemos/Graph/EntityExtractor.swift` (naive string extractor) | Replace | **W10.1** — high-priority moat |
-| 2     | Organic Decay Engine (Ebbinghaus pipeline; precision right-shift 16 → 8 → 2-bit) | `epistemos-core/src/storage/*` + Halo HNSW already quantises  | Extend | **W10.2** — fold into Night Brain |
+| 2     | Organic Decay Engine (Ebbinghaus pipeline; precision right-shift 16 → 8 → 2-bit) | `epistemos-core/src/storage/*` + Halo HNSW already quantises  | Extend **[Doc2-AMENDED]** | **W10.2** — fold into Night Brain. Corrected mechanism: cold-storage raw + structured summaries + decaying retrieval priors. Quantisation is storage, not cognition. |
 | 3     | Omni-CLI Native Bridge (PTY daemon spawning claude-code / codex / hermes invisibly + typed CLIEvent across UniFFI) | `omega-mcp/src/pty.rs` exists; user-facing wrapper missing    | New    | **W10.3** — Pro-profile only |
 | 4     | Full Harness Wiring (BootstrapPacketBuilder injects 800-token harness as first system msg) | `Epistemos/Harness/BootstrapPacketBuilder.swift` exists; not wired into AgentViewModel call site | Wire-up | **W10.4** — XS, immediate |
 | 5     | Hybrid-Brain (AFM 3B subconscious + cloud Hermes executive sharing unified memory) | `AppleIntelligenceService.swift` + Rust agent_core both exist; routing logic absent | New    | **W10.5** — needs router design |
-| 6     | JIT Context Injection (intercept `<thinking>`; AFM expands decayed memory mid-stream) | `agent_core/src/agent_loop.rs` has thinking preservation; mid-stream injection absent | New    | **W10.6** — research-heavy |
+| 6     | JIT Context Injection (intercept `<thinking>`; AFM expands decayed memory mid-stream) | `agent_core/src/agent_loop.rs` has thinking preservation; mid-stream injection absent | New **[Doc2-AMENDED]** | **W10.6** — corrected: state compaction + tool-gated retrieval, NOT mid-stream prompt surgery. Foundation Models 4096-token transcript-based — robust pattern is grounding via tool-calling. |
 | 7     | Hermes as Chief of Staff (registers claude-code / kimi as MCP tools; swarm coordination) | `omega-mcp/src/dispatcher.rs` + `Epistemos/Omega/MCPBridge.swift` exist | Extend | **W10.7** — Pro-profile only |
 | 8     | Cognitive Depth Markers (L1 Surface / L2 Synthesized / L3 Core Belief enum on every note + meta-analysis edges) | Not implemented (grep returned 0 hits)                        | New    | **W10.8** — schema migration |
 | 9     | High-Performance Session Distillation (AFM 3B with strict JSON schema for `decisions_made`, `unresolved_friction`, `active_themes`) | Naive text summariser exists; schema-bounded version missing  | Replace | **W10.9** — folds with W9.3 trajectory work |
-| 10    | Model Metabolism / Overnight Consolidation (3 AM cron audits day's prompts; emits `salience_weights.json` per model vault) | `NightBrainService.swift` exists; metabolism logic absent     | Extend | **W10.10** — fits user's "models metabolise inputs" prompt |
+| 10    | Model Metabolism / Overnight Consolidation (3 AM cron audits day's prompts; emits `salience_weights.json` per model vault) | `NightBrainService.swift` exists; metabolism logic absent     | Extend **[Doc2-AMENDED]** | **W10.10** — corrected: NOT adapter retraining (Apple FM adapters are version-locked to base model). Output **structured state artifacts**: salience weights, prompt deltas, behavioral profiles, ontology corrections, retrieval priors. Belief drift as data, not weights. |
 | 11    | Omni-Contextual Brain Dumps (global voice anchor button bound to chat_id / note_id with Metal waveform overlay) | `AudioTranscriber.swift` + `SDPage.brainDump` page kind exist; global UI button absent | Wire-up | **W10.11** — XS UI gap |
-| 12    | Cognitive Data Structures (`[Entity].epistemos.json` sidecar files with `interpretation_directive`) — **NEVER apply to code files** | Not implemented (grep returned 0 hits)                        | New    | **W10.12** — needs ETL design |
+| 12    | Cognitive Data Structures (`[Entity].epistemos.json` sidecar files with `interpretation_directive`) — **NEVER apply to code files** | Not implemented (grep returned 0 hits)                        | New **[Doc2-AMENDED]** | **W10.12** — corrected: dual representation. Keep human-readable Markdown source layer; sidecars are **additive** state, NOT a replacement. The moat is dual representation without user pain. |
 | 13    | Unstructured Data Audit ETL (background Rust crawler converts loose `.md` / PDF → structured sidecar via AFM 3B; **hardcoded exclusion list for `.git`, `.build`, all programming languages**) | Vault crawl exists in `ShadowVaultBootstrapper`; structuring pass absent | New    | **W10.13** — extends W8.7 |
 | 14    | Intake Valve (synchronous AFM 3B intercepts pasted / dictated text before save; emits clean sidecar) | `TextCapturePipeline.swift` exists; AFM intercept missing     | New    | **W10.14** — depends on W10.1 + W10.12 |
 | 15    | Deterministic Core vs Ambient Retrieval (`/RawThoughtsArchive` quarantine; ambient-retrieval toggle for messy data) | RawThoughts V0 + Contextual Shadows V0 already shipped; quarantine + toggle missing | Extend | **W10.15** — folds with W9.12 (Orphan Knowledge) |
