@@ -118,6 +118,37 @@ public final class EpdocEditorURLSchemeHandler: NSObject, WKURLSchemeHandler {
 
 // MARK: - Script-message bridge
 
+/// Geometry payload — viewport-relative rect (x/y/w/h) emitted by the
+/// JS side for caret + slash-menu + bubble-menu anchor positioning.
+/// W7.17.a SwiftUI chrome translates these to window coords via the
+/// WKWebView's frame.
+nonisolated public struct EpdocBridgeRect: Sendable, Hashable {
+    public let x: Double
+    public let y: Double
+    public let width: Double
+    public let height: Double
+
+    public init(x: Double, y: Double, width: Double, height: Double) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+    }
+}
+
+/// Selection state payload — character offsets + collapsed flag.
+nonisolated public struct EpdocBridgeSelection: Sendable, Hashable {
+    public let from: Int
+    public let to: Int
+    public let isEmpty: Bool
+
+    public init(from: Int, to: Int, isEmpty: Bool) {
+        self.from = from
+        self.to = to
+        self.isEmpty = isEmpty
+    }
+}
+
 /// JS → Swift messages over the WKScriptMessageHandler bridge. The JS
 /// side posts these via `window.webkit.messageHandlers.epdoc.postMessage(...)`.
 nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
@@ -129,13 +160,28 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
     case editorReady
     /// JS-side raised an unrecoverable error (parse failure, etc.).
     case error(message: String)
+    /// W7.17 — caret position + selection state. Emitted on every
+    /// transaction so the SwiftUI chrome (W7.17.a) can dock its
+    /// floating panels next to the live document area.
+    case caretChanged(rect: EpdocBridgeRect, selection: EpdocBridgeSelection)
+    /// W7.17.b — slash menu activation. Emitted when `/` is typed
+    /// + on every keystroke while the menu is visible. `query` is
+    /// the substring after the `/` trigger; `anchor` is the caret
+    /// rect the SwiftUI picker positions itself against.
+    case requestSlashMenu(query: String, anchor: EpdocBridgeRect)
+    /// W7.17.b — bubble menu activation. Emitted on non-empty
+    /// selection.
+    case requestBubbleMenu(selection: EpdocBridgeSelection, anchor: EpdocBridgeRect)
 
     /// Decode a raw `WKScriptMessage.body` value into a typed message.
-    /// Returns `nil` on shape failure. Two accepted shapes:
+    /// Returns `nil` on shape failure. Accepted shapes:
     ///
     ///   `{"type": "contentDidChange", "json": "<stringified-prosemirror-json>"}`
     ///   `{"type": "editorReady"}`
     ///   `{"type": "error", "message": "..."}`
+    ///   `{"type": "caretChanged", "rect": {x,y,w,h}, "selection": {from,to,empty}}`
+    ///   `{"type": "requestSlashMenu", "query": "...", "anchor": {x,y,w,h}}`
+    ///   `{"type": "requestBubbleMenu", "selection": {from,to,empty}, "anchor": {x,y,w,h}}`
     public static func decode(messageBody: Any) -> EpdocBridgeMessage? {
         guard let dict = messageBody as? [String: Any],
               let type = dict["type"] as? String else {
@@ -153,9 +199,60 @@ nonisolated public enum EpdocBridgeMessage: Sendable, Hashable {
         case "error":
             guard let msg = dict["message"] as? String else { return nil }
             return .error(message: msg)
+        case "caretChanged":
+            guard let rect = parseRect(dict["rect"]),
+                  let selection = parseSelection(dict["selection"]) else {
+                return nil
+            }
+            return .caretChanged(rect: rect, selection: selection)
+        case "requestSlashMenu":
+            guard let query = dict["query"] as? String,
+                  let anchor = parseRect(dict["anchor"]) else {
+                return nil
+            }
+            return .requestSlashMenu(query: query, anchor: anchor)
+        case "requestBubbleMenu":
+            guard let selection = parseSelection(dict["selection"]),
+                  let anchor = parseRect(dict["anchor"]) else {
+                return nil
+            }
+            return .requestBubbleMenu(selection: selection, anchor: anchor)
         default:
             return nil
         }
+    }
+
+    /// Decode a `{x, y, w, h}` rect payload into `EpdocBridgeRect`.
+    /// Accepts numbers as either `Double` or `Int` (JS doesn't
+    /// distinguish; the WKScriptMessage converter sometimes hands
+    /// integer-valued numbers as NSNumber-Int).
+    private static func parseRect(_ raw: Any?) -> EpdocBridgeRect? {
+        guard let dict = raw as? [String: Any],
+              let x = readNumber(dict["x"]),
+              let y = readNumber(dict["y"]),
+              let w = readNumber(dict["w"]),
+              let h = readNumber(dict["h"]) else {
+            return nil
+        }
+        return EpdocBridgeRect(x: x, y: y, width: w, height: h)
+    }
+
+    /// Decode a `{from, to, empty}` selection payload.
+    private static func parseSelection(_ raw: Any?) -> EpdocBridgeSelection? {
+        guard let dict = raw as? [String: Any],
+              let fromN = readNumber(dict["from"]),
+              let toN = readNumber(dict["to"]),
+              let isEmpty = dict["empty"] as? Bool else {
+            return nil
+        }
+        return EpdocBridgeSelection(from: Int(fromN), to: Int(toN), isEmpty: isEmpty)
+    }
+
+    private static func readNumber(_ raw: Any?) -> Double? {
+        if let d = raw as? Double { return d }
+        if let i = raw as? Int { return Double(i) }
+        if let n = raw as? NSNumber { return n.doubleValue }
+        return nil
     }
 }
 
@@ -172,22 +269,73 @@ nonisolated public enum EpdocEditorCommand: Sendable, Hashable {
     case focusStart
     /// Move the cursor to the end of the document.
     case focusEnd
+    /// W7.17.b — dismiss the slash menu Suggestion plugin (e.g. user
+    /// hit Escape on the SwiftUI picker side).
+    case dismissSlashMenu
+    /// W7.17.b — user picked a slash-menu item; the JS Suggestion
+    /// plugin reads this dispatch + runs the matching Tiptap command.
+    /// `blockType` mirrors `SlashMenuItem.id` from
+    /// `js-editor/src/extensions/slash-menu.ts`.
+    case insertSlashChoice(blockType: String)
+    /// W7.17.b — collapse the selection to dismiss the bubble menu.
+    case dismissBubbleMenu
+    /// W7.17.b — generic Tiptap command dispatch. The JS inbound
+    /// shim looks `name` up in `editor.commands` + invokes with `args`.
+    /// Args are JSON-encoded; receiver decodes and spreads.
+    case runCommand(name: String, argsJSON: Data)
 
     /// JS expression that the bridge evaluates inside the WKWebView.
     /// Assumes `window.epdocEditor` is the Tiptap editor instance the
-    /// JS side exposes globally for the bridge.
+    /// JS side exposes globally for the bridge + that
+    /// `window.epistemos.*` is the namespaced command surface
+    /// `js-editor/src/bridge/inbound.ts` installs.
     public func javaScriptExpression() -> String {
         switch self {
         case .setContent(let json):
             let escaped = String(data: json, encoding: .utf8) ?? "{}"
-            // Embed the JSON as a JS object literal — already valid JS.
-            return "window.epdocEditor.commands.setContent(\(escaped))"
+            // Stringify so window.epistemos.setContent(jsonString)
+            // matches the inbound bridge shape.
+            let asLiteral = jsStringLiteral(escaped)
+            return "window.epistemos.setContent(\(asLiteral))"
         case .focusStart:
-            return "window.epdocEditor.commands.focus('start')"
+            return "window.epistemos.focusStart()"
         case .focusEnd:
-            return "window.epdocEditor.commands.focus('end')"
+            return "window.epistemos.focusEnd()"
+        case .dismissSlashMenu:
+            return "window.epistemos.dismissSlashMenu()"
+        case .insertSlashChoice(let blockType):
+            return "window.epistemos.insertSlashChoice(\(jsStringLiteral(blockType)))"
+        case .dismissBubbleMenu:
+            return "window.epistemos.dismissBubbleMenu()"
+        case .runCommand(let name, let argsJSON):
+            let argsLiteral = String(data: argsJSON, encoding: .utf8) ?? "[]"
+            // window.epistemos.runCommand(name, ...args)
+            return "window.epistemos.runCommand(\(jsStringLiteral(name)), ...\(argsLiteral))"
         }
     }
+}
+
+/// Escape a string for safe interpolation as a JS string literal.
+/// Wraps in double quotes + escapes backslash, quote, newline, tab,
+/// and the U+2028/U+2029 line/paragraph separators (which JS treats
+/// as line terminators inside string literals — easy to miss).
+nonisolated public func jsStringLiteral(_ s: String) -> String {
+    var out = "\""
+    out.reserveCapacity(s.count + 2)
+    for c in s {
+        switch c {
+        case "\\": out.append("\\\\")
+        case "\"": out.append("\\\"")
+        case "\n": out.append("\\n")
+        case "\r": out.append("\\r")
+        case "\t": out.append("\\t")
+        case "\u{2028}": out.append("\\u2028")
+        case "\u{2029}": out.append("\\u2029")
+        default:   out.append(c)
+        }
+    }
+    out.append("\"")
+    return out
 }
 
 // MARK: - Save pipeline
