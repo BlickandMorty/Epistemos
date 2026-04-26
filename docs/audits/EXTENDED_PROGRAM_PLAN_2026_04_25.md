@@ -94,7 +94,7 @@ Each wave finishes before the next starts. Each wave produces a restorable tag.
 | W4.2 | Generate `MTLBinaryArchive` (`metal-tt --pipelines pipelines.mtlp`); use it at runtime via `MTLRenderPipelineDescriptor.binaryArchives` | dpp §4.2 | 2 days |
 | W4.3 | Convert graph render path to argument buffers + `MTLStorageMode.shared` (UMA zero-copy) | dpp §4.3 | 3 days |
 | W4.4 | Tree-sitter SoA highlight cache (Rust): `Vec<HighlightSpan>` sorted by start_byte; viewport-scoped FFI returns `&[HighlightSpan]` | dpp §4.4 | 1 week |
-| W4.5 | **Patch 6a** (the BLOCKED item from V1): wire `SyntaxCoreService` into CodeEditSourceEditor's highlight pipeline (custom `HighlightProviding` adapter OR replace SourceEditor binding). 4k-line keystroke benchmark <16ms p99. | `PATCH_QUEUE.md` Patch 6a | 1 week |
+| ~~W4.5~~ | ~~**Patch 6a** (the BLOCKED item from V1): wire `SyntaxCoreService` into CodeEditSourceEditor's highlight pipeline~~ — **SUPERSEDED 2026-04-26 by W9.6 canonical** (`Epistemos/Engine/SwiftTreeSitterLiveHighlighter.swift`). Per `epistemos_code_verdict.md` §1, live syntax stays in Swift via SwiftTreeSitter direct C bindings, NOT through CodeEditSourceEditor's HighlightProviding protocol. The Rust-FFI bridge route W4.5 attempted is the slower, less-correct path the verdict explicitly rejected. Audit agent confirmed: upstream CodeEditSourceEditor 0.15.2 → main has no Sendable changes (last touched 2025-04-08); W4.5 stays blocked indefinitely while W9.6 already ships the right architecture. `SyntaxCoreHighlightProvider.swift` + its test deleted as dead code. | superseded | n/a |
 
 **Tag**: `v-perf-3`
 
