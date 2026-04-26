@@ -164,6 +164,23 @@ nonisolated struct CodeArtifactTests {
                 "pathHash output must be lowercase hex only")
     }
 
+    @Test("Swift CodeSidecarPath.pathHash matches the Rust epistemos-code-index sidecar fixture (W9.7 cross-language reconciliation)")
+    func pathHashMatchesRustFixture() {
+        // The Rust crate `epistemos-code-index/src/sidecar.rs::path_hash`
+        // pins this exact digest as `path_hash_matches_swift_fixture_sources_foo_swift`.
+        // If either side drifts from the other, the indexer (Rust) and the
+        // editor (Swift) read + write disjoint .epcache/code/* sidecars.
+        let actual = CodeSidecarPath.pathHash("Sources/Foo.swift")
+        let expected = "39bc16e7a9d9b0de5235a376cc02378430c12fec14af81d93723904ffbe11580"
+        #expect(actual == expected,
+                "Swift pathHash must equal the Rust sidecar fixture; got \(actual)")
+
+        let emptyActual = CodeSidecarPath.pathHash("")
+        let emptyExpected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        #expect(emptyActual == emptyExpected,
+                "Empty-path SHA-256 must match the well-known empty digest")
+    }
+
     // MARK: - W9.4 ChatCodeExtractor
 
     @Test("ChatCodeExtractor finds a single fenced block")

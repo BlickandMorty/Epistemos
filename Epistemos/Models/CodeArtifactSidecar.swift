@@ -20,13 +20,18 @@ import Foundation
 //
 // Layout:
 //
-//     <vault-root>/.epcache/code/<blake3-of-vault-rel-path>.epcode.json
+//     <vault-root>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json
 //
-// Why blake3 of the path instead of name+ext: rename-safe (the file
+// Why hash of the path instead of name+ext: rename-safe (the file
 // can move within the vault and we re-resolve via the path-hash on
 // the next index pass). A vault-level cache directory keeps source
 // dirs pristine + makes the cache trivially gitignore-able
 // (`.epcache/` lives outside any tracked source tree).
+//
+// SHA-256 (CryptoKit, no extra dep) — the Rust counterpart in
+// `epistemos-code-index/src/sidecar.rs` mirrors this byte-for-byte
+// (see `path_hash_matches_swift_fixture_sources_foo_swift` test).
+// blake3 is a future swap once both sides can take the dependency.
 
 // MARK: - Provenance
 
@@ -227,10 +232,14 @@ nonisolated public enum CodeSidecarPath {
             .appendingPathComponent("\(hash)\(suffix)", isDirectory: false)
     }
 
-    /// Hex digest of the vault-relative path. blake3 would be ideal
-    /// but isn't on the Swift side without a new dependency; SHA-256
-    /// from CryptoKit is built-in + collision-resistant for our
-    /// path-key use case (hash is filename-only, never user-facing).
+    /// Lowercase-hex SHA-256 of the vault-relative path. The Rust
+    /// indexer (`epistemos-code-index/src/sidecar.rs::path_hash`)
+    /// MUST produce the same bytes for the same input — both sides
+    /// pin a fixture for `"Sources/Foo.swift"` so any drift fails
+    /// loudly in `cargo test` + the Swift test below.
+    ///
+    /// SHA-256 (CryptoKit, built-in) over blake3 (would need a new
+    /// SPM dep); collision-resistant enough for a filename key.
     public static func pathHash(_ vaultRelativePath: String) -> String {
         let data = Data(vaultRelativePath.utf8)
         let digest = SHA256.hash(data: data)

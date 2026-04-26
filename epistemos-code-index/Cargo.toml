@@ -3,7 +3,7 @@ name = "epistemos-code-index"
 version = "0.1.0"
 edition = "2024"
 publish = false
-description = "Workspace code indexer — RAG chunking + Model2Vec embeddings + usearch HNSW sidecar. Per-file sidecar lives at <vault>/.epcache/code/<sha256>.epcode.json. Wave 9.7."
+description = "Workspace code indexer — RAG chunking + Model2Vec embeddings + usearch HNSW sidecar. Per-file sidecar lives at <vault>/.epcache/code/<sha256-hex-of-vault-rel-path>.epcode.json (path-hash, NOT body-hash; identical to Swift CodeSidecarPath). Wave 9.7."
 
 [lib]
 name = "epistemos_code_index"
