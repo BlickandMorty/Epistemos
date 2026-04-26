@@ -311,6 +311,40 @@ final class EventStore: Sendable {
         }
     }
 
+    /// W9.3 — read back the most recent metrics row for `sessionId`.
+    /// Returns nil if no row has been recorded yet (session still in
+    /// flight, or run completed before W9.3 wired the persistence path).
+    /// Synchronous over `withDatabaseRead` so SwiftUI views can call it
+    /// from a `.task` and bind to the result without an async dance.
+    nonisolated func loadSessionMetrics(sessionId: String) -> SessionMetricsRecord? {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT recorded_at, classification, displacement, path_length,
+                       curvature_ratio, loop_count, error_count, total_calls, efficiency
+                FROM session_metrics
+                WHERE session_id = ?
+                LIMIT 1;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return SessionMetricsRecord(
+                sessionId: sessionId,
+                recordedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 0)),
+                classification: String(cString: sqlite3_column_text(stmt, 1)),
+                displacement: sqlite3_column_double(stmt, 2),
+                pathLength: sqlite3_column_double(stmt, 3),
+                curvatureRatio: sqlite3_column_double(stmt, 4),
+                loopCount: Int(sqlite3_column_int(stmt, 5)),
+                errorCount: Int(sqlite3_column_int(stmt, 6)),
+                totalCalls: Int(sqlite3_column_int(stmt, 7)),
+                efficiency: sqlite3_column_double(stmt, 8)
+            )
+        }
+    }
+
     // MARK: - Queries (for Time Machine)
 
     struct StoredSnapshot {
