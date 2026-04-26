@@ -5,6 +5,7 @@ pub mod block_kernel;
 pub mod cluster;
 pub mod cluster_cache;
 pub mod code_highlight;
+pub mod complexity_weight;
 pub mod ecs;
 pub mod edge_aggregation;
 pub mod edge_trim;
