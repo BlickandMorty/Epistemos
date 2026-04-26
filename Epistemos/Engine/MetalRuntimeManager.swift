@@ -356,8 +356,10 @@ final class MetalRuntimeManager: @unchecked Sendable {
     }
 
     /// Allocate a buffer from the inference heap (faster than device.makeBuffer).
+    /// Default `options: .storageModeShared` keeps the UMA zero-copy
+    /// invariant; caller may override (W4.3-aware).
     func heapBuffer(length: Int, options: MTLResourceOptions = .storageModeShared) -> MTLBuffer? {
-        inferenceHeap?.makeBuffer(length: length, options: options)
+        inferenceHeap?.makeBuffer(length: length, options: options) // W4.3-OPTOUT: pass-through of caller-supplied options; default at signature is .storageModeShared
     }
 
     /// Release large runtime allocations so idle unload can return unified
