@@ -46,12 +46,21 @@ public struct ModelVoicePickerSection: View {
 
     public var body: some View {
         Section("Voice") {
-            picker
-            ratePitchSliders
-            previewControls
-            qualityHintView
+            inlineBody
         }
-        .task {
+    }
+
+    /// Same controls without the outer `Section("Voice")` chrome —
+    /// for callers that already supply their own container (GroupBox,
+    /// .inset Section, custom HStack). Callers in `Form` contexts
+    /// should prefer the default `body`.
+    @ViewBuilder
+    public var inlineBody: some View {
+        picker
+        ratePitchSliders
+        previewControls
+        qualityHintView
+        Color.clear.frame(height: 0).task {
             voices = EpistemosSpeechSynthesizer.availableVoices(language: "en")
             qualityHint = EpistemosSpeechSynthesizer.voiceQualityHint()
         }

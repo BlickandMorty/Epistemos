@@ -5,7 +5,7 @@ import SwiftUI
 /// Full detail view for a model profile showing vault, adapters,
 /// inference settings, graph configuration, and usage statistics.
 struct ModelProfileDetailView: View {
-    let profile: SDModelProfile
+    @Bindable var profile: SDModelProfile
     let profileManager: ModelProfileManager
 
     @State private var editedTemperature: Double
@@ -43,6 +43,11 @@ struct ModelProfileDetailView: View {
 
                 // Inference Settings
                 inferenceSection
+
+                Divider()
+
+                // Voice (W9.1.b — per-model TTS persona)
+                voiceSection
 
                 Divider()
 
@@ -164,6 +169,20 @@ struct ModelProfileDetailView: View {
                 }
 
                 Toggle("Thinking Mode", isOn: $editedThinking)
+            }
+        }
+    }
+
+    private var voiceSection: some View {
+        GroupBox("Voice") {
+            VStack(alignment: .leading, spacing: 8) {
+                ModelVoicePickerSection(
+                    voiceIdentifier: $profile.voiceIdentifier,
+                    rate: $profile.voiceRate,
+                    pitch: $profile.voicePitch,
+                    previewText: "Hi, I'm \(profile.displayName). I'll use this voice when reading my responses aloud."
+                )
+                .inlineBody
             }
         }
     }
