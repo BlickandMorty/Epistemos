@@ -89,6 +89,48 @@ These three close out V1 release-readiness; track in `KNOWN_ISSUES_REGISTER.md`:
 - **P0-4** mas-sandbox feature-gating spot-check (`agent_core/src/tools/registry.rs` + `omega-mcp/src/pty.rs`) — ~30 min
 - **P0-3** TestFlight submission metadata (screenshots, App Review notes draft already in `MAS_APP_REVIEW_NOTES.md`) — ~4 hr
 
+## Wave 10 — Cognitive Architecture (master-plan integration)
+
+The user-authored master plan (`/Users/jojo/master_plan_doc.md`) defines
+16 phases of architectural moats positioning Epistemos as a "biological
+cognitive exoskeleton" rather than a flat PKM. Each row below shows the
+phase concept, what already exists in the repo (verified by file grep),
+what is net-new, and the recommended landing wave. **Every phase that
+is "NEW" must enter the canonical Deep Research Protocol per the
+master-plan epilogue before code generation** — exhaustive
+potentiality coverage, structural verification against macOS / unified-
+memory / FFI-latency thresholds, and deliberation on alternatives.
+
+| Phase | Concept                                                    | Existing in repo                                              | Status | Recommended landing |
+| ----- | ---------------------------------------------------------- | ------------------------------------------------------------- | ------ | ------------------- |
+| 1     | Intelligent Semantic Ontology (parent_domain / child_concept JSON-schema-bounded extractor via Apple Foundation Model) | `Epistemos/Graph/EntityExtractor.swift` (naive string extractor) | Replace | **W10.1** — high-priority moat |
+| 2     | Organic Decay Engine (Ebbinghaus pipeline; precision right-shift 16 → 8 → 2-bit) | `epistemos-core/src/storage/*` + Halo HNSW already quantises  | Extend | **W10.2** — fold into Night Brain |
+| 3     | Omni-CLI Native Bridge (PTY daemon spawning claude-code / codex / hermes invisibly + typed CLIEvent across UniFFI) | `omega-mcp/src/pty.rs` exists; user-facing wrapper missing    | New    | **W10.3** — Pro-profile only |
+| 4     | Full Harness Wiring (BootstrapPacketBuilder injects 800-token harness as first system msg) | `Epistemos/Harness/BootstrapPacketBuilder.swift` exists; not wired into AgentViewModel call site | Wire-up | **W10.4** — XS, immediate |
+| 5     | Hybrid-Brain (AFM 3B subconscious + cloud Hermes executive sharing unified memory) | `AppleIntelligenceService.swift` + Rust agent_core both exist; routing logic absent | New    | **W10.5** — needs router design |
+| 6     | JIT Context Injection (intercept `<thinking>`; AFM expands decayed memory mid-stream) | `agent_core/src/agent_loop.rs` has thinking preservation; mid-stream injection absent | New    | **W10.6** — research-heavy |
+| 7     | Hermes as Chief of Staff (registers claude-code / kimi as MCP tools; swarm coordination) | `omega-mcp/src/dispatcher.rs` + `Epistemos/Omega/MCPBridge.swift` exist | Extend | **W10.7** — Pro-profile only |
+| 8     | Cognitive Depth Markers (L1 Surface / L2 Synthesized / L3 Core Belief enum on every note + meta-analysis edges) | Not implemented (grep returned 0 hits)                        | New    | **W10.8** — schema migration |
+| 9     | High-Performance Session Distillation (AFM 3B with strict JSON schema for `decisions_made`, `unresolved_friction`, `active_themes`) | Naive text summariser exists; schema-bounded version missing  | Replace | **W10.9** — folds with W9.3 trajectory work |
+| 10    | Model Metabolism / Overnight Consolidation (3 AM cron audits day's prompts; emits `salience_weights.json` per model vault) | `NightBrainService.swift` exists; metabolism logic absent     | Extend | **W10.10** — fits user's "models metabolise inputs" prompt |
+| 11    | Omni-Contextual Brain Dumps (global voice anchor button bound to chat_id / note_id with Metal waveform overlay) | `AudioTranscriber.swift` + `SDPage.brainDump` page kind exist; global UI button absent | Wire-up | **W10.11** — XS UI gap |
+| 12    | Cognitive Data Structures (`[Entity].epistemos.json` sidecar files with `interpretation_directive`) — **NEVER apply to code files** | Not implemented (grep returned 0 hits)                        | New    | **W10.12** — needs ETL design |
+| 13    | Unstructured Data Audit ETL (background Rust crawler converts loose `.md` / PDF → structured sidecar via AFM 3B; **hardcoded exclusion list for `.git`, `.build`, all programming languages**) | Vault crawl exists in `ShadowVaultBootstrapper`; structuring pass absent | New    | **W10.13** — extends W8.7 |
+| 14    | Intake Valve (synchronous AFM 3B intercepts pasted / dictated text before save; emits clean sidecar) | `TextCapturePipeline.swift` exists; AFM intercept missing     | New    | **W10.14** — depends on W10.1 + W10.12 |
+| 15    | Deterministic Core vs Ambient Retrieval (`/RawThoughtsArchive` quarantine; ambient-retrieval toggle for messy data) | RawThoughts V0 + Contextual Shadows V0 already shipped; quarantine + toggle missing | Extend | **W10.15** — folds with W9.12 (Orphan Knowledge) |
+| 16    | Structured Conversation State (`conversation_state.epistemos.json` with `Active Thesis`, `Resolved Nodes`, `Emotional Trajectory`, semantic vector compaction) | Linear chat log; structured state absent                      | New    | **W10.16** — replaces compaction.rs naive truncation |
+
+### Wave 10 — top 3 to ship first
+- **W10.4 BootstrapPacket wire-up** (XS) — the harness packet already exists; just needs the AgentViewModel init call site. Free win.
+- **W10.11 Global brain-dump button** (S) — `AudioTranscriber` + `SDPage.brainDump` already exist; needs the global voice-anchor UI bound to the active context (chat_id / note_id).
+- **W10.1 Ontological Classifier** (M) — replaces the naive `EntityExtractor.swift` with an Apple-Foundation-Model-backed classifier emitting `{parent_domain, child_concept}` per the master plan. The single highest-leverage cognitive moat per the user's analysis ("phenomenology nests under neuroscience, not under good/free").
+
+### Wave 10 — explicit safety constraints (from master plan)
+- **Code-file exclusion rule**: `.epistemos.json` sidecar generation MUST never touch `.swift`, `.rs`, `.py`, `.json`, `.toml`, `.metal`, etc. Hardcode the exclusion list before shipping.
+- **ETL exclusion list**: vault crawler must skip `.git`, `.build`, `target/`, `node_modules/`, `DerivedData/`, all programming languages.
+- **Mamba history**: master plan explicitly notes prior Mamba/SSM attempts failed; Phase 2 stays on standard Transformers. Tier 5 W9.28 (Blelloch scan) remains a research item, NOT a hard plan dependency.
+- **Hermes locality**: per master plan Prompt 6, the user's 16 GB Mac cannot run the largest Hermes locally; cloud Hermes is the executive in the Hybrid-Brain split (Phase 5).
+
 ## Sources
 
 - `docs/IMPLEMENTATION_PLAN_FROM_ADVICE.md`, `docs/AGENT_PROGRESS.md`, `docs/KNOWN_ISSUES_REGISTER.md`
