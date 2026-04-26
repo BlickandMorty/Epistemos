@@ -135,6 +135,38 @@ Each wave finishes before the next starts. Each wave produces a restorable tag.
 
 **Tag**: `v1.5-cognitive-workspace`
 
+### Wave 8 — Contextual Shadows + Halo (V1 differentiator, 4 weeks)
+**Goal**: ship the V1 decision's defining feature per `ambient/EPISTEMOS_V1_DECISION.md`. "Type a sentence, see a related thought appear, can't remember a time before it worked that way."
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W8.1 | `epistemos-shadow` Rust crate scaffold + UniFFI surface | `ambient/epistemos_shadow.rs` | 2 days |
+| W8.2 | Swift `HaloState` + `HaloController` 6-state machine | `ambient/HaloController.swift` §HaloController | 2 days |
+| W8.3 | `ShadowSearchService` + `ShadowIndexingService` actors | `ambient/HaloController.swift` §services | 2 days |
+| W8.4 | Real backend: Model2Vec + usearch HNSW + tantivy BM25 + RRF fusion + `@_silgen_name` FFI binding | V1 decision §"Retrieval" | 1 week |
+| W8.5 | NSPanel non-activating + SwiftUI ShadowPanelContent + HaloButton overlay | `ambient/HaloController.swift` §UI | 3 days |
+| W8.6 | NSTextView delegate → controller wiring + Sig.storage signposts | V1 decision §"What gets measured" | 2 days |
+| W8.7 | Vault bootstrap indexing on first launch + progress UI | V1 decision §"Week 3" | 3 days |
+
+**Tag**: `v1-shadows-halo`
+
+### Wave 9 — Code Editor v2 + unified provenance (Slice 4-6 from epistemos_code_verdict)
+**Goal**: per `epistemos_code_verdict.md`: live syntax stays in Swift via SwiftTreeSitter; Rust handles project-wide indexing + AI semantic embeddings. Code artifacts integrate with the unified provenance graph so when an AI creates / mentions code in raw thoughts, that code links automatically into the substrate.
+
+| # | Item | Source | Effort |
+|---|---|---|---|
+| W9.1 | `CodeArtifactKind` file-extension catalog (Swift / Rust / TS / JS / Python / HTML / CSS / Go / Markdown / shell / etc.) + new-code-file template scaffolds | brain dump 2026-04-26 | 2 days |
+| W9.2 | `CodeProvenance` model mirroring EpdocProvenance for code files (producedBy run / derivedFrom raw thoughts / sourceArtifacts) | brain dump 2026-04-26 | 1 day |
+| W9.3 | `CodeArtifactSidecar` schema + `.epcache/code/<blake3>.epcode.json` path resolver (sidecar — NEVER embed in source files) | brain dump 2026-04-26 | 2 days |
+| W9.4 | `ChatCodeExtractor` — markdown fence parser that turns agent-mentioned code blocks into candidate CodeArtifacts linked to the originating Run + RawThought | brain dump 2026-04-26 | 2 days |
+| W9.5 | Tool-result hook for `write_file` / `edit_file` / `multi_edit` that auto-creates the CodeArtifact + writes its sidecar | brain dump 2026-04-26 | 3 days |
+| W9.6 | Swift+SwiftTreeSitter live editor surface (per `epistemos_code_verdict.md` §1: keep syntax in Swift, NOT Rust syntax-core) — line gutter, code-folding, bracket matching, viewport-scoped highlight | `epistemos_code_verdict.md` §3 | 2 weeks |
+| W9.7 | Rust workspace indexer (RAG chunking + embeddings → usearch sidecar at `.epcache/code/index.usearch`) | `epistemos_code_verdict.md` §3 | 1 week |
+| W9.8 | SourceKit-LSP integration for Swift files (completion + go-to-def + diagnostics) | `epistemos_code_verdict.md` §3 | 2 weeks |
+| W9.9 | Agent-grep API: "find code matching X with full provenance" — surfaces the file + run/thought refs + cross-cited artifacts | brain dump 2026-04-26 | 1 week |
+
+**Tag**: `v1-code-editor-v2`
+
 ## Total horizon
 
 - **Wave 1**: 1 week (finish V1 ship)
