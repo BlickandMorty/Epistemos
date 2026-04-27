@@ -24,8 +24,10 @@
 
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::sync::{Mutex, MutexGuard};
+use std::ffi::{c_char, CStr, CString};
+use std::fs::{File, OpenOptions};
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "op_type", rename_all = "snake_case")]
@@ -67,6 +69,21 @@ pub struct OpLog {
     /// When `None`, the OpLog is in-memory only (used by tests + the
     /// pre-PR2 callers).
     persistence: Option<Mutex<Connection>>,
+    /// D5 — substrate durability discipline.
+    ///
+    /// Persistent file handle to the SQLite database file, opened
+    /// once at `open_persistent` time and reused on every append.
+    /// We use this to issue `F_FULLFSYNC` (Darwin) / `sync_all` (other
+    /// platforms) after every INSERT so that bytes actually hit the
+    /// disk platter before `append()` returns. Without this, macOS
+    /// reports `fsync()` complete before the platter is updated, so a
+    /// power loss can lose the last N writes — fatal for the OpLog
+    /// because retraction propagation (doctrine §3) needs every commit
+    /// durable across power loss.
+    ///
+    /// Held as an `Option<Mutex<File>>` to mirror `persistence` and
+    /// keep the in-memory branch zero-cost.
+    durability: Option<Mutex<File>>,
 }
 
 #[derive(Debug, Default)]
@@ -82,6 +99,7 @@ impl OpLog {
             inner: Mutex::new(OpLogInner::default()),
             actor_id: actor_id.into(),
             persistence: None,
+            durability: None,
         }
     }
 
@@ -110,17 +128,75 @@ impl OpLog {
         actor_id: impl Into<String>,
         db_path: impl AsRef<Path>,
     ) -> Result<Self, OpLogError> {
-        let conn = Connection::open(db_path)?;
+        let path: PathBuf = db_path.as_ref().to_path_buf();
+        let conn = Connection::open(&path)?;
+        // D5 — substrate durability discipline. WAL keeps writers and
+        // readers from blocking each other (rollback-journal mode is
+        // the rusqlite default and is the wrong choice for an event
+        // log). `synchronous=FULL` makes SQLite call fsync after every
+        // commit. `foreign_keys=ON` matches the rest of the substrate
+        // (we don't currently have FK constraints in the schema, but
+        // future migrations should be able to assume it).
+        //
+        // Order matters: journal_mode must be set before any write to
+        // upgrade the file format; SQLite ignores subsequent attempts
+        // if the journal is already initialized in the legacy mode.
+        conn.pragma_update(None, "journal_mode", "WAL")?;
+        conn.pragma_update(None, "synchronous", "FULL")?;
+        conn.pragma_update(None, "foreign_keys", "ON")?;
         Self::init_schema(&conn)?;
 
         let mut inner = OpLogInner::default();
         Self::load_existing(&conn, &mut inner)?;
 
+        // D5 — open the database file once for F_FULLFSYNC use. We
+        // keep this handle alive for the lifetime of the OpLog instead
+        // of reopening on every append (the alternative path), because
+        // every append is on the hot retraction-propagation loop and
+        // open()/close() are non-trivial syscalls.
+        let durability_file = OpenOptions::new().write(true).open(&path)?;
+
         Ok(Self {
             inner: Mutex::new(inner),
             actor_id: actor_id.into(),
             persistence: Some(Mutex::new(conn)),
+            durability: Some(Mutex::new(durability_file)),
         })
+    }
+
+    /// D5 — issue F_FULLFSYNC on Darwin (forces bytes to platter, not
+    /// just to the drive's write cache) or `sync_all` elsewhere.
+    /// Called after every INSERT in `append()`.
+    fn full_fsync(&self) -> std::io::Result<()> {
+        let Some(file_mutex) = self.durability.as_ref() else {
+            return Ok(());
+        };
+        let file = file_mutex.lock().unwrap_or_else(|e| e.into_inner());
+        Self::full_fsync_file(&file)
+    }
+
+    fn full_fsync_file(file: &File) -> std::io::Result<()> {
+        #[cfg(target_vendor = "apple")]
+        {
+            use std::os::unix::io::AsRawFd;
+            // SAFETY: file is borrowed for the duration of the call;
+            // F_FULLFSYNC is documented to take a single i32 (cmd) and
+            // a single argument (here `0`, ignored). Returns 0 on
+            // success or -1 with errno set.
+            let rc = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_FULLFSYNC, 0) };
+            if rc == -1 {
+                // Fall back to sync_all on F_FULLFSYNC failure (some
+                // filesystems — exFAT, network mounts — don't support
+                // it and return ENOTSUP / EINVAL). sync_all is at
+                // least as strong as fsync().
+                return file.sync_all();
+            }
+            Ok(())
+        }
+        #[cfg(not(target_vendor = "apple"))]
+        {
+            file.sync_all()
+        }
     }
 
     fn init_schema(conn: &Connection) -> Result<(), rusqlite::Error> {
@@ -208,7 +284,7 @@ impl OpLog {
         if let Some(conn_mutex) = &self.persistence {
             if let Ok(payload_bytes) = serde_json::to_vec(&op.payload) {
                 if let Ok(conn) = conn_mutex.lock() {
-                    let _ = conn.execute(
+                    let insert_rc = conn.execute(
                         "INSERT INTO epistemos_oplog
                          (seq, lamport, actor_id, ts_unix_ms, payload)
                          VALUES (?, ?, ?, ?, ?)",
@@ -220,6 +296,14 @@ impl OpLog {
                             payload_bytes,
                         ],
                     );
+                    // D5 — only F_FULLFSYNC when the INSERT actually
+                    // landed. If SQLite errored mid-INSERT there's
+                    // nothing on the platter to flush; skipping the
+                    // sync avoids touching unrelated WAL frames from
+                    // an earlier transaction we don't own.
+                    if insert_rc.is_ok() {
+                        let _ = self.full_fsync();
+                    }
                 }
             }
         }
@@ -264,6 +348,148 @@ impl OpLog {
 
     fn lock(&self) -> MutexGuard<'_, OpLogInner> {
         self.inner.lock().unwrap_or_else(|e| e.into_inner())
+    }
+}
+
+// MARK: - W9.27 PR3 — extern "C" FFI exports for the Swift OpLogFFIClient
+//
+// Mirrors the W9.21 honest-FFI pattern + W9.26 rope_handle.rs lifecycle:
+//   - `Arc::into_raw` / `Arc::decrement_strong_count` for refcount
+//   - JSON wire format (serde_json::to_string of `Vec<Op>`) — keeps the
+//     Swift side decoder-agnostic and reuses the existing Codable mirror
+//   - Out-param error code: 0 = success, 1 = null handle,
+//     2 = serialization failure
+//
+// Per CLAUDE.md "DO NOT" list: serde_json (not Debug `{:?}`) is the
+// only acceptable JSON wire format here — every Op payload variant is
+// already `#[derive(Serialize, Deserialize)]`.
+//
+// Why we don't return a Vec<Op> across FFI: there's no stable Rust
+// ABI for slices of complex types. JSON is the path of least
+// resistance, mirrors the existing OpPayload tagged-union encoding,
+// and keeps the Swift side a `JSONDecoder().decode([Op].self, …)`
+// one-liner.
+
+/// Open or create a SQLite-backed `OpLog` at `path` and return an
+/// `Arc::into_raw` handle. Returns null on any failure (path invalid,
+/// SQLite open failure, schema migration failure).
+///
+/// # Safety
+/// `path` must be a valid null-terminated UTF-8 C string pointing at a
+/// writable filesystem location. `actor_id` must be a valid
+/// null-terminated UTF-8 C string. Caller must release exactly once
+/// via `oplog_release`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_open_at(
+    path: *const c_char,
+    actor_id: *const c_char,
+) -> *const OpLog {
+    let result = std::panic::catch_unwind(|| {
+        if path.is_null() || actor_id.is_null() {
+            return std::ptr::null();
+        }
+        // SAFETY: caller contract — both pointers are null-terminated UTF-8.
+        let path_cstr = unsafe { CStr::from_ptr(path) };
+        let actor_cstr = unsafe { CStr::from_ptr(actor_id) };
+        let Ok(path_str) = path_cstr.to_str() else {
+            return std::ptr::null();
+        };
+        let Ok(actor_str) = actor_cstr.to_str() else {
+            return std::ptr::null();
+        };
+        match OpLog::open_persistent(actor_str, path_str) {
+            Ok(log) => Arc::into_raw(Arc::new(log)),
+            Err(_) => std::ptr::null(),
+        }
+    });
+    result.unwrap_or(std::ptr::null())
+}
+
+/// Iterate ops with seq > `after_seq`, serialize as a JSON array of
+/// `Op`, and return a heap-allocated null-terminated UTF-8 C string.
+/// Caller must free via `oplog_free_string`.
+///
+/// On any failure the return is null and `*out_error` is set
+/// (1 = null handle, 2 = serialization failure). On success
+/// `*out_error` is 0 and the return is non-null. An empty result set
+/// returns a non-null `"[]"` string with `*out_error = 0`.
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer or null. `out_error` must
+/// be a valid `*mut i32` (typically the address of a Swift `Int32`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_iter_after_json(
+    handle: *const OpLog,
+    after_seq: u64,
+    out_error: *mut i32,
+) -> *mut c_char {
+    let set_err = |code: i32| {
+        if !out_error.is_null() {
+            // SAFETY: caller contract — out_error is writable.
+            unsafe { *out_error = code };
+        }
+    };
+    let result = std::panic::catch_unwind(|| {
+        if handle.is_null() {
+            set_err(1);
+            return std::ptr::null_mut();
+        }
+        // SAFETY: caller contract — handle is a live OpLog pointer.
+        let log = unsafe { &*handle };
+        let ops = log.iter_after(after_seq);
+        let json = match serde_json::to_string(&ops) {
+            Ok(s) => s,
+            Err(_) => {
+                set_err(2);
+                return std::ptr::null_mut();
+            }
+        };
+        match CString::new(json) {
+            Ok(c) => {
+                set_err(0);
+                c.into_raw()
+            }
+            Err(_) => {
+                set_err(2);
+                std::ptr::null_mut()
+            }
+        }
+    });
+    result.unwrap_or_else(|_| {
+        set_err(2);
+        std::ptr::null_mut()
+    })
+}
+
+/// Decrement the OpLog handle's refcount. Drops the OpLog (and closes
+/// the SQLite connection) at zero. Idempotent on null.
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer previously returned by
+/// `oplog_open_at`, or null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_release(handle: *const OpLog) {
+    if !handle.is_null() {
+        // SAFETY: caller contract — exactly-balanced retain/release.
+        unsafe {
+            Arc::decrement_strong_count(handle);
+        }
+    }
+}
+
+/// Free a string previously returned by `oplog_iter_after_json`.
+/// Idempotent on null.
+///
+/// # Safety
+/// `s` must be a pointer returned by `oplog_iter_after_json` and not
+/// yet freed.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_free_string(s: *mut c_char) {
+    if !s.is_null() {
+        // SAFETY: caller contract — s came from CString::into_raw.
+        unsafe {
+            drop(CString::from_raw(s));
+        }
     }
 }
 
@@ -413,6 +639,36 @@ mod tests {
         let tail = reopened.iter_after(2);
         assert_eq!(tail.len(), 1);
         assert_eq!(tail[0].lamport, 3);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    // MARK: - D5 substrate durability discipline tests
+
+    #[test]
+    fn open_persistent_uses_wal_journal_mode() {
+        let path = temp_db_path("wal-mode");
+        let oplog = OpLog::open_persistent("test", &path).unwrap();
+        let conn = oplog.persistence.as_ref().unwrap().lock().unwrap();
+        let mode: String = conn
+            .pragma_query_value(None, "journal_mode", |r| r.get(0))
+            .unwrap();
+        assert_eq!(mode.to_lowercase(), "wal");
+        drop(conn);
+        drop(oplog);
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn open_persistent_uses_synchronous_full() {
+        let path = temp_db_path("sync-full");
+        let oplog = OpLog::open_persistent("test", &path).unwrap();
+        let conn = oplog.persistence.as_ref().unwrap().lock().unwrap();
+        let sync: i32 = conn
+            .pragma_query_value(None, "synchronous", |r| r.get(0))
+            .unwrap();
+        assert_eq!(sync, 2); // FULL = 2
+        drop(conn);
+        drop(oplog);
         let _ = std::fs::remove_file(&path);
     }
 }
