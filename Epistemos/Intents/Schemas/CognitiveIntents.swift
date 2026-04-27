@@ -54,6 +54,10 @@ struct CaptureBrainDumpIntent: AppIntent {
                 anchor: nil
             )
         }
+        // Wave 14 — donate so Siri / Spotlight learn the user's
+        // brain-dump cadence + surface this intent on the lock screen
+        // / Siri SmartStack at the right time of day.
+        _ = try? await donate()
         return .result()
     }
 }
@@ -103,6 +107,7 @@ struct AttachThoughtToContextIntent: AppIntent {
         cogIntentLog.info(
             "AttachThoughtToContextIntent fired (context=\(contextKind, privacy: .public)/\(contextId, privacy: .public))"
         )
+        _ = try? await donate()
         return .result()
     }
 }
@@ -143,6 +148,7 @@ struct RecallActiveThesisIntent: AppIntent {
         if readAloud {
             EpistemosSpeechSynthesizer.shared.speak(state.activeThesis)
         }
+        _ = try? await donate()
         return .result(dialog: IntentDialog(stringLiteral: state.activeThesis))
     }
 }
@@ -181,6 +187,7 @@ struct OpenRawThoughtSandboxIntent: AppIntent {
         let dialog: IntentDialog = enable
             ? "Raw-thought sandbox ON. The agent can now see your quarantine."
             : "Raw-thought sandbox OFF. Back to deterministic mode."
+        _ = try? await donate()
         return .result(dialog: dialog)
     }
 }
@@ -227,6 +234,7 @@ struct DelegateToAgentIntent: AppIntent {
                 contextId: capabilityTier
             )
         )
+        _ = try? await donate()
         return .result()
     }
 }
