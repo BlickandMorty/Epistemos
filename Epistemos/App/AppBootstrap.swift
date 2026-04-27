@@ -1816,6 +1816,21 @@ final class AppBootstrap {
         commandCenterLocalHotkeyMonitor = nil
         commandCenterGlobalHotkeyMonitor = nil
 
+        // D4 faculty roster: log the resolved primary agent model so users
+        // can verify which local agent loaded. Default is the 7-8B 4-bit
+        // fallback that fits the 16 GB Mac ceiling; the 36B Hermes is
+        // gated on ≥32 GB host RAM + explicit opt-in.
+        let primaryAgent = LocalModelCatalog.defaultPrimaryAgentModel
+        Log.app.info(
+            """
+            Local agent model loaded: \
+            \(primaryAgent.displayName, privacy: .public), \
+            ~\(primaryAgent.estimated4BitWeightsGB, privacy: .public) GB \
+            (host \(inference.hardwareCapabilitySnapshot.roundedMemoryGB, privacy: .public) GB, \
+            36B opt-in min \(LocalModelCatalog.primaryAgentModelMinHostRAMGB, privacy: .public) GB)
+            """
+        )
+
         Log.app.info("AppBootstrap: initialized — local AI stack ready")
     }
 
