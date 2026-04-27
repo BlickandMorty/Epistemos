@@ -103,7 +103,7 @@ struct GraphFirstOpenTitle: View {
 /// completes — the title is a one-shot visual, not a persistent overlay.
 @MainActor
 final class GraphFirstOpenTitleHost {
-    private weak var hostView: NSHostingView<AnyView>?
+    private weak var hostView: NSHostingView<GraphFirstOpenTitle>?
 
     func install(in parent: NSView, isDark: Bool) {
         // Remove any previous instance (defensive — this should only be
@@ -111,7 +111,7 @@ final class GraphFirstOpenTitleHost {
         hostView?.removeFromSuperview()
 
         let view = NSHostingView(
-            rootView: AnyView(GraphFirstOpenTitle(isDark: isDark))
+            rootView: GraphFirstOpenTitle(isDark: isDark)
         )
         view.translatesAutoresizingMaskIntoConstraints = false
         // Transparent background — Metal graph shows through.

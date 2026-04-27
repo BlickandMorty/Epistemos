@@ -95,20 +95,41 @@ private struct GraphOverlayThemeContainer<Content: View>: View {
     }
 }
 
-enum HologramOverlayHostedViewBuilder {
-    @MainActor
-    static func root<Content: View>(
-        _ content: Content,
-        bootstrap: AppBootstrap? = AppBootstrap.shared
-    ) -> AnyView {
-        guard let bootstrap else {
-            return AnyView(content)
-        }
+/// Wraps the SwiftUI content with the graph overlay theme + (optionally) the
+/// app environment + SwiftData model container. Returning the concrete view
+/// chain (no `AnyView` wrapper) preserves structural identity per doctrine
+/// §6 #6.
+fileprivate struct HologramOverlayHostedView<Content: View>: View {
+    let content: Content
+    let bootstrap: AppBootstrap?
 
-        return AnyView(
+    @ViewBuilder
+    var body: some View {
+        if let bootstrap {
             GraphOverlayThemeContainer(content: content)
                 .withAppEnvironment(bootstrap)
                 .modelContainer(bootstrap.modelContainer)
+        } else {
+            GraphOverlayThemeContainer(content: content)
+        }
+    }
+}
+
+fileprivate enum HologramOverlayHostedViewBuilder {
+    /// Wraps `content` in a hosted-overlay environment and returns a typed
+    /// `NSHostingView`. Returning the concrete `NSHostingView<HologramOverlayHostedView<Content>>`
+    /// (vs. `NSHostingView<AnyView>`) keeps the SwiftUI content's structural
+    /// identity intact per doctrine §6 #6 (no AnyView in render hot paths).
+    /// Call sites store the result via the `NSView` base type so heterogeneous
+    /// hosted views can coexist in the same fields without an AnyView entry
+    /// point on the SwiftUI side.
+    @MainActor
+    static func host<Content: View>(
+        _ content: Content,
+        bootstrap: AppBootstrap? = AppBootstrap.shared
+    ) -> NSHostingView<HologramOverlayHostedView<Content>> {
+        NSHostingView(
+            rootView: HologramOverlayHostedView(content: content, bootstrap: bootstrap)
         )
     }
 }
@@ -162,9 +183,21 @@ private final class ObservationChangeWaiter {
 @MainActor
 final class HologramOverlay {
 
+    /// Identifier for the small expand-button host view added in mini mode
+    /// (`addExpandButton`). Used by `restore()` to find and remove it when
+    /// the panel transitions back to full-screen.
+    private static let miniExpandButtonIdentifier = NSUserInterfaceItemIdentifier(
+        "graphMiniExpandButton"
+    )
+
     private var window: GraphOverlayPanel?
     private var metalView: MetalGraphNSView?
-    private var inspectorHostView: NSHostingView<AnyView>?
+    /// AppKit-typed weak handle to the SwiftUI inspector hosting view.
+    /// Concrete type is `NSHostingView<HologramOverlayHostedView<HologramNodeInspector>>`
+    /// at construction; widened to `NSView?` here so the field can hold any
+    /// hosted-overlay view shape without forcing an `AnyView` entry on the
+    /// SwiftUI side (doctrine §6 #6).
+    private var inspectorHostView: NSView?
     private var escapeMonitor: Any?
     private var graphState: GraphState
     private var queryEngine: QueryEngine
@@ -173,8 +206,12 @@ final class HologramOverlay {
     private var dialogueChatState: DialogueChatState?
     private let inspectorState = NodeInspectorState()
     /// Pinned inspectors: persistent panels attached to specific nodes.
-    /// Each gets its own NSHostingView positioned at node screen coords.
-    private var pinnedInspectorViews: [String: NSHostingView<AnyView>] = [:]
+    /// Each gets its own NSHostingView (concrete type
+    /// `NSHostingView<HologramOverlayHostedView<PinnedInspectorPanel>>`)
+    /// positioned at node screen coords. Stored as `NSView` so the dict
+    /// can hold heterogeneous hosted views without forcing an `AnyView`
+    /// entry on the SwiftUI side (doctrine §6 #6).
+    private var pinnedInspectorViews: [String: NSView] = [:]
 
     // Blur transition layers (stored for page mode animation).
     private var darkenLayer: NSView?
@@ -239,10 +276,13 @@ final class HologramOverlay {
     private var noteWindowResizeObserver: Any?
     // KVO observation for system appearance (light/dark mode) changes.
     private var appearanceObserver: NSKeyValueObservation?
-    // Draggable toolbar and sidebar hosting views.
-    private var controlsHostView: NSHostingView<AnyView>?
-    private var sidebarHostView: NSHostingView<AnyView>?
-    private var routeHostView: NSHostingView<AnyView>?
+    // Draggable toolbar and sidebar hosting views. Concrete types are
+    // `NSHostingView<HologramOverlayHostedView<...>>` at construction; widened
+    // to `NSView?` here so heterogeneous hosted views fit one type without
+    // pulling an `AnyView` into the SwiftUI side (doctrine §6 #6).
+    private var controlsHostView: NSView?
+    private var sidebarHostView: NSView?
+    private var routeHostView: NSView?
     private var routeObserver: Any?
     private var controlsConstraints: [NSLayoutConstraint] = []
     private var sidebarConstraints: [NSLayoutConstraint] = []
@@ -611,12 +651,16 @@ final class HologramOverlay {
             parent.removeChildWindow(window)
         }
 
-        // 2. Remove mini-mode additions (blur with tag 999, expand button).
+        // 2. Remove mini-mode additions (mini blur, mini tint, expand button).
+        // The previous `$0 is NSHostingView<AnyView>` runtime check was a
+        // no-op (the expand button was never typed `<AnyView>`); the
+        // identifier-based match below is exact and aligns with doctrine §6 #6
+        // (no AnyView in render hot paths).
         window.contentView?.subviews
             .filter {
                 $0.identifier == NSUserInterfaceItemIdentifier("miniBlur")
                     || $0.identifier == GraphOverlayThemeStyle.miniTintIdentifier
-                    || ($0 is NSHostingView<AnyView> && $0.frame.width < 100)
+                    || $0.identifier == Self.miniExpandButtonIdentifier
             }
             .forEach { $0.removeFromSuperview() }
 
@@ -842,12 +886,10 @@ final class HologramOverlay {
 
         // Host the inspector SwiftUI view.
         if let modelContainer {
-            let inspectorView = NSHostingView(
-                rootView: HologramOverlayHostedViewBuilder.root(
-                    HologramNodeInspector(
-                        inspectorState: inspectorState,
-                        modelContext: modelContainer.mainContext
-                    )
+            let inspectorView = HologramOverlayHostedViewBuilder.host(
+                HologramNodeInspector(
+                    inspectorState: inspectorState,
+                    modelContext: modelContainer.mainContext
                 )
             )
             inspectorView.autoresizingMask = [.width, .height]
@@ -875,6 +917,10 @@ final class HologramOverlay {
             .help("Restore to full size")
         )
         buttonView.translatesAutoresizingMaskIntoConstraints = false
+        // Identifier lets `restore()` find and remove this button (and only
+        // this button) when transitioning back to full-screen. Replaces the
+        // fragile-and-broken `$0 is NSHostingView<AnyView>` runtime check.
+        buttonView.identifier = Self.miniExpandButtonIdentifier
         content.addSubview(buttonView)
         NSLayoutConstraint.activate([
             buttonView.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
@@ -1038,12 +1084,10 @@ final class HologramOverlay {
         // Don't double-add
         guard pinnedInspectorViews[pinned.id] == nil else { return }
 
-        let view = NSHostingView(
-            rootView: HologramOverlayHostedViewBuilder.root(
-                PinnedInspectorPanel(
-                    inspector: pinned,
-                    onClose: { [weak self] in self?.unpinInspector(id: pinned.id) }
-                )
+        let view = HologramOverlayHostedViewBuilder.host(
+            PinnedInspectorPanel(
+                inspector: pinned,
+                onClose: { [weak self] in self?.unpinInspector(id: pinned.id) }
             )
         )
         view.wantsLayer = true
@@ -1546,9 +1590,7 @@ final class HologramOverlay {
         // is `.canvas`, the host is hidden entirely so mouse events flow to
         // `MetalGraphNSView` unchanged. A Notification.Name observer flips
         // `isHidden` whenever `GraphState.currentRoute` changes.
-        let routeView = NSHostingView(
-            rootView: HologramOverlayHostedViewBuilder.root(GraphWorkspaceContainer())
-        )
+        let routeView = HologramOverlayHostedViewBuilder.host(GraphWorkspaceContainer())
         routeView.translatesAutoresizingMaskIntoConstraints = false
         routeView.isHidden = graphState.currentRoute.isCanvas
         contentView.addSubview(routeView, positioned: .above, relativeTo: graphView)
@@ -1580,11 +1622,7 @@ final class HologramOverlay {
         }
 
         // Floating controls (SwiftUI hosted — draggable).
-        let controlsView = NSHostingView(
-            rootView: HologramOverlayHostedViewBuilder.root(
-                GraphFloatingControls()
-            )
-        )
+        let controlsView = HologramOverlayHostedViewBuilder.host(GraphFloatingControls())
         controlsView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(controlsView)
         self.controlsHostView = controlsView
@@ -1608,9 +1646,7 @@ final class HologramOverlay {
             graphView?.isolateNode(uuid)
             self?.graphState.selectNode(uuid)
         }
-        let sidebarView = NSHostingView(
-            rootView: HologramOverlayHostedViewBuilder.root(sidebarRoot)
-        )
+        let sidebarView = HologramOverlayHostedViewBuilder.host(sidebarRoot)
         sidebarView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(sidebarView)
         self.sidebarHostView = sidebarView
@@ -1624,12 +1660,10 @@ final class HologramOverlay {
 
         // Node inspector panel (SwiftUI hosted, follows selected node).
         if let modelContainer {
-            let inspectorView = NSHostingView(
-                rootView: HologramOverlayHostedViewBuilder.root(
-                    HologramNodeInspector(
-                        inspectorState: inspectorState,
-                        modelContext: modelContainer.mainContext
-                    )
+            let inspectorView = HologramOverlayHostedViewBuilder.host(
+                HologramNodeInspector(
+                    inspectorState: inspectorState,
+                    modelContext: modelContainer.mainContext
                 )
             )
             // Use frame-based positioning (updated by inspectorPositionTask).
