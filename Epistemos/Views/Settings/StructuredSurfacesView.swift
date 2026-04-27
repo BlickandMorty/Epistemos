@@ -34,6 +34,13 @@ struct StructuredSurfacesView: View {
     @State private var sort: MaturitySort = .bySurface
     @State private var query: String = ""
 
+    // N1 Phase 1 — Prompt Tree toggle. UserDefaults-backed so the
+    // user can flip the feature on without setting an env var. The
+    // env var (EPISTEMOS_PROMPT_TREE=1) still wins if set; this
+    // surface displays "pinned" state in that case.
+    @AppStorage(PromptTreePreferences.userDefaultsKey)
+    private var promptTreeEnabled: Bool = false
+
     /// The active build profile this binary represents.
     /// Computed once at view init via `#if EPISTEMOS_APP_STORE`.
     private static var activeProfile: BuildProfile {
@@ -90,7 +97,50 @@ struct StructuredSurfacesView: View {
                     .padding(.vertical, 14)
                 }
             }
+            Divider().opacity(0.25)
+            promptTreeToggleRow
         }
+    }
+
+    /// Footer toggle for the N1 Prompt Tree (JSPF + PTF) feature flag.
+    /// Lives at the bottom of the Structures tab because the Prompt
+    /// itself is one of the structured surfaces this catalog tracks
+    /// (see the prompt_root / prompt_identity / prompt_tools /
+    /// prompt_memory / prompt_task entries in StructureRegistry).
+    private var promptTreeToggleRow: some View {
+        let pinnedByEnv = PromptTreePreferences.isPinnedByEnvironment()
+        return HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Image(systemName: "tree")
+                        .foregroundStyle(.secondary)
+                    Text("Prompt Tree (Beta)")
+                        .font(.callout.weight(.semibold))
+                    if pinnedByEnv {
+                        Text("env-pinned")
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(.orange.opacity(0.15), in: Capsule())
+                            .foregroundStyle(.orange)
+                    }
+                }
+                Text(pinnedByEnv
+                    ? "Locked on by EPISTEMOS_PROMPT_TREE=1 environment variable. Unset the env var to use this toggle."
+                    : "Routes the next agent turn through the typed Prompt composer + persists a PTF directory at <vault>/.epistemos/prompts/<session>/<turn>/. Restart the chat after toggling for changes to take effect on the next turn.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 12)
+            Toggle("", isOn: $promptTreeEnabled)
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .disabled(pinnedByEnv)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(.quaternary.opacity(0.25))
     }
 
     private var header: some View {

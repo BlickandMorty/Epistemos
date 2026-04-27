@@ -2210,7 +2210,7 @@ final class ChatCoordinator {
     //
     // Doctrine: 01_DOCTRINE.md §6 #14 (no orphan scaffolding — N1 ships
     // with this wired call site or it doesn't ship).
-    if ProcessInfo.processInfo.environment["EPISTEMOS_PROMPT_TREE"] == "1" {
+    if PromptTreePreferences.isEnabled() {
       let n1Prompt = PromptComposer.compose(
         forChatTurn: sessionId,
         turnIndex: 0, // First-turn anchor; multi-turn replay in follow-up PR
