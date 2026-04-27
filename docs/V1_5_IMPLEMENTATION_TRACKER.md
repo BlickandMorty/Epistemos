@@ -74,6 +74,13 @@ done.
 | W9.24 Metal zero-copy | ⏸ DEFERRED | — | UMA may make `bytesNoCopy` a no-op gain — measure before building. |
 | W9.28 Blelloch scan | ⏸ DEFERRED | — | Mamba-2 already has 3-dispatch scan. Roadmap-gated. |
 
+## Bucket E — Canonical audit blockers (docs/CANONICAL_AUDIT_LOG.md D-series)
+
+| ID | Status | Commit | Notes |
+| -- | ------ | ------ | ----- |
+| D5 substrate durability | 🟢 SHIPPED | 6d78593b | WAL + F_FULLFSYNC on `OpLog::open_persistent` (`agent_core/src/oplog.rs`) + `VaultStore::open` (`agent_core/src/storage/vault.rs`). 2 new pragma tests; 708/708 cargo agent_core tests green. WRV_EXEMPT: infrastructure (per MASTER_BUILD_PLAN.md §4 closed exempt list). |
+| D4 faculty roster memory fix | 🟡 IN-PROGRESS (Swift work stashed) | — | Hermes 4.3 36B → 7-8B 4-bit demote: `LocalModelInfrastructure.swift` got +68 lines of catalog additions (`fallbackPrimaryAgentModel`, `optInPrimaryAgentModel`, `primaryAgentModelMinHostRAMGB = 32`, `primaryAgentModel36BOptInDefaultsKey`) but `AppBootstrap.swift:1828` references a missing `LocalTextModelID.estimated4BitWeightsGB` accessor → BUILD FAILED. Three Swift files (LocalModelInfrastructure.swift, LocalModelInfrastructureTests.swift, AppBootstrap.swift) stashed as `D4-incomplete-defer` (`git stash list`). Next session: `git stash pop` (or `git stash apply 0`), add the missing `estimated4BitWeightsGB` computed property on `LocalTextModelID` (4-bit ≈ params * 0.5 GB rule of thumb), confirm `defaultLocalAgentModelFitsIn16GBCeiling` test passes, then ship with WRV proof. |
+
 ---
 
 ## Session log
