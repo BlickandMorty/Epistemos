@@ -22,7 +22,7 @@ default = []
 mas-sandbox = []
 
 [dependencies]
-uniffi = { version = "0.28", features = ["cli", "bindgen"] }
+uniffi = { version = "=0.29.5", features = ["cli", "bindgen"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["raw_value"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
@@ -41,7 +41,7 @@ bumpalo = { version = "3.16", features = ["collections"] }
 tempfile = "3"
 
 [build-dependencies]
-uniffi = { version = "0.28", features = ["build"] }
+uniffi = { version = "=0.29.5", features = ["build"] }
 
 [profile.release]
 # Canonical release profile per dpp §1.1 Task 0.4 (Wave 2.4).

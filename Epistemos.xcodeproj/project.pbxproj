@@ -40,6 +40,7 @@
 		9623A0EB94D7DA20FB2363FB /* PowerGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709D7B359F2E08AFFF2F250A /* PowerGate.swift */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		A5782539EAC785740C793CCA /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */; };
+		B131CB2C4E4E857765F2366F /* MLXStructured in Frameworks */ = {isa = PBXBuildFile; productRef = EC98A95793415D418E585820 /* MLXStructured */; };
 		B6058CDDBAC6D239758DE0BE /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = EE721F274D3687D9B714DFE8 /* MLXVLM */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
 		BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */; };
@@ -55,6 +56,7 @@
 		E5F98A62361C1EBB82523B92 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
 		E70B453353C9AB5E24A29DFA /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = C8E5F5988876E85975B20613 /* HuggingFace */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
+		F179F5290BD109FC06F77403 /* MLXStructured in Frameworks */ = {isa = PBXBuildFile; productRef = 3378BB963DEDA629CEFC4CC9 /* MLXStructured */; };
 		F17AA91C0BB197EE4008CED8 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
 		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
 		F4FD9C1FBB3D7E66B93DD4B4 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */; };
@@ -407,6 +409,7 @@
 				F4FD9C1FBB3D7E66B93DD4B4 /* CodeEditSourceEditor in Frameworks */,
 				3BDE702EBE7513A75F05E85F /* SwiftTreeSitter in Frameworks */,
 				A5782539EAC785740C793CCA /* CodeEditLanguages in Frameworks */,
+				B131CB2C4E4E857765F2366F /* MLXStructured in Frameworks */,
 				0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */,
 				61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */,
 				DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */,
@@ -443,6 +446,7 @@
 				BE22FF112091A73278DA1574 /* CodeEditSourceEditor in Frameworks */,
 				30E13BBA08D4E40824E55896 /* SwiftTreeSitter in Frameworks */,
 				F5784C6AD6DA3C05A246766E /* CodeEditLanguages in Frameworks */,
+				F179F5290BD109FC06F77403 /* MLXStructured in Frameworks */,
 				0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */,
 				2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */,
 				14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */,
@@ -648,6 +652,7 @@
 				DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */,
 				8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */,
 				F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */,
+				EC98A95793415D418E585820 /* MLXStructured */,
 			);
 			productName = Epistemos;
 			productReference = C76D402546734270F3EE1008 /* Epistemos.app */;
@@ -685,6 +690,7 @@
 				4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */,
 				64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */,
 				22D76D69CE0A05A612129C53 /* CodeEditLanguages */,
+				3378BB963DEDA629CEFC4CC9 /* MLXStructured */,
 			);
 			productName = "Epistemos-AppStore";
 			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
@@ -734,6 +740,7 @@
 				524D78E9249015029F79F437 /* XCRemoteSwiftPackageReference "Grape" */,
 				5DFEA6AEF5B1ED45CFAE2B30 /* XCRemoteSwiftPackageReference "swift-huggingface" */,
 				2294352D89C3E7A5A15683BC /* XCRemoteSwiftPackageReference "mlx-swift" */,
+				07149F88E210DC917FB233CA /* XCRemoteSwiftPackageReference "mlx-swift-structured" */,
 				B12BBF15DEF11966DEDF972E /* XCRemoteSwiftPackageReference "SwiftTreeSitter" */,
 				7DC43DC002F243C226935ACE /* XCLocalSwiftPackageReference "LocalPackages/GGUFRuntimeBridge" */,
 				7637686CCF45A2F7C4EC8227 /* XCLocalSwiftPackageReference "LocalPackages/mlx-swift-lm" */,
@@ -1448,6 +1455,14 @@
 				minimumVersion = 0.15.2;
 			};
 		};
+		07149F88E210DC917FB233CA /* XCRemoteSwiftPackageReference "mlx-swift-structured" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/petrukha-ivan/mlx-swift-structured";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.0.4;
+			};
+		};
 		2294352D89C3E7A5A15683BC /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ml-explore/mlx-swift";
@@ -1530,6 +1545,11 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = MLXLMCommon;
 		};
+		3378BB963DEDA629CEFC4CC9 /* MLXStructured */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 07149F88E210DC917FB233CA /* XCRemoteSwiftPackageReference "mlx-swift-structured" */;
+			productName = MLXStructured;
+		};
 		48BA6B15F3E86D3F10699011 /* AXorcist */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = ABFAF2F6618A8CB201AF31C4 /* XCRemoteSwiftPackageReference "AXorcist" */;
@@ -1595,6 +1615,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 050A478A2687B99C0331E4F7 /* XCRemoteSwiftPackageReference "CodeEditSourceEditor" */;
 			productName = CodeEditSourceEditor;
+		};
+		EC98A95793415D418E585820 /* MLXStructured */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 07149F88E210DC917FB233CA /* XCRemoteSwiftPackageReference "mlx-swift-structured" */;
+			productName = MLXStructured;
 		};
 		EE721F274D3687D9B714DFE8 /* MLXVLM */ = {
 			isa = XCSwiftPackageProductDependency;
