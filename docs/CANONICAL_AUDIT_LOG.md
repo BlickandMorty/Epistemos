@@ -741,3 +741,96 @@ These three touch disjoint files and can be dispatched as parallel `isolation: "
 - This audit log itself is now committed (was untracked working-tree drift; per CRITIQUE_LOG pass #15 highest-priority directive resolved).
 - Phase 0 verified: 708 cargo / xcodebuild SUCCEEDED.
 
+---
+
+## 2026-04-27 — Pass #3 reconciliation: `docs/architecture/` fusion into canonical baseline
+
+User directive on this pass: "doa final check to see if there is any naunce to take and fuse with the current canonical plan." Read all 22 docs in `/Users/jojo/Downloads/Epistemos/docs/architecture/` (PLAN_V2.md + PLAN_V2_UPDATED.md, README.md, CODEX_CONTEXT_PACK.md, RESEARCH_INDEX.md, OVERSEER_AND_AGENT_HIERARCHY.md, COMPUTE_STEERING_SPEC_v1.md, ADAPTATION_SUBSYSTEM_SPEC_v1.md, BENCHMARK_BASELINES.csv, AGENT_STREAM_BASELINES.csv, BOLTFFI_AUDIT_2026_04_15.md, CHAT_TRANSPARENCY_PLAN_2026-04-19.md, CLAUDE_CANONICALIZATION_REDO_HANDOFF_2026_04_14.md, COGNITIVE_ARTIFACT_IMPLEMENTATION_PLAN.md, EPISTEMOS_RESEARCH_SYNTHESIS_AND_ACTION_PLAN.md, fix.md, MASTER_PLAN_2026-04-19.md, NEW_SESSION_PROMPT*.md, PERF_REPAIR_REPORT_2026_04_21.md, PHASE_*_HANDOFF.md (1.5/4/5/6/6.5/7), PHASE_6_PROTOCOL.md, PLAN_V2_CANONICALIZATION_*.md, RELEASE_HARDENING_CANONICAL_PLAN_2026-04-20.md). Most are subordinate to `docs/architecture/PLAN_V2.md` (already authoritative) and the `docs/plan/` tree (already canonical for V1.5). **Two material drift findings emerge that Pass #1 missed** because they live OUTSIDE the V1.5 item set, plus four operational notes worth preserving so future sessions don't relitigate.
+
+### Drift A — `Epistemos/Engine/CommandCenterRequestCompiler.swift` is a second Swift control plane
+
+**Severity:** Blocker (NEW; doctrine §3.1 + plan/01_DOCTRINE §6 #11 violation; was Phase 5 exit criterion #4).
+
+**Sources:** `PHASE_6_CLARK_HANDOFF_2026_04_14.md` §6 Drift 1; `CLAUDE_CANONICALIZATION_REDO_HANDOFF_2026_04_14.md` Drift 1 (lines 184-237); `PLAN_V2_CANONICALIZATION_MASTER_PROMPT_2026_04_14.md` "Actual Drift List" Drift 1; `PHASE_5_HANDOFF.md` §"Minimum Exit Criteria Before Phase 6" item #4 (Rust owns final request compilation / routing / permission truth for Command Center).
+
+**Evidence:** `Epistemos/Engine/CommandCenterRequestCompiler.swift:64-80 CompiledCommandCenterRequest` resolves context refs + runtime selection truth + tool permission allow/deny + execution policy / route summaries — every decision PLAN_V2 §3.1 (Rust sovereign) + §4.1 ("the command center is a user-facing delegation surface, not a second control plane") and plan/01_DOCTRINE.md §6 #11 say belongs to Rust. Phase 5 exit criterion #4 was waived (per `PHASE_6_PROTOCOL.md` "Critical Status Note") to let Phase 6 begin. Per `PHASE_6_CLARK_HANDOFF` §13 "biggest single drift risk", this is the **single largest architectural violation** in the codebase today.
+
+**Why Pass #1 missed it:** Pass #1 audited the V1.5 backlog (R/W/D/N items in MASTER_BUILD_PLAN.md §7). CommandCenterRequestCompiler.swift is Phase 5 territory, not on the V1.5 queue.
+
+**Required fix:** New Rust FFI entry point `compile_command_center_request(...)` in `agent_core/src/command_center.rs` + `agent_core/src/bridge.rs` owns context resolution + runtime resolution + tool permission + execution policy + routing truth. Swift becomes parser + UI binder only. The existing `CompiledCommandCenterRequest` Swift struct becomes the Rust output. Tests required: explicit-brain-choice parity, unavailable-brain truthfulness, allowlist behavior parity, inspector-diagnostics parity. Per Codex: land behind a feature flag for one release cycle before removing legacy.
+
+**Priority:** Queue position 10 (insert AFTER current ship_phase batch — W9.21 PR4 + W9.8 + AnyView + W9.27 PR3.5 + W9.26 PR4 + W9.22 concrete wrappers — and BEFORE the provenance plane keystone). Reasoning: every additional V1.5 item hardens the wrong control plane until Drift A lands; closing it shrinks the rework surface for the Provenance Plane integration.
+
+### Drift B — Three-router architecture (Swift ConfidenceRouter + Rust agent_core/routing.rs + Rust epistemos-core/agent_runtime/routing.rs)
+
+**Severity:** Major (architectural duplication; not Blocker — code works but drifts from doctrine).
+
+**Source:** `CHAT_TRANSPARENCY_PLAN_2026-04-19.md` P2 "Consolidate the three routers" (lines 130-138).
+
+**Evidence:** Three independent router implementations with overlapping responsibilities exist in `Epistemos/LocalAgent/ConfidenceRouter.swift` + `agent_core/src/routing.rs` (CLAUDE.md FILE MAP confirms canonical Rust path) + `epistemos-core/src/agent_runtime/routing.rs`. Each makes routing decisions; "load-bearing router" is unclear.
+
+**Required fix:** Decide canonical router (per CLAUDE.md FILE MAP authority: `agent_core/src/routing.rs`). Migrate the loser's logic. Delete dead file. Make Swift's `ConfidenceRouter` a pure classifier feeding the Rust router (not a parallel decider). Land behind a feature flag for one release cycle before removing legacy. Run 50+ sample queries through both routers; assert same decision within tolerance; ship flag off until samples converge.
+
+**Priority:** Queue position 11. Highest-risk architectural cleanup but not Blocker — does not currently corrupt user data.
+
+### Operational notes (NOT drift; preserved here so future sessions don't relitigate)
+
+#### Note A — Swift 6 strict-concurrency cascade-error trap
+
+**Source:** `PHASE_7_CODEX_AUDIT_HANDOFF_2026_04_15.md` §3.1.
+
+**Reality:** A single Swift 6 data-race violation in ONE test file (e.g., `@Sendable` closure capturing `note.userInfo`) cascades **~50 `@const`/`@section` macro errors into UNRELATED test files** during the same compilation batch. The unrelated files are NOT actually broken — fix the data race in the file you just edited and the cascade errors disappear.
+
+**Why this matters:** Future sessions seeing floods of `'@const' value should be initialized with a compile-time value` or `global variable must be a compile-time constant to use @section attribute` in test files they didn't touch should NOT chase those errors directly. Trace back to a recent test edit with a `@Sendable` closure or `note.userInfo` capture.
+
+#### Note B — `image_generate` is no longer drift
+
+**Reality:** Clark's PHASE_6 Drift 3 (FAL cloud-only vs PLAN_V2 §5.1 MLX-first mandate) was real on 2026-04-14 but resolved by a §16 amendment to PLAN_V2. Current §16 reads: "Cloud image generation, if kept, is an explicit opt-in provider path only. FAL or other remote image providers may exist for manual/advanced use, but they do not make the MLX lane 'complete' and must not be used as silent fallback." Current code (FAL-only with explicit `provider: "fal"` opt-in) is now **canonical** with the updated PLAN_V2.
+
+#### Note C — `codex/runtime-input-audit` perf fixes are baseline, not drift
+
+**Source:** `PERF_REPAIR_REPORT_2026_04_21.md` (full file; landed via `codex/runtime-input-audit` branch).
+
+**Reality:** The release-hardening Phase 0 batch — fenced ` ```tool_call ` parser fix, MLX unload Metal-working-set release, cloud direct-stream manifest tightening (no longer advertises app tools it cannot execute), essay/draft phrasing escalates same as note reads, Mini Chat Tools-mode pill (vs Thinking), deferred Apple hybrid embedding lookup (~67 MB RSS post-fix), dangling fenced-language marker suppression — all baseline now. NOT drift.
+
+#### Note D — Phase 6 / 6.5 / 7 closures intentionally deferred (does NOT block V1.5)
+
+**Sources:** `PHASE_6_PROTOCOL.md` §"Critical Status Note"; `PHASE_6_5_CLAUDE_STARTUP_HANDOFF_2026_04_15.md`; `PHASE_7_CODEX_AUDIT_HANDOFF_2026_04_15.md` §6.
+
+**Reality:** Phase 6 (Communication + Media), Phase 6.5 (Capture-to-memory), and Phase 7 (Graph Workspace) all have substantial code in tree but their FORMAL closures depend on manual runtime verification (real outbound credentials + macOS permissions) the operator has chosen to defer. The V1.5 backlog work running today (R/W/D/N items, doctrine substrate, orphan-scaffold cleanup) is **orthogonal** to those phase closures — it hardens the substrate beneath all phases. Future sessions should NOT confuse "Phase 6/6.5/7 closure" with "V1.5 ship-readiness" — different gates.
+
+### Updated Blocker count: 17 → 14 still open + 1 Major drift + 1 partial-resolved (post Pass #3)
+
+- Pass #1: 47 audited / 17 Blockers / 19 Warnings / 6 Notes
+- Pass #2 close (`fe97e512`): 13 Blockers + 1 partial-resolved (post D5 + D4 + W9.27/D1)
+- **Pass #3 close: 49 audited (47 + 2 newly-discovered) / 14 Blockers (13 carry-over + Drift A) / 1 Major drift (Drift B) / 1 partial-resolved / 19 Warnings / 6+ Notes**
+
+### Updated priority queue (post-Pass #3)
+
+| # | Item | Status | Notes |
+|---|------|--------|-------|
+| 1-3 | Audit log seed + D4 + W9.27 PR3 + D1 | ✅ shipped | `85fed65c`, `4c0c7e17`, `fe97e512` |
+| 4 | **W9.21 PR4 Swift consumer cutover** | 🔵 in-flight | CRITIQUE_LOG #15 priority — closes longest orphan-scaffold pattern |
+| 5 | **W9.8 NSAlert → ApprovalModalView** | 🔵 in-flight | Production approval-modal wire (replaces ChatCoordinator NSAlert) |
+| 6 | **AnyView 16-violation cleanup** | 🔵 in-flight | Doctrine §6 #6 enforcement (4 files, 16 instances) |
+| 7 | W9.27 PR3.5 OpLogFFIClient.swift | ⚪ pending | Mirror RopeFFIClient pattern; closes OpLog orphan |
+| 8 | W9.26 PR4 NoteFileStorage rope migration | ⚪ pending | Closes RopeFFIClient orphan |
+| 9 | W9.22 concrete typestate wrappers | ⚪ pending | MlxSession/HermesProcess/AFMPoolEntry; closes Lifecycle orphan |
+| 10 | **Drift A: CommandCenterRequestCompiler → Rust** | ⚪ NEW Blocker | Phase 5 exit criterion #4 close; doctrine §3.1 enforcement |
+| 11 | Drift B: three-router consolidation | ⚪ NEW Major | Swift ConfidenceRouter + 2 Rust routers → 1 |
+| 12 | W9.6 budget_gate cost-cap → ApprovalModal | ⚪ pending | Cost dashboard data live; cap-fires-modal flow missing |
+| 13 | W9.30 KIVIKVCache in mlx-swift-lm fork | ⚪ pending | Foundation lives in wrong package |
+| 14 | W9.25 GrammarMaskedLogitProcessor real masking | ⚪ pending | Soft EOS guidance only today |
+| 15 | D2 7-verb MCP graph boundary | ⚪ pending | Architectural; Hermes integration depends on it |
+| 16 | D3 closed A2UI catalog with NoteCard | ⚪ pending | Doctrine §6 #4 enforcement; A2UI/ directory absent |
+| 17 | D9 skills as graph nodes | ⚪ pending | MCP intercept of `~/.hermes/skills/` writes |
+| 18 | D11 epistemos-trace CLI separate repo | ⚪ pending | Open standard moat; doctrine §5.1 |
+| 19 | **Provenance plane MutationEnvelope/ClaimLedger/RetractionPropagated** | ⚪ keystone | Doctrine §3 — the single largest unimplemented architectural debt |
+
+### Pass #3 close summary
+
+- 0 newly-RESOLVED Blockers this pass (it's a reconciliation pass, not a ship pass).
+- 2 newly-DISCOVERED items (Drift A Blocker + Drift B Major) added to the queue.
+- 4 operational notes preserved (Swift 6 cascade trap; image_generate now canonical; codex perf fixes baseline; Phase 6/6.5/7 closures orthogonal).
+- Total queue: 14 Blockers + 1 Major still open. Provenance plane remains the keystone.
+
