@@ -132,10 +132,31 @@ final class EventStore: Sendable {
                 loop_count INTEGER NOT NULL,
                 error_count INTEGER NOT NULL,
                 total_calls INTEGER NOT NULL,
-                efficiency REAL NOT NULL
+                efficiency REAL NOT NULL,
+                input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_read_input_tokens INTEGER NOT NULL DEFAULT 0,
+                cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0
             );
         """)
         execute("CREATE INDEX IF NOT EXISTS idx_session_metrics_classification ON session_metrics(classification);")
+        // N1 Phase 1 closure migration (MASTER_BUILD_PLAN.md:311) —
+        // existing databases predate the token columns; these ALTER
+        // TABLE statements are idempotent (sqlite3 returns SQLITE_ERROR
+        // on duplicate column add, swallowed by `execute`). Fresh
+        // databases pick the columns up from the CREATE TABLE block
+        // above; upgraded users get them on next open. NOT NULL
+        // DEFAULT 0 keeps `SessionMetricsRecord` round-trips honest
+        // for the historical rows that never tracked these fields.
+        // input_tokens + output_tokens land alongside the cache pair
+        // because the W9.6 cost dashboard's cached-tokens share is
+        // `cache_read / (input + cache_read)` — without input_tokens
+        // the dashboard would either lie (denominator only counting
+        // cache, share rounds to 100 %) or stay silent.
+        execute("ALTER TABLE session_metrics ADD COLUMN input_tokens INTEGER NOT NULL DEFAULT 0;")
+        execute("ALTER TABLE session_metrics ADD COLUMN output_tokens INTEGER NOT NULL DEFAULT 0;")
+        execute("ALTER TABLE session_metrics ADD COLUMN cache_read_input_tokens INTEGER NOT NULL DEFAULT 0;")
+        execute("ALTER TABLE session_metrics ADD COLUMN cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0;")
 
         // Cognitive substrate tables (Phase 0)
         execute("""
@@ -269,9 +290,36 @@ final class EventStore: Sendable {
         let errorCount: Int
         let totalCalls: Int
         let efficiency: Double
+        // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — token
+        // accounting surfaced from AgentResultFFI. Default 0 for
+        // historical rows. Input + output flow from
+        // result.inputTokens / result.outputTokens; cache pair flows
+        // from the Anthropic-only cacheReadInputTokens /
+        // cacheCreationInputTokens fields added in PR1 (b8d779ca).
+        let inputTokens: Int
+        let outputTokens: Int
+        let cacheReadInputTokens: Int
+        let cacheCreationInputTokens: Int
+
+        /// Computed: cache hit share for the W9.6 cost dashboard.
+        /// `cache_read / (input + cache_read)` — cache_creation is the
+        /// one-time write and does NOT enter the hit-rate denominator.
+        /// Returns 0 when total billed input is 0.
+        var cachedTokensShare: Double {
+            let total = inputTokens + cacheReadInputTokens
+            guard total > 0 else { return 0.0 }
+            return min(max(Double(cacheReadInputTokens) / Double(total), 0.0), 1.0)
+        }
     }
 
-    nonisolated func saveSessionMetrics(sessionId: String, metrics: ReasoningTrajectoryMetricsFFI) {
+    nonisolated func saveSessionMetrics(
+        sessionId: String,
+        metrics: ReasoningTrajectoryMetricsFFI,
+        inputTokens: UInt32 = 0,
+        outputTokens: UInt32 = 0,
+        cacheReadInputTokens: UInt32 = 0,
+        cacheCreationInputTokens: UInt32 = 0
+    ) {
         queue.async { [weak self] in
             guard let self else { return }
             let db = self.db
@@ -279,8 +327,10 @@ final class EventStore: Sendable {
             let sql = """
                 INSERT INTO session_metrics (
                     session_id, recorded_at, classification, displacement, path_length,
-                    curvature_ratio, loop_count, error_count, total_calls, efficiency
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    curvature_ratio, loop_count, error_count, total_calls, efficiency,
+                    input_tokens, output_tokens,
+                    cache_read_input_tokens, cache_creation_input_tokens
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(session_id) DO UPDATE SET
                     recorded_at = excluded.recorded_at,
                     classification = excluded.classification,
@@ -290,7 +340,11 @@ final class EventStore: Sendable {
                     loop_count = excluded.loop_count,
                     error_count = excluded.error_count,
                     total_calls = excluded.total_calls,
-                    efficiency = excluded.efficiency;
+                    efficiency = excluded.efficiency,
+                    input_tokens = excluded.input_tokens,
+                    output_tokens = excluded.output_tokens,
+                    cache_read_input_tokens = excluded.cache_read_input_tokens,
+                    cache_creation_input_tokens = excluded.cache_creation_input_tokens;
             """
 
             var stmt: OpaquePointer?
@@ -307,6 +361,10 @@ final class EventStore: Sendable {
             sqlite3_bind_int(stmt, 8, Int32(metrics.errorCount))
             sqlite3_bind_int(stmt, 9, Int32(metrics.totalCalls))
             sqlite3_bind_double(stmt, 10, metrics.efficiency)
+            sqlite3_bind_int(stmt, 11, Int32(bitPattern: inputTokens))
+            sqlite3_bind_int(stmt, 12, Int32(bitPattern: outputTokens))
+            sqlite3_bind_int(stmt, 13, Int32(bitPattern: cacheReadInputTokens))
+            sqlite3_bind_int(stmt, 14, Int32(bitPattern: cacheCreationInputTokens))
             sqlite3_step(stmt)
         }
     }
@@ -321,7 +379,9 @@ final class EventStore: Sendable {
             var stmt: OpaquePointer?
             let sql = """
                 SELECT recorded_at, classification, displacement, path_length,
-                       curvature_ratio, loop_count, error_count, total_calls, efficiency
+                       curvature_ratio, loop_count, error_count, total_calls, efficiency,
+                       input_tokens, output_tokens,
+                       cache_read_input_tokens, cache_creation_input_tokens
                 FROM session_metrics
                 WHERE session_id = ?
                 LIMIT 1;
@@ -340,7 +400,11 @@ final class EventStore: Sendable {
                 loopCount: Int(sqlite3_column_int(stmt, 5)),
                 errorCount: Int(sqlite3_column_int(stmt, 6)),
                 totalCalls: Int(sqlite3_column_int(stmt, 7)),
-                efficiency: sqlite3_column_double(stmt, 8)
+                efficiency: sqlite3_column_double(stmt, 8),
+                inputTokens: Int(sqlite3_column_int(stmt, 9)),
+                outputTokens: Int(sqlite3_column_int(stmt, 10)),
+                cacheReadInputTokens: Int(sqlite3_column_int(stmt, 11)),
+                cacheCreationInputTokens: Int(sqlite3_column_int(stmt, 12))
             )
         }
     }
@@ -561,7 +625,9 @@ final class EventStore: Sendable {
         withDatabaseRead { db in
             let sql = """
                 SELECT session_id, recorded_at, classification, displacement, path_length,
-                       curvature_ratio, loop_count, error_count, total_calls, efficiency
+                       curvature_ratio, loop_count, error_count, total_calls, efficiency,
+                       input_tokens, output_tokens,
+                       cache_read_input_tokens, cache_creation_input_tokens
                 FROM session_metrics
                 WHERE session_id = ?
                 LIMIT 1;
@@ -583,7 +649,11 @@ final class EventStore: Sendable {
                 loopCount: Int(sqlite3_column_int(stmt, 6)),
                 errorCount: Int(sqlite3_column_int(stmt, 7)),
                 totalCalls: Int(sqlite3_column_int(stmt, 8)),
-                efficiency: sqlite3_column_double(stmt, 9)
+                efficiency: sqlite3_column_double(stmt, 9),
+                inputTokens: Int(sqlite3_column_int(stmt, 10)),
+                outputTokens: Int(sqlite3_column_int(stmt, 11)),
+                cacheReadInputTokens: Int(sqlite3_column_int(stmt, 12)),
+                cacheCreationInputTokens: Int(sqlite3_column_int(stmt, 13))
             )
         }
     }
@@ -593,6 +663,53 @@ final class EventStore: Sendable {
             return nil
         }
         return record.classification
+    }
+
+    /// N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — power source for
+    /// the W9.6 cost dashboard's `Cache hit rate` row + per-session
+    /// list. Returns the most recent `limit` rows ordered by
+    /// `recorded_at DESC`. Token aggregates (input / output / cache
+    /// pair) come from AgentResultFFI; provider name + objective +
+    /// per-session cost are NOT yet tracked in `session_metrics` and
+    /// fall back to placeholders in the dashboard until a follow-up
+    /// PR extends the schema (or projects from another store).
+    nonisolated func recentSessionMetrics(limit: Int = 30) -> [SessionMetricsRecord] {
+        withDatabaseRead { db in
+            let sql = """
+                SELECT session_id, recorded_at, classification, displacement, path_length,
+                       curvature_ratio, loop_count, error_count, total_calls, efficiency,
+                       input_tokens, output_tokens,
+                       cache_read_input_tokens, cache_creation_input_tokens
+                FROM session_metrics
+                ORDER BY recorded_at DESC
+                LIMIT ?;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int(stmt, 1, Int32(max(1, limit)))
+
+            var results: [SessionMetricsRecord] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                results.append(SessionMetricsRecord(
+                    sessionId: String(cString: sqlite3_column_text(stmt, 0)),
+                    recordedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
+                    classification: String(cString: sqlite3_column_text(stmt, 2)),
+                    displacement: sqlite3_column_double(stmt, 3),
+                    pathLength: sqlite3_column_double(stmt, 4),
+                    curvatureRatio: sqlite3_column_double(stmt, 5),
+                    loopCount: Int(sqlite3_column_int(stmt, 6)),
+                    errorCount: Int(sqlite3_column_int(stmt, 7)),
+                    totalCalls: Int(sqlite3_column_int(stmt, 8)),
+                    efficiency: sqlite3_column_double(stmt, 9),
+                    inputTokens: Int(sqlite3_column_int(stmt, 10)),
+                    outputTokens: Int(sqlite3_column_int(stmt, 11)),
+                    cacheReadInputTokens: Int(sqlite3_column_int(stmt, 12)),
+                    cacheCreationInputTokens: Int(sqlite3_column_int(stmt, 13))
+                ))
+            }
+            return results
+        } ?? []
     }
 
     struct SnapshotMeta: Identifiable {
