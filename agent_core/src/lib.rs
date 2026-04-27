@@ -28,6 +28,7 @@ pub mod runtime;
 pub mod routing;
 pub mod security;
 pub mod session;
+pub mod session_insights;
 pub mod skill_router;
 pub mod types;
 pub mod vault_registry;
