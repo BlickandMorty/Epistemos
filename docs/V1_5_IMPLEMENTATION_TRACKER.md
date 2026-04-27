@@ -60,7 +60,7 @@ done.
 
 | ID | Status | Commit | Notes |
 | -- | ------ | ------ | ----- |
-| N1 Prompt Tree (JSPF + PTF) | ⚪ PENDING | — | Locked into [03_EXECUTION_MAP.md §N1](plan/03_EXECUTION_MAP.md#n1--prompt-tree-jspf--ptf--structureregistry-driven-prompt-composer). Ready-to-paste prompt at [docs/plan/prompts/N1_prompt_tree.md](plan/prompts/N1_prompt_tree.md). Foundation + ChatCoordinator wire (WRV anchor) + StructureRegistry extension + spec doc. Parallel-track (does not block any phase). |
+| N1 Prompt Tree (JSPF + PTF) | 🟢 SHIPPED | 7316f86b | Foundation + WRV anchor landed: PromptTree.swift (typed Prompt + 8 sub-types + composer), PromptRenderer.swift (4 targets + Relocation Trick), PromptCache.swift (4-breakpoint cap + per-provider degradation), PromptTreePersister.swift (PTF directory + GC), 5 prompt-shape entries in StructureRegistry, ChatCoordinator first-turn wire behind `EPISTEMOS_PROMPT_TREE=1`, 8 PromptTreeTests passing in 0.015s, docs/PROMPT_AS_DATA_SPEC.md spec. ~1890 LOC. Phase 1 follow-up: wire RenderedPrompt.anthropic(systemBlocks:messages:) into Rust SSE handler so Relocation Trick flows through to Anthropic + cached_tokens_share telemetry into W9.6 dashboard. |
 
 ## Bucket D — Research-grade, gate on roadmap need
 
