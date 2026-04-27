@@ -292,6 +292,112 @@ struct EventStoreTests {
         #expect(record.totalCalls == 4)
         #expect(store.sessionMetricClassification(sessionId: "session-trajectory") == "exploratory")
     }
+
+    // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — guard the
+    // round-trip from `AgentResultFFI` cache token fields, through
+    // `EventStore.saveSessionMetrics`, into the `session_metrics`
+    // SQLite columns added by the same closure migration. The W9.6
+    // cost dashboard reads `cachedTokensShare` off this same record;
+    // if the persistence path silently drops cache values, the
+    // dashboard's "Cache hit rate" row flat-lines at 0 % and N1's
+    // whole point evaporates.
+    @Test("session metrics round-trip preserves cache token fields")
+    func sessionMetricsCacheRoundTrip() async throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+
+        let metrics = ReasoningTrajectoryMetricsFFI(
+            displacement: 0.6,
+            pathLength: 1.2,
+            curvatureRatio: 2.0,
+            loopCount: 0,
+            errorCount: 0,
+            totalCalls: 3,
+            efficiency: 0.2,
+            classification: "efficient"
+        )
+
+        // Realistic Anthropic Sonnet 4.6 numbers — 9 216 tokens served
+        // from cache vs 384 fresh input tokens = 96 % cache hit rate
+        // (matches the order of magnitude the 5-minute prompt cache
+        // achieves on a 50-turn conversation per
+        // docs/PROMPT_AS_DATA_SPEC §3).
+        store.saveSessionMetrics(
+            sessionId: "session-cache-rt",
+            metrics: metrics,
+            inputTokens: 384,
+            outputTokens: 256,
+            cacheReadInputTokens: 9_216,
+            cacheCreationInputTokens: 2_048
+        )
+
+        var stored: EventStore.SessionMetricsRecord?
+        for _ in 0..<20 {
+            stored = store.sessionMetrics(for: "session-cache-rt")
+            if stored != nil { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        let record = try #require(stored)
+        #expect(record.inputTokens == 384)
+        #expect(record.outputTokens == 256)
+        #expect(record.cacheReadInputTokens == 9_216)
+        #expect(record.cacheCreationInputTokens == 2_048)
+        // 9216 / (384 + 9216) == 0.96
+        #expect(abs(record.cachedTokensShare - 0.96) < 1e-9)
+
+        // recentSessionMetrics powers the W9.6 dashboard — verify
+        // the round-tripped cache fields land in the dashboard read
+        // path too.
+        let recents = store.recentSessionMetrics(limit: 10)
+        let mostRecent = try #require(recents.first { $0.sessionId == "session-cache-rt" })
+        #expect(mostRecent.cacheReadInputTokens == 9_216)
+        #expect(mostRecent.cacheCreationInputTokens == 2_048)
+        #expect(mostRecent.inputTokens == 384)
+    }
+
+    // N1 Phase 1 closure — non-Anthropic providers (OpenAI, Gemini,
+    // Perplexity) leave the cache pair untouched in TokenUsage, which
+    // means saveSessionMetrics' default-0 parameters are exercised
+    // every time those providers complete a session. Verify the
+    // default-arg call still round-trips with cache fields == 0 and
+    // computes a 0.0 hit-rate share rather than NaN/divide-by-zero.
+    @Test("session metrics defaults to zero cache for non-Anthropic providers")
+    func sessionMetricsDefaultsZeroCache() async throws {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("event-store-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("events.sqlite")
+        let store = try #require(EventStore(databaseURL: dbURL))
+
+        let metrics = ReasoningTrajectoryMetricsFFI(
+            displacement: 0.4,
+            pathLength: 0.8,
+            curvatureRatio: 2.0,
+            loopCount: 0,
+            errorCount: 0,
+            totalCalls: 2,
+            efficiency: 0.2,
+            classification: "efficient"
+        )
+        // Call site exercising legacy default-args (no cache fields).
+        store.saveSessionMetrics(sessionId: "session-no-cache", metrics: metrics)
+
+        var stored: EventStore.SessionMetricsRecord?
+        for _ in 0..<20 {
+            stored = store.sessionMetrics(for: "session-no-cache")
+            if stored != nil { break }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+
+        let record = try #require(stored)
+        #expect(record.inputTokens == 0)
+        #expect(record.outputTokens == 0)
+        #expect(record.cacheReadInputTokens == 0)
+        #expect(record.cacheCreationInputTokens == 0)
+        #expect(record.cachedTokensShare == 0.0)
+    }
 }
 
 @Suite("Startup Integrity")

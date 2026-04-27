@@ -2313,9 +2313,21 @@ final class ChatCoordinator {
             agentConfig: agentConfig,
             delegate: delegate
           )
+          // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — persist
+          // the AgentResultFFI token counters (input/output, plus the
+          // Anthropic prompt-cache pair surfaced in PR1 b8d779ca) so
+          // the W9.6 cost dashboard can render real numbers instead
+          // of the placeholder. Cache fields stay 0 for non-Anthropic
+          // providers — the agent_core TokenUsage struct leaves them
+          // untouched when OpenAI / Gemini / Perplexity don't report
+          // cache activity.
           EventStore.shared?.saveSessionMetrics(
             sessionId: sessionId,
-            metrics: result.trajectoryMetrics
+            metrics: result.trajectoryMetrics,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            cacheReadInputTokens: result.cacheReadInputTokens,
+            cacheCreationInputTokens: result.cacheCreationInputTokens
           )
 
           // AR2 — fire ConversationStateClassifier per master plan

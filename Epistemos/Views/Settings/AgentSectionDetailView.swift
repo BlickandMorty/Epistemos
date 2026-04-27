@@ -119,11 +119,20 @@ struct AgentSectionDetailView: View {
         case .overseer:
             OverseerSettingsView()
         case .spend:
-            // W9.6 — Cost dashboard wired here. Today the entries
-            // list is empty until the Rust → Swift session-insights
-            // bridge lands; the BudgetPreferences editor is fully
-            // functional so the user can set the cap immediately.
-            CostDashboardView(entries: [])
+            // W9.6 — Cost dashboard. N1 Phase 1 closure
+            // (MASTER_BUILD_PLAN.md:311) wires real session_metrics
+            // rows in: each row carries the input/output/cache token
+            // counts that ChatCoordinator persists via
+            // EventStore.saveSessionMetrics after each agent run, so
+            // the "Cache hit rate" row reflects the Anthropic prompt
+            // cache's actual hit rate instead of the empty placeholder.
+            // Provider name + objective + per-session USD are
+            // intentionally left as placeholders here — those columns
+            // aren't tracked in `session_metrics` yet, and the cache
+            // hit rate is the W9.6 success metric per the plan's
+            // success criterion (cached_tokens_share row > 0 % after
+            // second turn).
+            SpendDashboardHost()
         case .structures:
             // First reader of the StructureRegistry. Surfaces every
             // @Generable schema with surface + storage + maturity so
@@ -133,5 +142,56 @@ struct AgentSectionDetailView: View {
             // had zero callers in the production code paths.
             StructuredSurfacesView()
         }
+    }
+}
+
+// MARK: - Spend dashboard host (N1 Phase 1 closure)
+//
+// Pulls the most recent session_metrics rows from EventStore and
+// projects them into the [CostDashboardEntry] shape that
+// CostDashboardView consumes. The .task block runs on tab switch and
+// keeps the read off the main thread (EventStore.recentSessionMetrics
+// is `nonisolated` so it dispatches onto the EventStore's serial
+// SQLite queue).
+//
+// Provider / title / per-session USD are placeholders — the
+// session_metrics schema does not yet carry those columns. The W9.6
+// success criterion per MASTER_BUILD_PLAN.md:390 is the aggregate
+// cache hit rate, which depends only on the input + cache_read
+// columns persisted in PR2 — so the row goes live with real numbers
+// even while the per-session list rows show provider="—" / cost="—"
+// until a follow-up extends the schema.
+
+private struct SpendDashboardHost: View {
+    @State private var entries: [CostDashboardEntry] = []
+
+    var body: some View {
+        CostDashboardView(entries: entries)
+            .task {
+                let records = await Task.detached(priority: .userInitiated) {
+                    EventStore.shared?.recentSessionMetrics(limit: 30) ?? []
+                }.value
+                entries = records.map { record in
+                    CostDashboardEntry(
+                        id: record.sessionId,
+                        title: shortTitle(for: record.sessionId),
+                        provider: "—",
+                        inputTokens: record.inputTokens,
+                        outputTokens: record.outputTokens,
+                        estimatedCostUSD: 0.0,
+                        startedAt: record.recordedAt,
+                        cacheReadInputTokens: record.cacheReadInputTokens,
+                        cacheCreationInputTokens: record.cacheCreationInputTokens
+                    )
+                }
+            }
+    }
+
+    private func shortTitle(for sessionId: String) -> String {
+        // Until session_metrics tracks an objective column, surface a
+        // short prefix of the session id so the row is at least
+        // identifiable. Trim to the first 8 chars to match the format
+        // EventStore log lines already use ("session \(sessionId.prefix(8))").
+        "Session \(sessionId.prefix(8))"
     }
 }
