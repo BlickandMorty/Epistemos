@@ -18,6 +18,11 @@ async-stream = "0.3"
 async-trait = "0.1"
 axum = { version = "0.7", features = ["macros"] }
 base64 = "0.22"
+# D1 — BLAKE3 Merkle chain in OpLog. Per execution map §D1 + W9.27
+# PR3 the substrate stores `prev_hash: [u8; 32]` on every op so
+# `epistemos-trace verify` can walk the chain and prove no op was
+# tampered with. Same crate version as epistemos-core.
+blake3 = "1"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 cron = "0.15"
 dirs = "5.0"
