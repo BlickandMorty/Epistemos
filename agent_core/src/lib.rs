@@ -23,6 +23,7 @@ pub mod provider;
 pub mod reasoning_metrics;
 pub mod resources;
 pub mod rope;
+pub mod rope_handle;
 pub mod runtime;
 pub mod routing;
 pub mod security;
