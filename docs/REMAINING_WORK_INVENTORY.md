@@ -7,6 +7,48 @@ when every item below is checked off, [WAVE_9_POLISH_AND_NATIVE.md]
 research drops can be archived. **Nothing here is research-only — every
 remaining item has a verified API path or shipped scaffold to build on.**
 
+## 🆕 2026-04-26 audit pass — 3 deep agents reported
+
+Three parallel audit agents (perf-optimization, wire-up gaps,
+build/test verification) confirmed:
+- **Build status**: YELLOW. Build clean, 0 errors, 4 test suites
+  passing (Sidecar 10/10, FSRS 6/6, ShadowVaultBootstrapper 5/5,
+  EpdocPasteClassifier ~8). Rust FFI exports clean (7/7 shadow
+  symbols).
+- **Two blockers** at audit time:
+  - Blocker #1 NoteEntity Spotlight donation — ✅ **fixed
+    (9a91db3a)** — VaultIndexActor now donates typed NoteEntity
+    batches alongside the legacy CSSearchableItem path.
+  - Blocker #2 EpistemosControlWidget needs `.appex` extension
+    target — still pending (xcodegen change).
+- **Perf wins** (10 ranked) — top 3 closed in 4edb66b4
+  (QuarantineArchive off-MainActor I/O), the rest land as Tier 1/2
+  items below.
+- **Wire-up gaps** (10 critical) — R3 VoicePrefs in Settings closed
+  in 4edb66b4; the rest are R1/R2 + new R-series below.
+
+Audit-driven additions to the remaining list (ranked by ROI):
+
+| ID | Item | Source | Effort |
+| -- | ---- | ------ | ------ |
+| **AR1** | EpistemosControlWidget xcodegen `.appex` extension target | build/test agent Blocker #2 | M |
+| **AR2** | ConversationStateClassifier wired into agent dispatch (replace naive transcript truncation in `agent_core/src/compaction.rs`) | wire-up agent gap #4 | M |
+| **AR3** | SessionTelemetryClassifier replaces existing free-form summarizer call sites | wire-up agent gap #5 | S |
+| **AR4** | Focus filter runtime guards (`forceLocalModelsOnly` / `lowDistraction` etc. read at runtime) | wire-up agent gap #6 | S |
+| **AR5** | IntakeValve called from pasteboard handler (chat composer + Tiptap paste handler) | wire-up agent gap #7 | S |
+| **AR6** | MetalGraphView reads CognitiveDepthOverlay for altitude/color per-node | wire-up agent gap #8 | M |
+| **AR7** | FSRS "forgotten notes" sidebar / dashboard UI | wire-up agent gap #9 | M |
+| **AR8** | ReasoningTrajectoryBadge placed next to session results in chat history | wire-up agent gap #10 | XS |
+| **AP1** | Batch WKWebView `evaluateJavaScript` calls (perf Win #1: 100-150ms → 30-40ms paste-to-doc latency) | perf agent | M |
+| **AP2** | Sidecar JSON full-object cache (CognitiveDepthOverlay reads only `depth` today; cache the entire decoded sidecar) | perf agent Win #2 | S |
+| **AP4** | AFM session prewarm at app launch (perf Win #4: first-classify 200ms → 60ms) | perf agent | S |
+| **AP5** | FSRSDecayStore: replace `DispatchQueue.sync` with `actor` (perf Win #5: 5× scan throughput) | perf agent | S |
+| **AP6** | AFMSessionPool — share warm sessions across OntologyClassifier + IntakeValve + ConversationState (perf Win #6: 40% token reduction) | perf agent | M |
+| **AP7** | Vault sidecar prefetch on app launch (perf Win #7: graph first-render 1000ms → 100-150ms) | perf agent | M |
+| **AP8** | Tiptap JS-side debounce on `update` events (perf Win #8: -80% complexity-meter CPU) | perf agent | S |
+| **AP9** | EpdocPasteClassifier: pre-compile Swift 6.2 `Regex` patterns once (perf Win #9: 8ms → 1ms paste classify) | perf agent | XS |
+| **AP10** | ConversationStateClassifier rebuild off MainActor (perf Win #10: -300-400ms agent latency) | perf agent | S |
+
 ## ✅ Already shipped (do not re-do)
 
 Foundation chain through Wave 15:
