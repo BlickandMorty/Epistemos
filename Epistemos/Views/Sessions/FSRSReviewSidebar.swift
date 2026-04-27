@@ -57,6 +57,46 @@ final class FSRSReviewSidebarModel {
     }
 }
 
+// MARK: - List Section wrapper (for embedding inside SessionListView)
+
+/// Drop-in List `Section` form of the FSRS review surface for hosts
+/// that already own a `List` (the SessionListView sidebar). Auto-
+/// hides the section when nothing is at risk so it doesn't take
+/// chrome on a fresh vault.
+struct FSRSReviewSidebarSection: View {
+    @State private var model = FSRSReviewSidebarModel()
+
+    var body: some View {
+        Group {
+            if !model.visibleRows.isEmpty {
+                Section {
+                    ForEach(model.visibleRows, id: \.noteId) { row in
+                        FSRSReviewRow(
+                            risk: row,
+                            onGrade: { grade in
+                                Task {
+                                    await model.recordReview(
+                                        noteId: row.noteId, grade: grade
+                                    )
+                                }
+                            }
+                        )
+                    }
+                } header: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "brain")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.tint)
+                        Text("Forgotten — \(model.visibleRows.count) due")
+                            .font(.system(size: 11, weight: .semibold))
+                    }
+                }
+            }
+        }
+        .task { await model.refresh() }
+    }
+}
+
 // MARK: - View
 
 /// Sidebar/sheet that lists notes whose retrievability has decayed
@@ -128,7 +168,7 @@ struct FSRSReviewSidebar: View {
 
 // MARK: - Row
 
-private struct FSRSReviewRow: View {
+fileprivate struct FSRSReviewRow: View {
 
     let risk: FSRSHighRisk
     let onGrade: (FSRSGrade) -> Void

@@ -41,6 +41,14 @@ struct SessionListView: View {
                 get: { browser.selectedSession },
                 set: { browser.selectedSession = $0 }
             )) {
+                // AR7 placement — FSRS-6 forgotten-notes review queue
+                // pinned at the top of the sidebar so the user sees
+                // "what's at risk of being forgotten" before scrolling
+                // into past sessions. Auto-hides when nothing's at
+                // risk so the section doesn't take chrome on a fresh
+                // vault. Master plan Phase 2 / Wave 13 §"Phase 2".
+                FSRSReviewSidebarSection()
+
                 ForEach(browser.filteredGroups(matching: searchQuery)) { group in
                     Section(group.label) {
                         ForEach(group.sessions) { session in
