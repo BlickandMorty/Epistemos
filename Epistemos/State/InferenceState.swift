@@ -4962,10 +4962,25 @@ final class InferenceState {
         }
     }
 
+    /// AR4 (Wave 14 Focus filters) — when the active Focus has set
+    /// `EpistemosFocusKeys.forceLocalModelsOnly`, an explicit cloud
+    /// pick collapses to the user's preferred local MLX model. The
+    /// model picker reads `isCloudPickBlockedByFocus` to surface a
+    /// one-line "Focus" badge so the user understands why the cloud
+    /// option was suppressed.
+    var isCloudPickBlockedByFocus: Bool {
+        UserDefaults.standard.bool(forKey: EpistemosFocusKeys.forceLocalModelsOnly)
+    }
+
     func setPreferredChatModelSelection(_ selection: ChatModelSelection) {
         let normalizedSelection = normalizedChatModelSelection(selection)
         switch normalizedSelection {
         case .cloud(let model):
+            if isCloudPickBlockedByFocus {
+                pendingUnavailableCloudSelection = model
+                persistPreferredChatModelSelection(.localMLX(preferredLocalTextModelID))
+                return
+            }
             guard hasConfiguredCloudAccess(for: model.provider) else {
                 persistPreferredCloudModel(model)
                 pendingUnavailableCloudSelection = model
