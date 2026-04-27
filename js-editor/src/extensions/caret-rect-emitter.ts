@@ -28,12 +28,6 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
     return { onChange: undefined };
   },
 
-  addProSeMirrorPlugins(): Plugin[] {
-    // Tiptap renames addProseMirrorPlugins → addProSeMirrorPlugins in
-    // some intermediate versions; we ship both casings to be safe.
-    return this.addProseMirrorPlugins();
-  },
-
   addProseMirrorPlugins(): Plugin[] {
     let pendingFrame: number | null = null;
     let lastEmittedKey: string | null = null;
@@ -85,7 +79,7 @@ export const CaretRectEmitter = Extension.create<CaretRectEmitterOptions>({
         Math.max(end.bottom - start.top, 16),   // line-height floor
       );
       const selection: SelectionPayload = { from, to, empty };
-      onChange(rect, selection);
+      onChange!(rect, selection);
     }
   },
 });

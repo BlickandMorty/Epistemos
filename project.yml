@@ -231,6 +231,91 @@ targets:
       - sdk: AppIntents.framework
       - sdk: CoreSpotlight.framework
 
+  # AR1 — Control Center widget extension (Wave 15 §"#3").
+  # macOS surfaces ControlWidgets ONLY from a `.appex` extension
+  # bundle. The control entry points (`EpistemosCaptureControl`,
+  # `EpistemosSandboxControl`) live in the main-app target source
+  # at `Epistemos/Intents/Schemas/EpistemosControlWidget.swift`
+  # because they reference the cognitive intents the main app owns;
+  # this target's `@main` entry lives in `EpistemosWidgets/`.
+  EpistemosWidgets:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: EpistemosWidgets
+        type: syncedFolder
+      # Pull in the control sources + the cognitive intents they
+      # reference. xcodegen scopes the includes per-target so the
+      # main app target still compiles them too (no duplicate-symbol
+      # risk because each target is a separate bundle).
+      - path: Epistemos/Intents/Schemas/EpistemosControlWidget.swift
+      - path: Epistemos/Intents/Schemas/CognitiveIntents.swift
+      - path: Epistemos/Engine/EpistemosSpeechSynthesizer.swift
+      - path: Epistemos/Engine/QuarantineArchive.swift
+      - path: Epistemos/Engine/EpistemosSidecar.swift
+      - path: Epistemos/Engine/SidecarCache.swift
+      - path: Epistemos/Engine/ConversationStateClassifier.swift
+      - path: Epistemos/Engine/SessionTelemetryClassifier.swift
+      - path: Epistemos/Engine/AFMSessionPool.swift
+    settings:
+      base:
+        PRODUCT_NAME: EpistemosWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app.widgets
+        INFOPLIST_FILE: EpistemosWidgets/Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        SKIP_INSTALL: false
+        LD_RUNPATH_SEARCH_PATHS:
+          - "@executable_path/../../../../Frameworks"
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+          DEVELOPMENT_TEAM: ""
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEVELOPMENT_TEAM: AL562BVF23
+          ENABLE_HARDENED_RUNTIME: true
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+      - sdk: AppIntents.framework
+
+  # R7 — NightBrain helper executable (Wave 13 §"Phase 10").
+  # launchd wakes this binary at 03:00 even when the main app has
+  # been quit. Plist contract:
+  #   <key>BundleProgram</key>
+  #   <string>Contents/MacOS/NightBrainHelper</string>
+  # Helper shares PowerGate + NightBrainScheduler source files with
+  # the main app target so the gate predicate + last-run telemetry
+  # behaviour stays identical across both processes.
+  NightBrainHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: EpistemosNightBrainHelper
+        type: syncedFolder
+      # PowerGate + NightBrainScheduler are shared sources — both
+      # the main app and the helper compile the same files so the
+      # predicate semantics stay identical.
+      - path: Epistemos/State/PowerGate.swift
+      - path: Epistemos/State/NightBrainScheduler.swift
+    settings:
+      base:
+        PRODUCT_NAME: NightBrainHelper
+        PRODUCT_BUNDLE_IDENTIFIER: com.epistemos.app.nightbrain-helper
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        SKIP_INSTALL: false
+        CODE_SIGN_STYLE: Automatic
+      configs:
+        Debug:
+          CODE_SIGN_IDENTITY: "-"
+          DEVELOPMENT_TEAM: ""
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Development"
+          DEVELOPMENT_TEAM: AL562BVF23
+          ENABLE_HARDENED_RUNTIME: true
+
   EpistemosTests:
     type: bundle.unit-test
     platform: macOS
