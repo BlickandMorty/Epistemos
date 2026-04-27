@@ -136,31 +136,43 @@ public struct CostDashboardView: View {
                 Text(aggregateCachedShare, format: .percent.precision(.fractionLength(1)))
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(cacheTint)
-                Text("\(totalCacheReadTokens) / \(aggregateBilledInput) tokens")
+                Text("\(totalCacheReadTokens.formatted(.number)) / \(aggregateBilledInput.formatted(.number)) tokens")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
             .background(cacheTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+            .help(cacheHelpText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(cacheAccessibilityLabel)
         } else {
             // Empty / Anthropic-cache-untouched session set.
             // Honest "no signal yet" placeholder per
             // PLAN_V2.md §3.4 — show that the metric exists but
             // hasn't accumulated data, instead of hiding it.
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.shield")
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    Image(systemName: "bolt.shield")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                    Text("Cache hit rate")
+                        .font(.callout.weight(.medium))
+                    Spacer()
+                    Text("—")
+                        .font(.callout.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                }
+                Text(emptyCacheCaption)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
-                    .font(.caption)
-                Text("Cache hit rate")
-                    .font(.callout.weight(.medium))
-                Spacer()
-                Text("—")
-                    .font(.callout.monospacedDigit())
-                    .foregroundStyle(.secondary)
+                    .padding(.leading, 22)
             }
             .padding(.vertical, 4)
             .padding(.horizontal, 8)
+            .help(cacheHelpText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Cache hit rate not yet measured. \(emptyCacheCaption).")
         }
     }
 
@@ -180,14 +192,38 @@ public struct CostDashboardView: View {
         .help("When a session crosses this cap, the agent pauses and asks for approval.")
     }
 
+    @ViewBuilder
     private var list: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 6) {
-                ForEach(entries) { entry in
-                    row(for: entry)
+        if entries.isEmpty {
+            emptyState
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 6) {
+                    ForEach(entries) { entry in
+                        row(for: entry)
+                    }
                 }
             }
         }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.title2)
+                .foregroundStyle(.tertiary)
+            Text("No agent runs yet")
+                .font(.callout.weight(.medium))
+            Text("Completed sessions appear here with their token usage and estimated cost.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 32)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("No agent runs yet. Completed sessions appear here.")
     }
 
     @ViewBuilder
@@ -243,6 +279,23 @@ public struct CostDashboardView: View {
         if aggregateCachedShare >= 0.30 { return .green }
         if aggregateCachedShare > 0 { return .orange }
         return .secondary
+    }
+
+    private var emptyCacheCaption: String {
+        entries.isEmpty
+            ? "Awaiting first agent run"
+            : "No Anthropic prompt-cache activity yet"
+    }
+
+    private var cacheHelpText: String {
+        "Anthropic charges 90% less for input tokens served from the prompt cache. Sustained ≥30% means the prompt tree is shaped efficiently."
+    }
+
+    private var cacheAccessibilityLabel: String {
+        let pct = aggregateCachedShare.formatted(.percent.precision(.fractionLength(1)))
+        let cached = totalCacheReadTokens.formatted(.number)
+        let billed = aggregateBilledInput.formatted(.number)
+        return "Cache hit rate \(pct), \(cached) of \(billed) input tokens served from cache."
     }
 }
 

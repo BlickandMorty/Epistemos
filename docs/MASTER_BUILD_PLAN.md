@@ -298,17 +298,22 @@ item, work it through §1–§6, mark it 🟢 SHIPPED with commit SHA, repeat.
 
 ### Bucket N — Novel additions (locked into plan after dossier closed)
 
-#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟡 PHASE 1 IN PROGRESS
+#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟢 SHIPPED
 
-**Commits:** `7316f86b` (foundation) + `1ab15596` (Settings toggle) + `e8c22dbb` (spec doc) + `4561f31b` (substrate registration) + `b9a5312d` (cache wire)
+**Commits:** `7316f86b` (foundation) + `1ab15596` (Settings toggle) + `e8c22dbb` (spec doc) + `4561f31b` (substrate registration) + `b9a5312d` (cache wire) + `b8d779ca` (Phase 1 closure PR1: AgentResultFFI cache fields) + `af0a0f21` (Phase 1 closure PR2-3: EventStore persist + dashboard render)
 
-**Status note (updated 2026-04-27 per CRITIQUE_LOG pass #8 steer):** auditor's exact 3-step sequence executed. Phase 1 sub-checklist:
+**Status note (updated 2026-04-27 — Phase 1 closure complete):** Phase 1 sub-checklist:
 
 - [x] **Feature flag toggle** (`1ab15596`) — UserDefaults-backed toggle in Settings → Agent → Structures footer; env var EPISTEMOS_PROMPT_TREE=1 still wins via `PromptTreePreferences.isEnabled()`.
 - [x] **session_insights.rs orphan fix** (`4561f31b`) — `pub mod session_insights;` registered in `agent_core/src/lib.rs:31`. Test count went from 691 → 698 (+7 previously-orphan tests now compiling).
 - [x] **cached_tokens_share wire (W9.6)** (`b9a5312d`) — `SessionMetrics` + `AggregatedStats` + `InsightsReportFFI` extended with cache fields; `CostDashboardView` renders aggregate cache hit rate as a color-tinted percentage row above the budget editor. 6 new unit tests on the Rust side (704 total agent_core tests, all green); WRV-Wired grep gate passes (`Text(aggregateCachedShare, format: .percent...)` at `CostDashboardView.swift:136`, non-comment UI caller).
+- [x] **Phase 1 closure (PR1 of 3)** (`b8d779ca`) — `AgentResultFFI` extended with `cache_read_input_tokens` + `cache_creation_input_tokens` (sourced from `result.total_usage` populated by `merge_usage` in providers/claude.rs:622-630). `Epistemos/Bridge/StreamingDelegate.swift` fallback stub mirrored. 2 new cargo tests guarding the `merge_usage` data path; agent_core test count 704 → 706.
+- [x] **Phase 1 closure (PR2-3 of 3)** (`af0a0f21`) — `event_store.session_metrics` table extended with `input_tokens` + `output_tokens` + `cache_read_input_tokens` + `cache_creation_input_tokens` columns (idempotent ALTER TABLE for existing databases). `EventStore.saveSessionMetrics` now takes the four counters; `ChatCoordinator.swift:2316` threads them through from `AgentResultFFI`. New `EventStore.recentSessionMetrics(limit:)` powers a `SpendDashboardHost` view at `AgentSectionDetailView.swift:135` that replaces the old `CostDashboardView(entries: [])` placeholder with real session rows. 2 new XCTests guard the round-trip (cache fields + zero-default for non-Anthropic). xcodebuild green; full EventStoreTests suite 5/5.
 
-**Phase 1 closure (final piece, queued for the next session):** Anthropic SSE handler in `agent_core/src/providers/claude.rs` already parses `cache_read_input_tokens` into the local `TokenUsage` struct (lines 622-630). That value needs to flow into `SessionMetrics.cache_read_input_tokens` at session-completion time — the wire-point is whatever currently populates `SessionMetrics` from `ReasoningTrajectoryMetrics` (or wherever `EventStore.saveSessionMetrics` reads from). When that lands, the W9.6 dashboard's "Cache hit rate" row goes live with real numbers instead of the preview's mock data.
+**Phase 1 closure WRV proof:**
+- WIRED: `grep -rn 'recentSessionMetrics' Epistemos/Views Epistemos/State` → `AgentSectionDetailView.swift::SpendDashboardHost` (production caller) + `EventStore.swift` (definition). `grep -rn 'EventStore.shared?.saveSessionMetrics' Epistemos/App` → `ChatCoordinator.swift:2316`.
+- REACHABLE: Open app → `⌘,` (Settings) → "Agent" sidebar row → "Spend" segmented tab → cache hit rate row at the top of the dashboard, above the budget editor. Default config; no env vars; no debug menus.
+- VISIBLE: After ≥ 1 completed Anthropic chat turn with cache activity, the "Cache hit rate" row renders `X.X %` + `<read> / <total> tokens` subtitle, color-tinted green when share ≥ 30 %, orange below. Pre-cache-activity (fresh install, OpenAI-only, MAS-only AFM), the row honestly shows `—`.
 
 **Phase:** parallel | **Targets:** Both | **Risk:** Med
 
