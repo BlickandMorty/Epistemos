@@ -1569,6 +1569,20 @@ struct LocalModelToolbarMenu: View {
         VStack(alignment: .leading, spacing: 8) {
             popoverSectionTitle("Cloud")
 
+            if inference.isCloudPickBlockedByFocus {
+                // AR4 (Wave 14 Focus filters) — surface the
+                // `forceLocalModelsOnly` axis so the user knows their
+                // active Focus is suppressing cloud picks; the actual
+                // collapse to local happens in `setPreferredChatModelSelection`.
+                Label("Focus: Local-only — cloud picks fall back to local",
+                      systemImage: "moon.zzz")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(theme.textTertiary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(theme.textSecondary.opacity(0.06), in: Capsule())
+            }
+
             DisclosureGroup(
                 isExpanded: $showsCloudProviderOptions,
                 content: { cloudProviderSelectionRows },

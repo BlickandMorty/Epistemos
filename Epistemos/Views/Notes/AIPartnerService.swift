@@ -654,9 +654,20 @@ final class AIPartnerService {
     
     private func showNextSuggestion() {
         guard suggestionQueue.isEmpty == false else { return }
-        
+
+        // AR4 (Wave 14 Focus filters) — when the active Focus has the
+        // `agentInterruptsDisabled` axis set, the proactive suggestion
+        // popup must stay silent. We drop the queued suggestion rather
+        // than buffering it so the user isn't ambushed by a backlog of
+        // popups the moment Focus is turned off.
+        if UserDefaults.standard.bool(forKey: EpistemosFocusKeys.agentInterruptsDisabled) {
+            _ = suggestionQueue.removeFirst()
+            currentSuggestion = nil
+            return
+        }
+
         currentSuggestion = suggestionQueue.removeFirst()
-        
+
         // Show retro response if enabled
         if configuration.useRetroStyling, let suggestion = currentSuggestion {
             showRetroResponse(for: suggestion)

@@ -25,7 +25,17 @@ public struct HaloButton: View {
         self.controller = controller
     }
 
+    /// AR4 (Wave 14 Focus filters) — when the active Focus has the
+    /// `muteHaloRecallChip` axis set, the chip stays hidden regardless
+    /// of the underlying state machine. Read on every body evaluation
+    /// so a SetFocusFilterIntent flip takes effect on the next render
+    /// pass without a controller-level subscription.
+    private var isMutedByFocus: Bool {
+        UserDefaults.standard.bool(forKey: EpistemosFocusKeys.muteHaloRecallChip)
+    }
+
     public var body: some View {
+        let visible = controller.state.isVisible && !isMutedByFocus
         Button(action: { controller.openPanel() }) {
             Image(systemName: "sparkle.magnifyingglass")
                 .font(.system(size: 14, weight: .medium))
@@ -34,9 +44,9 @@ public struct HaloButton: View {
                 .background(.ultraThinMaterial, in: .circle)
         }
         .buttonStyle(.plain)
-        .opacity(controller.state.isVisible ? 1 : 0)
-        .scaleEffect(controller.state.isVisible ? 1 : 0.85)
-        .animation(.spring(duration: 0.18, bounce: 0.2), value: controller.state)
+        .opacity(visible ? 1 : 0)
+        .scaleEffect(visible ? 1 : 0.85)
+        .animation(.spring(duration: 0.18, bounce: 0.2), value: visible)
         .help("Show related notes & chats")
         .accessibilityLabel("Show contextual recall")
         .accessibilityHint("Reveals related notes and chats based on what you're typing")
