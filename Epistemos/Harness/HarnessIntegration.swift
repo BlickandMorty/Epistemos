@@ -17,7 +17,7 @@ import os
 ///   - `completeSession()` at session end
 @MainActor @Observable
 final class HarnessIntegration {
-    private static let log = Logger(subsystem: "com.epistemos", category: "HarnessIntegration")
+    nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "HarnessIntegration")
 
     /// W10.4 — process-wide singleton so the agent runtime call site
     /// (ChatCoordinator) can wire `prepareSession(...)` without
@@ -220,6 +220,41 @@ final class HarnessIntegration {
 
         // Close trace file handle
         Task { await traceCollector.closeSession(sid) }
+
+        // AR3 — fire SessionTelemetryClassifier on the accomplished
+        // summary + accumulated transcript so the structured Phase 9
+        // telemetry (decisions made, unresolved friction, active
+        // themes, emotional trajectory) is persisted alongside the
+        // free-form text. Best-effort + opportunistic — failures are
+        // logged + swallowed so the session-end happy path is never
+        // blocked by AFM unavailability or guardrail trips.
+        if #available(macOS 26.0, *) {
+            let sessionStartedAt = Date(timeIntervalSinceNow: -60.0 * 5)
+            let transcriptForDistill = accomplishedSummary +
+                (contextNotes.isEmpty ? "" : "\n\nNotes:\n" + contextNotes.joined(separator: "\n"))
+            Task.detached(priority: .background) {
+                do {
+                    let telemetry = try await SessionTelemetryClassifier.shared.distill(
+                        transcript: transcriptForDistill,
+                        sessionStart: sessionStartedAt,
+                        sessionEnd: Date()
+                    )
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+                    if let data = try? encoder.encode(telemetry),
+                       let json = String(data: data, encoding: .utf8) {
+                        EventStore.shared?.saveSessionTelemetry(
+                            sessionId: sid,
+                            telemetryJSON: json
+                        )
+                    }
+                } catch {
+                    Self.log.debug(
+                        "AR3 SessionTelemetry distillation failed for \(sid, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                    )
+                }
+            }
+        }
 
         Self.log.info("Session completed: \(sid) turns=\(turns) tokens=\(inputTokens)+\(outputTokens)")
     }
