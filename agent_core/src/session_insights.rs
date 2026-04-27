@@ -54,6 +54,32 @@ pub struct SessionMetrics {
     pub estimated_cost_usd: f64,
     pub tool_calls_count: u32,
     pub status: String, // "completed", "failed", "cancelled"
+
+    // ── N1 Phase 1: Anthropic prompt-cache telemetry ────────────
+    // Anthropic's usage block carries cache_read_input_tokens (90%
+    // discount) + cache_creation_input_tokens (25% premium write).
+    // Default 0 keeps deserialization backward-compatible with
+    // sessions saved before these fields landed.
+    /// Tokens served from the prompt cache. Always 0 for non-Anthropic providers.
+    #[serde(default)]
+    pub cache_read_input_tokens: u32,
+    /// Tokens written to the prompt cache. Always 0 for non-Anthropic providers.
+    #[serde(default)]
+    pub cache_creation_input_tokens: u32,
+}
+
+impl SessionMetrics {
+    /// Computed: fraction of input tokens served from the cache.
+    /// Returns 0.0 when total billed input tokens is 0.
+    /// Range: [0.0, 1.0].
+    pub fn cached_tokens_share(&self) -> f64 {
+        let total_input =
+            self.input_tokens as u64 + self.cache_read_input_tokens as u64;
+        if total_input == 0 {
+            return 0.0;
+        }
+        (self.cache_read_input_tokens as f64 / total_input as f64).clamp(0.0, 1.0)
+    }
 }
 
 /// Aggregated statistics across all sessions.
@@ -67,6 +93,18 @@ pub struct AggregatedStats {
     pub avg_turns_per_session: f64,
     pub avg_tokens_per_session: f64,
     pub avg_duration_seconds: f64,
+
+    // ── N1 Phase 1: Anthropic prompt-cache aggregates ───────────
+    // total_cache_read_input_tokens grows much faster than
+    // total_input_tokens when the Prompt Tree's Relocation Trick is
+    // working. The W9.6 dashboard surfaces aggregate_cached_tokens_share.
+    #[serde(default)]
+    pub total_cache_read_input_tokens: u64,
+    #[serde(default)]
+    pub total_cache_creation_input_tokens: u64,
+    /// Aggregate cache-hit share: cache_read / (input + cache_read). Range [0,1].
+    #[serde(default)]
+    pub aggregate_cached_tokens_share: f64,
 }
 
 /// Activity pattern data for heatmaps/charts.
@@ -167,6 +205,24 @@ impl InsightsEngine {
         let total_cost: f64 = sessions.iter().map(|s| s.estimated_cost_usd).sum();
         let total_duration: u64 = sessions.iter().map(|s| s.duration_seconds).sum();
 
+        // N1 Phase 1 — Anthropic prompt-cache aggregates
+        let total_cache_read: u64 = sessions
+            .iter()
+            .map(|s| s.cache_read_input_tokens as u64)
+            .sum();
+        let total_cache_creation: u64 = sessions
+            .iter()
+            .map(|s| s.cache_creation_input_tokens as u64)
+            .sum();
+        // share = cache_read / (input + cache_read). cache_creation
+        // is the one-time write — doesn't enter the hit-rate denominator.
+        let total_billed_input = total_input + total_cache_read;
+        let cached_share = if total_billed_input == 0 {
+            0.0
+        } else {
+            (total_cache_read as f64 / total_billed_input as f64).clamp(0.0, 1.0)
+        };
+
         AggregatedStats {
             total_sessions,
             total_turns,
@@ -176,6 +232,9 @@ impl InsightsEngine {
             avg_turns_per_session: total_turns as f64 / total_sessions as f64,
             avg_tokens_per_session: (total_input + total_output) as f64 / total_sessions as f64,
             avg_duration_seconds: total_duration as f64 / total_sessions as f64,
+            total_cache_read_input_tokens: total_cache_read,
+            total_cache_creation_input_tokens: total_cache_creation,
+            aggregate_cached_tokens_share: cached_share,
         }
     }
 
@@ -355,6 +414,13 @@ pub struct InsightsReportFFI {
     pub provider_breakdown_json: String,
     pub notable_sessions_json: String,
     pub generated_at: u64,
+
+    // ── N1 Phase 1: Anthropic prompt-cache aggregates ───────────
+    // Surfaced into the W9.6 cost dashboard so Swift can render
+    // `cached_tokens_share` directly without a separate plumbing path.
+    pub total_cache_read_input_tokens: u64,
+    pub total_cache_creation_input_tokens: u64,
+    pub aggregate_cached_tokens_share: f64,
 }
 
 impl From<InsightsReport> for InsightsReportFFI {
@@ -375,6 +441,9 @@ impl From<InsightsReport> for InsightsReportFFI {
             provider_breakdown_json: serde_json::to_string(&r.provider_breakdown).unwrap_or_default(),
             notable_sessions_json: serde_json::to_string(&r.notable).unwrap_or_default(),
             generated_at: r.generated_at,
+            total_cache_read_input_tokens: r.aggregated.total_cache_read_input_tokens,
+            total_cache_creation_input_tokens: r.aggregated.total_cache_creation_input_tokens,
+            aggregate_cached_tokens_share: r.aggregated.aggregate_cached_tokens_share,
         }
     }
 }
@@ -400,7 +469,76 @@ mod tests {
             estimated_cost_usd: cost,
             tool_calls_count: turns.saturating_sub(1),
             status: "completed".to_string(),
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0,
         }
+    }
+
+    fn sample_session_with_cache(
+        id: &str,
+        input: u32,
+        cache_read: u32,
+        cache_creation: u32,
+    ) -> SessionMetrics {
+        let mut s = sample_session(id, 1, input, 0, "claude_sonnet", 0.0);
+        s.cache_read_input_tokens = cache_read;
+        s.cache_creation_input_tokens = cache_creation;
+        s
+    }
+
+    #[test]
+    fn cached_tokens_share_zero_when_no_input() {
+        let s = sample_session_with_cache("a", 0, 0, 0);
+        assert_eq!(s.cached_tokens_share(), 0.0);
+    }
+
+    #[test]
+    fn cached_tokens_share_one_when_all_cached() {
+        // input=0, cache_read=1000 → 1000/1000 = 1.0
+        let s = sample_session_with_cache("b", 0, 1000, 0);
+        assert_eq!(s.cached_tokens_share(), 1.0);
+    }
+
+    #[test]
+    fn cached_tokens_share_typical_60_percent() {
+        // 600 cached / (400 + 600) = 0.60
+        let s = sample_session_with_cache("c", 400, 600, 0);
+        let share = s.cached_tokens_share();
+        assert!((share - 0.6).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_cache_share_across_sessions() {
+        let sessions = vec![
+            sample_session_with_cache("a", 100, 900, 0), // 90 % cached
+            sample_session_with_cache("b", 200, 800, 0), // 80 % cached
+        ];
+        let stats = InsightsEngine::compute_aggregated(&sessions);
+        // Total: input=300, cache_read=1700, billed_input=2000.
+        // share = 1700 / 2000 = 0.85
+        assert_eq!(stats.total_cache_read_input_tokens, 1700);
+        assert_eq!(stats.total_cache_creation_input_tokens, 0);
+        assert!((stats.aggregate_cached_tokens_share - 0.85).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aggregate_zero_cache_when_no_anthropic_sessions() {
+        // OpenAI doesn't populate the cache fields — they default to 0.
+        let sessions = vec![sample_session("a", 1, 1000, 500, "openai", 0.01)];
+        let stats = InsightsEngine::compute_aggregated(&sessions);
+        assert_eq!(stats.total_cache_read_input_tokens, 0);
+        assert_eq!(stats.aggregate_cached_tokens_share, 0.0);
+    }
+
+    #[test]
+    fn ffi_carries_cache_aggregates() {
+        // Confirm InsightsReportFFI surfaces the new fields so Swift can read them.
+        let sessions = vec![sample_session_with_cache("a", 100, 900, 50)];
+        let report = InsightsEngine::build_report(&sessions);
+        let ffi: InsightsReportFFI = report.into();
+        assert_eq!(ffi.total_cache_read_input_tokens, 900);
+        assert_eq!(ffi.total_cache_creation_input_tokens, 50);
+        assert!((ffi.aggregate_cached_tokens_share - 0.9).abs() < 1e-9);
     }
 
     #[test]
