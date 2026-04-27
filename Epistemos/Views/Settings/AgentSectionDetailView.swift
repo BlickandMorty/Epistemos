@@ -11,12 +11,18 @@ struct AgentSectionDetailView: View {
         case control = "Overview"
         case authority = "Authority"
         case overseer = "Overseer"
+        // W9.6 — Agent spend dashboard. Visible in BOTH builds (MAS
+        // and Pro) because cost transparency is a privacy/trust
+        // surface that applies even when only AFM + local models
+        // are wired (MAS still surfaces a $0.00 placeholder so the
+        // user knows nothing is hitting the network).
+        case spend = "Spend"
 
         var id: String { rawValue }
 
         static var visibleTabs: [AgentTab] {
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            [.authority]
+            [.authority, .spend]
             #else
             allCases
             #endif
@@ -31,6 +37,7 @@ struct AgentSectionDetailView: View {
             case .control: "slider.horizontal.3"
             case .authority: "checkmark.shield.fill"
             case .overseer: "brain.head.profile"
+            case .spend: "dollarsign.circle"
             }
         }
 
@@ -39,6 +46,7 @@ struct AgentSectionDetailView: View {
             case .control: "Tools, recent activity, sessions."
             case .authority: "What the agent can do without asking you first."
             case .overseer: "Read-only audit trail of routing decisions per turn."
+            case .spend: "Per-session estimated cost + budget cap."
             }
         }
     }
@@ -99,6 +107,12 @@ struct AgentSectionDetailView: View {
             AuthoritySettingsView(store: authorityStore)
         case .overseer:
             OverseerSettingsView()
+        case .spend:
+            // W9.6 — Cost dashboard wired here. Today the entries
+            // list is empty until the Rust → Swift session-insights
+            // bridge lands; the BudgetPreferences editor is fully
+            // functional so the user can set the cap immediately.
+            CostDashboardView(entries: [])
         }
     }
 }

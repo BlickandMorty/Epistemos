@@ -72,6 +72,30 @@ done.
 
 ## Session log
 
+### 2026-04-27 — WRV wiring sweep (anti-scaffolding pass)
+
+Per user directive: "AI has a really bad habit of not wiring things — scaffold then never wire." Audited today's 5 SHIPPED Swift files: **ZERO call sites** for any of them. They were orphaned scaffolds — exactly the failure mode the WRV gate exists to prevent.
+
+**Five WRV proofs landed this turn:**
+
+| Item | WIRED (call site) | REACHABLE (gesture) | VISIBLE (user signal) |
+| ---- | ----------------- | ------------------- | --------------------- |
+| **W9.6** CostDashboardView | `Epistemos/Views/Settings/AgentSectionDetailView.swift:115` (Spend tab branch) | Settings → Agent → Spend tab | Per-session list + total + budget cap field |
+| **W9.7** VaultSelectorView | `Epistemos/Views/Notes/NotesSidebar.swift:701` (above ModelVaultsSidebarSection) | Notes sidebar (always visible) | Disclosure group with current-vault row |
+| **W9.8** ApprovalModalView | `Epistemos/Views/Settings/AuthoritySettingsView.swift:75` (preview card + sheet) | Settings → Agent → Authority → "Show preview" button | Modal opens with countdown ring + 3-button decision row |
+| **W9.13** DailyNoteView | `Epistemos/Views/Notes/NotesSidebar.swift:1078` (Today's brief button + sheet) | Notes sidebar → Today's brief button | Sheet opens with date picker + body editor + due-review section |
+| **W9.29** ThermalMonitor | `Epistemos/Engine/MLXInferenceService.swift:33` (LocalMLXRequest.resolvedMaxTokens reads ProcessInfo.thermalState) | Every MLX inference call | maxTokens scales 100% → 85% → 50% → 25% as thermal state climbs (Nominal → Critical) |
+
+**N7 ConversationState read-site:** already wired at `ChatCoordinator.swift:2173+2254` (rebuild on every assistant turn, splice into next prompt). No new work needed.
+
+**Build verification:** `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` → BUILD SUCCEEDED. Only failures are vendored CodeEdit* SwiftLint warnings.
+
+Updated statuses for 2026-04-26 items above:
+- W9.6, W9.7, W9.8, W9.13, W9.29 graduate from 🟢 SHIPPED (file exists) to 🟢 SHIPPED (WRV verified end-to-end).
+- Other 🟡 FOUNDATION items (W9.21, W9.22, W9.26, W9.27, W9.30, R15, R16) keep their status — they need follow-up PRs to reach WRV per the dossier's per-item plan.
+
+**Lesson reinforced:** per `docs/plan/00_AUTHORITY_AND_ANTI_DRIFT.md §4.7`, file-exists ≠ shipped. WRV is the gate. Today's session proved the gate is doing its job.
+
 ### 2026-04-26 — implement-everything-non-CLI session
 
 **16 items addressed in one turn:**
