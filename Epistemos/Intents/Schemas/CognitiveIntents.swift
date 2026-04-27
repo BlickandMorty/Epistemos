@@ -27,7 +27,15 @@ struct CaptureBrainDumpIntent: AppIntent {
     static let description = IntentDescription(
         "Open Epistemos and start a voice / typed brain dump that's auto-routed to the right context (current chat, current note, or the raw-thoughts archive)."
     )
-    static let openAppWhenRun: Bool = true
+    // W15 supportedModes migration: openAppWhenRun is deprecated on
+    // macOS 26 in favour of IntentModes. We allow both .background
+    // (zero-UI capture from Spotlight / Control Center / a Shortcut
+    // pipeline) AND .foreground(.dynamic) (intent can escalate to
+    // foreground if it wants to surface confirmation UI). The
+    // perform() default path is headless so most invocations stay
+    // background; only the optional UI-surface follow-up requires
+    // the app to come forward.
+    static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
 
     @Parameter(
         title: "Body",
@@ -69,7 +77,8 @@ struct AttachThoughtToContextIntent: AppIntent {
     static let description = IntentDescription(
         "Capture a thought and bind it to whatever you're currently doing in Epistemos (active chat, open note, or running session)."
     )
-    static let openAppWhenRun: Bool = true
+    // W15 supportedModes — pure background capture; no UI needed.
+    static let supportedModes: IntentModes = [.background]
 
     @Parameter(title: "Thought")
     var thought: String
@@ -119,7 +128,9 @@ struct RecallActiveThesisIntent: AppIntent {
     static let description = IntentDescription(
         "Read the current conversation's active thesis aloud (or display it). Surfaces what Epistemos thinks you're currently arguing for."
     )
-    static let openAppWhenRun: Bool = false
+    // W15 supportedModes — strictly background; the response is a
+    // ProvidesDialog so Spotlight/Siri renders it inline.
+    static let supportedModes: IntentModes = [.background]
 
     @Parameter(
         title: "Conversation ID",
@@ -160,7 +171,10 @@ struct OpenRawThoughtSandboxIntent: AppIntent {
     static let description = IntentDescription(
         "Toggle Ambient Retrieval ON for the current conversation. The agent gains read-access to your quarantined raw thoughts; turn back off to return to deterministic mode."
     )
-    static let openAppWhenRun: Bool = true
+    // W15 supportedModes — toggle is silent background; only need
+    // foreground escalation if the user wants to see the Sandbox UI
+    // afterwards.
+    static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
 
     @Parameter(
         title: "Conversation ID",
@@ -199,7 +213,14 @@ struct DelegateToAgentIntent: AppIntent {
     static let description = IntentDescription(
         "Open the agent inspector with a prompt pre-filled. The agent will pick up your structured context (active thesis, recent notes, current vault) automatically."
     )
-    static let openAppWhenRun: Bool = true
+    // W15 supportedModes — capture in background; foreground if the
+    // agent has streaming UI to surface. Long-running agent dispatch
+    // MUST hand off to a Task.detached or LiveActivityIntent within
+    // the 30-second background quota per Wave 15 §"third research
+    // drop additions" — the perform() body below is fire-and-forget
+    // (just queues the prompt into QuarantineArchive); the actual
+    // agent work happens when the chat surface picks it up.
+    static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]
 
     @Parameter(title: "Prompt")
     var prompt: String
