@@ -233,24 +233,13 @@ public final class SessionTelemetryClassifier {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() -> LanguageModelSession {
-        let now = Date()
-        if let existing = session,
-           now.timeIntervalSince(sessionCreatedAt) < sessionLifetime {
-            return existing
-        }
-        // `.contentTagging` use-case is the smaller, friendlier model
-        // (verified against FoundationModels.swiftinterface line 524-526
-        // + 582). Same model the OntologyClassifier uses so the AFM
-        // daemon shares warm weights across both call sites.
-        let model = SystemLanguageModel(useCase: .contentTagging)
-        let s = LanguageModelSession(
-            model: model,
-            instructions: Self.systemPrompt
+    private func ensureSession() async -> LanguageModelSession {
+        // AP6 — share warm sessions across all AFM-backed classifiers.
+        await AFMSessionPool.shared.session(
+            useCase: .contentTagging,
+            instructions: Self.systemPrompt,
+            useCaseLabel: "SessionTelemetryClassifier"
         )
-        session = s
-        sessionCreatedAt = now
-        return s
     }
 
     @available(macOS 26.0, *)
@@ -259,7 +248,7 @@ public final class SessionTelemetryClassifier {
         sessionStart: Date,
         sessionEnd: Date
     ) async throws -> SessionTelemetry {
-        let s = ensureSession()
+        let s = await ensureSession()
         let iso = ISO8601DateFormatter()
         let prompt = """
         Distill this session into the SessionTelemetry schema described

@@ -1678,6 +1678,25 @@ final class AppBootstrap {
         // Fallback for missed nights (M-series laptop on battery, lid
         // closed): if launchd skipped > 36 h, run the in-process
         // consolidation inline now while the user is foreground.
+        // AP4 — pre-warm the AFM session pool at app launch so the
+        // 1-3 s cold start happens BEFORE the user triggers their
+        // first ontology classification / intake-valve / session
+        // telemetry call. Hidden behind macOS 26 + availability
+        // gate; no-op on older systems / Apple-Intelligence-disabled
+        // devices.
+        if #available(macOS 26.0, *) {
+            Task.detached(priority: .background) {
+                let preheatPrompt = """
+                You are a content classifier for the Epistemos cognitive
+                workspace. Subsequent calls will give you specific
+                instructions; this is a no-op preheat to load weights.
+                """
+                await AFMSessionPool.shared.prewarmAtLaunch(
+                    instructions: preheatPrompt
+                )
+            }
+        }
+
         if NightBrainScheduler.shouldRunFallbackInline() {
             Task.detached(priority: .utility) { [weak self] in
                 await self?._nightBrain?.start()

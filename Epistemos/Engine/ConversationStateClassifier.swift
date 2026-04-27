@@ -198,10 +198,13 @@ public final class ConversationStateClassifier {
         priorState: ConversationState?,
         turnNumber: Int
     ) async throws -> ConversationState {
-        let model = SystemLanguageModel(useCase: .contentTagging)
-        let session = LanguageModelSession(
-            model: model,
-            instructions: Self.systemPrompt
+        // AP6 — shared AFM session pool. Each AFM-backed classifier
+        // gets its own pool entry keyed on (useCase, instructions
+        // hash) so the daemon shares weights across all four.
+        let session = await AFMSessionPool.shared.session(
+            useCase: .contentTagging,
+            instructions: Self.systemPrompt,
+            useCaseLabel: "ConversationStateClassifier"
         )
         var prompt = """
         Update the ConversationState. Current turn number: \(turnNumber).
