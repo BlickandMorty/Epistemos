@@ -11,6 +11,11 @@ import SwiftUI
 struct AuthoritySettingsView: View {
     @State private var store: AgentAuthorityStore
     private let onResetConfirmed: (() -> Void)?
+    // W9.8 — preview state for the SwiftUI ApprovalModalView. Lets
+    // the user see what the modal looks like + tune their reaction
+    // before a real agent action triggers it. Real triggers go via
+    // ChatCoordinator's NSAlert path today.
+    @State private var approvalPreviewPending: ApprovalModalView.PendingApproval? = nil
 
     init(
         store: AgentAuthorityStore,
@@ -30,12 +35,44 @@ struct AuthoritySettingsView: View {
                     categoryCard(for: category)
                 }
 
+                approvalModalPreviewCard
                 footer
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 22)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .sheet(item: $approvalPreviewPending) { pending in
+            ApprovalModalView(approval: pending) { _ in
+                approvalPreviewPending = nil
+            }
+        }
+    }
+
+    /// W9.8 wire-up. Shows the SwiftUI ApprovalModalView via a
+    /// preview button. Real agent-triggered approvals still flow
+    /// through `ChatCoordinator.promptUserForToolApproval` (NSAlert)
+    /// — this surface lets the user verify the modal renders + see
+    /// the countdown ring before committing to it.
+    private var approvalModalPreviewCard: some View {
+        SettingsSurfaceCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Approval modal preview")
+                    .font(.headline)
+                Text("See what the SwiftUI approval surface looks like. Real prompts still flow through the system alert; this preview lets you decide if you want to opt in to the new surface in a future build.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Show preview") {
+                    approvalPreviewPending = .init(
+                        sessionId: "preview-session",
+                        toolName: "shell.execute",
+                        argsJSON: #"{"command":"git status","cwd":"~/Downloads/Epistemos"}"#,
+                        deadline: Date().addingTimeInterval(20)
+                    )
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
     }
 
     private var header: some View {

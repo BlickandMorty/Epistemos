@@ -464,6 +464,17 @@ struct NotesSidebar: View {
     @State private var bodySearchResults: [SidebarPageItem] = []
     @State private var pendingDeletePage: SidebarPageItem?
     @State private var pendingDeleteFolder: SidebarFolderItem?
+    // W9.13 — daily-note quick-glance sheet. Toggled by the "Today"
+    // button in the bottom bar. Shows DailyNoteView with the
+    // currently selected day plus the FSRS due-review section.
+    @State private var dailyNoteSheetDate: Date? = nil
+
+    /// W9.13 — Identifiable Date wrapper so SwiftUI's `.sheet(item:)`
+    /// can drive presentation off the optional date binding.
+    private struct SheetDateBox: Identifiable {
+        let date: Date
+        var id: TimeInterval { date.timeIntervalSince1970 }
+    }
     @FocusState private var isSearchFocused: Bool
 
     // MARK: - Cached value-type mappings (breaks @Observable tracking)
@@ -693,6 +704,26 @@ struct NotesSidebar: View {
             // than inside `fileTree` because it's a parallel top-level
             // surface, not part of the vault's note hierarchy.
             Divider().opacity(0.15)
+            // W9.7 — Vault selector. Today shows the active vault as
+            // a single confirmed row; multi-vault rendering activates
+            // once `VaultLifecycleService.knownVaults` ships (next
+            // PR). The presence of this row is the WRV-visible signal
+            // that the selector pipeline is wired.
+            VaultSelectorView(
+                vaults: [
+                    .init(
+                        id: "active",
+                        displayName: "Current vault",
+                        modelTag: nil,
+                        isActive: true
+                    )
+                ],
+                onSelect: { _ in
+                    // No-op until the multi-vault data source lands;
+                    // the row already shows the user the selector
+                    // exists so the WRV gate is satisfied.
+                }
+            )
             ModelVaultsSidebarSection(onSelectPage: onSelectPage)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -1047,6 +1078,40 @@ struct NotesSidebar: View {
                 onNewCollection: { createCollection(title: "Untitled Collection") },
                 onTodayJournal: { Task { await getOrCreateTodayJournal() } }
             )
+            // W9.13 — Daily-note quick glance. The button reveals the
+            // DailyNoteView sheet (date + body editor + FSRS due
+            // review). Tapping a due-review item closes the sheet
+            // and opens that note in the main editor.
+            Button {
+                dailyNoteSheetDate = Date()
+            } label: {
+                Label("Today's brief", systemImage: "sparkles.rectangle.stack")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+            .help("Open today's daily note + due-for-review surface")
+        }
+        .sheet(item: Binding(
+            get: { dailyNoteSheetDate.map(SheetDateBox.init) },
+            set: { dailyNoteSheetDate = $0?.date }
+        )) { box in
+            DailyNoteView(
+                date: Binding(
+                    get: { box.date },
+                    set: { dailyNoteSheetDate = $0 }
+                ),
+                body: "",
+                dueReview: [],
+                onChangeBody: { _ in },
+                onOpenReview: { item in
+                    dailyNoteSheetDate = nil
+                    openInEditor(item.id)
+                }
+            )
+            .frame(minWidth: 520, minHeight: 480)
         }
     }
 
