@@ -7,6 +7,43 @@ when every item below is checked off, [WAVE_9_POLISH_AND_NATIVE.md]
 research drops can be archived. **Nothing here is research-only — every
 remaining item has a verified API path or shipped scaffold to build on.**
 
+## 🆕 2026-04-27 final sweep — Tier 1 + Tier 2 fully closed
+
+After the parallel session ended, the primary session collected all
+the in-flight uncommitted work + shipped the remaining Lane C
+items + closed the AR2 read-site loop + placed the FSRS sidebar.
+
+**12 commits this segment**, every one build-green:
+
+| Commit | Item |
+| ------ | ---- |
+| ba0af0a6 | AR4 — Focus filter runtime guards (forceLocalModelsOnly + muteHaloRecallChip + agentInterruptsDisabled wired) |
+| 0fd280d5 | AR6 — MetalGraphView depth integration (per-node altitude + radiusScale + colorTint) |
+| 1249a2e5 | AR7 — FSRSReviewSidebar (forgotten-notes review queue UI) |
+| 1407c094 | AP1 + AP8 + AR5 (Lane B) — WKWebView outbound batching + Tiptap JS-side debounce + paste classifier bridge |
+| da715e68 | docs+lockfile — coordination updates from parallel session |
+| 31b8f7cc | R5 + R6 (Lane C) — UndoableNoteIntents + Visual Intelligence forward-compat scaffold |
+| 86ca4db1 | AR2 read + AR7 placement — ConversationState in next-turn prompt + FSRSReviewSidebarSection pinned in SessionListView |
+
+**Tier 1 + Tier 2 status**: ✅ ALL CLOSED. The only items remaining
+in the inventory are:
+- **AR1** — ControlWidget xcodegen `.appex` extension target (xcodegen change; outside the day-to-day Swift loop)
+- **R7** — NightBrainHelper xcodegen executable target (same xcodegen pattern)
+- **AP9** — explicitly skipped (existing range(of:) is already efficient — perf agent's regex claim was theoretical)
+- **Tier 3 + Tier 4** items — V1.5+ deferred (UniFFI bump, benchmark harness, ETL crawler, Tier 5 novel patterns, etc.)
+
+**Pre-TestFlight ship gates** (orthogonal — needed for V1):
+- P0-2 reliability fresh baseline (~2 hr)
+- P0-3 TestFlight metadata (~4 hr)
+- P0-4 mas-sandbox spot-check (~30 min)
+
+Status: latest verification 21/21 tests pass across Sidecar (10) +
+FSRS (6) + ShadowVaultBootstrapper (5) suites. Build clean.
+
+When the 3 ship gates close + AR1 + R7 xcodegen lands, V1 is fully
+shippable. The plan/research-doc stack at this point is archive-able
+— every load-bearing fact is in the codebase + commit history.
+
 ## 🆕 2026-04-27 sweep update
 
 Following the 3-agent audit + the user's "do all of it" directive,
