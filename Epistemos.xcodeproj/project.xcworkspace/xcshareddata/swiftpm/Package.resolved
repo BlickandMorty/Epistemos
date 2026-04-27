@@ -1,5 +1,5 @@
 {
-  "originHash" : "caf30f957c16dd8c1acfa4451bb4d0c15987feb84259f36fddcd241e95af0169",
+  "originHash" : "ee05615e383268d86e4fc70a87474aa6bb19a5fa891ed74dd4d6816a96b7fc4e",
   "pins" : [
     {
       "identity" : "axorcist",
@@ -104,8 +104,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-asn1.git",
       "state" : {
-        "revision" : "9f542610331815e29cc3821d3b6f488db8715517",
-        "version" : "1.6.0"
+        "revision" : "eb50cbd14606a9161cbc5d452f18797c90ef0bab",
+        "version" : "1.7.0"
       }
     },
     {
@@ -230,8 +230,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ChimeHQ/TextStory",
       "state" : {
-        "revision" : "91df6fc9bd817f9712331a4a3e826f7bdc823e1d",
-        "version" : "0.9.1"
+        "revision" : "a52db1a2eca74d37c8c19bf3165416941632ed45",
+        "version" : "0.9.2"
       }
     },
     {
