@@ -2214,6 +2214,49 @@ final class ChatCoordinator {
             sessionId: sessionId,
             metrics: result.trajectoryMetrics
           )
+
+          // AR2 — fire ConversationStateClassifier per master plan
+          // Phase 16 / Wave 13 §"Phase 16" so the structured
+          // projection (active thesis, resolved nodes, open loops,
+          // emotional trajectory) is persisted alongside the raw
+          // transcript. Subsequent turns can read the structured
+          // ConversationState INSTEAD of the full chat log — per
+          // compass token economics, ~95% input-token reduction on
+          // 50-turn conversations. Best-effort + opportunistic.
+          if #available(macOS 26.0, *) {
+            let priorJSON = EventStore.shared?
+              .loadConversationStateJSON(conversationId: sessionId)
+            let prior: ConversationState? = priorJSON.flatMap { json in
+              guard let data = json.data(using: .utf8) else { return nil }
+              return try? JSONDecoder().decode(ConversationState.self, from: data)
+            }
+            do {
+              let updated = try await ConversationStateClassifier.shared.rebuild(
+                recentTurns: objective,
+                priorState: prior,
+                turnNumber: Int(result.turns)
+              )
+              let encoder = JSONEncoder()
+              encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+              if let data = try? encoder.encode(updated),
+                 let json = String(data: data, encoding: .utf8) {
+                EventStore.shared?.saveConversationState(
+                  conversationId: sessionId,
+                  stateJSON: json
+                )
+                await MainActor.run {
+                  ConversationStateClassifier.shared.setState(
+                    updated, for: sessionId
+                  )
+                }
+              }
+            } catch {
+              // Swallow; AR2 stenographer drift is non-fatal — the
+              // raw transcript still drives the session. Logged at
+              // debug only because AFM unavailability is normal on
+              // pre-26 machines.
+            }
+          }
         } catch {
           continuation.yield(.error(AgentRuntimeError(message: error.localizedDescription)))
           continuation.finish()

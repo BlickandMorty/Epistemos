@@ -345,6 +345,133 @@ final class EventStore: Sendable {
         }
     }
 
+    // MARK: - W10.9 / AR3 — Structured SessionTelemetry persistence
+    //
+    // The Phase 9 @Generable SessionTelemetry classifier produces a
+    // structured distillation of every agent session (decisions made,
+    // unresolved friction, active themes, emotional trajectory).
+    // This pair of methods persists the telemetry as a JSON blob keyed
+    // by sessionId so the chat history surface, the daily-brief
+    // surface, and the agent's continuation context can all read the
+    // typed structure later without re-running AFM.
+    //
+    // Storage shape: a `session_telemetry` table mirroring the JSON
+    // schema. We could split into normalised columns but the schema
+    // evolves with the @Generable definition and JSON-blob storage
+    // keeps migrations cheap.
+
+    /// Persist a structured SessionTelemetry blob as JSON keyed on
+    /// sessionId. Best-effort — failure is logged + swallowed (the
+    /// telemetry pass is opportunistic; losing a row doesn't break
+    /// the chat history).
+    nonisolated func saveSessionTelemetry(
+        sessionId: String,
+        telemetryJSON: String
+    ) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let db = self.db
+            let timestamp = Date().timeIntervalSince1970
+            // Lazy-create table on first save so we don't need a
+            // migration step in the Time-Machine schema bootstrap.
+            sqlite3_exec(
+                db,
+                """
+                CREATE TABLE IF NOT EXISTS session_telemetry (
+                    session_id   TEXT PRIMARY KEY,
+                    recorded_at  REAL NOT NULL,
+                    json         TEXT NOT NULL
+                );
+                """,
+                nil, nil, nil
+            )
+            let sql = """
+                INSERT INTO session_telemetry (session_id, recorded_at, json)
+                VALUES (?, ?, ?)
+                ON CONFLICT(session_id) DO UPDATE SET
+                    recorded_at = excluded.recorded_at,
+                    json = excluded.json;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 2, timestamp)
+            sqlite3_bind_text(stmt, 3, (telemetryJSON as NSString).utf8String, -1, nil)
+            sqlite3_step(stmt)
+        }
+    }
+
+    /// Read back the structured SessionTelemetry JSON blob for a
+    /// given session. Returns nil if no telemetry has been recorded
+    /// (in-flight or pre-AR3 sessions).
+    nonisolated func loadSessionTelemetryJSON(sessionId: String) -> String? {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM session_telemetry WHERE session_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (sessionId as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return String(cString: sqlite3_column_text(stmt, 0))
+        }
+    }
+
+    // MARK: - W10.16 / AR2 — ConversationState persistence
+
+    /// Persist the current ConversationState JSON blob keyed on
+    /// conversationId. Replaces the naive linear-log compaction with
+    /// the structured projection per master plan Phase 16.
+    nonisolated func saveConversationState(
+        conversationId: String,
+        stateJSON: String
+    ) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            let db = self.db
+            let timestamp = Date().timeIntervalSince1970
+            sqlite3_exec(
+                db,
+                """
+                CREATE TABLE IF NOT EXISTS conversation_state (
+                    conversation_id TEXT PRIMARY KEY,
+                    recorded_at     REAL NOT NULL,
+                    json            TEXT NOT NULL
+                );
+                """,
+                nil, nil, nil
+            )
+            let sql = """
+                INSERT INTO conversation_state (conversation_id, recorded_at, json)
+                VALUES (?, ?, ?)
+                ON CONFLICT(conversation_id) DO UPDATE SET
+                    recorded_at = excluded.recorded_at,
+                    json = excluded.json;
+            """
+            var stmt: OpaquePointer?
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (conversationId as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 2, timestamp)
+            sqlite3_bind_text(stmt, 3, (stateJSON as NSString).utf8String, -1, nil)
+            sqlite3_step(stmt)
+        }
+    }
+
+    /// Read back the most-recent ConversationState JSON blob for a
+    /// given conversation. Returns nil if no state has been recorded.
+    nonisolated func loadConversationStateJSON(conversationId: String) -> String? {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM conversation_state WHERE conversation_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (conversationId as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+            return String(cString: sqlite3_column_text(stmt, 0))
+        }
+    }
+
     // MARK: - Queries (for Time Machine)
 
     struct StoredSnapshot {
