@@ -59,6 +59,52 @@ struct EpistemosShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Daily Brief",
             systemImageName: "newspaper"
         )
+        // W11.1 — cognitive intents (master plan / Doc 2 §"missing
+        // moats" — biggest unexplored Apple-native moat). Surfaces the
+        // new W10 cognitive layer through Spotlight, Shortcuts, Siri.
+        AppShortcut(
+            intent: CaptureBrainDumpIntent(),
+            phrases: [
+                "Capture a brain dump in \(.applicationName)",
+                "Brain dump in \(.applicationName)",
+            ],
+            shortTitle: "Brain Dump",
+            systemImageName: "brain.head.profile"
+        )
+        // NOTE: AttachThoughtToContextIntent is registered as an AppIntent
+        // (still callable from Shortcuts.app + RemoteCallback) but excluded
+        // from the AppShortcuts discoverable-phrases list because Apple
+        // caps the AppShortcuts catalogue at 10 entries per app. The
+        // CaptureBrainDumpIntent above subsumes the most common path
+        // ("dump a thought into the right place"); attach-to-context is
+        // a power-user op accessed via the Shortcuts editor explicitly.
+        AppShortcut(
+            intent: RecallActiveThesisIntent(),
+            phrases: [
+                "Recall active thesis in \(.applicationName)",
+                "What's my thesis in \(.applicationName)",
+            ],
+            shortTitle: "Active Thesis",
+            systemImageName: "lightbulb.max"
+        )
+        AppShortcut(
+            intent: OpenRawThoughtSandboxIntent(),
+            phrases: [
+                "Open raw thought sandbox in \(.applicationName)",
+                "Toggle ambient retrieval in \(.applicationName)",
+            ],
+            shortTitle: "Raw Sandbox",
+            systemImageName: "tray.full"
+        )
+        AppShortcut(
+            intent: DelegateToAgentIntent(),
+            phrases: [
+                "Delegate to agent in \(.applicationName)",
+                "Ask the agent in \(.applicationName)",
+            ],
+            shortTitle: "Delegate",
+            systemImageName: "paperplane"
+        )
     }
 }
 
