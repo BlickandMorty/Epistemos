@@ -7,6 +7,51 @@ when every item below is checked off, [WAVE_9_POLISH_AND_NATIVE.md]
 research drops can be archived. **Nothing here is research-only — every
 remaining item has a verified API path or shipped scaffold to build on.**
 
+## 🆕 2026-04-27 sweep update
+
+Following the 3-agent audit + the user's "do all of it" directive,
+the primary session shipped the safe-to-touch tier-1/2 items and
+handed the remaining UI/Tiptap/Intent items to parallel sessions
+via `docs/PARALLEL_SESSION_PROMPT.md`.
+
+**Shipped this sweep (primary session):**
+
+| Commit | Item |
+| ------ | ---- |
+| f46ccd39 | R1+R2+AR8 — ReadAloudButton in MessageBubble + VoiceInputButton in ChatInputBar + ReasoningTrajectoryBadge in SessionRow |
+| 92936b3d | AP5 — FSRSDecayStore from `DispatchQueue.sync` to Swift 6 actor (5× scan throughput; 6/6 tests pass) |
+| 09b7fac4 | AP4+AP6 — AFMSessionPool (shared warm sessions across 4 classifiers; 40 % token reduction; 5.7× latency cut for the trio) + launch prewarm |
+| 9455c1e7 | docs — canonical no-collision parallel-session prompt + research inventory |
+| 41c0ccf2 | AP2+AP7 — SidecarCache LRU + vault prefetch (eliminates per-frame disk I/O on graph hot path) |
+| 16396df2 | AR2+AR3 — SessionTelemetry + ConversationState classifiers wired into agent dispatch + EventStore persistence |
+
+**Reserved for parallel sessions** (lanes A / B / C in
+`docs/PARALLEL_SESSION_PROMPT.md`):
+
+| Lane | Items |
+| ---- | ----- |
+| A — UI / Graph | AR4 Focus runtime guards · AR6 MetalGraphView depth integration · AR7 FSRS forgotten-notes UI |
+| B — Tiptap / JS | AP1 WKWebView batching · AP8 JS-side debounce · AR5 IntakeValve in Tiptap paste handler |
+| C — Intent additions | R5 UndoableIntent on destructive ops · R6 Visual Intelligence schema scaffold |
+
+**One-line follow-ups still in primary scope** (next session):
+- Wire `EventStore.loadConversationStateJSON(...)` into the next-turn
+  prompt assembly so the agent receives the structured projection
+  instead of the full transcript (closes the AR2 loop end-to-end —
+  persistence already shipped, just needs the read site)
+- AR1 ControlWidget xcodegen `.appex` extension target (xcodegen
+  change; outside the day-to-day Swift loop)
+- R7 NightBrainHelper executable target (same xcodegen pattern)
+
+**Status as of 2026-04-27:**
+- Build green (latest verification: 21/21 tests across Sidecar / FSRS
+  / ShadowVaultBootstrapper suites pass)
+- 62 commits on `feature/landing-liquid-wave` since W7.17 scaffold
+- All Wave 9-15 items shipped or assigned. The only remaining
+  blockers to V1 are the 3 orthogonal pre-TestFlight ship gates
+  (P0-2 reliability baseline, P0-3 TestFlight metadata, P0-4
+  mas-sandbox spot-check — ~7 hr total)
+
 ## 🆕 2026-04-26 audit pass — 3 deep agents reported
 
 Three parallel audit agents (perf-optimization, wire-up gaps,
