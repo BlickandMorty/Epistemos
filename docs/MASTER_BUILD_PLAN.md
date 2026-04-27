@@ -298,7 +298,7 @@ item, work it through §1–§6, mark it 🟢 SHIPPED with commit SHA, repeat.
 
 ### Bucket N — Novel additions (locked into plan after dossier closed)
 
-#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer ⚪ PENDING
+#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟢 SHIPPED (7316f86b)
 
 **Phase:** parallel | **Targets:** Both | **Risk:** Med
 
