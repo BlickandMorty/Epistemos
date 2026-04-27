@@ -45,63 +45,63 @@ nonisolated struct FSRSDecayStateTests {
     }
 
     @Test("Store ensure(noteId:) is idempotent — second call returns same row")
-    func storeEnsureIdempotent() {
+    func storeEnsureIdempotent() async {
         let store = FSRSDecayStore.shared
-        store.reset()
-        let r1 = store.ensure(noteId: "idem-1")
-        let r2 = store.ensure(noteId: "idem-1")
+        await store.reset()
+        let r1 = await store.ensure(noteId: "idem-1")
+        let r2 = await store.ensure(noteId: "idem-1")
         #expect(r1 == r2)
-        store.reset()
+        await store.reset()
     }
 
     @Test("recordReview bumps reviews + resets R to 1.0 + sets lastGrade")
-    func recordReviewSemantics() {
+    func recordReviewSemantics() async {
         let store = FSRSDecayStore.shared
-        store.reset()
-        store.ensure(noteId: "rev-1")
+        await store.reset()
+        await store.ensure(noteId: "rev-1")
         let now = Date()
-        store.recordReview(noteId: "rev-1", grade: .good, now: now)
-        let row = store.row(for: "rev-1")
+        await store.recordReview(noteId: "rev-1", grade: .good, now: now)
+        let row = await store.row(for: "rev-1")
         #expect(row?.reviews == 1)
         #expect(row?.lastGrade == .good)
         #expect(row?.memory.retrievability == 1.0,
                 "review resets R to 1.0 (the user remembered it)")
         #expect(abs((row?.lastReviewedAt ?? 0) - now.timeIntervalSince1970) < 1.0)
-        store.reset()
+        await store.reset()
     }
 
     @Test("topAtRisk returns notes ordered ascending by R")
-    func topAtRiskOrdering() {
+    func topAtRiskOrdering() async {
         let store = FSRSDecayStore.shared
-        store.reset()
+        await store.reset()
         // Three notes with stabilities such that 30 days from
         // lastReviewed gives different R values:
         //   stability=10 → R(30d) = exp(ln(0.9)*3) = 0.729
         //   stability=15 → R(30d) = exp(ln(0.9)*2) = 0.81 (NOT high-risk; > 0.80)
         //   stability= 5 → R(30d) = exp(ln(0.9)*6) = 0.531
-        store.upsert(FSRSDecayRow(
+        await store.upsert(FSRSDecayRow(
             noteId: "low-risk",
             lastReviewedAt: 0,
             memory: FSRSMemoryState(difficulty: 5, stability: 15, retrievability: 1.0)
         ))
-        store.upsert(FSRSDecayRow(
+        await store.upsert(FSRSDecayRow(
             noteId: "mid-risk",
             lastReviewedAt: 0,
             memory: FSRSMemoryState(difficulty: 5, stability: 10, retrievability: 1.0)
         ))
-        store.upsert(FSRSDecayRow(
+        await store.upsert(FSRSDecayRow(
             noteId: "high-risk",
             lastReviewedAt: 0,
             memory: FSRSMemoryState(difficulty: 5, stability: 5, retrievability: 1.0)
         ))
         let now = Date(timeIntervalSince1970: 30 * 86_400)
-        let surfaced = store.topAtRisk(limit: 10, now: now)
+        let surfaced = await store.topAtRisk(limit: 10, now: now)
         // mid-risk + high-risk are below 0.80; low-risk is above
         #expect(surfaced.count == 2,
                 "should surface 2 below-threshold notes; got \(surfaced.count)")
         #expect(surfaced.first?.noteId == "high-risk",
                 "most-forgotten note (lowest R) should be first")
         #expect(surfaced.last?.noteId == "mid-risk")
-        store.reset()
+        await store.reset()
     }
 }
