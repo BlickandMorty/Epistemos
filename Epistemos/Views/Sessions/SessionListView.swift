@@ -82,14 +82,14 @@ private struct SessionRow: View {
 
             Spacer(minLength: 8)
 
-            if let classification = session.trajectoryClassification {
-                Text(classification.capitalized)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(trajectoryColor)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(trajectoryColor.opacity(0.12), in: Capsule())
-            }
+            // AR8 wire-up — canonical ReasoningTrajectoryBadge reads
+            // from EventStore.session_metrics directly (loop count,
+            // error count, total tool calls, efficiency on hover) so
+            // the row gets the full classification + tooltip without
+            // re-implementing the rendering logic. Falls back to the
+            // legacy inline classification text if the EventStore
+            // doesn't have a metrics row yet (in-flight sessions).
+            ReasoningTrajectoryBadge(sessionId: session.id)
         }
         .padding(.vertical, 2)
     }
@@ -103,16 +103,6 @@ private struct SessionRow: View {
         }
     }
 
-    private var trajectoryColor: Color {
-        switch session.trajectoryClassification {
-        case "efficient": return .green
-        case "exploratory": return .blue
-        case "hesitating": return .orange
-        case "stuck": return .yellow
-        case "failed": return .red
-        default: return .secondary
-        }
-    }
 }
 
 // MARK: - Session Detail View

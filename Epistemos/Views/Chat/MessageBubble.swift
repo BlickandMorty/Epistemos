@@ -321,6 +321,18 @@ struct MessageBubble: View {
                         if let hit = message.cacheHitPercent, hit > 0 {
                             CacheHitBadge(fraction: hit)
                         }
+                        // R1 wire-up — Apple-native TTS for the
+                        // assistant response. ReadAloudButton wraps
+                        // EpistemosSpeechSynthesizer (W9.1) so the
+                        // user can speaker-tap to hear the response;
+                        // honours per-model voice persona (W9.1.b)
+                        // when the W11.4 VoicePreferences mode for
+                        // perModelVoicePersona == .auto.
+                        ReadAloudButton(
+                            text: displayContent,
+                            style: .icon
+                        )
+                        .opacity(0.6)
                     }
                 }
 
