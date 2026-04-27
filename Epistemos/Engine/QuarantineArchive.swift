@@ -1,0 +1,289 @@
+import Foundation
+import OSLog
+
+// MARK: - QuarantineArchive (Phase 15 / W10.15)
+//
+// Master plan Phase 15 / Wave 13 §"Phase 15": deterministic-core
+// vs ambient-retrieval split. Raw, unstructured user thoughts —
+// brain dumps, voice notes, pasted walls of text — sit in a
+// QUARANTINED archive by default; the cloud agent never sees them
+// unless the user explicitly toggles ambient-retrieval ON.
+//
+// Doc 2 amendment honoured: this is the "messy sandbox" the user
+// can opt into for creative cross-disciplinary connections, NOT the
+// default runtime. The cognitive architecture's deterministic core
+// (structured sidecars, ontology-classified notes, session
+// telemetry) is what the agent sees by default; the quarantine is
+// the explicit-opt-in second layer.
+//
+// Master plan §15 contract:
+//   1. Deterministic Core (default)  — structured JSON only;
+//      ambient retrieval toggle OFF; cloud agent only ever reads
+//      sidecar-enriched content
+//   2. Ambient Retrieval Protocol (toggle ON) — cloud agent gains
+//      read-access to QuarantineArchive content; tool result names
+//      MUST tag everything as `raw:` so the model attention is
+//      grounded by source provenance (compass: "Tag every retrieved
+//      chunk with `curated:` or `raw:` prefix in the tool result
+//      name itself, not just metadata")
+//
+// Storage layout (compass spec):
+//   ~/Library/Containers/<app>/Data/
+//   ├── Curated.sqlite       ← deterministic, schema-versioned
+//   └── Quarantine.sqlite    ← raw, append-only, separate vector index
+//
+//   ~/PKM/Vault/             ← curated, iCloud-synced
+//   ~/PKM/RawThoughtsArchive/← excluded from iCloud via
+//                              isExcludedFromBackupKey = true
+//
+// This module is the Swift surface; the SQLite-backed persistence
+// layer follows in a Rust-side commit.
+
+// MARK: - Quarantine entry kinds
+
+nonisolated public enum QuarantineKind: String, Sendable, Codable, CaseIterable {
+    case rawThought       // typed-into-the-app brain dump
+    case voiceTranscript  // SpeechAnalyzer-captured dictation
+    case ambientPaste     // pasted wall of unstructured text
+}
+
+// MARK: - Quarantine entry
+
+nonisolated public struct QuarantineEntry: Sendable, Codable, Equatable, Identifiable {
+    /// 26-char Crockford-base32 ULID — same shape as
+    /// EpistemosSidecar.entityId so cross-references work.
+    public var id: String
+
+    /// What kind of raw thought is this.
+    public var kind: QuarantineKind
+
+    /// Unix timestamp (seconds) of capture.
+    public var capturedAt: TimeInterval
+
+    /// The raw, unstructured text the user dumped. NEVER edited by
+    /// the system — append-only.
+    public var body: String
+
+    /// Optional context anchor — `chat_id`, `note_id`, `session_id`
+    /// the user was looking at when they captured. Fed into the
+    /// ambient-retrieval surface so the agent knows "this brain dump
+    /// was in the context of THIS chat".
+    public var anchor: QuarantineAnchor?
+
+    public init(
+        id: String,
+        kind: QuarantineKind,
+        capturedAt: TimeInterval = Date().timeIntervalSince1970,
+        body: String,
+        anchor: QuarantineAnchor? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.capturedAt = capturedAt
+        self.body = body
+        self.anchor = anchor
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, kind, body, anchor
+        case capturedAt = "captured_at"
+    }
+}
+
+nonisolated public struct QuarantineAnchor: Sendable, Codable, Equatable, Hashable {
+    public var contextKind: String   // "chat" | "note" | "session" | "agent"
+    public var contextId: String     // opaque id of the surface
+
+    public init(contextKind: String, contextId: String) {
+        self.contextKind = contextKind
+        self.contextId = contextId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case contextKind = "context_kind"
+        case contextId = "context_id"
+    }
+}
+
+// MARK: - QuarantineArchive
+
+/// Append-only store for raw / unstructured user thoughts. The agent
+/// only sees this content when `AmbientRetrievalToggle` is ON.
+///
+/// Today this is an in-memory store with on-disk JSONL append-mode
+/// fallback; the SQLite-backed Quarantine.sqlite (compass spec)
+/// lands as a separate Rust commit. The Swift contract here is
+/// stable so call sites don't need to change when the storage
+/// backend swaps.
+@MainActor
+public final class QuarantineArchive {
+
+    public static let shared = QuarantineArchive()
+
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "QuarantineArchive"
+    )
+
+    /// In-memory entries. Replaced by SQLite-backed iteration when the
+    /// Rust persistence layer lands.
+    private var entries: [QuarantineEntry] = []
+
+    /// Append the entry to the in-memory log AND atomically append a
+    /// JSONL line to the on-disk archive file. The on-disk write is
+    /// best-effort — failure is logged but doesn't block the in-
+    /// memory append (the user shouldn't lose their thought because
+    /// of a transient I/O error).
+    @discardableResult
+    public func capture(
+        _ entry: QuarantineEntry
+    ) -> QuarantineEntry {
+        entries.append(entry)
+        do {
+            try appendToDisk(entry)
+        } catch {
+            Self.log.warning(
+                "quarantine disk append failed (in-memory copy retained): \(error.localizedDescription, privacy: .public)"
+            )
+        }
+        return entry
+    }
+
+    /// Convenience capture — most call sites have a body + a
+    /// QuarantineKind. Anchor is optional but encouraged for
+    /// chat-context brain dumps. Mints the ULID id internally.
+    @discardableResult
+    public func capture(
+        body: String,
+        kind: QuarantineKind,
+        anchor: QuarantineAnchor? = nil
+    ) -> QuarantineEntry {
+        let entry = QuarantineEntry(
+            id: Self.makeEntryId(),
+            kind: kind,
+            body: body,
+            anchor: anchor
+        )
+        return capture(entry)
+    }
+
+    public func snapshot() -> [QuarantineEntry] { entries }
+
+    public func entries(in range: Range<TimeInterval>) -> [QuarantineEntry] {
+        entries.filter { range.contains($0.capturedAt) }
+    }
+
+    public func reset() { entries.removeAll() }
+
+    // MARK: - On-disk JSONL archive
+
+    /// Path to the quarantine JSONL log under Application Support.
+    /// Excluded from iCloud + Time Machine via
+    /// `isExcludedFromBackupKey` per the compass storage spec.
+    private var archiveURL: URL? {
+        let fm = FileManager.default
+        guard let support = try? fm.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        ) else { return nil }
+        let bundle = Bundle.main.bundleIdentifier ?? "com.epistemos.Epistemos"
+        let dir = support
+            .appendingPathComponent(bundle, isDirectory: true)
+            .appendingPathComponent("Quarantine", isDirectory: true)
+        do {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            // Apply the backup-exclude flag once (idempotent — repeated
+            // setResourceValues calls just rewrite the same xattr).
+            var resourceURL = dir
+            var resourceValues = URLResourceValues()
+            resourceValues.isExcludedFromBackup = true
+            try? resourceURL.setResourceValues(resourceValues)
+        } catch {
+            return nil
+        }
+        return dir.appendingPathComponent("entries.jsonl")
+    }
+
+    private func appendToDisk(_ entry: QuarantineEntry) throws {
+        guard let url = archiveURL else { return }
+        let data = try Self.encoder.encode(entry)
+        var line = data
+        line.append(0x0A)  // newline
+        if let handle = try? FileHandle(forWritingTo: url) {
+            try handle.seekToEnd()
+            try handle.write(contentsOf: line)
+            try handle.close()
+        } else {
+            // File doesn't exist yet — atomic create.
+            try line.write(to: url, options: [.atomic])
+        }
+    }
+
+    /// Generate the same 26-char Crockford-base32 ULID shape as
+    /// EpistemosSidecar.entityId so the two namespaces are
+    /// interchangeable. Marked nonisolated so it can be called as a
+    /// default-value expression from `nonisolated` contexts (e.g.
+    /// the public `QuarantineEntry` initialisers).
+    nonisolated public static func makeEntryId() -> String {
+        EpistemosSidecarStore.makeEntityId()
+    }
+
+    private static let encoder: JSONEncoder = {
+        let e = JSONEncoder()
+        // JSONL: one entry per line — NOT pretty-printed.
+        e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return e
+    }()
+}
+
+// MARK: - AmbientRetrievalToggle
+
+/// Per-conversation toggle gating whether the agent gains read-
+/// access to the QuarantineArchive. Master plan §15 contract:
+/// default OFF for deterministic-core mode; user explicitly opts in
+/// for the "messy sandbox" via a header chip in the chat UI.
+///
+/// Persistence is per-conversation so a user can have one
+/// conversation in deterministic-only mode and another with ambient
+/// retrieval ON for creative work.
+@MainActor
+@Observable
+public final class AmbientRetrievalToggle {
+
+    public static let shared = AmbientRetrievalToggle()
+
+    /// Default for new conversations. Conservative: OFF.
+    public var defaultForNewConversations: Bool = false
+
+    /// Explicit per-conversation enable map. Keys are conversation
+    /// IDs; absence means "use default".
+    private var perConversation: [String: Bool] = [:]
+
+    private init() {}
+
+    public func isEnabled(for conversationId: String) -> Bool {
+        perConversation[conversationId] ?? defaultForNewConversations
+    }
+
+    public func setEnabled(_ enabled: Bool, for conversationId: String) {
+        perConversation[conversationId] = enabled
+    }
+
+    public func reset(_ conversationId: String) {
+        perConversation.removeValue(forKey: conversationId)
+    }
+
+    /// Per the compass spec: when ambient retrieval is enabled, every
+    /// quarantine-sourced tool result must carry a `raw:` prefix in
+    /// the result NAME (not just metadata) so the model's attention
+    /// is grounded by source provenance.
+    public static func toolResultPrefix(forQuarantineKind: QuarantineKind) -> String {
+        "raw:"
+    }
+
+    /// Symmetric prefix for curated content so call sites can tag
+    /// uniformly.
+    public static let curatedToolResultPrefix: String = "curated:"
+}
