@@ -882,6 +882,57 @@ Sources:
 - **`@AppIntent(schema: .visualIntelligence.semanticContentSearch)` + `IntentValueQuery<SemanticContentDescriptor, NoteEntity>`** — S, zero-cost forward compat for Visual Intelligence on Mac (rumoured for 26.x).
 - **`AppIntentsPackage`** — move intents into a Swift package so the extension target consumes them by reference (cleaner than file-list duplication).
 
+### Wave 15 — third research drop additions (NEW operational reality checks)
+
+A fourth document arrived inline (user-pasted Tahoe App Intents
+analysis 2026-04-26). Confirms the same top-5 ranking as the other
+3 docs but adds critical operational reality checks the others
+omitted:
+
+- **30-second background execution quota for App Intents.** Long-
+  running processes (DelegateToAgent, multi-step agent dispatch)
+  must immediately offload to a background `URLSession` /
+  `Task.detached` and either return a generic success result OR
+  start a `LiveActivityIntent`. Otherwise the system terminates
+  the intent forcefully.
+
+- **macOS 26 mandatory weekly screen-recording permission prompts.**
+  AttachThoughtToContextIntent / Visual Intelligence intents that
+  rely on screen introspection beyond `SemanticContentDescriptor`
+  trigger this — design around the prompt fatigue.
+
+- **`AppDependencyManager.shared.add(...)`** is the canonical
+  pattern for injecting a shared `ModelContainer` into background
+  intents so they don't pay the heavy SwiftData init cost on every
+  perform. Set this up at app launch; use `@Dependency` inside the
+  intent.
+
+- **`ModelActor` patterns under Swift 6.2 strict concurrency**
+  required for SwiftData mutations from background intents (avoids
+  `#ConformanceIsolation` errors when `@Model` types are touched
+  from `nonisolated` perform contexts).
+
+- **Race condition: `.foreground(.dynamic)` mode + state mutation
+  inside perform()**. The intent's `perform()` resolves before the
+  `NSApplicationDelegate` finishes restoring UI state — direct
+  view-state mutations get discarded. Route through a centralised
+  `NotificationCenter` post or shared `@Observable` router.
+
+- **Codesign + entitlement alignment between main app + intent
+  extension is critical.** Mismatch → silent background execution
+  failure (presents to user as unresponsive UI). MAS sandbox
+  forbids `disable-library-validation` so the Rust dylib + main
+  app + extension MUST share the same Team ID.
+
+### Wave 15 — drift caught vs the third doc
+
+| Third-doc claim | Verified-correct |
+| --------------- | ---------------- |
+| `@AssistantIntent` + `@AssistantSchema` macros | DEPRECATED — replaced by `@AppIntent(schema:)` umbrella macro per WWDC25 §275 (compass wf-5db24f87 §"What's new in macOS 26 vs. macOS 15"). Existing `@AppIntent(schema: .system.search)` on SystemSearchIntent is correct. |
+| `FocusFilterIntent` protocol | Actual SDK: `SetFocusFilterIntent` (verified at AppIntents.swiftinterface line 10116 + build-time error 2026-04-26) |
+| Multiple Focus filters per app | 1 conformance hard-cap per app (build-time error verified) |
+| `attributes.textContent` is the right key | `CSSearchableItemAttributeSet` has dedicated keys; `textContent` exists but `contentDescription` is the canonical 1-line snippet field used by Spotlight |
+
 ### Wave 15 — final architectural verdict
 
 > "The highest-ROI path is: **Spotlight entities, schema-backed search,

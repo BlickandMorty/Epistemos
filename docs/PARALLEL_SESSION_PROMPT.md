@@ -110,6 +110,7 @@ conflicts.
 
 ```
 Epistemos/Engine/AFMSessionPool.swift                (just shipped)
+Epistemos/Engine/SidecarCache.swift                  (just shipped)
 Epistemos/Engine/FSRSDecayState.swift                (just shipped — actor)
 Epistemos/Engine/IntakeValve.swift
 Epistemos/Engine/SessionTelemetryClassifier.swift
