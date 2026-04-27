@@ -1358,6 +1358,50 @@ crop = { version = "0.4", features = ["utf16-metric"] }
 
 # N-series
 
+## N1 Phase 1 — Cache telemetry follow-up
+
+**Status:** ⚠️ blocked on substrate discovery (2026-04-27)
+
+The Phase 1 follow-up to N1 (wire `cached_tokens_share` into the W9.6 cost
+dashboard via `SessionInsight`) was attempted in this session and surfaced a
+**substrate problem** that needs to be fixed before this PR can land:
+
+- `agent_core/src/session_insights.rs` (655 LOC) is an **orphan source file** —
+  it defines `SessionMetrics` + `AggregatedStats` + `SessionMetricsFFI` +
+  `InsightsReportFFI` with `#[derive(uniffi::Record)]` and a complete test
+  suite (12 `#[test]` functions), but **is not declared in `agent_core/src/lib.rs`**.
+  Verified via `grep -rn 'session_insights' agent_core/src/` → only matches
+  inside the file itself.
+- Consequence: nothing in `agent_core` compiles this file. The
+  `#[derive(uniffi::Record)]` proc-macro never runs against these types. The
+  Swift side that supposedly consumes `SessionMetricsFFI` per
+  `Epistemos/State/EventStore.swift:261` is reading a different struct
+  (probably `ReasoningTrajectoryMetricsFFI` per the trajectory-metrics path
+  in `ChatCoordinator.swift:2316`).
+- The file was added in commit `465a3c30` ("Complete Hermes parity
+  provider-chain and session persistence work") and never wired in.
+
+**Fix required before N1 Phase 1 can ship:**
+
+1. Decide whether `session_insights.rs` is the canonical destination for cache
+   telemetry OR whether the existing `ReasoningTrajectoryMetricsFFI` path
+   (already wired Rust↔Swift via `result.trajectoryMetrics` and
+   `EventStore.saveSessionMetrics`) is the right anchor.
+2. If `session_insights.rs` is the right home: add `pub mod session_insights;`
+   to `agent_core/src/lib.rs`, fix any latent compile errors revealed by
+   actually building it, and only THEN extend it with `cache_read_input_tokens`
+   + `cached_tokens_share`.
+3. If `ReasoningTrajectoryMetricsFFI` is the right anchor: extend that struct
+   instead and trace the Swift side back to the W9.6 dashboard.
+
+**No code shipped this session for N1 Phase 1** — the verification gate
+(running the new tests via `cargo test`) caught that the source file isn't in
+the build. Per `00_AUTHORITY_AND_ANTI_DRIFT.md §4.7` WRV gate, attempting to
+ship into an orphan file would itself be the failure mode the gate exists to
+prevent.
+
+---
+
 ## N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer
 
 **Phase:** parallel | **Targets:** Both | **Risk:** Med
