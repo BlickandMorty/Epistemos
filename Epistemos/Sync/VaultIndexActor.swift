@@ -1922,6 +1922,27 @@ actor VaultIndexActor {
                     )
                 }
             }
+
+            // W14.1 wire-up — also donate the typed NoteEntity batch
+            // via the new macOS 26 indexAppEntities API so Spotlight
+            // semantic search + Apple Intelligence get the typed
+            // entities (legacy indexSearchableItems above only feeds
+            // keyword search; the App Entity path is what surfaces
+            // "Open Note" / "Preview Note" actions in Spotlight).
+            // toNoteEntity() is MainActor-isolated; project to plain
+            // Sendable triples here, then map to NoteEntity from a
+            // Sendable closure to avoid the SDPage-class data race.
+            let liteRows: [(String, String, String?)] = batch.map {
+                ($0.id, $0.title, $0.body)
+            }
+            Task.detached(priority: .utility) {
+                let entities = await MainActor.run {
+                    liteRows.map { id, title, body in
+                        NoteEntity(id: id, title: title, content: body)
+                    }
+                }
+                await NoteEntitySpotlightIndexer.indexBulk(entities)
+            }
         }
 
         // Update last index timestamp
