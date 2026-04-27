@@ -804,6 +804,65 @@ Cron is a separate `apalis-cron` feature; register
 
 ---
 
+## Wave 14 — App Intents Native Expansion (deep-research synthesis)
+
+Source: deep-research agent on Apple App Intents framework
+(2026-04-26). Top 5 ROI items beyond the 10-AppShortcuts cap that
+make Epistemos feel "lightning speed and super native":
+
+| Rank | Item | Effort | Status | Notes |
+| ---- | ---- | ------ | ------ | ----- |
+| 1 | `IndexedEntity` on Note / Chat / Thought | M (3 days) | TODO | Spotlight auto-generates "Find Note", "Find Chat", "Find Thought" actions; macOS 26 Spotlight semantic search picks them up |
+| 2 | Visual Intelligence intent (`@AppIntent(schema: .visualIntelligence.semanticContentSearch)`) | M (2 days) | TODO | Right-click a screenshot → "Search Epistemos" returns matching notes |
+| 3 | `SetFocusFilterIntent` | S (1 day) | ✅ shipped (eab40efe) | Single intent w/ mode parameter — Apple caps protocol at 1 conformance per app |
+| 4 | `donate()` on every intent perform() | XS (<1 day) | ✅ shipped (eab40efe) | Siri SmartStack learns the user's cadence + surfaces intents proactively |
+| 5 | `SnippetIntent` for inline note preview | M (2 days) | TODO | Spotlight result shows 3-line preview card + Open button without entering the app |
+
+### Wave 14 — verified canonical API corrections
+
+The deep-research agent quoted some surface that doesn't match the
+shipping macOS 26.4 SDK. Verified differences (cite line numbers
+from AppIntents.swiftinterface arm64e-apple-macos):
+
+| Agent claim | Actual SDK |
+| ----------- | ---------- |
+| `FocusFilterIntent` protocol | **`SetFocusFilterIntent`** (line 10116) |
+| Multiple Focus filters per app | **One conformance per app, hard-cap** (build-time error) |
+| `donate()` is sync, fire-and-forget | Both sync + async overloads exist (line 603-609); BOTH `throws` so call sites need `try? await donate()` |
+| `caseDisplayRepresentations` as `var` | Swift 6 strict concurrency requires `let` (var = nonisolated mutable global) |
+| `@AppIntent(schema: ...)` macro | Verified — `@AssistantIntent` legacy form still works on 26+ |
+| `IndexedEntity` protocol on AppEntity | Verified — line 11479 |
+| `SnippetIntent` protocol | Verified — line 10573 |
+| `UndoableIntent` | Verified — line 1395 |
+
+### Wave 14 — quotas + caps verified at build time
+
+- **AppShortcuts catalogue: 10 entries max per app** (Apple cap).
+  Discoverable Spotlight phrases need to live in AppShortcuts; the
+  raw AppIntent itself can stay registered without consuming a slot
+  (still callable from Shortcuts.app editor + RemoteCallback).
+- **SetFocusFilterIntent: 1 conformance per app** (verified via
+  build-time error 2026-04-26: "Only 1 'AppIntents.SetFocusFilterIntent'
+  conformance is allowed per app, but found: ..."). Use a `mode`
+  parameter to expose multiple presets through a single intent.
+
+### Wave 14 — sequencing recommendation (compass-compatible)
+
+Phase A (3 days): IndexedEntity on NoteEntity, ChatEntity,
+  ThoughtEntity — enables "Find Note", "Find Chat", "Find Thought"
+  in Spotlight automatically. Highest user-visible win.
+
+Phase B (XS): donate() everywhere — already shipped (eab40efe).
+
+Phase C (1 day): SetFocusFilterIntent — already shipped (eab40efe).
+
+Phase D (2 days): Visual Intelligence intent — right-click a
+  screenshot → "Search Epistemos" returns matching notes via
+  HaloController image analysis.
+
+Phase E (2 days): SnippetIntent — inline note preview in Spotlight
+  results so the user can scan a note without entering the app.
+
 ## Adoption order (operational, paste-ready)
 
 1. **sqlite-vec + GRDB** (foundation substrate)
