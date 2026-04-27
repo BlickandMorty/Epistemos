@@ -804,6 +804,98 @@ Cron is a separate `apalis-cron` feature; register
 
 ---
 
+## Wave 15 — App Intents Native Expansion (3-doc convergent synthesis)
+
+**Three independent research drops** all flagged the same architecture
+shift: the path to "lightning speed and super native" is NOT more App
+Shortcuts (capped at 10) but a **dense App Intents substrate** —
+indexed entities, snippets, control widgets, schema-backed search,
+view-controlled navigation, and an App Intents extension so work can
+happen before the app foregrounds.
+
+Sources:
+- compass artifact wf-0d84391a (Phase 11 in earlier Wave 12)
+- compass artifact wf-5db24f87 (App Intents beyond ten shortcuts)
+- deep-research-report (3) (Epistemos App Intents research for macOS 26)
+- deep-research agent (Wave 14 first synthesis)
+
+### Wave 15 — verified canonical surface map (all three docs agree)
+
+| Surface | macOS 26 | Protocol | Status in Epistemos |
+| ------- | -------- | -------- | ------------------- |
+| `AppShortcutsProvider` (10-cap curated voice/Spotlight) | ✅ | `AppShortcut` array | ✅ 10/10 used (eab40efe) |
+| Shortcuts editor (any registered intent — NO cap) | ✅ | `AppIntent` (auto-discovered) | ✅ All 11+ intents discoverable |
+| **Spotlight inline action** (NEW macOS 26) | ✅ | `IndexedEntity` + `OpenIntent` | ✅ NoteEntity (7e9f7b7f); ChatEntity + ThoughtEntity TODO |
+| **`SnippetIntent`** (rich result UI, NEW macOS 26) | ✅ | `SnippetIntent` returns `ShowsSnippetView` | TODO — Phase E |
+| Donations / proactive suggestions | ✅ | `try? await donate()` | ✅ All 5 cognitive intents (eab40efe) |
+| `WidgetConfigurationIntent` | ✅ | + `AppIntentConfiguration` | TODO — needs widget targets |
+| **`ControlWidget` + `AppIntentControlConfiguration`** (NEW Mac in macOS 26) | ✅ | Control Center on Mac | TODO — Phase D |
+| Apple Intelligence routing | ✅ | `@AppIntent(schema:)` (supersedes `@AssistantIntent`) | TODO |
+| Visual Intelligence schema | partial | `@AppIntent(schema: .visualIntelligence.semanticContentSearch)` + `IntentValueQuery` | TODO — forward-compat |
+| `SetFocusFilterIntent` | iOS-primary; thin on Mac | 1-conformance cap | ✅ shipped (eab40efe) — both 5db24f87 + r3 say "skip for v1 on Mac"; we have it anyway, it's lightweight |
+| `LiveActivityIntent` | ❌ Mac-native | Mac mirrors iOS only | Skip |
+| **App Intents Extension** (`.appex`) | ✅ | Separate bundle + process | TODO — biggest cold-start win |
+
+### Wave 15 — modern API replacements (deprecation alerts)
+
+| Old way | New way (macOS 26) | Status |
+| ------- | ------------------- | ------ |
+| `@AssistantIntent` | `@AppIntent(schema:)` umbrella macro | TODO migration |
+| `static let openAppWhenRun = true/false` | `static let supportedModes: IntentModes = [.background, .foreground(.dynamic)]` | TODO — current intents still use `openAppWhenRun` |
+| Global Navigator + `@Dependency` | `TargetContentProvidingIntent` + `.onAppIntentExecution` | TODO — declarative SwiftUI nav |
+| `attributeSet` extension on IndexedEntity | `@Property(indexingKey: \.title)` declarative | ✅ NoteEntity uses attributeSet today; OK to migrate later |
+| `INInteraction.donate()` (legacy SiriKit) | `IntentDonationManager.shared.donate(intent:)` or `try await intent.donate()` | ✅ shipped via `try? await donate()` |
+
+### Wave 15 — quotas + caps (verified at build time)
+
+- **AppShortcuts cap = 10**, applies ONLY to AppShortcutsProvider (curated voice/Spotlight surface). Plain `AppIntent` registrations are unlimited and still surface in Shortcuts editor + macOS 26 Spotlight Actions pane.
+- **`SetFocusFilterIntent` cap = 1 conformance per app** (build-time error verified 2026-04-26). Use a `mode` parameter to expose multiple presets through one intent.
+- **Trigger phrases cap = 1,000** total across all AppShortcuts.
+- **Every phrase MUST contain `\(.applicationName)`**.
+- **No documented cap** on `AppEntity` count or `CSSearchableIndex.indexAppEntities` donation rate (system de-dupes).
+
+### Wave 15 — performance + concurrency contract
+
+- **Default `perform()` to `nonisolated`**; hop to `@MainActor` only for navigation.
+- **`supportedModes = [.background, .foreground(.dynamic)]`** keeps capture-style intents headless and cuts cold-start; use `.foreground(.immediate)` ONLY for "Open X" navigators.
+- **Every `AppEntity` must be `Sendable`** — value types + Sendable members.
+- **Don't conform `@Model` directly to `AppEntity`** — class-Sendable conflicts under Swift 6. Use a value-type **shadow entity** (NoteEntity bridges SDPage; canonical pattern).
+- **`CSSearchableIndex` gotcha**: NEVER construct a fresh `CSSearchableItemAttributeSet(itemContentType:)` — items vanish from the index. **Mutate `defaultAttributeSet` instead.** (Wave 14.1 attributeSet helper does NOT mutate defaultAttributeSet — flagged as TODO migration.)
+- **App Intents extension** (`Epistemos.appex`): cold-starts ~300 ms vs the main app's seconds. Donate to it; perform() runs in extension; `openAppWhenRun=true` intents stay in main app to avoid crash.
+- **UniFFI / Rust**: ship `EpistemosCore.framework` at app level (`Contents/Frameworks/`); both main app + extension link via `@rpath`. Same Team ID under hardened runtime — library validation rejects mismatches; `disable-library-validation` is BANNED on MAS.
+- **MAS sandbox**: add `com.apple.security.application-groups` to BOTH the main app AND the extension so they share the SwiftData/GRDB store. Open SQLite/GRDB in WAL mode (multi-process readers).
+
+### Wave 15 — fused top-5 to ship
+
+| Rank | Item | Effort | Status | Source consensus |
+| ---- | ---- | ------ | ------ | ---------------- |
+| 1 | **`IndexedEntity` on Note + ChatEntity + ThoughtEntity + `OpenIntent`** | M (4-8h) | ✅ NoteEntity shipped (7e9f7b7f); Chat / Thought TODO | All 3 docs #1 |
+| 2 | **`SnippetIntent` for inline note preview + `requestChoice` for destructive ops** | S (2-4h) | TODO | All 3 docs |
+| 3 | **`ControlWidget` for QuickCapture + OpenRawThoughtSandbox** (Tahoe Control Center on Mac) | S-M (2-3h) | TODO | All 3 docs |
+| 4 | **Migrate to `supportedModes = [.background, .foreground(.dynamic)]` + `TargetContentProvidingIntent` for navigation** | M (6-10h) | TODO | All 3 docs |
+| 5 | **App Intents Extension target** (separate bundle, ~300ms cold-start, app-group SQLite share) | L (1-2 days) | TODO | All 3 docs |
+
+### Wave 15 — bonus items (lower ROI but trivial)
+
+- **`@AppIntent(schema: .system.search)` + `ShowInAppSearchResultsIntent`** on existing `SystemSearchIntent` — XS (~30 min), unlocks system-search-result surface.
+- **`UndoableIntent`** on every destructive op (DeleteNoteIntent etc.) — XS, system Cmd-Z works from Spotlight + extension.
+- **`@AppIntent(schema: .visualIntelligence.semanticContentSearch)` + `IntentValueQuery<SemanticContentDescriptor, NoteEntity>`** — S, zero-cost forward compat for Visual Intelligence on Mac (rumoured for 26.x).
+- **`AppIntentsPackage`** — move intents into a Swift package so the extension target consumes them by reference (cleaner than file-list duplication).
+
+### Wave 15 — final architectural verdict
+
+> "The highest-ROI path is: **Spotlight entities, schema-backed search,
+> App Intents extension, Mac controls, and snippets**. That stack makes
+> Epistemos feel fast because the system can find, route, and execute
+> your core actions before the user ever fully 'opens the app'."
+> — deep-research-report (3)
+
+> "Tahoe also opens four genuinely new surfaces: third-party Control
+> Center widgets on Mac, `SnippetIntent` rich-result UI,
+> `IntentValueQuery` for Visual Intelligence schema routing, and
+> `AppIntentsPackage` distribution from Swift packages and static libs."
+> — compass artifact wf-5db24f87
+
 ## Wave 14 — App Intents Native Expansion (deep-research synthesis)
 
 Source: deep-research agent on Apple App Intents framework
