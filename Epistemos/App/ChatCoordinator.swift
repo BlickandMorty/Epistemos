@@ -2162,7 +2162,27 @@ final class ChatCoordinator {
     // canonical systemPrompt for the agent runtime so the model
     // explicitly acknowledges its OS context + past session failures
     // before generating a single token.
-    let baseSystemPrompt = systemParts.joined(separator: "\n\n")
+    var baseSystemPromptParts = systemParts
+
+    // AR2 read-site (master plan Phase 16) — when a structured
+    // ConversationState exists for this session, splice it INTO
+    // the system prompt instead of (or alongside) the full raw
+    // transcript. Per compass token economics: ~95% input-token
+    // reduction on 50-turn conversations. The persistence half
+    // shipped in commit 16396df2 (saveConversationState +
+    // loadConversationStateJSON in EventStore); this is the read
+    // site that closes the AR2 loop end-to-end.
+    if let stateJSON = EventStore.shared?.loadConversationStateJSON(conversationId: sessionId),
+       !stateJSON.isEmpty {
+      baseSystemPromptParts.append(
+        """
+        Conversation state (structured projection — read this INSTEAD of the raw transcript when reasoning about prior turns; the structured fields supersede any older summary):
+        \(stateJSON)
+        """
+      )
+    }
+
+    let baseSystemPrompt = baseSystemPromptParts.joined(separator: "\n\n")
     let resolvedSystemPrompt: String
     #if !EPISTEMOS_APP_STORE
     resolvedSystemPrompt = HarnessIntegration.shared.prepareSession(
