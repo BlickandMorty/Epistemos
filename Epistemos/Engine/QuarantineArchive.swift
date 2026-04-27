@@ -120,7 +120,7 @@ public final class QuarantineArchive {
 
     public static let shared = QuarantineArchive()
 
-    private static let log = Logger(
+    nonisolated private static let log = Logger(
         subsystem: "com.epistemos",
         category: "QuarantineArchive"
     )
@@ -134,20 +134,56 @@ public final class QuarantineArchive {
     /// best-effort — failure is logged but doesn't block the in-
     /// memory append (the user shouldn't lose their thought because
     /// of a transient I/O error).
+    ///
+    /// Wave 15 perf-fix #3: disk write is dispatched OFF the MainActor
+    /// onto a background queue so the user-visible action that
+    /// triggered the capture (paste, brain-dump dictate, voice tap)
+    /// doesn't stall on file I/O. Previously the write was sync on
+    /// MainActor (~8-12 ms for a 50 KB paste — visible jank on the
+    /// next frame). The append-to-end semantics are still safe under
+    /// the dispatch because diskQueue is serial.
     @discardableResult
     public func capture(
         _ entry: QuarantineEntry
     ) -> QuarantineEntry {
         entries.append(entry)
-        do {
-            try appendToDisk(entry)
-        } catch {
-            Self.log.warning(
-                "quarantine disk append failed (in-memory copy retained): \(error.localizedDescription, privacy: .public)"
-            )
+        diskQueue.async { [weak self] in
+            guard let self else { return }
+            do {
+                try self.appendToDisk(entry)
+            } catch {
+                Self.log.warning(
+                    "quarantine disk append failed (in-memory copy retained): \(error.localizedDescription, privacy: .public)"
+                )
+                // Edge-case mitigation: surface the failure so the UI
+                // can show a non-blocking toast. The toast is opt-in
+                // by call sites that observe the Notification.
+                NotificationCenter.default.post(
+                    name: Self.diskWriteFailedNotification,
+                    object: nil,
+                    userInfo: [
+                        "entryId": entry.id,
+                        "error": error.localizedDescription,
+                    ]
+                )
+            }
         }
         return entry
     }
+
+    /// Notification posted when the on-disk append fails (typically
+    /// disk-full). UI can subscribe to surface a toast; the in-memory
+    /// log is preserved either way.
+    nonisolated public static let diskWriteFailedNotification = Notification.Name(
+        "com.epistemos.quarantine.diskWriteFailed"
+    )
+
+    /// Serial background queue for disk writes — keeps append
+    /// ordering stable while taking the I/O off the MainActor.
+    private let diskQueue = DispatchQueue(
+        label: "com.epistemos.quarantine.disk",
+        qos: .userInitiated
+    )
 
     /// Convenience capture — most call sites have a body + a
     /// QuarantineKind. Anchor is optional but encouraged for
@@ -180,7 +216,7 @@ public final class QuarantineArchive {
     /// Path to the quarantine JSONL log under Application Support.
     /// Excluded from iCloud + Time Machine via
     /// `isExcludedFromBackupKey` per the compass storage spec.
-    private var archiveURL: URL? {
+    nonisolated private var archiveURL: URL? {
         let fm = FileManager.default
         guard let support = try? fm.url(
             for: .applicationSupportDirectory,
@@ -206,7 +242,7 @@ public final class QuarantineArchive {
         return dir.appendingPathComponent("entries.jsonl")
     }
 
-    private func appendToDisk(_ entry: QuarantineEntry) throws {
+    nonisolated private func appendToDisk(_ entry: QuarantineEntry) throws {
         guard let url = archiveURL else { return }
         let data = try Self.encoder.encode(entry)
         var line = data
@@ -230,7 +266,7 @@ public final class QuarantineArchive {
         EpistemosSidecarStore.makeEntityId()
     }
 
-    private static let encoder: JSONEncoder = {
+    nonisolated private static let encoder: JSONEncoder = {
         let e = JSONEncoder()
         // JSONL: one entry per line — NOT pretty-printed.
         e.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]

@@ -64,6 +64,14 @@ struct CognitiveSettingsSection: View {
                     )
                 }
             }
+
+            // W11.4 + W15 — Apple-native voice surfaces with the
+            // Auto/Manual mode contract. Read aloud / dictation /
+            // brain-dump hotkey / per-model voice persona — each row
+            // exposes a Picker(Auto/Manual) + a "Why?" rationale +
+            // an inline Preview button so the user can hear what each
+            // mode does before committing.
+            VoicePreferencesSection()
         }
         .formStyle(.grouped)
         .onChange(of: config.ssmStatePersistenceEnabled) { _, enabled in

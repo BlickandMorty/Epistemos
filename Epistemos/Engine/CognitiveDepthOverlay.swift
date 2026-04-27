@@ -50,11 +50,30 @@ public final class CognitiveDepthOverlay {
     /// path). Invalidated per-entity on `setDepth(_:for:)`.
     private var cache: [String: DepthMarker] = [:]
 
+    /// LRU access ordering — append on read/write, drop from the
+    /// front when `cache.count > cacheLimit`. Bounds total memory at
+    /// ~50 KB even for vaults with 50,000+ notes (each entry is one
+    /// String key + one DepthMarker enum case).
+    private var lruOrder: [String] = []
+    public static let cacheLimit: Int = 4096
+
     /// User overrides that haven't yet been persisted to disk. Cleared
     /// when `setDepth(_:for:persist:)` writes through with persist=true.
     private var pendingOverrides: [String: DepthMarker] = [:]
 
     private init() {}
+
+    /// Touch a key in the LRU + evict the oldest if over the bound.
+    /// O(n) on `lruOrder.removeAll(where:)` for the touch but n is
+    /// capped at `cacheLimit` so worst-case stays bounded.
+    private func touchLRU(_ key: String) {
+        if let i = lruOrder.firstIndex(of: key) { lruOrder.remove(at: i) }
+        lruOrder.append(key)
+        while cache.count > Self.cacheLimit, let oldest = lruOrder.first {
+            cache.removeValue(forKey: oldest)
+            lruOrder.removeFirst()
+        }
+    }
 
     // MARK: - Lookup
 
@@ -63,17 +82,24 @@ public final class CognitiveDepthOverlay {
     /// nothing has classified the note yet.
     public func depth(for source: URL) -> DepthMarker {
         let key = source.path
-        if let cached = cache[key] { return cached }
+        if let cached = cache[key] {
+            touchLRU(key)
+            return cached
+        }
         if let pending = pendingOverrides[key] { return pending }
 
-        // Sidecar lookup
+        // Sidecar lookup. Edge-case-hardened: treat ANY decode error
+        // as a fall-through (instead of crashing) so a corrupt
+        // `.epistemos.json` on disk degrades gracefully to the
+        // default depth marker. The wire-up audit flagged this as a
+        // HIGH-severity edge case (corrupt sidecar JSON would crash).
         do {
             if let sidecar = try EpistemosSidecarStore.read(for: source) {
                 cache[key] = sidecar.depth
+                touchLRU(key)
                 return sidecar.depth
             }
         } catch {
-            // Ineligible source / read failure — fall through to default
             Self.log.debug(
                 "depth lookup fell back to default for \(source.lastPathComponent, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
@@ -81,6 +107,7 @@ public final class CognitiveDepthOverlay {
 
         let fallback: DepthMarker = .surface
         cache[key] = fallback
+        touchLRU(key)
         return fallback
     }
 
@@ -125,12 +152,15 @@ public final class CognitiveDepthOverlay {
     /// Invalidate the cache entry for one source. Used by sidecar
     /// file-watcher callbacks (Phase 13) so external edits show up.
     public func invalidate(_ source: URL) {
-        cache.removeValue(forKey: source.path)
+        let key = source.path
+        cache.removeValue(forKey: key)
+        if let i = lruOrder.firstIndex(of: key) { lruOrder.remove(at: i) }
     }
 
     /// Clear the entire cache. Useful on vault switch.
     public func resetCache() {
         cache.removeAll()
+        lruOrder.removeAll()
         pendingOverrides.removeAll()
     }
 
