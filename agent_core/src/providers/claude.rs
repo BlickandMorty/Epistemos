@@ -643,10 +643,10 @@ fn map_stop_reason(reason: &str) -> StopReason {
 mod tests {
     use super::{
         authenticated_request, content_block_to_json, initial_input_json, map_stop_reason,
-        resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth,
+        merge_usage, resolve_claude_auth, tool_definition_to_claude_json, ClaudeAuth, UsageData,
         ANTHROPIC_OAUTH_BETA_HEADER, BETA_HEADER,
     };
-    use crate::types::{ContentBlock, StopReason, ToolSchema};
+    use crate::types::{ContentBlock, StopReason, TokenUsage, ToolSchema};
     use reqwest::Client;
     use serde_json::json;
 
@@ -675,6 +675,60 @@ mod tests {
         assert_eq!(map_stop_reason("tool_use"), StopReason::ToolUse);
         assert_eq!(map_stop_reason("max_tokens"), StopReason::MaxTokens);
         assert_eq!(map_stop_reason("anything_else"), StopReason::EndTurn);
+    }
+
+    // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — guard the data path
+    // from Anthropic's SSE `usage` block into `TokenUsage`. The W9.6
+    // cost dashboard reads `cache_read_input_tokens` from this same
+    // struct via `AgentResultFFI`; if `merge_usage` ever stops
+    // populating those fields, the dashboard's "Cache hit rate" row
+    // silently flat-lines at 0 % and N1's whole point evaporates.
+    #[test]
+    fn merge_usage_captures_anthropic_cache_token_counters() {
+        let mut usage = TokenUsage::default();
+        merge_usage(
+            &mut usage,
+            &UsageData {
+                input_tokens: Some(120),
+                output_tokens: Some(80),
+                cache_creation_input_tokens: Some(2_048),
+                cache_read_input_tokens: Some(9_216),
+            },
+        );
+
+        assert_eq!(usage.input_tokens, 120);
+        assert_eq!(usage.output_tokens, 80);
+        assert_eq!(usage.cache_creation_input_tokens, 2_048);
+        assert_eq!(usage.cache_read_input_tokens, 9_216);
+    }
+
+    #[test]
+    fn merge_usage_preserves_prior_cache_counters_when_chunk_is_silent() {
+        // Anthropic's SSE often emits a `message_start` event with the
+        // initial usage block, then per-chunk `message_delta` events
+        // that omit cache fields. `merge_usage` must keep the prior
+        // value rather than reset to zero, otherwise mid-stream chunks
+        // wipe out the cache numbers reported by the opener.
+        let mut usage = TokenUsage {
+            input_tokens: 50,
+            output_tokens: 0,
+            cache_creation_input_tokens: 1_000,
+            cache_read_input_tokens: 5_000,
+        };
+        merge_usage(
+            &mut usage,
+            &UsageData {
+                input_tokens: None,
+                output_tokens: Some(40),
+                cache_creation_input_tokens: None,
+                cache_read_input_tokens: None,
+            },
+        );
+
+        assert_eq!(usage.input_tokens, 50);
+        assert_eq!(usage.output_tokens, 40);
+        assert_eq!(usage.cache_creation_input_tokens, 1_000);
+        assert_eq!(usage.cache_read_input_tokens, 5_000);
     }
 
     #[test]

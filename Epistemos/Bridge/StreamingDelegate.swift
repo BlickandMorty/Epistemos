@@ -99,6 +99,13 @@ struct AgentResultFFI: Sendable {
     let inputTokens: UInt32
     let outputTokens: UInt32
     let trajectoryMetrics: ReasoningTrajectoryMetricsFFI
+    // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — Anthropic
+    // prompt-cache token counters surfaced from
+    // agent_core::types::TokenUsage. The fallback stub mirrors the
+    // auto-generated `AgentResultFfi` shape so test targets that
+    // don't link against agent_coreFFI keep compiling.
+    let cacheReadInputTokens: UInt32
+    let cacheCreationInputTokens: UInt32
 }
 
 enum AgentRuntimeBridgeError: Error, LocalizedError, Sendable {

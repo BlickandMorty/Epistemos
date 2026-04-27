@@ -233,6 +233,15 @@ pub struct AgentResultFFI {
     pub input_tokens: u32,
     pub output_tokens: u32,
     pub trajectory_metrics: ReasoningTrajectoryMetricsFFI,
+    // N1 Phase 1 closure (MASTER_BUILD_PLAN.md:311) — surface the
+    // Anthropic prompt-cache token counters that `merge_usage` in
+    // providers/claude.rs:622-630 already accumulates into
+    // `AgentResult.total_usage`. Default 0 for non-Anthropic providers
+    // (OpenAI, Gemini, Perplexity) — they leave these fields untouched
+    // in `TokenUsage` so the FFI value reflects "no cache activity"
+    // honestly rather than a fabricated zero.
+    pub cache_read_input_tokens: u32,
+    pub cache_creation_input_tokens: u32,
 }
 
 #[uniffi::export]
@@ -685,6 +694,8 @@ async fn run_agent_session_inner(
                 input_tokens: result.total_usage.input_tokens,
                 output_tokens: result.total_usage.output_tokens,
                 trajectory_metrics: result.trajectory_metrics.into(),
+                cache_read_input_tokens: result.total_usage.cache_read_input_tokens,
+                cache_creation_input_tokens: result.total_usage.cache_creation_input_tokens,
             })
         }
         Err(error) => {
