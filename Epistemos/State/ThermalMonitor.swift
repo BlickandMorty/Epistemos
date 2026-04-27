@@ -74,7 +74,26 @@ public final class ThermalMonitor {
     /// budget HALF at .serious, QUARTER at .critical so sustained
     /// inference doesn't crater the foreground UI.
     public func tokenBudgetMultiplier() -> Double {
-        switch thermalState {
+        Self.tokenBudgetMultiplier(for: thermalState)
+    }
+
+    /// Nonisolated static counterpart of `tokenBudgetMultiplier()`. Reads
+    /// `ProcessInfo.processInfo.thermalState` directly (Sendable + thread-safe)
+    /// so callers in `nonisolated` contexts (e.g. `LocalMLXRequest` inference
+    /// requests) can consult the same scaling table without crossing the
+    /// MainActor boundary. Single source of truth — if this table changes,
+    /// the @MainActor instance method changes with it.
+    public nonisolated static func currentTokenBudgetMultiplier() -> Double {
+        tokenBudgetMultiplier(for: ProcessInfo.processInfo.thermalState)
+    }
+
+    /// Pure helper. Sendable input, Sendable output, no isolation needed.
+    /// Both the @MainActor instance method and the nonisolated static
+    /// surface route through this so the policy lives in one place.
+    public nonisolated static func tokenBudgetMultiplier(
+        for state: ProcessInfo.ThermalState
+    ) -> Double {
+        switch state {
         case .nominal: return 1.0
         case .fair: return 0.85
         case .serious: return 0.5

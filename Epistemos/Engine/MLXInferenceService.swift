@@ -26,25 +26,16 @@ nonisolated struct LocalMLXRequest: Sendable, Equatable {
     let steeringHintsJSON: String?
     let imageURLs: [URL]
 
-    /// W9.29 — Thermal-aware token budget. Reads ProcessInfo.thermalState
-    /// (no MainActor dependency for the read; matches PowerGate pattern)
-    /// and scales `maxTokens` down before MLX sees the request. Cuts to
-    /// ~85% at fair, 50% at serious, 25% at critical so sustained
-    /// inference doesn't crater the foreground UI when the chip starts
-    /// throttling. Returns nil to keep the existing (max-allowed) ceiling
-    /// when maxTokens is zero / negative — same contract as before.
+    /// W9.29 — Thermal-aware token budget. Routes through
+    /// `ThermalMonitor.currentTokenBudgetMultiplier()` (single source of truth
+    /// for the scaling policy; lives at `Epistemos/State/ThermalMonitor.swift`)
+    /// so `maxTokens` scales 100→85→50→25 % as the chip transitions
+    /// nominal→fair→serious→critical. Returns nil to keep the existing
+    /// (max-allowed) ceiling when maxTokens is zero / negative.
     var resolvedMaxTokens: Int? {
         guard maxTokens > 0 else { return nil }
         let maxAllowed = 12_000
-        let thermalScale: Double = {
-            switch ProcessInfo.processInfo.thermalState {
-            case .nominal: return 1.0
-            case .fair: return 0.85
-            case .serious: return 0.5
-            case .critical: return 0.25
-            @unknown default: return 0.5
-            }
-        }()
+        let thermalScale = ThermalMonitor.currentTokenBudgetMultiplier()
         let scaled = max(1, Int(Double(maxTokens) * thermalScale))
         return min(scaled, maxAllowed)
     }
