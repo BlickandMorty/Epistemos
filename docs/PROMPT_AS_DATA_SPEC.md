@@ -198,10 +198,10 @@ coexist behind `EPISTEMOS_PROMPT_TREE=1`. Phased migration:
   `<vault>/.epistemos/prompts/...` whenever the flag is on. Rust SSE handler
   unchanged — it still receives a String systemPrompt.
 
-- **Phase 1 (follow-up PR):** wire `RenderedPrompt.anthropic(systemBlocks:messages:)`
-  into the Rust SSE handler so the Relocation Trick actually flows through to
-  Anthropic. Add `cached_tokens_share` parsing on the response. Surface the
-  hit-rate in Settings → Agent → Spend (already wired via W9.6 dashboard).
+- **Phase 1 (in progress — Settings toggle ✅ shipped 1ab15596):**
+  - ✅ Settings toggle for the feature flag (`Epistemos/State/PromptTreePreferences.swift` + footer row in `StructuredSurfacesView`).
+  - ⚠️ Wire `RenderedPrompt.anthropic(systemBlocks:messages:)` into the Rust SSE handler so the Relocation Trick actually flows through to Anthropic — **blocked** on the substrate gap discovered in commit `1f6c575d`: `agent_core/src/session_insights.rs` is an orphan source file (never declared in lib.rs). Either integrate it OR pivot to the existing `ReasoningTrajectoryMetricsFFI` path in `agent_core/src/bridge.rs`. See `docs/plan/03_EXECUTION_MAP.md` "N1 Phase 1" entry for the discovery context.
+  - ⚠️ `cached_tokens_share` parsing on the Anthropic response → Settings → Agent → Spend (W9.6 dashboard) — gated on the substrate fix above.
 
 - **Phase 2 (follow-up PR):** wire LocalAgentLoop, SubconsciousService, and
   NightBrain to use the composer for their own prompt-assembly call sites.
