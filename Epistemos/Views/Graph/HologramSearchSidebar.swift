@@ -691,6 +691,7 @@ struct HologramSearchSidebar: View {
         .padding(12)
     }
 
+    @ViewBuilder
     private func graphChatRow(_ message: InspectorChatMessage) -> some View {
         let displayText = message.role == .assistant
             ? UserFacingModelOutput.finalVisibleText(from: message.text)
@@ -698,23 +699,19 @@ struct HologramSearchSidebar: View {
         let thinkingTrace = graphChatThinkingTrace(for: message)
 
         if message.role == .user {
-            return AnyView(
-                TaggedMarkdownTextView(
-                    content: displayText,
-                    theme: theme,
-                    rippleStyle: .none,
-                    foregroundOverride: theme.userBubbleText
-                )
-                .textSelection(.enabled)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .frame(maxWidth: 320, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+            TaggedMarkdownTextView(
+                content: displayText,
+                theme: theme,
+                rippleStyle: .none,
+                foregroundOverride: theme.userBubbleText
             )
-        }
-
-        return AnyView(
+            .textSelection(.enabled)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(theme.userBubbleBg, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .frame(maxWidth: 320, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        } else {
             AssistantTranscriptChrome {
                 VStack(alignment: .leading, spacing: Spacing.md) {
                     if displayText.isEmpty {
@@ -747,7 +744,7 @@ struct HologramSearchSidebar: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-        )
+        }
     }
 
     private func graphChatThinkingTrace(for message: InspectorChatMessage) -> (content: String, duration: Double?)? {

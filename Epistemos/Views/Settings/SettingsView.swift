@@ -2848,9 +2848,8 @@ private struct AppearanceDetailContainer: View {
         configuredForm
     }
 
-    private var configuredForm: AnyView {
-        let base = AnyView(
-            appearanceForm
+    private var configuredForm: some View {
+        appearanceForm
             .formStyle(.grouped)
             .onAppear {
                 Task { @MainActor in
@@ -2860,15 +2859,12 @@ private struct AppearanceDetailContainer: View {
             .onChange(of: ui.displayMode) { _, mode in
                 regularModeDraft = mode == .regular
             }
-        )
-        return AnyView(
-            base.alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
+            .alert("Restart to Apply Display Mode?", isPresented: $showDisplayModeAlert) {
                 Button("Cancel", role: .cancel, action: onCancelDisplayRestart)
                 Button("Restart Now", action: onApplyDisplayRestart)
             } message: {
                 Text("Epistemos will relaunch to rebuild style caches. Your vault and saved data stay intact.")
             }
-        )
     }
 
     private var appearanceForm: some View {
