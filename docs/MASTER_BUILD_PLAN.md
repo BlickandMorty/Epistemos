@@ -298,19 +298,17 @@ item, work it through §1–§6, mark it 🟢 SHIPPED with commit SHA, repeat.
 
 ### Bucket N — Novel additions (locked into plan after dossier closed)
 
-#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟡 FOUNDATION (PR1 of N: 7316f86b + 1ab15596 + e8c22dbb)
+#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟡 PHASE 1 IN PROGRESS
 
-**Status note (2026-04-27, demoted per CRITIQUE_LOG pass #7 finding):** the foundation
-shipped (`7316f86b`) and the Settings toggle landed (`1ab15596`), but the Phase 1
-cache-telemetry wire is **blocked** on the orphan-substrate discovery in commit
-`1f6c575d` (`agent_core/src/session_insights.rs` is not declared in lib.rs;
-`ReasoningTrajectoryMetricsFFI` carries no token fields). Demoted from `🟢 SHIPPED`
-to `🟡 FOUNDATION (PR1 of N)` so the multi-PR pattern matches the W9.21 / W9.26
-/ W9.27 series and the PROMPT_AS_DATA_SPEC.md §7 phased migration plan. See
-`docs/plan/03_EXECUTION_MAP.md` "N1 Phase 1" entry for the substrate-fix
-prerequisite. Phase 1 wire will land naturally when the next session picks up
-either the session_insights integration or the ReasoningTrajectoryMetricsFFI
-extension path.
+**Commits:** `7316f86b` (foundation) + `1ab15596` (Settings toggle) + `e8c22dbb` (spec doc) + `4561f31b` (substrate registration) + `b9a5312d` (cache wire)
+
+**Status note (updated 2026-04-27 per CRITIQUE_LOG pass #8 steer):** auditor's exact 3-step sequence executed. Phase 1 sub-checklist:
+
+- [x] **Feature flag toggle** (`1ab15596`) — UserDefaults-backed toggle in Settings → Agent → Structures footer; env var EPISTEMOS_PROMPT_TREE=1 still wins via `PromptTreePreferences.isEnabled()`.
+- [x] **session_insights.rs orphan fix** (`4561f31b`) — `pub mod session_insights;` registered in `agent_core/src/lib.rs:31`. Test count went from 691 → 698 (+7 previously-orphan tests now compiling).
+- [x] **cached_tokens_share wire (W9.6)** (`b9a5312d`) — `SessionMetrics` + `AggregatedStats` + `InsightsReportFFI` extended with cache fields; `CostDashboardView` renders aggregate cache hit rate as a color-tinted percentage row above the budget editor. 6 new unit tests on the Rust side (704 total agent_core tests, all green); WRV-Wired grep gate passes (`Text(aggregateCachedShare, format: .percent...)` at `CostDashboardView.swift:136`, non-comment UI caller).
+
+**Phase 1 closure (final piece, queued for the next session):** Anthropic SSE handler in `agent_core/src/providers/claude.rs` already parses `cache_read_input_tokens` into the local `TokenUsage` struct (lines 622-630). That value needs to flow into `SessionMetrics.cache_read_input_tokens` at session-completion time — the wire-point is whatever currently populates `SessionMetrics` from `ReasoningTrajectoryMetrics` (or wherever `EventStore.saveSessionMetrics` reads from). When that lands, the W9.6 dashboard's "Cache hit rate" row goes live with real numbers instead of the preview's mock data.
 
 **Phase:** parallel | **Targets:** Both | **Risk:** Med
 
