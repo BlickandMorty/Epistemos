@@ -473,7 +473,10 @@ import AVFoundation
 actor LiveTranscription {
     private let transcriber = SpeechTranscriber(
         locale: .current,
-        preset: .conversational  // verify enum case in current SDK
+        preset: .progressiveTranscription  // VERIFIED 2026-04-26 in
+                                           // Speech.framework swiftinterface
+                                           // line 339-343 — `.conversational`
+                                           // does NOT exist in the SDK
     )
     private lazy var analyzer = SpeechAnalyzer(modules: [transcriber])
     private let engine = AVAudioEngine()
