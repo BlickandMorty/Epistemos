@@ -691,12 +691,13 @@ Per orchestrator §1.5 ("If a finding has been resolved by a recent commit, mark
 | **W9.6 chrome-stub `entries: []`** | Blocker — dashboard never shows real data | 🟡 **PARTIAL-RESOLVED** | `af0a0f21` | `AgentSectionDetailView.swift:135` mounts `SpendDashboardHost` calling `EventStore.recentSessionMetrics(limit: 30)`. Cache-hit rate row fully live with color tinting. Provider name + per-session USD columns remain placeholders pending pricing-table extension. |
 | **N1 "blocked on substrate"** | Warning — tracker out of date | 🟢 **RESOLVED** | `4561f31b` + `b9a5312d` + `b8d779ca` + `af0a0f21` | Substrate orphan fix → cache wire → AgentResultFFI extension → end-to-end persist+render. Tracker line 63 = 🟢 SHIPPED. |
 | **W9.6 `budget_gate` cost-cap → ApprovalModal** | Blocker | ⚪ **STILL OPEN** | — | Verified zero `budget_gate` hits in `agent_core/src/`. Lower priority now that dashboard data is visible. |
-| **D4 Hermes 36B OOM on 16GB** | Blocker — memory math violation | 🟡 **IN-PROGRESS (stashed)** | `8e4e018d` (catalog) + `git stash@{0}` (Swift fix) | Catalog landed: `fallbackPrimaryAgentModel = .qwen3_8B4Bit`, `optInPrimaryAgentModel = .hermes43_36B4Bit`, `primaryAgentModelMinHostRAMGB = 32`, opt-in defaults key. Build broke on missing `LocalTextModelID.estimated4BitWeightsGB` accessor; 3 Swift files preserved in stash. **Next ship**: `git stash pop` + add accessor (4-bit ≈ params × 0.5 GB) + verify `defaultLocalAgentModelFitsIn16GBCeiling` passes. |
+| **D4 Hermes 36B OOM on 16GB** | Blocker — memory math violation | 🟢 **RESOLVED** | `8e4e018d` (catalog) + `4c0c7e17` (estimated4BitWeightsGB accessor + final ship) | Catalog landed: `fallbackPrimaryAgentModel = .qwen3_8B4Bit`, `optInPrimaryAgentModel = .hermes43_36B4Bit`, `primaryAgentModelMinHostRAMGB = 32`, opt-in defaults key. Final ship adds the missing `LocalTextModelID.estimated4BitWeightsGB` accessor (all 46 catalog cases enumerated; 4-bit ≈ params × 0.5 GB rule). 6 invariant tests pass; xcodebuild green; zero new test regressions (pre-existing W9.25-stale Swift test confirmed as not D4-induced via D4-isolation stash). |
 
-### Updated Blocker count: 17 → 16 still open + 1 partial-resolved + 1 in-flight stashed
+### Updated Blocker count: 17 → 15 still open + 1 partial-resolved (after D4 ship at 4c0c7e17)
 
 - Pass #1 score: 47 audited / 17 Blockers / 19 Warnings / 6 Notes
-- Pass #2 score: 47 audited / **16 Blockers** / **1 partial-resolved (W9.6 main)** / **1 in-flight (D4 stashed)** / 19 Warnings / 6 Notes
+- Pass #2 score (initial): 47 audited / 16 Blockers / 1 partial-resolved (W9.6 main) / 1 in-flight (D4 stashed) / 19 Warnings / 6 Notes
+- Pass #2 score (post-D4 ship at `4c0c7e17`): 47 audited / **15 Blockers** / **1 partial-resolved (W9.6 main)** / 19 Warnings / 6 Notes
 
 ### Foundational doctrine primitives — STILL 100% ABSENT IN CODE
 
