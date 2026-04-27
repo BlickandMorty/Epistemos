@@ -257,4 +257,59 @@ private let canonicalSchemas: [StructureSchemaDescriptor] = [
         maturity: .raw,
         summary: "Gap G9 (Pro only) — light @Generable classification on inbound iMessage (command / question / confirmation) before DriverChannelToolExecutor dispatch."
     ),
+
+    // MARK: - N1 — Prompt Tree (JSPF + PTF) shape descriptors
+    //
+    // The prompt itself is structured data the app produces. Cataloging
+    // each subtree here means the local LLM (via MCP resource) can
+    // answer "what shapes do you send?" by reading the registry — no
+    // guesswork. Adding these entries also makes the StructuredSurfaces
+    // settings tab (Settings → Agent → Structures) display the prompt
+    // shape alongside the @Generable schemas.
+
+    .init(
+        id: "prompt_root",
+        surface: "agent_invocation",
+        storage: .fileBacked,
+        swiftType: "Prompt",
+        profiles: [.mas, .pro],
+        maturity: .full,
+        summary: "N1 root JSPF — Codable+Sendable+Hashable Prompt struct composed deterministically from typed inputs. Persisted to PTF at <vault>/.epistemos/prompts/<session>/<turn>/manifest.json."
+    ),
+    .init(
+        id: "prompt_identity",
+        surface: "agent_invocation",
+        storage: .fileBacked,
+        swiftType: "IdentitySection",
+        profiles: [.mas, .pro],
+        maturity: .full,
+        summary: "N1 identity subtree — system role + persona + capability manifest. Heaviest stable cacheable block; one of four breakpoints in Anthropic Messages render."
+    ),
+    .init(
+        id: "prompt_tools",
+        surface: "agent_invocation",
+        storage: .fileBacked,
+        swiftType: "[ToolSpec]",
+        profiles: [.mas, .pro],
+        maturity: .full,
+        summary: "N1 tools subtree — array of ToolSpec mirroring the Anthropic Messages tool schema field-for-field. Stable per session; cached as a single breakpoint."
+    ),
+    .init(
+        id: "prompt_memory",
+        surface: "agent_invocation",
+        storage: .fileBacked,
+        swiftType: "MemorySection",
+        profiles: [.mas, .pro],
+        maturity: .full,
+        summary: "N1 memory subtree — recent chats (ConversationState JSON when available) + relevant notes + ontology refs. Highest-volatility section; relocated to user-message tail per Relocation Trick when Anthropic-targeted."
+    ),
+    .init(
+        id: "prompt_task",
+        surface: "agent_invocation",
+        storage: .fileBacked,
+        swiftType: "TaskSection",
+        profiles: [.mas, .pro],
+        maturity: .full,
+        summary: "N1 task subtree — the active objective + mode + effort tier. Always churns per turn; placed at prompt tail with cache_control: ephemeral as the current-turn breakpoint."
+    ),
 ]

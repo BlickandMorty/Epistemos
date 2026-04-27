@@ -2182,7 +2182,90 @@ final class ChatCoordinator {
       )
     }
 
-    let baseSystemPrompt = baseSystemPromptParts.joined(separator: "\n\n")
+    var baseSystemPrompt = baseSystemPromptParts.joined(separator: "\n\n")
+
+    // N1 — Prompt Tree (JSPF + PTF) WRV anchor. Behind feature flag so
+    // both paths coexist; legacy stays default until the cache-hit-rate
+    // telemetry bake confirms ≥30% hits across real sessions. When
+    // enabled, this turn:
+    //   1. composes a typed Prompt from the same inputs the legacy path
+    //      already has (no new context retrieval — pure restructuring)
+    //   2. persists the Prompt as a PTF directory at
+    //      <vault>/.epistemos/prompts/<sessionId>/<turnIndex>/ for
+    //      Finder-browsable audit + retraction-propagation lineage
+    //   3. replaces the legacy joined systemPrompt with the renderer's
+    //      output (no relocation in v1 — Anthropic-side cache_control
+    //      already handled by agent_core/src/prompt_caching.rs; the
+    //      Relocation Trick moves to a follow-up PR that also touches
+    //      the user-message assembly)
+    //
+    // WRV proof for this wire:
+    //   - WIRED: PromptComposer.compose(forChatTurn:) called below
+    //     (grep -rn 'PromptComposer.compose' Epistemos/App/ChatCoordinator.swift)
+    //   - REACHABLE: EPISTEMOS_PROMPT_TREE=1 + start chat + send message
+    //   - VISIBLE: PTF directory appears in Finder; OSLog "N1 prompt
+    //     tree active" line on every render; StructuredSurfacesView
+    //     (Settings → Agent → Structures) lists the 5 prompt-shape
+    //     descriptors added in StructureRegistry.swift
+    //
+    // Doctrine: 01_DOCTRINE.md §6 #14 (no orphan scaffolding — N1 ships
+    // with this wired call site or it doesn't ship).
+    if ProcessInfo.processInfo.environment["EPISTEMOS_PROMPT_TREE"] == "1" {
+      let n1Prompt = PromptComposer.compose(
+        forChatTurn: sessionId,
+        turnIndex: 0, // First-turn anchor; multi-turn replay in follow-up PR
+        identitySystemText: baseSystemPrompt,
+        capabilityManifest: nil, // Already inlined in baseSystemPrompt above
+        toolDefinitionsJSON: Self.encodedToolDefinitionsJSON(allowedToolDefinitions),
+        relevantNotes: [],
+        recentChatsJSON: nil,
+        ontology: [:],
+        objective: objective,
+        mode: surfaceOperatingMode.rawValue,
+        effortTier: inferenceState.chatReasoningTier.rawValue,
+        constraintBlocks: [],
+        outputSchema: nil
+      )
+
+      // Persist PTF asynchronously — the directory write is non-blocking
+      // and the agent invocation must not stall on filesystem I/O.
+      if let vaultRoot = bootstrap.vaultSync.vaultURL {
+        Task.detached(priority: .utility) {
+          do {
+            try await PromptTreePersister.shared.persist(
+              n1Prompt,
+              sessionID: sessionId,
+              turnIndex: 0,
+              vaultRoot: vaultRoot
+            )
+          } catch {
+            // PTF persistence is observability — failure must not
+            // abort the agent run. Logged at warning so the operator
+            // sees it without surfacing a UI error to the user.
+            Log.pipeline.warning(
+              "N1 PTF persist failed: \(error.localizedDescription, privacy: .public)"
+            )
+          }
+        }
+      }
+
+      // Render the typed prompt to the Anthropic system-prefix string.
+      // useRelocation: false keeps memory in the prefix (matches legacy
+      // path semantics for v1; cache savings come from the typed
+      // restructuring + the Rust-side prompt_caching.rs already wired).
+      let renderedPrefix = PromptRenderer.anthropicSystemPrefix(n1Prompt, useRelocation: false)
+
+      // Replace baseSystemPrompt with the renderer's output. The
+      // legacy code that built baseSystemPromptParts is preserved as
+      // input to the composer — N1 doesn't lose context; it
+      // restructures it.
+      baseSystemPrompt = renderedPrefix
+
+      Log.pipeline.info(
+        "N1 prompt tree active session=\(sessionId, privacy: .public) promptId=\(n1Prompt.id, privacy: .public)"
+      )
+    }
+
     let resolvedSystemPrompt: String
     #if !EPISTEMOS_APP_STORE
     resolvedSystemPrompt = HarnessIntegration.shared.prepareSession(
