@@ -591,6 +591,17 @@ pub unsafe extern "C" fn shadow_release(p: *const ShadowEngine) {
 
 **Notes / risks:** one wrong `decrement_strong_count` is UAF. Mitigation: PR-by-PR landing with full TSan between each.
 
+### Progress (revised 2026-04-27)
+
+- **PR1** ✅ shipped in `dcc5521f` — `epistemos-shadow/src/honest_handle.rs` with `shadow_handle_open_at / _retain / _release / _search`. Coexists with the legacy global-state API.
+- **PR2** ✅ shipped in `b2e4899d` — `substrate-rt`, `substrate-core`, `syntax-core` honest_handle modules. 12 new unit tests across the 3 crates (3+4+5), all green; full per-crate test suites green (14/14, 11/11, 47/47). All three crates have a clean Send+Sync story (substrate-rt via internal `CachePadded<Mutex<Producer/Consumer>>`; substrate-core via internal `RwLock<Inner>+RwLock<Vec<AppAction>>+RwLock<usize>`; syntax-core wrapped in `Arc<Mutex<SyntaxDocument>>` because tree-sitter::Parser is Send-not-Sync).
+- **PR3** 🟡 design analysis (2026-04-27, blocking implementation):
+  - `graph-engine` has 10 raw-pointer sites but only **4 are amenable to honest-handle** (`Engine` create/destroy at 573/585; `KnowledgeCore` create/destroy at 2435/2448). The other 6 sites are one-shot ownership transfers (boxed slices for search results; per-string `CString::into_raw` returns) — Box is correct, NOT honest-handle candidates.
+  - `Engine` holds raw `*mut c_void` Metal device + layer pointers and is consumed via `&mut *engine` macros from Swift's main thread for rendering. Wrapping in `Arc<Mutex<Engine>>` would gate every Metal render call behind a Mutex — exactly the wrong tradeoff for the 120fps rendering hot path. The current single-thread-from-Swift contract IS the right pattern for Metal-bound state. **Defer Engine honest-handle indefinitely; document the contract instead.**
+  - `KnowledgeCore` holds `SharedRingBuffer + DatalogStore + HashMap` with `&mut self` operations across 20+ FFI exports. A faithful honest-handle migration here means wrapping the entire operation FFI surface in `Mutex<KnowledgeCore>`-acquiring wrappers (~400-600 LOC of pure FFI rewrite). Doable but bigger than a contained PR. **Open question for the next session: is the per-op Mutex acquire (~100ns uncontended) acceptable on the KnowledgeCore reactive-FFI hot path? KnowledgeCore is IPC-shaped (publish/drain), so yes — but a benchmark on the existing `*mut KnowledgeCore` path would set the bar.**
+- **PR4** Swift `~Copyable` consumer cutover — gated on PR3 outcome. If PR3 ships only the `KnowledgeCore` migration, PR4 cuts over `KnowledgeCoreBridge.swift`; the Swift `GraphEngine.swift` stays on the existing `*mut Engine` pattern.
+- **W9.21 series provisional declaration:** the 4 honest-handle modules shipped in PR1+PR2 cover all crates where the pattern is clearly correct. `graph-engine` is the architectural outlier — its existing single-thread-from-Swift contract for Metal state IS the right pattern, and the doctrinal payoff (W9.22 Typestate Islands) does NOT depend on graph-engine being migrated. The cross-cutting rule "W9.21 must precede W9.22" is satisfied at PR2.
+
 ---
 
 ## W9.22 — Typestate Islands
