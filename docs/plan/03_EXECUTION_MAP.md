@@ -53,6 +53,9 @@ exit gate.
 - [D11 — `epistemos-trace` CLI (parallel track)](#d11--epistemos-trace-cli-parallel-track)
 - [D12 — BoltFFI investigation (deferred research, UNVERIFIED)](#d12--boltffi-investigation-unverified)
 
+### N-series (novel additions emerged after the dossier locked)
+- [N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer](#n1--prompt-tree-jspf--ptf--structureregistry-driven-prompt-composer)
+
 ---
 
 ## Standing rules (apply to every entry below)
@@ -1338,11 +1341,128 @@ crop = { version = "0.4", features = ["utf16-metric"] }
 | 2 | R15, W9.6, W9.7, W9.8, W9.13, W9.23, W9.29, D3 (expansion), D9 |
 | 3 | W9.21, W9.22 |
 | 4 | R16, W9.10, W9.11, W9.12, W9.14, W9.15, W9.24, W9.26, W9.27, W9.28, D6, D7, D8, D10, D12 |
-| Parallel | D11 (open standard CLI; aligned to Phase 1+) |
+| Parallel | D11 (open standard CLI; aligned to Phase 1+); **N1 (Prompt Tree)** |
+
+---
+
+# N-series
+
+## N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer
+
+**Phase:** parallel | **Targets:** Both | **Risk:** Med
+
+**Doctrine refs:** §6 #1 (no silent behavior — every prompt audit-able), §6 #14 (no orphan scaffolding — N1 ships with one fully-wired call site or it doesn't ship), §2.5 (cognition layer = one substrate with read-only projections), §6 #5 (no silent fallback — every prompt the agent sends has a typed, registered shape)
+
+**Build matrix:** Both targets. The composer + renderer are pure Swift; cache-control hints are Anthropic-specific but degrade silently for providers without prompt caching (OpenAI Responses API, AFM, MLX local — none of which support Anthropic's `cache_control`).
+
+**Phase plan:** `04_PHASES.md` parallel track (lands when one Builder session has bandwidth; doesn't block any Phase 0–3 deliverable).
+
+### Concept
+
+Two formats, one composer:
+
+**JSPF (JSON-Schema Prompt Format)** — a typed `Prompt` value (`Codable + Sendable + Hashable`) with the canonical fields:
+
+```swift
+struct Prompt: Codable, Sendable, Hashable {
+    var version: Int                       // schema version (start at 1)
+    var id: String                         // stable id; doubles as cache key
+    var identity: IdentitySection?         // system role / persona
+    var tools: [ToolSpec]                  // available tools (subset of full registry)
+    var memory: MemorySection?             // recent chats, relevant notes, ontology refs
+    var task: TaskSection                  // the active ask
+    var constraints: [ConstraintSection]   // hard rules, capability gates
+    var output_schema: OutputSchema?       // expected response shape (links to StructureRegistry)
+    var cache_hints: CacheHints            // which subtrees are stable enough to cache
+}
+```
+
+**PTF (Prompt Tree Format)** — the same data laid out as a directory:
+
+```
+<vault>/.epistemos/prompts/<session>/<turn>/
+  ├── identity.json        — stable per session (cacheable)
+  ├── tools.json           — stable per session (cacheable)
+  ├── memory/
+  │   ├── recent_chats.json  — churns turn-by-turn
+  │   ├── relevant_notes.json
+  │   └── ontology.json    — stable per vault (cacheable)
+  ├── task.json            — churns per turn
+  ├── constraints.json     — stable per session (cacheable)
+  └── output_schema.json   — stable per task type (cacheable)
+```
+
+The PTF is the on-disk projection of the JSPF. The user (and the local LLM via MCP) can browse the tree, swap individual files, and see exactly what shape was sent on every turn.
+
+### Why this matters
+
+1. **Token savings via prompt caching.** Anthropic's prompt cache (≥1024 tokens, 5-minute TTL) gives 90 % off on cached portions. Mark identity + tools + ontology + constraints + output_schema as cacheable; only memory.recent_chats + task churn turn-by-turn. Realistic savings: 60-80 % of input tokens on agent loops with stable identity.
+2. **Composability.** Subtrees compose deterministically. Building a "summarize this note" prompt = identity (vault-scoped) + tools (none) + task (note ref) + output_schema (Summary). Tools rarely change; identity rarely changes; only task is fresh.
+3. **Auditability.** Every prompt sent is on disk; users + audit agents can inspect exact shape.
+4. **Pre-flight validation.** Composer checks against `StructureRegistry` so unknown output schemas fail at compose time, not at parse time.
+5. **Test isolation.** Subtrees are unit-testable independently.
+
+### Files to touch (verified)
+
+NEW Swift files:
+- `Epistemos/Engine/PromptTree.swift` — typed `Prompt` + `PromptNode` enum + `PromptComposer`
+- `Epistemos/Engine/PromptRenderer.swift` — render to Anthropic Messages / OpenAI Responses / AFM `@Generable` / MLX local-grammar formats
+- `Epistemos/Engine/PromptCache.swift` — Anthropic `cache_control` hint generator + per-provider degradation
+- `Epistemos/Engine/PromptTreePersister.swift` — serialize PTF to `<vault>/.epistemos/prompts/<session>/<turn>/`
+
+EXISTING files to wire (the WRV anchor):
+- `Epistemos/App/ChatCoordinator.swift` — first agent turn must use the composer end-to-end (so this doesn't ship as scaffolding)
+- `Epistemos/Engine/StructureRegistry.swift` — extend with prompt-shape descriptors so the composer can validate against it
+
+NEW doc:
+- `docs/PROMPT_AS_DATA_SPEC.md` — format spec, extension rules, provider compat matrix
+
+### Research mandates
+
+- Anthropic prompt cache docs: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching (verify 90 % discount + 5-min TTL + 1024-token minimum + breakpoint semantics — current as of Apr 2026)
+- Read existing prompt-assembly call sites in `agent_core/src/agent_loop.rs`, `Epistemos/App/ChatCoordinator.swift` (the system that gets replaced)
+- Read `Epistemos/Engine/StructureRegistry.swift` (this file) — N1 extends it with prompt shapes
+- Read `docs/STRUCTURING_AUDIT.md` — every input that becomes a prompt section maps to one of the audit rows
+
+### Tests must stay green
+
+- All existing chat / agent loop tests
+- New `PromptTreeTests` covering: composition, schema validation against StructureRegistry, cache-hint generation, per-provider rendering, PTF round-trip (compose → persist → parse → render → identical)
+
+### Telemetry surface required
+
+- A "Prompt shape" inspector in the Trace Inspector view (DEBUG only initially) showing the rendered tree for the most recent turn
+- A counter in `SessionInsight` for cached-token-share so the user can see prompt-cache hit rate
+- The PTF directory itself is browsable from Finder (each turn is a folder; raw JSON files inside)
+
+### Definition of done
+
+- [ ] `Prompt` + `PromptNode` types in `PromptTree.swift` with full Codable + Hashable conformance
+- [ ] `PromptComposer.compose(...)` produces a typed `Prompt` from inputs
+- [ ] `PromptRenderer` renders identical `Prompt` to Anthropic Messages, OpenAI Responses, AFM `@Generable`, and MLX local-grammar formats; round-trips preserve semantics
+- [ ] `PromptCache.hints(for: Prompt)` returns `cache_control` markers for the top-N stable subtrees, capped at Anthropic's 4-breakpoint limit
+- [ ] PTF persistence writes to `<vault>/.epistemos/prompts/<session>/<turn>/` and round-trips cleanly
+- [ ] **WRV proof**: `ChatCoordinator` first agent turn uses the composer end-to-end. Verifiable via `Grep` for `PromptComposer.compose` in `ChatCoordinator.swift`. User-visible: cached-token-share counter in session insights surfaces a real (>0 %) hit rate after the second turn of any session.
+- [ ] `StructureRegistry` extended with at least 4 prompt-shape entries (identity, tools, task, output_schema) so the catalog reflects the new schemas
+- [ ] `docs/PROMPT_AS_DATA_SPEC.md` written; format spec + extension rules + provider compat matrix
+- [ ] No legacy prompt-assembly path is removed in this PR — both paths coexist behind a feature flag (`EPISTEMOS_PROMPT_TREE=1` or a Settings toggle) until the ChatCoordinator wire is battle-tested
+- [ ] Unit tests pass; build green on both MAS and Pro targets
+
+### Notes / risks
+
+- **Provider differences are real.** AFM `@Generable` is its own thing (Swift macros, not JSON over HTTP). MLX local has no prompt-cache concept. The renderer must treat each provider as its own degraded surface — never assume a feature.
+- **PTF on disk is non-trivial.** Per-turn directories add inode pressure on long sessions. Cap at N most recent turns + GC older ones via NightBrain.
+- **Don't over-cache.** Anthropic's cache is 5-min TTL; if your "stable" subtree changes every 6 minutes you pay the write cost without getting the read benefit. Composer must measure cache-hit rate and degrade hints if hit rate < 30 %.
+- **WRV is the reason this lands or doesn't.** If the foundation ships without ChatCoordinator wiring, kill the PR. This item exists specifically to combat the orphan-scaffold pattern; it must walk the talk.
+- **Reuses StructureRegistry pattern**: every prompt schema gets a registry entry so the local LLM can ask "what shapes do you send?"
 
 ---
 
 ## Last updated
+
+2026-04-27 — Added N-series. N1 (Prompt Tree / JSPF + PTF + StructureRegistry composer)
+locked into the plan as a parallel-track item. Ready-to-paste prompt at
+`docs/plan/prompts/N1_prompt_tree.md`.
 
 2026-04-26 — Initial creation. 21 W/R items + 12 D items mapped with research refs,
 files-to-touch, telemetry mandates, and definition-of-done gates. Final v2 research

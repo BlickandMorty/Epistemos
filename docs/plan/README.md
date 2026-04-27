@@ -46,6 +46,7 @@ code without reading the contract is a drifting agent.
 | `prompts/_TEMPLATE.md` | The task-prompt template. Three slots: `{ITEM_ID}`, `{ITEM_TITLE}`, `{MASTER_PLAN_SECTION_REF}`. Everything else is anti-drift boilerplate. | …generating a new task prompt |
 | `prompts/phase0_ship_blockers.md` | Ready-to-use prompt for Phase 0 (A+_RELEASE_ROADMAP ship-blockers). | …about to ship the first deliverable |
 | `prompts/W9.25_grammar_masking.md` | Ready-to-use prompt for the lowest-risk Bucket A item, as a worked example. | …testing whether the template + plan loop works end-to-end |
+| `prompts/N1_prompt_tree.md` | Ready-to-use prompt for the JSPF + PTF prompt-as-data foundation (parallel-track). | …starting the prompt-tree session in a new terminal |
 
 ---
 
