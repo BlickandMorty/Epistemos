@@ -29,6 +29,43 @@ use std::fs::{File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
+/// Genesis hash for the BLAKE3 chain (D1). Every freshly-opened OpLog
+/// starts here, and the first op's `prev_hash` equals this value.
+const GENESIS_HASH: [u8; 32] = [0u8; 32];
+
+/// D1 — BLAKE3 Merkle chain serde adapter. Encodes a 32-byte hash as
+/// a 64-character lowercase hex string in JSON wire format. Matches
+/// the convention `epistemos-trace` will use when validating bundles
+/// per doctrine §5.2 ReplayBundle byte-equivalence guarantee.
+mod hex_hash {
+    use serde::{de, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(hash: &[u8; 32], serializer: S) -> Result<S::Ok, S::Error> {
+        let mut s = String::with_capacity(64);
+        for byte in hash {
+            s.push_str(&format!("{byte:02x}"));
+        }
+        serializer.serialize_str(&s)
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<[u8; 32], D::Error> {
+        let s = String::deserialize(deserializer)?;
+        if s.len() != 64 {
+            return Err(de::Error::custom(format!(
+                "expected 64-char hex prev_hash, got {} chars",
+                s.len()
+            )));
+        }
+        let mut out = [0u8; 32];
+        for i in 0..32 {
+            let pair = &s[i * 2..i * 2 + 2];
+            out[i] = u8::from_str_radix(pair, 16)
+                .map_err(|e| de::Error::custom(format!("invalid hex byte at {i}: {e}")))?;
+        }
+        Ok(out)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "op_type", rename_all = "snake_case")]
 pub enum OpPayload {
@@ -47,6 +84,15 @@ pub struct Op {
     pub actor_id: String,
     pub ts_unix_ms: i64,
     pub payload: OpPayload,
+    /// D1 — BLAKE3 chain link to the immediately-previous op. The first
+    /// op of a fresh log uses [GENESIS_HASH] (all zeros). The next op's
+    /// own integrity hash is computed at `OpLog::compute_chain_link`
+    /// over `(prev_hash || seq || lamport || actor_id || ts_unix_ms ||
+    /// canonical(payload))` and stored as the next op's `prev_hash`.
+    /// Defaults to [GENESIS_HASH] for backwards compatibility with
+    /// pre-D1 wire payloads (Swift consumers haven't been wired yet).
+    #[serde(default, with = "hex_hash")]
+    pub prev_hash: [u8; 32],
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -86,11 +132,27 @@ pub struct OpLog {
     durability: Option<Mutex<File>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct OpLogInner {
     next_seq: u64,
     next_lamport: u64,
     ops: Vec<Op>,
+    /// D1 — running BLAKE3 chain tip. Updated after every successful
+    /// append; matches the integrity hash of the last op, and the next
+    /// op's `prev_hash` is set to this value before that op is hashed
+    /// in. Genesis = [GENESIS_HASH] (all zeros).
+    chain_tip: [u8; 32],
+}
+
+impl Default for OpLogInner {
+    fn default() -> Self {
+        Self {
+            next_seq: 0,
+            next_lamport: 0,
+            ops: Vec::new(),
+            chain_tip: GENESIS_HASH,
+        }
+    }
 }
 
 impl OpLog {
@@ -200,17 +262,75 @@ impl OpLog {
     }
 
     fn init_schema(conn: &Connection) -> Result<(), rusqlite::Error> {
+        // D1 — BLAKE3 Merkle chain column. The execution map §W9.27
+        // mandates schema `(seq INTEGER PRIMARY KEY, payload BLOB,
+        // prev_hash BLAKE3)`; we keep the existing lamport/actor/ts
+        // columns alongside (they're load-bearing for replay
+        // determinism — `epistemos-trace replay` needs them all).
+        //
+        // `prev_hash BLOB(32) NOT NULL DEFAULT (zeroblob(32))` matches
+        // the [GENESIS_HASH] convention so any legacy pre-D1 row left
+        // behind by an interrupted migration deserializes as genesis
+        // rather than NULL. Existing pre-D1 databases are migrated by
+        // the idempotent ALTER TABLE below.
         conn.execute(
             "CREATE TABLE IF NOT EXISTS epistemos_oplog (
                 seq INTEGER PRIMARY KEY,
                 lamport INTEGER NOT NULL,
                 actor_id TEXT NOT NULL,
                 ts_unix_ms INTEGER NOT NULL,
-                payload BLOB NOT NULL
+                payload BLOB NOT NULL,
+                prev_hash BLOB NOT NULL DEFAULT (zeroblob(32))
             )",
             [],
         )?;
+        // Idempotent ALTER for pre-D1 databases. SQLite returns
+        // "duplicate column name" if `prev_hash` already exists from a
+        // freshly-created table above; we swallow that one error and
+        // bubble everything else.
+        let alter = conn.execute(
+            "ALTER TABLE epistemos_oplog
+             ADD COLUMN prev_hash BLOB NOT NULL DEFAULT (zeroblob(32))",
+            [],
+        );
+        if let Err(e) = alter {
+            let msg = e.to_string();
+            if !msg.contains("duplicate column name") {
+                return Err(e);
+            }
+        }
         Ok(())
+    }
+
+    /// D1 — compute the integrity hash for an op given its predecessor
+    /// chain tip. Domain-separated field-by-field hashing prevents
+    /// length-extension and ambiguous-encoding attacks (per Compass
+    /// v0.9 Master Doctrine §D replay-determinism rule: canonical
+    /// encoding before hashing). The inputs are:
+    ///   prev_hash || seq_le || lamport_le || actor_id_bytes ||
+    ///   ts_unix_ms_le || serde_json(payload)
+    /// where `_le` denotes 8-byte little-endian. Stable across builds
+    /// because `serde_json` for an `OpPayload` (with `#[serde(tag =
+    /// "op_type")]`) emits consistent key ordering for the variants we
+    /// declare.
+    fn compute_chain_link(
+        prev_hash: &[u8; 32],
+        seq: u64,
+        lamport: u64,
+        actor_id: &str,
+        ts_unix_ms: i64,
+        payload: &OpPayload,
+    ) -> [u8; 32] {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(prev_hash);
+        hasher.update(&seq.to_le_bytes());
+        hasher.update(&lamport.to_le_bytes());
+        hasher.update(actor_id.as_bytes());
+        hasher.update(&ts_unix_ms.to_le_bytes());
+        if let Ok(bytes) = serde_json::to_vec(payload) {
+            hasher.update(&bytes);
+        }
+        hasher.finalize().into()
     }
 
     fn load_existing(
@@ -218,7 +338,7 @@ impl OpLog {
         inner: &mut OpLogInner,
     ) -> Result<(), OpLogError> {
         let mut stmt = conn.prepare(
-            "SELECT seq, lamport, actor_id, ts_unix_ms, payload
+            "SELECT seq, lamport, actor_id, ts_unix_ms, payload, prev_hash
              FROM epistemos_oplog
              ORDER BY seq ASC",
         )?;
@@ -228,14 +348,28 @@ impl OpLog {
             let actor_id: String = row.get(2)?;
             let ts_unix_ms: i64 = row.get(3)?;
             let payload_bytes: Vec<u8> = row.get(4)?;
-            Ok((seq as u64, lamport as u64, actor_id, ts_unix_ms, payload_bytes))
+            let prev_hash_bytes: Vec<u8> = row.get(5)?;
+            Ok((
+                seq as u64,
+                lamport as u64,
+                actor_id,
+                ts_unix_ms,
+                payload_bytes,
+                prev_hash_bytes,
+            ))
         })?;
 
         let mut max_seq: i128 = -1;
         let mut max_lamport: i128 = -1;
         for r in rows {
-            let (seq, lamport, actor_id, ts_unix_ms, payload_bytes) = r?;
+            let (seq, lamport, actor_id, ts_unix_ms, payload_bytes, prev_hash_bytes) = r?;
             let payload: OpPayload = serde_json::from_slice(&payload_bytes)?;
+            // D1 — coerce the on-disk BLOB into a fixed [u8; 32]. Pre-D1
+            // databases migrated by ALTER TABLE will have zeroblob(32)
+            // here; legacy short blobs left-pad with genesis bytes.
+            let mut prev_hash = GENESIS_HASH;
+            let copy_len = prev_hash_bytes.len().min(32);
+            prev_hash[..copy_len].copy_from_slice(&prev_hash_bytes[..copy_len]);
             if seq as i128 > max_seq {
                 max_seq = seq as i128;
             }
@@ -248,6 +382,7 @@ impl OpLog {
                 actor_id,
                 ts_unix_ms,
                 payload,
+                prev_hash,
             });
         }
         inner.next_seq = if max_seq < 0 { 0 } else { (max_seq as u64) + 1 };
@@ -256,11 +391,29 @@ impl OpLog {
         } else {
             (max_lamport as u64) + 1
         };
+        // D1 — recompute the chain tip from the loaded ops so the next
+        // append continues the BLAKE3 chain seamlessly. Each op's
+        // integrity hash is the input to the NEXT op's prev_hash.
+        let mut tip = GENESIS_HASH;
+        for op in &inner.ops {
+            tip = Self::compute_chain_link(
+                &tip,
+                op.seq,
+                op.lamport,
+                &op.actor_id,
+                op.ts_unix_ms,
+                &op.payload,
+            );
+        }
+        inner.chain_tip = tip;
         Ok(())
     }
 
     /// Appends a single payload and returns the assigned sequence number.
-    /// Persists to SQLite if `open_persistent` was used.
+    /// Persists to SQLite if `open_persistent` was used. Updates the D1
+    /// BLAKE3 Merkle chain tip in-line so retraction propagation
+    /// (doctrine §3) and `epistemos-trace verify` (doctrine §5.2) can
+    /// validate every op against its predecessor.
     pub fn append(&self, payload: OpPayload) -> u64 {
         let now = chrono::Utc::now().timestamp_millis();
         let mut inner = self.lock();
@@ -269,13 +422,32 @@ impl OpLog {
         inner.next_seq = inner.next_seq.saturating_add(1);
         inner.next_lamport = inner.next_lamport.saturating_add(1);
 
+        // D1 — capture the chain tip BEFORE this op as its prev_hash.
+        // Genesis case: chain_tip is [GENESIS_HASH] from OpLogInner::default.
+        let prev_hash = inner.chain_tip;
+        let actor_id = self.actor_id.clone();
+
         let op = Op {
             seq,
             lamport,
-            actor_id: self.actor_id.clone(),
+            actor_id,
             ts_unix_ms: now,
             payload,
+            prev_hash,
         };
+
+        // D1 — compute the next chain tip from this op so future appends
+        // and `chain_tip()` callers see it immediately. Done before the
+        // SQLite write so the post-write fsync covers a self-consistent
+        // chain.
+        let next_tip = Self::compute_chain_link(
+            &prev_hash,
+            op.seq,
+            op.lamport,
+            &op.actor_id,
+            op.ts_unix_ms,
+            &op.payload,
+        );
 
         // Persist BEFORE pushing to in-memory cache so a SQLite failure
         // doesn't leave a phantom op in memory. Best-effort logging on
@@ -286,14 +458,15 @@ impl OpLog {
                 if let Ok(conn) = conn_mutex.lock() {
                     let insert_rc = conn.execute(
                         "INSERT INTO epistemos_oplog
-                         (seq, lamport, actor_id, ts_unix_ms, payload)
-                         VALUES (?, ?, ?, ?, ?)",
+                         (seq, lamport, actor_id, ts_unix_ms, payload, prev_hash)
+                         VALUES (?, ?, ?, ?, ?, ?)",
                         params![
                             op.seq as i64,
                             op.lamport as i64,
                             &op.actor_id,
                             op.ts_unix_ms,
                             payload_bytes,
+                            op.prev_hash.to_vec(),
                         ],
                     );
                     // D5 — only F_FULLFSYNC when the INSERT actually
@@ -309,7 +482,16 @@ impl OpLog {
         }
 
         inner.ops.push(op);
+        inner.chain_tip = next_tip;
         seq
+    }
+
+    /// D1 — return the current chain tip (the integrity hash of the
+    /// last op). Empty log returns [GENESIS_HASH]. Useful for in-memory
+    /// integrity probes and for `epistemos-trace verify` to validate
+    /// the head of an OpLog matches the manifest's recorded hash.
+    pub fn chain_tip(&self) -> [u8; 32] {
+        self.lock().chain_tip
     }
 
     /// Returns the ops with seq > `after_seq` in append order.
@@ -670,5 +852,134 @@ mod tests {
         drop(conn);
         drop(oplog);
         let _ = std::fs::remove_file(&path);
+    }
+
+    // MARK: - D1 BLAKE3 Merkle chain tests
+    //
+    // Closes CANONICAL_AUDIT_LOG.md Blocker D1. The execution map
+    // §W9.27 line 810 mandates `prev_hash BLAKE3` on every op + chain
+    // tip carried across reopens. These tests pin the canonical
+    // behaviour so a future regression on the chain integrity surface
+    // fails CI before shipping.
+
+    #[test]
+    fn chain_tip_starts_at_genesis_hash() {
+        let log = OpLog::new("test");
+        assert_eq!(log.chain_tip(), GENESIS_HASH);
+        assert!(log.is_empty());
+    }
+
+    #[test]
+    fn first_append_uses_genesis_prev_hash_and_advances_chain() {
+        let log = OpLog::new("actor-A");
+        let payload = OpPayload::NodeAdd {
+            id: "n1".into(),
+            kind: "page".into(),
+            title: "First".into(),
+        };
+        let seq = log.append(payload);
+        assert_eq!(seq, 0);
+        // `iter_after` is exclusive (`seq > after_seq`), so use replay
+        // to read the seq=0 op directly.
+        let only_op = log
+            .replay(Vec::<Op>::new(), |mut acc, op| {
+                acc.push(op.clone());
+                acc
+            })
+            .pop()
+            .expect("expected one op after first append");
+        assert_eq!(only_op.prev_hash, GENESIS_HASH);
+        assert_ne!(log.chain_tip(), GENESIS_HASH, "chain tip must advance after first append");
+    }
+
+    #[test]
+    fn second_append_prev_hash_equals_first_chain_tip() {
+        let log = OpLog::new("actor-A");
+        log.append(OpPayload::NodeAdd {
+            id: "n1".into(),
+            kind: "page".into(),
+            title: "First".into(),
+        });
+        let tip_after_first = log.chain_tip();
+        log.append(OpPayload::NodeAdd {
+            id: "n2".into(),
+            kind: "page".into(),
+            title: "Second".into(),
+        });
+        let ops = log.replay(Vec::<Op>::new(), |mut acc, op| {
+            acc.push(op.clone());
+            acc
+        });
+        assert_eq!(ops.len(), 2);
+        assert_eq!(ops[0].prev_hash, GENESIS_HASH);
+        assert_eq!(
+            ops[1].prev_hash, tip_after_first,
+            "second op's prev_hash must equal the chain tip after the first op"
+        );
+    }
+
+    #[test]
+    fn persistent_chain_tip_resumes_across_reopen() {
+        let path = temp_db_path("d1-chain-resume");
+        let final_tip;
+        {
+            let log = OpLog::open_persistent("actor-A", &path).unwrap();
+            log.append(OpPayload::NodeAdd {
+                id: "n1".into(),
+                kind: "page".into(),
+                title: "A".into(),
+            });
+            log.append(OpPayload::EdgeAdd {
+                from: "n1".into(),
+                to: "n2".into(),
+                label: Some("references".into()),
+            });
+            log.append(OpPayload::NodeRemove { id: "n1".into() });
+            final_tip = log.chain_tip();
+            assert_ne!(final_tip, GENESIS_HASH);
+        }
+
+        let reopened = OpLog::open_persistent("actor-A", &path).unwrap();
+        assert_eq!(reopened.len(), 3);
+        assert_eq!(
+            reopened.chain_tip(),
+            final_tip,
+            "reopen must reconstruct the same chain tip from persisted prev_hash + payloads"
+        );
+
+        // Next append continues the chain — its prev_hash must equal
+        // the reloaded tip, and the new tip must differ from final_tip.
+        let _ = reopened.append(OpPayload::NodeUpdate {
+            id: "n2".into(),
+            title: Some("Renamed".into()),
+        });
+        let appended = reopened
+            .iter_after(2)
+            .pop()
+            .expect("seq=3 op should exist");
+        assert_eq!(appended.prev_hash, final_tip);
+        assert_ne!(reopened.chain_tip(), final_tip);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn chain_link_is_deterministic_across_construction() {
+        // The same (prev_hash, seq, lamport, actor_id, ts, payload)
+        // input MUST produce the same chain link byte-for-byte.
+        // This is the load-bearing property for `epistemos-trace
+        // replay` byte-equivalent reconstruction (doctrine §5.2).
+        let prev = [42u8; 32];
+        let payload = OpPayload::NodeAdd {
+            id: "n1".into(),
+            kind: "page".into(),
+            title: "Title".into(),
+        };
+        let h1 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_000, &payload);
+        let h2 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_000, &payload);
+        assert_eq!(h1, h2);
+        // Changing any input changes the hash.
+        let h3 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_001, &payload);
+        assert_ne!(h1, h3);
     }
 }
