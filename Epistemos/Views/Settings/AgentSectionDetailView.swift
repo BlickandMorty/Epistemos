@@ -17,12 +17,21 @@ struct AgentSectionDetailView: View {
         // are wired (MAS still surfaces a $0.00 placeholder so the
         // user knows nothing is hitting the network).
         case spend = "Spend"
+        // StructureRegistry — transparency: every @Generable schema
+        // the host knows about, with surface + storage + maturity.
+        // Visible in BOTH builds because the registry IS the
+        // anti-fake-features surface (PLAN_V2 §3.4 capability honesty
+        // — the user can audit "what kinds of structured data does
+        // this app actually produce?"). Wire-up for the orphan
+        // StructureRegistry abstraction landed in audit+protocol
+        // commit 75a579f4 — this tab is the first reader.
+        case structures = "Structures"
 
         var id: String { rawValue }
 
         static var visibleTabs: [AgentTab] {
             #if EPISTEMOS_APP_STORE || MAS_SANDBOX
-            [.authority, .spend]
+            [.authority, .spend, .structures]
             #else
             allCases
             #endif
@@ -38,6 +47,7 @@ struct AgentSectionDetailView: View {
             case .authority: "checkmark.shield.fill"
             case .overseer: "brain.head.profile"
             case .spend: "dollarsign.circle"
+            case .structures: "rectangle.3.group"
             }
         }
 
@@ -47,6 +57,7 @@ struct AgentSectionDetailView: View {
             case .authority: "What the agent can do without asking you first."
             case .overseer: "Read-only audit trail of routing decisions per turn."
             case .spend: "Per-session estimated cost + budget cap."
+            case .structures: "Every structured-data schema this build produces."
             }
         }
     }
@@ -113,6 +124,14 @@ struct AgentSectionDetailView: View {
             // bridge lands; the BudgetPreferences editor is fully
             // functional so the user can set the cap immediately.
             CostDashboardView(entries: [])
+        case .structures:
+            // First reader of the StructureRegistry. Surfaces every
+            // @Generable schema with surface + storage + maturity so
+            // the user can audit what the app actually structures.
+            // This is the WRV Visible signal for the registry —
+            // before this tab landed, StructureRegistry.allSchemas
+            // had zero callers in the production code paths.
+            StructuredSurfacesView()
         }
     }
 }
