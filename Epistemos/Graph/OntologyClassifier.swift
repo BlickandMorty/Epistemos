@@ -173,6 +173,62 @@ public final class OntologyClassifier {
 
     // MARK: - Classify API
 
+    /// Classify a free-text note / thought into an ontology node and
+    /// (optionally) merge the result directly into the sidecar for
+    /// `source`. When `source` is provided AND eligible for sidecars,
+    /// the classification is persisted as:
+    ///   - `parentDomain` ← classifier output
+    ///   - `depth` ← classifier output (overrides stub default)
+    ///   - `cognitive_meta.last_classified_at` ← ISO-8601 now
+    ///   - `cognitive_meta.classification_confidence` ← classifier output
+    ///   - `annotations` ← appended `{at, author: "afm", body}` row
+    ///   - `schema_version` ← bumped to currentSchemaVersion
+    /// Returns the OntologyNode regardless of sidecar wiring so the
+    /// caller can also use the result inline (e.g. SwiftUI surface).
+    public func classifyAndPersist(
+        _ text: String,
+        for source: URL
+    ) async throws -> OntologyNode {
+        let node = try await classify(text)
+        // Only persist when the source is eligible. Code files etc.
+        // would throw `.ineligibleSource` from EpistemosSidecarStore.
+        guard EpistemosSidecarPolicy.isEligible(source) else { return node }
+
+        var sidecar: EpistemosSidecar
+        do {
+            sidecar = try EpistemosSidecarStore.read(for: source)
+                ?? EpistemosSidecarStore.mintStub(for: source)
+        } catch {
+            // If decode fails on a corrupt sidecar, mint fresh rather
+            // than refusing to classify — better to overwrite a bad
+            // sidecar than block future classifications forever.
+            Self.log.warning(
+                "sidecar read failed for \(source.lastPathComponent, privacy: .public) — mint fresh: \(error.localizedDescription, privacy: .public)"
+            )
+            sidecar = EpistemosSidecarStore.mintStub(for: source)
+        }
+
+        let now = Self.iso8601.string(from: Date())
+        sidecar.schemaVersion = EpistemosSidecar.currentSchemaVersion
+        sidecar.parentDomain = node.parentDomain
+        sidecar.depth = node.depth
+        sidecar.cognitiveMeta.lastClassifiedAt = now
+        sidecar.cognitiveMeta.classificationConfidence = node.confidence
+        sidecar.annotations.append(Annotation(
+            at: now,
+            author: "afm",
+            body: "classified as \(node.parentDomain) > \(node.childConcept) (depth=\(node.depth.rawValue), confidence=\(String(format: "%.2f", node.confidence)))"
+        ))
+        try EpistemosSidecarStore.write(sidecar, for: source)
+        return node
+    }
+
+    private static let iso8601: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
     /// Classify a free-text note / thought into an ontology node.
     /// `text` is the raw user content (≤ 8KB practical limit before
     /// the AFM 4096-token ceiling kicks in — call sites should chunk
