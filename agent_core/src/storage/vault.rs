@@ -102,6 +102,18 @@ impl VaultStore {
         let db = Connection::open(&db_path)
             .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
 
+        // D5 — substrate durability discipline (per docs/CANONICAL_AUDIT_LOG.md
+        // Blocker D5). WAL keeps writers and readers from blocking each other,
+        // synchronous=FULL forces SQLite to fsync every commit, foreign_keys=ON
+        // matches the rest of the substrate. Same treatment as
+        // OpLog::open_persistent so the vault DB survives a power-loss event.
+        db.pragma_update(None, "journal_mode", "WAL")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        db.pragma_update(None, "synchronous", "FULL")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+        db.pragma_update(None, "foreign_keys", "ON")
+            .map_err(|error| VaultError::DatabaseError(error.to_string()))?;
+
         db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS notes (
