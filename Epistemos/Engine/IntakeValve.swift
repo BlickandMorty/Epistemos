@@ -220,25 +220,18 @@ public final class IntakeValve {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() -> LanguageModelSession {
-        let now = Date()
-        if let existing = session,
-           now.timeIntervalSince(sessionCreatedAt) < sessionLifetime {
-            return existing
-        }
-        let model = SystemLanguageModel(useCase: .contentTagging)
-        let s = LanguageModelSession(
-            model: model,
-            instructions: Self.systemPrompt
+    private func ensureSession() async -> LanguageModelSession {
+        // AP6 — shared AFM session pool across all classifiers.
+        await AFMSessionPool.shared.session(
+            useCase: .contentTagging,
+            instructions: Self.systemPrompt,
+            useCaseLabel: "IntakeValve"
         )
-        session = s
-        sessionCreatedAt = now
-        return s
     }
 
     @available(macOS 26.0, *)
     private func runAFM(_ text: String) async throws -> IntakeDecision {
-        let s = ensureSession()
+        let s = await ensureSession()
         let prompt = """
         Classify this incoming user text into one IntakeRoute. Return
         an IntakeDecision with the route, your confidence, and a

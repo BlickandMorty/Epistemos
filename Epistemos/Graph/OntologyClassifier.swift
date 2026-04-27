@@ -255,33 +255,24 @@ public final class OntologyClassifier {
 
     #if canImport(FoundationModels)
     @available(macOS 26.0, *)
-    private func ensureSession() -> LanguageModelSession {
-        let now = Date()
-        if let existing = session,
-           now.timeIntervalSince(sessionCreatedAt) < sessionLifetime {
-            return existing
-        }
-        // Canonical API per the macOS 26.4 SDK headers
-        // (FoundationModels.swiftinterface lines 339, 524-526, 582):
-        //   SystemLanguageModel(useCase:) exists with `.contentTagging`
-        //   LanguageModelSession(model:tools:instructions:) is the init
-        //   respond(to:generating:) is `@_disfavoredOverload` on String
-        //
-        // `.contentTagging` is the smaller, friendlier-on-guardrails
-        // model (Wave 13 §"Phase 1" + meta-advice agent verdict).
-        let model = SystemLanguageModel(useCase: .contentTagging)
-        let s = LanguageModelSession(
-            model: model,
-            instructions: Self.systemPrompt
+    private func ensureSession() async -> LanguageModelSession {
+        // AP6 — share warm sessions across all AFM-backed classifiers
+        // via AFMSessionPool. The pool key is (useCase, instructions
+        // hash) so OntologyClassifier and SessionTelemetryClassifier
+        // (different instructions) get separate sessions, but two
+        // OntologyClassifier calls share one. Saves ~40% tokens +
+        // ~5.7× latency cut across the trio per the perf agent's
+        // measurement.
+        await AFMSessionPool.shared.session(
+            useCase: .contentTagging,
+            instructions: Self.systemPrompt,
+            useCaseLabel: "OntologyClassifier"
         )
-        session = s
-        sessionCreatedAt = now
-        return s
     }
 
     @available(macOS 26.0, *)
     private func runAFM(_ text: String) async throws -> OntologyNode {
-        let s = ensureSession()
+        let s = await ensureSession()
         let prompt = """
         Classify this input into one parent domain and one primary child
         concept. Respond with the OntologyNode schema — the framework
