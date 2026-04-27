@@ -7,6 +7,54 @@ when every item below is checked off, [WAVE_9_POLISH_AND_NATIVE.md]
 research drops can be archived. **Nothing here is research-only — every
 remaining item has a verified API path or shipped scaffold to build on.**
 
+## 🆕 2026-04-27 wrap commit — Tier 1 + Tier 2 + xcodegen targets ALL CLOSED
+
+Final wrap pass after the parallel session ended. All remaining
+Wave 9-15 items now shipped:
+
+| Commit | Item |
+| ------ | ---- |
+| 4247e3d9 | AR1 + R7 + R5-wiring + AP6 sweepStale fix + JS bundle TS fixes |
+
+Specifically:
+
+- **AR1** — `EpistemosWidgets.appex` xcodegen target wired (project.yml +
+  EpistemosWidgetsBundle.swift + Info.plist). The W15.3 ControlWidget
+  source now builds in a real `.appex` bundle so Tahoe Control Center
+  can render it.
+- **R7** — `NightBrainHelper` xcodegen tool target wired
+  (project.yml + NightBrainHelperMain.swift). The W10.10 launchd plist
+  now has a real executable behind the BundleProgram path; PowerGate
+  + NightBrainScheduler share the executable's source set.
+- **R5 wiring closed** — DeleteNoteIntent and ArchiveNoteIntent now
+  toggle `SDPage.isArchived` (the canonical "trash bin" — every fetch
+  already filters archived pages out). System Cmd-Z restore actually
+  works end-to-end from Spotlight + Shortcuts + extensions, not just
+  the dialog promise.
+- **AP6 critical fix (audit RED)** — AFMSessionPool.sweepStale() was
+  computing `now.timeIntervalSince(Date()) - sessionLifetime` (~-600s
+  cutoff) and the filter `createdAt > cutoff` always passed → ALL
+  sessions retained forever, defeating the documented 5.7× perf win.
+  Replaced with `now.addingTimeInterval(-sessionLifetime)`.
+- **JS bundle TypeScript fixes** — Lane B's earlier work shipped a
+  typo'd `addProSeMirrorPlugins` shim + invalid `StarterKit({history:
+  true})` (renamed to `undoRedo` in Tiptap 3.x) + Table default-import
+  that no longer exists. Build was succeeding at the Swift level but
+  blocked at `build-tiptap-bundle.sh` esbuild type-check.
+
+**Tier 1 + Tier 2 status**: ✅ ALL CLOSED.
+**xcodegen targets (AR1 + R7)**: ✅ BUILD SUCCEEDED (only failures are
+SwiftLint warnings against vendored CodeEdit* — pre-existing).
+
+The only items left in the inventory are:
+- 3 pre-TestFlight ship gates (P0-2 reliability, P0-3 metadata, P0-4
+  sandbox spot-check) — orthogonal to feature work.
+- Tier 3 + Tier 4 items — V1.5+ deferred per master plan.
+
+When the 3 ship gates close, V1 is fully shippable. The plan/research
+doc stack at this point is archive-able — every load-bearing fact is
+folded into the codebase + commit history.
+
 ## 🆕 2026-04-27 final sweep — Tier 1 + Tier 2 fully closed
 
 After the parallel session ended, the primary session collected all
