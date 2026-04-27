@@ -298,7 +298,19 @@ item, work it through §1–§6, mark it 🟢 SHIPPED with commit SHA, repeat.
 
 ### Bucket N — Novel additions (locked into plan after dossier closed)
 
-#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟢 SHIPPED (7316f86b)
+#### N1 — Prompt Tree (JSPF + PTF) + StructureRegistry-driven prompt composer 🟡 FOUNDATION (PR1 of N: 7316f86b + 1ab15596 + e8c22dbb)
+
+**Status note (2026-04-27, demoted per CRITIQUE_LOG pass #7 finding):** the foundation
+shipped (`7316f86b`) and the Settings toggle landed (`1ab15596`), but the Phase 1
+cache-telemetry wire is **blocked** on the orphan-substrate discovery in commit
+`1f6c575d` (`agent_core/src/session_insights.rs` is not declared in lib.rs;
+`ReasoningTrajectoryMetricsFFI` carries no token fields). Demoted from `🟢 SHIPPED`
+to `🟡 FOUNDATION (PR1 of N)` so the multi-PR pattern matches the W9.21 / W9.26
+/ W9.27 series and the PROMPT_AS_DATA_SPEC.md §7 phased migration plan. See
+`docs/plan/03_EXECUTION_MAP.md` "N1 Phase 1" entry for the substrate-fix
+prerequisite. Phase 1 wire will land naturally when the next session picks up
+either the session_insights integration or the ReasoningTrajectoryMetricsFFI
+extension path.
 
 **Phase:** parallel | **Targets:** Both | **Risk:** Med
 
