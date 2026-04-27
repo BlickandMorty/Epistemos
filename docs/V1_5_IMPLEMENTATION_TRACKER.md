@@ -56,6 +56,12 @@ done.
 | W9.27 OpLog | 🟡 FOUNDATION | this session | Hand-rolled (NOT automerge — single-writer scope) in `agent_core/src/oplog.rs`. Op enum + serde wire format (`tag = "op_type"`) + Lamport clock + in-memory Vec backing. 4/4 tests pass. Next PRs: GRDB-backed persistence + Swift mirror subscription. |
 | R16 ETL crawler | 🟡 FOUNDATION | this session | `agent_core/src/etl/{mod,hash,walker}.rs` modules. `ignore` 0.4 walker w/ .gitignore + .epignore + hardcoded code-file exclusion list (52 extensions). xxh3_64 path+content fingerprint. 7/7 tests pass. Next PRs: apalis-sql Monitor + AFM @Generable sidecar generation + Swift FFI. |
 
+## Bucket N — Novel additions (locked into plan after dossier closed)
+
+| ID | Status | Commit | Notes |
+| -- | ------ | ------ | ----- |
+| N1 Prompt Tree (JSPF + PTF) | ⚪ PENDING | — | Locked into [03_EXECUTION_MAP.md §N1](plan/03_EXECUTION_MAP.md#n1--prompt-tree-jspf--ptf--structureregistry-driven-prompt-composer). Ready-to-paste prompt at [docs/plan/prompts/N1_prompt_tree.md](plan/prompts/N1_prompt_tree.md). Foundation + ChatCoordinator wire (WRV anchor) + StructureRegistry extension + spec doc. Parallel-track (does not block any phase). |
+
 ## Bucket D — Research-grade, gate on roadmap need
 
 | ID | Status | Commit | Notes |
