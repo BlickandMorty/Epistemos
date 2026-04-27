@@ -38,6 +38,7 @@ import { Footnotes, FootnoteReference, Footnote } from 'tiptap-footnotes';
 import { MermaidNode } from './extensions/mermaid-node';
 import { CaretRectEmitter } from './extensions/caret-rect-emitter';
 import { buildSlashMenu } from './extensions/slash-menu';
+import { pasteClassifierBridge } from './extensions/paste-classifier-bridge';
 import { postBridge } from './bridge/outbound';
 import { installInboundCommands } from './bridge/inbound';
 
@@ -47,6 +48,34 @@ import './editor.css';
 const mountNode = document.getElementById('editor');
 if (!mountNode) {
   throw new Error('Epdoc editor: #editor mount point missing from editor.html');
+}
+
+// AP8 — JS-side debounce on the update stream (Wave 13 §"Phase 4 perf —
+// AP8 Tiptap update debounce"). Tiptap fires `onTransaction` on every
+// keystroke (~50/s during typing); the SwiftUI complexity meter +
+// canonical-save pipeline only need ~5/s. Debouncing here drops the
+// per-keystroke contentDidChange cost from 50 Hz → ~5 Hz, which the
+// Wave 13 perf compass measures as -80% complexity-meter CPU.
+//
+// 200 ms is the JS-side window — short enough that the user-visible
+// "saved" badge still feels live, long enough to coalesce the typical
+// burst-typing cadence. The Swift side still runs its own 300 ms save
+// debounce (see `EpdocEditorSavePipeline`); the two layers stack so
+// the canonical-save invariant is preserved.
+const CONTENT_DID_CHANGE_DEBOUNCE_MS = 200;
+let contentDidChangeTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingDocJSON: string | null = null;
+
+function scheduleContentDidChange(json: string): void {
+  pendingDocJSON = json;
+  if (contentDidChangeTimer !== null) return;
+  contentDidChangeTimer = setTimeout(() => {
+    contentDidChangeTimer = null;
+    const json = pendingDocJSON;
+    pendingDocJSON = null;
+    if (json === null) return;
+    postBridge({ type: 'contentDidChange', json });
+  }, CONTENT_DID_CHANGE_DEBOUNCE_MS);
 }
 
 const editor = new Editor({
@@ -88,13 +117,15 @@ const editor = new Editor({
         // hook is reserved for future inline analytics.
       },
     }),
+    pasteClassifierBridge(),
   ],
   content: { type: 'doc', content: [{ type: 'paragraph' }] },
-  onTransaction: ({ editor: ed }) => {
-    postBridge({
-      type: 'contentDidChange',
-      json: JSON.stringify(ed.getJSON()),
-    });
+  onUpdate: ({ editor: ed }) => {
+    // AP8 — debounce content-change emissions. We use `onUpdate`
+    // rather than `onTransaction` so selection-only transactions
+    // (caret moves, focus changes) don't burn the timer; those are
+    // already covered by CaretRectEmitter.
+    scheduleContentDidChange(JSON.stringify(ed.getJSON()));
   },
   onCreate: () => {
     postBridge({ type: 'editorReady' });
