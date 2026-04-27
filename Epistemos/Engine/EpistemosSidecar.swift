@@ -308,17 +308,28 @@ nonisolated public enum EpistemosSidecarStore {
     /// Read + decode the sidecar for `source`, if one exists. Returns
     /// nil when the source has no sidecar yet (caller decides whether
     /// to mint a new one).
+    ///
+    /// AP2 perf-fix — consults `SidecarCache.shared` first; on miss
+    /// reads from disk + caches the decoded object so subsequent
+    /// CognitiveDepthOverlay / annotation / parent_domain reads pay
+    /// only the in-memory cost. The cache is invalidated by `write`
+    /// + by FSEvents file-watcher callbacks (Phase 13 follow-up).
     public static func read(for source: URL) throws -> EpistemosSidecar? {
         guard let url = sidecarURL(for: source) else {
             throw SidecarError.ineligibleSource(source)
         }
+        if let cached = SidecarCache.shared.lookup(url) { return cached }
         guard FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
         let data: Data
         do { data = try Data(contentsOf: url) }
         catch { throw SidecarError.readFailed(url, error) }
-        do { return try Self.decoder.decode(EpistemosSidecar.self, from: data) }
+        do {
+            let decoded = try Self.decoder.decode(EpistemosSidecar.self, from: data)
+            SidecarCache.shared.store(decoded, for: url)
+            return decoded
+        }
         catch { throw SidecarError.decodeFailed(url, error) }
     }
 
@@ -334,9 +345,77 @@ nonisolated public enum EpistemosSidecarStore {
         catch { throw SidecarError.encodeFailed(url, error) }
         do { try data.write(to: url, options: [.atomic]) }
         catch { throw SidecarError.writeFailed(url, error) }
+        // AP2 — refresh the in-memory cache after a successful
+        // write. Subsequent reads hit the cache without a disk
+        // round-trip.
+        SidecarCache.shared.store(sidecar, for: url)
         log.debug(
             "Wrote sidecar (\(data.count, privacy: .public)B) for \(source.lastPathComponent, privacy: .public)"
         )
+    }
+
+    /// AP7 — bulk pre-warm the in-memory sidecar cache by reading
+    /// every `*.epistemos.json` under `vaultRoot` in parallel via
+    /// concurrent file I/O. Called from AppBootstrap after the vault
+    /// is ready so the first graph render / depth-overlay query pays
+    /// no per-node disk cost. Returns the count of sidecars warmed.
+    @discardableResult
+    public static func prefetchAll(under vaultRoot: URL) async -> Int {
+        let sidecarURLs = enumerateSidecarsSync(under: vaultRoot)
+        // Cap parallelism so we don't open thousands of file
+        // descriptors at once on huge vaults.
+        let parallelism = min(8, max(2, ProcessInfo.processInfo.activeProcessorCount / 2))
+        var warmed = 0
+        var nextIndex = 0
+        await withTaskGroup(of: Bool.self) { group in
+            // Seed `parallelism` initial tasks
+            while nextIndex < parallelism, nextIndex < sidecarURLs.count {
+                let url = sidecarURLs[nextIndex]
+                nextIndex += 1
+                group.addTask { await Self.prefetchOne(url) }
+            }
+            while let didWarm = await group.next() {
+                if didWarm { warmed += 1 }
+                if nextIndex < sidecarURLs.count {
+                    let url = sidecarURLs[nextIndex]
+                    nextIndex += 1
+                    group.addTask { await Self.prefetchOne(url) }
+                }
+            }
+        }
+        log.info("AP7 prefetched \(warmed, privacy: .public) sidecars under \(vaultRoot.lastPathComponent, privacy: .public)")
+        return warmed
+    }
+
+    private static func prefetchOne(_ url: URL) async -> Bool {
+        guard let data = try? Data(contentsOf: url),
+              let decoded = try? Self.decoder.decode(EpistemosSidecar.self, from: data)
+        else { return false }
+        SidecarCache.shared.store(decoded, for: url)
+        return true
+    }
+
+    /// Synchronous helper — `FileManager.enumerator` isn't Sendable
+    /// across async boundaries on macOS 26, so we collect URLs in a
+    /// nonisolated sync function and pass the resulting `[URL]` (a
+    /// Sendable value type) into the async prefetch loop.
+    nonisolated private static func enumerateSidecarsSync(
+        under vaultRoot: URL
+    ) -> [URL] {
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: vaultRoot,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+        var urls: [URL] = []
+        for case let url as URL in enumerator {
+            if url.pathExtension == "json",
+               url.lastPathComponent.hasSuffix(".epistemos.json") {
+                urls.append(url)
+            }
+        }
+        return urls
     }
 
     /// Mint a fresh sidecar stub for a source file with an unset

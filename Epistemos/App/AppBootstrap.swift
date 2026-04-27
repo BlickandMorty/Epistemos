@@ -1697,6 +1697,18 @@ final class AppBootstrap {
             }
         }
 
+        // AP7 — bulk-prefetch every `*.epistemos.json` sidecar in
+        // the active vault into SidecarCache so the first graph
+        // render + the first depth-overlay query don't pay per-node
+        // disk I/O. Per the perf agent: 1000 ms first-render cost
+        // → 100-150 ms parallel prefetch. Background priority so it
+        // doesn't compete with the user's first interactions.
+        if let vaultURL = vaultSync.vaultURL {
+            Task.detached(priority: .background) {
+                _ = await EpistemosSidecarStore.prefetchAll(under: vaultURL)
+            }
+        }
+
         if NightBrainScheduler.shouldRunFallbackInline() {
             Task.detached(priority: .utility) { [weak self] in
                 await self?._nightBrain?.start()
