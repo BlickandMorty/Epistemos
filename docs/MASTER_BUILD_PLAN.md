@@ -292,7 +292,7 @@ item, work it through §1–§6, mark it 🟢 SHIPPED with commit SHA, repeat.
 | -- | ----- | ------ | ------ | ----- |
 | W9.21 | Honest FFI (PR2 of 4) | 🟡 FOUNDATION | dcc5521f + b2e4899d | PR1 epistemos-shadow + PR2 substrate-rt+substrate-core+syntax-core honest_handle.rs modules (608 LOC, 12 unit tests, all 72 cargo tests across the 3 crates green). PR3 graph-engine + PR4 Swift consumer cutover remain. WRV_EXEMPT: infrastructure. |
 | W9.22 | Typestate Islands foundation | 🟡 FOUNDATION | dcc5521f | Generic Lifecycle<T,S>; 5/5 tests. Concrete MLX/Hermes/AFM wrappers in follow-up. WRV_EXEMPT: infrastructure. |
-| W9.26 | B-tree rope foundation | 🟡 FOUNDATION | dcc5521f | crop = "0.4" with utf16-metric; 6/6 tests. UniFFI bindings + Swift handle next PR. |
+| W9.26 | B-tree rope (PR2 of N) | 🟡 FOUNDATION | dcc5521f + e9618ddf | PR1 foundation (crop 0.4, utf16-metric) + PR2 raw FFI rope_handle module (12 extern "C" exports + 6 unit tests, 688/688 agent_core tests green). PR3 Swift `RopeFFIClient` + `~Copyable` handle + PR4 NoteFileStorage migration remain. |
 | W9.27 | OpLog hand-roll foundation | 🟡 FOUNDATION | dcc5521f | Op enum + Lamport + Vec backing; 4/4 tests. GRDB persistence + Swift mirror next PR. |
 | R16 | ETL crawler foundation | 🟡 FOUNDATION | dcc5521f | walker + hash modules; 7/7 tests. apalis-sql + AFM @Generable in PRs 2-3. |
 
