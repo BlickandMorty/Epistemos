@@ -39,6 +39,21 @@ public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
     public let estimatedCostUSD: Double
     public let startedAt: Date
 
+    // N1 Phase 1 — Anthropic prompt-cache telemetry (default 0
+    // for non-Anthropic providers; sourced from
+    // agent_core/src/session_insights.rs SessionMetrics fields).
+    public let cacheReadInputTokens: Int
+    public let cacheCreationInputTokens: Int
+
+    /// Computed: fraction of input tokens served from the prompt cache.
+    /// Mirrors `SessionMetrics::cached_tokens_share` on the Rust side.
+    /// Returns 0.0 when total billed input is 0.
+    public var cachedTokensShare: Double {
+        let total = inputTokens + cacheReadInputTokens
+        guard total > 0 else { return 0.0 }
+        return min(max(Double(cacheReadInputTokens) / Double(total), 0.0), 1.0)
+    }
+
     public init(
         id: String,
         title: String,
@@ -46,7 +61,9 @@ public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
         inputTokens: Int,
         outputTokens: Int,
         estimatedCostUSD: Double,
-        startedAt: Date
+        startedAt: Date,
+        cacheReadInputTokens: Int = 0,
+        cacheCreationInputTokens: Int = 0
     ) {
         self.id = id
         self.title = title
@@ -55,6 +72,8 @@ public struct CostDashboardEntry: Identifiable, Sendable, Hashable {
         self.outputTokens = outputTokens
         self.estimatedCostUSD = estimatedCostUSD
         self.startedAt = startedAt
+        self.cacheReadInputTokens = cacheReadInputTokens
+        self.cacheCreationInputTokens = cacheCreationInputTokens
     }
 }
 
@@ -70,6 +89,7 @@ public struct CostDashboardView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            cacheHitRateRow
             Divider()
             budgetEditor
             Divider()
@@ -91,6 +111,56 @@ public struct CostDashboardView: View {
             Text(totalCostString)
                 .font(.title3.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.primary)
+        }
+    }
+
+    /// N1 Phase 1 — aggregate prompt-cache hit rate across all
+    /// sessions in this dashboard. Sourced from
+    /// `agent_core/src/session_insights.rs::AggregatedStats::aggregate_cached_tokens_share`
+    /// (mirrored client-side here so the dashboard works
+    /// identically when the FFI bridge isn't yet plumbed). The
+    /// metric is the load-bearing N1 success signal per
+    /// `docs/PROMPT_AS_DATA_SPEC.md §3` — Anthropic charges 90 %
+    /// less for cached prefix tokens, so this ratio directly
+    /// reflects the Relocation Trick's cost savings.
+    @ViewBuilder
+    private var cacheHitRateRow: some View {
+        if aggregateBilledInput > 0 {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Image(systemName: "bolt.shield")
+                    .foregroundStyle(cacheTint)
+                    .font(.caption)
+                Text("Cache hit rate")
+                    .font(.callout.weight(.medium))
+                Spacer()
+                Text(aggregateCachedShare, format: .percent.precision(.fractionLength(1)))
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(cacheTint)
+                Text("\(totalCacheReadTokens) / \(aggregateBilledInput) tokens")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
+            .background(cacheTint.opacity(0.08), in: RoundedRectangle(cornerRadius: 6))
+        } else {
+            // Empty / Anthropic-cache-untouched session set.
+            // Honest "no signal yet" placeholder per
+            // PLAN_V2.md §3.4 — show that the metric exists but
+            // hasn't accumulated data, instead of hiding it.
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.shield")
+                    .foregroundStyle(.secondary)
+                    .font(.caption)
+                Text("Cache hit rate")
+                    .font(.callout.weight(.medium))
+                Spacer()
+                Text("—")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 8)
         }
     }
 
@@ -145,17 +215,50 @@ public struct CostDashboardView: View {
         let total = entries.reduce(0.0) { $0 + $1.estimatedCostUSD }
         return total.formatted(.currency(code: "USD"))
     }
+
+    // MARK: - Cache hit rate aggregation (N1 Phase 1)
+
+    private var totalInputTokens: Int {
+        entries.reduce(0) { $0 + $1.inputTokens }
+    }
+
+    private var totalCacheReadTokens: Int {
+        entries.reduce(0) { $0 + $1.cacheReadInputTokens }
+    }
+
+    private var aggregateBilledInput: Int {
+        totalInputTokens + totalCacheReadTokens
+    }
+
+    private var aggregateCachedShare: Double {
+        guard aggregateBilledInput > 0 else { return 0.0 }
+        return min(max(Double(totalCacheReadTokens) / Double(aggregateBilledInput), 0.0), 1.0)
+    }
+
+    /// Color the metric green when ≥30 % cached (the bake-in
+    /// threshold from PROMPT_AS_DATA_SPEC.md §6 — N1's success
+    /// criterion), orange when 0 < x < 30 % (signal but below the
+    /// promised win), gray when 0 % (no Anthropic activity yet).
+    private var cacheTint: Color {
+        if aggregateCachedShare >= 0.30 { return .green }
+        if aggregateCachedShare > 0 { return .orange }
+        return .secondary
+    }
 }
 
 #if DEBUG
 #Preview {
     CostDashboardView(entries: [
         .init(id: "s1", title: "Refactor TextStorage layer", provider: "claude-opus-4-7",
-              inputTokens: 12_400, outputTokens: 3_200, estimatedCostUSD: 0.42,
-              startedAt: Date().addingTimeInterval(-3600)),
+              inputTokens: 2_400, outputTokens: 3_200, estimatedCostUSD: 0.42,
+              startedAt: Date().addingTimeInterval(-3600),
+              cacheReadInputTokens: 10_000,           // 80 % cache hit
+              cacheCreationInputTokens: 0),
         .init(id: "s2", title: "Daily brief", provider: "claude-haiku-4-5",
               inputTokens: 800, outputTokens: 220, estimatedCostUSD: 0.01,
-              startedAt: Date().addingTimeInterval(-7200)),
+              startedAt: Date().addingTimeInterval(-7200),
+              cacheReadInputTokens: 0,                 // pre-N1 / cold session
+              cacheCreationInputTokens: 0),
     ])
 }
 #endif
