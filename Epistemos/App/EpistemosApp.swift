@@ -130,6 +130,30 @@ private struct HomeSceneRootContent: View {
                     QuickCaptureView()
                         .withAppEnvironment(bootstrap)
                 }
+                // W9.8 — production approval-modal sheet. Mirrors the
+                // legacy NSAlert flow at `ChatCoordinator.promptUserFor
+                // ToolApproval` but renders as SwiftUI so the modal
+                // can include the countdown ring + summary chip + 4
+                // buttons (Deny / Less Interruptions / Allow Once /
+                // Always Allow). Per ChatApprovalQueue API: setting
+                // `pendingApproval = nil` from `resolve(...)` dismisses
+                // the sheet; users cannot dismiss interactively
+                // (otherwise the awaiting continuation in
+                // ChatCoordinator would hang).
+                .sheet(
+                    item: Binding<ApprovalModalView.PendingApproval?>(
+                        get: { bootstrap.chatApprovalQueue.pendingApproval },
+                        set: { _ in /* dismissal flows through resolve(...) */ }
+                    )
+                ) { pending in
+                    ApprovalModalView(
+                        approval: pending,
+                        onResolve: { decision in
+                            bootstrap.chatApprovalQueue.resolve(pending, decision: decision)
+                        }
+                    )
+                    .interactiveDismissDisabled(true)
+                }
                 .onReceive(
                     NotificationCenter.default.publisher(for: .showQuickCapture)
                 ) { _ in

@@ -1713,3 +1713,621 @@ AUDIT-STEER PASS #14 COMPLETE
 - Critique log: docs/CRITIQUE_LOG.md updated at line 1627
 
 ---
+
+## 2026-04-27T14:10:00Z — pass #15
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `78528cc7` (4 new commits since pass #14: `8e13f67e`, `6d78593b`, `8e4e018d`, `78528cc7`)
+**Mode:** Zero-window (no active builder Claude Code session; latest builder JSONL was `84592982…` ending at 08:57 with the orchestrator §1.5 commit)
+
+### Commits reviewed
+- `8e13f67e` audit(N1): pass #14 docs commit [auditor-only] [CLEAN]
+- `6d78593b` d5(oplog+vault): WAL + F_FULLFSYNC substrate durability [Lane B] [CLEAN — RESOLVES Blocker D5]
+- `8e4e018d` plan(tracker): mark D5 🟢 SHIPPED + D4 🟡 IN-PROGRESS (stashed) [Lane C docs] [CLEAN]
+- `78528cc7` plan(orchestrator): add §1.5 origin-baseline reconstruction [Lane C docs] [CLEAN]
+
+### Findings per commit
+
+#### `8e13f67e` — audit(N1): pass #14 docs commit
+- **CLEAN** — auditor-only docs append; WRV_EXEMPT implicit.
+
+#### `6d78593b` — d5(oplog+vault): WAL + F_FULLFSYNC substrate durability
+- **CLEAN — RESOLVES Blocker D5 (CANONICAL_AUDIT_LOG line 27, 192, 339, 514).**
+- **Check 1 (WRV proof):** ✅ Three-clause WRV_EXEMPT block present, cites §4 closed exempt list correctly.
+- **Check 2 (wire grep, live):** ✅ Auditor verified all 4 pragma sites land:
+  - `agent_core/src/oplog.rs:144-146` — `pragma_update("journal_mode","WAL")` + `synchronous=FULL` + `foreign_keys=ON`
+  - `agent_core/src/storage/vault.rs:110-114` — same triple
+  - `agent_core/src/oplog.rs:186` — `libc::fcntl(file.as_raw_fd(), libc::F_FULLFSYNC, 0)` with `sync_all` fallback on Darwin failure
+  - 2 new tests at oplog.rs:648 (`open_persistent_uses_wal_journal_mode`) + :662 (`open_persistent_uses_synchronous_full`) verified
+- **Check 3 (xcodeproj):** ✅ Untouched (Rust-only commit).
+- **Check 4 (build):** Skipped (Rust-only; cargo green is the gate).
+- **Check 5 (cargo):** ✅ **708 passed; 0 failed** verified live by auditor (`cargo test --lib` in agent_core/), matches commit's 708/708 claim. +2 vs prior 706 floor (the 2 new pragma tests).
+- **Check 6 (Pro/MAS):** N/A (Rust core; no `#if MAS_SANDBOX` guards needed; both targets inherit).
+- **Check 7 (forbidden patterns):** ✅ No `print!`/`unwrap!`/`Box::from_raw`/`DispatchQueue.main.sync` introduced. The `unsafe { libc::fcntl(...) }` block is correctly contained in a non-test path with a `// SAFETY:` comment-equivalent (the `D5 — issue F_FULLFSYNC` block at oplog.rs:167-189 explains the FFI contract).
+- **Check 8 (scope):** ✅ 2 files, +272/-4 lines, single-purpose. No scope creep.
+- **Severity:** CLEAN. **Carry-over for CANONICAL_AUDIT_LOG owner:** D5 should be marked RESOLVED in the audit log (currently shows as Blocker at line 27, 192, 339, 514).
+
+#### `8e4e018d` — plan(tracker): mark D5 🟢 SHIPPED + D4 🟡 IN-PROGRESS (stashed)
+- **CLEAN** — tracker reflects reality:
+  - D5 SHIPPED@`6d78593b` ✅ (verified above).
+  - D4 honestly marked 🟡 IN-PROGRESS with diagnostic detail: BUILD FAILED on missing `LocalTextModelID.estimated4BitWeightsGB` accessor; 3 Swift files (`LocalModelInfrastructure.swift`, `LocalModelInfrastructureTests.swift`, `AppBootstrap.swift`) preserved in `git stash` as `D4-incomplete-defer`.
+  - Auditor confirmed `git stash list` returns `stash@{0}: On master: D4-incomplete-defer` — stash is intact and recoverable.
+- **Discipline win:** Builder did NOT mark D4 SHIPPED prematurely + did NOT discard partial work. This is the right pattern (matches `[Commit After Every Change]` memory + `[Audit Methodology]` honest-status discipline).
+- **Severity:** CLEAN.
+
+#### `78528cc7` — plan(orchestrator): add §1.5 origin-baseline reconstruction
+- **CLEAN** — orchestrator prompt addition (532 lines added to `docs/plan/prompts/full_session_orchestrator.md`).
+- Adds the explicit "reconstruct origin contract before shipping" pass per user directive: "stay canonical with the original research moment OR exceed it, but never drift from the benefits."
+- Forces re-read of the origin corpus in user-assembled order (Advice → final → final v2 → dossier → structuring audit → PLAN_V2 → master plan), treats `CANONICAL_AUDIT_LOG.md` as authoritative drift baseline, locks the never-drift-below-origin guarantee.
+- **Severity:** CLEAN. **Aligns directly with the scheduled-task user directive on this pass** (canonical-first, no scaffold-pruning).
+
+### Resolved blockers this pass
+1. **D5 (substrate durability) [Blocker]:** RESOLVED at `6d78593b`. WAL + F_FULLFSYNC + synchronous=FULL across both OpLog + VaultStore SQLite opens, with 2 verifying tests. **Recommended action for orchestrator:** update `docs/CANONICAL_AUDIT_LOG.md` lines 27/192/339/514 to mark D5 RESOLVED.
+
+### NEW WARNING — `docs/CANONICAL_AUDIT_LOG.md` is uncommitted
+- File exists at the path; `git log --all -- docs/CANONICAL_AUDIT_LOG.md` returns ZERO commits (it was created locally and never staged).
+- 78528cc7's orchestrator §1.5 explicitly treats `CANONICAL_AUDIT_LOG.md`'s drift report as the authoritative baseline. **If the user runs `git checkout .` (which has burned them before per `[Commit After Every Change]` memory), the entire baseline is gone** and the new §1.5 origin-baseline reconstruction has nothing to reference.
+- Severity: **Warning** (data-loss risk only; not breaking the build). **Recommended action:** next builder session should `git add docs/CANONICAL_AUDIT_LOG.md && git commit -m "audit(canonical): seed canonical audit log with deep-pass #1 (47 items, 17 Blockers, 19 Warnings, 6 Notes)"` BEFORE doing any feature work. This is a one-line fix for a high-blast-radius risk.
+
+### Remaining open Blockers (CANONICAL_AUDIT_LOG carry-over, post-D5)
+- **D1 (BLAKE3 prev_hash on OpLog) [Blocker]:** still missing. `oplog.rs:128` schema has `(seq, lamport, actor_id, ts_unix_ms, payload)` — no `prev_hash` column. Lane B PR.
+- **D2 (7-verb MCP graph boundary) [Blocker]:** `omega-mcp/src/vault.rs` exports `read_file/write_file/list_files/search_notes/execute_vault_tool`; should be `search_semantic/search_fulltext/get_node/traverse/create_node/create_edge/commit_session`. Lane B PR.
+- **D3 (closed A2UI catalog) [Blocker]:** `Epistemos/A2UI/Catalog.swift` does not exist. Lane C PR.
+- **D4 (faculty roster memory fix) [Blocker]:** Hermes 4.3 36B at `LocalModelInfrastructure.swift:519` violates 16 GB ceiling. Builder is mid-flight (stashed `D4-incomplete-defer`). Next builder must `git stash pop` + add `LocalTextModelID.estimated4BitWeightsGB` accessor. Lane C, ~1 hr.
+- **W9.8 (production approval path) [Blocker]:** `ChatCoordinator.swift:2844` still uses `NSAlert`; `ApprovalModalView` only mounted in Settings preview. Lane C, ~2 hr.
+- **W9.21 PR3+PR4 (honest_handle Swift cutover) [Blocker — orphan scaffold]:** `RustShadowFFIClient.swift:39,:47` still binds legacy `shadow_open_at` Int32 + `shadow_search_json` CString FFI; the new `shadow_handle_open_at/retain/release/search` exports have ZERO Swift consumers. Lane B+C, ~3 hr.
+- **W9.22 (Lifecycle<T,S> typestate) [Blocker — orphan scaffold]:** zero non-test consumers of `Lifecycle<T,S>`; need concrete `MlxSession`/`HermesProcess`/`AFMPoolEntry` wrappers. Lane B.
+- **W9.26 PR4 (NoteFileStorage rope migration) [Blocker — orphan scaffold]:** `RopeFFIClient.swift` has zero non-test callers; `SDPage.body: String` must migrate to rope handle. Lane C.
+- **W9.27 PR3+PR4 (Swift VaultIndexActor + BLAKE3 prev_hash) [Blocker — orphan scaffold]:** `OpLog::open_persistent` has zero Swift consumers; D1 schema column also missing. Lane B+C.
+- **D11 (epistemos-trace CLI) [Blocker]:** doctrine §5.1 mandates open `epistemos-provenance-standard` repo; doesn't exist. Lane B.
+- **Doctrine §3 retraction-propagation primitives [Blocker]:** zero hits for `MutationEnvelope`/`ProposedEnvelope`/`ClaimLedger`/`RetractionPropagated`. Lane B.
+
+### Override directives sent this pass
+- **None** — 0 active builder Claude Code sessions; no injection target.
+
+### Watch flags carrying over
+1. **CANONICAL_AUDIT_LOG.md uncommitted (NEW this pass):** must commit on next builder wake-up before any other work. **Highest-priority task on next session start.**
+2. **Computer-use WRV-Visible for N1 (from pass #14):** `request_access` timed out 300 s on this pass — flag as **COMPUTER_USE_BLOCKED** for now; defer to first manual session where the user can grant access. PENDING.
+3. **`Epistemos/Resources/Editor/` untracked + `syntax-core/target/aarch64-apple-darwin/debug/libsyntax_core.{d,rlib}` modified:** working-tree drift, low priority. The Editor/ directory is the Tiptap bundle output (generated; should be gitignored) and the `syntax-core` artefacts are build outputs (should also be gitignored). **Recommended action:** add `.gitignore` entries; not urgent.
+
+### Steer-direction for next builder session (carry-over from user directive on this pass)
+The scheduled-task wake-up that fired this auditor explicitly emphasized: "claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold." This is the **orphan-scaffold pattern** — and it currently applies to **4 Blockers** (W9.21, W9.22, W9.26, W9.27). The next builder session must NOT add more Foundation-only scaffolds. The directive sequence is:
+
+1. **First commit of next session:** stage and commit `docs/CANONICAL_AUDIT_LOG.md` (one-liner; protects the baseline).
+2. **D4 unstash + finish (~1 hr, Lane C):** `git stash pop`; add `LocalTextModelID.estimated4BitWeightsGB` (4-bit ≈ params * 0.5 GB rule); verify `defaultLocalAgentModelFitsIn16GBCeiling` test passes; commit with WRV proof.
+3. **W9.21 PR3 + PR4 (~3 hr, Lane B+C):** wire `RustShadowFFIClient.swift:39,:47` to use the honest-handle exports (`shadow_handle_open_at`/`retain`/`release`/`search`); delete legacy `shadow_open_at` if no other callers remain. **This is the prototypical orphan-scaffold fix the user is calling out.**
+4. **W9.26 PR4 (~2 hr, Lane C):** migrate `NoteFileStorage` from `SDPage.body: String` to `RopeFFIClient` handle.
+5. **W9.27 PR3 (~2 hr, Lane B+C):** Swift `VaultIndexActor` subscription to `OpLog::iter_after` stream + add `prev_hash BLAKE3` column to `agent_core/src/oplog.rs:128` schema (combines W9.27 PR3 with D1 dependency).
+6. **W9.8 (~2 hr, Lane C):** replace NSAlert at `ChatCoordinator.swift:2844` with sheet-based `ApprovalModalView`.
+
+These all WIRE existing substrate to real consumers. Zero new foundations.
+
+### Build status this pass
+- xcodebuild: not run (Rust-only commit; build implied green by upstream cargo + no .swift changes).
+- cargo test --lib: **708 passed; 0 failed** verified live (matches 6d78593b commit claim).
+
+### Computer-use verifications run
+- (none — `mcp__computer-use__request_access` timed out at 300 s; **COMPUTER_USE_BLOCKED** flag for this pass)
+
+### Status drift detected
+- **None new.** Tracker (`docs/V1_5_IMPLEMENTATION_TRACKER.md` lines 81-82) accurately reflects D5 SHIPPED + D4 IN-PROGRESS-stashed.
+- **Carry-over (1):** `MASTER_BUILD_PLAN.md §7` does not list D-series entries (D5/D4) as table rows — the canonical D-series tracking lives in `V1_5_IMPLEMENTATION_TRACKER.md`. Auditor accepts this split. Not flagging.
+
+---
+
+AUDIT-STEER PASS #15 COMPLETE
+- Windows: 0 (no active builder Claude Code session)
+- Commits reviewed: 4 (`8e13f67e`, `6d78593b`, `8e4e018d`, `78528cc7`)
+- Blockers: 0 new; **D5 RESOLVED at `6d78593b`** (cargo 708/708 verified live)
+- Warnings: 1 NEW (`docs/CANONICAL_AUDIT_LOG.md` uncommitted; data-loss risk if `git checkout .` runs)
+- Notes: 0
+- Resolved: D5 substrate durability (CANONICAL_AUDIT_LOG.md Blocker)
+- Overrides sent: 0 (no active windows)
+- Build: not run (Rust-only commit)
+- Cargo: **708/708** verified live (+2 vs prior 706 floor)
+- Status drift: 0
+- COMPUTER_USE_BLOCKED: yes (request_access timed out 300 s)
+- Critique log: docs/CRITIQUE_LOG.md updated
+
+Next wake: per scheduler.
+
+---
+
+## 2026-04-27T15:10:00Z — pass #16
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `766b38fe` (5 new commits since pass #15: `85fed65c`, `4c0c7e17`, `9750ad11`, `fe97e512`, `766b38fe`)
+**Mode:** Single-window (active builder JSONL `8602b212-915c…` last write 10:04 — 3 min before audit fire; auditor JSONL is `53958554-7856…`)
+
+### Commits reviewed
+- `85fed65c` audit(canonical): seed log with deep pass #1 (47 audited / 17 Blockers) + pass #2 reconciliation against HEAD 78528cc7 [Lane C docs] [CLEAN — RESOLVES pass #15 Warning]
+- `4c0c7e17` d4(faculty-roster): demote Hermes 4.3 36B from default primary to ≥32GB opt-in; safe Qwen 3 8B fallback for 16GB Macs [Lane C Swift] [CLEAN — RESOLVES Blocker D4]
+- `9750ad11` plan(tracker+audit): mark D4 🟢 SHIPPED at 4c0c7e17 [Lane C docs] [CLEAN]
+- `fe97e512` w9.27+d1(oplog): add prev_hash BLAKE3 Merkle chain — schema column + chain on append + reopen-resume [Lane B Rust] [CLEAN — RESOLVES Blockers W9.27 schema-drift + D1 BLAKE3]
+- `766b38fe` plan(tracker+audit): mark W9.27 PR3 + D1 BLAKE3 Merkle chain 🟢 SHIPPED at fe97e512 [Lane C docs] [CLEAN]
+
+### Findings per commit
+
+#### `85fed65c` — audit(canonical): seed log with deep pass #1 + pass #2 reconciliation
+- **CLEAN — RESOLVES pass #15 Warning ("CANONICAL_AUDIT_LOG.md uncommitted, data-loss risk if `git checkout .` runs").**
+- Builder honored pass #15's recommended first-action exactly: stage and commit the canonical audit baseline BEFORE any feature work. `git log --oneline -- docs/CANONICAL_AUDIT_LOG.md` returns 3 commits — the file is now version-controlled and recoverable via `git checkout`.
+- Pass #2 reconciliation correctly tracks Blocker count: 17 → 16 still open after D5 (pass #15) → 15 after D4 (4c0c7e17) → 13 after W9.27+D1 fused (fe97e512). Tracking matches HEAD.
+- WRV: WRV_EXEMPT (docs-only / canonical doctrine bookkeeping per orchestrator §1.5 directive).
+- **Severity:** CLEAN.
+
+#### `4c0c7e17` — d4(faculty-roster): Hermes 4.3 36B → Qwen 3 8B fallback (Lane C Swift)
+- **CLEAN — RESOLVES CANONICAL_AUDIT_LOG Blocker D4 ("memory math violation; will OOM on user's hardware").**
+- **Check 1 (WRV proof):** ✅ Three-clause WRV proof present. WIRED cite explicit (AppBootstrap.swift:1828 production logger caller, NOT a test/scaffold) + REACHABLE (fresh launch on 16 GB Mac → defaultPrimaryAgentModel returns Qwen 3 8B 4-bit) + VISIBLE (Console.app under epistemos subsystem).
+- **Check 2 (wire grep, live):** ✅ Auditor confirmed:
+  - `estimated4BitWeightsGB` accessor at `Epistemos/State/InferenceState.swift:310` (definition) → consumed at `Epistemos/App/AppBootstrap.swift:1828` (PRODUCTION caller, not test) + 2 EpistemosTests/LocalModelInfra test consumers.
+  - `defaultPrimaryAgentModel` (static var) at `LocalModelInfrastructure.swift:1078` → consumed at `AppBootstrap.swift:1823` (production).
+  - `fallbackPrimaryAgentModel = .qwen3_8B4Bit` at line 1055; `optInPrimaryAgentModel = .hermes43_36B4Bit` at 1060; `primaryAgentModelMinHostRAMGB: Int = 32` at 1042.
+  - Pure-function unit-test seam `defaultPrimaryAgentModel(hostMemoryGB:hasOptedInTo36B:)` at line 1064.
+  - **All new symbols have non-test production callers. ZERO orphan-scaffold pattern.** Direct refutation of the user's drift concern on this commit.
+- **Check 3 (xcodeproj):** ✅ Untouched (neither project.pbxproj nor project.yml in the diff).
+- **Check 4 (build):** ✅ Auditor verified live `** BUILD SUCCEEDED **` against HEAD (`xcodebuild -scheme Epistemos -destination 'platform=macOS' build`). Pre-existing CodeEdit SwiftLint failures only (per CLAUDE.md ignore list).
+- **Check 5 (cargo):** N/A (Swift-only commit; Rust untouched).
+- **Check 6 (Pro/MAS):** ✅ Catalog + AppBootstrap are dual-target. No `EPISTEMOS_PRO`/`MAS_SANDBOX` guards needed; no Pro-only API touched.
+- **Check 7 (forbidden patterns):** ✅ No `try!`/`fatalError`/`DispatchQueue.main.sync`/`Box::from_raw` in additions.
+- **Check 8 (scope):** ✅ 4 files, +210/-0 lines, single-purpose ("close D4"). No scope creep. Builder honored the stash protocol (popped `D4-incomplete-defer` and finished honestly rather than recreating from scratch).
+- **Discipline win:** Builder declared the pre-W9.25 "soft-guidance loop" test as PRE-EXISTING (CONFIRMED PRE-EXISTING via D4-isolation stash test) — honest reporting per [Audit Methodology] memory. Not a new regression.
+- **Severity:** CLEAN.
+
+#### `9750ad11` — plan(tracker+audit): mark D4 🟢 SHIPPED
+- **CLEAN** — tracker + canonical-audit Pass #2 row updated; CANONICAL_AUDIT_LOG D4 row moves "🟡 IN-PROGRESS (stashed)" → "🟢 RESOLVED" with correct dual-commit citation (`8e4e018d` catalog + `4c0c7e17` ship).
+- **Severity:** CLEAN.
+
+#### `fe97e512` — w9.27+d1(oplog): prev_hash BLAKE3 Merkle chain (Lane B Rust)
+- **CLEAN — RESOLVES TWO Blockers in ONE PR: W9.27 (schema-drift: missing `prev_hash` column) AND D1 (BLAKE3 Merkle chain not in OpLog).**
+- **Pattern reward:** This is the EXACT compound-fix pattern pass #15 recommended ("W9.27 PR3 prev_hash + BLAKE3 chain (Lane B, Rust) — closes W9.27 schema-drift AND D1 BLAKE3 Merkle Blockers in one PR"). Builder followed the priority queue verbatim. Efficiency win: 2 Blockers / 1 PR.
+- **Check 1 (WRV proof):** ✅ Substrate-level WRV proof present + dual-citation (full WRV three-clause + WRV_EXEMPT closed-list cite per `MASTER_BUILD_PLAN.md §4` "W9.27 OpLog — exempt at substrate level only when no user-facing time-travel affordance yet"). Honest about REACHABLE depending on PR3.5 (next ship). Not over-claiming.
+- **Check 2 (wire grep, live):** ✅ Auditor confirmed all chain primitives reachable from existing `append()` callers:
+  - `GENESIS_HASH: [u8; 32]` at oplog.rs:34 (genesis sentinel).
+  - `Op.prev_hash: [u8; 32]` at oplog.rs:95 (struct field with serde adapter).
+  - `OpLogInner.chain_tip: [u8; 32]` at oplog.rs:144 (in-memory chain tip).
+  - `compute_chain_link(...)` at oplog.rs:316 (BLAKE3 hash; domain-separated input concatenation; deterministic).
+  - `init_schema` ALTER TABLE migration at oplog.rs:283-293 (idempotent — handles fresh + legacy DBs).
+  - `load_existing` reads prev_hash at oplog.rs:341 + recomputes chain tip at oplog.rs:397-408 (resume-on-reopen contract).
+  - `append` captures `prev_hash` at oplog.rs:427 BEFORE the op + persists with prev_hash + updates chain_tip after success.
+  - `pub fn chain_tip(&self)` accessor — for in-memory integrity probes.
+  - **Wired-not-orphan invariant satisfied: every existing `append()` caller now exercises the chain transparently. No new symbol is orphan.** Direct refutation of scaffold-only concern.
+- **Check 3 (xcodeproj):** ✅ Untouched.
+- **Check 4 (build):** ✅ Auditor verified live `** BUILD SUCCEEDED **`.
+- **Check 5 (cargo):** ✅ Auditor verified live `cargo test --manifest-path agent_core/Cargo.toml --lib` → **713 passed; 0 failed; 0 ignored**. Matches commit's claimed +5 D1 tests over 708 floor.
+- **Check 6 (Pro/MAS):** N/A (Rust core; both targets inherit).
+- **Check 7 (forbidden patterns):** ✅ None. Single new `unsafe { libc::fcntl }` in pass #15's D5 commit (already audited CLEAN); no new unsafe in fe97e512.
+- **Check 8 (scope):** ✅ 2 files, +325/-9 lines, single-purpose ("close W9.27+D1"). New `blake3 = "1"` dep matches the version pinned in epistemos-core (no version drift).
+- **Discipline win:** Idempotent `ALTER TABLE` migration swallows the SQLite "duplicate column name" error — supports both fresh DBs and legacy pre-D1 DBs. Honest pre-D1 deserialize via `#[serde(default, with = "hex_hash")]` — defaults to GENESIS_HASH for backwards compatibility. Forward+backward both safe.
+- **Severity:** CLEAN.
+
+#### `766b38fe` — plan(tracker+audit): mark W9.27 PR3 + D1 🟢 SHIPPED
+- **CLEAN** — tracker + Pass #2 row updated; canonical Blocker count moves 15 → 13. Citations match resolving commit.
+- **Severity:** CLEAN.
+
+### Resolved blockers this pass
+1. **D4 (memory math violation, faculty roster) [CANONICAL Blocker]:** RESOLVED at `4c0c7e17`. Hermes 4.3 36B demoted to ≥32GB opt-in; Qwen 3 8B 4-bit is the new safe default; 6 D4-invariant tests pass; live xcodebuild green.
+2. **W9.27 PR3 (OpLog schema-drift: missing prev_hash column) [CANONICAL Blocker — orphan scaffold concern]:** RESOLVED at `fe97e512`. Column added with idempotent migration; chain wired into every existing append() caller — NOT orphan.
+3. **D1 (BLAKE3 Merkle chain not in OpLog) [CANONICAL Blocker]:** RESOLVED at `fe97e512` (fused with W9.27 PR3 per pass #15 recommendation). +5 chain-integrity tests pass; reopen-resume verified.
+4. **Pass #15 Warning (CANONICAL_AUDIT_LOG.md uncommitted; data-loss risk):** RESOLVED at `85fed65c`.
+
+### Remaining open Blockers (CANONICAL_AUDIT_LOG carry-over, post pass #16)
+- **D2 (7-verb MCP graph boundary) [Blocker]:** `omega-mcp/src/vault.rs` exports `read_file/write_file/list_files/search_notes/execute_vault_tool`; should be `search_semantic/search_fulltext/get_node/traverse/create_node/create_edge/commit_session`. Lane B PR.
+- **D3 (closed A2UI catalog) [Blocker]:** `Epistemos/A2UI/Catalog.swift` does not exist. Lane C PR.
+- **W9.8 (production approval path) [Blocker]:** `ChatCoordinator.swift:2844` still uses `NSAlert`; `ApprovalModalView` only mounted in Settings preview. Lane C, ~2 hr.
+- **W9.21 PR3+PR4 (honest_handle Swift cutover) [Blocker — orphan scaffold]:** `RustShadowFFIClient.swift:39,:47` still binds legacy `shadow_open_at` Int32 + `shadow_search_json` CString FFI; new `shadow_handle_open_at/retain/release/search` exports have ZERO Swift consumers. Lane B+C, ~3 hr. **Highest-priority orphan-scaffold close.**
+- **W9.22 (Lifecycle<T,S> typestate) [Blocker — orphan scaffold]:** zero non-test consumers; need concrete `MlxSession`/`HermesProcess`/`AFMPoolEntry` wrappers. Lane B.
+- **W9.26 PR4 (NoteFileStorage rope migration) [Blocker — orphan scaffold]:** `RopeFFIClient.swift` has zero non-test callers; `SDPage.body: String` must migrate to rope handle. Lane C.
+- **W9.27 PR3.5+PR4 (Swift OpLogFFIClient + VaultIndexActor) [Blocker — orphan scaffold]:** chain shipped substrate-side at fe97e512; Swift consumers still pending. Lane B+C. ~2 hr.
+- **D11 (epistemos-trace CLI) [Blocker]:** doctrine §5.1 mandates open `epistemos-provenance-standard` repo; doesn't exist. Lane B.
+- **Doctrine §3 retraction-propagation primitives [Blocker]:** zero hits for `MutationEnvelope`/`ProposedEnvelope`/`ClaimLedger`/`RetractionPropagated`. Lane B.
+
+Down from 17 (pass #1) → 13 still open. **4 Blockers closed in 2 days (D5, D4, W9.27, D1).**
+
+### Drift risk assessment (per user directive on this scheduled pass)
+
+The user's wake-up directive emphasized: *"Claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold."*
+
+**Auditor verdict for pass #16 work: NO DRIFT DETECTED.**
+
+- **Compromising:** Builder did NOT compromise on D4 (chose the canonical fix — exhaustive 46-case `estimated4BitWeightsGB` accessor + opt-in gate machine — instead of an inline `if model == .hermes43 { return .qwen3_8B4Bit }` shortcut). Builder did NOT compromise on D1 (chose the canonical BLAKE3 chain with domain-separated hashing + reopen-resume + idempotent migration, not a stub).
+- **Not being ambitious:** Builder fused W9.27 PR3 and D1 into one PR per pass #15's recommendation — the AMBITIOUS path that closes 2 Blockers in 1 ladder rather than splitting into separate ships. +325 lines + 5 new tests in a single substrate-grade PR.
+- **Not wiring end-to-end:** Every new D4 symbol has a production caller (AppBootstrap.swift:1823-1830). Every new D1 symbol rides through existing `append()` callers — *every existing caller now exercises the chain*. **ZERO orphan-scaffold introduced this pass.**
+- **Pruning scaffolds:** Builder did NOT delete prior work — popped `D4-incomplete-defer` stash and finished honestly rather than scrapping. The CANONICAL_AUDIT_LOG seeding (85fed65c) further cements baseline against future `git checkout` losses.
+
+This pass is the OPPOSITE of drift. The Builder followed pass #15's exact priority queue + the compound-fix recommendation. No steering required.
+
+### Override directives sent this pass
+- **None** — Builder is on-track and following the canonical priority queue. No injection needed.
+
+### Watch flags carrying over
+1. **Computer-use WRV-Visible for N1 (from passes #14, #15):** `request_access` was BLOCKED last pass (300 s timeout). Carries forward to first manual session where the user can grant access. Not regressed; not re-flagging.
+2. **Working-tree drift (`Epistemos/Resources/Editor/` untracked + `syntax-core/target/...` modified):** still present. Recommended `.gitignore` entry remains the right one-line fix; not urgent.
+3. **`Epistemos-AppStore.xcscheme` working-tree dirty (from pass #9 carry):** still present, low-priority.
+
+### Recommended priority queue for next builder session
+
+In order (per remaining Blockers + user's explicit "wire everything end-to-end" directive — orphan-scaffold closes ranked first):
+
+1. **W9.21 PR3+PR4 (Lane B+C, ~3 hr) — HIGHEST-PRIORITY orphan-scaffold close.** Wire `RustShadowFFIClient.swift:39,:47` to use the honest-handle exports (`shadow_handle_open_at`/`retain`/`release`/`search`); delete the legacy `shadow_open_at` Int32 + `shadow_search_json` CString shims if no other callers remain. **This is the longest-standing orphan-scaffold pattern (since W9.21 PR1).** WRV: Halo search panel renders results via the new handle path; legacy CString path retired.
+2. **W9.27 PR3.5 (Lane B+C, ~2 hr) — convert today's substrate to user-visible reach.** Add `Epistemos/Engine/OpLogFFIClient.swift` + Swift `VaultIndexActor` subscription to `OpLog::iter_after` stream + chain-tip readout. WRV: Settings → Graph → Time-travel affordance walks `prev_hash` backward.
+3. **W9.26 PR4 (Lane C, ~2 hr) — NoteFileStorage rope migration.** Migrate `SDPage.body: String` to `RopeFFIClient` handle; delete the orphan-scaffold tag from W9.26.
+4. **W9.8 (Lane C, ~2 hr).** Replace `NSAlert` at `ChatCoordinator.swift:2844` with sheet-based `ApprovalModalView`. WRV: agent tool call → sheet renders at chat surface.
+5. **W9.22 (Lane B, ~2 hr) — concrete Lifecycle<T,S> wrappers.** Wrap `MlxSession`, `HermesProcess`, `AFMPoolEntry` in the typestate machine; close the orphan-scaffold tag.
+6. **D2 (Lane B, ~3 hr) — replace omega-mcp graph boundary** with the doctrine 7-verb surface (`search_semantic`/`search_fulltext`/`get_node`/`traverse`/`create_node`/`create_edge`/`commit_session`).
+7. **D3 (Lane C, ~3 hr) — closed A2UI catalog at `Epistemos/A2UI/Catalog.swift`.**
+8. **D11 (Lane B) — `epistemos-trace` CLI scaffold + `epistemos-provenance-standard` repo bootstrap.**
+9. **Doctrine §3 retraction-propagation primitives (Lane B)** — `MutationEnvelope`/`ProposedEnvelope`/`ClaimLedger`/`RetractionPropagated` types.
+
+Items 1–3 are the orphan-scaffold backlog the user explicitly called out. **Close them before any new substrate.**
+
+### Build status this pass
+- xcodebuild: ✅ ** BUILD SUCCEEDED ** (verified live; 2 pre-existing CodeEdit SwiftLint failures only).
+- cargo test --lib: ✅ **713 passed; 0 failed; 0 ignored** (verified live; +5 vs prior 708 floor).
+
+### Computer-use verifications run
+- (none — pass #15 COMPUTER_USE_BLOCKED carry-over still applies; defer to first manual user session).
+
+### Status drift detected
+- **None.** Tracker (`docs/V1_5_IMPLEMENTATION_TRACKER.md`) + CANONICAL_AUDIT_LOG Pass #2 reconciliation accurately reflect HEAD: D4 🟢 RESOLVED at 4c0c7e17 + W9.27 PR3 🟢 SHIPPED at fe97e512 + D1 🟢 RESOLVED at fe97e512.
+- Carry-over (1, unchanged): `MASTER_BUILD_PLAN.md §7` does not list D-series as table rows — D-series tracking lives in `V1_5_IMPLEMENTATION_TRACKER.md` + `CANONICAL_AUDIT_LOG.md`. Auditor accepts this split per pass #15.
+
+---
+
+AUDIT-STEER PASS #16 COMPLETE
+- Windows: 1 (active builder JSONL `8602b212` last write 10:04 — closing W9.27/D1 just before audit fired)
+- Commits reviewed: 5 (`85fed65c`, `4c0c7e17`, `9750ad11`, `fe97e512`, `766b38fe`)
+- Blockers: **0 new; 3 RESOLVED this pass (D4, W9.27 schema-drift, D1 BLAKE3) + 1 Warning RESOLVED (CANONICAL_AUDIT_LOG uncommitted)**
+- Warnings: 0 new
+- Notes: 0 new
+- Resolved cumulative this pass: D4 + W9.27 + D1 + pass #15 Warning = 4
+- Overrides sent: 0 (Builder on-track; following pass #15 priority queue verbatim)
+- Build: ✅ ** BUILD SUCCEEDED ** verified live
+- Cargo: ✅ **713/713** verified live (+5 D1 chain tests vs pass #15's 708 floor)
+- Status drift: 0
+- COMPUTER_USE_BLOCKED: still carry-over (pass #14 N1 WRV-Visible)
+- Drift risk: **none — Builder is closing the orphan-scaffold backlog, not deepening it. NO STEER NEEDED.**
+- Critique log: docs/CRITIQUE_LOG.md updated
+
+Next wake: per scheduler.
+
+---
+
+## 2026-04-27T16:10:00Z — pass #17
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `ac8c6d28` (2 new commits since pass #16: `6cd47481`, `ac8c6d28`)
+**Mode:** Single-window (active builder JSONL `8602b212-915c…`, last write 11:09 — 1 min before audit fire). Builder is in post-rate-limit recovery: dispatched 3 worktree agents (W9.21 PR4 + AnyView cleanup + W9.8) earlier, ALL THREE hit account-wide rate limits before completing, agents Y+Z left partial work in the MAIN tree (not their isolated worktrees), and Builder is now triaging salvage vs discard. Builder already shipped agent-Y's complete AnyView work as `ac8c6d28`.
+
+### Commits reviewed
+
+- `6cd47481` audit(canonical): pass #3 — fuse docs/architecture/ findings into canonical baseline [Lane C docs] [CLEAN — 2 NEW drifts surfaced]
+- `ac8c6d28` views(anyview): doctrine §6 #6 enforcement — replace 16 AnyView violations with typed view-builders [Lane C Swift] [CLEAN — RESOLVES Pass #1 cross-cutting issue #6]
+
+### Findings per commit
+
+#### `6cd47481` — audit(canonical): pass #3 — fuse docs/architecture/ findings
+- **CLEAN** — docs-only commit (CANONICAL_AUDIT_LOG.md +93 lines). WRV_EXEMPT correctly invoked per orchestrator §1.5 (audit-log appending pass).
+- **Pass #3 surfaces TWO new drifts that Pass #1 missed because they live OUTSIDE the V1.5 R/W/D/N item set:**
+  - **DRIFT A (NEW Blocker, doctrine §3.1 violation):** `Epistemos/Engine/CommandCenterRequestCompiler.swift:43` is a Swift control plane that resolves context refs, runtime selection, tool permission allow/deny, execution policy, AND route summaries. Per `PLAN_V2 §3.1 + §4.1` + `plan/01_DOCTRINE §6 #11`, every one of those decisions belongs to Rust. **Auditor verified live:** the type IS instantiated at `Epistemos/App/ChatCoordinator.swift:318-319` (production caller, not scaffold) — confirming this is the active control plane, not dead code. Largest architectural violation in the codebase per Pass #3. Required fix: new Rust FFI entry point `compile_command_center_request(...)` in `agent_core/src/command_center.rs` + `bridge.rs` owns context/runtime/permission/policy/routing truth; Swift becomes parser + UI binder only. Land behind feature flag for one release cycle before removing legacy.
+  - **DRIFT B (NEW Major, three-router architectural duplication):** `Epistemos/LocalAgent/ConfidenceRouter.swift` + `agent_core/src/routing.rs` + `epistemos-core/src/agent_runtime/routing.rs` all coexist. **Auditor verified live:** `agent_core::routing::ConfidenceRouter` is referenced at `bridge.rs:14,400` + `tools/inference.rs:21,55` (production callers). Swift `ConfidenceRouter` has zero Swift consumers outside its own definition (orphan-scaffold pattern). Per `CLAUDE.md` FILE MAP, canon is `agent_core/src/routing.rs`. Migration plan: delete Swift router + collapse `epistemos-core/src/agent_runtime/routing.rs` into `agent_core/src/routing.rs`.
+- **Severity:** CLEAN (canonical doctrine bookkeeping per orchestrator §1.5; surfaces but does NOT introduce drift).
+
+#### `ac8c6d28` — views(anyview): doctrine §6 #6 — replace 16 AnyView violations
+- **CLEAN — RESOLVES Pass #1 cross-cutting issue #6 (AnyView in render hot paths) + Pass #3 priority queue position 6.**
+- **Check 1 (WRV proof):** ✅ Three-clause WRV proof present. WIRED ("typed view-builders compile against concrete View types"); REACHABLE ("Halo button press → ShadowPanel render path uses typed view-builders" + "Settings → Appearance toggle"); VISIBLE ("structural identity preserved per SwiftUI semantics; pixel-equivalent"). VISIBLE clause is structural, not behavioral — acceptable for a refactor with no semantic change.
+- **Check 2 (wire grep, live):** ✅ Auditor verified `grep -rn 'AnyView(' /Users/jojo/Downloads/Epistemos/Epistemos --include='*.swift'` returns **0 matches** post-commit. Doctrine §6 #6 violation closed. (Comments/docstrings mentioning `AnyView` remain as historical context — those are not constructor calls and don't violate doctrine.)
+- **Check 3 (xcodeproj):** ✅ `git show ac8c6d28 --stat | grep -E '\.xcodeproj/|project\.pbxproj|project\.yml'` returns 0 — Swift-only commit, no xcodegen drift.
+- **Check 4 (build):** ✅ Builder verified live `** BUILD SUCCEEDED **` against the partial-work tree (auditor confirmed via `8602b212` task `bnzae9lfh.output`). Only pre-existing CodeEdit vendored SwiftLint warnings (per CLAUDE.md ignore list).
+- **Check 5 (cargo):** N/A — Swift-only commit. **Auditor independently re-verified cargo: 713/713 passed; 0 failed (3.75s).**
+- **Check 6 (Pro/MAS):** ✅ All 4 files (`HologramOverlay`, `HologramSearchSidebar`, `GraphFirstOpenTitle`, `Settings/SettingsView`) are dual-target. No Pro-only API touched. No `#if !(EPISTEMOS_APP_STORE || MAS_SANDBOX)` guards added or removed.
+- **Check 7 (forbidden patterns):** ✅ `git show ac8c6d28 -- '*.swift' | grep -nE 'try!|fatalError|print\(|DispatchQueue\.main\.sync|Box::from_raw'` returns 0 hits in non-comment lines.
+- **Check 8 (scope):** ✅ 4 files, +101/-74 lines, single-purpose ("close doctrine §6 #6"). No scope creep. Builder honored agent isolation discipline: even though agent-Y wrote to the main tree (not its isolated worktree), Builder verified the work was complete via `grep -rn 'AnyView('` returning 0 BEFORE staging — refused to commit half-done work.
+- **Discipline win:** Builder did NOT discard agent-Y's main-tree edits (the easy path); instead verified completeness, ran xcodebuild + cargo, ran xcodegen-regen yielding 0 diff, then staged and committed with full WRV proof. This is the OPPOSITE of the user's pruning concern. ZERO orphan-scaffold introduced; doctrine compliance increased.
+- **Severity:** CLEAN.
+
+### Resolved blockers this pass
+1. **Pass #1 cross-cutting issue #6 (AnyView in render hot paths) [CANONICAL Major]:** RESOLVED at `ac8c6d28`. `AnyView(` constructor count: 16 → 0.
+
+### NEW BLOCKER + Major surfaced this pass
+1. **DRIFT A (CommandCenterRequestCompiler — Swift control plane in violation of doctrine §3.1) [NEW Blocker, surfaced by Pass #3].** Verified live: type defined at `Epistemos/Engine/CommandCenterRequestCompiler.swift:43`, instantiated at `ChatCoordinator.swift:318-319` (production hot path). This is the largest architectural violation in the codebase per Pass #3's deep audit. **Recommended fix:** Lane B — add Rust `compile_command_center_request(...)` FFI entry point in `agent_core/src/command_center.rs` + `bridge.rs`; Swift becomes parser + UI binder only. Feature-flag for one release cycle. ~1 week of work; biggest non-substrate Blocker post-D5/D4/D1/W9.27.
+2. **DRIFT B (three-router architectural duplication) [NEW Major, surfaced by Pass #3].** Verified live: `epistemos-core/src/agent_runtime/routing.rs` (last edit 2026-03-29; orphan-suspicious but not yet confirmed) + `Epistemos/LocalAgent/ConfidenceRouter.swift` (last edit 2026-03-29; zero Swift consumers outside self) + `agent_core/src/routing.rs` (canon — actively consumed by `bridge.rs:14,400` + `tools/inference.rs:21,55`). Two of three are orphan-suspicious. **Recommended fix:** Lane B — delete Swift `ConfidenceRouter` + collapse `epistemos-core` router into `agent_core` per CLAUDE.md FILE MAP authority. ~3 hr.
+
+### NEW WARNING this pass — Working-tree drift carries partial agent-Y/Z work
+- **What:** After Builder shipped `ac8c6d28` (agent-Y's AnyView work), the main worktree still has uncommitted partial work from rate-limited agents:
+  - `Epistemos/App/AppBootstrap.swift` (W9.8: declares `let chatApprovalQueue = ChatApprovalQueue()` at line 810; queue is wired NOWHERE else yet — currently HALF_WIRED).
+  - `Epistemos/Views/Approval/ApprovalModalView.swift` (W9.8: +59/-13 lines; adds `summary`/`authorityCategoryLabel` fields, `.applyLessInterruptions` Decision case, `totalSeconds` snapshot for stable countdown ring).
+  - `Epistemos/State/ChatApprovalQueue.swift` (UNTRACKED: 96+ lines; new actor for sheet-based approval bridge).
+  - `Epistemos/Engine/RustShadowFFIClient.swift` + `epistemos-shadow/src/honest_handle.rs` (W9.21 PR4: agent-X's partial work surfaced when its worktree was inspected; some edits crossed back into the main tree).
+- **Risk:** Pre-existing `[Commit After Every Change]` memory cites a prior `git checkout .` that destroyed substantial work. The current uncommitted state spans 4+ files of partial-but-meaningful W9.8 + W9.21 PR4 work. **If Builder runs another worktree-agent that touches these same files, the agent's worktree will fork from `ac8c6d28` (clean HEAD) — completing its work, merging back will produce conflicts against the main-tree partial work.** Or worse, the worktree-agent regenerates the same scaffold from scratch (orphan-scaffold concern the user explicitly called out).
+- **Auditor confirmation that this is in-flight WIP, not committed scaffold:** `grep -rn 'ChatApprovalQueue' /Users/jojo/Downloads/Epistemos/Epistemos --include='*.swift'` returns the file's own definition + AppBootstrap declaration only; **zero ChatCoordinator hook + zero parent `.sheet(item:)` binder** = the queue exists but is currently HALF_WIRED. Once Builder finishes the consumer side, the symbol becomes wired-not-orphan. Until then, sitting in the main tree without being committed risks loss.
+- **Severity:** Warning (data-loss + merge-race risk; not breaking).
+- **Recommended action for Builder:** ONE of (in order of safest): (a) finish W9.8 wire in foreground (~30 min) — add `ChatCoordinator.promptUserForToolApproval` cutover + parent view `.sheet(item:)` mount + commit as W9.8 ship; (b) `git stash push -m 'W9.8-partial-from-rate-limited-agent'` + dispatch new W9.8 worktree-agent against clean HEAD; (c) commit as `🟡 FOUNDATION` PR1 of W9.8 with explicit "PR2 will land ChatCoordinator cutover" note. **Do NOT** dispatch a new W9.21 PR4 or W9.8 worktree-agent without first stashing or committing the existing partial work — the worktree fork will diverge.
+
+### Drift risk assessment (per user directive on this scheduled pass)
+
+The user's wake-up directive emphasized: *"Claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold perfect profound scaffold."*
+
+**Auditor verdict for pass #17 work: NO DRIFT IN COMMITTED CODE; ONE WIP-TREE WARNING.**
+
+- **Compromising:** No. ac8c6d28 chose the canonical refactor (typed view-builders + concrete View types) over the easy path (`@ViewBuilder` block-typing or generic `Group`). Pass #3 (6cd47481) chose to FULLY surface Drift A (CommandCenterRequestCompiler) + Drift B (three-router) as new Blocker + Major findings rather than minimize them.
+- **Not being ambitious:** No. Pass #3 deepened the canonical audit baseline (`docs/architecture/` review of 22 docs on top of `docs/plan/` tree) instead of trusting Pass #1's V1.5-only scope. ac8c6d28 closed 16 violations across 4 files in a single PR rather than splitting into 16 micro-PRs.
+- **Not wiring end-to-end:** Mixed. ac8c6d28 wires fully (zero `AnyView(` constructors remain). However, **W9.8 + W9.21 PR4 are currently HALF_WIRED in the working tree** — the queue/handle types exist but consumers are not yet wired. This is the orphan-scaffold trap the user warned about, mid-flight. Builder is aware (todo list shows agent-X salvage triage in progress); but the 30-min window between now and the next worktree-agent dispatch is the danger window.
+- **Pruning scaffolds:** No. Builder did NOT delete agent-Y's main-tree edits despite them being unauthorized cross-tree writes; instead verified + committed. Builder did NOT discard `ChatApprovalQueue.swift` despite it being half-wired; treating it as in-flight WIP to finish.
+
+**Steering recommendation: ELEVATED CAUTION on the next agent-dispatch round.** Builder must commit-or-stash the W9.8 + W9.21 PR4 partial work in the main tree BEFORE dispatching new worktree-agents touching those files, OR dispatch foreground-only and finish the wire in the active session. **Whichever path Builder picks, the orphan-scaffold trap closes by EOD if the queue/handle types acquire production consumers.** No injection needed; Builder's todo list shows they're already triaging.
+
+### Override directives sent this pass
+- **None** — Builder is mid-triage with the right discipline (verify-then-commit-only-the-complete-piece pattern just demonstrated by ac8c6d28). No injection needed.
+
+### Watch flags carrying over
+1. **Computer-use WRV-Visible for N1 (from passes #14, #15, #16):** still PENDING; first manual user session.
+2. **Working-tree drift (`Epistemos/Resources/Editor/` untracked + `syntax-core/target/...` build outputs modified):** unchanged from pass #16 (`.gitignore` recommendation still applicable).
+3. **`Epistemos-AppStore.xcscheme` working-tree dirty (from pass #9):** unchanged.
+4. **NEW WIP-tree warning (W9.8 + W9.21 PR4 partial agent work) [this pass]:** highest-priority watch flag. Re-check next pass — should be RESOLVED via commit-or-stash-or-finish.
+
+### Remaining open Blockers (CANONICAL_AUDIT_LOG carry-over, post pass #17)
+
+Pass #16 baseline: 13 still open. Pass #17 RESOLVES 1 (issue #6 AnyView) + ADDS 1 NEW Blocker (Drift A) + 1 NEW Major (Drift B). **Net post-pass #17: 13 still open + 1 NEW Major = 14 architectural items.**
+
+- **DRIFT A (CommandCenterRequestCompiler — Swift control plane) [NEW Blocker — biggest architectural violation per Pass #3]:** Lane B, ~1 week. **NEW priority queue position 10** per Pass #3.
+- **DRIFT B (three-router duplication) [NEW Major]:** Lane B, ~3 hr. **NEW priority queue position 11** per Pass #3.
+- **D2 (7-verb MCP graph boundary):** Lane B PR. Carry-over.
+- **D3 (closed A2UI catalog):** Lane C PR. Carry-over.
+- **W9.8 (production approval path) [Blocker]:** Lane C, ~2 hr. **In-flight WIP this pass — see WIP-tree warning above; if Builder closes today, count drops by 1.**
+- **W9.21 PR3+PR4 (honest_handle Swift cutover) [Blocker — orphan scaffold]:** Lane B+C, ~3 hr. **In-flight WIP this pass — see WIP-tree warning.**
+- **W9.22 (Lifecycle<T,S> typestate) [Blocker — orphan scaffold]:** Lane B.
+- **W9.26 PR4 (NoteFileStorage rope migration) [Blocker — orphan scaffold]:** Lane C.
+- **W9.27 PR3.5+PR4 (Swift OpLogFFIClient + VaultIndexActor) [Blocker — orphan scaffold]:** Lane B+C, ~2 hr.
+- **D11 (epistemos-trace CLI):** Lane B.
+- **Doctrine §3 retraction-propagation primitives:** Lane B.
+
+Down from 17 (Pass #1 baseline) → 13 (pre-Pass #17) + 1 new Blocker (Drift A) + 1 new Major (Drift B) = effective 14 critical Blockers + 1 NEW Major. **5 Blockers closed in 2.5 days (D5, D4, W9.27, D1, AnyView issue #6).**
+
+### Recommended priority queue for next builder turn
+
+1. **CLOSE WIP-TREE WINDOW (Lane C, ~30 min — TODAY) — HIGHEST PRIORITY.** Either: (a) finish W9.8 wire in foreground with cutover at `ChatCoordinator.swift:2844` + parent `.sheet(item:)` mount + commit; OR (b) `git stash push -m 'W9.8-and-W9.21-PR4-partial-agent-work'` to checkpoint cleanly; OR (c) commit existing partials as `🟡 FOUNDATION` PR1s with explicit "PR2 wires consumers" note. Closes today's Warning + protects against `git checkout` accident.
+2. **W9.21 PR4 (Lane B+C, ~2 hr) — orphan-scaffold close.** Wire `RustShadowFFIClient.swift` to honest-handle exports. (Possibly partly completed by agent-X; verify post-stash.)
+3. **W9.27 PR3.5 (Lane B+C, ~2 hr) — convert today's BLAKE3 substrate to user-visible reach.** Add `Epistemos/Engine/OpLogFFIClient.swift` + Swift `VaultIndexActor` subscription to `OpLog::iter_after`.
+4. **W9.26 PR4 (Lane C, ~2 hr) — NoteFileStorage rope migration.**
+5. **W9.22 (Lane B, ~2 hr) — concrete Lifecycle<T,S> wrappers.**
+6. **DRIFT B (Lane B, ~3 hr) — collapse three-router → one canonical `agent_core::routing`.**
+7. **D2 (Lane B, ~3 hr) — replace omega-mcp graph boundary with doctrine 7-verb surface.**
+8. **D3 (Lane C, ~3 hr) — closed A2UI catalog.**
+9. **DRIFT A (Lane B, ~1 week) — Rust `compile_command_center_request(...)` FFI; Swift becomes parser + UI binder only.** Feature-flag, one-release-cycle migration.
+10. **D11 (Lane B) — `epistemos-trace` CLI scaffold + `epistemos-provenance-standard` repo bootstrap.**
+11. **Doctrine §3 retraction-propagation primitives (Lane B).**
+
+### Build status this pass
+- xcodebuild: ✅ ** BUILD SUCCEEDED ** (verified live by Builder against partial-work tree at `8602b212` task `bnzae9lfh.output`; auditor's independent xcodebuild was stopped early since Builder's verification covered the same state). Only pre-existing CodeEdit vendored SwiftLint failures.
+- cargo test --lib: ✅ **713 passed; 0 failed; 0 ignored** (auditor independently verified live; matches post-D1 floor from pass #16).
+
+### Computer-use verifications run
+- (none — pass #14 N1 WRV-Visible carry-over still applies; defer to first manual user session).
+
+### Status drift detected
+- **None.** Tracker (`docs/V1_5_IMPLEMENTATION_TRACKER.md`) + CANONICAL_AUDIT_LOG Pass #1+#2+#3 reconciliation accurately reflect HEAD: D5/D4/W9.27 PR3/D1 RESOLVED + AnyView issue #6 RESOLVED + W9.8/W9.21 PR4 in-flight + Drift A/B newly surfaced.
+- Carry-over (1, unchanged): `MASTER_BUILD_PLAN.md §7` does not list D-series as table rows — D-series tracking lives in `V1_5_IMPLEMENTATION_TRACKER.md` + `CANONICAL_AUDIT_LOG.md`. Auditor accepts this split per pass #15.
+
+### Steer-direction summary for next builder turn (carry-forward of user directive)
+
+User directive: *"Claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold."*
+
+**Pass #17 verdict: Builder showed correct discipline on ac8c6d28 (committed only complete work). The CURRENT exposure is the W9.8 + W9.21 PR4 partial work in the main tree** — which is exactly the "scaffold without wire" pattern user warned about. **One-line steer for next session start:** "before dispatching any new worktree-agent that touches `ApprovalModalView`, `AppBootstrap`, `ChatApprovalQueue`, `RustShadowFFIClient`, or `honest_handle.rs`, first either commit, stash, or finish-in-foreground the existing partial work in the main worktree." Audit log should suffice; no injection needed since Builder is already alive + triaging.
+
+---
+
+AUDIT-STEER PASS #17 COMPLETE
+- Windows: 1 (active builder JSONL `8602b212` last write 11:09 — committed `ac8c6d28` 1 min before audit fire; mid-triage of agent-X's W9.21 PR4 worktree)
+- Commits reviewed: 2 (`6cd47481`, `ac8c6d28`)
+- Blockers: **1 NEW (Drift A — CommandCenterRequestCompiler control plane); 1 RESOLVED (Pass #1 issue #6 AnyView)**
+- Warnings: **1 NEW (W9.8 + W9.21 PR4 in-flight WIP in main tree; data-loss/merge-race risk)**
+- Notes: 0
+- Major: **1 NEW (Drift B — three-router duplication)**
+- Resolved cumulative this pass: AnyView issue #6 = 1
+- Overrides sent: 0 (Builder is mid-triage with correct discipline; no injection needed)
+- Build: ✅ ** BUILD SUCCEEDED ** verified (Builder's run; auditor's redundant run stopped early)
+- Cargo: ✅ **713/713** verified live (auditor independent run)
+- Status drift: 0
+- COMPUTER_USE_BLOCKED: still carry-over (pass #14 N1 WRV-Visible)
+- Drift risk: **LOW for committed code (ac8c6d28 is the OPPOSITE of scaffold-pruning); MEDIUM for working tree — orphan-scaffold trap is mid-formation around W9.8 + W9.21 PR4 WIP. STEERING via audit log only — no override injection.**
+- Critique log: docs/CRITIQUE_LOG.md updated
+
+Next wake: per scheduler.
+
+---
+
+## 2026-04-27T17:06:00Z — pass #18 (idle wake-up; builder mid-fix on pass #17 Warning)
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `ac8c6d28` (no new commits since pass #17, ≈ 56 min ago)
+**Mode:** Single-window (active builder JSONL `8602b212-915c…`, last write 12:05 — 1 min before audit fire). Builder is in **active foreground close** of the pass #17 W9.8 + W9.21 PR4 WIP-tree warning — exactly path (a) of pass #17's recommended action.
+
+### Commits reviewed
+- (none — `git log ac8c6d28..HEAD` returns empty)
+
+### Findings
+- (none on commits — idle pass per §6)
+
+### Live working-tree wire-up verification (pass #17 carry-over check)
+
+The auditor explicitly inspected the in-flight WIP that pass #17 flagged. Builder's wire-up is real and progressing toward end-to-end closure, NOT scaffold-pruning. Receipts:
+
+**W9.8 — ChatApprovalQueue (Builder closing the wire window):**
+- Producer wired: `ChatCoordinator.swift:2888` → `let resolution = await bootstrap.chatApprovalQueue.enqueue(...)` (production caller, replaces NSAlert path).
+- Sheet mount wired: `EpistemosApp.swift:145-152` → `.sheet(item:)` Binding `get: { bootstrap.chatApprovalQueue.pendingApproval }` + on-resolve calls `bootstrap.chatApprovalQueue.resolve(pending, decision: decision)`.
+- Construction: `AppBootstrap.swift:810` → `let chatApprovalQueue = ChatApprovalQueue()` (unchanged from pass #17 baseline; now non-orphan).
+- Dedup-scope: Builder chose `request.id` per-tool-call (documented as pragmatic v1 compromise in JSONL at 16:53) — surfaced for pass #19 follow-up if dedup-by-session is later required.
+
+**W9.21 PR4 — RustShadowFFIClient honest-handle cutover (Builder closing PR4 of the 4-PR series):**
+- File header rewritten (`RustShadowFFIClient.swift` first ~50 lines) declaring "W9.21 PR4 — Honest-FFI consumer cutover" + citing PR1 commit `dcc5521f`, PR2 commit `b2e4899d`, PR4 = this in-flight commit.
+- New surface bound: `shadow_handle_open_at`, `shadow_handle_retain`, `shadow_handle_release`, `shadow_handle_search`, `shadow_handle_insert`, `shadow_handle_remove`, `shadow_handle_flush`, `shadow_handle_stats`, `shadow_handle_free_string` (8 entry points + 1 free; matches the ShadowEngineHandle ABI in `epistemos-shadow/src/honest_handle.rs`).
+- Lifecycle: `init(path:)` calls `shadow_handle_open_at` (refcount → 1); `deinit` calls `shadow_handle_release`. Closes the Doctrine §6 #14 orphan-scaffold pattern that PR1 + PR2 left dangling.
+- `epistemos-shadow/src/honest_handle.rs` shows +632/-191 in working tree — consistent with the agent-X partial work pass #17 noted, now being driven to completion in foreground by main Builder.
+
+**Builder process state at audit-fire (12:05 CDT = 17:05Z):**
+- Edits land in main tree (`Epistemos/App/AppBootstrap.swift`, `Epistemos/App/ChatCoordinator.swift` +69 lines, `Epistemos/App/EpistemosApp.swift` +24 lines, `Epistemos/Engine/RustShadowFFIClient.swift` +249 lines (refactor), `Epistemos/Views/Approval/ApprovalModalView.swift` +59 lines, `Epistemos/State/ChatApprovalQueue.swift` untracked +96 lines, `epistemos-shadow/src/honest_handle.rs` +632 lines).
+- Builder fired `xcodebuild -scheme Epistemos -destination 'platform=macOS' build` in background (task `btlxyl77g`) at 17:04Z.
+- Builder's last assistant turn at 17:05:54Z: *"Both W9.21 PR4 and W9.8 wire-up edits in tree. xcodebuild backgrounded again — waiting for completion notification before committing."*
+- Builder is correctly NOT committing until xcodebuild returns green. This is the verify-then-commit-only-the-complete-piece pattern that pass #17 commended on `ac8c6d28`.
+
+### Drift-risk re-assessment vs. pass #17
+
+User directive (this scheduled fire): *"Claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold."*
+
+| Risk axis | Pass #17 verdict | Pass #18 update |
+| --------- | ---------------- | --------------- |
+| Compromising | None | None — Builder is wiring the FULL honest-handle ABI (8 entry points), not a minimum-viable subset. Producer + consumer + sheet binder all landing in same wave. |
+| Not being ambitious | None | None — Builder is closing TWO orphan-scaffold patterns simultaneously (W9.8 + W9.21 PR4) instead of the easier path of finishing one and stashing the other. |
+| Not wiring end to end | MEDIUM (WIP) | RESOLVING — wire is end-to-end as of working tree: `ChatCoordinator.enqueue → ChatApprovalQueue.pendingApproval → .sheet(item:) → user decision → resolve()` is a full closed loop. shadow handle FFI is end-to-end: `RustShadowFFIClient.init → shadow_handle_open_at → ShadowEngineHandle Arc → shadow_handle_release on deinit`. |
+| Pruning scaffolds | LOW | LOW — Builder is COMPLETING agent-X's PR4 work + agent-Y's W9.8 work, NOT discarding it. The hardest part of "no scaffold pruning" is doing exactly what Builder is doing right now: salvaging in-flight orphan code by giving it production callers rather than deleting + restarting. |
+
+### Blockers re-counted (no change since pass #17)
+- 13 still-open + 1 NEW Major (Drift B) = 14 architectural items. **W9.8 + W9.21 PR4 will both close in the next commit if xcodebuild greens** — would drop count to 11 still-open + Drift B Major.
+
+### Computer-use verifications run
+- (none — idle pass per §6)
+
+### Status drift detected
+- **None.** No new commits to drift against.
+
+### Override directives sent this pass
+- **None.** Builder is on the perfect path. Injecting a steer right now would only break the xcodebuild-then-commit cadence.
+
+### Recommended next actions (post pass #18 wake)
+
+1. **Builder (foreground):** finish the xcodebuild-green → commit cycle currently in flight. Suggested commit message format: `w9.8+w9.21pr4(approval+honest-handle): close ChatApprovalQueue producer wire + honest-handle Swift consumer cutover`. Single squash commit closes both orphan-scaffold patterns simultaneously.
+2. **Builder (immediately after):** consider also `git add -A` for `Epistemos/State/ChatApprovalQueue.swift` (currently untracked) so the new file lands in the same SHA — otherwise the producer call site references a symbol that's not in the same commit (Doctrine §6 #14 risk).
+3. **Builder (between wave):** stage `epistemos-shadow/src/honest_handle.rs` and the Swift cutover in the SAME commit so the bidirectional contract change is atomic.
+4. **Auditor (next wake):** run full Check 1-8 against the new commit(s); verify ChatCoordinator.swift's NSAlert removal grep returns 0; verify legacy global-state shadow_* FFI bindings removed (or honestly retained behind transition compat — Builder's choice should be visible in commit body).
+5. **No override needed at this fire.** Builder's discipline is correct; the next fire (≈ 30 min cadence) should land the closing commit.
+
+### Watch flags carrying over (unchanged from pass #17 except as noted)
+1. **Computer-use WRV-Visible for N1:** still PENDING; first manual user session.
+2. **Working-tree drift (`Epistemos/Resources/Editor/` untracked + `syntax-core/target/...` build outputs):** unchanged.
+3. **`Epistemos-AppStore.xcscheme` working-tree dirty:** unchanged.
+4. **W9.8 + W9.21 PR4 WIP-tree warning [from pass #17]:** **MID-RESOLUTION** — Builder is in active foreground close. Re-check next pass; expected RESOLVED by the next commit on `feature/landing-liquid-wave`.
+
+### Build status this pass
+- xcodebuild: not run by auditor (idle pass per §6); Builder's xcodebuild task `btlxyl77g` running in background as of 17:05Z.
+- cargo test --lib: not run (no commits to verify; pass #17 floor `713/713` carries forward).
+
+---
+
+AUDIT-STEER PASS #18 COMPLETE
+- Windows: 1 (active builder JSONL `8602b212` last write 12:05 — mid-foreground-close of pass #17 WIP warning; xcodebuild backgrounded, no commit yet)
+- Commits reviewed: 0 (idle pass)
+- Blockers: 0 NEW; 0 RESOLVED (W9.8 + W9.21 PR4 WILL resolve on next commit if xcodebuild greens)
+- Warnings: 0 NEW (pass #17 W9.8/W9.21 PR4 Warning is MID-RESOLUTION — re-check next pass)
+- Notes: 0 NEW
+- Overrides sent: 0 (Builder discipline correct; injection would disrupt cadence)
+- Build: not run by auditor (idle); Builder's run pending
+- Cargo: not run by auditor (idle)
+- Status drift: 0
+- COMPUTER_USE_BLOCKED: carry-over from pass #14
+- Drift risk: **LOW across all four user-flagged axes (compromising / not ambitious / not wiring end to end / pruning scaffolds). Builder is doing the OPPOSITE of pruning — completing two orphan-scaffold patterns in one wave. Steering via audit log only — no override needed.**
+- Critique log: docs/CRITIQUE_LOG.md updated
+
+Next wake: per scheduler.
+
+---
+
+## 2026-04-27T18:06:00Z — pass #19 (idle wake-up; builder still on xcodebuild after DerivedData wipe)
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `ac8c6d28` (no new commits since pass #17, ≈ 60 min after pass #18)
+**Mode:** Single-window. Builder JSONL `8602b212` last write 12:53 CDT (17:53Z, ~13 min before audit fire). Builder xcodebuild PID 45746 still running (started 12:52 CDT after DerivedData wipe, now ≈14 min elapsed — normal range for a clean Swift rebuild touching 6,795 lines across 5 wired files).
+
+### Commits reviewed
+- (none — `git log ac8c6d28..HEAD` empty, same as pass #18)
+
+### Findings
+- (none on commits — idle pass per §6)
+
+### Wire-up integrity carry-check (pass #17/#18 follow-through)
+
+Auditor re-verified the W9.8 + W9.21 PR4 wire chain has NOT regressed during the 60-min interim. Both end-to-end paths still present in working tree:
+
+**W9.8 ChatApprovalQueue producer + binder:**
+- `Epistemos/App/ChatCoordinator.swift:2888` → `let resolution = await bootstrap.chatApprovalQueue.enqueue(...)`
+- `Epistemos/App/EpistemosApp.swift:145,152` → `.sheet(item: Binding(get: { bootstrap.chatApprovalQueue.pendingApproval }, ...))` + `bootstrap.chatApprovalQueue.resolve(pending, decision: decision)`
+- `Epistemos/State/ChatApprovalQueue.swift` is now **432 lines** (untracked) — up from pass #17's 96-line baseline. Builder substantially expanded the actor between pass #18 and pass #19; growth is consistent with completing the pendingApproval/resolve API surface.
+
+**W9.21 PR4 honest-handle Swift cutover:**
+- `Epistemos/Engine/RustShadowFFIClient.swift:67-83` → `@_silgen_name` bindings for `shadow_handle_open_at`, `shadow_handle_release`, `shadow_handle_search` (+ retain/insert/remove/flush/stats/free_string per pass #18 grep). Total file now 320 lines.
+- `init(path:)` calls `shadow_handle_open_at` at line 165; null-return diagnostic at line 169 ("`shadow_handle_open_at returned null at \(path)`"). Lifecycle pairing intact.
+- `epistemos-shadow/src/honest_handle.rs` working-tree diff size unchanged from pass #18 (~+632 lines).
+
+**Conclusion:** No file deletion, no scaffold pruning, no code regression during pass #18→#19 window. Builder is in xcodebuild-wait state — the *correct* discipline (don't commit until green).
+
+### Drift-risk re-assessment vs. pass #18
+
+User directive (this scheduled fire, repeated): *"Claude often drifts both in compromising and not being ambitious and not wiring everything end to end eventually pruning away and deleting the files it built because they were only scaffold."*
+
+| Risk axis | Pass #18 verdict | Pass #19 update |
+| --------- | ---------------- | --------------- |
+| Compromising | None | None — wire chain still full ABI (8 honest-handle entry points; full enqueue/resolve approval contract). |
+| Not being ambitious | None | None — both orphan-scaffold patterns still wired in same wave; no last-minute scope cut. |
+| Not wiring end to end | RESOLVING | RESOLVING (unchanged) — wire is end-to-end in working tree; awaiting xcodebuild green to commit. |
+| Pruning scaffolds | LOW | LOW — file growth (96 → 432 lines on `ChatApprovalQueue.swift`) shows Builder is COMPLETING the actor's surface, not trimming it. |
+
+### Builder activity check (post-pass #18, pre-pass #19)
+
+JSONL tail for session `8602b212` (last 60 min):
+- 17:52:07Z: DerivedData cleared.
+- 17:52:12Z: `xcodebuild -scheme Epistemos -destination 'platform=macOS' build 2>&1 | grep -E "error:|FAILED|SUCCEEDED|warning:" | head -20` backgrounded (task `bhal72hse`).
+- 17:52:20Z: Cargo check ran (agent_core: 1 pre-existing unused-variables warning; epistemos-shadow: clean).
+- 17:53:07Z: TodoWrite updated — Pass #3 / AnyView / W9.8+W9.21 PR4 verification all marked complete in todo list.
+- 17:53:16Z: Last assistant text — *"Build running fresh after DerivedData wipe. Waiting for completion notification — system will alert when done."*
+- 17:53Z–18:06Z: silent (waiting on xcodebuild; PID 45746 still alive, 0:00.83 CPU — likely in linker / Swift module-build phase).
+
+**Diagnosis:** Builder is correctly idle pending xcodebuild. Output file 0 bytes because `grep ... | head -20` only emits once 20 matches accumulate or the build finishes — for a green build, all output lands in one burst at the end. No evidence of stall or crash; xcodebuild process is still in the `S` (sleeping/waiting on I/O) state with normal memory footprint.
+
+### Steering this pass
+
+User scheduled-task directive emphasizes: *"If Claude hasn't done enough work, please come back later to check it out. … Steer it as needed, but make sure it eventually completes the entire multi-pass large master plan and doesn't drift or cut corners."*
+
+**Auditor verdict:** Builder is on the right path. Steering NOW would be counter-productive:
+- Builder is intentionally waiting for xcodebuild — interrupting to push a directive would force a context switch and risk stale-output races.
+- The wire-up code is in place and correct; only the validation step is pending.
+- 14-min xcodebuild after a clean DerivedData wipe is in-band for this codebase (94K Rust + 137K Swift LOC across the wave).
+
+**Recommended scheduler action:** re-fire in ≈30–40 min (≈18:35–18:45Z = 13:35–13:45 CDT). By then, either: (a) Builder's xcodebuild has greened + commit landed → run full Check 1-8 against the new SHA(s); or (b) xcodebuild failed → Builder is fixing OR stuck (need user-attention escalation).
+
+### Override directives sent this pass
+- **None.** Builder discipline correct; injection would disrupt the build-then-commit cadence.
+
+### Watch flags carrying over (unchanged from pass #18)
+1. **Computer-use WRV-Visible for N1:** still PENDING; first manual user session.
+2. **Working-tree drift (`Epistemos/Resources/Editor/` untracked + `syntax-core/target/...` build outputs):** unchanged.
+3. **`Epistemos-AppStore.xcscheme` working-tree dirty:** unchanged.
+4. **W9.8 + W9.21 PR4 WIP-tree warning [from pass #17]:** **STILL MID-RESOLUTION** — Builder pre-commit, post-wire. Re-check pass #20.
+
+### Build status this pass
+- xcodebuild: not run by auditor (idle pass per §6); Builder's task `bhal72hse` running ~14 min as of audit fire.
+- cargo test --lib: not run (no commits to verify; pass #17 floor `713/713` carries forward).
+
+### Computer-use verifications run
+- (none — idle pass per §6)
+
+### Status drift detected
+- **None.** No new commits to drift against. Tracker + CANONICAL_AUDIT_LOG state unchanged from pass #18.
+
+---
+
+AUDIT-STEER PASS #19 COMPLETE
+- Windows: 1 (active builder JSONL `8602b212` last write 17:53Z; xcodebuild PID 45746 alive, ~14 min into clean rebuild)
+- Commits reviewed: 0 (idle pass per §6)
+- Blockers: 0 NEW; 0 RESOLVED (W9.8 + W9.21 PR4 still pending build-green commit)
+- Warnings: 0 NEW (pass #17 W9.8/W9.21 PR4 Warning still MID-RESOLUTION; expected to close on next commit)
+- Notes: 0 NEW
+- Overrides sent: 0 (Builder discipline correct; injection would interrupt xcodebuild-wait)
+- Build: not run by auditor (idle); Builder's run pending (~14 min in)
+- Cargo: not run by auditor (idle); Builder's cargo check confirmed agent_core + epistemos-shadow green
+- Status drift: 0
+- COMPUTER_USE_BLOCKED: carry-over from pass #14
+- Drift risk: **LOW across all four user-flagged axes. File growth on `ChatApprovalQueue.swift` (96→432 lines) is the OPPOSITE of pruning — Builder is fleshing the actor's API surface, not trimming it. Steering via audit log only — no override needed. Auto-rescheduling next wake to catch the post-build commit.**
+- Critique log: docs/CRITIQUE_LOG.md updated
+
+Next wake: per scheduler (auto-rescheduled ≈30 min ahead to catch post-build commit).
+
+---

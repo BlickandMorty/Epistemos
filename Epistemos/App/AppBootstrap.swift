@@ -803,6 +803,11 @@ final class AppBootstrap {
     let agentAuthorityStore = AgentAuthorityStore(
         persistence: FileBackedAgentAuthorityPersistence()
     )
+    /// W9.8 — sheet-based approval bridge between ChatCoordinator
+    /// (which is `@MainActor final class`, NOT `@Observable`) and
+    /// the SwiftUI parent (`HomeSceneRootContent`) that mounts the
+    /// `.sheet(item:)` modifier. Replaces the old NSAlert path.
+    let chatApprovalQueue = ChatApprovalQueue()
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
     let channelRegistry: ChannelRegistryState

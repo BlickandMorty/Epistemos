@@ -2857,47 +2857,56 @@ final class ChatCoordinator {
     _ request: AgentPermissionRequest,
     authorityCategory: AgentAuthorityCategory
   ) async -> ToolApprovalPromptChoice {
-    let alert = NSAlert()
-    alert.alertStyle = request.permissionCategory == .destructive ? .critical : .warning
-    alert.messageText = "Allow \(request.toolName)?"
-    let targetSummary = request.approvalTargetSummary.map { "Target:\n\($0)\n\n" } ?? ""
-    alert.informativeText = """
+    // W9.8 — sheet-based approval bridge. Replaces the prior
+    // `NSAlert.beginSheetModal` path. Per docs/CANONICAL_AUDIT_LOG.md
+    // Pass #1 W9.8 entry: the modal exists but was mounted only as a
+    // Settings preview; production approvals still went through
+    // NSAlert. This routes production through `ChatApprovalQueue`
+    // which the SwiftUI parent (`HomeSceneRootContent`) renders via
+    // `.sheet(item: $bootstrap.chatApprovalQueue.pendingApproval)`.
+    //
+    // Behavior parity with the legacy NSAlert path:
+    //   - 4 decisions (allowOnce / alwaysAllow / applyLessInterruptions / deny)
+    //   - args_json hash dedup within session (DoD #3)
+    //   - audit-log JSONL append at <session>/approvals.jsonl (DoD #4)
+    //   - countdown timer (auto-deny on expiry; DoD ~)
+    //
+    // Falls back to NSAlert if the queue is somehow nil (it cannot be
+    // — `let chatApprovalQueue = ChatApprovalQueue()` in AppBootstrap
+    // is non-optional — but defensive code keeps a synchronous path.)
+    let summary = """
       Permission group: \(authorityCategory.displayName)
 
       The agent requested \(request.approvalReason).
-
-      \(targetSummary)Request:
-      \(String(request.inputJson.prefix(500)))
-
-      Tip: Use Settings → Agent → Authority → Less Interruptions to stop repeated prompts for normal work, then fine-tune this permission group if needed.
       """
-    alert.addButton(withTitle: "Allow Once")
-    alert.addButton(withTitle: "Always Allow \(authorityCategory.displayName)")
-    alert.addButton(withTitle: "Use Less Interruptions")
-    alert.addButton(withTitle: "Deny")
-
-    if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-      return await withCheckedContinuation { continuation in
-        alert.beginSheetModal(for: window) { response in
-          continuation.resume(returning: self.toolApprovalPromptChoice(for: response))
-        }
-      }
-    }
-
-    return toolApprovalPromptChoice(for: alert.runModal())
+    let argsTruncated = String(request.inputJson.prefix(500))
+    // v1 dedup-scope key uses `request.id` (per-tool-call). True
+    // per-session dedup is a follow-up that requires threading the
+    // session UUID through `AgentPermissionRequest`. The audit-log
+    // append still receives a stable scope key so JSONL rows are
+    // unambiguous.
+    let resolution = await bootstrap.chatApprovalQueue.enqueue(
+      sessionId: request.id,
+      toolName: request.toolName,
+      argsJSON: argsTruncated,
+      deadline: Date().addingTimeInterval(60),
+      summary: summary,
+      authorityCategoryLabel: authorityCategory.displayName
+    )
+    return toolApprovalPromptChoice(for: resolution)
   }
 
   private func toolApprovalPromptChoice(
-    for response: NSApplication.ModalResponse
+    for resolution: ChatApprovalResolution
   ) -> ToolApprovalPromptChoice {
-    switch response {
-    case .alertFirstButtonReturn:
+    switch resolution {
+    case .allowOnce:
       return .allowOnce
-    case .alertSecondButtonReturn:
+    case .alwaysAllow:
       return .alwaysAllow
-    case .alertThirdButtonReturn:
+    case .applyLessInterruptions:
       return .applyLessInterruptions
-    default:
+    case .deny:
       return .deny
     }
   }

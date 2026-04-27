@@ -31,25 +31,45 @@ public struct ApprovalModalView: View {
         public let toolName: String
         public let argsJSON: String
         public let deadline: Date
+        /// Optional human-readable summary of the action (e.g. authority
+        /// category + approval reason). When provided, rendered above the
+        /// raw args JSON so the user sees the intent at a glance instead
+        /// of squinting at the args payload.
+        public let summary: String?
+        /// Optional authority-category label rendered as a subtle pill so
+        /// the user knows which permission group will be auto-allowed if
+        /// they pick "Always Allow".
+        public let authorityCategoryLabel: String?
 
         public init(
             id: String = UUID().uuidString,
             sessionId: String,
             toolName: String,
             argsJSON: String,
-            deadline: Date
+            deadline: Date,
+            summary: String? = nil,
+            authorityCategoryLabel: String? = nil
         ) {
             self.id = id
             self.sessionId = sessionId
             self.toolName = toolName
             self.argsJSON = argsJSON
             self.deadline = deadline
+            self.summary = summary
+            self.authorityCategoryLabel = authorityCategoryLabel
         }
     }
 
-    public enum Decision: Sendable {
+    public enum Decision: Sendable, Equatable {
         case approveOnce
         case approveAlways
+        /// Apply the "Less Interruptions" preset to the authority store
+        /// and approve this action (parity with the existing NSAlert path
+        /// at `ChatCoordinator.promptUserForToolApproval`). The
+        /// preset reduces re-prompts for normal categories so the user
+        /// can move forward without flipping the per-category toggle by
+        /// hand.
+        case applyLessInterruptions
         case deny
         case timedOut
     }
@@ -58,8 +78,10 @@ public struct ApprovalModalView: View {
     private let onResolve: (Decision) -> Void
 
     @State private var now: Date = Date()
+    @State private var didResolve = false
     private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
     private let log = Logger(subsystem: "com.epistemos", category: "ApprovalModal")
+    private let totalSeconds: TimeInterval
 
     public init(
         approval: PendingApproval,
@@ -67,6 +89,9 @@ public struct ApprovalModalView: View {
     ) {
         self.approval = approval
         self.onResolve = onResolve
+        // Snapshot the total countdown window once so the progress
+        // ring's fraction stays stable as the deadline approaches.
+        self.totalSeconds = max(1, approval.deadline.timeIntervalSinceNow)
     }
 
     public var body: some View {
@@ -81,9 +106,24 @@ public struct ApprovalModalView: View {
                     Text(approval.toolName)
                         .font(.caption.monospaced())
                         .foregroundStyle(.secondary)
+                    if let label = approval.authorityCategoryLabel, !label.isEmpty {
+                        Text(label)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 1)
+                            .background(.quaternary, in: Capsule())
+                    }
                 }
                 Spacer()
                 countdownRing
+            }
+
+            if let summary = approval.summary, !summary.isEmpty {
+                Text(summary)
+                    .font(.callout)
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Divider()
@@ -97,17 +137,21 @@ public struct ApprovalModalView: View {
             }
             .frame(maxHeight: 180)
 
+            // 4-button layout matches the prior NSAlert parity:
+            // Deny | Less Interruptions | Allow Once | Always Allow.
             HStack {
                 Button("Deny") { resolve(.deny) }
                     .keyboardShortcut(.cancelAction)
                 Spacer()
+                Button("Less Interruptions") { resolve(.applyLessInterruptions) }
+                    .help("Apply the Less Interruptions preset and allow this action.")
                 Button("Allow Once") { resolve(.approveOnce) }
                 Button("Always Allow") { resolve(.approveAlways) }
                     .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(minWidth: 480, idealWidth: 540)
+        .frame(minWidth: 520, idealWidth: 580)
         .onReceive(timer) { tick in
             now = tick
             if remaining <= 0 {
@@ -121,8 +165,7 @@ public struct ApprovalModalView: View {
     }
 
     private var fractionRemaining: Double {
-        let total = max(1, approval.deadline.timeIntervalSinceNow + remaining)
-        return min(1, max(0, remaining / total))
+        min(1, max(0, remaining / totalSeconds))
     }
 
     private var countdownRing: some View {
@@ -142,6 +185,12 @@ public struct ApprovalModalView: View {
     }
 
     private func resolve(_ decision: Decision) {
+        // Guard against double-resolution: the timer can race the
+        // user clicking a button right at the deadline. We must
+        // never call onResolve more than once or the bridge layer
+        // panics on a duplicate continuation resume.
+        guard !didResolve else { return }
+        didResolve = true
         log.info("approval resolved tool=\(approval.toolName, privacy: .public) decision=\(String(describing: decision), privacy: .public)")
         onResolve(decision)
     }
