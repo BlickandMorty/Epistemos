@@ -654,6 +654,32 @@ struct ChatInputBar: View {
                         detail: pillDetail
                     )
 
+                    // R2 wire-up — Apple-native STT (W10.11
+                    // SpeechAnalyzer on macOS 26). Drop-in dictation
+                    // affordance lives next to the capability pill,
+                    // BEFORE the send button. Live partial → appended
+                    // to text; final → committed + composer ready
+                    // for Send. Honours the W11.4
+                    // `dictationAutoStop` preference (auto =
+                    // 2s-silence stop; manual = explicit Stop tap).
+                    if #available(macOS 26.0, *) {
+                        VoiceInputButton(
+                            style: .iconWithPulse,
+                            autoStopOnSilence: VoicePreferences.shared
+                                .dictationAutoStop == .auto,
+                            onPartial: { partial in
+                                // Append the partial to the composer
+                                // so the user sees the live transcript
+                                // while they speak. Replaced on every
+                                // partial (volatile range semantics).
+                                text = partial
+                            },
+                            onFinal: { final in
+                                text = final
+                            }
+                        )
+                    }
+
                     sendButton
                 }
                 .padding(.top, MainChatComposerLayout.controlRowTopPadding)
