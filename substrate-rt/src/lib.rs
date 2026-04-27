@@ -34,9 +34,11 @@
 
 pub mod event_ring;
 pub mod graph_event;
+pub mod honest_handle;
 
 pub use event_ring::{EventRing, EventRingError};
 pub use graph_event::GraphEvent;
+pub use honest_handle::EventRingHandle;
 
 // ---------------------------------------------------------------------------
 // C ABI surface

@@ -19,9 +19,11 @@ pub mod action;
 pub mod entity;
 pub mod event_log;
 pub mod ffi;
+pub mod honest_handle;
 pub mod store;
 
 pub use action::{ActionError, AppAction, EntityKind};
 pub use entity::{EntityData, EntityId};
 pub use event_log::{EventLog, EventLogError};
+pub use honest_handle::StoreHandle;
 pub use store::{Store, StoreError};
