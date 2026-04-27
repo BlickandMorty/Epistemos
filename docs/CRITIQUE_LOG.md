@@ -1624,3 +1624,92 @@ AUDIT-STEER PASS #13 COMPLETE
 - Critique log: docs/CRITIQUE_LOG.md updated
 
 ---
+
+## 2026-04-27T15:00:00Z — pass #14
+
+**Branch:** `feature/landing-liquid-wave`
+**HEAD:** `12183f29` (3 new commits since pass #13: `f5490bd1`, `af0a0f21`, `12183f29`)
+**Mode:** Zero-window (Terminal reports 0 windows — both builder sessions ended after N1 shipped)
+
+### Window state
+- Window 64143 (Lane A — prior): **GONE** — Terminal session closed after N1 completion
+- Window 64090 (Lane B+C — prior): **GONE** — Terminal session closed; master build plan executor ended cleanly
+
+### Commits reviewed
+- `f5490bd1` audit(N1): pass #13 — b8d779ca CLEAN, PR2 in-flight, no overrides [Lane C docs] [CLEAN]
+- `af0a0f21` n1(phase-1): persist + render Anthropic prompt-cache hit rate (PR2-3 of 3) [Lane A+C] [CLEAN + PENDING COMPUTER-USE WRV-VISIBLE]
+- `12183f29` plan(tracker): mark N1 as 🟢 SHIPPED after b8d779ca + af0a0f21 [Lane A+C] [CLEAN]
+
+### Findings per commit
+
+#### `f5490bd1` — audit(N1): pass #13
+- **CLEAN** — auditor-only docs commit. No code. WRV_EXEMPT implicit.
+
+#### `af0a0f21` — n1(phase-1): persist + render Anthropic prompt-cache hit rate (PR2-3 of 3)
+- **CLEAN** — WRV-bearing commit for N1 Phase 1 closure; all checks pass.
+- **Check 1 (WRV proof):** ✅ Full three-clause WRV proof present:
+  - WIRED: `SpendDashboardHost` at `AgentSectionDetailView.swift:135`; `ChatCoordinator.swift:2329-2330` threads real FFI cache fields; `EventStore.recentSessionMetrics` wires the read path. All confirmed live by auditor greps.
+  - REACHABLE: ⌘, → Agent → Spend tab — on fresh launch, no env vars or debug menus.
+  - VISIBLE: Cache hit rate row renders X.X % with tint after ≥ 1 Anthropic turn; "—" shown for non-Anthropic sessions (honest zero).
+- **Check 2 (wire grep, live):** ✅ All three wire points confirmed.
+- **Check 3 (xcodeproj):** ✅ Not touched.
+- **Check 4 (build):** ✅ `** BUILD SUCCEEDED **` verified live by auditor (CodeEdit* SwiftLint failures pre-existing per commit footnote).
+- **Check 5 (test floor):** ✅ `cargo test --lib` → **706 passed; 0 failed** confirmed live. 2 new XCTests (session_metrics round-trip + non-Anthropic zero-default) present.
+- **Check 6 (forbidden patterns):** ✅ None.
+- **Check 7 (LANE_BLEED):** Lane A (State/, Views/) + Lane C (App/, Tests/). Authorized by single-window execution; §7 waiver; same pattern accepted passes #2/#3/#7/#9/#13. Not a blocker.
+- **Check 8 (MAS/Pro):** ✅ Both targets; cache columns default to 0 for non-Anthropic (MAS/AFM renders "—").
+- **Computer-use WRV-Visible:** **PENDING** — WRV proof claims live Anthropic session lights up the row. Scheduled pass cannot launch the app. Carry-over to next manual session: Settings → Agent → Spend after chat turn, verify cache hit rate > 0 %.
+- **HALF_WIRED_STALE escalation:** RESOLVED. PR2+PR3 landed 1 pass after pass #13 watch flag. Retired.
+- **Severity:** CLEAN. Carry-over note: computer-use verification.
+
+#### `12183f29` — plan(tracker): mark N1 as 🟢 SHIPPED after b8d779ca + af0a0f21
+- **CLEAN** — tracker update + CostDashboardView accessibility/formatting polish.
+- `docs/MASTER_BUILD_PLAN.md` → N1 `🟡 PHASE 1 IN PROGRESS → 🟢 SHIPPED`.
+- `Epistemos/Views/Cost/CostDashboardView.swift` → `@ViewBuilder` on `list` property (AnyView-adjacent fix), `.formatted(.number)` on tokens, accessibility labels, `.help()` text, improved empty-state layout.
+- **WRV proof:** N/A — plan update + cosmetic polish.
+- **LANE_BLEED:** Lane A (Views/) + Lane C (docs/). §7 waiver applies.
+- **Build:** ✅ Auditor-verified post-commit state `** BUILD SUCCEEDED **`.
+- **Severity:** CLEAN.
+
+### Resolved blockers this pass
+1. **W9.6 `entries: []` (CANONICAL Blocker):** RESOLVED — `SpendDashboardHost` replaces placeholder.
+2. **N1 HALF_WIRED_STALE watch (pass #13):** RESOLVED — PR2+PR3 landed in 1 pass.
+3. **N1 Phase 1 closure:** RESOLVED — 3-PR ladder complete. N1 🟢 SHIPPED.
+
+### Remaining open blockers (CANONICAL_AUDIT_LOG carry-over)
+- **D4 (Blocker):** `LocalModelInfrastructure.swift:513-519` default Hermes 4.3 36B ~18 GB → OOM on 16 GB hardware. Lane C.
+- **D5 (Blocker):** No `PRAGMA journal_mode=WAL` / `F_FULLFSYNC` in `agent_core/src/`. Canonical site: `oplog.rs:118`. Single-function change. Lane B.
+- **W9.8 (Blocker):** `ChatCoordinator.swift:2844` still uses `NSAlert` in production approval path; `ApprovalModalView` wired only in Settings preview. Lane C.
+- **W9.21 (Blocker):** Honest-handle modules exist; zero Swift consumers. PR3 (graph-engine) + PR4 (Swift cutover) remain. Lane B+C.
+- **W9.22 (Blocker):** `Lifecycle<T,S>` exists; zero concrete wrappers. Lane B.
+- **W9.27 (Blocker):** OpLog persistent; lacks `prev_hash` BLAKE3 + WAL. Zero Swift consumers. PR3+PR4 remain. Lane B+C.
+- **AnyView violations:** ~14 remain across HologramOverlay, SettingsView, HologramSearchSidebar (CostDashboardView `list` improved in 12183f29). Lane A.
+- **Computer-use WRV-Visible (N1):** PENDING live verification.
+
+### Override directives sent this pass
+- **None** — 0 active Terminal windows. No injection targets.
+
+### Priority queue for next builder session
+1. **D5 (Lane B, ~30 min):** `PRAGMA journal_mode=WAL;` + `F_FULLFSYNC` in `oplog.rs::open_persistent`. Verify: `grep -n 'PRAGMA journal_mode\|F_FULLFSYNC' agent_core/src/oplog.rs` must hit.
+2. **W9.27 PR3 (Lane C, ~2 hr):** Swift `VaultIndexActor` subscription to `OpLog::iter_after` stream. WRV: DailyNoteView re-index visible.
+3. **D4 (Lane C, ~1 hr):** Demote Hermes 36B → opt-in for ≥32 GB; default to 8B-4bit. Verify: `grep -n '36B\|Hermes 4.3' Epistemos/Engine/LocalModelInfrastructure.swift` must be gone or gated.
+4. **W9.8 (Lane C, ~2 hr):** Replace NSAlert at `ChatCoordinator.swift:2844` with sheet-based `ApprovalModalView`. WRV: agent tool call → sheet renders.
+5. **W9.21 PR3+PR4 (Lane B+C, ~3 hr):** graph-engine honest-handle → Swift consumer cutover.
+6. **Computer-use N1 WRV-Visible (next manual session):** Settings → Agent → Spend after Anthropic chat turn; confirm cache hit rate > 0 %.
+
+---
+
+AUDIT-STEER PASS #14 COMPLETE
+- Windows: 0 (both builder sessions ended after N1 shipped)
+- Commits reviewed: 3 (`f5490bd1`, `af0a0f21`, `12183f29`)
+- Blockers: 0 new; 6 carry-over from CANONICAL_AUDIT_LOG
+- Warnings: 0
+- Notes: 1 (computer-use WRV-Visible for N1 PENDING)
+- Resolved: W9.6 `entries: []` Blocker + N1 HALF_WIRED_STALE watch + N1 Phase 1 closure
+- Overrides sent: 0 (no active windows)
+- Build: `** BUILD SUCCEEDED **` verified live
+- Cargo: 706/706 verified live
+- Status drift: 0
+- Critique log: docs/CRITIQUE_LOG.md updated at line 1627
+
+---
