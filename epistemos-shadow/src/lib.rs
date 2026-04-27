@@ -39,6 +39,7 @@
 
 pub mod backend;
 pub mod error;
+pub mod honest_handle;
 pub mod state;
 
 pub use backend::ShadowBackend;

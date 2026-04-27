@@ -47,6 +47,15 @@ similar = "2"
 tantivy = "0.22"
 thiserror = "1.0"
 tempfile = "3.14"
+# W9.26 — B-tree text rope. `crop` 0.4+ with `utf16-metric` feature
+# matches WKWebView's UTF-16 selection API at O(log n) cost. Used by
+# the new agent_core::rope module + future Swift FFI bridge.
+crop = { version = "0.4", features = ["utf16-metric"] }
+# R16 — ETL crawler foundation. `ignore` is BurntSushi's gitignore-aware
+# walker (used by ripgrep). `xxhash-rust` (xxh3) is the fastest non-
+# cryptographic hash on Apple Silicon arm64. Apalis-sql lands in PR2.
+ignore = "0.4"
+xxhash-rust = { version = "0.8", features = ["xxh3", "const_xxh3"] }
 nix = { version = "0.29", features = ["process", "term", "signal", "fs"] }
 tokio = { version = "1.43", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
@@ -55,7 +64,7 @@ memchr = "2.7"
 memmap2 = "0.9"
 rayon = "1.10"
 tracing = "0.1"
-uniffi = { version = "0.28", features = ["tokio"] }
+uniffi = { version = "=0.29.5", features = ["tokio"] }
 walkdir = "2.5"
 which = "6.0"
 uuid = { version = "1.11", features = ["serde", "v4"] }
@@ -94,4 +103,4 @@ inherits = "release"
 lto = "thin"
 
 [build-dependencies]
-uniffi = { version = "0.28", features = ["build"] }
+uniffi = { version = "=0.29.5", features = ["build"] }

@@ -121,6 +121,8 @@ targets:
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
+      - package: MLXStructured
+        product: MLXStructured
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -222,6 +224,8 @@ targets:
       - package: CodeEditSourceEditor
       - package: SwiftTreeSitter
       - package: CodeEditLanguages
+      - package: MLXStructured
+        product: MLXStructured
       - sdk: AppKit.framework
       - sdk: SwiftUI.framework
       - sdk: SwiftData.framework
@@ -513,6 +517,16 @@ packages:
   CodeEditLanguages:
     url: https://github.com/CodeEditApp/CodeEditLanguages.git
     from: "0.1.20"
+  # W9.25 — grammar-constrained logit masking. The DSL is already
+  # wired in Epistemos/LocalAgent/LocalToolGrammar.swift behind
+  # `#if canImport(MLXStructured)` guards; linking the package
+  # flips the runtime path from the omegaSoftGuidance fallback to
+  # true logit masking via xgrammar's FSA inside MLXLMCommon's
+  # TokenIterator. petrukha-ivan/mlx-swift-structured 0.0.4 was
+  # the resolved version in test_results/ci_source_packages/.
+  MLXStructured:
+    url: https://github.com/petrukha-ivan/mlx-swift-structured
+    from: "0.0.4"
 
 schemes:
   Epistemos:

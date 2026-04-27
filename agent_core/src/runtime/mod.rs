@@ -1,3 +1,4 @@
+pub mod typestate;
 pub mod write_pipeline;
 
 pub use write_pipeline::{
