@@ -115,11 +115,21 @@ public actor AFMSessionPool {
     /// Evict any pooled session older than the lifetime window.
     /// Optional GC pass — could fire from a NightBrain housekeeping
     /// job to reclaim daemon memory between user sessions.
+    ///
+    /// AUDIT FIX: previous implementation computed
+    /// `now.timeIntervalSince(Date())` which is essentially zero
+    /// (the gap between two near-simultaneous Date() calls), then
+    /// subtracted sessionLifetime — yielding a cutoff of ~-600 in
+    /// timeIntervalSinceReferenceDate space, which the
+    /// `createdAt.timeIntervalSinceReferenceDate > cutoff` filter
+    /// always satisfies. EFFECT: ALL sessions retained forever; the
+    /// helper was a no-op (not the eviction it advertised).
+    /// Worse: the README said it was a 10-min recycle but the
+    /// recycle never actually fired. Fixed to use the canonical
+    /// `now - sessionLifetime` cutoff.
     public func sweepStale(now: Date = Date()) {
-        let cutoff = now.timeIntervalSince(Date()) - Self.sessionLifetime
-        pool = pool.filter { _, p in
-            p.createdAt.timeIntervalSinceReferenceDate > cutoff
-        }
+        let cutoff = now.addingTimeInterval(-Self.sessionLifetime)
+        pool = pool.filter { _, p in p.createdAt > cutoff }
     }
 
     #endif

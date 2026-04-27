@@ -1,6 +1,7 @@
 import AppIntents
 import Foundation
 import OSLog
+import SwiftData
 
 // MARK: - UndoableNoteIntents (R5 / Wave 15 §"bonus items")
 //
@@ -110,17 +111,24 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         ))
     }
 
-    /// Bridge to the vault's actual delete path. Stub today —
-    /// follow-up commit wires through to NoteFileStorage / SDPage so
-    /// the destructive action actually flows through the canonical
-    /// note-mutation pipeline + invalidates Spotlight via
-    /// NoteEntitySpotlightIndexer.unindex(noteIds:).
+    /// Soft-delete via SDPage.isArchived flag — the canonical
+    /// "trash bin" today is the archived-pages set (filtered out of
+    /// every fetch by the global `!$0.isArchived` predicate). Pairs
+    /// with restoreNote() which clears the flag; both legs are
+    /// idempotent so a second Cmd-Z is harmless. Spotlight is
+    /// unindexed asynchronously so the search surface drops the note
+    /// immediately even if the SwiftData save is delayed.
     @MainActor
     private static func deleteNoteFromVault(id: String) async {
-        // TODO: Wire to AppBootstrap.shared?.vaultIndexActor.delete(id:)
-        // OR NoteFileStorage delete API once those entry points exist.
-        // For now we surface the intent contract — actual deletion is
-        // a follow-up.
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let page = try? context.fetch(descriptor).first {
+            page.isArchived = true
+            try? context.save()
+        }
         Task.detached(priority: .utility) {
             await NoteEntitySpotlightIndexer.unindex(noteIds: [id])
         }
@@ -132,8 +140,15 @@ struct DeleteNoteIntent: AppIntent, UndoableIntent {
         title: String,
         content: String?
     ) async {
-        // TODO: same wiring story — restore from trash bin once the
-        // canonical delete-undo pipeline is in place.
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let page = try? context.fetch(descriptor).first {
+            page.isArchived = false
+            try? context.save()
+        }
         undoableLog.info("Restored note id=\(id, privacy: .public)")
     }
 }
@@ -189,8 +204,15 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
 
     @MainActor
     private static func archiveNoteInVault(id: String) async {
-        // TODO: wire to vault archive folder move + sidecar update.
-        undoableLog.debug("archive stub fired for id=\(id, privacy: .public)")
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let page = try? context.fetch(descriptor).first {
+            page.isArchived = true
+            try? context.save()
+        }
     }
 
     @MainActor
@@ -199,6 +221,14 @@ struct ArchiveNoteIntent: AppIntent, UndoableIntent {
         title: String,
         content: String?
     ) async {
-        undoableLog.debug("unarchive stub fired for id=\(id, privacy: .public)")
+        guard let bootstrap = AppBootstrap.shared else { return }
+        let context = bootstrap.modelContainer.mainContext
+        let descriptor = FetchDescriptor<SDPage>(
+            predicate: #Predicate { $0.id == id }
+        )
+        if let page = try? context.fetch(descriptor).first {
+            page.isArchived = false
+            try? context.save()
+        }
     }
 }

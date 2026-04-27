@@ -9,11 +9,15 @@
 /* Begin PBXBuildFile section */
 		001B7D93C8F0C60A863A236D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		0465C1B669B990DFF2F4AAF8 /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
+		063FBBFF8F084AFDD50D87BA /* EpistemosSidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */; };
+		08F333D4BF84ADD28C3B3873 /* CognitiveIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 169A8DC98B20151778A8196C /* CognitiveIntents.swift */; };
 		0B0CD6C2C4145C9DC8F2800C /* AppKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */; };
 		14BE34D63FDD39FBD19B1B73 /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		161F4C5CC609D325639A5D99 /* AXorcist in Frameworks */ = {isa = PBXBuildFile; productRef = 48BA6B15F3E86D3F10699011 /* AXorcist */; };
 		1ADDFDA4FEF38784F3172BED /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = FA1346421A48DF0E99CA1280 /* GRDB */; };
+		1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */; };
 		2C2AC1E1E033EC0C23D55BF0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
+		2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */; };
 		30E13BBA08D4E40824E55896 /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 64C05B0F6CD84089D8957E4E /* SwiftTreeSitter */; };
 		3B8E1C3C335DC819029D0BFB /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
 		3BDE702EBE7513A75F05E85F /* SwiftTreeSitter in Frameworks */ = {isa = PBXBuildFile; productRef = 8D58BEB9ABADDDFF4BF4973F /* SwiftTreeSitter */; };
@@ -21,28 +25,38 @@
 		46243D23E5333064943D5310 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		47EC22FDE2094C0AD988091C /* GRDB in Frameworks */ = {isa = PBXBuildFile; productRef = 0A2D551363AE61A7F5B1B898 /* GRDB */; };
 		4CAE00A3B9F046672C6522D6 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
+		535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
+		5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EA1101E0D8741618C93599C /* SidecarCache.swift */; };
 		5FA96D2820E6751FD7CAE761 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		61C8116B784756491A5EC96D /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C5467DC782039DA54397330A /* Network.framework */; };
 		61DC567C838103D0C2929555 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
+		6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */; };
 		7BA33DAD72F26B5969AF58A4 /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = 335D46D689DC43CC5B86CBE9 /* MLXLMCommon */; };
+		7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */; };
+		80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */; };
 		81716E83E67308AE0E10312D /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = D22E3A58030016B71ABF4392 /* Grape */; };
 		836B564E870EDF34873B3A58 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = 10AF46C8B7755E4D5270CE5D /* MLX */; };
 		9306CA2B6D16680A144B5317 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = ACAC129448E9C89398D377EA /* MLXLLM */; };
+		9623A0EB94D7DA20FB2363FB /* PowerGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709D7B359F2E08AFFF2F250A /* PowerGate.swift */; };
 		A0CC72DF04BB145B6C54585F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 20B80048C5E5CB20ACE0CF6C /* Foundation.framework */; };
 		A5782539EAC785740C793CCA /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = F7E9B1878CB9E72A8C27E281 /* CodeEditLanguages */; };
 		B6058CDDBAC6D239758DE0BE /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = EE721F274D3687D9B714DFE8 /* MLXVLM */; };
 		BAAEE4E38661F000D998F186 /* Grape in Frameworks */ = {isa = PBXBuildFile; productRef = A7B4A33EDFA6CDF19164E100 /* Grape */; };
+		BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */; };
 		BE22FF112091A73278DA1574 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = 4C4DCAADA40969509FB59B01 /* CodeEditSourceEditor */; };
 		BFE34268D83FB96D10840B4D /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = B919CFE16BDE19DE0CD70F2E /* MLX */; };
 		C18BD6A1E86E5CE754EC3C02 /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = 75C464B753EF88EB267FA5C5 /* HuggingFace */; };
+		CD168F0C8FC1718315BA47B2 /* NightBrainScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC212B6BC68824E72E85460B /* NightBrainScheduler.swift */; };
 		DA3132A959597DC991789A0D /* SwiftData.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E9964F6D56D0A9A72ED41455 /* SwiftData.framework */; };
 		DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A0DEC64ED9ED804781639E05 /* AppIntents.framework */; };
 		DF83A55045962D57B510A3AE /* MLXLMCommon in Frameworks */ = {isa = PBXBuildFile; productRef = C1632F27423B91A7F3261950 /* MLXLMCommon */; };
 		E1411145209B0CCD99C5C608 /* GGUFRuntimeBridge in Frameworks */ = {isa = PBXBuildFile; productRef = 0F027974EDAC4F43D4D90730 /* GGUFRuntimeBridge */; };
+		E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */; };
 		E5F98A62361C1EBB82523B92 /* MLXVLM in Frameworks */ = {isa = PBXBuildFile; productRef = B459E8918D8198BA7803E476 /* MLXVLM */; };
 		E70B453353C9AB5E24A29DFA /* HuggingFace in Frameworks */ = {isa = PBXBuildFile; productRef = C8E5F5988876E85975B20613 /* HuggingFace */; };
 		ED91AE601D067F5CD1FA6937 /* CryptoKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 50D490633F871E55934A5C90 /* CryptoKit.framework */; };
 		F17AA91C0BB197EE4008CED8 /* MLXLLM in Frameworks */ = {isa = PBXBuildFile; productRef = F463DB33C39F4AB6E0BB6518 /* MLXLLM */; };
+		F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5714802E4CF5F19C54626435 /* QuarantineArchive.swift */; };
 		F4FD9C1FBB3D7E66B93DD4B4 /* CodeEditSourceEditor in Frameworks */ = {isa = PBXBuildFile; productRef = DCB38ED5B8E7A5052A252A47 /* CodeEditSourceEditor */; };
 		F5784C6AD6DA3C05A246766E /* CodeEditLanguages in Frameworks */ = {isa = PBXBuildFile; productRef = 22D76D69CE0A05A612129C53 /* CodeEditLanguages */; };
 		F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */; };
@@ -61,28 +75,55 @@
 /* Begin PBXFileReference section */
 		0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EpistemosTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		169A8DC98B20151778A8196C /* CognitiveIntents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CognitiveIntents.swift; sourceTree = "<group>"; };
 		20B80048C5E5CB20ACE0CF6C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		3BB97A0D62DBD0CCE78A57B2 /* AppKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppKit.framework; path = System/Library/Frameworks/AppKit.framework; sourceTree = SDKROOT; };
+		3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		4CCA4C5EFEFB3EE14C057628 /* NightBrainHelper */ = {isa = PBXFileReference; includeInIndex = 0; path = NightBrainHelper; sourceTree = BUILT_PRODUCTS_DIR; };
 		50D490633F871E55934A5C90 /* CryptoKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CryptoKit.framework; path = System/Library/Frameworks/CryptoKit.framework; sourceTree = SDKROOT; };
-		57F63CBF79B9214731AD2154 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5714802E4CF5F19C54626435 /* QuarantineArchive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuarantineArchive.swift; sourceTree = "<group>"; };
+		57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Epistemos-AppStore.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionTelemetryClassifier.swift; sourceTree = "<group>"; };
 		672BE80E8A07FD684DEDF4C7 /* GGUFRuntimeBridge */ = {isa = PBXFileReference; lastKnownFileType = folder; name = GGUFRuntimeBridge; path = LocalPackages/GGUFRuntimeBridge; sourceTree = SOURCE_ROOT; };
+		709D7B359F2E08AFFF2F250A /* PowerGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerGate.swift; sourceTree = "<group>"; };
+		7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationStateClassifier.swift; sourceTree = "<group>"; };
+		7EA1101E0D8741618C93599C /* SidecarCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidecarCache.swift; sourceTree = "<group>"; };
 		8FD4DAC7BF81680458A6AF28 /* mlx-swift-lm */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "mlx-swift-lm"; path = "LocalPackages/mlx-swift-lm"; sourceTree = SOURCE_ROOT; };
 		A0DEC64ED9ED804781639E05 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 		AA209B3DB2A4192D0A450DB7 /* CoreSpotlight.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSpotlight.framework; path = System/Library/Frameworks/CoreSpotlight.framework; sourceTree = SDKROOT; };
+		BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = EpistemosWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C5467DC782039DA54397330A /* Network.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Network.framework; path = System/Library/Frameworks/Network.framework; sourceTree = SDKROOT; };
 		C76D402546734270F3EE1008 /* Epistemos.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Epistemos.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DC212B6BC68824E72E85460B /* NightBrainScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NightBrainScheduler.swift; sourceTree = "<group>"; };
+		E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosSidecar.swift; sourceTree = "<group>"; };
 		E9964F6D56D0A9A72ED41455 /* SwiftData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftData.framework; path = System/Library/Frameworks/SwiftData.framework; sourceTree = SDKROOT; };
+		F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosSpeechSynthesizer.swift; sourceTree = "<group>"; };
+		FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AFMSessionPool.swift; sourceTree = "<group>"; };
+		FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosControlWidget.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */ = {
+		28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				OmegaFFI.h,
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
 				omega_ax.swift,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */ = {
+		37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
@@ -92,42 +133,23 @@
 				KnowledgeFusion/MOHAWK/.last_pod_id,
 				KnowledgeFusion/MOHAWK/campus_sort.py,
 				KnowledgeFusion/MOHAWK/compose_training_mix.py,
+				KnowledgeFusion/MOHAWK/composed_training_data,
 				KnowledgeFusion/MOHAWK/composed_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/mix_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data,
 				KnowledgeFusion/MOHAWK/embodied_data/app_code_graph.json,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_epistemos.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl,
-				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/general_macos_instructions.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/generation_report.json,
 				KnowledgeFusion/MOHAWK/embodied_data/predictions_template.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
+				KnowledgeFusion/MOHAWK/epistemos_training_data,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/01_code_graph.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/02_symbol_qa.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/03_ax_atlas.jsonl,
@@ -135,8 +157,8 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/05_tool_calls.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/06_negative.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/09_scroll_gesture.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/10_axpress_schema.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/11_code_grounded.jsonl,
@@ -146,6 +168,30 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/15_error_diagnosis.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
 				KnowledgeFusion/MOHAWK/eval_bfcl.py,
 				KnowledgeFusion/MOHAWK/fill_training_gaps.py,
 				KnowledgeFusion/MOHAWK/generate_advanced_training_data.py,
@@ -179,7 +225,33 @@
 			);
 			target = D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */;
 		};
-		C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */ = {
+		45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */;
+		};
+		6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				OmegaFFI.h,
+				agent_coreFFI,
+				agent_coreFFI.h,
+				agent_coreFFI.modulemap,
+				epistemos_coreFFI,
+				epistemos_coreFFI.h,
+				epistemos_coreFFI.modulemap,
+				omega_axFFI,
+				omega_axFFI.h,
+				omega_axFFI.modulemap,
+				omega_mcpFFI,
+				omega_mcpFFI.h,
+				omega_mcpFFI.modulemap,
+			);
+			target = 973D4C8C4633FC9F5CEF0985 /* Epistemos */;
+		};
+		C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Engine/ClaudeManagedRuntime.swift,
@@ -189,42 +261,23 @@
 				KnowledgeFusion/MOHAWK/.last_pod_id,
 				KnowledgeFusion/MOHAWK/campus_sort.py,
 				KnowledgeFusion/MOHAWK/compose_training_mix.py,
+				KnowledgeFusion/MOHAWK/composed_training_data,
 				KnowledgeFusion/MOHAWK/composed_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/mix_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
-				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
 				KnowledgeFusion/MOHAWK/composed_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered.jsonl,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_filtered_report.json,
+				KnowledgeFusion/MOHAWK/composed_training_data/train_final.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data,
 				KnowledgeFusion/MOHAWK/embodied_data/app_code_graph.json,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_epistemos.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/bfcl_eval_macos.jsonl,
-				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/embodied_data/embodied_trajectories_sft.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/general_macos_instructions.jsonl,
 				KnowledgeFusion/MOHAWK/embodied_data/generation_report.json,
 				KnowledgeFusion/MOHAWK/embodied_data/predictions_template.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
+				KnowledgeFusion/MOHAWK/epistemos_training_data,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/01_code_graph.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/02_symbol_qa.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/03_ax_atlas.jsonl,
@@ -232,8 +285,8 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/05_tool_calls.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/06_negative.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/07_error_recovery.jsonl,
-				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data/08_reasoning_chains_extra.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/09_scroll_gesture.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/10_axpress_schema.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/11_code_grounded.jsonl,
@@ -243,6 +296,30 @@
 				KnowledgeFusion/MOHAWK/epistemos_training_data/15_error_diagnosis.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/eval.jsonl,
 				KnowledgeFusion/MOHAWK/epistemos_training_data/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/01_code_graph.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/03_ax_atlas.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/04_trajectories.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/05_tool_calls.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/06_negative.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/07_error_recovery.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/08_reasoning_chains_extra.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/09_scroll_gesture.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/10_axpress_schema.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/11_code_grounded.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/12_macos_knowledge.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/13_multi_app_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/14_temporal_sequential.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/15_error_diagnosis.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/16_research_workflows.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/eval.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/02_symbol_qa.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/quarantined/strict_rejects.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/train.jsonl,
+				KnowledgeFusion/MOHAWK/epistemos_training_data_validated/validation_report.json,
 				KnowledgeFusion/MOHAWK/eval_bfcl.py,
 				KnowledgeFusion/MOHAWK/fill_training_gaps.py,
 				KnowledgeFusion/MOHAWK/generate_advanced_training_data.py,
@@ -281,26 +358,36 @@
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		16352B1B20A1DA1DA6055D05 /* EpistemosTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
 			path = EpistemosTests;
 			sourceTree = "<group>";
 		};
-		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {
+		48195CB9B8649331A9DD3F18 /* EpistemosWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				28ED660DDD0AE43C1E151F78 /* Exceptions for "build-rust/swift-bindings" folder in "Epistemos-AppStore" target */,
+				45C30E899114488A41C98903 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
 			);
-			path = "build-rust/swift-bindings";
+			explicitFileTypes = {
+			};
+			explicitFolders = (
+			);
+			path = EpistemosWidgets;
 			sourceTree = "<group>";
 		};
-		DC577E252B5002D94779881E /* Epistemos */ = {
+		52295608EB3CEE7E5789DEE9 /* EpistemosNightBrainHelper */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C9E21D3C4068DC6525ACFB75 /* Exceptions for "Epistemos" folder in "Epistemos" target */,
-				37F519C8472FADBCC70357FE /* Exceptions for "Epistemos" folder in "Epistemos-AppStore" target */,
+			explicitFileTypes = {
+			};
+			explicitFolders = (
 			);
-			path = Epistemos;
+			path = EpistemosNightBrainHelper;
 			sourceTree = "<group>";
 		};
+		8498727F02475E046A16C239 /* build-rust/swift-bindings */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (6360FCE1FA6F31D313869F7B /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 28ED660DDD0AE43C1E151F78 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = "build-rust/swift-bindings"; sourceTree = "<group>"; };
+		DC577E252B5002D94779881E /* Epistemos */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (C9E21D3C4068DC6525ACFB75 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 37F519C8472FADBCC70357FE /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Epistemos; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -328,6 +415,16 @@
 				61C8116B784756491A5EC96D /* Network.framework in Frameworks */,
 				DA6E66D557A870C35DB5DD49 /* AppIntents.framework in Frameworks */,
 				F916294B9966E7689528DAF5 /* CoreSpotlight.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E1728B0C39930685E5B00A37 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1B43A5176B33E51D2684788D /* WidgetKit.framework in Frameworks */,
+				7FB9B55EC62CC75E4D5D6688 /* SwiftUI.framework in Frameworks */,
+				535DA20E3D052CF1BE542E54 /* AppIntents.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,23 +460,65 @@
 		21C2583A1AFD8B5552357491 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				57F63CBF79B9214731AD2154 /* Epistemos.app */,
+				57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */,
 				C76D402546734270F3EE1008 /* Epistemos.app */,
 				0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */,
+				BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */,
+				4CCA4C5EFEFB3EE14C057628 /* NightBrainHelper */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5AEE65BF8E579343CCBCA405 /* State */ = {
+			isa = PBXGroup;
+			children = (
+				DC212B6BC68824E72E85460B /* NightBrainScheduler.swift */,
+				709D7B359F2E08AFFF2F250A /* PowerGate.swift */,
+			);
+			name = State;
+			path = Epistemos/State;
+			sourceTree = "<group>";
+		};
+		6F1EC9BA7C68B9CAA1A4EFD5 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				FAEB6F791FCD3D66E463779B /* AFMSessionPool.swift */,
+				7E4D9497705CF8ABBA8B8483 /* ConversationStateClassifier.swift */,
+				E4713439484B07EC2D84E457 /* EpistemosSidecar.swift */,
+				F812DA2636E2F30D6DD16757 /* EpistemosSpeechSynthesizer.swift */,
+				5714802E4CF5F19C54626435 /* QuarantineArchive.swift */,
+				59539D1530ACD1A036128BE8 /* SessionTelemetryClassifier.swift */,
+				7EA1101E0D8741618C93599C /* SidecarCache.swift */,
+			);
+			name = Engine;
+			path = Epistemos/Engine;
 			sourceTree = "<group>";
 		};
 		6F9EC009019D0F4E92530E7F = {
 			isa = PBXGroup;
 			children = (
 				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
+				6F1EC9BA7C68B9CAA1A4EFD5 /* Engine */,
 				DC577E252B5002D94779881E /* Epistemos */,
+				52295608EB3CEE7E5789DEE9 /* EpistemosNightBrainHelper */,
 				16352B1B20A1DA1DA6055D05 /* EpistemosTests */,
+				48195CB9B8649331A9DD3F18 /* EpistemosWidgets */,
 				CDE9EC77D799DAC3B605278D /* Packages */,
+				873442C8EF5F4AB0EB3D02DE /* Schemas */,
+				5AEE65BF8E579343CCBCA405 /* State */,
 				C4CC4178A08EBA8D216C43EF /* Frameworks */,
 				21C2583A1AFD8B5552357491 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		873442C8EF5F4AB0EB3D02DE /* Schemas */ = {
+			isa = PBXGroup;
+			children = (
+				169A8DC98B20151778A8196C /* CognitiveIntents.swift */,
+				FE235934630CAC96EDC68D93 /* EpistemosControlWidget.swift */,
+			);
+			name = Schemas;
+			path = Epistemos/Intents/Schemas;
 			sourceTree = "<group>";
 		};
 		C4CC4178A08EBA8D216C43EF /* Frameworks */ = {
@@ -393,6 +532,7 @@
 				C5467DC782039DA54397330A /* Network.framework */,
 				E9964F6D56D0A9A72ED41455 /* SwiftData.framework */,
 				0B0A9C8CAF4C5600E37DB565 /* SwiftUI.framework */,
+				3BEC141E9B6239CA8FD79483 /* WidgetKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -433,6 +573,49 @@
 			productReference = 0AF21CF0D294861545AE5324 /* EpistemosTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 09B08AA2CF4C2DA53C9EB337 /* Build configuration list for PBXNativeTarget "EpistemosWidgets" */;
+			buildPhases = (
+				C0E17763D30980F9A4FD2527 /* Sources */,
+				5FD6A3D3897D7F9C84FCDA4B /* Resources */,
+				E1728B0C39930685E5B00A37 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				48195CB9B8649331A9DD3F18 /* EpistemosWidgets */,
+			);
+			name = EpistemosWidgets;
+			packageProductDependencies = (
+			);
+			productName = EpistemosWidgets;
+			productReference = BE341F589C4FD8A21810B329 /* EpistemosWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		6FA4F39D389A7F22A5BEE516 /* NightBrainHelper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6E14BBD99EF1DBC685AC8547 /* Build configuration list for PBXNativeTarget "NightBrainHelper" */;
+			buildPhases = (
+				31FDC50B2C0010DAAC362CDB /* Sources */,
+				18DBB952544A9245ED9BDB8A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				52295608EB3CEE7E5789DEE9 /* EpistemosNightBrainHelper */,
+			);
+			name = NightBrainHelper;
+			packageProductDependencies = (
+			);
+			productName = NightBrainHelper;
+			productReference = 4CCA4C5EFEFB3EE14C057628 /* NightBrainHelper */;
+			productType = "com.apple.product-type.tool";
+		};
 		973D4C8C4633FC9F5CEF0985 /* Epistemos */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4F9732676A2B95B64895445F /* Build configuration list for PBXNativeTarget "Epistemos" */;
@@ -448,8 +631,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 				DC577E252B5002D94779881E /* Epistemos */,
+				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 			);
 			name = Epistemos;
 			packageProductDependencies = (
@@ -486,8 +669,8 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 				DC577E252B5002D94779881E /* Epistemos */,
+				8498727F02475E046A16C239 /* build-rust/swift-bindings */,
 			);
 			name = "Epistemos-AppStore";
 			packageProductDependencies = (
@@ -504,7 +687,7 @@
 				22D76D69CE0A05A612129C53 /* CodeEditLanguages */,
 			);
 			productName = "Epistemos-AppStore";
-			productReference = 57F63CBF79B9214731AD2154 /* Epistemos.app */;
+			productReference = 57F63CBF79B9214731AD2154 /* Epistemos-AppStore.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -518,6 +701,12 @@
 				TargetAttributes = {
 					37D6F96B1B2A55707390C24A = {
 						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+					37DE6F7D0C0330DB13916CE8 = {
+						ProvisioningStyle = Automatic;
+					};
+					6FA4F39D389A7F22A5BEE516 = {
 						ProvisioningStyle = Automatic;
 					};
 					973D4C8C4633FC9F5CEF0985 = {
@@ -557,12 +746,21 @@
 				973D4C8C4633FC9F5CEF0985 /* Epistemos */,
 				D30E77DBB7C16B42612B2335 /* Epistemos-AppStore */,
 				37D6F96B1B2A55707390C24A /* EpistemosTests */,
+				37DE6F7D0C0330DB13916CE8 /* EpistemosWidgets */,
+				6FA4F39D389A7F22A5BEE516 /* NightBrainHelper */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		01A65B568692F58396CECD39 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18DBB952544A9245ED9BDB8A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -577,6 +775,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		4EF88187EDE7DCEE6CC43D97 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5FD6A3D3897D7F9C84FCDA4B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -603,7 +808,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && MAS_SANDBOX=1 bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\"";
 		};
 		4E337C83B228C8BF01D9A6D2 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -660,7 +865,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\"";
+			shellScript = "bash \"${SRCROOT}/build-rust.sh\" && bash \"${SRCROOT}/build-syntax-core.sh\" && bash \"${SRCROOT}/build-omega-mcp.sh\" && bash \"${SRCROOT}/build-omega-ax.sh\" && bash \"${SRCROOT}/build-epistemos-core.sh\" && bash \"${SRCROOT}/build-agent-core.sh\" && bash \"${SRCROOT}/build-epistemos-shadow.sh\" && bash \"${SRCROOT}/build-epistemos-code-index.sh\" && bash \"${SRCROOT}/build-substrate-rt.sh\" && bash \"${SRCROOT}/build-tiptap-bundle.sh\"";
 		};
 		E7F099267B00E856637856A5 /* Bundle Runtime Assets */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -717,7 +922,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -euo pipefail\noutput_dir=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror\"\nmkdir -p \"${output_dir}\"\n\nprune_artifact_directories() {\n  local destination_root=\"$1\"\n\n  if [ ! -d \"${destination_root}\" ]; then\n    return 0\n  fi\n\n  find \"${destination_root}\" -type d \\( \\\n    -name 'target' -o \\\n    -name '.build' -o \\\n    -name 'build' -o \\\n    -name 'DerivedData' -o \\\n    -name '.git' -o \\\n    -name 'node_modules' -o \\\n    -name '.venv' -o \\\n    -name 'venv' -o \\\n    -name '__pycache__' \\\n  \\) -prune -exec rm -rf {} +\n}\n\ncopy_tree() {\n  local relative_root=\"$1\"\n  local source_root=\"${PROJECT_DIR}/${relative_root}\"\n  local destination_root=\"${output_dir}/${relative_root}\"\n\n  if [ ! -d \"${source_root}\" ]; then\n    rm -rf \"${destination_root}\"\n    return 0\n  fi\n\n  mkdir -p \"${destination_root}\"\n  prune_artifact_directories \"${destination_root}\"\n  rsync -a --delete --prune-empty-dirs \\\n    --exclude='target/' \\\n    --exclude='.build/' \\\n    --exclude='build/' \\\n    --exclude='DerivedData/' \\\n    --exclude='.git/' \\\n    --exclude='node_modules/' \\\n    --exclude='.venv/' \\\n    --exclude='venv/' \\\n    --exclude='__pycache__/' \\\n    --include='*/' \\\n    --include='*.swift' \\\n    --include='*.rs' \\\n    --include='*.py' \\\n    --include='*.sh' \\\n    --include='*.yml' \\\n    --include='*.yaml' \\\n    --include='*.toml' \\\n    --include='*.h' \\\n    --include='*.pbxproj' \\\n    --include='*.plist' \\\n    --include='*.md' \\\n    --include='*.json' \\\n    --include='*.jsonl' \\\n    --include='*.png' \\\n    --include='*.metal' \\\n    --include='*.xcprivacy' \\\n    --include='*.entitlements' \\\n    --include='*.udl' \\\n    --include='*.xcscheme' \\\n    --include='*.xcworkspacedata' \\\n    --exclude='*' \\\n    \"${source_root}/\" \"${destination_root}/\"\n}\n\ncopy_file() {\n  local relative_path=\"$1\"\n  local source_path=\"${PROJECT_DIR}/${relative_path}\"\n  local destination_path=\"${output_dir}/${relative_path}\"\n\n  if [ ! -f \"${source_path}\" ]; then\n    rm -f \"${destination_path}\"\n    return 0\n  fi\n\n  mkdir -p \"$(dirname \"${destination_path}\")\"\n  rsync -a \"${source_path}\" \"${destination_path}\"\n}\n\ncopy_tree \"Epistemos\"\ncopy_tree \"EpistemosTests\"\ncopy_tree \"agent_core\"\ncopy_tree \"graph-engine\"\ncopy_tree \"graph-engine-bridge\"\ncopy_tree \"epistemos-core\"\ncopy_tree \"syntax-core\"\ncopy_tree \"syntax-core-bridge\"\ncopy_tree \"scripts\"\ncopy_tree \"docs\"\ncopy_tree \".agents\"\ncopy_tree \".github\"\ncopy_tree \"config\"\ncopy_tree \"LocalPackages\"\ncopy_tree \"Epistemos.xcodeproj\"\n\ncopy_file \"AGENTS.md\"\ncopy_file \"CLAUDE.md\"\ncopy_file \"Epistemos-Bridging-Header.h\"\ncopy_file \"Epistemos-Info.plist\"\ncopy_file \"Epistemos-AppStore-Info.plist\"\ncopy_file \"project.yml\"\ncopy_file \"Makefile\"\ncopy_file \"TESTING_GUIDE.md\"\ncopy_file \"patch-uniffi-bindings.py\"\ncopy_file \"bundle-app-runtime-assets.sh\"\ncopy_file \"embed-and-sign-rust-dylib.sh\"\ncopy_file \"build-rust.sh\"\ncopy_file \"build-syntax-core.sh\"\ncopy_file \"build-omega-mcp.sh\"\ncopy_file \"build-omega-ax.sh\"\ncopy_file \"build-epistemos-core.sh\"\ncopy_file \"build-agent-core.sh\"\ncopy_file \"build-epistemos-shadow.sh\"\ncopy_file \"build-epistemos-code-index.sh\"\ncopy_file \"build-substrate-rt.sh\"\n";
+			shellScript = "set -euo pipefail\noutput_dir=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/SourceMirror\"\nmkdir -p \"${output_dir}\"\n\nprune_artifact_directories() {\n  local destination_root=\"$1\"\n\n  if [ ! -d \"${destination_root}\" ]; then\n    return 0\n  fi\n\n  find \"${destination_root}\" -type d \\( \\\n    -name 'target' -o \\\n    -name '.build' -o \\\n    -name 'build' -o \\\n    -name 'DerivedData' -o \\\n    -name '.git' -o \\\n    -name 'node_modules' -o \\\n    -name '.venv' -o \\\n    -name 'venv' -o \\\n    -name '__pycache__' \\\n  \\) -prune -exec rm -rf {} +\n}\n\ncopy_tree() {\n  local relative_root=\"$1\"\n  local source_root=\"${PROJECT_DIR}/${relative_root}\"\n  local destination_root=\"${output_dir}/${relative_root}\"\n\n  if [ ! -d \"${source_root}\" ]; then\n    rm -rf \"${destination_root}\"\n    return 0\n  fi\n\n  mkdir -p \"${destination_root}\"\n  prune_artifact_directories \"${destination_root}\"\n  rsync -a --delete --prune-empty-dirs \\\n    --exclude='target/' \\\n    --exclude='.build/' \\\n    --exclude='build/' \\\n    --exclude='DerivedData/' \\\n    --exclude='.git/' \\\n    --exclude='node_modules/' \\\n    --exclude='.venv/' \\\n    --exclude='venv/' \\\n    --exclude='__pycache__/' \\\n    --include='*/' \\\n    --include='*.swift' \\\n    --include='*.rs' \\\n    --include='*.py' \\\n    --include='*.sh' \\\n    --include='*.yml' \\\n    --include='*.yaml' \\\n    --include='*.toml' \\\n    --include='*.h' \\\n    --include='*.pbxproj' \\\n    --include='*.plist' \\\n    --include='*.md' \\\n    --include='*.json' \\\n    --include='*.jsonl' \\\n    --include='*.png' \\\n    --include='*.metal' \\\n    --include='*.xcprivacy' \\\n    --include='*.entitlements' \\\n    --include='*.udl' \\\n    --include='*.xcscheme' \\\n    --include='*.xcworkspacedata' \\\n    --exclude='*' \\\n    \"${source_root}/\" \"${destination_root}/\"\n}\n\ncopy_file() {\n  local relative_path=\"$1\"\n  local source_path=\"${PROJECT_DIR}/${relative_path}\"\n  local destination_path=\"${output_dir}/${relative_path}\"\n\n  if [ ! -f \"${source_path}\" ]; then\n    rm -f \"${destination_path}\"\n    return 0\n  fi\n\n  mkdir -p \"$(dirname \"${destination_path}\")\"\n  rsync -a \"${source_path}\" \"${destination_path}\"\n}\n\ncopy_tree \"Epistemos\"\ncopy_tree \"EpistemosTests\"\ncopy_tree \"agent_core\"\ncopy_tree \"graph-engine\"\ncopy_tree \"graph-engine-bridge\"\ncopy_tree \"epistemos-core\"\ncopy_tree \"syntax-core\"\ncopy_tree \"syntax-core-bridge\"\ncopy_tree \"scripts\"\ncopy_tree \"docs\"\ncopy_tree \".agents\"\ncopy_tree \".github\"\ncopy_tree \"config\"\ncopy_tree \"LocalPackages\"\ncopy_tree \"Epistemos.xcodeproj\"\n\ncopy_file \"AGENTS.md\"\ncopy_file \"CLAUDE.md\"\ncopy_file \"Epistemos-Bridging-Header.h\"\ncopy_file \"Epistemos-Info.plist\"\ncopy_file \"Epistemos-AppStore-Info.plist\"\ncopy_file \"project.yml\"\ncopy_file \"Makefile\"\ncopy_file \"TESTING_GUIDE.md\"\ncopy_file \"patch-uniffi-bindings.py\"\ncopy_file \"bundle-app-runtime-assets.sh\"\ncopy_file \"embed-and-sign-rust-dylib.sh\"\ncopy_file \"build-rust.sh\"\ncopy_file \"build-syntax-core.sh\"\ncopy_file \"build-omega-mcp.sh\"\ncopy_file \"build-omega-ax.sh\"\ncopy_file \"build-epistemos-core.sh\"\ncopy_file \"build-agent-core.sh\"\ncopy_file \"build-epistemos-shadow.sh\"\ncopy_file \"build-epistemos-code-index.sh\"\ncopy_file \"build-substrate-rt.sh\"\ncopy_file \"build-tiptap-bundle.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -726,6 +931,31 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		31FDC50B2C0010DAAC362CDB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CD168F0C8FC1718315BA47B2 /* NightBrainScheduler.swift in Sources */,
+				9623A0EB94D7DA20FB2363FB /* PowerGate.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C0E17763D30980F9A4FD2527 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6CAD9FFA6A82372FE5C6844E /* AFMSessionPool.swift in Sources */,
+				08F333D4BF84ADD28C3B3873 /* CognitiveIntents.swift in Sources */,
+				BDA83B0079DB6B1F90AD4093 /* ConversationStateClassifier.swift in Sources */,
+				2EA19F2C59A0EE724E69CDF8 /* EpistemosControlWidget.swift in Sources */,
+				063FBBFF8F084AFDD50D87BA /* EpistemosSidecar.swift in Sources */,
+				E5C918B7DB7D7E04D07548A6 /* EpistemosSpeechSynthesizer.swift in Sources */,
+				F224B157305CA3C973457BCF /* QuarantineArchive.swift in Sources */,
+				80D36B635950E94BB3667A8B /* SessionTelemetryClassifier.swift in Sources */,
+				5B1557CE7B5BE6FA4FD1DCC2 /* SidecarCache.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -773,17 +1003,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -791,6 +1011,45 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
+			};
+			name = Debug;
+		};
+		1F14548A8F23EC8EDB5E078D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
+				PRODUCT_NAME = EpistemosWidgets;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		2BFC6FA62481348651505748 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.epistemos.app.nightbrain-helper";
+				PRODUCT_NAME = NightBrainHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 			};
 			name = Debug;
 		};
@@ -905,17 +1164,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.appstore;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -923,6 +1172,47 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_INCLUDE_PATHS = "$(PROJECT_DIR)/build-rust/swift-bindings/omega_mcpFFI $(PROJECT_DIR)/build-rust/swift-bindings/epistemos_coreFFI $(PROJECT_DIR)/build-rust/swift-bindings/agent_coreFFI";
 				SWIFT_OBJC_BRIDGING_HEADER = "Epistemos-Bridging-Header.h";
+			};
+			name = Release;
+		};
+		669764D62A1F85DBFF0FBACD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = AL562BVF23;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = EpistemosWidgets/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"@executable_path/../../../../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app.widgets;
+				PRODUCT_NAME = EpistemosWidgets;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
+			};
+			name = Release;
+		};
+		69A7A14C4894BC3B483D4524 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = AL562BVF23;
+				ENABLE_HARDENED_RUNTIME = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.epistemos.app.nightbrain-helper";
+				PRODUCT_NAME = NightBrainHelper;
+				SDKROOT = macosx;
+				SKIP_INSTALL = NO;
 			};
 			name = Release;
 		};
@@ -946,18 +1236,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -985,18 +1264,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				OTHER_LDFLAGS = (
-					"-L$(PROJECT_DIR)/build-rust",
-					"-lgraph_engine",
-					"-lsyntax_core",
-					"-lomega_mcp",
-					"-lomega_ax",
-					"-lepistemos_core",
-					"-lagent_core",
-					"-lepistemos_shadow",
-					"-lepistemos_code_index",
-					"-lsubstrate_rt",
-				);
+				OTHER_LDFLAGS = "-L$(PROJECT_DIR)/build-rust -lgraph_engine -lsyntax_core -lomega_mcp -lomega_ax -lepistemos_core -lagent_core -lepistemos_shadow -lepistemos_code_index -lsubstrate_rt";
 				PRODUCT_BUNDLE_IDENTIFIER = com.epistemos.app;
 				PRODUCT_NAME = Epistemos;
 				SDKROOT = macosx;
@@ -1104,6 +1372,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		09B08AA2CF4C2DA53C9EB337 /* Build configuration list for PBXNativeTarget "EpistemosWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1F14548A8F23EC8EDB5E078D /* Debug */,
+				669764D62A1F85DBFF0FBACD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		2355646EB6C00CE74733A7F8 /* Build configuration list for PBXNativeTarget "EpistemosTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -1118,6 +1395,15 @@
 			buildConfigurations = (
 				751706468F2EF5B25E04473B /* Debug */,
 				72E220BA400328AE00D4CE85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6E14BBD99EF1DBC685AC8547 /* Build configuration list for PBXNativeTarget "NightBrainHelper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2BFC6FA62481348651505748 /* Debug */,
+				69A7A14C4894BC3B483D4524 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -21,7 +21,7 @@ import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Highlight from '@tiptap/extension-highlight';
-import Table from '@tiptap/extension-table';
+import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
@@ -81,7 +81,7 @@ function scheduleContentDidChange(json: string): void {
 const editor = new Editor({
   element: mountNode,
   extensions: [
-    StarterKit.configure({ history: true }),
+    StarterKit,
     UniqueId.configure({
       types: ['heading', 'paragraph', 'codeBlock', 'blockquote'],
     }),
