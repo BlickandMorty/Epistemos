@@ -693,11 +693,14 @@ Per orchestrator §1.5 ("If a finding has been resolved by a recent commit, mark
 | **W9.6 `budget_gate` cost-cap → ApprovalModal** | Blocker | ⚪ **STILL OPEN** | — | Verified zero `budget_gate` hits in `agent_core/src/`. Lower priority now that dashboard data is visible. |
 | **D4 Hermes 36B OOM on 16GB** | Blocker — memory math violation | 🟢 **RESOLVED** | `8e4e018d` (catalog) + `4c0c7e17` (estimated4BitWeightsGB accessor + final ship) | Catalog landed: `fallbackPrimaryAgentModel = .qwen3_8B4Bit`, `optInPrimaryAgentModel = .hermes43_36B4Bit`, `primaryAgentModelMinHostRAMGB = 32`, opt-in defaults key. Final ship adds the missing `LocalTextModelID.estimated4BitWeightsGB` accessor (all 46 catalog cases enumerated; 4-bit ≈ params × 0.5 GB rule). 6 invariant tests pass; xcodebuild green; zero new test regressions (pre-existing W9.25-stale Swift test confirmed as not D4-induced via D4-isolation stash). |
 
-### Updated Blocker count: 17 → 15 still open + 1 partial-resolved (after D4 ship at 4c0c7e17)
+### Updated Blocker count: 17 → 13 still open + 1 partial-resolved (after W9.27 PR3 + D1 ship at fe97e512)
 
 - Pass #1 score: 47 audited / 17 Blockers / 19 Warnings / 6 Notes
 - Pass #2 score (initial): 47 audited / 16 Blockers / 1 partial-resolved (W9.6 main) / 1 in-flight (D4 stashed) / 19 Warnings / 6 Notes
-- Pass #2 score (post-D4 ship at `4c0c7e17`): 47 audited / **15 Blockers** / **1 partial-resolved (W9.6 main)** / 19 Warnings / 6 Notes
+- Pass #2 score (post-D4 ship at `4c0c7e17`): 47 audited / 15 Blockers / 1 partial-resolved (W9.6 main) / 19 Warnings / 6 Notes
+- Pass #2 score (post-W9.27 PR3 + D1 ship at `fe97e512`): 47 audited / **13 Blockers** / **1 partial-resolved (W9.6 main)** / 19 Warnings / 6 Notes
+  - W9.27 schema-drift (`prev_hash BLOB(32)` column) RESOLVED at `fe97e512` (idempotent ALTER migration; reopen-restore-chain-tip; 713/713 cargo).
+  - D1 BLAKE3 Merkle chain (`compute_chain_link` domain-separated hashing) RESOLVED at `fe97e512`.
 
 ### Foundational doctrine primitives — STILL 100% ABSENT IN CODE
 
