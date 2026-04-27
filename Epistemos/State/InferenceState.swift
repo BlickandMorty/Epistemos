@@ -294,6 +294,63 @@ nonisolated enum LocalTextModelID: String, Codable, Sendable, CaseIterable {
         }
     }
 
+    /// Estimated weight memory in GB at this catalog entry's quantization.
+    /// For 4-bit models: ≈ params × 0.5 GB (the canonical Epistemos quant).
+    /// For 3-bit / 2-bit / bf16 catalog variants the value reflects the
+    /// actual quant footprint (3-bit ≈ params × 0.375, 2-bit ≈ params ×
+    /// 0.25, bf16 ≈ params × 2).
+    ///
+    /// Used by the D4 faculty-roster memory-budget arithmetic to keep the
+    /// default local agent fitting the 16 GB Mac realistic 11 GB working
+    /// budget (weights + KV cache + app overhead). Per
+    /// `docs/CANONICAL_AUDIT_LOG.md` Blocker D4: prior default Hermes 4.3
+    /// 36B at 4-bit ≈ 18 GB resident exceeds the 16 GB hardware ceiling;
+    /// `LocalModelCatalog.fallbackPrimaryAgentModel` (Qwen 3 8B 4-bit ≈
+    /// 4 GB) keeps the working set inside the budget.
+    var estimated4BitWeightsGB: Double {
+        switch self {
+        // 4-bit dense
+        case .qwen35_0_8B4Bit: 0.4
+        case .qwen35_2B4Bit, .lfm2_2B4Bit, .mamba2_2B4Bit: 1.0
+        case .gemma4_2B4Bit, .falconH1_1B4Bit, .lfm25_350M,
+             .lfm25_1BInstruct, .lfm25_1BThinking, .lfm25_VL1B, .lfm25_Audio1B,
+             .llama32_3BInstruct4Bit, .smolLM3_3B4Bit: 1.5
+        case .qwen35_4B4Bit, .qwen3_4B4Bit, .qwen3_4BThinking25074Bit,
+             .gemma4_4B4Bit, .gemma3_4BQAT4Bit: 2.0
+        case .qwen3CoderNext4Bit: 4.0
+        case .deepseekR1Distill7B, .qwen25Coder7B,
+             .falconH1R_7B4Bit, .qwen3_8B4Bit: 4.0
+        case .qwen35_9B4Bit: 4.5
+        case .devstralSmall2505_4Bit: 11.5
+        case .mistralSmall31_24B4Bit: 12.0
+        case .qwen35_27B4Bit, .gemma3_27BQAT4Bit, .qwopus27Bv3: 13.5
+        case .qwqFlagship32B4Bit: 16.0
+        case .hermes43_36B4Bit: 18.0
+
+        // 4-bit MoE — total params × 0.5 (all weights resident; active
+        // experts smaller per token but full footprint in memory)
+        case .qwen35_35BA3B4Bit, .qwen36_35BA3B4Bit,
+             .qwen36_35BA3B_Unsloth4Bit, .qwen36_35BA3B_DWQ4Bit,
+             .qwopusMoE35BA3B: 17.5
+        case .gemma4_27BA4B4Bit: 13.5
+        case .qwen3Coder30BA3B4Bit: 15.0
+        case .gemma4_31BJANG: 15.5
+        case .lfm2_24BA2B4Bit: 12.0
+        case .llama4Scout17B16E4Bit: 8.5
+
+        // 3-bit (params × 0.375)
+        case .hermes43_36B3Bit: 13.5
+        case .lfm2_8BA1B3Bit: 3.0
+
+        // 2-bit (params × 0.25)
+        case .bonsai4B2Bit: 1.0
+        case .bonsai8B2Bit: 2.0
+
+        // bf16 (params × 2)
+        case .jamba3B: 6.0
+        }
+    }
+
     var minimumRecommendedInteractiveMemoryGB: Int {
         switch self {
         case .qwen25Coder7B:

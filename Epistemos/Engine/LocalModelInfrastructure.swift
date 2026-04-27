@@ -1017,6 +1017,74 @@ enum LocalModelCatalog {
     nonisolated static func descriptor(for modelID: String) -> LocalModelDescriptor? {
         allDescriptors.first { $0.id == modelID }
     }
+
+    // MARK: - D4 Faculty Roster — Primary Agent Model Defaults
+    //
+    // Per docs/CANONICAL_AUDIT_LOG.md Blocker D4: prior to this fix the
+    // function-calling specialist resolver returned Hermes 4.3 36B as the
+    // primary local agent. At 4-bit that is ~18 GB resident weights —
+    // exceeds the 16 GB Epistemos hardware ceiling per the user's
+    // [User Hardware] memory ("16GB unified memory ceiling; realistic
+    // budget ~10-11GB for weights+KV; 4-bit 7-8B is the sweet spot").
+    // Will OOM on the target hardware.
+    //
+    // The fix: default the primary local agent to a 7-8B 4-bit model and
+    // gate the 36B variant behind ≥32 GB host RAM + an explicit opt-in
+    // (UserDefaults `epistemos.localAgent.optInHermes36B`). The Settings →
+    // Inference picker is the natural opt-in surface — a user who picks
+    // Hermes 4.3 36B explicitly is opting in. Without that pick, the
+    // default stays the 7-8B model on every host size, including 32 GB+.
+
+    /// Minimum host unified memory (in whole GB) required before the
+    /// large 36B function-calling specialist may serve as the primary
+    /// agent model. Hosts below this threshold default to the 7-8B
+    /// fallback regardless of any opt-in flag.
+    nonisolated static let primaryAgentModelMinHostRAMGB: Int = 32
+
+    /// UserDefaults key for the explicit opt-in to the 36B agent model.
+    /// `false` (default) keeps every host on the 7-8B fallback even at
+    /// ≥32 GB. The Settings → Inference picker writes this flag when the
+    /// user picks Hermes 4.3 36B.
+    nonisolated static let primaryAgentModel36BOptInDefaultsKey: String =
+        "epistemos.localAgent.optInHermes36B"
+
+    /// The 7-8B 4-bit fallback that is safe for every host, including
+    /// the 16 GB Epistemos hardware floor. Qwen 3 8B at 4-bit is ~4.5 GB
+    /// resident, leaving the realistic 11 GB budget on a 16 GB Mac with
+    /// ample headroom for KV cache + app overhead.
+    nonisolated static let fallbackPrimaryAgentModel: LocalTextModelID = .qwen3_8B4Bit
+
+    /// The 36B opt-in target (function-calling specialist). Only served
+    /// when host has ≥`primaryAgentModelMinHostRAMGB` GB AND the user
+    /// has explicitly opted in via the Settings → Inference picker.
+    nonisolated static let optInPrimaryAgentModel: LocalTextModelID = .hermes43_36B4Bit
+
+    /// Resolves the default primary agent model for a given host snapshot
+    /// and opt-in flag. Pure function for unit-test seams.
+    nonisolated static func defaultPrimaryAgentModel(
+        hostMemoryGB: Int,
+        hasOptedInTo36B: Bool
+    ) -> LocalTextModelID {
+        if hostMemoryGB >= primaryAgentModelMinHostRAMGB && hasOptedInTo36B {
+            return optInPrimaryAgentModel
+        }
+        return fallbackPrimaryAgentModel
+    }
+
+    /// Convenience accessor that uses the current hardware snapshot and
+    /// the persisted opt-in flag from `UserDefaults.standard`. Tests use
+    /// the `(hostMemoryGB:hasOptedInTo36B:)` overload above to avoid
+    /// touching defaults.
+    nonisolated static var defaultPrimaryAgentModel: LocalTextModelID {
+        let hostMemoryGB = LocalHardwareCapabilitySnapshot.current.roundedMemoryGB
+        let hasOptedIn = UserDefaults.standard.bool(
+            forKey: primaryAgentModel36BOptInDefaultsKey
+        )
+        return defaultPrimaryAgentModel(
+            hostMemoryGB: hostMemoryGB,
+            hasOptedInTo36B: hasOptedIn
+        )
+    }
 }
 
 extension LocalHardwareCapabilitySnapshot {

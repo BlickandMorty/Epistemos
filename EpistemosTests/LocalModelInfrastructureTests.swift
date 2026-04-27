@@ -95,6 +95,76 @@ struct LocalModelInfrastructureTests {
         #expect(descriptorIDs.contains(LocalTextModelID.gemma3_4BQAT4Bit.rawValue))
     }
 
+    // MARK: - D4 Faculty Roster — Memory Budget Invariant
+    //
+    // Per docs/CANONICAL_AUDIT_LOG.md Blocker D4 the prior default
+    // (Hermes 4.3 36B at 4-bit, ~18 GB resident) violated the 16 GB
+    // hardware ceiling. These tests pin the new invariant: the default
+    // primary agent model must fit the realistic 11 GB budget on a
+    // 16 GB Mac (weights + KV + app overhead).
+
+    @Test("default local agent model fits in the realistic 16 GB Mac budget")
+    func defaultLocalAgentModelFitsIn16GBCeiling() {
+        let model = LocalModelCatalog.defaultPrimaryAgentModel(
+            hostMemoryGB: 16,
+            hasOptedInTo36B: false
+        )
+        let weightsGB = model.estimated4BitWeightsGB
+        let kvBudgetGB = 4.0
+        let appOverheadGB = 1.5
+        let totalGB = weightsGB + kvBudgetGB + appOverheadGB
+        #expect(
+            totalGB <= 11.0,
+            "Default model must fit in realistic 11 GB budget on 16 GB Mac. Current \(model): \(totalGB) GB"
+        )
+    }
+
+    @Test("default agent stays on the 7-8B fallback at 16 GB even if user opted into 36B")
+    func defaultAgentIgnores36BOptInOnConstrainedHost() {
+        // A 16 GB Mac MUST never serve the 36B model regardless of any
+        // stale opt-in flag from a previous high-memory device.
+        let model = LocalModelCatalog.defaultPrimaryAgentModel(
+            hostMemoryGB: 16,
+            hasOptedInTo36B: true
+        )
+        #expect(model == LocalModelCatalog.fallbackPrimaryAgentModel)
+        #expect(model != LocalModelCatalog.optInPrimaryAgentModel)
+    }
+
+    @Test("default agent stays on the 7-8B fallback on a 32 GB host without opt-in")
+    func defaultAgentRequiresExplicitOptInAt32GB() {
+        // Even with the host RAM gate satisfied, the 36B path is opt-in
+        // only — never automatic.
+        let model = LocalModelCatalog.defaultPrimaryAgentModel(
+            hostMemoryGB: 32,
+            hasOptedInTo36B: false
+        )
+        #expect(model == LocalModelCatalog.fallbackPrimaryAgentModel)
+    }
+
+    @Test("default agent serves the 36B model only when host has ≥32 GB AND user opted in")
+    func defaultAgentServes36BWhenGated() {
+        let model = LocalModelCatalog.defaultPrimaryAgentModel(
+            hostMemoryGB: 32,
+            hasOptedInTo36B: true
+        )
+        #expect(model == LocalModelCatalog.optInPrimaryAgentModel)
+        #expect(model == .hermes43_36B4Bit)
+    }
+
+    @Test("primary-agent host RAM gate matches the published 32 GB threshold")
+    func primaryAgentHostRAMGateIsExactlyThirtyTwoGB() {
+        #expect(LocalModelCatalog.primaryAgentModelMinHostRAMGB == 32)
+    }
+
+    @Test("Hermes 4.3 36B at 4-bit is honestly reported as ~18 GB resident")
+    func hermes43_36BWeightsAreOverThe16GBCeiling() {
+        // This is the invariant that justified D4: the model is too big
+        // for a 16 GB Mac. If a future quant lands that fits, the catalog
+        // should add a NEW case rather than mutate this one.
+        #expect(LocalTextModelID.hermes43_36B4Bit.estimated4BitWeightsGB >= 16.0)
+    }
+
     @Test("thinking runtimes allow long-form local and cloud reasoning before timing out")
     func thinkingRuntimesAllowLongReasoningBeforeTimingOut() throws {
         let contractSource = try loadMirroredSourceTextFile("Epistemos/Engine/BackendRuntimeContract.swift")
