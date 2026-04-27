@@ -29,6 +29,39 @@ struct QuickCaptureView: View {
     @State private var isTranscribing = false
     @State private var isTraceInspectorPresented = false
 
+    /// Cheap client-side preview of what the AFM @Generable extraction
+    /// will probably surface — counts hashtags, @-mentions, and lines
+    /// starting with "- [ ]" so the user sees structured chips
+    /// updating in real time as they type. The authoritative parse
+    /// still happens in TextCapturePipeline on submit.
+    private var previewSignals: PreviewSignals {
+        PreviewSignals(text: captureText)
+    }
+
+    private var headerSubtitle: String {
+        if isProcessing {
+            return "Structuring your thought…"
+        }
+        if isTranscribing {
+            return "Transcribing dictation…"
+        }
+        if audioRecorder.isRecording {
+            return "Recording — speak naturally"
+        }
+        if captureText.isEmpty {
+            return "Brain dump → structured note + entities + tasks"
+        }
+        let signals = previewSignals
+        if signals.totalSignals > 0 {
+            var parts: [String] = []
+            if signals.hashtagCount > 0 { parts.append("\(signals.hashtagCount) tag\(signals.hashtagCount == 1 ? "" : "s")") }
+            if signals.mentionCount > 0 { parts.append("\(signals.mentionCount) mention\(signals.mentionCount == 1 ? "" : "s")") }
+            if signals.taskCount > 0 { parts.append("\(signals.taskCount) task\(signals.taskCount == 1 ? "" : "s")") }
+            return "Detected · " + parts.joined(separator: " · ")
+        }
+        return "Cmd-Return to capture · Esc to cancel"
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -40,14 +73,42 @@ struct QuickCaptureView: View {
             // Content
             if let result = captureResult {
                 confirmationCard(result)
+                    .transition(.asymmetric(
+                        insertion: .scale(scale: 0.97).combined(with: .opacity),
+                        removal: .opacity
+                    ))
             } else {
                 captureForm
+                    .transition(.opacity)
             }
         }
-        .frame(width: 520, height: captureResult != nil ? 340 : 320)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 30, y: 10)
+        .frame(width: 540, height: captureResult != nil ? 380 : 360)
+        .background {
+            // Layered backdrop: ultraThin material + subtle accent
+            // wash + soft inner highlight. Gives the sheet a sense of
+            // depth without crossing into App-Store-rejecting custom
+            // chrome — every layer is a stock SwiftUI primitive.
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(LinearGradient(
+                        colors: [
+                            Color.accentColor.opacity(0.12),
+                            Color.accentColor.opacity(0.02),
+                            .clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ))
+                    .blendMode(.plusLighter)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.30), radius: 40, y: 14)
+        .animation(reduceMotion ? .none : .smooth(duration: 0.32), value: captureResult != nil)
         .onAppear {
             isTextFieldFocused = true
         }
@@ -59,14 +120,29 @@ struct QuickCaptureView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 10) {
+            // Animated SF Symbol with hierarchical rendering — pulses
+            // gently on the accent color so the capture surface feels
+            // alive without crossing into "demo gimmick" territory.
             Image(systemName: "sparkles.text.rectangle")
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.tint)
                 .font(.title3)
-                .foregroundStyle(.secondary)
+                .symbolEffect(
+                    .pulse.byLayer,
+                    options: reduceMotion ? .nonRepeating : .repeating.speed(0.5)
+                )
 
-            Text("Quick Capture")
-                .font(.headline)
-                .foregroundStyle(.primary)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Quick Capture")
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+                Text(headerSubtitle)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .contentTransition(.identity)
+            }
 
             Spacer()
 
@@ -138,6 +214,21 @@ struct QuickCaptureView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
+            // Structured preview strip — surfaces what the AFM
+            // @Generable extractor will likely produce, computed
+            // client-side as the user types so the structuring
+            // promise is visible BEFORE submit. Authoritative
+            // extraction still happens in TextCapturePipeline on
+            // submit (creates the SDPage, runs entity extraction,
+            // graph writes). Empty when there's nothing to show.
+            if !captureText.isEmpty {
+                let signals = previewSignals
+                if signals.totalSignals > 0 {
+                    structuredPreviewStrip(signals)
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
+                }
+            }
+
             // Action bar
             HStack {
                 Text("\(captureText.count) characters")
@@ -147,7 +238,10 @@ struct QuickCaptureView: View {
 
                 Spacer()
 
-                // Audio Capture Button
+                // Audio Capture Button — pulses red while recording so
+                // the user has an unmistakable visual signal beyond
+                // text. SF Symbols' .symbolEffect(.pulse) ships native
+                // on macOS 14+ so no custom CA work needed.
                 Button {
                     Task { await toggleAudioRecording() }
                 } label: {
@@ -156,10 +250,16 @@ struct QuickCaptureView: View {
                             ProgressView().controlSize(.small)
                             Text("Transcribing...")
                         } else if audioRecorder.isRecording {
-                            Image(systemName: "stop.circle.fill").foregroundStyle(.red)
+                            Image(systemName: "waveform.circle.fill")
+                                .foregroundStyle(.red)
+                                .symbolEffect(
+                                    .variableColor.iterative.reversing,
+                                    options: reduceMotion ? .nonRepeating : .repeating
+                                )
                             Text("Stop")
                         } else {
                             Image(systemName: "mic.circle.fill")
+                                .foregroundStyle(.tint)
                             Text("Dictate")
                         }
                     }
@@ -167,7 +267,9 @@ struct QuickCaptureView: View {
                     .padding(.vertical, 8)
                     .background(
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color.secondary.opacity(0.2))
+                            .fill(audioRecorder.isRecording
+                                  ? Color.red.opacity(0.15)
+                                  : Color.secondary.opacity(0.2))
                     )
                 }
                 .buttonStyle(.plain)
@@ -325,6 +427,51 @@ struct QuickCaptureView: View {
         .clipShape(Capsule())
     }
 
+    // MARK: - Structured preview strip
+
+    @ViewBuilder
+    private func structuredPreviewStrip(_ signals: PreviewSignals) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                if signals.taskCount > 0 {
+                    structuredChip(icon: "checklist", text: "\(signals.taskCount) task\(signals.taskCount == 1 ? "" : "s")", tint: .orange)
+                }
+                if signals.hashtagCount > 0 {
+                    structuredChip(icon: "tag.fill", text: "\(signals.hashtagCount) tag\(signals.hashtagCount == 1 ? "" : "s")", tint: .purple)
+                }
+                if signals.mentionCount > 0 {
+                    structuredChip(icon: "at", text: "\(signals.mentionCount) mention\(signals.mentionCount == 1 ? "" : "s")", tint: .blue)
+                }
+                if signals.urlCount > 0 {
+                    structuredChip(icon: "link", text: "\(signals.urlCount) URL\(signals.urlCount == 1 ? "" : "s")", tint: .teal)
+                }
+                if signals.dateHintCount > 0 {
+                    structuredChip(icon: "calendar", text: "\(signals.dateHintCount) date hint\(signals.dateHintCount == 1 ? "" : "s")", tint: .green)
+                }
+            }
+            .padding(.horizontal, 2)
+        }
+        .frame(height: 28)
+    }
+
+    @ViewBuilder
+    private func structuredChip(icon: String, text: String, tint: Color) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .font(.system(size: 10, weight: .semibold))
+            Text(text)
+                .font(.caption2.weight(.medium))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(tint.opacity(0.15))
+                .overlay(Capsule().strokeBorder(tint.opacity(0.30), lineWidth: 0.5))
+        )
+    }
+
     // MARK: - Stat Badge
 
     private func statBadge(icon: String, count: Int, label: String) -> some View {
@@ -406,5 +553,80 @@ struct QuickCaptureView: View {
                 errorMessage = "Failed to start recording: \(error.localizedDescription)"
             }
         }
+    }
+}
+
+// MARK: - PreviewSignals
+//
+// Cheap client-side scan that mirrors what the AFM @Generable
+// extractor + entity extractor will likely emit. Surfaced as the
+// vibrant chip strip above the action bar so the user sees the
+// "structured note + entities + tasks" promise updating in real
+// time while typing — instead of waiting for the post-submit
+// confirmation card.
+
+private struct PreviewSignals {
+    let hashtagCount: Int
+    let mentionCount: Int
+    let taskCount: Int
+    let urlCount: Int
+    let dateHintCount: Int
+
+    var totalSignals: Int { hashtagCount + mentionCount + taskCount + urlCount + dateHintCount }
+
+    init(text: String) {
+        guard !text.isEmpty else {
+            self.hashtagCount = 0
+            self.mentionCount = 0
+            self.taskCount = 0
+            self.urlCount = 0
+            self.dateHintCount = 0
+            return
+        }
+        // Scan once; count every signal in a single pass for efficiency
+        // — typing-fast users hit this on every keystroke.
+        var hashtags = 0
+        var mentions = 0
+        var tasks = 0
+        var urls = 0
+        var dateHints = 0
+        let lower = text
+        // Hashtags: \B#word OR start-of-string #word; cheap split on '#'.
+        for (idx, comp) in lower.split(separator: "#").enumerated() where idx > 0 {
+            if let first = comp.first, first.isLetter || first.isNumber {
+                hashtags += 1
+            }
+        }
+        for (idx, comp) in lower.split(separator: "@").enumerated() where idx > 0 {
+            if let first = comp.first, first.isLetter {
+                mentions += 1
+            }
+        }
+        for line in text.split(whereSeparator: \.isNewline) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("- [ ]") || trimmed.hasPrefix("- [x]") || trimmed.hasPrefix("* [ ]") || trimmed.hasPrefix("TODO") || trimmed.hasPrefix("[ ]") {
+                tasks += 1
+            }
+        }
+        // URL hint — substring "http" anywhere.
+        var search = text[...]
+        while let r = search.range(of: "http", options: .literal) {
+            urls += 1
+            search = search[r.upperBound...]
+        }
+        // Date hints — common natural-language dates.
+        let dateNeedles = ["tomorrow", "today", "tonight", "next week", "monday", "tuesday",
+                           "wednesday", "thursday", "friday", "saturday", "sunday",
+                           "jan ", "feb ", "mar ", "apr ", "may ", "jun ",
+                           "jul ", "aug ", "sep ", "oct ", "nov ", "dec "]
+        let lowerCased = lower.lowercased()
+        for needle in dateNeedles where lowerCased.contains(needle) {
+            dateHints += 1
+        }
+        self.hashtagCount = hashtags
+        self.mentionCount = mentions
+        self.taskCount = tasks
+        self.urlCount = urls
+        self.dateHintCount = dateHints
     }
 }

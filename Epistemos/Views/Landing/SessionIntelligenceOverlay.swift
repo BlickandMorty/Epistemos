@@ -227,16 +227,34 @@ struct SessionIntelligenceOverlay: View {
 
                 sessionActionSection
             }
-            .frame(width: 680, height: 460)
+            .frame(width: 720, height: 480)
             .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .shadow(color: panelShadow, radius: 24, y: 10)
+                // Layered backdrop: ultraThin material + accent
+                // gradient wash + soft inner highlight. Apple-native
+                // primitives only — no custom CALayer / NSVisualEffect
+                // bridging — so the shell ages cleanly across macOS
+                // versions and stays App-Store-acceptable.
+                ZStack {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [
+                                Color.accentColor.opacity(0.10),
+                                Color.accentColor.opacity(0.02),
+                                .clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                        .blendMode(.plusLighter)
+                }
+                .shadow(color: panelShadow, radius: 32, y: 14)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .strokeBorder(panelStroke)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(panelStroke.opacity(0.7), lineWidth: 0.5)
             }
             .scaleEffect(appeared ? 1 : 0.95)
             .opacity(appeared ? 1 : 0)
