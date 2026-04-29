@@ -149,6 +149,14 @@ pub struct ToolRegistry {
     /// restriction (tier is the only gate). This is how ACC's per-tool
     /// toggles become authoritative on the runtime path.
     allowed_tool_names: Option<HashSet<String>>,
+    /// Phase 2G-1 lazy-init bridge to the Phase 2F v2 catalog.
+    /// `execute_v2` is the new dispatch surface that walks
+    /// `Tool::variants()` via `run_with_variants` (plan §3.2) instead of
+    /// the legacy `ToolHandler::execute(input)` path. The map is built on
+    /// first call from `self.build_v2_catalog()` and cached. Phase 2G-2
+    /// switches `execute()` to call `execute_v2` internally; Phase 2G-3
+    /// deletes the legacy `tools` map + ToolHandler trait + RegisteredTool.
+    v2_catalog_cache: std::sync::OnceLock<HashMap<String, Arc<dyn super::Tool>>>,
 }
 
 impl ToolRegistry {
@@ -160,6 +168,7 @@ impl ToolRegistry {
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
+            v2_catalog_cache: std::sync::OnceLock::new(),
         };
         registry.register_default_tools();
         registry
@@ -173,6 +182,7 @@ impl ToolRegistry {
             vault_root_path: None,
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
+            v2_catalog_cache: std::sync::OnceLock::new(),
         };
         registry.register_default_tools();
         registry
@@ -193,6 +203,7 @@ impl ToolRegistry {
             vault_root_path: Some(vault_root.into()),
             active_tier: ToolTier::Full,
             allowed_tool_names: None,
+            v2_catalog_cache: std::sync::OnceLock::new(),
         };
         registry.register_default_tools();
         registry
@@ -215,6 +226,7 @@ impl ToolRegistry {
             vault_root_path: vault_root.map(Into::into),
             active_tier: tier,
             allowed_tool_names: None,
+            v2_catalog_cache: std::sync::OnceLock::new(),
         };
         registry.register_default_tools();
         registry
@@ -337,6 +349,103 @@ impl ToolRegistry {
             return Err(ToolError::PermissionDenied);
         }
         tool.handler.execute(input).await
+    }
+
+    /// Phase 2G-1 — dispatch through the Phase 2F v2 catalog.
+    ///
+    /// Plan §3.2: walks `Tool::variants()` via `run_with_variants` (cache
+    /// → health check → timed invoke → output-schema validation → status
+    /// interpretation → cache write). Returns the canonical legacy
+    /// `Result<String, ToolError>` shape so callers don't need to know
+    /// about `ToolResult` / `ToolMeta` yet — that conversion happens
+    /// inline below.
+    ///
+    /// The v2 catalog is built lazily on first call from
+    /// `self.build_v2_catalog()` and cached in `v2_catalog_cache`. Tools
+    /// added to the catalog after the first call are NOT re-resolved —
+    /// register them BEFORE the first dispatch (mirrors the legacy
+    /// `register` + `execute` order discipline).
+    ///
+    /// Permission gating: still consults the legacy `is_tool_permitted`
+    /// path when the same tool name exists in the legacy registry, so
+    /// active_tier + allowed_tool_names continue to govern v2 dispatch
+    /// during the migration window. Pure-v2 names (e.g. dotted variants
+    /// not present in legacy) bypass this check; they're guarded by the
+    /// `Tool::profile()` invariant the runner already enforces, plus
+    /// the eventual Phase 2G-2 Profile-aware gate.
+    pub async fn execute_v2(&self, name: &str, input: &Value) -> Result<String, ToolError> {
+        // Permission gate — preserve the legacy enforcement surface for
+        // tool names that exist in both legacy and v2 (the common case
+        // during 2F→2G migration).
+        if let Some(legacy) = self.tools.get(name) {
+            if !self.is_tool_permitted(legacy) {
+                return Err(ToolError::PermissionDenied);
+            }
+        }
+
+        let map = self.v2_catalog_cache.get_or_init(|| {
+            let mut m: HashMap<String, Arc<dyn super::Tool>> = HashMap::new();
+            for tool in self.build_v2_catalog() {
+                let n = tool.name().to_string();
+                m.insert(n, Arc::from(tool));
+            }
+            m
+        });
+
+        let tool = map
+            .get(name)
+            .ok_or_else(|| ToolError::InvalidArguments(format!("unknown tool: {name}")))?;
+
+        // Default ToolCtx with a 30s latency budget per variant —
+        // matches the legacy bash_execute timeout cap and gives space
+        // for cloud-backed tools (web.search, communication.send_message,
+        // intelligence.mixture_of_minds). Phase 2G-2 will let callers
+        // pass an explicit ctx so per-variant budgets become tunable.
+        let ctx = super::runner::default_ctx(std::time::Duration::from_secs(30));
+        let result =
+            super::runner::run_with_variants(tool.as_ref(), &ctx, input.clone()).await;
+
+        // ToolResult → Result<String, ToolError> conversion.
+        // Plan §3.1: result is a Value; legacy callers expect a String
+        // (typically JSON-encoded). We round-trip via serde_json::to_string
+        // so an object payload like {"hits": [...]} surfaces unchanged.
+        match result.meta.status {
+            super::Status::Ok => serde_json::to_string(&result.result).map_err(|e| {
+                ToolError::ExecutionFailed(format!("serialize tool result: {e}"))
+            }),
+            super::Status::Partial => {
+                // Plan §3.2: partial-with-confidence>0.7 is an acceptable
+                // success outcome. The runner already treats it as terminal;
+                // surface as Ok here so legacy callers don't surprise on it.
+                let confidence = result.meta.confidence.unwrap_or(0.0);
+                if confidence > 0.7 {
+                    serde_json::to_string(&result.result).map_err(|e| {
+                        ToolError::ExecutionFailed(format!(
+                            "serialize tool result (partial): {e}"
+                        ))
+                    })
+                } else {
+                    Err(ToolError::ExecutionFailed(format!(
+                        "tool {name} returned Partial below confidence threshold ({confidence})"
+                    )))
+                }
+            }
+            super::Status::Empty => serde_json::to_string(&result.result).map_err(|e| {
+                ToolError::ExecutionFailed(format!("serialize tool result (empty): {e}"))
+            }),
+            super::Status::Error => {
+                // The error envelope landed in result.result as
+                // `{"error": "..."}`. Surface the message string when
+                // we can find it; otherwise the whole envelope.
+                let msg = result
+                    .result
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+                    .unwrap_or_else(|| result.result.to_string());
+                Err(ToolError::ExecutionFailed(msg))
+            }
+        }
     }
 
     /// Get a reference to the underlying vault backend (for context loading).
@@ -2444,6 +2553,93 @@ mod tier_tests {
             62,
             "all 62 unconditional + vault-root-bound v2 tools present"
         );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_dispatches_through_v2_catalog_for_vault_search() {
+        // Phase 2G-1 invariant: execute_v2 walks the v2 catalog via
+        // run_with_variants and converts ToolResult → Result<String, ToolError>.
+        // The wrapped vault.search adapter routes to the same legacy
+        // VaultSearchHandler, so the output should be a JSON-serialized
+        // structured value (the legacy handler returns either a list of
+        // hits or {"text": "..."} via generic_text_or_object_output_schema).
+        let registry = build_registry(ToolTier::Full);
+        let r = registry
+            .execute_v2("vault.search", &serde_json::json!({"query": "anything"}))
+            .await
+            .expect("vault.search via execute_v2 must succeed");
+        // NullVault returns Ok(Vec::new()), which the legacy handler
+        // formats as a JSON object. We just assert it parses back to a
+        // Value (not a hard string equality, since the upstream output
+        // shape is the legacy handler's responsibility).
+        let _: serde_json::Value = serde_json::from_str(&r).expect("output must be valid JSON");
+    }
+
+    #[tokio::test]
+    async fn execute_v2_returns_invalid_arguments_for_unknown_tool() {
+        let registry = build_registry(ToolTier::Full);
+        let err = registry
+            .execute_v2("totally_made_up.tool_name_42", &serde_json::json!({}))
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, ToolError::InvalidArguments(_)),
+            "unknown tool must surface as InvalidArguments, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_honors_tier_gate_for_legacy_known_tool() {
+        // bash_execute is registered in legacy as Destructive/Agent tier.
+        // execute_v2's permission gate runs BEFORE the v2 lookup, so a
+        // ChatLite registry rejects it via the existing is_tool_permitted
+        // path even though the v2 catalog has no "bash_execute" entry
+        // (the v2 form is "action.bash" — see Phase 2F-3). This proves
+        // execute_v2 keeps the legacy tier/allowlist semantics intact
+        // during the migration window.
+        let registry = build_registry(ToolTier::ChatLite);
+        let err = registry
+            .execute_v2("bash_execute", &serde_json::json!({"command": "echo hi"}))
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(err, ToolError::PermissionDenied),
+            "bash_execute is in legacy + Destructive; ChatLite tier must reject via is_tool_permitted. got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_dotted_name_unknown_to_legacy_passes_permission_gate() {
+        // Phase 2G-1 documented behavior: dotted v2 names like
+        // "action.bash" don't appear in the legacy registry, so the
+        // legacy permission gate is skipped for them. Phase 2G-2 will
+        // introduce Profile-aware gating against Tool::profile() so
+        // the gate doesn't rely on dual legacy/v2 name matching.
+        //
+        // Here we just prove the LOOKUP succeeds (the call itself may
+        // fail because action.bash needs a real shell + permission
+        // approval, but that's a runtime error, not InvalidArguments).
+        let registry = build_registry(ToolTier::ChatLite);
+        let result = registry
+            .execute_v2(
+                "action.bash",
+                &serde_json::json!({"command": "echo phase-2g-1"}),
+            )
+            .await;
+        // The call should NOT report InvalidArguments (tool found) and
+        // should NOT report PermissionDenied (no legacy match → gate
+        // skipped per current 2G-1 design). Anything else (Ok or
+        // ExecutionFailed) is acceptable here.
+        if let Err(ToolError::InvalidArguments(msg)) = &result {
+            panic!("action.bash should resolve through v2 catalog: {msg}");
+        }
+        if let Err(ToolError::PermissionDenied) = &result {
+            panic!(
+                "action.bash has no legacy counterpart; permission gate \
+                 should not fire on it in 2G-1. Phase 2G-2 will add \
+                 Profile-aware gating."
+            );
+        }
     }
 
     #[tokio::test]
