@@ -13,6 +13,7 @@
 //! `ToolRegistry::execute()` until Phase 2G.
 
 pub mod action_bash;
+pub mod action_terminal;
 pub mod chunk_reduce;
 pub mod file_patch;
 pub mod file_read;
@@ -22,6 +23,8 @@ pub mod graph_neighbors;
 pub mod knowledge_contradiction;
 pub mod knowledge_neural_recall;
 pub mod knowledge_recall;
+pub mod system_cron;
+pub mod system_todo;
 pub mod vault_read;
 pub mod vault_search;
 pub mod vault_write;
@@ -52,6 +55,9 @@ mod tests {
             super::knowledge_recall::SPEC,
             super::knowledge_contradiction::SPEC,
             super::knowledge_neural_recall::SPEC,
+            super::system_todo::SPEC,
+            super::system_cron::SPEC,
+            super::action_terminal::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -125,6 +131,18 @@ mod tests {
                 super::knowledge_neural_recall::SPEC.name,
                 (super::knowledge_neural_recall::SPEC.input_schema)(),
             ),
+            (
+                super::system_todo::SPEC.name,
+                (super::system_todo::SPEC.input_schema)(),
+            ),
+            (
+                super::system_cron::SPEC.name,
+                (super::system_cron::SPEC.input_schema)(),
+            ),
+            (
+                super::action_terminal::SPEC.name,
+                (super::action_terminal::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -149,6 +167,9 @@ mod tests {
             super::knowledge_recall::SPEC,
             super::knowledge_contradiction::SPEC,
             super::knowledge_neural_recall::SPEC,
+            super::system_todo::SPEC,
+            super::system_cron::SPEC,
+            super::action_terminal::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
@@ -169,8 +190,14 @@ mod tests {
             Profile::ProOnly,
             "action.bash must be Pro-only per §1.6 / §17"
         );
+        assert_eq!(
+            super::action_terminal::SPEC.profile,
+            Profile::ProOnly,
+            "action.terminal must be Pro-only per §1.6 / §17"
+        );
         // small_model_safe = false for Pro-only destructive tools so the
         // 1.5B router never reaches for the shell.
         assert!(!super::action_bash::SPEC.small_model_safe);
+        assert!(!super::action_terminal::SPEC.small_model_safe);
     }
 }

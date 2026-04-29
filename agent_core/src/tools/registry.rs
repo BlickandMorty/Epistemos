@@ -427,6 +427,18 @@ impl ToolRegistry {
                     Arc::clone(neural_cache()),
                 )),
             ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::system_todo::SPEC,
+                Arc::new(super::todo::TodoHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::system_cron::SPEC,
+                Arc::new(super::scheduling::CronJobHandler::new()),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::action_terminal::SPEC,
+                Arc::new(super::terminal::TerminalHandler),
+            ),
         ]
     }
 
@@ -1917,7 +1929,7 @@ mod tier_tests {
         // tests with real handler instances driven by a stub vault.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 14, "2F-5 ships 14 adapted tools");
+        assert_eq!(catalog.len(), 17, "2F-6 ships 17 adapted tools");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -1934,6 +1946,9 @@ mod tier_tests {
         assert!(names.contains(&"knowledge.recall"));
         assert!(names.contains(&"knowledge.contradiction_check"));
         assert!(names.contains(&"knowledge.neural_recall"));
+        assert!(names.contains(&"system.todo"));
+        assert!(names.contains(&"system.cron"));
+        assert!(names.contains(&"action.terminal"));
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.
