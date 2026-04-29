@@ -396,6 +396,22 @@ impl ToolRegistry {
                 v2_catalog::action_bash::SPEC,
                 Arc::new(BashExecuteHandler),
             ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::file_read::SPEC,
+                Arc::new(super::filesystem::ReadFileHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::file_write::SPEC,
+                Arc::new(super::filesystem::WriteFileHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::file_search::SPEC,
+                Arc::new(super::filesystem::SearchFilesHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::file_patch::SPEC,
+                Arc::new(super::filesystem::PatchHandler),
+            ),
         ]
     }
 
@@ -1886,7 +1902,7 @@ mod tier_tests {
         // tests with real handler instances driven by a stub vault.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 7, "2F-3 ships 7 adapted tools");
+        assert_eq!(catalog.len(), 11, "2F-4 ships 11 adapted tools");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -1896,6 +1912,10 @@ mod tier_tests {
         assert!(names.contains(&"graph.neighbors"));
         assert!(names.contains(&"chunk.reduce"));
         assert!(names.contains(&"action.bash"));
+        assert!(names.contains(&"file.read"));
+        assert!(names.contains(&"file.write"));
+        assert!(names.contains(&"file.search"));
+        assert!(names.contains(&"file.patch"));
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.

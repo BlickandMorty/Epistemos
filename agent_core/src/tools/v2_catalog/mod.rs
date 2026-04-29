@@ -14,6 +14,10 @@
 
 pub mod action_bash;
 pub mod chunk_reduce;
+pub mod file_patch;
+pub mod file_read;
+pub mod file_search;
+pub mod file_write;
 pub mod graph_neighbors;
 pub mod vault_read;
 pub mod vault_search;
@@ -38,6 +42,10 @@ mod tests {
             super::graph_neighbors::SPEC,
             super::chunk_reduce::SPEC,
             super::action_bash::SPEC,
+            super::file_read::SPEC,
+            super::file_write::SPEC,
+            super::file_search::SPEC,
+            super::file_patch::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -83,6 +91,22 @@ mod tests {
                 super::action_bash::SPEC.name,
                 (super::action_bash::SPEC.input_schema)(),
             ),
+            (
+                super::file_read::SPEC.name,
+                (super::file_read::SPEC.input_schema)(),
+            ),
+            (
+                super::file_write::SPEC.name,
+                (super::file_write::SPEC.input_schema)(),
+            ),
+            (
+                super::file_search::SPEC.name,
+                (super::file_search::SPEC.input_schema)(),
+            ),
+            (
+                super::file_patch::SPEC.name,
+                (super::file_patch::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -100,6 +124,10 @@ mod tests {
             super::graph_neighbors::SPEC,
             super::chunk_reduce::SPEC,
             super::action_bash::SPEC,
+            super::file_read::SPEC,
+            super::file_write::SPEC,
+            super::file_search::SPEC,
+            super::file_patch::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
