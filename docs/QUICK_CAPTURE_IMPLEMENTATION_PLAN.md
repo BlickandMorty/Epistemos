@@ -1,10 +1,11 @@
 # QUICK CAPTURE — Implementation Plan
 
-**Status**: Master plan, ready for execution. Created 2026-04-28. Updated 2026-04-28 (R2 + R3 + R4 + R5 + audit merge — **single source of truth, the only doc you need**).
+**Status**: Master plan for Waves 0–5 (substrate + agent runtime). Created 2026-04-28. Updated 2026-04-28 (R2 + R3 + R4 + R5 + audit merge).
+**Canon**: this doc is canonical for Waves 0–5 only. The unified architecture canon — Live File Compiler, Reflective Loop, Cognitive Weight class system, BrowserEngine trait, corrected wave sequencing — lives at `~/Documents/Epistemos-QuickCapture/FINAL_SYNTHESIS.md` and wins all conflicts. Read that first; this plan after.
 **Owner**: Single building agent (one-shot continuous session preferred).
 **Scope**: Hybrid JSON+Markdown memory/soul/skill formats; deterministic multi-variant tool schemas; grammar-constrained local-model tool calling via MLX-Structured (primary) / LM-Format-Enforcer / llguidance (fallbacks); four-variant auto-structure routing pipeline with `place | merge_into_existing_note | create_folder | defer` action enum; self-healing Try-Heal-Retry loop; LSFS + Spotlight + Vision OCR native skills; ephemeral local inference on MLX-Swift; per-model engineering catalog (Qwen 2.5 family, Hermes-3, Phi-3.5, Llama 3.2, embedding/NLI/ASR specialists); tool-call format normalizer (Hermes XML / Qwen JSON / OpenAI / Claude); Model Workspace Protocol orchestration; Intent-to-Effect state pattern with universal undo; observability stack; minimalist capture surface; trust-mechanism action-trace UI.
 
-**This is the single canonical reference for Quick Capture.** The R2/R3/R4 delta brief at `~/.claude/plans/gleaming-jingling-thimble.md` is plan-mode scratch and is **superseded by this document**. Do not read it; everything is here.
+**This is the canonical Wave 0–5 reference for Quick Capture.** The R2/R3/R4 delta brief at `~/.claude/plans/gleaming-jingling-thimble.md` is plan-mode scratch and is **superseded by this document**. Do not read it; everything Wave-0–5 is here. Wave 6+ corrections (substrate / Live Files / deliberation / biometric / Tamagotchi / Brain Export) live in the `~/Documents/Epistemos-QuickCapture/` canon and override any framing here that conflicts with them.
 
 The plan integrates four rounds of research (R1 original, R2 architectural blueprint, R3 multi-variant runtime synthesis, R4 model+citation grounding with per-model engineering) plus a self-audit pass that surfaced 12 shippability gaps. Citations to the literature are inline; arxiv numbers and GitHub repos are kept verbatim so the building agent can fetch them.
 

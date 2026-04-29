@@ -140,6 +140,12 @@ impl HealEventLog {
     }
 
     /// Append one event. Append-only by design — never UPDATE.
+    ///
+    /// TODO Wave 5 (FINAL_SYNTHESIS §5.5): mint an Ed25519 ExecutionReceipt
+    /// per row signed with the per-vault Keychain key. The receipt is a
+    /// proof-of-execution audit trail; tampering with the log invalidates
+    /// the chain. Lands together with the broader RunEventLog (Effect /
+    /// Intent receipts) during Wave 5 stabilize, not piecemeal here.
     pub fn append(&self, event: &HealEvent) -> Result<i64, HealLogError> {
         let original_json = serde_json::to_string(&event.original_intent)
             .map_err(|e| HealLogError::Serialize(e.to_string()))?;
