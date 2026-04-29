@@ -15,6 +15,8 @@
 pub mod action_bash;
 pub mod action_terminal;
 pub mod chunk_reduce;
+pub mod discovery_mcp_discover;
+pub mod discovery_model_catalog;
 pub mod file_patch;
 pub mod file_read;
 pub mod file_search;
@@ -23,8 +25,10 @@ pub mod graph_neighbors;
 pub mod knowledge_contradiction;
 pub mod knowledge_neural_recall;
 pub mod knowledge_recall;
+pub mod media_text_to_speech;
 pub mod system_cron;
 pub mod system_todo;
+pub mod trajectory_export;
 pub mod vault_read;
 pub mod vault_search;
 pub mod vault_write;
@@ -58,6 +62,10 @@ mod tests {
             super::system_todo::SPEC,
             super::system_cron::SPEC,
             super::action_terminal::SPEC,
+            super::discovery_mcp_discover::SPEC,
+            super::discovery_model_catalog::SPEC,
+            super::media_text_to_speech::SPEC,
+            super::trajectory_export::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -143,6 +151,22 @@ mod tests {
                 super::action_terminal::SPEC.name,
                 (super::action_terminal::SPEC.input_schema)(),
             ),
+            (
+                super::discovery_mcp_discover::SPEC.name,
+                (super::discovery_mcp_discover::SPEC.input_schema)(),
+            ),
+            (
+                super::discovery_model_catalog::SPEC.name,
+                (super::discovery_model_catalog::SPEC.input_schema)(),
+            ),
+            (
+                super::media_text_to_speech::SPEC.name,
+                (super::media_text_to_speech::SPEC.input_schema)(),
+            ),
+            (
+                super::trajectory_export::SPEC.name,
+                (super::trajectory_export::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -170,6 +194,10 @@ mod tests {
             super::system_todo::SPEC,
             super::system_cron::SPEC,
             super::action_terminal::SPEC,
+            super::discovery_mcp_discover::SPEC,
+            super::discovery_model_catalog::SPEC,
+            super::media_text_to_speech::SPEC,
+            super::trajectory_export::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
@@ -199,5 +227,13 @@ mod tests {
         // 1.5B router never reaches for the shell.
         assert!(!super::action_bash::SPEC.small_model_safe);
         assert!(!super::action_terminal::SPEC.small_model_safe);
+        // media.text_to_speech spawns the macOS `say` binary, gated by
+        // harden_cli_subprocess in security.rs; Pro-only per same §1.6 logic.
+        assert_eq!(
+            super::media_text_to_speech::SPEC.profile,
+            Profile::ProOnly,
+            "media.text_to_speech spawns subprocess; Pro-only per §1.6"
+        );
+        assert!(!super::media_text_to_speech::SPEC.small_model_safe);
     }
 }

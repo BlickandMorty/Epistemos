@@ -359,7 +359,7 @@ impl ToolRegistry {
     pub fn build_v2_catalog(&self) -> Vec<Box<dyn super::Tool>> {
         use super::legacy_adapter::LegacyToolAdapter;
         use super::v2_catalog;
-        vec![
+        let mut tools: Vec<Box<dyn super::Tool>> = vec![
             LegacyToolAdapter::boxed(
                 v2_catalog::vault_search::SPEC,
                 Arc::new(VaultSearchHandler {
@@ -439,7 +439,35 @@ impl ToolRegistry {
                 v2_catalog::action_terminal::SPEC,
                 Arc::new(super::terminal::TerminalHandler),
             ),
-        ]
+            LegacyToolAdapter::boxed(
+                v2_catalog::discovery_mcp_discover::SPEC,
+                Arc::new(super::discovery::McpDiscoverHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::media_text_to_speech::SPEC,
+                Arc::new(super::media::TextToSpeechHandler),
+            ),
+        ];
+        // discovery.model_catalog needs an HTTP client; if construction
+        // fails (rare — only on reqwest TLS-init errors) we skip it
+        // rather than poisoning the whole catalog. Mirrors the existing
+        // legacy registration in register_phase_eight_discovery.
+        if let Ok(catalog_handler) = super::discovery::ModelCatalogHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::discovery_model_catalog::SPEC,
+                Arc::new(catalog_handler),
+            ));
+        }
+        // trajectory.export needs the vault root for session-store reads.
+        // When the registry was constructed without a vault root path we
+        // skip it (same gating as the legacy register_phase_eight_trajectory).
+        if let Some(root) = self.vault_root_path.clone() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::trajectory_export::SPEC,
+                Arc::new(super::trajectory::TrajectoryExportHandler::new(root)),
+            ));
+        }
+        tools
     }
 
     fn register_default_tools(&mut self) {
@@ -1923,13 +1951,21 @@ mod tier_tests {
 
     #[test]
     fn v2_catalog_builds_four_plan_canonical_tools() {
-        // Phase 2F-2 audit: factory produces a Vec<Box<dyn Tool>> whose
+        // Phase 2F audit: factory produces a Vec<Box<dyn Tool>> whose
         // entries carry dotted names + compiling input schemas. This is
         // the integration check that pairs the v2_catalog static SPEC
         // tests with real handler instances driven by a stub vault.
+        //
+        // Counts (with `vault_root_path = None`):
+        //   2F-2..6: 17 tools always present
+        //   2F-7   : +3 always (discovery.mcp_discover, discovery.model_catalog,
+        //                       media.text_to_speech)
+        //   trajectory.export is skipped here because vault_root_path is None;
+        //   `v2_catalog_includes_trajectory_export_when_vault_root_set` covers
+        //   the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 17, "2F-6 ships 17 adapted tools");
+        assert_eq!(catalog.len(), 20, "2F-7 ships 20 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -1949,6 +1985,13 @@ mod tier_tests {
         assert!(names.contains(&"system.todo"));
         assert!(names.contains(&"system.cron"));
         assert!(names.contains(&"action.terminal"));
+        assert!(names.contains(&"discovery.mcp_discover"));
+        assert!(names.contains(&"discovery.model_catalog"));
+        assert!(names.contains(&"media.text_to_speech"));
+        assert!(
+            !names.contains(&"trajectory.export"),
+            "trajectory.export requires vault_root_path; gated out when None"
+        );
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.
@@ -1961,6 +2004,31 @@ mod tier_tests {
                 )
             });
         }
+    }
+
+    #[test]
+    fn v2_catalog_includes_trajectory_export_when_vault_root_set() {
+        // 2F-7 invariant: trajectory.export is conditionally registered on
+        // vault_root_path. Construct a registry with a temp root and verify
+        // the tool appears.
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let registry = ToolRegistry::with_tier(
+            Arc::new(NullVault),
+            true,
+            Some(tmp.path().to_path_buf()),
+            ToolTier::Full,
+        );
+        let catalog = registry.build_v2_catalog();
+        let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
+        assert!(
+            names.contains(&"trajectory.export"),
+            "trajectory.export must register when vault_root_path is Some"
+        );
+        assert_eq!(
+            catalog.len(),
+            21,
+            "all 21 v2 tools present with vault_root_path = Some"
+        );
     }
 
     #[tokio::test]
