@@ -1,4 +1,5 @@
 pub mod agent_loop;
+pub mod audit;
 pub mod bridge;
 pub mod compaction;
 pub mod companions;
