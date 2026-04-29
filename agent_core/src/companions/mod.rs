@@ -21,6 +21,7 @@
 
 pub mod activity;
 pub mod audit;
+pub mod bridge;
 pub mod registry;
 pub mod transaction;
 
@@ -30,6 +31,12 @@ use ulid::Ulid;
 
 pub use activity::{ActivityState, ActivityTracker, ActivityTransition};
 pub use audit::{AuditEntry, AuditEventKind};
+pub use bridge::{
+    epistemos_companions_archive, epistemos_companions_create_local_helper,
+    epistemos_companions_destroy, epistemos_companions_list_active,
+    epistemos_companions_list_all, epistemos_companions_open, CompanionFarmEntryFFI,
+    CompanionsError,
+};
 pub use registry::CompanionRegistry;
 pub use transaction::{create_companion, CreationError, FailureInjection};
 
