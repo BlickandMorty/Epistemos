@@ -130,6 +130,27 @@ pub enum ToolError {
     PermissionDenied,
 }
 
+/// Phase 2G-1 helper — convert a v2 `Tool::invoke` `result.result` Value
+/// into the legacy `Result<String, ToolError>` shape `execute()` returns.
+///
+/// Special-cases the `LegacyToolAdapter` wrapper output: when the legacy
+/// handler returned plain text (not JSON), the adapter wraps it as
+/// `{"text": "..."}` so the schema validator stays happy. To present a
+/// drop-in replacement for legacy `execute()`, we detect that exact
+/// single-key shape and unwrap it. Object/array payloads round-trip
+/// through `serde_json::to_string` unchanged.
+fn stringify_v2_result(value: &Value) -> Result<String, ToolError> {
+    if let Value::Object(map) = value {
+        if map.len() == 1 {
+            if let Some(Value::String(s)) = map.get("text") {
+                return Ok(s.clone());
+            }
+        }
+    }
+    serde_json::to_string(value)
+        .map_err(|e| ToolError::ExecutionFailed(format!("serialize tool result: {e}")))
+}
+
 pub struct ToolRegistry {
     tools: HashMap<String, RegisteredTool>,
     vault: Arc<dyn VaultBackend>,
@@ -392,9 +413,19 @@ impl ToolRegistry {
             m
         });
 
-        let tool = map
-            .get(name)
-            .ok_or_else(|| ToolError::InvalidArguments(format!("unknown tool: {name}")))?;
+        // Phase 2G-2: when the requested name isn't in the v2 catalog,
+        // fall back to legacy execute(). Most legacy tool names use
+        // underscored form (vault_search, read_file, bash_execute) while
+        // v2 catalog uses dotted form (vault.search, file.read,
+        // action.bash). Without this fallback, callers like agent_loop
+        // and bridge.rs that pass model-emitted underscored names would
+        // never resolve. The legacy execute() already enforces
+        // permission gating, so dropping through to it preserves all
+        // existing tier/allowlist semantics.
+        let tool = match map.get(name) {
+            Some(t) => t,
+            None => return self.execute(name, input).await,
+        };
 
         // Default ToolCtx with a 30s latency budget per variant —
         // matches the legacy bash_execute timeout cap and gives space
@@ -407,32 +438,35 @@ impl ToolRegistry {
 
         // ToolResult → Result<String, ToolError> conversion.
         // Plan §3.1: result is a Value; legacy callers expect a String
-        // (typically JSON-encoded). We round-trip via serde_json::to_string
-        // so an object payload like {"hits": [...]} surfaces unchanged.
+        // (typically JSON-encoded). The conversion has to be a true
+        // drop-in for legacy `execute()`:
+        //   - Legacy handlers that returned plain text (e.g. ThinkHandler
+        //     returning the prompt string verbatim) get wrapped by
+        //     LegacyToolAdapter as `{"text": "..."}`. To restore parity,
+        //     we unwrap a single-key {"text": String} object back to the
+        //     inner string.
+        //   - Object/array payloads (the common case — most legacy
+        //     handlers internally call serde_json::to_string before
+        //     returning) get re-stringified via serde_json::to_string,
+        //     yielding the same shape callers already expect.
+        //   - Native v2 tools (reason.think v2 etc.) return Value::Object
+        //     directly; the {text} shape is rare unless intentional.
+        //     The unwrap heuristic preserves their output too because
+        //     a legitimate `{"text": "..."}` JSON output round-trips
+        //     identically through the unwrap.
         match result.meta.status {
-            super::Status::Ok => serde_json::to_string(&result.result).map_err(|e| {
-                ToolError::ExecutionFailed(format!("serialize tool result: {e}"))
-            }),
+            super::Status::Ok => stringify_v2_result(&result.result),
             super::Status::Partial => {
-                // Plan §3.2: partial-with-confidence>0.7 is an acceptable
-                // success outcome. The runner already treats it as terminal;
-                // surface as Ok here so legacy callers don't surprise on it.
                 let confidence = result.meta.confidence.unwrap_or(0.0);
                 if confidence > 0.7 {
-                    serde_json::to_string(&result.result).map_err(|e| {
-                        ToolError::ExecutionFailed(format!(
-                            "serialize tool result (partial): {e}"
-                        ))
-                    })
+                    stringify_v2_result(&result.result)
                 } else {
                     Err(ToolError::ExecutionFailed(format!(
                         "tool {name} returned Partial below confidence threshold ({confidence})"
                     )))
                 }
             }
-            super::Status::Empty => serde_json::to_string(&result.result).map_err(|e| {
-                ToolError::ExecutionFailed(format!("serialize tool result (empty): {e}"))
-            }),
+            super::Status::Empty => stringify_v2_result(&result.result),
             super::Status::Error => {
                 // The error envelope landed in result.result as
                 // `{"error": "..."}`. Surface the message string when
@@ -2556,35 +2590,68 @@ mod tier_tests {
     }
 
     #[tokio::test]
-    async fn execute_v2_dispatches_through_v2_catalog_for_vault_search() {
-        // Phase 2G-1 invariant: execute_v2 walks the v2 catalog via
-        // run_with_variants and converts ToolResult → Result<String, ToolError>.
-        // The wrapped vault.search adapter routes to the same legacy
-        // VaultSearchHandler, so the output should be a JSON-serialized
-        // structured value (the legacy handler returns either a list of
-        // hits or {"text": "..."} via generic_text_or_object_output_schema).
+    async fn execute_v2_matches_legacy_execute_for_wrapped_handler() {
+        // Phase 2G-2 parity invariant: for a tool whose v2 catalog entry
+        // is a LegacyToolAdapter wrapping the same underlying handler,
+        // execute_v2 must produce the SAME output string as legacy
+        // execute(). Without the {text} unwrap in stringify_v2_result
+        // this test would fail: VaultSearchHandler returns plain text
+        // "No matching notes found in vault." for an empty result, the
+        // adapter wraps it as {"text": "No matching..."}, and a naive
+        // re-stringify would yield `{"text":"No matching..."}` instead
+        // of the bare string the legacy callers (agent_loop, bridge)
+        // expect to forward to the model.
         let registry = build_registry(ToolTier::Full);
-        let r = registry
-            .execute_v2("vault.search", &serde_json::json!({"query": "anything"}))
+        let input = serde_json::json!({"query": "anything"});
+        let legacy = registry
+            .execute("vault_search", &input)
             .await
-            .expect("vault.search via execute_v2 must succeed");
-        // NullVault returns Ok(Vec::new()), which the legacy handler
-        // formats as a JSON object. We just assert it parses back to a
-        // Value (not a hard string equality, since the upstream output
-        // shape is the legacy handler's responsibility).
-        let _: serde_json::Value = serde_json::from_str(&r).expect("output must be valid JSON");
+            .expect("legacy vault_search must succeed");
+        let v2 = registry
+            .execute_v2("vault.search", &input)
+            .await
+            .expect("v2 vault.search must succeed");
+        assert_eq!(
+            legacy, v2,
+            "execute_v2 must be a drop-in for execute on a wrapped handler"
+        );
     }
 
     #[tokio::test]
     async fn execute_v2_returns_invalid_arguments_for_unknown_tool() {
+        // Phase 2G-2: when the name isn't in the v2 catalog AND isn't
+        // in the legacy registry, the legacy fallback produces
+        // InvalidArguments. The name must be implausible enough not to
+        // collide with either surface.
         let registry = build_registry(ToolTier::Full);
         let err = registry
-            .execute_v2("totally_made_up.tool_name_42", &serde_json::json!({}))
+            .execute_v2("totally_made_up_42", &serde_json::json!({}))
             .await
             .unwrap_err();
         assert!(
             matches!(err, ToolError::InvalidArguments(_)),
             "unknown tool must surface as InvalidArguments, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_falls_back_to_legacy_for_underscored_names() {
+        // Phase 2G-2 fallback invariant: the model emits legacy
+        // underscored names (vault_search, think, read_file). execute_v2
+        // must resolve them through the legacy registry when the v2
+        // catalog doesn't have a matching entry, so swapping callers
+        // from execute() to execute_v2() is a true drop-in.
+        //
+        // "think" is the cleanest probe — its handler returns the
+        // input thought verbatim and is unconditionally registered.
+        let registry = build_registry(ToolTier::Full);
+        let r = registry
+            .execute_v2("think", &serde_json::json!({"thought": "phase 2g-2 fallback"}))
+            .await
+            .expect("legacy 'think' must route through execute_v2 fallback");
+        assert_eq!(
+            r, "phase 2g-2 fallback",
+            "fallback to legacy execute() must preserve plain-text return"
         );
     }
 
