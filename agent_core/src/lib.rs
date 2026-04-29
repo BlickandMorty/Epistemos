@@ -9,6 +9,8 @@ pub mod eval;
 pub mod format;
 pub mod grammar;
 pub mod heal;
+pub mod lifecycle;
+pub mod nightbrain;
 pub mod route;
 pub mod undo;
 pub mod util;
