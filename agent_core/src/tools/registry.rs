@@ -464,10 +464,71 @@ impl ToolRegistry {
         if let Some(root) = self.vault_root_path.clone() {
             tools.push(LegacyToolAdapter::boxed(
                 v2_catalog::trajectory_export::SPEC,
-                Arc::new(super::trajectory::TrajectoryExportHandler::new(root)),
+                Arc::new(super::trajectory::TrajectoryExportHandler::new(root.clone())),
+            ));
+            // intelligence.self_evolve also needs the vault root (it scans
+            // session traces under it). Same gating.
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::intelligence_self_evolve::SPEC,
+                Arc::new(super::intelligence::SelfEvolveHandler::new(root)),
             ));
         }
         tools
+    }
+
+    /// Phase 2F-8 delegate-bound v2 catalog. Mirrors the legacy
+    /// `register_delegate_tools` path — these tools cross UniFFI to the
+    /// Swift side via `AgentEventDelegate` so they can only be wired
+    /// after the delegate exists. The agent session calls this from
+    /// `bridge.rs` once the delegate is constructed, in addition to
+    /// `build_v2_catalog()`.
+    ///
+    /// Per FINAL_SYNTHESIS §2 layer 5 (motor) and CLAUDE.md "NO SIDECAR
+    /// for INFERENCE": the inference-family tools (ssm_resume,
+    /// constrained_generate) cross UniFFI but inference itself runs
+    /// in-process on the Swift / MLX-Swift side — this is exactly the
+    /// "one substrate, one trust boundary" invariant from §1 of the
+    /// final synthesis.
+    pub fn build_v2_delegate_catalog(
+        &self,
+        delegate: Arc<dyn crate::bridge::AgentEventDelegate>,
+    ) -> Vec<Box<dyn super::Tool>> {
+        use super::legacy_adapter::LegacyToolAdapter;
+        use super::v2_catalog;
+        vec![
+            LegacyToolAdapter::boxed(
+                v2_catalog::clarify_ask::SPEC,
+                Arc::new(super::clarify::ClarifyHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::macos_perceive::SPEC,
+                Arc::new(super::macos::PerceiveHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::macos_interact::SPEC,
+                Arc::new(super::macos::InteractHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::macos_screen_watch::SPEC,
+                Arc::new(super::macos::ScreenWatchHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::inference_ssm_resume::SPEC,
+                Arc::new(super::inference::SsmResumeHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::inference_constrained_generate::SPEC,
+                Arc::new(super::inference::ConstrainedGenerateHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::intelligence_nightbrain_trigger::SPEC,
+                Arc::new(super::intelligence::NightBrainTriggerHandler::new(Arc::clone(&delegate))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::intelligence_inline_partner::SPEC,
+                Arc::new(super::intelligence::InlinePartnerHandler::new(delegate)),
+            ),
+        ]
     }
 
     fn register_default_tools(&mut self) {
@@ -2010,7 +2071,8 @@ mod tier_tests {
     fn v2_catalog_includes_trajectory_export_when_vault_root_set() {
         // 2F-7 invariant: trajectory.export is conditionally registered on
         // vault_root_path. Construct a registry with a temp root and verify
-        // the tool appears.
+        // the tool appears. 2F-8 also adds intelligence.self_evolve under the
+        // same gating, so both names must surface.
         let tmp = tempfile::tempdir().expect("tempdir");
         let registry = ToolRegistry::with_tier(
             Arc::new(NullVault),
@@ -2024,11 +2086,98 @@ mod tier_tests {
             names.contains(&"trajectory.export"),
             "trajectory.export must register when vault_root_path is Some"
         );
+        assert!(
+            names.contains(&"intelligence.self_evolve"),
+            "intelligence.self_evolve must register when vault_root_path is Some"
+        );
         assert_eq!(
             catalog.len(),
-            21,
-            "all 21 v2 tools present with vault_root_path = Some"
+            22,
+            "all 22 unconditional + vault-root-bound v2 tools present"
         );
+    }
+
+    #[tokio::test]
+    async fn v2_delegate_catalog_builds_eight_delegate_bound_tools() {
+        // Phase 2F-8 invariant: build_v2_delegate_catalog returns exactly
+        // the 8 delegate-bound dotted-name v2 tools. Drives a stub
+        // AgentEventDelegate so we don't pull the Swift bridge into the
+        // unit test.
+        use crate::bridge::AgentEventDelegate;
+
+        struct StubDelegate;
+        impl AgentEventDelegate for StubDelegate {
+            fn on_thinking_delta(&self, _: String) {}
+            fn on_text_delta(&self, _: String) {}
+            fn on_tool_input_delta(&self, _: u32, _: String) {}
+            fn on_tool_started(&self, _: String, _: String, _: String) {}
+            fn on_tool_completed(&self, _: String, _: String, _: bool) {}
+            fn on_subagent_spawned(&self, _: String, _: String) {}
+            fn on_permission_required(&self, _: String, _: String, _: String, _: String) {}
+            fn on_context_compacting(&self, _: u32) {}
+            fn on_context_compacted(&self, _: u32) {}
+            fn on_turn_started(&self, _: u32, _: u32) {}
+            fn on_complete(&self, _: String, _: u32, _: u32) {}
+            fn on_error(&self, _: String) {}
+            fn execute_computer_action(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn wait_for_permission(&self, _: String) -> bool {
+                false
+            }
+            fn ask_user_question(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn perceive_app(&self, _: String, _: String) -> String {
+                "{}".into()
+            }
+            fn interact_with_app(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn start_screen_watch(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn manage_ssm_state(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn generate_constrained(&self, _: String, _: String) -> String {
+                "{}".into()
+            }
+            fn generate_image(&self, _: String, _: String) -> String {
+                "{}".into()
+            }
+            fn trigger_nightbrain_job(&self, _: String, _: String) -> String {
+                "{}".into()
+            }
+            fn get_partner_context(&self, _: String, _: u32) -> String {
+                "{}".into()
+            }
+        }
+
+        let registry = build_registry(ToolTier::Full);
+        let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate);
+        let catalog = registry.build_v2_delegate_catalog(delegate);
+        assert_eq!(catalog.len(), 8, "2F-8 ships 8 delegate-bound tools");
+
+        let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
+        assert!(names.contains(&"clarify.ask"));
+        assert!(names.contains(&"macos.perceive"));
+        assert!(names.contains(&"macos.interact"));
+        assert!(names.contains(&"macos.screen_watch"));
+        assert!(names.contains(&"inference.ssm_resume"));
+        assert!(names.contains(&"inference.constrained_generate"));
+        assert!(names.contains(&"intelligence.nightbrain_trigger"));
+        assert!(names.contains(&"intelligence.inline_partner"));
+
+        for tool in &catalog {
+            crate::grammar::schema_to_llg(tool.input_schema()).unwrap_or_else(|e| {
+                panic!(
+                    "v2 delegate tool {} input schema must compile: {:?}",
+                    tool.name(),
+                    e
+                )
+            });
+        }
     }
 
     #[tokio::test]

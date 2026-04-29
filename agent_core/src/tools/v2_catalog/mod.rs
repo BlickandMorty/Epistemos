@@ -15,6 +15,7 @@
 pub mod action_bash;
 pub mod action_terminal;
 pub mod chunk_reduce;
+pub mod clarify_ask;
 pub mod discovery_mcp_discover;
 pub mod discovery_model_catalog;
 pub mod file_patch;
@@ -22,9 +23,17 @@ pub mod file_read;
 pub mod file_search;
 pub mod file_write;
 pub mod graph_neighbors;
+pub mod inference_constrained_generate;
+pub mod inference_ssm_resume;
+pub mod intelligence_inline_partner;
+pub mod intelligence_nightbrain_trigger;
+pub mod intelligence_self_evolve;
 pub mod knowledge_contradiction;
 pub mod knowledge_neural_recall;
 pub mod knowledge_recall;
+pub mod macos_interact;
+pub mod macos_perceive;
+pub mod macos_screen_watch;
 pub mod media_text_to_speech;
 pub mod system_cron;
 pub mod system_todo;
@@ -66,6 +75,15 @@ mod tests {
             super::discovery_model_catalog::SPEC,
             super::media_text_to_speech::SPEC,
             super::trajectory_export::SPEC,
+            super::clarify_ask::SPEC,
+            super::macos_perceive::SPEC,
+            super::macos_interact::SPEC,
+            super::macos_screen_watch::SPEC,
+            super::inference_ssm_resume::SPEC,
+            super::inference_constrained_generate::SPEC,
+            super::intelligence_nightbrain_trigger::SPEC,
+            super::intelligence_inline_partner::SPEC,
+            super::intelligence_self_evolve::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -167,6 +185,42 @@ mod tests {
                 super::trajectory_export::SPEC.name,
                 (super::trajectory_export::SPEC.input_schema)(),
             ),
+            (
+                super::clarify_ask::SPEC.name,
+                (super::clarify_ask::SPEC.input_schema)(),
+            ),
+            (
+                super::macos_perceive::SPEC.name,
+                (super::macos_perceive::SPEC.input_schema)(),
+            ),
+            (
+                super::macos_interact::SPEC.name,
+                (super::macos_interact::SPEC.input_schema)(),
+            ),
+            (
+                super::macos_screen_watch::SPEC.name,
+                (super::macos_screen_watch::SPEC.input_schema)(),
+            ),
+            (
+                super::inference_ssm_resume::SPEC.name,
+                (super::inference_ssm_resume::SPEC.input_schema)(),
+            ),
+            (
+                super::inference_constrained_generate::SPEC.name,
+                (super::inference_constrained_generate::SPEC.input_schema)(),
+            ),
+            (
+                super::intelligence_nightbrain_trigger::SPEC.name,
+                (super::intelligence_nightbrain_trigger::SPEC.input_schema)(),
+            ),
+            (
+                super::intelligence_inline_partner::SPEC.name,
+                (super::intelligence_inline_partner::SPEC.input_schema)(),
+            ),
+            (
+                super::intelligence_self_evolve::SPEC.name,
+                (super::intelligence_self_evolve::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -198,6 +252,15 @@ mod tests {
             super::discovery_model_catalog::SPEC,
             super::media_text_to_speech::SPEC,
             super::trajectory_export::SPEC,
+            super::clarify_ask::SPEC,
+            super::macos_perceive::SPEC,
+            super::macos_interact::SPEC,
+            super::macos_screen_watch::SPEC,
+            super::inference_ssm_resume::SPEC,
+            super::inference_constrained_generate::SPEC,
+            super::intelligence_nightbrain_trigger::SPEC,
+            super::intelligence_inline_partner::SPEC,
+            super::intelligence_self_evolve::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
