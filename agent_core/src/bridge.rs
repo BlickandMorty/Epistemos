@@ -173,6 +173,32 @@ pub trait AgentEventDelegate: Send + Sync {
     /// note cursor position. Returns JSON with weighted matches, complexity,
     /// and any current partner suggestion context.
     fn get_partner_context(&self, note_id: String, cursor_offset: u32) -> String;
+
+    // --- Phase 5: Native Skills (Spotlight + Vision + voice) ---
+    //
+    // Per PLAN.md Phase 5 / FINAL_SYNTHESIS §5.1: these capture surfaces
+    // route through the AgentEventDelegate so the Swift side can use
+    // ScreenCaptureKit + Vision (VNRecognizeTextRequest) + SpeechAnalyzer
+    // (macOS 26 ASR) without crossing UniFFI for the actual capture
+    // primitives. Rust owns the Tool surface + scheduling; Swift owns
+    // the on-device hardware. No subprocess on the hot path.
+
+    /// Phase 5 — capture a screenshot, run Vision OCR, return structured
+    /// text + bounding-box metadata for each region. `region_json` has
+    /// shape `{ "rect": [x,y,w,h] | "fullscreen", "preserve_layout": bool }`.
+    /// Returns JSON:
+    /// `{ "text": String, "regions": [{ "text", "bbox": [x,y,w,h], "confidence" }] }`.
+    fn capture_screenshot(&self, region_json: String) -> String;
+
+    /// Phase 5 — record voice input, transcribe via SpeechAnalyzer (or
+    /// whisper.cpp fallback), return the text. `params_json` has shape
+    /// `{ "max_duration_secs": u32, "language_hint"?: String }`. Returns
+    /// JSON: `{ "text": String, "duration_ms": u32, "model": String }`.
+    fn capture_voice(&self, params_json: String) -> String;
+
+    /// Phase 5 — read the macOS clipboard (NSPasteboard.general). Returns
+    /// JSON: `{ "text"?: String, "image_path"?: String, "files"?: [String], "kind": "text"|"image"|"files"|"empty" }`.
+    fn capture_clipboard(&self) -> String;
 }
 
 #[derive(uniffi::Record)]

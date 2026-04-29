@@ -802,6 +802,15 @@ mod tests {
             *self.last_payload.lock().unwrap() = Some((note_id, cursor_offset.to_string()));
             self.response.clone()
         }
+        fn capture_screenshot(&self, _: String) -> String {
+            "{}".to_string()
+        }
+        fn capture_voice(&self, _: String) -> String {
+            "{}".to_string()
+        }
+        fn capture_clipboard(&self) -> String {
+            "{}".to_string()
+        }
     }
 
     // nightbrain_trigger ----------------------------------------------------

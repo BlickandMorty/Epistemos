@@ -212,6 +212,10 @@ const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
     ("constrained_generate", "inference.constrained_generate"),
     ("nightbrain_trigger", "intelligence.nightbrain_trigger"),
     ("inline_partner", "intelligence.inline_partner"),
+    // Phase 5 — Native skills (Spotlight + Vision + voice).
+    ("capture_screenshot", "capture.screenshot"),
+    ("capture_voice", "capture.voice"),
+    ("capture_clipboard", "capture.clipboard"),
 ];
 
 /// Phase 2G-1 helper — convert a v2 `Tool::invoke` `result.result` Value
@@ -891,7 +895,14 @@ impl ToolRegistry {
                 as Box<dyn super::Tool>,
             Box::new(super::intelligence::NightBrainTriggerHandler::new(Arc::clone(&delegate)))
                 as Box<dyn super::Tool>,
-            Box::new(super::intelligence::InlinePartnerHandler::new(delegate))
+            Box::new(super::intelligence::InlinePartnerHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            // Phase 5 native skills — capture surfaces.
+            Box::new(super::capture::CaptureScreenshotHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::capture::CaptureVoiceHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::capture::CaptureClipboardHandler::new(delegate))
                 as Box<dyn super::Tool>,
         ]
     }
@@ -2739,6 +2750,10 @@ mod tier_tests {
             crate::tools::v2_catalog::inference_constrained_generate::SPEC.name,
             crate::tools::v2_catalog::intelligence_nightbrain_trigger::SPEC.name,
             crate::tools::v2_catalog::intelligence_inline_partner::SPEC.name,
+            // Phase 5 native skills (build_v2_delegate_catalog):
+            crate::tools::v2_catalog::capture_screenshot::SPEC.name,
+            crate::tools::v2_catalog::capture_voice::SPEC.name,
+            crate::tools::v2_catalog::capture_clipboard::SPEC.name,
         ]
         .into_iter()
         .collect();
@@ -2881,12 +2896,25 @@ mod tier_tests {
             fn get_partner_context(&self, _: String, _: u32) -> String {
                 "{}".into()
             }
+            fn capture_screenshot(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn capture_voice(&self, _: String) -> String {
+                "{}".into()
+            }
+            fn capture_clipboard(&self) -> String {
+                "{}".into()
+            }
         }
 
         let registry = build_registry(ToolTier::Full);
         let delegate: Arc<dyn AgentEventDelegate> = Arc::new(StubDelegate);
         let catalog = registry.build_v2_delegate_catalog(delegate);
-        assert_eq!(catalog.len(), 8, "2F-8 ships 8 delegate-bound tools");
+        assert_eq!(
+            catalog.len(),
+            11,
+            "2F-8 + Phase 5 ships 11 delegate-bound tools (8 prior + 3 capture)"
+        );
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"clarify.ask"));
@@ -2897,6 +2925,9 @@ mod tier_tests {
         assert!(names.contains(&"inference.constrained_generate"));
         assert!(names.contains(&"intelligence.nightbrain_trigger"));
         assert!(names.contains(&"intelligence.inline_partner"));
+        assert!(names.contains(&"capture.screenshot"));
+        assert!(names.contains(&"capture.voice"));
+        assert!(names.contains(&"capture.clipboard"));
 
         for tool in &catalog {
             crate::grammar::schema_to_llg(tool.input_schema()).unwrap_or_else(|e| {

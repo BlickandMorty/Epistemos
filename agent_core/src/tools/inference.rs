@@ -444,6 +444,15 @@ mod tests {
         fn get_partner_context(&self, _: String, _: u32) -> String {
             "{}".to_string()
         }
+        fn capture_screenshot(&self, _: String) -> String {
+            "{}".to_string()
+        }
+        fn capture_voice(&self, _: String) -> String {
+            "{}".to_string()
+        }
+        fn capture_clipboard(&self) -> String {
+            "{}".to_string()
+        }
     }
 
     fn stub_delegate(ssm: &str, cg: &str) -> Arc<dyn AgentEventDelegate> {

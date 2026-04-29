@@ -24,6 +24,7 @@
 // `pub mod tools { ... }` inline declaration in lib.rs.
 pub mod apple;
 pub mod browser;
+pub mod capture;
 pub mod channel_contacts;
 pub mod chunk_reduce;
 pub mod clarify;

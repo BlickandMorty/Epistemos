@@ -104,6 +104,18 @@ impl crate::bridge::AgentEventDelegate for SilentDelegate {
         "{\"success\":false,\"error\":\"inline_partner unavailable in silent delegate\"}"
             .to_string()
     }
+    fn capture_screenshot(&self, _: String) -> String {
+        "{\"success\":false,\"error\":\"capture.screenshot unavailable in silent delegate\"}"
+            .to_string()
+    }
+    fn capture_voice(&self, _: String) -> String {
+        "{\"success\":false,\"error\":\"capture.voice unavailable in silent delegate\"}"
+            .to_string()
+    }
+    fn capture_clipboard(&self) -> String {
+        "{\"success\":false,\"error\":\"capture.clipboard unavailable in silent delegate\"}"
+            .to_string()
+    }
 }
 
 #[async_trait::async_trait]
