@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/route_capture.output.v1.json",
+  "title": "structure.route_capture output",
+  "description": "Plan §4.1-§4.2 — the four-action routing decision. The action enum has exactly four values; the merge / create_folder paths carry additional gating constraints documented inline. reasoning_trace is hard-capped at 280 chars (~70 tokens) per §4.2 — the schema enforces what the grammar layer makes structurally impossible to violate.",
+  "type": "object",
+  "required": ["action", "confidence", "reasoning_trace", "alternative_paths"],
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": ["place", "merge_into_existing_note", "create_folder", "defer"],
+      "description": "Plan §4.1 — exactly four routing actions. `defer` is the highest-trust fallback, not failure (§4.6)."
+    },
+    "folder_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required when action = place or create_folder; the destination folder."
+    },
+    "target_note_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Required when action = merge_into_existing_note; the existing note to append to. §4.5 gate: confidence >= 0.90 AND target's last-edited > 24h."
+    },
+    "new_folder_name": {
+      "type": "string",
+      "pattern": "^[a-z0-9-]{2,48}$",
+      "description": "Required when action = create_folder; new folder kebab-case 2-48 chars. §4.5 gate: genuinely new concept (no existing within cosine 0.92), >=3 neighbour notes clustered (cosine >=0.8), no existing parent fits."
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Plan §4.3-§4.5 floors: Variant A >=0.85, B >=0.75, C >=0.70. Below all three -> action='defer'."
+    },
+    "reasoning_trace": {
+      "type": "string",
+      "maxLength": 280,
+      "description": "Hard-capped at 280 chars (~70 tokens) per §4.2 / Brief-Is-Better arxiv:2604.02155. Qwen 1.5B peaks at ~32 reasoning tokens; 256+ degrades below no-CoT baseline."
+    },
+    "alternative_paths": {
+      "type": "array",
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["path", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "score": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      },
+      "description": "Top-3 candidate folders not chosen — surfaced in the Layer-2 action trace UI so the user can override with one keystroke."
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "epistemos://schemas/route_capture.input.v1.json",
+  "title": "structure.route_capture input",
+  "description": "Plan §4.2 — input to the four-variant routing ladder. capture_text is the user's words verbatim per §24.2 verbatim invariant; vault_tree carries folder centroid metadata for Variant A; recent_captures supplies temporal context for Variant B+C disambiguation.",
+  "type": "object",
+  "required": ["capture_text", "vault_tree", "recent_captures"],
+  "additionalProperties": false,
+  "properties": {
+    "capture_text": {
+      "type": "string",
+      "description": "User's captured words, byte-exact verbatim. Routing operates on this text but never rewrites it (§24.2).",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "vault_tree": {
+      "type": "array",
+      "description": "Snapshot of the vault's folder hierarchy with centroid metadata. Variant A walks this for cosine matching.",
+      "items": {
+        "type": "object",
+        "required": ["path", "centroid_id", "note_count"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Vault-relative folder path (e.g. 'research/ml/agents')",
+            "minLength": 1
+          },
+          "centroid_id": {
+            "type": "string",
+            "description": "Identifier for the folder's medoid/centroid embedding",
+            "minLength": 1
+          },
+          "note_count": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Folders with note_count < 3 are excluded from Variant A (centroid noisy per §4.3)"
+          },
+          "exemplar_titles": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "maxItems": 5,
+            "description": "Top exemplar note titles from the folder; used by Variant B's few-shot prompt"
+          }
+        }
+      }
+    },
+    "recent_captures": {
+      "type": "array",
+      "description": "Last N captures for temporal context. Variant C uses these to disambiguate concept references.",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["text", "placed_at", "ts"],
+        "additionalProperties": false,
+        "properties": {
+          "text": { "type": "string", "minLength": 1 },
+          "placed_at": {
+            "type": "string",
+            "description": "Vault-relative path where the capture landed",
+            "minLength": 1
+          },
+          "ts": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unix timestamp seconds"
+          }
+        }
+      }
+    }
+  }
+}

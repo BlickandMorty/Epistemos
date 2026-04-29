@@ -1,6 +1,63 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-1 + 2F-2 shipped | Full agent_core sweep green: 599 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-{1..6} + 3A shipped | Full agent_core sweep green: 616 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 3A — route_capture types + Variant D (defer baseline) ✅
+
+Plan reference: §4.1 (four-action enum), §4.2 (input/output schemas + 280-char reasoning_trace cap), §4.3-§4.5 (Variant A/B/C confidence floors), §4.6 (Variant D — "defer is a feature, not failure"), §24.2 (verbatim invariant — capture_text byte-exact through routing).
+
+**Migration architecture:**
+- Phase 3A: types + schemas + Variant D (defer) — the always-available fallback that means the routing pipeline is *correct* even before the smart variants land.
+- Phase 3B: folder-medoid index + Variant A (centroid embedding ≥0.85).
+- Phase 3C: Variant B (closed-vocab GBNF classifier ≥0.75) — needs Phase 6 inference.
+- Phase 3D: concept canonicalizer + alias table + Variant C (concept-anchored ≥0.70).
+- Phase 3E: 200-case eval harness, plan §11 Phase 3 EXIT (≥85% top-1, 8-15% defer rate).
+
+**Shipped:**
+- [x] `agent_core/schemas/route_capture.input.v1.json` — Draft 2020-12. Required: capture_text (1-2000 chars per §4.2), vault_tree (folder centroid metadata for Variant A), recent_captures (≤10 entries for temporal context). additionalProperties:false everywhere.
+- [x] `agent_core/schemas/route_capture.output.v1.json` — action enum exactly the four plan-canonical values per §4.1: `place | merge_into_existing_note | create_folder | defer`. confidence [0,1]. reasoning_trace maxLength 280 per §4.2 Brief-Is-Better. new_folder_name pattern `^[a-z0-9-]{2,48}$` (kebab-case 2-48 chars). alternative_paths maxItems 3 (Layer-2 trace UI override surface).
+- [x] `agent_core/src/route/mod.rs`:
+  - `Action` enum (snake_case serialized). `RouteInput`, `RouteDecision`, `VaultTreeEntry`, `RecentCapture`, `AlternativePath` typed surface.
+  - **Plan-canonical constants** as Rust const items: `VARIANT_A_FLOOR = 0.85`, `VARIANT_B_FLOOR = 0.75`, `VARIANT_C_FLOOR = 0.70`, `MERGE_CONFIDENCE_GATE = 0.90`, `MERGE_STALENESS_HOURS = 24`, `CREATE_FOLDER_CONCEPT_NEW_THRESHOLD = 0.92`, `CREATE_FOLDER_CLUSTER_COSINE = 0.80`, `CREATE_FOLDER_CLUSTER_MIN_COUNT = 3`, `REASONING_TRACE_MAX_CHARS = 280`. Tests hard-code the plan values to catch silent drift.
+  - `RouteDecision::defer(reason, alternatives)` — char-boundary-safe truncation (NOT byte-boundary; UTF-8 safe), confidence = 1.0 ("certain in deferring, not uncertain about a placement" per §4.6).
+  - `route_capture(input)` orchestrator stub: variants A/B/C placeholder comments at the boundaries where 3B/3C/3D will plug in; Phase 3A always reaches Variant D with the input's vault_tree top-3 as alternative_paths (one-keystroke override surface).
+- [x] `agent_core/src/lib.rs` — `pub mod route;`.
+- [x] 16 new tests covering: action enum has exactly the four plan-canonical values, variant floors match plan literal, merge gate constants match §4.5, create_folder gates match §4.5, reasoning_trace cap is 280, defer round-trips through schema, defer with alternatives, defer truncation at 280 chars, defer truncates at char boundary not byte boundary (UTF-8 multibyte test with 🚀), route_capture stub always defers in Phase 3A, RouteInput round-trips, RouteInput validates against schema, schema rejects bad new_folder_name pattern, schema rejects oversized reasoning_trace, schema rejects oversized capture_text, schema rejects >10 recent_captures.
+
+**Verification:**
+- `cargo test --lib route` → 16 passed, 0 failed.
+- Full agent_core lib → **616 passed**, 0 failed (was 600 post-2F-6; +16 net). Zero functional regressions.
+
+**Audit (no nuance lost vs canonical plan):**
+- §4.1 four-action enum: ✅ exactly `place | merge_into_existing_note | create_folder | defer`. Test enforces.
+- §4.2 280-char reasoning_trace cap: ✅ schema + test + char-boundary-safe truncation in `defer()`.
+- §4.3-§4.5 confidence floors: ✅ as Rust constants pinned to plan literal; test catches drift.
+- §4.5 merge gate (≥0.90 conf + 24h staleness): ✅ as Rust constants.
+- §4.5 create_folder gates (cosine 0.92 / cosine 0.80 / count 3): ✅ as Rust constants.
+- §4.6 defer-as-feature: ✅ confidence=1.0 reflects certainty in deferring.
+- §24.2 verbatim invariant: ✅ capture_text passed through routing without modification (the type holds it as `String`; downstream variants read it but never rewrite).
+
+**Phase 3 roadmap:**
+- 3B: folder-medoid index (incremental, persisted) + Variant A (centroid cosine ≥0.85). Needs embedding integration (Phase 6 work — for 3B the embedder can be the StubEmbedder from Phase 2D's cache module to unblock vertical progress).
+- 3C: Variant B GBNF closed-vocab classifier — needs Phase 6 MLX inference + Phase 2A grammar compiler.
+- 3D: concept canonicalizer (`agent_core/src/canon/`) + alias table + Variant C concept-anchored.
+- 3E: 200-case eval harness — plan §11 Phase 3 EXIT (≥85% top-1, 8-15% defer rate, zero schema violations).
+
+## 2026-04-29 Quick Capture Phase 2F-6 — port system.todo + system.cron + action.terminal ✅
+
+(See commit 97514196.)
+
+## 2026-04-29 Quick Capture Phase 2F-5 — port 3 knowledge.* tools to Tool trait ✅
+
+(See commit cc6f03dc.)
+
+## 2026-04-29 Quick Capture Phase 2F-4 — port 4 file.* tools to Tool trait ✅
+
+(See commit 0d7fcbe6.)
+
+## 2026-04-29 Quick Capture Phase 2F-3 — port 3 more tools (graph, chunk, action.bash) ✅
+
+(See commit 318535dd.)
 
 ## 2026-04-29 Quick Capture Phase 2F-2 — Port 4 vault/workspace tools to Tool trait ✅
 

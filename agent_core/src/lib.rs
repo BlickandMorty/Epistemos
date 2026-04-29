@@ -5,6 +5,7 @@ pub mod bridge;
 pub mod cache;
 pub mod format;
 pub mod grammar;
+pub mod route;
 pub mod channel_relay;
 pub mod command_center;
 pub mod compaction;
