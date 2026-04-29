@@ -25,6 +25,9 @@
 //! existing_note / create_folder`, the action matches expectation
 //! (folder/target/new_name match where specified).
 
+// Phase 11 — additional eval modules.
+pub mod heal_recovery;
+
 use std::io::BufRead;
 
 use serde::{Deserialize, Serialize};
