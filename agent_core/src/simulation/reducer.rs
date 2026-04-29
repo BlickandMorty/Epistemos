@@ -49,12 +49,12 @@ pub fn reduce(
 
     match event {
         // --- Session lifecycle ---
-        AgentEvent::SessionStarted { session_id, .. } => {
-            state.active_sessions.insert(session_id.clone());
+        AgentEvent::SessionStarted { session_id, mode } => {
+            state.open_session(session_id.clone(), *mode, event_seq);
         }
         AgentEvent::SessionCompleted { session_id, .. }
         | AgentEvent::SessionCommitted { session_id, .. } => {
-            state.active_sessions.remove(session_id);
+            state.close_session(session_id);
         }
 
         // --- Participants ---
@@ -62,6 +62,10 @@ pub fn reduce(
             let agent = state.ensure_agent(*agent_id);
             agent.set_state_flag(StateFlags::ACTIVE_HALO, true);
             agent.transition_to(AnimationState::Idle);
+            // Bind to whichever session is currently bootstrapping
+            // (if any). Multi-room theater uses this binding to
+            // route deltas per §3.3.1 v1.6.
+            state.bind_agent_to_current_session(*agent_id, event_seq);
             deltas.push(FrameDelta {
                 delta_id: crate::audit::DeltaId::new(),
                 origin: origin(),
@@ -73,6 +77,7 @@ pub fn reduce(
                 agent.set_state_flag(StateFlags::ACTIVE_HALO, false);
             }
             state.agents.remove(agent_id);
+            state.unbind_agent(*agent_id);
             deltas.push(FrameDelta {
                 delta_id: crate::audit::DeltaId::new(),
                 origin: origin(),
@@ -205,8 +210,13 @@ pub fn reduce(
             });
             // S4 emits ONE entrance per call regardless of
             // `count`; S5+ will fan out to N children.
-            let _ = (child_id, count);
+            let _ = count;
             state.ensure_agent(*child_id);
+            // Subagents inherit their parent's session binding
+            // — keeps the room cardinality at "one session = one
+            // room" per §3.3.1 v1.6 (a Kimi-with-3-subagents is
+            // 1 chip / 1 room with 4 companions, not 4 rooms).
+            state.bind_child_to_parent_session(*parent_id, *child_id, event_seq);
             deltas.push(FrameDelta {
                 delta_id: crate::audit::DeltaId::new(),
                 origin: origin(),
@@ -215,6 +225,7 @@ pub fn reduce(
         }
         AgentEvent::SubagentCompleted { child_id, .. } => {
             state.agents.remove(child_id);
+            state.unbind_agent(*child_id);
             deltas.push(FrameDelta {
                 delta_id: crate::audit::DeltaId::new(),
                 origin: origin(),
@@ -297,6 +308,7 @@ pub fn reduce(
         }
         AgentEvent::CompanionArchived { companion_id } => {
             state.agents.remove(companion_id);
+            state.unbind_agent(*companion_id);
             deltas.push(FrameDelta {
                 delta_id: crate::audit::DeltaId::new(),
                 origin: origin(),
@@ -325,6 +337,13 @@ pub fn reduce(
             // visuals later.
             deltas.push(FrameDelta::for_event(event_seq, event));
         }
+    }
+
+    // Bump the session's `last_event_seq` for any agent-scoped
+    // event so the chip-row "working-state pulse" gate stays
+    // current per DOCTRINE §3.3.1 v1.6 (≤ 30 s threshold).
+    if let Some(agent_id) = event.primary_agent_id() {
+        state.touch_session_for_agent(agent_id, event_seq);
     }
 
     deltas
@@ -763,6 +782,9 @@ mod tests {
             1,
         );
         assert!(s.active_sessions.contains(&session));
+        // Multi-room theater (§3.3.1 v1.6): session_meta entry
+        // exists while the session is open.
+        assert!(s.session_meta.contains_key(&session));
         reduce(
             &mut s,
             &AgentEvent::SessionCompleted {
@@ -772,6 +794,249 @@ mod tests {
             2,
         );
         assert!(!s.active_sessions.contains(&session));
+        assert!(!s.session_meta.contains_key(&session));
+    }
+
+    #[test]
+    fn participant_joined_inside_session_binds_to_room() {
+        // §3.3.1 v1.6: ParticipantJoined fired while a session
+        // is bootstrapping should bind the agent to that
+        // session — the chip row needs the binding to render
+        // members and pick a lead mascot.
+        let mut s = SimulationState::initial();
+        let session = SessionId::new("s1");
+        let alice = cid();
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: session.clone(),
+                mode: SessionMode::Chat,
+            },
+            1,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: alice,
+                role: ProviderRole::Worker,
+            },
+            2,
+        );
+        assert_eq!(s.session_of(alice), Some(&session));
+        let meta = s.session_meta.get(&session).unwrap();
+        assert_eq!(meta.lead_agent, Some(alice));
+        assert!(meta.members.contains(&alice));
+    }
+
+    #[test]
+    fn participant_joined_without_open_session_skips_binding() {
+        // Bootstrapping agents BEFORE SessionStarted (e.g. test
+        // harness path that only injects participants) leaves
+        // them unbound. They simply don't appear in any room.
+        let mut s = SimulationState::initial();
+        let alice = cid();
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: alice,
+                role: ProviderRole::Worker,
+            },
+            1,
+        );
+        assert!(s.session_of(alice).is_none());
+        assert!(s.rooms().is_empty());
+    }
+
+    #[test]
+    fn subagents_inherit_parent_session_one_chip_per_session() {
+        // §3.3.1 v1.6 cardinality: a Kimi-with-3-subagents is
+        // 1 chip / 1 room with 4 members.
+        let mut s = SimulationState::initial();
+        let session = SessionId::new("kimi");
+        let parent = cid();
+        let c1 = cid();
+        let c2 = cid();
+        let c3 = cid();
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: session.clone(),
+                mode: SessionMode::Chat,
+            },
+            1,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: parent,
+                role: ProviderRole::Orchestrator,
+            },
+            2,
+        );
+        for (i, child) in [c1, c2, c3].into_iter().enumerate() {
+            reduce(
+                &mut s,
+                &AgentEvent::SubagentSpawned {
+                    parent_id: parent,
+                    child_id: child,
+                    count: 1,
+                },
+                3 + i as u64,
+            );
+        }
+        assert_eq!(s.rooms().len(), 1);
+        let meta = s.rooms()[0];
+        assert_eq!(meta.members.len(), 4);
+        for id in [parent, c1, c2, c3] {
+            assert_eq!(s.session_of(id), Some(&session));
+        }
+        // Lead agent is still the original parent — children
+        // never replace the lead mascot.
+        assert_eq!(meta.lead_agent, Some(parent));
+    }
+
+    #[test]
+    fn parallel_sessions_are_separate_rooms() {
+        // The user's vision: "1 Kimi-with-3-subagents +
+        // 1 Claude Code session = 2 rooms". Verifies each
+        // session bootstraps its own chip / room.
+        let mut s = SimulationState::initial();
+        let kimi = SessionId::new("kimi");
+        let claude = SessionId::new("claude");
+        let kimi_lead = cid();
+        let kimi_child = cid();
+        let claude_lead = cid();
+
+        // Open Kimi session and join its lead.
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: kimi.clone(),
+                mode: SessionMode::Chat,
+            },
+            1,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: kimi_lead,
+                role: ProviderRole::Orchestrator,
+            },
+            2,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::SubagentSpawned {
+                parent_id: kimi_lead,
+                child_id: kimi_child,
+                count: 1,
+            },
+            3,
+        );
+
+        // Open Claude session and join its lead.
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: claude.clone(),
+                mode: SessionMode::Chat,
+            },
+            4,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: claude_lead,
+                role: ProviderRole::Worker,
+            },
+            5,
+        );
+
+        let rooms = s.rooms();
+        assert_eq!(rooms.len(), 2);
+        // Order is by `started_seq` — Kimi (seq 1) then Claude
+        // (seq 4).
+        assert_eq!(rooms[0].session_id, kimi);
+        assert_eq!(rooms[0].members.len(), 2);
+        assert_eq!(rooms[1].session_id, claude);
+        assert_eq!(rooms[1].members.len(), 1);
+        // Sanity: a delta from kimi_child routes to the Kimi
+        // session, not Claude.
+        assert_eq!(s.session_of(kimi_child), Some(&kimi));
+        assert_eq!(s.session_of(claude_lead), Some(&claude));
+    }
+
+    #[test]
+    fn session_completed_drops_all_member_bindings() {
+        let mut s = SimulationState::initial();
+        let session = SessionId::new("s1");
+        let alice = cid();
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: session.clone(),
+                mode: SessionMode::Chat,
+            },
+            1,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: alice,
+                role: ProviderRole::Worker,
+            },
+            2,
+        );
+        assert!(s.session_of(alice).is_some());
+        reduce(
+            &mut s,
+            &AgentEvent::SessionCompleted {
+                session_id: session.clone(),
+                summary: None,
+            },
+            3,
+        );
+        assert!(s.session_of(alice).is_none());
+        assert!(s.rooms().is_empty());
+    }
+
+    #[test]
+    fn touch_advances_last_event_seq_for_room_pulse() {
+        // §3.3.1 v1.6: chip-row "working-state pulse" reads
+        // `meta.last_event_seq` to decide if any event for this
+        // session fired in the last 30 s. Per-event activity
+        // should advance the watermark.
+        let mut s = SimulationState::initial();
+        let session = SessionId::new("s1");
+        let alice = cid();
+        reduce(
+            &mut s,
+            &AgentEvent::SessionStarted {
+                session_id: session.clone(),
+                mode: SessionMode::Chat,
+            },
+            1,
+        );
+        reduce(
+            &mut s,
+            &AgentEvent::ParticipantJoined {
+                agent_id: alice,
+                role: ProviderRole::Worker,
+            },
+            2,
+        );
+        let early = s.session_meta.get(&session).unwrap().last_event_seq;
+        reduce(
+            &mut s,
+            &AgentEvent::MessageStarted {
+                message_id: MessageId::new("m"),
+                agent_id: alice,
+            },
+            10,
+        );
+        let late = s.session_meta.get(&session).unwrap().last_event_seq;
+        assert!(late > early, "MessageStarted should bump last_event_seq");
+        assert_eq!(late, 10);
     }
 
     #[test]

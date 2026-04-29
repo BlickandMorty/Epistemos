@@ -32,6 +32,67 @@ use crate::ffi::{DeltaRing, DELTA_RING_DEFAULT_CAPACITY};
 use super::reducer::reduce;
 use super::state::SimulationState;
 
+/// One companion's identity exposed to Swift. Carries both the
+/// stringified ULID (for display / `Identifiable` keys) AND the
+/// raw `(lo, hi)` u64 pair — the latter is byte-equal to
+/// `PerInstanceData::agent_id_lo`/`agent_id_hi`, so the Swift
+/// renderer can route per-frame deltas to rooms using the pair
+/// as a hash key without base32-decoding the ULID string each
+/// frame.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct MemberFFI {
+    /// Stringified ULID — same format `CompanionId::Display`
+    /// produces.
+    pub id: String,
+    /// Low 64 bits of the ULID. Matches
+    /// `PerInstanceData::agent_id_lo` byte-for-byte.
+    pub id_lo: u64,
+    /// High 64 bits of the ULID. Matches
+    /// `PerInstanceData::agent_id_hi` byte-for-byte.
+    pub id_hi: u64,
+}
+
+impl MemberFFI {
+    fn from_companion_id(id: CompanionId) -> Self {
+        let bytes = id.0.to_bytes();
+        let lo = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let hi = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        Self { id: id.to_string(), id_lo: lo, id_hi: hi }
+    }
+}
+
+/// Snapshot of one active multi-room session for the Swift
+/// renderer. Mirrors `state::SessionMeta` minus the internal
+/// fields the FFI doesn't need. One per active session per
+/// DOCTRINE §3.3.1 v1.6 cardinality rule.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct RoomFFI {
+    /// Stable session identifier (used as the chip row's
+    /// `Identifiable.id` on the Swift side).
+    pub session_id: String,
+    /// Lead-agent companion id as a stringified ULID, or `None`
+    /// if the session has no participants yet (transient — the
+    /// session has just opened but no `ParticipantJoined` has
+    /// fired yet).
+    pub lead_agent_id: Option<String>,
+    /// All members of this session (parent + sub-agents per
+    /// §4.5; handoff sender + receiver per §4.3 share a
+    /// session). Sorted by ULID for stable iteration.
+    pub members: Vec<MemberFFI>,
+    /// Session-mode discriminator: "Chat" / "ResearchJury" /
+    /// "DeepDeliberation" / "Hermes" / "Custom". Mirrors
+    /// `events::SessionMode` PascalCase stringification.
+    pub mode: String,
+    /// Reducer event_seq at which this session opened — defines
+    /// chip-row ordering on the Swift side. Stable across
+    /// replays.
+    pub started_seq: u64,
+    /// Reducer event_seq of the most recent event in this
+    /// session — drives the chip-row "working-state pulse" gate
+    /// per §3.3.1 v1.6.
+    pub last_event_seq: u64,
+}
+
 /// The simulation singleton handed to Swift via UniFFI. Owns
 /// the canonical state, the SPSC delta ring, and an optional
 /// audit ledger (None at S4 boot — Swift wires one up at S5+).
@@ -101,6 +162,40 @@ impl Simulation {
             Ok(g) => g.state.agent_count(),
             Err(p) => p.into_inner().state.agent_count(),
         }
+    }
+
+    /// Snapshot the active rooms for the Swift multi-room
+    /// theater. Per DOCTRINE I-8 this is the **control plane**
+    /// (low-frequency: lifecycle changes only) — the per-frame
+    /// path stays on the SPSC ring. Swift refreshes this on
+    /// `SessionStarted` / `SessionCompleted` / `ParticipantJoined`
+    /// signal, NOT every frame.
+    pub fn snapshot_rooms(&self) -> Vec<RoomFFI> {
+        let inner = match self.inner.lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        inner
+            .state
+            .rooms()
+            .into_iter()
+            .map(|m| RoomFFI {
+                session_id: m.session_id.as_str().to_string(),
+                lead_agent_id: m.lead_agent.map(|id| id.to_string()),
+                members: m
+                    .members
+                    .iter()
+                    .copied()
+                    .map(MemberFFI::from_companion_id)
+                    .collect(),
+                mode: serde_json::to_value(m.mode)
+                    .ok()
+                    .and_then(|v| v.as_str().map(str::to_string))
+                    .unwrap_or_else(|| "unknown".to_string()),
+                started_seq: m.started_seq,
+                last_event_seq: m.last_event_seq,
+            })
+            .collect()
     }
 }
 
@@ -244,6 +339,29 @@ pub fn epistemos_simulation_inject_test_companions(handle: u64, count: u32) {
         },
         ()
     );
+}
+
+/// Snapshot the active rooms for the multi-room graph theater
+/// (DOCTRINE §3.3.1 v1.6). Returns one `RoomFFI` per active
+/// session in canonical `started_seq` order. Empty when zero
+/// sessions are active — Swift renders the "No active agents"
+/// empty state.
+///
+/// Per DOCTRINE I-8 this is the control plane: Swift calls it
+/// on session-lifecycle change (low-frequency). The per-frame
+/// path stays on the SPSC ring.
+#[uniffi::export]
+pub fn epistemos_simulation_active_rooms(handle: u64) -> Vec<RoomFFI> {
+    if handle == 0 {
+        return Vec::new();
+    }
+    ffi_guard_value!(
+        {
+            let sim = unsafe { &*(handle as *const Simulation) };
+            sim.snapshot_rooms()
+        },
+        Vec::new()
+    )
 }
 
 /// Process an event provided as JSON. Used by the synthetic
@@ -396,5 +514,88 @@ mod tests {
         // Should not panic / segfault.
         epistemos_simulation_inject_test_companions(0, 5);
         let _ = epistemos_simulation_process_event_json(0, "{}".to_string());
+    }
+
+    #[test]
+    fn active_rooms_with_null_handle_is_empty() {
+        assert!(epistemos_simulation_active_rooms(0).is_empty());
+    }
+
+    #[test]
+    fn active_rooms_reflects_open_sessions() {
+        // §3.3.1 v1.6 acceptance: opening two sessions with
+        // members produces two rooms; closing one drops it.
+        let h = epistemos_simulation_create();
+
+        // Open Kimi session, join its lead.
+        let kimi_open = serde_json::json!({
+            "type": "session_started",
+            "payload": {
+                "session_id": "kimi",
+                "mode": "Chat"
+            }
+        })
+        .to_string();
+        assert!(epistemos_simulation_process_event_json(h, kimi_open));
+
+        let kimi_lead = CompanionId::new_ulid();
+        let kimi_join = serde_json::json!({
+            "type": "participant_joined",
+            "payload": {
+                "agent_id": kimi_lead.to_string(),
+                "role": "Orchestrator"
+            }
+        })
+        .to_string();
+        assert!(epistemos_simulation_process_event_json(h, kimi_join));
+
+        let mid = epistemos_simulation_active_rooms(h);
+        assert_eq!(mid.len(), 1);
+        assert_eq!(mid[0].session_id, "kimi");
+        assert_eq!(mid[0].lead_agent_id.as_deref(), Some(kimi_lead.to_string().as_str()));
+        assert_eq!(mid[0].members.len(), 1);
+        // The member's (lo, hi) pair must match the lo/hi
+        // PerInstanceData would carry — the routing contract.
+        let bytes = kimi_lead.0.to_bytes();
+        let expected_lo = u64::from_le_bytes(bytes[0..8].try_into().unwrap());
+        let expected_hi = u64::from_le_bytes(bytes[8..16].try_into().unwrap());
+        assert_eq!(mid[0].members[0].id_lo, expected_lo);
+        assert_eq!(mid[0].members[0].id_hi, expected_hi);
+        assert_eq!(mid[0].members[0].id, kimi_lead.to_string());
+
+        // Open Claude session.
+        let claude_open = serde_json::json!({
+            "type": "session_started",
+            "payload": {
+                "session_id": "claude",
+                "mode": "Chat"
+            }
+        })
+        .to_string();
+        assert!(epistemos_simulation_process_event_json(h, claude_open));
+
+        let two = epistemos_simulation_active_rooms(h);
+        assert_eq!(two.len(), 2);
+        // Order is by `started_seq` — Kimi (opened first) then
+        // Claude.
+        assert_eq!(two[0].session_id, "kimi");
+        assert_eq!(two[1].session_id, "claude");
+
+        // Close Kimi.
+        let kimi_close = serde_json::json!({
+            "type": "session_completed",
+            "payload": {
+                "session_id": "kimi",
+                "summary": null
+            }
+        })
+        .to_string();
+        assert!(epistemos_simulation_process_event_json(h, kimi_close));
+
+        let one = epistemos_simulation_active_rooms(h);
+        assert_eq!(one.len(), 1);
+        assert_eq!(one[0].session_id, "claude");
+
+        epistemos_simulation_destroy(h);
     }
 }

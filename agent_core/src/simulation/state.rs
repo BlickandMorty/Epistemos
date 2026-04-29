@@ -8,12 +8,12 @@
 //! no time fields are sourced from `Instant::now()` here;
 //! callers pass timestamps in.
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 use serde::{Deserialize, Serialize};
 
 use crate::companions::{CompanionId, PropKind};
-use crate::events::SessionId;
+use crate::events::{SessionId, SessionMode};
 use crate::ffi::{PerInstanceData, StateFlags};
 
 /// 14-state animation rig per DOCTRINE §5.3. The reducer maps
@@ -188,6 +188,45 @@ impl AgentVisualState {
     }
 }
 
+/// Per-session metadata the multi-room theater needs to render
+/// chips, title strips, and routing. Distinct from the boolean
+/// `active_sessions` set — `SessionMeta` only exists while the
+/// session is in flight (DOCTRINE §3.3.1 v1.6 "one room per
+/// active session"). Ordering is by `started_seq` so the chip
+/// row renders in deterministic insert order across replays
+/// (DOCTRINE I-13).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionMeta {
+    pub session_id: SessionId,
+    pub mode: SessionMode,
+    /// Reducer event_seq at which this session opened — defines
+    /// chip-row ordering. Stable across replays.
+    pub started_seq: u64,
+    /// First participant to join this session, if any. Used by
+    /// the chip row to render the lead mascot per §3.3.1 v1.6.
+    pub lead_agent: Option<CompanionId>,
+    /// All agents currently bound to this session. `BTreeSet` for
+    /// stable iteration at replay time.
+    pub members: BTreeSet<CompanionId>,
+    /// Most recent reducer event_seq for any event in this
+    /// session — drives the "working-state pulse" gate per §3.3.1
+    /// v1.6 (≤ 30 s since last event).
+    pub last_event_seq: u64,
+}
+
+impl SessionMeta {
+    fn new(session_id: SessionId, mode: SessionMode, started_seq: u64) -> Self {
+        Self {
+            session_id,
+            mode,
+            started_seq,
+            lead_agent: None,
+            members: BTreeSet::new(),
+            last_event_seq: started_seq,
+        }
+    }
+}
+
 /// The simulation's full per-companion state. Mutated by the
 /// reducer; never accessed concurrently from multiple threads
 /// (single-writer per IMPLEMENTATION §2.1).
@@ -197,9 +236,28 @@ pub struct SimulationState {
     /// ordering at serialisation / replay-digest time.
     pub agents: BTreeMap<CompanionId, AgentVisualState>,
     /// Currently-running sessions. Used to enforce DOCTRINE I-2
-    /// (every visible action belongs to a session) at S4+ —
-    /// today we just track membership.
+    /// (every visible action belongs to a session) and to gate
+    /// graph-theater visibility per §3.3 ("only companions whose
+    /// backend is currently executing").
     pub active_sessions: HashSet<SessionId>,
+    /// Per-session metadata for the multi-room graph theater
+    /// (DOCTRINE §3.3.1 v1.6). One entry per *active* session;
+    /// dropped on `SessionCompleted` / `SessionCommitted`.
+    pub session_meta: BTreeMap<SessionId, SessionMeta>,
+    /// agent → session binding. The reducer joins this when a
+    /// `ParticipantJoined` event fires inside an open session
+    /// (the most-recent `SessionStarted` not yet matched). Used
+    /// by `rooms()` to bucket agents into per-session rooms and
+    /// by Swift via the `epistemos_simulation_active_rooms` FFI
+    /// to route delta-ring entries to the correct viewport tile.
+    pub agent_session: BTreeMap<CompanionId, SessionId>,
+    /// Most-recent `SessionStarted` not yet "consumed" by a
+    /// matching `SessionCompleted`. Implicit binding: subsequent
+    /// `ParticipantJoined` events bind to this session. The
+    /// pattern matches the canonical session-bootstrap order
+    /// (SessionStarted → ParticipantJoined+ → … → SessionCompleted)
+    /// and avoids changing the AgentEvent wire format.
+    pub current_bootstrap: Option<SessionId>,
     /// Total events applied. Diagnostics + audit cross-check.
     pub event_count: u64,
 }
@@ -231,6 +289,118 @@ impl SimulationState {
 
     pub fn snapshot_all(&self) -> Vec<PerInstanceData> {
         self.agents.values().map(|a| a.snapshot_for_render()).collect()
+    }
+
+    /// Open a new session — called from the reducer's
+    /// `SessionStarted` arm. Idempotent: opening an already-active
+    /// session updates `mode`/`started_seq` rather than creating
+    /// a duplicate row.
+    pub fn open_session(
+        &mut self,
+        session_id: SessionId,
+        mode: SessionMode,
+        started_seq: u64,
+    ) {
+        self.active_sessions.insert(session_id.clone());
+        self.session_meta
+            .entry(session_id.clone())
+            .or_insert_with(|| SessionMeta::new(session_id.clone(), mode, started_seq));
+        self.current_bootstrap = Some(session_id);
+    }
+
+    /// Close a session — called from the reducer's
+    /// `SessionCompleted` / `SessionCommitted` arms. Drops the
+    /// metadata, removes all agent bindings, and clears
+    /// `current_bootstrap` if it pointed at the closed session.
+    pub fn close_session(&mut self, session_id: &SessionId) {
+        self.active_sessions.remove(session_id);
+        self.session_meta.remove(session_id);
+        // Remove every agent_session binding pointing at the
+        // closed session. Renderer consumers will drop those
+        // agents from the room on the next refresh.
+        self.agent_session.retain(|_, sid| sid != session_id);
+        if self.current_bootstrap.as_ref() == Some(session_id) {
+            self.current_bootstrap = None;
+        }
+    }
+
+    /// Bind an agent to the currently-bootstrapping session (set
+    /// by the most-recent `SessionStarted`). No-op when no
+    /// session is open. Idempotent: re-binding the same agent
+    /// updates the lead-agent record only if the agent was the
+    /// first to join.
+    pub fn bind_agent_to_current_session(&mut self, agent_id: CompanionId, event_seq: u64) {
+        let Some(sid) = self.current_bootstrap.clone() else {
+            return;
+        };
+        self.agent_session.insert(agent_id, sid.clone());
+        if let Some(meta) = self.session_meta.get_mut(&sid) {
+            meta.members.insert(agent_id);
+            if meta.lead_agent.is_none() {
+                meta.lead_agent = Some(agent_id);
+            }
+            meta.last_event_seq = event_seq;
+        }
+    }
+
+    /// Bind a child to its parent's session (subagent spawn).
+    /// No-op when the parent has no session binding. The lead
+    /// agent record is preserved (children never replace the
+    /// lead mascot per §3.3.1 v1.6).
+    pub fn bind_child_to_parent_session(
+        &mut self,
+        parent_id: CompanionId,
+        child_id: CompanionId,
+        event_seq: u64,
+    ) {
+        let Some(sid) = self.agent_session.get(&parent_id).cloned() else {
+            return;
+        };
+        self.agent_session.insert(child_id, sid.clone());
+        if let Some(meta) = self.session_meta.get_mut(&sid) {
+            meta.members.insert(child_id);
+            meta.last_event_seq = event_seq;
+        }
+    }
+
+    /// Drop an agent from its session binding. Called on
+    /// `ParticipantLeft`, `CompanionArchived`, and
+    /// `SubagentCompleted`.
+    pub fn unbind_agent(&mut self, agent_id: CompanionId) {
+        if let Some(sid) = self.agent_session.remove(&agent_id) {
+            if let Some(meta) = self.session_meta.get_mut(&sid) {
+                meta.members.remove(&agent_id);
+                if meta.lead_agent == Some(agent_id) {
+                    // Lead promoted to next-most-senior member,
+                    // or None if the room emptied.
+                    meta.lead_agent = meta.members.iter().next().copied();
+                }
+            }
+        }
+    }
+
+    /// Touch a session's `last_event_seq` — called from the
+    /// reducer for any agent-scoped event so the chip-row pulse
+    /// gate stays current per §3.3.1 v1.6.
+    pub fn touch_session_for_agent(&mut self, agent_id: CompanionId, event_seq: u64) {
+        if let Some(sid) = self.agent_session.get(&agent_id).cloned() {
+            if let Some(meta) = self.session_meta.get_mut(&sid) {
+                meta.last_event_seq = event_seq;
+            }
+        }
+    }
+
+    /// All active rooms in canonical order (by `started_seq`).
+    /// Used by the multi-room renderer to lay out viewport tiles.
+    pub fn rooms(&self) -> Vec<&SessionMeta> {
+        let mut out: Vec<&SessionMeta> = self.session_meta.values().collect();
+        out.sort_by_key(|m| m.started_seq);
+        out
+    }
+
+    /// Lookup the session a given agent is bound to.
+    pub fn session_of(&self, agent_id: CompanionId) -> Option<&SessionId> {
+        self.agent_session.get(&agent_id)
     }
 }
 

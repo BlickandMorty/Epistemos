@@ -23,8 +23,9 @@ pub mod state;
 
 pub use reducer::reduce;
 pub use sim::{
-    epistemos_simulation_create, epistemos_simulation_delta_ring_handle,
-    epistemos_simulation_destroy, epistemos_simulation_inject_test_companions,
-    epistemos_simulation_process_event_json, Simulation,
+    epistemos_simulation_active_rooms, epistemos_simulation_create,
+    epistemos_simulation_delta_ring_handle, epistemos_simulation_destroy,
+    epistemos_simulation_inject_test_companions, epistemos_simulation_process_event_json,
+    MemberFFI, RoomFFI, Simulation,
 };
-pub use state::{AgentVisualState, AnimationState, SimulationState};
+pub use state::{AgentVisualState, AnimationState, SessionMeta, SimulationState};
