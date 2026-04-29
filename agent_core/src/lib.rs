@@ -3,6 +3,7 @@ pub mod approval;
 pub mod bootstrap;
 pub mod bridge;
 pub mod cache;
+pub mod canon;
 pub mod format;
 pub mod grammar;
 pub mod route;

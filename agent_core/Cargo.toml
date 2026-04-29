@@ -64,6 +64,10 @@ ulid = { version = "1.1", features = ["serde"] }
 # level (~50μs/token mask compute on a 128k tokenizer per §3.3).
 llguidance = "1"
 
+# Quick Capture Phase 3D — concept canonicalizer (§3.7). Porter stemmer
+# for English lemmatization in the deterministic non-LLM canonicalizer.
+rust-stemmers = "1"
+
 [dev-dependencies]
 # Quick Capture Phase 1 — round-trip property tests (§11 Phase 1 exit).
 proptest = "1.5"
