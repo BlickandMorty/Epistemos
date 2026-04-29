@@ -29,6 +29,7 @@ use serde::{Deserialize, Serialize};
 use crate::format::{validate_against, FormatError};
 
 pub mod variant_a;
+pub mod variant_b;
 
 pub const ROUTE_INPUT_V1_ID: &str = "epistemos://schemas/route_capture.input.v1.json";
 pub const ROUTE_OUTPUT_V1_ID: &str = "epistemos://schemas/route_capture.output.v1.json";

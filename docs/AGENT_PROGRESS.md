@@ -1,6 +1,50 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-{1..6} + 3A shipped | Full agent_core sweep green: 616 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-{1..6} + 3A + 3B + 3C shipped | Full agent_core sweep green: 639 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 3C — Variant B GBNF closed-vocab classifier (≥0.75 floor) ✅
+
+Plan reference: §4.4 (Variant B literal), §17.3 (sampler-bound dispatch), §1.4 (No-LLM-First — Variant B is the FIRST place an LLM enters the routing ladder, after deterministic Variant A failed).
+
+**Shipped:**
+- [x] `agent_core/src/route/variant_b.rs`:
+  - `LlmClassifier` async trait — abstracts the grammar-bound inference call so Phase 6's MLX-Structured `GrammarMaskedLogitProcessor` plugs in cleanly. The trait surface is `async fn classify(&self, capture_text: &str, allowed_paths: &[String]) -> Result<VariantBOutput, ClassifierError>`.
+  - `VariantBOutput { path, confidence, rationale }` — schema-strict structured output.
+  - `build_route_grammar_schema(allowed_paths)` — closed `enum` over allowed folder paths + `"NEW"` sentinel (advance to Variant C) + `"DEFER"` sentinel (model self-defer per plan §4.6). additionalProperties:false. confidence [0,1]. rationale maxLength 200.
+  - `compile_route_grammar(allowed_paths)` — pipes the schema through Phase 2A's `schema_to_llg` → `TopLevelGrammar`. Sampler-bound dispatch per §17.3 — model literally cannot emit a path outside the allowed set.
+  - `try_llm_classify(text, vault_tree_paths, classifier)`:
+    - Filters `_inbox/*` from candidates (never destinations).
+    - Forwards to classifier with the cleaned allowed list.
+    - Maps response → `Some(Place)` when path is real folder + confidence ≥ VARIANT_B_FLOOR (0.75).
+    - Maps `"NEW"` sentinel → `None` (advance to Variant C).
+    - Maps `"DEFER"` sentinel → `Some(Defer)` (model self-defer is a feature per §4.4 + §4.6).
+    - Maps below-threshold or classifier error → `None` (advance).
+- [x] 13 tests covering: above-threshold place, below-threshold None, NEW sentinel → None, DEFER sentinel → Defer, classifier error → None, empty capture → None, empty vault → None, all-inbox vault → None, grammar schema includes allowed + sentinels (filters _inbox), grammar compiles via Phase 2A, additionalProperties:false, confidence range + rationale max length, reasoning_trace within 280-char cap.
+
+**Verification:**
+- `cargo test --lib 'route::variant_b'` → 13 passed.
+- Full agent_core lib → **639 passed**, 0 failed (was 626 post-3B; +13 net). Zero regressions.
+
+**Audit (no nuance lost):**
+- §4.4 0.75 floor ✅ uses VARIANT_B_FLOOR Phase 3A constant.
+- §4.4 grammar oneOf [allowed, NEW, DEFER] ✅ via schema enum.
+- §4.4 _inbox/* filter before grammar ✅ tested explicitly.
+- §4.6 model self-defer is a feature ✅ DEFER sentinel produces RouteDecision::Defer.
+- §17.3 sampler-bound dispatch ✅ schema compiles via Phase 2A.
+- §3.1 small_model_safe semantic preserved ✅ Variant B is small-model territory (Qwen 1.5B router classifies; Hermes-3-8B fallback).
+
+**Phase 3 status (3 of 5 sub-phases done):**
+- ✅ 3A: types + schemas + Variant D (defer)
+- ✅ 3B: Variant A centroid embedding (≥0.85)
+- ✅ 3C: Variant B GBNF classifier (≥0.75)
+- 🟡 3D: concept canonicalizer + alias table + Variant C (≥0.70 with merge/create_folder gates)
+- 🟡 3E: 200-case eval harness — plan §11 Phase 3 EXIT (≥85% top-1, 8-15% defer rate, zero schema violations)
+
+The orchestrator wiring (route_capture function in route/mod.rs) currently always reaches Variant D since variants A/B/C are still standalone functions. Phase 3D adds Variant C; the same commit (or a follow-up) wires the orchestrator to call A → B → C → D in sequence per plan §4.5's `route_capture` snippet.
+
+## 2026-04-29 Quick Capture Phase 3B — Variant A centroid embedding (≥0.85 floor) ✅
+
+(See commit 1c87c599. 10 tests; +10 lib net 626.)
 
 ## 2026-04-29 Quick Capture Phase 3A — route_capture types + Variant D (defer baseline) ✅
 
