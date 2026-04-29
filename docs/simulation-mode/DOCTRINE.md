@@ -1,4 +1,4 @@
-# Simulation Mode — Canonical Doctrine
+# Simulation Mode — Canonical Doctrine — v1.6
 
 > **Status:** CANONICAL. This is the source of truth for Simulation Mode in Epistemos.
 > **Authority:** Any code, ViewModel, asset, or doc that contradicts this file is DRIFT and must be reconciled before merge.
@@ -140,7 +140,47 @@ Every placement is a *projection* of this registry through a different filter. T
 
 **Empty state:** no companions yet → onboarding flow (Slice S8 creation), with a single "tap to begin" affordance and one preset companion offered (Local Helper / teal Block, the safe MAS-friendly default).
 
-**Honesty rule for the farm:** companions on the farm may *blink, breathe, micro-fidget, occasionally shift weight* (cosmetic_idle, labeled). They may NOT pretend to converse with each other unless a real `handoff_*` event exists. Cross-companion ambient interaction is forbidden by default.
+**Honesty rule for the farm:** companions on the farm may *blink, breathe, micro-fidget, occasionally shift weight, and walk a short random path within a home-position radius* (cosmetic_idle, labeled — see §3.2.1 v1.6 below for the precise constraints). They may NOT pretend to converse with each other unless a real `handoff_*` event exists. Cross-companion ambient interaction is forbidden by default.
+
+#### 3.2.1 Cosmetic ambient motion (v1.6 — farm-game idle elaboration)
+
+Per the v1.6 expansion, `cosmetic_idle` motion on the Landing Farm is allowed to include short pixel-art random-walk paths so the farm reads as a living game-world rather than a row of static sprites. The constraints are tight so the honesty doctrine (I-5) and bit-perfect rendering (I-16) both hold:
+
+- **Per-companion only.** A companion's walk path is sampled independently of every other companion. No coordination, no relative-position lock, no ambient "two companions drift toward each other." Cross-companion proximity is a defect.
+- **Home-position bounded.** Each companion has a `farm_position` (the persistent grid slot from §3.2). Walks are constrained to a square radius of **±32 pixels at 1× scale** (±64 at 2×, etc.) around `farm_position`. The companion never leaves its home cell.
+- **Integer pixel motion only.** Per I-16 the walk advances in whole-pixel increments per frame. Sub-pixel tweens, smooth-scroll curves, or fractional `position += velocity * dt` style updates are forbidden.
+- **Discrete step cadence.** A walk leg lasts 4–12 frames at the companion's animation frame rate, then a 2–8 frame pause, then a new leg. The next direction is picked from {N, S, E, W, NE, NW, SE, SW, idle} via a seeded PRNG keyed by `(companion_id, walk_tick)` (per I-13 — no `arc4random` in the reducer; the farm view-model fetches each tick deterministically).
+- **Audit label `cosmetic_idle:<companion_id>`.** Every emitted FrameDelta carries the canonical `AuditOrigin::CosmeticIdle` per §9.1 — no fake `event_id`, no synthesised `AgentEvent`. Audit-View "Why is this happening?" answers "ambient idle motion — no work happening" for every walk-step.
+- **Activity-state gating.** Walking is suppressed when the companion is in `Parked` (sleeping) or in any `awaiting_approval` / `error` / `recovery_*` state — the gate / error / recovery animations physically block the companion per §4.4 + §4.7.
+- **Reduce-motion mode.** When `NSAccessibility.isReduceMotionEnabled` is on (DOCTRINE I-14), walking collapses to static + activity badge, same as every other looping animation. The motion is removed; the visual state is preserved.
+
+The walk is **rendered through the same Metal pipeline as every other sprite update** (DOCTRINE I-7 / IMPLEMENTATION §2.4) — position deltas cross the SPSC ring as ordinary `PerInstanceData` entries with `state_flags & IDLE_AMBIENT` set, and the renderer's vertex shader applies the same I-16 snap-to-pixel transform. No bypass path, no smoothing, no exception.
+
+#### 3.2.2 Working badge + inline dispatch chat (v1.6 — landing-page direct interaction)
+
+Per the v1.6 expansion, the Landing Farm is the **lightweight dispatch surface** for active sessions: every companion always lives on the farm (created or active, walking per §3.2.1), and any session-active companion gains a small in-tile **working badge** + an **inline dispatch chat panel** the user can open to ask questions or steer the running session without opening the full chat / graph surface.
+
+**Working badge.** When `state_flags & ACTIVE_HALO` is set on a companion's snapshot (i.e. the §3.2 activity tracker says `Active` because at least one event in the last 30 s belongs to a session this companion is participating in), the renderer paints a small badge in the **upper-right corner** of the tile:
+
+- A **3-dot animated typing indicator** (looped 4-frame atlas, dots fading in/out left → right) when the agent is *streaming text* (`message_started` → `message_completed` window).
+- A **wrench / scroll / magnifier / etc. mini-prop sprite** when the agent is *running a tool call* — the prop matches `held_prop` from the agent's `AgentVisualState` per §5.5 Category A.
+- A **gate icon** when the agent is `awaiting_approval` per §4.4 (badge is non-decorative — physically gates the dispatch panel below).
+
+The badge renders as **a separate additive-blend draw** (same I-16 contract as the active-state halo per §5.7) — it never warps the body sprite.
+
+**Inline dispatch chat panel.** Click on a companion tile (active or not) opens a **dispatch panel** anchored to the tile, ~300 pt tall, 240 pt wide:
+
+- Header strip: companion mascot (pixel-art atlas-rendered) + name + helper-model summary line ("currently editing `auth.swift`…", "thinking through API design", etc. — see §3.4.4 v1.6 below).
+- A scrollable read-only ribbon of the **last 10 events** for this companion, rendered as compact rows: `[12:34] 🪛 ran code_edit on auth.swift`, `[12:35] 💬 message: "Refactoring the validator…"`, etc. Newest at top, ellipsised long messages.
+- A single **input field** at the bottom: `Ask or steer…`. Sending emits `AgentEvent::SteerRequested { agent_id, message }` (§11 v1.6).
+- Three small action chips below the input: **Approve** / **Deny** / **Inspect** — visible only when the companion is in `awaiting_approval`. Approve / Deny emit the corresponding §11 events; Inspect opens the full Graph theater room for that session.
+
+**Steering semantics (§11 `SteerRequested` — v1.6).** A steer message is *queued into the session's next-turn user input* by default — the running tool call completes, then the steer message lands as the next user turn. Provider-specific overrides:
+
+- **Anthropic streams** support mid-turn interrupt — if the user sends a steer while a `tool_use` is in flight, the runtime issues a `tool_use` cancellation and folds the steer into the current turn's reply. Implementation lives in `agent_core::providers::claude`.
+- **OpenAI / Kimi / Hermes / local** fall back to the queued behaviour. The dispatch panel reflects this with a hint ("steer queued for next turn").
+
+**Honesty.** The dispatch panel is **read-only against the same `AgentEvent` stream the reducer consumes** — it cannot show events that didn't happen. Per I-5, every visible row in the panel traces to a real event id, surfaced via the `crate::audit::AuditLedger` query. The summary line (next §) is itself a streamed event series.
 
 ### 3.3 Placement B — Graph Live Theater (sub-toggle of Graph view)
 
@@ -167,6 +207,66 @@ Every placement is a *projection* of this registry through a different filter. T
 - Click handoff arrow → open the handoff artifact (the scroll/document being passed).
 
 **Empty state copy:** Default English: `"No active agents. Start a session to bring this stage to life."` Localizable. Decorate with a subtle ambient graph pulse so the empty state isn't dead. Do not show silhouettes of dormant companions — that breaks the live-only rule.
+
+#### 3.3.1 Multi-room theater (v1.6 — one room per active session)
+
+Per the v1.6 expansion, the Graph Live Theater is **multi-room** — each active **session** (not each active companion) renders in its own dedicated tile within a single MTKView. Companions that share a session (parent + sub-agents per §4.5; handoff sender + receiver per §4.3) share a room. Companions in *different* sessions get separate rooms.
+
+**Cardinality rule.** N concurrent sessions ⇒ N rooms. A user running 1 Kimi-with-3-subagents session + 1 Claude Code session = **2 rooms** (the Kimi room shows 4 companions co-located; the Claude room shows 1).
+
+**Performance — single MTKView, viewport tiling (I-15 + §12).** Multi-room is rendered as **one MTKView with one Metal pipeline state and one command buffer per frame**. Each room is a `MTLViewport` rectangle within the same drawable. The renderer iterates rooms in a single render pass:
+
+```
+for each room in active_rooms:
+    encoder.setViewport(room.viewport)            // tile rect in physical pixels
+    encoder.setVertexBuffer(camera_for(room), …)  // per-room camera offset
+    encoder.drawIndexedPrimitives(... instanceCount: room.companions.count)
+encoder.endEncoding()
+```
+
+This means **N rooms cost ~N × per-companion-render**, NOT N × full-pipeline-rebuild. Pipelines are NOT recompiled per room (per I-15, no main-thread compile). Per-frame budget per §12 stays ≤ 5 ms p99 even at N = 6 rooms with 12 companions total — the budget allocates fairly across rooms.
+
+**Layouts.** Rooms tile within the MTKView's drawable size:
+
+| Active sessions | Layout | Aspect-aware tiling |
+|---|---|---|
+| 1 | Single full-screen room | 1 × 1 |
+| 2 | Side-by-side | 2 × 1 (landscape) or 1 × 2 (portrait) |
+| 3 | One large + two small | 1 + (1 × 2 stacked) |
+| 4 | Quad | 2 × 2 |
+| 5–6 | Three-up + two-down | 3 × 2 |
+| 7–9 | 3 × 3 grid | (cap; further sessions queue) |
+| ≥10 | Same 3 × 3 with carousel | excess sessions cycle every 5 s; user can pin |
+
+**Per-room components.**
+
+- **Stage** (Metal sprite area): companions + edges + speech bubbles per §4. Same I-16 bit-perfect contract.
+- **Title strip** (top): session id (truncated), participating companions, elapsed time, total tokens.
+- **Inspector panel** (right, collapsible): focused-companion details — current task, last 10 events, cost.
+- **Chat input strip** (bottom): full chat surface for THIS session — see §3.3.2 below.
+
+Click any room → **expand to fullscreen** (other rooms collapse to thumbnails on the side; user can pop back to multi-room view via Esc or the layout toggle).
+
+**Per-room cameras.** Each room has its own Camera uniform — independent `view_offset` for room-local panning, independent `viewport_size` for the room's tile. The shared `pixel_density` is the MTKView's Retina scale.
+
+**Tagging deltas to rooms.** Every `PerInstanceData` carries an `agent_id`; the reducer joins agent → session via `SimulationState.active_sessions`; the renderer routes the delta to the correct room's instance buffer slice. Per-room buffer allocation is a single `MTLBuffer` divided into N contiguous regions (no separate buffer per room — keeps `binding count` flat).
+
+**Shared resources, isolated content.** Body + halo pipeline states are shared across rooms (built once per launch). Atlas texture is shared (one IOSurface for the whole simulation). Only viewport + camera + buffer-region differ per room. This is what keeps the per-frame cost bounded.
+
+#### 3.3.2 Graph as full chat surface (v1.6 — chat-replacement role)
+
+Per the v1.6 expansion, the Graph Live Theater is **the canonical full chat surface for active sessions** — every action available in the traditional chat sidebar is available *inside the room's chat input strip*:
+
+- Send message (typed text or voice-dictated)
+- Attach files (drag-drop into the chat strip)
+- Cancel turn (interrupt the running stream — emits the same cancellation signal the existing sidebar Cancel button does)
+- Regenerate / branch (emits `AgentEvent::TaskCreated` for the alternate branch)
+- Edit history (only for the local message immediately before the cursor — same constraint as the existing chat sidebar)
+- Tool result inspection (click any tool-call event in the timeline; opens the in-room inspector)
+
+The traditional chat sidebar continues to work — it is NOT removed by v1.6. Both surfaces drive the same `AgentEvent` stream; per I-5 typing in the graph chat is identical event-stream-wise to typing in the sidebar chat.
+
+**Precedence.** When BOTH surfaces are open for the same session, the most-recently-focused surface takes input. The other surface mirrors the stream read-only. This is enforced by a single-input-focus invariant in the simulation Swift layer.
 
 ### 3.4 Placement C — Notes Sidebar (Agent-Themed Workspace Skin)
 
@@ -234,6 +334,240 @@ Rules:
 **Default / neutral mode:** users may set workspace = `None`, which gives a neutral system theme and the sidebar contents become the union view (all artifacts across all companions, deduplicated by content hash). This is the "no companion" affordance for users who don't want skinning.
 
 **MAS profile:** all skinning behavior is fully available in MAS. Custom companion fonts are limited to the curated set (no arbitrary font sideload). Custom palette accepts only sRGB hex codes (no shader sideload).
+
+#### 3.4.1 Persistent vault hierarchy (v1.6 — multi-vault per entity)
+
+Per the v1.6 expansion, vault folders now live at every level **from the model down**:
+
+```
+EpistemosVault/
+├── Companies/
+│   ├── Anthropic/                                (no vault — list of models only)
+│   │   └── Models/
+│   │       ├── Claude-Sonnet-4.6/
+│   │       │   ├── vault/                        ← Model vault (persistent)
+│   │       │   │   ├── notes/
+│   │       │   │   ├── claims/
+│   │       │   │   ├── sessions/
+│   │       │   │   └── …
+│   │       │   ├── vaults/                       ← optional multi-vault siblings
+│   │       │   │   ├── research/
+│   │       │   │   └── private/
+│   │       │   └── Agents/
+│   │       │       ├── Sage-Reviewer/
+│   │       │       │   ├── vault/                ← Agent vault (persistent)
+│   │       │       │   │   ├── notes/
+│   │       │       │   │   └── …
+│   │       │       │   ├── vaults/               ← optional multi-vault per agent
+│   │       │       │   │   └── code-review-archive/
+│   │       │       │   └── Subagents/
+│   │       │       │       └── X1/
+│   │       │       │           ├── vault/        ← Sub-agent vault (persistent)
+│   │       │       │           ├── vaults/       ← optional multi-vault per sub-agent
+│   │       │       │           └── Subagents/    (further nesting permitted)
+│   │       │       └── Code-Critic/
+│   │       │           └── vault/
+│   │       └── Claude-Opus-4.7/
+│   │           ├── vault/
+│   │           └── Agents/…
+│   ├── Moonshot-AI/
+│   │   └── Models/…
+│   └── Local/                                    (synthetic Apple-icon company)
+│       └── Models/
+│           ├── Qwen3-4B-MLX/
+│           │   ├── vault/
+│           │   └── Agents/…
+│           └── Mamba-2-2.7B-MLX/
+│               └── vault/
+```
+
+Rules:
+
+1. **Companies have no direct vault.** A company is a *list of models*. Toggling a company in the sidebar reveals its models; the sidebar's notes pane below the toggle row still shows the union of the toggled company's models' vault trees.
+
+2. **Models, Agents, and Sub-agents each have at least one vault** (`vault/`) plus an optional `vaults/` directory containing additional sibling vault trees. Multi-vault is canonical at every level — a Model can have a `research/` vault and a `private/` vault; an Agent can have a `code-review-archive/` vault separate from its primary one; etc.
+
+3. **Persistent on disk like the user's own vault.** Each vault is a real folder on the user's disk under `EpistemosVault/`. Files are markdown / plain text / images / etc. — the same shape as the user's regular workspace. Editing a note inside a Model vault writes the file to disk just like editing any other note.
+
+4. **Sub-agents nest indefinitely.** A sub-agent can have its own `Subagents/` folder containing further sub-agents, each with their own vault, recursively. The depth cap from §4.5 ("V1 children may not spawn grandchildren") applies to *runtime* sub-agent spawning, not to the persistent vault directory tree — the directory tree may be deeper than the runtime spawning limit so long as those deeper sub-agents only run as direct invocations, not as nested spawns.
+
+5. **Vault path is registered.** The `companions.vault_path` SQLite column points at the canonical `vault/` folder for that companion (Model row → `Models/<id>/vault/`, Agent row → `…/Agents/<id>/vault/`, Sub-agent row → `…/Subagents/<id>/vault/`). Multi-vault siblings are discovered at view-model load time by scanning `<entity>/vaults/*/`.
+
+6. **MAS profile:** all vault folders are under `EpistemosVault/` (the user's selected vault root). Cross-vault federation is Pro-only per §13.
+
+#### 3.4.2 Multi-toggle sidebar (v1.6 — display-tree decoupled from active workspace)
+
+Per the v1.6 expansion, the picker's selection model is **two-track**:
+
+- **Active workspace** (canonical, `registry.workspace`) — still **ONE entity at a time**, per the original §3.4 rule and DOCTRINE I-9. The active workspace drives the sidebar's *skin* (palette, mascot pin, title font, accent color), the chat input target, and audit attribution. Clicking an *Agent* (or Sub-agent) leaf sets the active workspace; clicking a Model or Company name does not.
+
+- **Display-tree toggles** (new at v1.6) — each entity at every level (Company, Model, Agent, Sub-agent) has a toggle chip in the picker row. Toggling **adds** that entity's vault tree to the displayed sidebar; un-toggling removes it. Multiple toggles at any level are permitted simultaneously.
+
+The displayed sidebar tree below the picker is the **union of toggled entities' vault trees**. Each toggled entity becomes a top-level group in the tree:
+
+```
+[Anthropic ✓] [Claude Sonnet 4.6 ✓] [Sage Reviewer ✓] [Local ✓] [Qwen3-4B ✓] [Note Helper]
+─────────────────────────────────────────────────────────────────────────────────────────
+▾ Anthropic
+   ▾ Claude Sonnet 4.6                   ← Model vault appears
+      📁 vault/
+         📄 ...
+      📁 vaults/research/
+      ▾ Sage Reviewer                    ← Agent vault appears
+         📁 vault/
+         📁 vaults/code-review-archive/
+         ▾ Subagents/
+            ▾ X1
+               📁 vault/
+▾ Local
+   ▾ Qwen3-4B (MLX)
+      📁 vault/
+      …
+```
+
+Rules:
+
+1. **Active workspace ⊆ toggled.** The active workspace's path (Company → Model → Agent leaf) is implicitly toggled. Un-toggling any ancestor of the active workspace is permitted — the sidebar simply shows nothing — but does NOT change the active workspace; the user must click another agent leaf to switch.
+
+2. **Visual weight follows the §3.4 v1.4 hierarchy.** Company nodes are smooth-vector mono icon section headers; Models are smooth-vector subsection headers; Agents are pixel-art Tamagotchi leaves. This is unchanged.
+
+3. **Skin is set by the active workspace, not by toggle count.** The sidebar's accent color, mascot pin, and title font are still the active agent's attributes. Multi-toggle changes the *content tree* below; the *chrome* is single-agent per I-9.
+
+4. **Empty toggle set.** If the user un-toggles every entity, the sidebar reverts to the **Default / neutral mode** described above — the union view of all artifacts across all companions, deduplicated by content hash. The neutral state is reached by zero toggles, not by an explicit "None" workspace.
+
+5. **Persistence.** Toggle state is per-window, persisted across launches in `~/Library/Preferences/com.epistemos.app.plist` under `simulation.sidebarToggles.<windowId>`. Re-opening a window restores its last toggle set.
+
+6. **Performance.** The sidebar tree refreshes on toggle change (debounced 50 ms) and on `companion_registered` / `companion_archived` / file-watcher events from the toggled vault paths. Per I-15 the refresh path is non-allocating in steady state — the tree is a `BTreeMap<EntityKey, NodeRef>` mutated in place.
+
+#### 3.4.3 Knowledge-brick design language (v1.6 — sidebar as the app's centerpiece)
+
+Per the v1.6 expansion, the Notes Sidebar is **the highest-density, most-expressive surface in the app** — its visual identity is the load-bearing anchor for "this isn't a chat client, this is a cognitive workspace." The design language is **knowledge-brick**: dense, layered, beautiful at a glance, lossless under scrutiny.
+
+**Typography.**
+- Sidebar title (workspace name): **New York semibold 16 pt** (matches the hermes/canonical-doctrine warmth; SF Pro reads too neutral here).
+- Picker section headers (Company): SF Pro Text **semibold 11 pt**, lowercase variant numbers preserved (`anthropic`, `moonshot ai`, `local`).
+- Model rows: SF Pro Text **medium 12 pt**, model display name verbatim.
+- Agent leaves: **SF Compact Rounded medium 13 pt**, paired with the pixel-art Tamagotchi mascot at 20 pt — the rounded-text family is intentional warmth against the precise pixel-art mascot.
+- Note titles: **SF Pro Text regular 13 pt**; truncation 2 lines max with ellipsis.
+
+**Density.** The sidebar lives in a 240-pt-wide column (resizable 200–360). Within that column, four hierarchy levels must be legible simultaneously: company section header / model subsection / agent leaf with mascot / per-agent vault tree. Achieved by:
+
+- **Indent step = 12 pt per level** (not 16 — the sidebar can't afford 64 pt of left margin at depth 4).
+- **Row height = 22 pt** for tree rows (compact); 32 pt for agent leaves (mascot demands height); 28 pt for model headers (mid-density).
+- **Section header treatment:** uppercase tracked +0.06em, brand-color underline 1 pt at the row baseline (matches the per-company brand color from `provenance.json`), expanded/collapsed chevron at the right edge.
+
+**Motion.** Sidebar motion is restrained but expressive — never decorative-only:
+
+- **Collapse / expand** of any disclosure: 220 ms spring-loaded easeOut. Children fade in 80 ms after the height animation lands so users see the structure before the content.
+- **Selection pulse:** clicking an agent leaf pulses the row's accent dot (palette color → 1.5× brightness → palette color) over 180 ms. The pulse uses a **separate additive draw** at I-16 integer pixels — same contract as the active-state halo on the farm.
+- **Mascot pin idle:** the active workspace's mascot pin (top of sidebar, 32 × 32 pt) plays its 4-frame `idle` cycle continuously while the workspace is selected. Reduce-motion → static frame 0.
+- **Multi-toggle chip pulse:** toggling a chip on/off pulses the chip border (accent color, 140 ms) so the user gets immediate feedback before the tree refreshes 50 ms later.
+
+**Color.** Per-companion accent color comes from `branding/<provider>/provenance.json` (DOCTRINE §10.7). The sidebar reads the active workspace's brand color and applies it to:
+
+- Title underline (1 pt below sidebar title).
+- Active agent leaf's accent dot (8 pt circle to the right of the name).
+- Selection pulse glow (above).
+- Section-header underline of the active workspace's COMPANY (so the user sees "I'm in the Anthropic section" without reading text).
+
+Other companies' section headers use **`.secondary` foreground** for restraint — only the active company gets the brand color, ensuring visual focus.
+
+**Pixel-art accents.** Every agent leaf carries its **Tamagotchi mascot** rendered bit-perfect per I-16 (20 pt tile, atlas-sourced, nearest-neighbor). The active workspace's mascot pin (top of sidebar) is the same atlas at 32 pt. These are the *only* pixel-art surfaces in the sidebar — everything else is smooth-vector / SF text. The deliberate split (smooth chrome, pixel-art identity anchors) is the visual signature of the knowledge-brick.
+
+**Rule of thumb for adding to the sidebar.** Any new affordance in the sidebar must answer "is this a knowledge-brick element or a control?" Knowledge bricks (mascot pin, accent colors, per-agent vault tree, helper-model summary line) belong in the sidebar. Controls (preferences, raw provider settings, account management) belong in **Settings**, never the sidebar (per §3.4 v1.4 rule).
+
+#### 3.4.4 Multi-vault UI affordances (v1.6 — sibling vault management)
+
+Per the v1.6 expansion, every entity that owns a vault (Model, Agent, Sub-agent per §3.4.1) gains **explicit UI affordances** for managing its sibling vaults under `vaults/`. The sidebar is the canonical surface — vault management lives where the user already navigates notes.
+
+**Per-entity vault disclosure.** Each agent leaf (and each model row, when expanded) gets a **`Vaults` sub-disclosure** that lists:
+
+```
+▾ Sage Reviewer                     [active workspace]
+  📁 vault                          (default; always present)
+  ▸ Vaults                          [3]
+       📁 code-review-archive
+       📁 design-snippets
+       📁 personal
+       ⊕  New vault…                (opens an inline "create sibling vault" sheet)
+```
+
+Clicking a sibling vault temporarily *re-roots* the displayed tree below for THIS entity — the user navigates that vault's notes inline, with a small breadcrumb at the top (`Sage Reviewer › code-review-archive › ...`).
+
+**Inline create-sibling-vault sheet.** Click `⊕ New vault…`:
+
+- A small sheet drops in with ONE text field: `Vault name`.
+- Validation: filesystem-safe, ≤ 64 chars, unique within the entity's `vaults/` directory.
+- On confirm: emits `AgentEvent::VaultCreated { entity_id, vault_path }` (§11 v1.6); the registry creates the folder + writes a `vault.toml` provenance file; the sidebar refreshes within 50 ms.
+
+**Drag-rearrange.** Sibling vaults can be dragged to reorder within the `Vaults` disclosure. Order persists in the entity's row metadata (a small `vault_order JSON` column added to the `companions` table). MAS profile: drag is allowed (no escalated entitlements needed).
+
+**Delete vault.** Right-click → `Archive vault…` (Pro-only hard delete; MAS = archive only, same as companion archival per §3.5). Archive moves the folder to `<entity>/.vaults_archive/` with a 30-day TTL.
+
+**Multi-vault for Models too.** Same UI affordances apply at the Model level — a Model row's `Vaults` disclosure shows the model's sibling vaults. This makes "the Model's reference library" a first-class concept (e.g., `Claude-Sonnet-4.6 / vaults / examples` for canonical example outputs that all agents on this model can read).
+
+**Sub-agents nest inline.** A sub-agent's `Vaults` disclosure renders inside its parent agent's tree expansion. The visual hierarchy is preserved — sub-agent vault management never opens a separate window. Multi-toggle (§3.4.2) interacts naturally: toggling a sub-agent shows its primary `vault/` and any siblings under `Vaults`.
+
+**Honesty.** Vault creation / rename / archive are real persisted operations on disk + audit ledger entries (§6.4 / §3.5 patterns). The UI never shows a vault that doesn't exist on disk; conversely, file-watcher events from the disk side (e.g., user creates `vaults/foo/` manually) trigger sidebar refresh within 50 ms (debounced).
+
+#### 3.4.5 Helper-model summariser (v1.6 — landing-page dispatch summary)
+
+Per the v1.6 expansion, the Landing Farm dispatch panel (§3.2.2) and any sidebar agent tile show a **one-line live summary** of what the agent is currently doing — answering the user's "what's it doing?" without making them open the full chat / graph view.
+
+**Summariser model.** A fast helper model produces the summary. Default selection per §3.4 v1.4 rule (provider config in Settings only):
+
+- **Primary**: Claude Haiku 4.5 (fast, cheap, no tools).
+- **Local fallback**: Qwen3-4B-MLX (when offline or user prefers local-only).
+- **User-overridable**: Settings → Simulation → Helper model.
+
+**Trigger cadence.**
+
+- Re-summarise every **2 seconds** while the target agent is streaming, OR when the agent's `current_animation` transitions (Speak → Tool → Recover etc.).
+- Stop summarising when the agent enters `Idle` after `MessageCompleted`.
+- Cache: the most recent summary persists for 30 s after the agent stops; afterwards the dispatch panel shows "Idle" until the next event.
+
+**Routing.** The summariser request is dispatched via the existing `agent_core::routing::ConfidenceRouter` — a tiny prompt that fits in 1024 tokens and asks "summarize the last 30 s of this companion's activity in one sentence." The reasoning-trajectory metrics (`agent_core::reasoning_metrics`) record cost so users can audit how much summarisation is consuming.
+
+**New AgentEvent variants (§11 v1.6).**
+
+```rust
+pub enum AgentEvent {
+    // ... existing 41 variants ...
+
+    // §3.2.2 + §3.4.5 v1.6 — dispatch + summariser
+    SteerRequested {
+        agent_id: CompanionId,
+        message: String,
+    },
+    SummaryStarted {
+        for_agent_id: CompanionId,
+        helper_model: String,         // e.g., "claude-haiku-4-5"
+        prompt_id: String,             // for cost / replay tracking
+    },
+    SummaryDelta {
+        prompt_id: String,
+        delta: String,
+    },
+    SummaryCompleted {
+        prompt_id: String,
+        final_text: String,
+        token_count: u32,
+    },
+
+    // §3.4.4 v1.6 — multi-vault UI
+    VaultCreated {
+        entity_id: CompanionId,        // model / agent / sub-agent owning the vault
+        vault_path: String,            // relative to vault root
+        vault_name: String,
+    },
+    VaultArchived {
+        entity_id: CompanionId,
+        vault_path: String,
+    },
+}
+```
+
+**Honesty.** The summary is itself an `AgentEvent` stream (`SummaryStarted` → `SummaryDelta` → `SummaryCompleted`) — per I-5 every summary line traces to a real prompt id and a real helper-model invocation. The dispatch panel never invents a summary; if the helper model fails or times out, the panel shows "Working…" with an error chip.
 
 ### 3.5 Cross-placement synchronization rules
 
@@ -1563,9 +1897,28 @@ These are not in scope for V0–V2. They are listed here to prevent scope creep 
 
 ## 17. Versioning
 
-- **Version:** 1.4
+- **Version:** 1.6
 - **Created:** 2026-04-29 (in `simulation` worktree)
-- **Last invariant change:** 2026-04-29 — v1.2 added I-16; v1.3 clarified its scope; v1.4 invariants unchanged from v1.3. Invariants I-1..I-15 unchanged from 1.0.
+- **Last invariant change:** 2026-04-29 — v1.2 added I-16; v1.3 clarified its scope; v1.4 + v1.6 invariants unchanged from v1.3 (no published v1.5 — the v1.6 doctrine pass combined v1.5's farm-walking + multi-toggle work with v1.6's dispatch / multi-room / knowledge-brick additions in a single revision). Invariants I-1..I-15 unchanged from 1.0.
+- **v1.6 expansion (2026-04-29) — landing-page dispatch + multi-room theater + knowledge-brick sidebar:**
+
+  *Farm + landing-page direct interaction (§3.2.x):*
+  - §3.2.1 added — per-companion pixel-art random-walk paths within ±32-px home-position radius ("farm-game idle elaboration"). Constraints: integer-pixel motion (I-16), seeded PRNG (I-13), audit-labelled `cosmetic_idle:<companion_id>` (I-5), reduce-motion collapse (I-14), suppressed during gate / error / recovery / parked states. Cross-companion ambient interaction remains forbidden absent `handoff_*` events.
+  - §3.2.2 added — working badge (3-dot streaming, mini-prop tool, gate icon) + inline dispatch chat panel anchored to companion tiles. Read-only event ribbon + steer input + approve/deny/inspect chips when gated. Honest: read against the same `AgentEvent` stream the reducer consumes.
+
+  *Graph theater multi-room (§3.3.x):*
+  - §3.3.1 added — multi-room theater. ONE room per active **session** (companions sharing a session share a room; parallel sessions get separate rooms). Single MTKView with viewport tiling — N rooms cost ~N × per-companion-render, NOT N × pipeline-rebuild. Layouts: 1, 2, 3 (1+2), 2×2, 3×2, 3×3 + carousel ≥10. Pipelines + atlas shared across rooms (one IOSurface for the whole simulation); per-room camera + viewport + buffer-region differ. Per-room cost stays inside the §12 5 ms p99 budget.
+  - §3.3.2 added — graph as full chat replacement. Each room's chat input strip carries every action available in the traditional chat sidebar (send / cancel / regenerate / branch / attach / inspect). Both surfaces drive the same `AgentEvent` stream; single-input-focus invariant prevents double-typing.
+
+  *Sidebar as knowledge-brick (§3.4.x):*
+  - §3.4.1 added — persistent vault hierarchy (Models / Agents / Sub-agents each have `vault/` + optional `vaults/` siblings; Companies have no direct vault). Sub-agents nest indefinitely on disk.
+  - §3.4.2 added — multi-toggle sidebar (display tree decoupled from active workspace; active workspace remains ONE per I-9 for chrome).
+  - §3.4.3 added — knowledge-brick design language. Typography (New York semibold for sidebar title, SF Pro Text for picker, SF Compact Rounded for agent leaves), density (12 pt indent step, 22 pt tree row, 32 pt agent leaf, 28 pt model header), motion (220 ms spring expand, 180 ms selection pulse, mascot-pin idle loop, 140 ms toggle-chip pulse), per-companion brand color from `provenance.json` applied to title underline + active-agent accent dot + selection pulse + section-header underline of the active company. Pixel-art accents at agent leaves + mascot pin only — everything else is smooth-vector / SF text. Knowledge-brick rule: any new affordance must answer "knowledge-brick or control?" — bricks live in the sidebar, controls live in Settings.
+  - §3.4.4 added — multi-vault UI affordances (per-entity `Vaults` sub-disclosure with sibling vaults; inline `⊕ New vault…` create sheet emitting `VaultCreated`; drag-rearrange order persisted in `vault_order` JSON column; archive vault flow mirrors the §3.5 companion-archive pattern). Models also get `Vaults` so "the Model's reference library" is a first-class concept.
+  - §3.4.5 added — helper-model summariser. Fast helper model (Claude Haiku 4.5 default; Qwen3-4B-MLX local fallback; user-overridable in Settings) produces a one-line live summary of the active agent for the dispatch panel. Cadence: every 2 s while streaming + on `current_animation` transitions; stops on `Idle`. Cache 30 s after stop. Routes through `ConfidenceRouter`; cost recorded in `reasoning_metrics`.
+
+  *Event schema (§11):*
+  - §11 v1.6 — six new `AgentEvent` variants: `SteerRequested`, `SummaryStarted`, `SummaryDelta`, `SummaryCompleted`, `VaultCreated`, `VaultArchived`. Per I-5 every UI-visible affordance traces to a real event; per I-3 these are normalized into the canonical enum like every other event.
 - **v1.4 expansion (2026-04-29):**
   - §3.4 Companions picker upgraded to **three-level hierarchy** (Company → Model → Agent). Models use smooth provider mono icons; agents use pixel-art Tamagotchi mascots. Each model row gets its own `+` to seed the creation flow with that model as `base_model`. Local models (Qwen3-4B, Mamba-2 variants, MLX) live under a synthetic `Local` company.
   - §8.2 Hermes landing ritual fully redesigned with **opulent canonical treatment**: 7-phase sequence (anchor → portrait → ASCII wave → hero title type-on → gold halo additive pulse → snake coil → glare flash → chat surface) totalling ~4.4s; reduce-motion variant collapses to ~450ms. Canonical assets sourced from NousResearch hermes-agent.
