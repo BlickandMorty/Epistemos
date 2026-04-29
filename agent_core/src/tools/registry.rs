@@ -572,6 +572,89 @@ impl ToolRegistry {
             v2_catalog::workspace_get_change_impact::SPEC,
             Arc::new(super::workspace_search::GetChangeImpactHandler),
         ));
+        // Browser family — all 11 share a single BrowserManager (per-call
+        // ephemeral spawn; not always-on daemon per FINAL_SYNTHESIS §5.7).
+        // Until Wave 6 BrowserEngine trait splits the adapters
+        // (WebKit-baseline AppStoreSafe vs Obscura-experimental Pro), all
+        // browser.* tools route through the legacy BrowserActionHandler.
+        let browser_manager = super::browser::BrowserManager::new();
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_navigate::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Navigate,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_snapshot::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Snapshot,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_click::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Click,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_type::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Type,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_scroll::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Scroll,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_back::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Back,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_press::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Press,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_close::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Close,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_get_images::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::GetImages,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_vision::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager.clone(),
+                super::browser::BrowserAction::Vision,
+            )),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::browser_console::SPEC,
+            Arc::new(super::browser::BrowserActionHandler::new(
+                browser_manager,
+                super::browser::BrowserAction::Console,
+            )),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2149,13 +2232,19 @@ mod tier_tests {
         //                        workspace.get_dependencies,
         //                        workspace.get_dependents,
         //                        workspace.get_change_impact)
+        //   2F-12  : +11 always (browser.{navigate, snapshot, click, type,
+        //                        scroll, back, press, close, get_images,
+        //                        vision, console}) all ProOnly per
+        //                        FINAL_SYNTHESIS §5.7 / §6 wave sequencing
+        //                        until Wave 6 BrowserEngine trait splits
+        //                        the adapters
         //   trajectory.export + intelligence.self_evolve are skipped here
         //   because vault_root_path is None;
         //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 38, "2F-11 ships 38 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 49, "2F-12 ships 49 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2196,6 +2285,17 @@ mod tier_tests {
         assert!(names.contains(&"workspace.get_dependencies"));
         assert!(names.contains(&"workspace.get_dependents"));
         assert!(names.contains(&"workspace.get_change_impact"));
+        assert!(names.contains(&"browser.navigate"));
+        assert!(names.contains(&"browser.snapshot"));
+        assert!(names.contains(&"browser.click"));
+        assert!(names.contains(&"browser.type"));
+        assert!(names.contains(&"browser.scroll"));
+        assert!(names.contains(&"browser.back"));
+        assert!(names.contains(&"browser.press"));
+        assert!(names.contains(&"browser.close"));
+        assert!(names.contains(&"browser.get_images"));
+        assert!(names.contains(&"browser.vision"));
+        assert!(names.contains(&"browser.console"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2239,8 +2339,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            40,
-            "all 40 unconditional + vault-root-bound v2 tools present"
+            51,
+            "all 51 unconditional + vault-root-bound v2 tools present"
         );
     }
 

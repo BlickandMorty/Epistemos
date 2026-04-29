@@ -18,6 +18,17 @@ pub mod apple_calendar;
 pub mod apple_mail;
 pub mod apple_notes;
 pub mod apple_reminders;
+pub mod browser_back;
+pub mod browser_click;
+pub mod browser_close;
+pub mod browser_console;
+pub mod browser_get_images;
+pub mod browser_navigate;
+pub mod browser_press;
+pub mod browser_scroll;
+pub mod browser_snapshot;
+pub mod browser_type;
+pub mod browser_vision;
 pub mod chunk_reduce;
 pub mod clarify_ask;
 pub mod communication_send_message;
@@ -120,6 +131,17 @@ mod tests {
             super::workspace_get_dependencies::SPEC,
             super::workspace_get_dependents::SPEC,
             super::workspace_get_change_impact::SPEC,
+            super::browser_navigate::SPEC,
+            super::browser_snapshot::SPEC,
+            super::browser_click::SPEC,
+            super::browser_type::SPEC,
+            super::browser_scroll::SPEC,
+            super::browser_back::SPEC,
+            super::browser_press::SPEC,
+            super::browser_close::SPEC,
+            super::browser_get_images::SPEC,
+            super::browser_vision::SPEC,
+            super::browser_console::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -329,6 +351,50 @@ mod tests {
                 super::workspace_get_change_impact::SPEC.name,
                 (super::workspace_get_change_impact::SPEC.input_schema)(),
             ),
+            (
+                super::browser_navigate::SPEC.name,
+                (super::browser_navigate::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_snapshot::SPEC.name,
+                (super::browser_snapshot::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_click::SPEC.name,
+                (super::browser_click::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_type::SPEC.name,
+                (super::browser_type::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_scroll::SPEC.name,
+                (super::browser_scroll::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_back::SPEC.name,
+                (super::browser_back::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_press::SPEC.name,
+                (super::browser_press::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_close::SPEC.name,
+                (super::browser_close::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_get_images::SPEC.name,
+                (super::browser_get_images::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_vision::SPEC.name,
+                (super::browser_vision::SPEC.input_schema)(),
+            ),
+            (
+                super::browser_console::SPEC.name,
+                (super::browser_console::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -387,6 +453,17 @@ mod tests {
             super::workspace_get_dependencies::SPEC,
             super::workspace_get_dependents::SPEC,
             super::workspace_get_change_impact::SPEC,
+            super::browser_navigate::SPEC,
+            super::browser_snapshot::SPEC,
+            super::browser_click::SPEC,
+            super::browser_type::SPEC,
+            super::browser_scroll::SPEC,
+            super::browser_back::SPEC,
+            super::browser_press::SPEC,
+            super::browser_close::SPEC,
+            super::browser_get_images::SPEC,
+            super::browser_vision::SPEC,
+            super::browser_console::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
@@ -424,5 +501,33 @@ mod tests {
             "media.text_to_speech spawns subprocess; Pro-only per §1.6"
         );
         assert!(!super::media_text_to_speech::SPEC.small_model_safe);
+        // Browser family — all ProOnly until Wave 6 BrowserEngine trait
+        // splits WebKit-baseline (AppStoreSafe) from Obscura-experimental
+        // (Pro). Per FINAL_SYNTHESIS §5.7 / §6 wave sequencing.
+        for spec in [
+            super::browser_navigate::SPEC,
+            super::browser_snapshot::SPEC,
+            super::browser_click::SPEC,
+            super::browser_type::SPEC,
+            super::browser_scroll::SPEC,
+            super::browser_back::SPEC,
+            super::browser_press::SPEC,
+            super::browser_close::SPEC,
+            super::browser_get_images::SPEC,
+            super::browser_vision::SPEC,
+            super::browser_console::SPEC,
+        ] {
+            assert_eq!(
+                spec.profile,
+                Profile::ProOnly,
+                "browser tool {} must be ProOnly until Wave 6 BrowserEngine trait lands per FINAL_SYNTHESIS §5.7",
+                spec.name
+            );
+            assert!(
+                !spec.small_model_safe,
+                "browser tool {} must NOT be small_model_safe — auto-spawning a browser subprocess from the 1.5B router is unsafe",
+                spec.name
+            );
+        }
     }
 }
