@@ -1,6 +1,47 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E shipped (Phase 2 EXIT criterion satisfied) | Full agent_core sweep green: 589 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-1 shipped | Full agent_core sweep green: 594 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2F-1 — LegacyToolAdapter scaffolding ✅
+
+Plan reference: §3.1 (Tool trait), §25.13 ("ToolRegistry exists; we add Tool trait extensions"), Option C purest-replace path the user authorized.
+
+**Migration architecture:**
+- Direct trait-replace for 33 tools at once = high risk + multi-session work.
+- Adapter-first: every existing `ToolHandler` becomes a plan-§3.1 `Tool` via `LegacyToolAdapter`. Behavior is preserved bit-for-bit (legacy handler runs verbatim inside the adapter's `invoke`); only the trait surface changes. Native re-implementations of individual tool internals happen incrementally as the variant ladder pattern proves itself per-tool.
+- This honors "purest" at the trait surface (which is what §3.1 specifies) while keeping the 33-tool migration tractable and auditable. Plan §25.13 explicitly framed Phase 2 as "we add Tool trait extensions" — that framing is exactly what the adapter does.
+
+**Shipped:**
+- [x] `agent_core/src/tools/legacy_adapter.rs` (NEW):
+  - `AdapterSpec` — static metadata bundle carrying the 7 plan-§3.1 method results the legacy `ToolHandler` can't supply on its own (name, input_schema fn, output_schema fn, variants, profile, small_model_safe). `Copy + Clone` so per-tool `static SPEC: AdapterSpec` constants work.
+  - `LegacyToolAdapter { spec, handler: Arc<dyn ToolHandler> }` — implements `Tool` by delegating metadata to spec and runtime to `handler.execute()`. The legacy `Result<String, ToolError>` is mapped to the §3.1 `ToolResult` shape: JSON-serialized handler output is parsed back to `Value` (preserving structure); plain text wraps as `{ "text": "..." }` so the result schema is uniform across all adapters.
+  - `generic_text_or_object_output_schema()` — permissive `anyOf` schema accepting either `{ text: string }` or any object/array. Per-tool tighter schemas land when the tool gets a native re-implementation.
+- [x] 5 tests:
+  - adapter_wraps_plain_string_output_as_text_object — confirms uniform `{text:...}` wrapping.
+  - adapter_preserves_json_object_output_structure — confirms structured handlers don't lose shape.
+  - adapter_propagates_handler_error_as_status_error — Status::Error path.
+  - adapter_exposes_static_schemas_via_tool_trait — pointer-equality on `&'static Value` schemas.
+  - adapter_input_schema_compiles_to_dispatch_grammar — Phase 2A's compiler accepts adapted schemas.
+
+**Plan-canonical naming alignment:**
+- Plan §3.1 / §3.5 / §6.7 use dotted tool names (`vault.search`, `reason.think`); legacy `ToolHandler` registry uses underscored names (`vault_search`). Adapter exposes the dotted form. Phase 2F-2..N migrations adopt dotted names; legacy underscored names remain addressable through `ToolRegistry::execute()` until 2G.
+
+**Verification:**
+- `cargo test --lib 'tools::legacy_adapter'` → 5 passed.
+- Full agent_core lib → **594 passed**, 0 failed (was 589 post-2E; +5 net). Zero functional regressions.
+
+**Audit (no nuance lost vs canonical plan):**
+- §3.1 trait surface: ✅ adapter implements all 7 methods.
+- §3.1 field naming: ✅ output mapping preserves `result` (never `payload`); when input is plain text, wraps as `{text:...}` not `{payload:...}` or `{data:...}`.
+- §17.3 sampler-bound dispatch: ✅ adapted schemas compile via Phase 2A's `schema_to_llg` and `build_dispatch_grammar`.
+- Plan §25.13 framing: ✅ "Tool trait extensions" exactly describes what `LegacyToolAdapter` does — wraps existing trait without replacing handler logic.
+
+**Phase 2F roadmap (subsequent commits):**
+- 2F-2: Port read-only tools — `vault.search`, `vault.read`, `vault.list`, `web.search`, `vault.recall` (5 tools, ~30 LOC each).
+- 2F-3: Port modification tools — `vault.write`, `vault.edit`, knowledge.* tools (5-8 tools).
+- 2F-4: Port destructive / Pro tools — `terminal`, `bash_execute`, `action.*` (5-8 tools).
+- 2F-5: Remaining specialized tools (apple, browser, computer_use, etc.).
+- 2G: Once all 33 tools have Tool-trait wrappers, expose `register_v2_catalog()` on the registry and remove the legacy `ToolHandler` trait + `RegisteredTool` struct.
 
 ## 2026-04-29 Quick Capture Phase 2E — Canary `reason.think` (§11 Phase 2 EXIT) ✅
 

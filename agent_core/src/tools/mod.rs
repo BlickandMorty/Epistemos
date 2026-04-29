@@ -60,6 +60,9 @@ pub mod runner;
 // Phase 2E: canary `reason.think` — first native Tool impl.
 pub mod reason_think;
 
+// Phase 2F: bridge legacy ToolHandler into the new Tool trait surface.
+pub mod legacy_adapter;
+
 use std::sync::Arc;
 use std::time::Duration;
 
