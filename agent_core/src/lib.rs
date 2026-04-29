@@ -13,6 +13,7 @@ pub mod heal;
 pub mod lifecycle;
 pub mod nightbrain;
 pub mod route;
+pub mod skill_discovery;
 pub mod undo;
 pub mod util;
 pub mod workspace;
