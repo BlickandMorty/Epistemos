@@ -14,6 +14,7 @@ pub mod nightbrain;
 pub mod route;
 pub mod undo;
 pub mod util;
+pub mod workspace;
 pub mod channel_relay;
 pub mod command_center;
 pub mod compaction;
