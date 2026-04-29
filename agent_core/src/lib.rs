@@ -7,6 +7,7 @@ pub mod canon;
 pub mod eval;
 pub mod format;
 pub mod grammar;
+pub mod heal;
 pub mod route;
 pub mod util;
 pub mod channel_relay;
