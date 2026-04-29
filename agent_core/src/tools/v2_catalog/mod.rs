@@ -12,6 +12,9 @@
 //! names (`vault_search`) remain addressable via
 //! `ToolRegistry::execute()` until Phase 2G.
 
+pub mod action_bash;
+pub mod chunk_reduce;
+pub mod graph_neighbors;
 pub mod vault_read;
 pub mod vault_search;
 pub mod vault_write;
@@ -32,6 +35,9 @@ mod tests {
             super::vault_read::SPEC,
             super::vault_write::SPEC,
             super::workspace_search::SPEC,
+            super::graph_neighbors::SPEC,
+            super::chunk_reduce::SPEC,
+            super::action_bash::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -65,6 +71,18 @@ mod tests {
                 super::workspace_search::SPEC.name,
                 (super::workspace_search::SPEC.input_schema)(),
             ),
+            (
+                super::graph_neighbors::SPEC.name,
+                (super::graph_neighbors::SPEC.input_schema)(),
+            ),
+            (
+                super::chunk_reduce::SPEC.name,
+                (super::chunk_reduce::SPEC.input_schema)(),
+            ),
+            (
+                super::action_bash::SPEC.name,
+                (super::action_bash::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -79,6 +97,9 @@ mod tests {
             super::vault_read::SPEC,
             super::vault_write::SPEC,
             super::workspace_search::SPEC,
+            super::graph_neighbors::SPEC,
+            super::chunk_reduce::SPEC,
+            super::action_bash::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
@@ -86,5 +107,21 @@ mod tests {
                 spec.name
             );
         }
+    }
+
+    #[test]
+    fn pro_only_tools_are_marked_pro_only() {
+        // Plan §1.6: action.* tools are Pro-only and never ship in the
+        // App Store dispatch grammar. This invariant lives at the SPEC
+        // level — Phase 3+ dispatch construction filters by profile.
+        use crate::tools::Profile;
+        assert_eq!(
+            super::action_bash::SPEC.profile,
+            Profile::ProOnly,
+            "action.bash must be Pro-only per §1.6 / §17"
+        );
+        // small_model_safe = false for Pro-only destructive tools so the
+        // 1.5B router never reaches for the shell.
+        assert!(!super::action_bash::SPEC.small_model_safe);
     }
 }

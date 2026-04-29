@@ -382,6 +382,20 @@ impl ToolRegistry {
                 v2_catalog::workspace_search::SPEC,
                 Arc::new(super::workspace_search::WorkspaceSearchHandler),
             ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::graph_neighbors::SPEC,
+                Arc::new(GraphNeighborsHandler {
+                    vault: Arc::clone(&self.vault),
+                }),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::chunk_reduce::SPEC,
+                Arc::new(super::chunk_reduce::ChunkReduceHandler),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::action_bash::SPEC,
+                Arc::new(BashExecuteHandler),
+            ),
         ]
     }
 
@@ -1872,13 +1886,16 @@ mod tier_tests {
         // tests with real handler instances driven by a stub vault.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 4, "2F-2 ships 4 adapted tools");
+        assert_eq!(catalog.len(), 7, "2F-3 ships 7 adapted tools");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
         assert!(names.contains(&"vault.read"));
         assert!(names.contains(&"vault.write"));
         assert!(names.contains(&"workspace.search"));
+        assert!(names.contains(&"graph.neighbors"));
+        assert!(names.contains(&"chunk.reduce"));
+        assert!(names.contains(&"action.bash"));
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.
