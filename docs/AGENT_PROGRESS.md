@@ -1,6 +1,30 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 shipped | Full agent_core sweep green: 545 lib tests (503 + 42 new format tests) | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A shipped | Full agent_core sweep green: 552 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2A — Grammar Compiler (sampler-bound dispatch) ✅
+
+Plan reference: §3.3 (llguidance compiler), §17 (sampler-bound dispatch breakthrough), §22.1.2 (CRANE wrapper).
+
+**Web research consulted (per §0.1 protocol):**
+- docs.rs/llguidance, github.com/microsoft/guidance, llguidance PyPI — confirmed v1.x is the production path; ~50μs/token mask compute on a 128k tokenizer; merged into vLLM v0.8.2 / SGLang v0.4.4 / llama.cpp Feb 2025. Plan-aligned.
+
+**API divergence noted:** plan §3.3 snippet uses `llguidance::Grammar::from_json_schema(&json, opts)` (older shape with `JsonCompileOptions`). Real llguidance 1.7.4 exposes `llguidance::api::TopLevelGrammar::from_json_schema(Value) -> Self` (owned, no Result, no opts). Semantic contract preserved; this commit adapts the surface and documents the deviation in `grammar/mod.rs`.
+
+**Shipped:**
+- [x] Cargo dep: llguidance 1.7.4.
+- [x] `agent_core/src/grammar/mod.rs` — `schema_to_llg(schema)` validates the schema is an object then returns `TopLevelGrammar`. `build_dispatch_grammar(&[(tool_name, input_schema)])` composes a `oneOf` over tool branches with `additionalProperties:false` and `name: {const: <tool>}` per branch — this is the §17.3 sampler-bound dispatch table. `crane_wrapper_schema(answer, max_tokens)` produces a `{thinking, answer}` wrapper schema for §22.1.2 open-think + closed-commit (sentinel-token region switching is a Phase 6 inference-loop concern, not this module's).
+- [x] 7 unit tests: minimal object compiles, typical tool input compiles, non-object schema rejected, 2-tool dispatch compiles, empty dispatch rejected, CRANE wrapper round-trip + nested-schema preservation.
+
+**Verification:**
+- `cargo test --manifest-path agent_core/Cargo.toml --lib grammar` → 7 passed.
+- Full lib suite → 552 passed (was 545; +7 grammar). Zero regressions.
+
+**Phase 2 remainder (NOT shipped in 2A — needs scope decision):**
+- New `Tool` trait + `VariantId` + `Profile` + variant runner per §3.1–§3.2. Existing `agent_core/src/tools/registry.rs` defines `ToolHandler` trait (different shape) for 33 in-tree tools. The plan's new `Tool` trait coexists with `ToolHandler` and the 33 tools migrate incrementally — that migration touches a large existing surface and warrants a deliberate scope check before proceeding.
+- Variant runner (`tools/runner.rs`) with HealthCheck pre-flight + per-tool circuit breakers.
+- Semantic cache (§3.6: 10k ops/s, exact + embedding-cosine, SQLite-backed).
+- Canary `reason.think v2` invokable via the runner with grammar-constrained output.
 
 ## 2026-04-29 Quick Capture Phase 1 — Hybrid File Formats + Schemas ✅
 
