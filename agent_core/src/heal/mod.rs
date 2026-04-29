@@ -27,6 +27,7 @@
 //! diagnostician.soul.{json,md}` per §11 Phase 4).
 
 pub mod breaker;
+pub mod log;
 
 use std::future::Future;
 use std::sync::Arc;
