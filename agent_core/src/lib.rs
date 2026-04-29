@@ -4,6 +4,7 @@ pub mod bootstrap;
 pub mod bridge;
 pub mod cache;
 pub mod canon;
+pub mod eval;
 pub mod format;
 pub mod grammar;
 pub mod route;

@@ -1,0 +1,36 @@
+# Phase 3E synthetic seed corpus — 20 hand-crafted fixtures exercising
+# the four-action enum + the variant ladder. The real 200-case corpus
+# lands when Phase 6 wires actual MLX inference + the user dogfoods
+# captures. Until then this seed validates harness mechanics + the
+# plan §11 pass-criteria computation.
+#
+# Distribution: 12 place / 3 defer / 3 create_folder / 2 merge.
+# Defer rate 15% — at the upper edge of the §11 8-15% target band.
+
+# Section 1: place to existing folder (~60% of cases)
+{"capture_text":"Notes from this morning's standup about the inference rollout","expected_action":"place","expected_folder":"engineering/standups"}
+{"capture_text":"Paper review: gradient checkpointing reduces memory by 4x in transformer training","expected_action":"place","expected_folder":"research/ml/training-tricks"}
+{"capture_text":"Reminder to follow up with Sarah about the Q3 roadmap","expected_action":"place","expected_folder":"projects/roadmap"}
+{"capture_text":"GBNF can constrain Qwen tool calls but only if the grammar is compiled per-call","expected_action":"place","expected_folder":"research/ml/inference"}
+{"capture_text":"Recipe — sourdough overnight cold proof with 75% hydration","expected_action":"place","expected_folder":"personal/recipes"}
+{"capture_text":"Bug found: SSE parser drops trailing chunks when content-length disagrees","expected_action":"place","expected_folder":"engineering/bugs"}
+{"capture_text":"Reading list: Chiang's Story of Your Life, then back to Borges","expected_action":"place","expected_folder":"reading/queue"}
+{"capture_text":"Workout — 5x5 deadlifts at 315, felt strong","expected_action":"place","expected_folder":"personal/fitness"}
+{"capture_text":"Idea: a typed query AST for vault search so filters can't fabricate","expected_action":"place","expected_folder":"projects/epistemos"}
+{"capture_text":"Quick note on attention is all you need — the residual connections are doing more work than the attention","expected_action":"place","expected_folder":"research/ml/architecture"}
+{"capture_text":"Mom's birthday is May 14th — start thinking about a gift","expected_action":"place","expected_folder":"personal/family"}
+{"capture_text":"Patrick suggested looking at the Ax Mantis paper for the AX tree fusion question","expected_action":"place","expected_folder":"research/ml/agents"}
+
+# Section 2: defer (15% — at upper edge of §11 8-15% target band)
+{"capture_text":"thinking about how to handle the screenshot review queue","expected_action":"defer"}
+{"capture_text":"vague feeling about the architecture meeting tomorrow","expected_action":"defer"}
+{"capture_text":"???","expected_action":"defer"}
+
+# Section 3: create_folder (15% — new concepts with tight clusters)
+{"capture_text":"Synthesis on routing — variant ladder vs bandit, defer-as-feature is the key insight","expected_action":"create_folder","expected_new_folder_name":"routing-synthesis"}
+{"capture_text":"Cross-cutting note: every place we have schema validation, we should also have grammar enforcement at decode","expected_action":"create_folder","expected_new_folder_name":"decode-grammar"}
+{"capture_text":"Plan §22 generalizes constrained decoding to every output surface — argument grammars, query AST, citation grammars, all the way down","expected_action":"create_folder","expected_new_folder_name":"constrained-decoding-everywhere"}
+
+# Section 4: merge_into_existing_note (10% — refinement of existing concept)
+{"capture_text":"Follow-up on rematerialization: also called gradient checkpointing in some papers","expected_action":"merge_into_existing_note","expected_target_note_path":"research/ml/training-tricks/gradient-checkpointing.md"}
+{"capture_text":"Update on the SSE parser bug — root cause is in the chunk-boundary handler at line 142","expected_action":"merge_into_existing_note","expected_target_note_path":"engineering/bugs/sse-parser-trailing-chunks.md"}

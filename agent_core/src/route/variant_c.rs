@@ -32,7 +32,7 @@ use async_trait::async_trait;
 use crate::canon;
 
 use super::{
-    Action, RouteDecision, CREATE_FOLDER_CLUSTER_COSINE, CREATE_FOLDER_CLUSTER_MIN_COUNT,
+    RouteDecision, CREATE_FOLDER_CLUSTER_COSINE, CREATE_FOLDER_CLUSTER_MIN_COUNT,
     MERGE_CONFIDENCE_GATE, MERGE_STALENESS_HOURS, VARIANT_C_CREATE_FOLDER_CONFIDENCE,
     VARIANT_C_PLACE_VIA_FOUND_CONFIDENCE, VARIANT_C_PLACE_VIA_MAJORITY_CONFIDENCE,
 };
@@ -229,6 +229,7 @@ fn cluster_tight(hits: &[NeighbourHit], top_folder: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::route::Action;
     use std::sync::Mutex;
 
     struct StubExtractor {
