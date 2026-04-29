@@ -1,18 +1,19 @@
 //! Deterministic replay (S2; DOCTRINE I-13 / IMPLEMENTATION §3-S2).
 //!
 //! Given the same event log, replay produces byte-identical
-//! `SimulationState`. No `Date::now()` / `Instant::now()` /
+//! `SimulationDigest`. No `Date::now()` / `Instant::now()` /
 //! `arc4random` enters here — events carry their own timestamps via
 //! `LogEntry`, and the reducer (S4) consumes only `AgentEvent` +
 //! the persisted `ts` string. At S2 the reducer is the minimal
-//! `SimulationState::apply` projection in `crate::events`; this
+//! `SimulationDigest::apply` projection in `crate::digest`; this
 //! module is the substrate that walks the log, applies events in
 //! order, and produces the final state.
 
 use std::path::Path;
 
 use crate::event_log::{EventLog, EventLogError, LogEntry};
-use crate::events::{AgentEvent, SimulationState};
+use crate::digest::SimulationDigest;
+use crate::events::AgentEvent;
 
 /// Errors emitted by replay.
 #[derive(Debug, thiserror::Error)]
@@ -21,14 +22,14 @@ pub enum ReplayError {
     EventLog(#[from] EventLogError),
 }
 
-/// Apply every event in `events` to a fresh `SimulationState` and
+/// Apply every event in `events` to a fresh `SimulationDigest` and
 /// return the result. Pure — given the same input sequence the
 /// output is byte-stable per I-13.
-pub fn replay<I>(events: I) -> SimulationState
+pub fn replay<I>(events: I) -> SimulationDigest
 where
     I: IntoIterator<Item = AgentEvent>,
 {
-    let mut state = SimulationState::initial();
+    let mut state = SimulationDigest::initial();
     for event in events {
         state.apply(&event);
     }
@@ -37,8 +38,8 @@ where
 
 /// Replay an `&[LogEntry]` slice. Convenience for tests that hand
 /// in pre-loaded log entries.
-pub fn replay_entries(entries: &[LogEntry]) -> SimulationState {
-    let mut state = SimulationState::initial();
+pub fn replay_entries(entries: &[LogEntry]) -> SimulationDigest {
+    let mut state = SimulationDigest::initial();
     for entry in entries {
         state.apply(&entry.event);
     }
@@ -48,9 +49,9 @@ pub fn replay_entries(entries: &[LogEntry]) -> SimulationState {
 /// Replay every entry from the JSONL log at `path`. Validates the
 /// hash chain implicitly during read; an integrity break surfaces
 /// as `ReplayError::EventLog(EventLogError::Integrity { .. })`.
-pub fn replay_log(path: &Path) -> Result<SimulationState, ReplayError> {
+pub fn replay_log(path: &Path) -> Result<SimulationDigest, ReplayError> {
     let log = EventLog::open(path)?;
-    let mut state = SimulationState::initial();
+    let mut state = SimulationDigest::initial();
     for entry in log.iter()? {
         let entry = entry?;
         state.apply(&entry.event);

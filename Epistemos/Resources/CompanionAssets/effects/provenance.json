@@ -1,0 +1,25 @@
+{
+  "category": "raster-effect-texture",
+  "origin": "epistemos-original",
+  "license": "CC0-1.0 (Epistemos placeholder; S10 replaces with hand-pixeled assets)",
+  "generator": "Tools/build_halo_textures.py",
+  "doctrine_refs": [
+    "I-16",
+    "\u00a75.7",
+    "\u00a710.4"
+  ],
+  "files": {
+    "halo_active.png": {
+      "size": "64x64",
+      "format": "RGBA8",
+      "falloff_steps": 6,
+      "purpose": "additive-blend active-state aura"
+    },
+    "eye_glow.png": {
+      "size": "16x16",
+      "format": "RGBA8",
+      "falloff_steps": 4,
+      "purpose": "additive-blend eye highlight bloom"
+    }
+  }
+}

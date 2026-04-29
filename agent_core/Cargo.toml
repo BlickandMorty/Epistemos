@@ -15,6 +15,7 @@ async-trait = "0.1"
 base64 = "0.22"
 blake3 = "1.5"
 chrono = { version = "0.4", features = ["clock", "serde"] }
+crossbeam-queue = "0.3"
 cron = "0.15"
 dirs = "5.0"
 eventsource-stream = "0.2"

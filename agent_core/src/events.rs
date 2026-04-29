@@ -599,68 +599,10 @@ impl AgentEvent {
     }
 }
 
-// =============================================================================
-// SimulationState — a minimal deterministic projection used by S2
-// replay. The full reducer + frame-delta machinery lands in S4; what
-// lives here is just enough state to give `replay()` something
-// byte-stable to produce so the round-trip tests can verify
-// determinism per I-13.
-// =============================================================================
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SimulationState {
-    pub agents_present: std::collections::BTreeSet<CompanionId>,
-    pub event_count: u64,
-    pub message_count: u64,
-    pub tool_call_count: u64,
-    pub error_count: u64,
-    pub graph_mutations: u64,
-}
-
-impl SimulationState {
-    pub fn initial() -> Self {
-        Self::default()
-    }
-
-    /// Apply one event to the state. Pure — no I/O, no system clock.
-    /// Per DOCTRINE I-13 all randomness/time inputs come from the
-    /// event itself; this S2 version handles only counter + agent
-    /// presence updates. The full reducer (S4) extends this with
-    /// frame-delta emission.
-    pub fn apply(&mut self, event: &AgentEvent) {
-        self.event_count += 1;
-        match event {
-            AgentEvent::ParticipantJoined { agent_id, .. } => {
-                self.agents_present.insert(*agent_id);
-            }
-            AgentEvent::ParticipantLeft { agent_id } => {
-                self.agents_present.remove(agent_id);
-            }
-            AgentEvent::MessageStarted { .. } => {
-                self.message_count += 1;
-            }
-            AgentEvent::ToolCallStarted { .. } => {
-                self.tool_call_count += 1;
-            }
-            AgentEvent::Error { .. } => {
-                self.error_count += 1;
-            }
-            AgentEvent::GraphNodeCreated { .. } | AgentEvent::GraphEdgeCreated { .. } => {
-                self.graph_mutations += 1;
-            }
-            _ => {}
-        }
-    }
-
-    /// Deterministic content hash. Same `BTreeSet` + counter values
-    /// always yield the same bytes (BTreeSet iterates in key order,
-    /// `serde_json::to_vec` is deterministic for these shapes).
-    pub fn hash(&self) -> Blake3Hash {
-        let bytes =
-            serde_json::to_vec(self).expect("SimulationState always serialisable");
-        Blake3Hash::of(&bytes)
-    }
-}
+// SimulationState moved to `crate::simulation::state` (S4) where
+// the per-companion FSM lives. The lighter counter-style projection
+// used by S2 `replay()` round-trip integrity tests now lives at
+// `crate::digest::SimulationDigest` — a different concern.
 
 #[cfg(test)]
 mod tests {
@@ -766,51 +708,6 @@ mod tests {
         assert_eq!(decoded, h);
     }
 
-    #[test]
-    fn simulation_state_apply_counts_events() {
-        let mut s = SimulationState::initial();
-        let alice = cid("alice");
-        s.apply(&AgentEvent::ParticipantJoined {
-            agent_id: alice,
-            role: ProviderRole::CodeWorker,
-        });
-        s.apply(&AgentEvent::MessageStarted {
-            message_id: MessageId::new("m1"),
-            agent_id: alice,
-        });
-        s.apply(&AgentEvent::ToolCallStarted {
-            tool_call_id: ToolCallId::new("t1"),
-            agent_id: alice,
-            tool_name: "code_edit".to_string(),
-            input_hash: Blake3Hash::of(b""),
-        });
-        s.apply(&AgentEvent::Error {
-            agent_id: alice,
-            code: "E1".to_string(),
-            message: "bad".to_string(),
-        });
-        assert_eq!(s.event_count, 4);
-        assert_eq!(s.message_count, 1);
-        assert_eq!(s.tool_call_count, 1);
-        assert_eq!(s.error_count, 1);
-        assert!(s.agents_present.contains(&alice));
-    }
-
-    #[test]
-    fn simulation_state_hash_deterministic() {
-        let alice = cid("alice");
-        let mut a = SimulationState::initial();
-        let mut b = SimulationState::initial();
-        for _ in 0..3 {
-            a.apply(&AgentEvent::MessageStarted {
-                message_id: MessageId::new("m"),
-                agent_id: alice,
-            });
-            b.apply(&AgentEvent::MessageStarted {
-                message_id: MessageId::new("m"),
-                agent_id: alice,
-            });
-        }
-        assert_eq!(a.hash(), b.hash(), "same events produce same hash");
-    }
+    // SimulationState tests moved to `crate::digest` alongside the
+    // `SimulationDigest` they cover.
 }
