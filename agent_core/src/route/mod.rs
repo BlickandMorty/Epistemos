@@ -30,6 +30,7 @@ use crate::format::{validate_against, FormatError};
 
 pub mod variant_a;
 pub mod variant_b;
+pub mod variant_c;
 
 pub const ROUTE_INPUT_V1_ID: &str = "epistemos://schemas/route_capture.input.v1.json";
 pub const ROUTE_OUTPUT_V1_ID: &str = "epistemos://schemas/route_capture.output.v1.json";
@@ -59,6 +60,13 @@ pub const CREATE_FOLDER_CLUSTER_MIN_COUNT: usize = 3;
 /// Plan §4.2 — reasoning_trace hard cap. 280 chars ≈ 70 tokens. Brief-
 /// Is-Better arxiv:2604.02155 — Qwen 1.5B peaks at ~32 reasoning tokens.
 pub const REASONING_TRACE_MAX_CHARS: usize = 280;
+
+/// Plan §4.5 Variant C confidence values (specific to each branch of
+/// the decision tree, distinct from VARIANT_C_FLOOR which is the
+/// orchestrator's accept threshold). Pinned so silent drift breaks tests.
+pub const VARIANT_C_PLACE_VIA_FOUND_CONFIDENCE: f64 = 0.72;
+pub const VARIANT_C_CREATE_FOLDER_CONFIDENCE: f64 = 0.71;
+pub const VARIANT_C_PLACE_VIA_MAJORITY_CONFIDENCE: f64 = 0.70;
 
 /// Plan §4.1 — exactly four routing actions. Mismatch with the schema
 /// enum would be a structural divergence; round-trip tests prevent it.
@@ -143,9 +151,79 @@ impl RouteDecision {
         }
     }
 
+    /// Plan §4.5 RouteDecision::place — drop the capture into an existing
+    /// folder. Caller supplies confidence + reasoning_trace.
+    pub fn place(folder: impl Into<String>, confidence: f64, reasoning: impl Into<String>) -> Self {
+        let reasoning = truncate_chars(reasoning.into(), REASONING_TRACE_MAX_CHARS);
+        Self {
+            action: Action::Place,
+            folder_path: Some(folder.into()),
+            target_note_path: None,
+            new_folder_name: None,
+            confidence,
+            reasoning_trace: reasoning,
+            alternative_paths: Vec::new(),
+        }
+    }
+
+    /// Plan §4.5 RouteDecision::merge — append to an existing note.
+    /// Gated at the call site by §4.5: confidence ≥ 0.90 AND target's
+    /// last-edited > 24h. Constructor doesn't enforce the gate (variant
+    /// logic does); this just builds the typed value.
+    pub fn merge(
+        target_note_path: impl Into<String>,
+        confidence: f64,
+        reasoning: impl Into<String>,
+    ) -> Self {
+        let reasoning = truncate_chars(reasoning.into(), REASONING_TRACE_MAX_CHARS);
+        Self {
+            action: Action::MergeIntoExistingNote,
+            folder_path: None,
+            target_note_path: Some(target_note_path.into()),
+            new_folder_name: None,
+            confidence,
+            reasoning_trace: reasoning,
+            alternative_paths: Vec::new(),
+        }
+    }
+
+    /// Plan §4.5 RouteDecision::create_folder — propose a new folder
+    /// sibling. Gated at the call site by §4.5: cluster tight (cos
+    /// ≥ 0.80 across ≥3 notes), parent unfit, no existing concept
+    /// within cosine 0.92. Constructor builds the typed value;
+    /// variant logic enforces the gate.
+    pub fn create_folder(
+        parent_folder: impl Into<String>,
+        new_folder_name: impl Into<String>,
+        confidence: f64,
+        reasoning: impl Into<String>,
+    ) -> Self {
+        let reasoning = truncate_chars(reasoning.into(), REASONING_TRACE_MAX_CHARS);
+        Self {
+            action: Action::CreateFolder,
+            folder_path: Some(parent_folder.into()),
+            target_note_path: None,
+            new_folder_name: Some(new_folder_name.into()),
+            confidence,
+            reasoning_trace: reasoning,
+            alternative_paths: Vec::new(),
+        }
+    }
+
     pub fn validate(&self) -> Result<(), FormatError> {
         let v = serde_json::to_value(self)?;
         validate_against(ROUTE_OUTPUT_SCHEMA, &v)
+    }
+}
+
+/// Char-boundary-safe truncation for UTF-8 reasoning_trace fields.
+/// Used by all four constructors (defer / place / merge / create_folder)
+/// so that Brief-Is-Better §4.2 cap is uniformly enforced.
+fn truncate_chars(s: String, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        s
+    } else {
+        s.chars().take(max_chars).collect()
     }
 }
 
