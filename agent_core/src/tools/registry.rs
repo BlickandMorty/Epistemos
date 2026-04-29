@@ -692,6 +692,12 @@ impl ToolRegistry {
             v2_catalog::skills_manage::SPEC,
             Arc::new(super::skills::SkillManageHandler::new()),
         ));
+        // system.process — manages action.terminal PTYs. Unit struct;
+        // unconditional. Pro-only same as action.terminal.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::system_process::SPEC,
+            Arc::new(super::terminal::ProcessHandler),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2299,6 +2305,8 @@ mod tier_tests {
         //                       graph.vault_navigate,
         //                       knowledge.session_search) — gated out
         //                       in the None branch
+        //   2F-15  : +1 always (system.process — manages action.terminal
+        //                       PTYs; Pro-only same as action.terminal)
         //   trajectory.export, intelligence.self_evolve, graph.query,
         //   graph.vault_navigate, knowledge.session_search are skipped
         //   here because vault_root_path is None;
@@ -2306,7 +2314,7 @@ mod tier_tests {
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 56, "2F-13 ships 56 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 57, "2F-15 ships 57 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2365,6 +2373,7 @@ mod tier_tests {
         assert!(names.contains(&"skills.list"));
         assert!(names.contains(&"skills.view"));
         assert!(names.contains(&"skills.manage"));
+        assert!(names.contains(&"system.process"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2432,8 +2441,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            61,
-            "all 61 unconditional + vault-root-bound v2 tools present"
+            62,
+            "all 62 unconditional + vault-root-bound v2 tools present"
         );
     }
 

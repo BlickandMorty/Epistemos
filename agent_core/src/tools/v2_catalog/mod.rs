@@ -66,6 +66,7 @@ pub mod skills_list;
 pub mod skills_manage;
 pub mod skills_view;
 pub mod system_cron;
+pub mod system_process;
 pub mod system_todo;
 pub mod trajectory_export;
 pub mod vault_read;
@@ -162,6 +163,7 @@ mod tests {
             super::graph_query::SPEC,
             super::graph_vault_navigate::SPEC,
             super::knowledge_session_search::SPEC,
+            super::system_process::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -455,6 +457,10 @@ mod tests {
                 super::knowledge_session_search::SPEC.name,
                 (super::knowledge_session_search::SPEC.input_schema)(),
             ),
+            (
+                super::system_process::SPEC.name,
+                (super::system_process::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -534,6 +540,7 @@ mod tests {
             super::graph_query::SPEC,
             super::graph_vault_navigate::SPEC,
             super::knowledge_session_search::SPEC,
+            super::system_process::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
@@ -599,5 +606,14 @@ mod tests {
                 spec.name
             );
         }
+        // system.process operates on the action.terminal PTY pool
+        // (kill/write are destructive); Pro-only by the same logic
+        // as action.terminal itself.
+        assert_eq!(
+            super::system_process::SPEC.profile,
+            Profile::ProOnly,
+            "system.process must be Pro-only — manages action.terminal PTYs"
+        );
+        assert!(!super::system_process::SPEC.small_model_safe);
     }
 }
