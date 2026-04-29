@@ -115,20 +115,46 @@ impl ActivityTracker {
         self.windows
     }
 
-    /// Registers a companion in the tracker. Called by the registry
-    /// after creation. Initial state is `JustAcquired`; the next
-    /// observed event flips it to `Active`. If the companion already
-    /// exists, this is a no-op.
+    /// Registers a *newly-created* companion in the tracker.
+    /// Initial state is `JustAcquired` — the rainbow-flash
+    /// entrance per DOCTRINE §3.5 is bound to this state. The
+    /// next observed event flips it to `Active`. No-op if the
+    /// companion already exists.
     pub fn register(&mut self, id: CompanionId) -> Option<ActivityTransition> {
         if self.state.contains_key(&id) {
             return None;
         }
         self.state.insert(id, ActivityState::JustAcquired);
-        // No prior event time — leave `last_event_at` unset so the
-        // companion stays in `JustAcquired` until the first event.
-        // DOCTRINE §3.5: the rainbow-flash entrance is bound to
-        // `companion_registered`, not to a state transition emitted
-        // here.
+        // No prior event time — leave `last_event_at` unset so
+        // the companion stays in `JustAcquired` until the first
+        // event.
+        None
+    }
+
+    /// Registers a companion that already existed before this
+    /// process started — used by `CompanionRegistry::open()` to
+    /// restore state across restarts (audit Finding #4 from the
+    /// post-S2 review). The seeded state is `Dormant` — the
+    /// conservative reading of DOCTRINE §3.2 "Dormant ≠ deleted":
+    /// across a restart the companion hasn't run *in this
+    /// session*, so `Dormant` correctly conveys "alive but
+    /// inactive" without falsely advertising a fresh
+    /// `JustAcquired` rainbow entrance on every launch.
+    ///
+    /// V14 polish may upgrade this to RFC3339-audit-log archaeology
+    /// (parse last-event timestamp, compute elapsed, seed an
+    /// appropriate state from the §3.2 windows) but `Dormant` is
+    /// load-bearing-correct for V0/V1.
+    ///
+    /// Returns `None` always — restoration emits no observable
+    /// transition because the consumer (placement view-models)
+    /// is rendering its first frame with this state, not
+    /// reacting to a change.
+    pub fn register_existing(&mut self, id: CompanionId) -> Option<ActivityTransition> {
+        if self.state.contains_key(&id) {
+            return None;
+        }
+        self.state.insert(id, ActivityState::Dormant);
         None
     }
 
@@ -244,6 +270,43 @@ mod tests {
         let trans = t.register(c);
         assert!(trans.is_none(), "register itself emits no transition");
         assert_eq!(t.state(c), Some(ActivityState::JustAcquired));
+    }
+
+    #[test]
+    fn register_existing_seeds_dormant_for_restart_restoration() {
+        // Post-S2 audit Finding #4: across a restart, a
+        // pre-existing companion must NOT show as JustAcquired
+        // (rainbow flash on every launch is wrong per
+        // DOCTRINE §3.2 "Dormant ≠ deleted").
+        let mut t = ActivityTracker::new();
+        let c = id();
+        let trans = t.register_existing(c);
+        assert!(trans.is_none());
+        assert_eq!(t.state(c), Some(ActivityState::Dormant));
+    }
+
+    #[test]
+    fn register_existing_is_no_op_if_already_present() {
+        let mut t = ActivityTracker::new();
+        let c = id();
+        t.register(c);
+        // Now hint that this companion existed before — should
+        // NOT downgrade JustAcquired → Dormant.
+        let trans = t.register_existing(c);
+        assert!(trans.is_none());
+        assert_eq!(t.state(c), Some(ActivityState::JustAcquired));
+    }
+
+    #[test]
+    fn restored_dormant_companion_observes_event_to_active() {
+        // After restart restoration: companion is Dormant, then
+        // an event fires → state must transition to Active.
+        let mut t = ActivityTracker::new();
+        let c = id();
+        t.register_existing(c);
+        let tr = t.observe_event(c, Instant::now()).unwrap();
+        assert_eq!(tr.from, ActivityState::Dormant);
+        assert_eq!(tr.to, ActivityState::Active);
     }
 
     #[test]
