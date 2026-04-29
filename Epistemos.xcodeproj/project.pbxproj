@@ -249,7 +249,6 @@
 		5EA39F523812F677F8CD543A /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BB5C2BD734F65B1E087FFEB /* MessageBubble.swift */; };
 		5EA3F3ABE93DD403CC6B1000 /* SSMRuntimeProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED33EB511BB9AD0AF74BEB1 /* SSMRuntimeProfile.swift */; };
 		5EE95F33E974564D70146274 /* ResearchModeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32196B57827E9789BE33C9C /* ResearchModeTests.swift */; };
-		5FA0F33C75DFD88FF58D85BC /* sgmm_kernel.cpython-312.pyc in Resources */ = {isa = PBXBuildFile; fileRef = E909D3E80C0C6FE49ED562A6 /* sgmm_kernel.cpython-312.pyc */; };
 		5FD890BC095DBE86F5519396 /* AdapterSelectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F83053E2F36E60FA638AE9D9 /* AdapterSelectorView.swift */; };
 		5FDB010CD48011FD58891D33 /* TextKit2FoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED7BCC4393D0830900CFDE34 /* TextKit2FoundationTests.swift */; };
 		5FFF46CA553D63872626A834 /* EditableTransclusionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 050AD3156D37BFE3E139EFFE /* EditableTransclusionView.swift */; };
@@ -292,6 +291,7 @@
 		6F1AA0DD44DC8C050ED1CCDE /* BlockEmbeddingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7923A133620F989762D7A9C6 /* BlockEmbeddingTests.swift */; };
 		70FF71E217877FD681651188 /* DiffSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B0C2D32D0347311539ED7BE /* DiffSheetView.swift */; };
 		712416E96D29259BB742D560 /* NLAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA2654CC8ADA9383F72FC669 /* NLAnalysisService.swift */; };
+		7163EEF8EF48AE01B9A21EBF /* FirstRunBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F49757762627D5CC939853 /* FirstRunBootstrap.swift */; };
 		7174BC30DAFE79FF4C245B85 /* ConstrainedDecodingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A9BD7A1B6DF05F82117AA2 /* ConstrainedDecodingService.swift */; };
 		71B515B00D4223ADCB38F093 /* MiniChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B01501774D229B160DB423DA /* MiniChatView.swift */; };
 		71E248F5C541E0BAFF82EFF1 /* LocalModelReleaseSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813BCC6FDC1056D290696FDF /* LocalModelReleaseSweepTests.swift */; };
@@ -362,6 +362,7 @@
 		8C8A78384A1F0C50CE625780 /* FuzzGenerators.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61DDF8E6C1C9EE55D955BFF7 /* FuzzGenerators.swift */; };
 		8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 33119B911499635E646BB389 /* RetroGaming.ttf */; };
 		8DC1D70ABF39CDB182385548 /* SSMMemorySidecar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3C50429E6C697B7EA97BC11 /* SSMMemorySidecar.swift */; };
+		8DFCD6F2198B4CAB416850B7 /* GraphFFIBenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E81DB15C42DF3BB51E1C26E /* GraphFFIBenchmarkTests.swift */; };
 		8F2C6A9BA3E85107B3039ECC /* Screen2AXFusion.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC22CD154E3A02C966BE1B00 /* Screen2AXFusion.swift */; };
 		8F3F144970C641E09B0DBE7F /* OmegaPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16362A21806262ACF048A137 /* OmegaPanel.swift */; };
 		8F45976BF7A8AEF967427EF4 /* KnowledgeFusionViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BA98B1F7C494F6868C3D50 /* KnowledgeFusionViewModel.swift */; };
@@ -419,6 +420,7 @@
 		A68BF44A2836D8A2194CCF40 /* MappedNoteBody.swift in Sources */ = {isa = PBXBuildFile; fileRef = D004B24777CF805F33A0CAF9 /* MappedNoteBody.swift */; };
 		A694D8A167BF8EABA794234F /* VaultIndexActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9161A95A96327C5C4D0C72FD /* VaultIndexActor.swift */; };
 		A71365BD10BCD21D66556B48 /* train_knowledge.py in Resources */ = {isa = PBXBuildFile; fileRef = 23C817EF8EEEE78595375725 /* train_knowledge.py */; };
+		A72D504F54285834851BEDFE /* FirstRunBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2529ECAD878DA51710B015E4 /* FirstRunBootstrapTests.swift */; };
 		A74A77E162BF30D666237011 /* EditorBreadcrumbBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9C75AC4908EDE695BC9E80D /* EditorBreadcrumbBar.swift */; };
 		A7C6F7E269AFC69BA396C48A /* MarkdownEditorStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47A5CFD927A6231353C3D60E /* MarkdownEditorStyle.swift */; };
 		A9B51C39B8073B1BCCD1D29D /* train_style.py in Resources */ = {isa = PBXBuildFile; fileRef = DF0604C18937D479BE8A18E6 /* train_style.py */; };
@@ -452,7 +454,6 @@
 		B35FBFD897FC00A13B800DB5 /* SDPageDerivedStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9AA67AA1013F943B25D1C35 /* SDPageDerivedStateTests.swift */; };
 		B3696812D4C958093497B24D /* OmegaMoLoRARouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B9929AC713F7E0FBA8D4F4 /* OmegaMoLoRARouterTests.swift */; };
 		B375D79FFE24992146542A40 /* QueryRuntimeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E6200C93F896D867E02351 /* QueryRuntimeTests.swift */; };
-		B4171CA047787F20F77C1088 /* molora_inference.cpython-312.pyc in Resources */ = {isa = PBXBuildFile; fileRef = BB9944A73F5DA01B11B3DDF1 /* molora_inference.cpython-312.pyc */; };
 		B432C36B5AAC0F186180549C /* CoTStreamInterceptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9493939ADBF2A151FC520002 /* CoTStreamInterceptor.swift */; };
 		B47A57259D826B655169E989 /* InstantRecallTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2894D77867549645824A3ED7 /* InstantRecallTests.swift */; };
 		B4C3794F9AE4C4827F2CA192 /* Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39BF697E1D7B96C4CCE733C3 /* Extensions.swift */; };
@@ -749,6 +750,7 @@
 		244E2CD5AEDD94C9F611A2B8 /* TraceDataMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TraceDataMixer.swift; sourceTree = "<group>"; };
 		2496F79FA7D68E11D17F9D08 /* PhaseOneFiveScaffoldingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseOneFiveScaffoldingTests.swift; sourceTree = "<group>"; };
 		24ED9F8813B175DEB1995562 /* NoteInsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteInsightService.swift; sourceTree = "<group>"; };
+		2529ECAD878DA51710B015E4 /* FirstRunBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunBootstrapTests.swift; sourceTree = "<group>"; };
 		25F1F01D145510F239B89497 /* TypewriterMarkdown.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TypewriterMarkdown.swift; sourceTree = "<group>"; };
 		263A4964F53BBEE79D9DA1C4 /* ChunkedMCPFraming.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkedMCPFraming.swift; sourceTree = "<group>"; };
 		2665F7F46B9B71981F98075B /* VisualVerifyLoopTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualVerifyLoopTests.swift; sourceTree = "<group>"; };
@@ -760,6 +762,7 @@
 		274F5A977469285FA08FBBC5 /* CredentialRedactor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialRedactor.swift; sourceTree = "<group>"; };
 		27C18B630A648FA5BCE26D07 /* ChatSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSidebarView.swift; sourceTree = "<group>"; };
 		27D171C69CB160056E3CAA24 /* MarkdownContentStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownContentStorage.swift; sourceTree = "<group>"; };
+		27F49757762627D5CC939853 /* FirstRunBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FirstRunBootstrap.swift; sourceTree = "<group>"; };
 		287EA2F294CE51D9999D7096 /* UserFacingModelOutputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserFacingModelOutputTests.swift; sourceTree = "<group>"; };
 		2894D77867549645824A3ED7 /* InstantRecallTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstantRecallTests.swift; sourceTree = "<group>"; };
 		291567F8B992AB3846B23B29 /* SemanticClusterService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticClusterService.swift; sourceTree = "<group>"; };
@@ -1047,6 +1050,7 @@
 		9D9038668F6BC856B55F90B2 /* SuggestionPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionPopoverView.swift; sourceTree = "<group>"; };
 		9DA676B9695E049FB41113BE /* EpistemicStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemicStatus.swift; sourceTree = "<group>"; };
 		9E6B68327442B515F39C0118 /* MoLoRARouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoLoRARouter.swift; sourceTree = "<group>"; };
+		9E81DB15C42DF3BB51E1C26E /* GraphFFIBenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphFFIBenchmarkTests.swift; sourceTree = "<group>"; };
 		9EF03138061D7396317DF9F6 /* BrandedTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandedTypes.swift; sourceTree = "<group>"; };
 		A0523AADC93A0603B43F86A8 /* ConversationPersistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationPersistence.swift; sourceTree = "<group>"; };
 		A0BB2AE5211528EC419C83B5 /* ConfirmationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationSheet.swift; sourceTree = "<group>"; };
@@ -1131,7 +1135,6 @@
 		BA783873D4130B43E45C7358 /* LocalAgentLoop.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAgentLoop.swift; sourceTree = "<group>"; };
 		BAA1F343E6B83754719EF5DF /* Phase4Bridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Phase4Bridge.swift; sourceTree = "<group>"; };
 		BB6957DC6B9E8DF75A9E5444 /* BackendRuntimeContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendRuntimeContract.swift; sourceTree = "<group>"; };
-		BB9944A73F5DA01B11B3DDF1 /* molora_inference.cpython-312.pyc */ = {isa = PBXFileReference; path = "molora_inference.cpython-312.pyc"; sourceTree = "<group>"; };
 		BBF1DE0FF63B16FCB60201B9 /* SDChat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SDChat.swift; sourceTree = "<group>"; };
 		BBF9DAAD25FDFF22798F254E /* EpistemosApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EpistemosApp.swift; sourceTree = "<group>"; };
 		BC2BBD3945CD4ADAA09A0F75 /* DailyBriefingIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefingIntent.swift; sourceTree = "<group>"; };
@@ -1241,7 +1244,6 @@
 		E73F0A8473FD2640E260C4B7 /* ModelProfileCreationSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelProfileCreationSheet.swift; sourceTree = "<group>"; };
 		E7785A4D773D97B4E65810BA /* SettingsCategoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsCategoryTests.swift; sourceTree = "<group>"; };
 		E7C1E6D4C83CDBBFC3300142 /* ExecutionProgressView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExecutionProgressView.swift; sourceTree = "<group>"; };
-		E909D3E80C0C6FE49ED562A6 /* sgmm_kernel.cpython-312.pyc */ = {isa = PBXFileReference; path = "sgmm_kernel.cpython-312.pyc"; sourceTree = "<group>"; };
 		E90D759FDBBDFA1758B2548F /* ResearchEvidenceScorer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResearchEvidenceScorer.swift; sourceTree = "<group>"; };
 		E94FF2BC2FBCCEAC017956B6 /* OmegaToolSchemaGrammarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OmegaToolSchemaGrammarTests.swift; sourceTree = "<group>"; };
 		E994EA0C95A26794901E8122 /* VaultImportFileCopier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VaultImportFileCopier.swift; sourceTree = "<group>"; };
@@ -1571,6 +1573,14 @@
 			path = Epistemos;
 			sourceTree = "<group>";
 		};
+		33818BACD8385E9950DDB111 /* Benchmarks */ = {
+			isa = PBXGroup;
+			children = (
+				9E81DB15C42DF3BB51E1C26E /* GraphFFIBenchmarkTests.swift */,
+			);
+			path = Benchmarks;
+			sourceTree = "<group>";
+		};
 		361AE2089A104BB95900CF16 /* Sessions */ = {
 			isa = PBXGroup;
 			children = (
@@ -1637,15 +1647,6 @@
 				7DD27BBEF72880FF6CABB829 /* WorkspaceSummaryService.swift */,
 			);
 			path = State;
-			sourceTree = "<group>";
-		};
-		47E12D0021DAC91EAB39F8F5 /* __pycache__ */ = {
-			isa = PBXGroup;
-			children = (
-				BB9944A73F5DA01B11B3DDF1 /* molora_inference.cpython-312.pyc */,
-				E909D3E80C0C6FE49ED562A6 /* sgmm_kernel.cpython-312.pyc */,
-			);
-			path = __pycache__;
 			sourceTree = "<group>";
 		};
 		5524911BD985BC8017B05EA2 /* LocalAgent */ = {
@@ -2012,7 +2013,6 @@
 				6A2A8044573D53EA7B6DF7AD /* MoLoRAInferenceService.swift */,
 				D385E1165E45DD101A2AE54F /* sgmm_kernel.py */,
 				754DF6636CDEB71A06511FB0 /* train_router.py */,
-				47E12D0021DAC91EAB39F8F5 /* __pycache__ */,
 				59DD3AE03E45639F18E600CB /* tests */,
 			);
 			path = MoLoRA;
@@ -2079,6 +2079,7 @@
 				4D93E84A95FD9841556CF2A2 /* AgentSessionLineageStore.swift */,
 				AA8A5C5592BC092FE0F655F5 /* ContradictionDetectionService.swift */,
 				A0523AADC93A0603B43F86A8 /* ConversationPersistence.swift */,
+				27F49757762627D5CC939853 /* FirstRunBootstrap.swift */,
 				DF1AFE5D102F67FD5CA3E038 /* KnowledgeGraphPayload.swift */,
 				5C4EF15FA78348A7A427CC21 /* LiveNoteExecutor.swift */,
 				7D99193CCC71DA59ACE93DA2 /* LiveNoteScanner.swift */,
@@ -2221,6 +2222,7 @@
 				A8BC10A37E203B6655E0B722 /* FileAttachmentBuilderTests.swift */,
 				B920AF680012DC208899993A /* FilterEngineComprehensiveTests.swift */,
 				A7095AA9912EEEADFF874E0E /* FilterEngineTests.swift */,
+				2529ECAD878DA51710B015E4 /* FirstRunBootstrapTests.swift */,
 				EFF3B69240436CF8C8909D67 /* FocusModeTests.swift */,
 				B6166B7BF9AD82F1EC501A1E /* ForgettingTest.swift */,
 				61DDF8E6C1C9EE55D955BFF7 /* FuzzGenerators.swift */,
@@ -2356,6 +2358,7 @@
 				2665F7F46B9B71981F98075B /* VisualVerifyLoopTests.swift */,
 				7FE47479A048B67B9D5BFA83 /* WorkspaceSnapshotTests.swift */,
 				46BECE0A28E5BF5E1A1FE21B /* WritingToolsBridgeTests.swift */,
+				33818BACD8385E9950DDB111 /* Benchmarks */,
 				B6CB80EB4F64B84F365AB8C4 /* Drafts */,
 			);
 			path = EpistemosTests;
@@ -2613,11 +2616,9 @@
 				AC3C291EB8258EA990B86BB4 /* PrivacyInfo.xcprivacy in Resources */,
 				8D4F7421EFE4AF5E3B43EE92 /* RetroGaming.ttf in Resources */,
 				3FA96F2374DF47ADEED57EDD /* __init__.py in Resources */,
-				B4171CA047787F20F77C1088 /* molora_inference.cpython-312.pyc in Resources */,
 				E53BE06C30D00726AF0271BF /* molora_inference.py in Resources */,
 				AC1D2B5D2AFAD9597E242E2C /* sdf_labels.json in Resources */,
 				76684074C311EA8FE8F61266 /* sdf_labels.png in Resources */,
-				5FA0F33C75DFD88FF58D85BC /* sgmm_kernel.cpython-312.pyc in Resources */,
 				B8C0D7CAA1C5B74E5167275D /* sgmm_kernel.py in Resources */,
 				60B8C554B6A545CA36ABB7FE /* test_router.py in Resources */,
 				37F13F0B6FB084F01BF792AF /* test_sgmm_kernel.py in Resources */,
@@ -2762,12 +2763,14 @@
 				44A0E226426F148FFB7DC835 /* FileAttachmentBuilderTests.swift in Sources */,
 				433A7A063E508635EB923A64 /* FilterEngineComprehensiveTests.swift in Sources */,
 				FB1E7AE297C82291750DE634 /* FilterEngineTests.swift in Sources */,
+				A72D504F54285834851BEDFE /* FirstRunBootstrapTests.swift in Sources */,
 				AE6B6880F5D02024CBC22AF5 /* FocusModeTests.swift in Sources */,
 				878F2C19E76FC9237E64F097 /* ForgettingTest.swift in Sources */,
 				8C8A78384A1F0C50CE625780 /* FuzzGenerators.swift in Sources */,
 				0421C1D3B7F67F34F49539E3 /* GradeTests.swift in Sources */,
 				0A579516CA8304642E9B59CB /* GraphBuilderComprehensiveTests.swift in Sources */,
 				73A926CA1821FB33CD843AAE /* GraphEdgeCaseTests.swift in Sources */,
+				8DFCD6F2198B4CAB416850B7 /* GraphFFIBenchmarkTests.swift in Sources */,
 				C1367B15AACE6885E17F6A64 /* GraphMetadataComprehensiveTests.swift in Sources */,
 				2B09FBC437D2E33A59BA0618 /* GraphModelTests.swift in Sources */,
 				1F9F990D40AF48F1CB61FDE4 /* GraphNodeTypeRuntimeSyncTests.swift in Sources */,
@@ -3037,6 +3040,7 @@
 				AD0D48056F7A1426579062C2 /* FeedbackIndicatorView.swift in Sources */,
 				6125DCE59985AD621186A5C6 /* FeedbackLogger.swift in Sources */,
 				5AFB0026EA76452B0AFA4775 /* FilterEngine.swift in Sources */,
+				7163EEF8EF48AE01B9A21EBF /* FirstRunBootstrap.swift in Sources */,
 				9F577CA0D8AF31F848191480 /* FocusedResponsePanel.swift in Sources */,
 				07E7C6B78B776F47CD6652A3 /* FolderEntity.swift in Sources */,
 				DCE89D95C93F3F376EE4EA0B /* FrictionMonitorService.swift in Sources */,

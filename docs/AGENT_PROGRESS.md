@@ -1,6 +1,31 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-15 | All sprints COMPLETE | Full automated sweep green: Swift 331 critical tests / 15 suites, graph-engine 2456, agent_core 501, syntax-core 21 | Swift BUILD SUCCEEDED | Current research source of truth: docs/architecture/PLAN_V2.md §23-§27
+Last updated: 2026-04-29 | Quick Capture Phase 0.5 shipped (first-run bootstrap component) | Full agent_core sweep green: 503 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 0.5 — First-Run Bootstrap ✅
+
+Plan reference: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md §11 Phase 0.5.
+
+**Web research consulted (per §0.1 protocol):**
+- gorilla.cs.berkeley.edu BFCL V4 — function-calling leaderboard for variant-floor calibration; surfaced no specific Qwen2.5-1.5B refusal-correctness number, leaderboard updated periodically.
+- dev.to/thefalkonguy MLX install + blog.mean.ceo / betterstack.com Qwen 3.5 small-models guides — Qwen 3.5-0.8B reaches ~100% on classification with 3 in-prompt exemplars; Qwen 3.5-2B reaches ~100% zero-shot. Plan §6.6.1 picked Qwen 2.5-1.5B before 3.5 launched.
+- huggingface/swift-transformers — confirms HuggingFace Swift package supports background resumable downloads + offline mode, suitable for §11.2 model-download sub-step.
+
+**What changed my mind:** the 2026-04 Qwen 3.5 community benchmarks suggest 3.5-0.8B with the plan-mandated 3-shot is at-or-better than 2.5-1.5B at half the resident set. Plan is authority, so default stays at Qwen 2.5-1.5B; both Qwen 3.5-0.8B and Qwen 3.5-2B are registered as router candidates so Phase 6.5 per-model bench can decide empirically.
+
+**Shipped:**
+- [x] `agent_core/src/bootstrap.rs` — canonical Rust impl. Vault scaffold (`_inbox`, `_inbox/review`, `daily`, `notes`), atomic `.epistemos/vault.json` metadata stamp via tempfile-rename (plan §6.9), `default_vault_path()` → `~/Documents/Epistemos`, `is_fresh()`, idempotent `bootstrap()`. Three `RouterCandidate` entries (Qwen 2.5-1.5B = plan default, Qwen 3.5-0.8B, Qwen 3.5-2B), three `EmbeddingCandidate` entries (bge-small = plan default, nomic, bge-large).
+- [x] 9 Rust unit tests covering: fresh-bootstrap creates all four scaffold folders + metadata, idempotent re-run preserves `created_at`, JSON round-trip, partial-scaffold recovers, default vault path lands at `~/Documents/Epistemos`, exactly one router/embedding plan_default, all three plan-mentioned router options registered.
+- [x] `Epistemos/Vault/FirstRunBootstrap.swift` — Swift coordinator mirroring the Rust spec line-for-line (FileManager-based, uses Swift's `replaceItemAt` for atomic metadata writes). TODO collapse to one impl via UniFFI in Phase 1.
+- [x] `EpistemosTests/FirstRunBootstrapTests.swift` — 9 Swift Testing tests including the explicit end-to-end "simulated first-run" test the user requested: temp-dir vault → bootstrap → verify scaffold + metadata + headroom budget + canary write to `_inbox/` + idempotent re-run preserves user-written canary.
+- [x] `agent_core/src/lib.rs` — registered `pub mod bootstrap;`.
+- [x] Verification: `cargo test --manifest-path agent_core/Cargo.toml --lib` = 503 passed, 0 failed (494 baseline + 9 new).
+
+**Deferred to follow-up phases (not Phase 0.5 scope):**
+- UniFFI export of `bootstrap()` so Swift calls Rust directly instead of mirroring (Phase 1).
+- LocalTextModelID enum extension to surface the new Qwen 2.5 candidates as user-selectable inference models (Phase 6 per plan).
+- Real folder-picker UI + download-progress UI (UI track, not headless bootstrap).
+- Plan §11 Phase 0.5 manual verification (`<90s fresh install → first capture → ⌘? trace`) — UI-level gate, runs against the built app.
 
 ## 2026-04-15 PLAN_V2 Research Integration + Sessions 0-6 ✅
 - [x] Committed Phase 7 Step 9: Graph Chat receiver wired end-to-end through ACC and Rust compile path (GraphState → ACC → ChatCoordinator → Rust GraphContext passthrough)
