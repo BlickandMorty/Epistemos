@@ -2,6 +2,7 @@ pub mod agent_loop;
 pub mod approval;
 pub mod bootstrap;
 pub mod bridge;
+pub mod browser_engine;
 pub mod cache;
 pub mod canon;
 pub mod effect;
