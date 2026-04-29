@@ -227,15 +227,74 @@ fn truncate_chars(s: String, max_chars: usize) -> String {
     }
 }
 
-/// Phase 3A `route_capture` orchestrator stub. Walks the variant ladder
-/// per §4.5; in 3A only Variant D is implemented, so every call ends in
-/// `defer`. Variants A/B/C land as their dependencies come online.
-pub async fn route_capture(input: &RouteInput) -> RouteDecision {
-    // Phase 3B: try_centroid -> if confidence >= VARIANT_A_FLOOR, return.
-    // Phase 3C: try_llm_classify -> if confidence >= VARIANT_B_FLOOR, return.
-    // Phase 3D: try_concept_anchored -> if confidence >= VARIANT_C_FLOOR, return.
-    // Phase 3A (now): always defer with the input's vault_tree as the
-    // alternative_paths surface so the user has one-keystroke override.
+/// Plan §4.5 — `route_capture` orchestrator. Walks the variant
+/// ladder A → B → C → D in sequence:
+///
+/// ```text
+/// if variant_a (centroid cosine ≥ 0.85) → place
+/// if variant_b (LLM closed-vocab classify ≥ 0.75) → place|defer (model self-defer per §4.4 + §4.6)
+/// if variant_c (concept-anchored ≥ 0.70) → place|merge|create_folder
+/// otherwise                              → defer
+/// ```
+///
+/// Plan §4.5 confidence floors are FLOORS — a variant cannot return
+/// `place` if its own confidence is below threshold. The orchestrator
+/// re-checks the floor as a defence-in-depth guard against variant
+/// impls that might miss the threshold check internally.
+///
+/// Variant B's `Defer` action (model self-defer when the GBNF
+/// classifier picks the `DEFER` sentinel per §4.4) is accepted at
+/// any confidence; that's plan §4.6's "defer is a feature" applied
+/// to the model's own judgment.
+///
+/// Variant C's branch values (0.70 / 0.71 / 0.72 / merge cosine ≥ 0.90)
+/// are all at-or-above VARIANT_C_FLOOR by construction.
+pub async fn route_capture(input: &RouteInput, ctx: &RouteCtx) -> RouteDecision {
+    // Variant A — deterministic centroid embedding (no LLM per §1.4).
+    if let Some(d) = variant_a::try_centroid(
+        &input.capture_text,
+        &ctx.folders,
+        &ctx.embedder,
+    )
+    .await
+    {
+        if d.confidence >= VARIANT_A_FLOOR {
+            return d;
+        }
+    }
+
+    // Variant B — GBNF closed-vocab LLM classifier. Self-defer is a
+    // feature: orchestrator accepts Action::Defer at any confidence.
+    if let Some(d) = variant_b::try_llm_classify(
+        &input.capture_text,
+        &ctx.vault_paths,
+        ctx.classifier.as_ref(),
+    )
+    .await
+    {
+        if d.action == Action::Defer || d.confidence >= VARIANT_B_FLOOR {
+            return d;
+        }
+    }
+
+    // Variant C — concept-anchored placement / merge / create_folder.
+    let pf = ctx.parent_unfit_fn.clone();
+    if let Some(d) = variant_c::try_concept_anchored(
+        &input.capture_text,
+        ctx.extractor.as_ref(),
+        ctx.resolver.as_ref(),
+        ctx.neighbours.as_ref(),
+        move |p| pf(p),
+    )
+    .await
+    {
+        if d.confidence >= VARIANT_C_FLOOR {
+            return d;
+        }
+    }
+
+    // Variant D — defer with the input's vault_tree top-3 as
+    // alternative_paths so the user has one-keystroke override per §4.7.
     let alternatives: Vec<AlternativePath> = input
         .vault_tree
         .iter()
@@ -246,9 +305,45 @@ pub async fn route_capture(input: &RouteInput) -> RouteDecision {
         })
         .collect();
     RouteDecision::defer(
-        "phase 3A: variants A/B/C not yet wired; defer is the §4.6 always-safe fallback",
+        "low_confidence_after_three_variants",
         alternatives,
     )
+}
+
+/// Per-call routing context — carries the dependencies all four
+/// variants need. Production builders construct this from the
+/// vault state + Phase 6 inference layer + Phase 2D cache; tests
+/// construct it from controlled stubs.
+///
+/// The trait objects are `Arc<dyn ...>` so the orchestrator can
+/// hold a shared reference + clone cheaply. `parent_unfit_fn` is a
+/// closure rather than a trait because the policy is small + tends
+/// to vary per-vault rather than per-tool.
+pub struct RouteCtx {
+    /// Variant A — embedder for centroid cosine. Phase 6 wires real
+    /// MLX-backed bge-small; tests use the StubEmbedder from Phase 2D.
+    pub embedder: std::sync::Arc<dyn crate::cache::EmbeddingProvider>,
+    /// Variant A — folder centroids built from a NightBrain (§7.1) job.
+    pub folders: Vec<variant_a::FolderCentroid>,
+    /// Variant B — GBNF closed-vocab LLM classifier. Phase 6 wires
+    /// MLX-Structured GrammarMaskedLogitProcessor.
+    pub classifier: std::sync::Arc<dyn variant_b::LlmClassifier>,
+    /// Variant B — vault tree paths (filtered to non-_inbox at the
+    /// variant_b layer).
+    pub vault_paths: Vec<String>,
+    /// Variant C — concept extractor.
+    pub extractor: std::sync::Arc<dyn variant_c::ConceptExtractor>,
+    /// Variant C — entity resolver against the alias table + concept
+    /// graph.
+    pub resolver: std::sync::Arc<dyn variant_c::EntityResolver>,
+    /// Variant C — neighbour finder via vault.search.
+    pub neighbours: std::sync::Arc<dyn variant_c::NeighbourFinder>,
+    /// Variant C — parent_unfit policy (true iff no existing parent
+    /// folder is a better fit than creating a new one). Trivial
+    /// implementations check whether any centroid clears Variant A's
+    /// 0.85 floor; richer policies land later.
+    pub parent_unfit_fn:
+        std::sync::Arc<dyn Fn(&str) -> bool + Send + Sync>,
 }
 
 #[cfg(test)]
@@ -357,8 +452,64 @@ mod tests {
         let _: RouteDecision = serde_json::from_str(&s).unwrap();
     }
 
-    #[test]
-    fn route_capture_phase_3a_stub_always_defers() {
+    #[tokio::test]
+    async fn route_capture_falls_through_to_defer_when_all_variants_return_none() {
+        // Phase 3F orchestrator: with stubs that all return None, the
+        // ladder reaches Variant D and defers per §4.6.
+        use std::sync::Arc;
+
+        // All-null context: empty folders (Variant A → None), classifier
+        // that errors (Variant B → None), extractor that returns no
+        // concepts (Variant C → None).
+        struct NullClassifier;
+        #[async_trait::async_trait]
+        impl variant_b::LlmClassifier for NullClassifier {
+            async fn classify(
+                &self,
+                _: &str,
+                _: &[String],
+            ) -> Result<variant_b::VariantBOutput, variant_b::ClassifierError> {
+                Err(variant_b::ClassifierError::Inference("no model wired".into()))
+            }
+        }
+        struct NullExtractor;
+        #[async_trait::async_trait]
+        impl variant_c::ConceptExtractor for NullExtractor {
+            async fn extract(
+                &self,
+                _: &str,
+            ) -> Result<Vec<variant_c::Concept>, variant_c::ExtractorError> {
+                Ok(Vec::new())
+            }
+        }
+        struct NullResolver;
+        #[async_trait::async_trait]
+        impl variant_c::EntityResolver for NullResolver {
+            async fn resolve(&self, _: &str) -> variant_c::Resolution {
+                variant_c::Resolution::New
+            }
+        }
+        struct NullNeighbours;
+        #[async_trait::async_trait]
+        impl variant_c::NeighbourFinder for NullNeighbours {
+            async fn find(&self, _: &str, _: usize) -> Vec<variant_c::NeighbourHit> {
+                Vec::new()
+            }
+        }
+        let stub_embedder: Arc<dyn crate::cache::EmbeddingProvider> =
+            Arc::new(crate::cache::StubEmbedder { dim: 8 });
+
+        let ctx = RouteCtx {
+            embedder: stub_embedder,
+            folders: Vec::new(),
+            classifier: Arc::new(NullClassifier),
+            vault_paths: Vec::new(),
+            extractor: Arc::new(NullExtractor),
+            resolver: Arc::new(NullResolver),
+            neighbours: Arc::new(NullNeighbours),
+            parent_unfit_fn: Arc::new(|_| true),
+        };
+
         let input = RouteInput {
             capture_text: "Routing instinct on rematerialization captures.".to_string(),
             vault_tree: vec![VaultTreeEntry {
@@ -369,10 +520,309 @@ mod tests {
             }],
             recent_captures: vec![],
         };
-        let d = futures::executor::block_on(route_capture(&input));
+        let d = route_capture(&input, &ctx).await;
         assert_eq!(d.action, Action::Defer);
-        assert!(d.confidence > 0.0);
+        assert_eq!(d.confidence, 1.0, "defer confidence is 1.0 per §4.6");
+        // Plan §4.7 — defer surfaces alternative_paths so the user can
+        // override with one keystroke.
+        assert_eq!(d.alternative_paths.len(), 1);
+        assert_eq!(d.alternative_paths[0].path, "research/ml");
         d.validate().unwrap();
+    }
+
+    /// Orchestrator helper — build a RouteCtx with all-null variant
+    /// stubs. Tests can mutate individual fields to exercise specific
+    /// variant wins.
+    fn null_ctx() -> RouteCtx {
+        use std::sync::Arc;
+        struct NullClassifier;
+        #[async_trait::async_trait]
+        impl variant_b::LlmClassifier for NullClassifier {
+            async fn classify(
+                &self,
+                _: &str,
+                _: &[String],
+            ) -> Result<variant_b::VariantBOutput, variant_b::ClassifierError> {
+                Err(variant_b::ClassifierError::Inference("null".into()))
+            }
+        }
+        struct NullExtractor;
+        #[async_trait::async_trait]
+        impl variant_c::ConceptExtractor for NullExtractor {
+            async fn extract(
+                &self,
+                _: &str,
+            ) -> Result<Vec<variant_c::Concept>, variant_c::ExtractorError> {
+                Ok(Vec::new())
+            }
+        }
+        struct NullResolver;
+        #[async_trait::async_trait]
+        impl variant_c::EntityResolver for NullResolver {
+            async fn resolve(&self, _: &str) -> variant_c::Resolution {
+                variant_c::Resolution::New
+            }
+        }
+        struct NullNeighbours;
+        #[async_trait::async_trait]
+        impl variant_c::NeighbourFinder for NullNeighbours {
+            async fn find(&self, _: &str, _: usize) -> Vec<variant_c::NeighbourHit> {
+                Vec::new()
+            }
+        }
+        RouteCtx {
+            embedder: Arc::new(crate::cache::StubEmbedder { dim: 8 }),
+            folders: Vec::new(),
+            classifier: Arc::new(NullClassifier),
+            vault_paths: Vec::new(),
+            extractor: Arc::new(NullExtractor),
+            resolver: Arc::new(NullResolver),
+            neighbours: Arc::new(NullNeighbours),
+            parent_unfit_fn: Arc::new(|_| true),
+        }
+    }
+
+    fn small_input() -> RouteInput {
+        RouteInput {
+            capture_text: "test capture".to_string(),
+            vault_tree: vec![VaultTreeEntry {
+                path: "research/ml".to_string(),
+                centroid_id: "c1".to_string(),
+                note_count: 12,
+                exemplar_titles: vec![],
+            }],
+            recent_captures: vec![],
+        }
+    }
+
+    /// Plan §4.5 — Variant A wins when its centroid cosine clears 0.85.
+    /// Orchestrator must short-circuit the ladder at A.
+    #[tokio::test]
+    async fn orchestrator_variant_a_wins_short_circuits_at_centroid() {
+        use std::collections::HashMap;
+        use std::sync::Arc;
+        use async_trait::async_trait;
+
+        // A controlled embedder where the query and one folder's medoid
+        // produce cosine = 1.0 (identical vectors → above 0.85 floor).
+        struct MapEmbedder {
+            map: HashMap<String, Vec<f32>>,
+            dim: usize,
+        }
+        #[async_trait]
+        impl crate::cache::EmbeddingProvider for MapEmbedder {
+            async fn embed(&self, value: &serde_json::Value) -> Vec<f32> {
+                let key = value.as_str().unwrap_or("").to_string();
+                self.map.get(&key).cloned().unwrap_or_else(|| vec![0.0; self.dim])
+            }
+            fn dim(&self) -> usize { self.dim }
+        }
+
+        let mut map = HashMap::new();
+        map.insert("ml capture".to_string(), vec![1.0, 0.0, 0.0, 0.0]);
+        let embedder = Arc::new(MapEmbedder { map, dim: 4 });
+
+        let mut ctx = null_ctx();
+        ctx.embedder = embedder;
+        ctx.folders = vec![variant_a::FolderCentroid {
+            path: "research/ml".to_string(),
+            note_count: 5,
+            medoid: vec![1.0, 0.0, 0.0, 0.0],
+        }];
+
+        let mut input = small_input();
+        input.capture_text = "ml capture".to_string();
+
+        let d = route_capture(&input, &ctx).await;
+        assert_eq!(d.action, Action::Place);
+        assert_eq!(d.folder_path.as_deref(), Some("research/ml"));
+        assert!(
+            d.confidence >= VARIANT_A_FLOOR,
+            "Variant A win must clear 0.85 floor"
+        );
+        // Reasoning trace must mention variant_a so the trace UI knows
+        // which variant fired.
+        assert!(d.reasoning_trace.contains("variant_a"));
+    }
+
+    /// Plan §4.5 — when A returns None (or below floor), Variant B's
+    /// successful classify above 0.75 wins.
+    #[tokio::test]
+    async fn orchestrator_variant_b_wins_when_a_returns_none() {
+        use async_trait::async_trait;
+        use std::sync::Arc;
+
+        struct WinningClassifier;
+        #[async_trait]
+        impl variant_b::LlmClassifier for WinningClassifier {
+            async fn classify(
+                &self,
+                _: &str,
+                _: &[String],
+            ) -> Result<variant_b::VariantBOutput, variant_b::ClassifierError> {
+                Ok(variant_b::VariantBOutput {
+                    path: "research/ml".to_string(),
+                    confidence: 0.82,
+                    rationale: "topic match".to_string(),
+                })
+            }
+        }
+
+        let mut ctx = null_ctx();
+        ctx.classifier = Arc::new(WinningClassifier);
+        ctx.vault_paths = vec!["research/ml".to_string()];
+        // No folders → Variant A returns None.
+        let input = small_input();
+
+        let d = route_capture(&input, &ctx).await;
+        assert_eq!(d.action, Action::Place);
+        assert_eq!(d.folder_path.as_deref(), Some("research/ml"));
+        assert_eq!(d.confidence, 0.82);
+        assert!(d.confidence >= VARIANT_B_FLOOR);
+    }
+
+    /// Plan §4.4 + §4.6 — Variant B's `DEFER` sentinel triggers an
+    /// immediate defer at any confidence (model self-defer is a feature).
+    #[tokio::test]
+    async fn orchestrator_variant_b_self_defer_short_circuits() {
+        use async_trait::async_trait;
+        use std::sync::Arc;
+
+        struct DeferringClassifier;
+        #[async_trait]
+        impl variant_b::LlmClassifier for DeferringClassifier {
+            async fn classify(
+                &self,
+                _: &str,
+                _: &[String],
+            ) -> Result<variant_b::VariantBOutput, variant_b::ClassifierError> {
+                Ok(variant_b::VariantBOutput {
+                    path: "DEFER".to_string(),
+                    confidence: 0.30,
+                    rationale: "ambiguous between A/B".to_string(),
+                })
+            }
+        }
+
+        let mut ctx = null_ctx();
+        ctx.classifier = Arc::new(DeferringClassifier);
+        ctx.vault_paths = vec!["research/ml".to_string()];
+        let input = small_input();
+
+        let d = route_capture(&input, &ctx).await;
+        assert_eq!(d.action, Action::Defer);
+        // The model's self-defer reasoning surfaces in the trace.
+        assert!(d.reasoning_trace.contains("model_self_defer"));
+    }
+
+    /// Plan §4.5 — Variant C concept-anchored fires when A + B return
+    /// None and Variant C finds a tight cluster.
+    #[tokio::test]
+    async fn orchestrator_variant_c_wins_when_a_and_b_return_none() {
+        use async_trait::async_trait;
+        use std::sync::Arc;
+
+        struct GoodExtractor;
+        #[async_trait]
+        impl variant_c::ConceptExtractor for GoodExtractor {
+            async fn extract(
+                &self,
+                _: &str,
+            ) -> Result<Vec<variant_c::Concept>, variant_c::ExtractorError> {
+                Ok(vec![variant_c::Concept {
+                    canonical_name: "checkpoint-gradient".to_string(),
+                    surface_form: "gradient checkpointing".to_string(),
+                }])
+            }
+        }
+        struct FoundResolver;
+        #[async_trait]
+        impl variant_c::EntityResolver for FoundResolver {
+            async fn resolve(&self, _: &str) -> variant_c::Resolution {
+                variant_c::Resolution::Found {
+                    concept_id: "c_4f2a".to_string(),
+                }
+            }
+        }
+        struct FullNeighbours;
+        #[async_trait]
+        impl variant_c::NeighbourFinder for FullNeighbours {
+            async fn find(&self, _: &str, _: usize) -> Vec<variant_c::NeighbourHit> {
+                vec![
+                    variant_c::NeighbourHit {
+                        path: "research/ml/a.md".to_string(),
+                        folder: "research/ml".to_string(),
+                        cosine: 0.85,
+                        last_edited_hours_ago: 100,
+                    },
+                    variant_c::NeighbourHit {
+                        path: "research/ml/b.md".to_string(),
+                        folder: "research/ml".to_string(),
+                        cosine: 0.83,
+                        last_edited_hours_ago: 100,
+                    },
+                    variant_c::NeighbourHit {
+                        path: "research/ml/c.md".to_string(),
+                        folder: "research/ml".to_string(),
+                        cosine: 0.81,
+                        last_edited_hours_ago: 100,
+                    },
+                ]
+            }
+        }
+
+        let mut ctx = null_ctx();
+        ctx.extractor = Arc::new(GoodExtractor);
+        ctx.resolver = Arc::new(FoundResolver);
+        ctx.neighbours = Arc::new(FullNeighbours);
+        let input = small_input();
+
+        let d = route_capture(&input, &ctx).await;
+        // Found + tight + n≥3 + cos<0.90 (max is 0.85) → place via found.
+        assert_eq!(d.action, Action::Place);
+        assert_eq!(d.folder_path.as_deref(), Some("research/ml"));
+        assert_eq!(d.confidence, VARIANT_C_PLACE_VIA_FOUND_CONFIDENCE);
+        assert!(d.confidence >= VARIANT_C_FLOOR);
+    }
+
+    /// Plan §4.5 — Variant A returning a sub-floor result must NOT
+    /// short-circuit the ladder; orchestrator must advance to B.
+    #[tokio::test]
+    async fn orchestrator_variant_a_below_floor_advances_to_b() {
+        // Variant A's try_centroid returns None when below floor, so
+        // this case is structurally impossible at the variant layer
+        // (variant_a tested separately). The orchestrator's defence-
+        // in-depth `if d.confidence >= VARIANT_A_FLOOR` is the
+        // belt-and-suspenders guard. We can't trigger it via the real
+        // try_centroid (it None-s out) — but we can verify the chain
+        // semantics by constructing a context where variant_a is empty
+        // (folders=[]) and variant_b succeeds. Variant A's None is
+        // structurally equivalent to "below floor" for the orchestrator.
+        use async_trait::async_trait;
+        use std::sync::Arc;
+        struct WinningB;
+        #[async_trait]
+        impl variant_b::LlmClassifier for WinningB {
+            async fn classify(
+                &self,
+                _: &str,
+                _: &[String],
+            ) -> Result<variant_b::VariantBOutput, variant_b::ClassifierError> {
+                Ok(variant_b::VariantBOutput {
+                    path: "research/ml".into(),
+                    confidence: 0.99,
+                    rationale: "x".into(),
+                })
+            }
+        }
+        let mut ctx = null_ctx();
+        ctx.folders = Vec::new();
+        ctx.classifier = Arc::new(WinningB);
+        ctx.vault_paths = vec!["research/ml".to_string()];
+        let d = route_capture(&small_input(), &ctx).await;
+        assert_eq!(d.action, Action::Place);
+        // Variant B fires.
+        assert_eq!(d.folder_path.as_deref(), Some("research/ml"));
     }
 
     #[test]
