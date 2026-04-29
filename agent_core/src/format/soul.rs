@@ -153,8 +153,9 @@ impl SoulPair {
         })
     }
 
-    /// Convenience: write a fresh soul pair to disk. Used by tests + by
-    /// the soul-authoring CLI in Phase 6.5.
+    /// Convenience: write a fresh soul pair to disk via atomic
+    /// tempfile-rename per plan §6.9. Used by tests + by the
+    /// soul-authoring CLI in Phase 6.5.
     pub fn write(
         dir: &Path,
         name: &str,
@@ -172,8 +173,14 @@ impl SoulPair {
         let frontmatter_json = serde_json::to_string(&front)?;
         let narrative_text = format!("---{}---\n{}", frontmatter_json, narrative_body);
 
-        std::fs::write(&manifest_path, serde_json::to_string_pretty(&manifest)?)?;
-        std::fs::write(&narrative_path, &narrative_text)?;
+        // Plan §6.9: tempfile-rename atomic write so half-written
+        // pairs are never visible to readers. The two halves are still
+        // written sequentially — Phase 8 Intent→Effect work adds the
+        // pair-level atomicity (write both halves under a transaction
+        // boundary). For Phase 1 single-half atomic is the canonical
+        // bar.
+        crate::util::atomic_write_json(&manifest_path, &manifest)?;
+        crate::util::atomic_write_bytes(&narrative_path, narrative_text.as_bytes())?;
 
         Self::load(&manifest_path)
     }

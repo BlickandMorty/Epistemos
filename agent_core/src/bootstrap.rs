@@ -20,6 +20,9 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+// `tempfile` import removed — atomic writes now go through
+// `crate::util::atomic_write_json` per the Phase audit.
+
 
 const VAULT_METADATA_REL: &str = ".epistemos/vault.json";
 const SCHEMA_VERSION: u32 = 1;
@@ -90,7 +93,7 @@ pub fn bootstrap(vault_path: &Path) -> io::Result<BootstrapReceipt> {
             embedding_model_pin: None,
             router_model_pin: None,
         };
-        write_atomic_json(&metadata_path, &m)?;
+        crate::util::atomic_write_json(&metadata_path, &m)?;
         m
     } else {
         read_metadata(&metadata_path)?
@@ -111,17 +114,8 @@ pub fn read_metadata(path: &Path) -> io::Result<VaultMetadata> {
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
 }
 
-fn write_atomic_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
-    let parent = path
-        .parent()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "no parent directory"))?;
-    let mut tmp = tempfile::NamedTempFile::new_in(parent)?;
-    serde_json::to_writer_pretty(&mut tmp, value)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-    tmp.persist(path)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.error))?;
-    Ok(())
-}
+// Atomic write helper moved to `crate::util::atomic_write_json` (Phase
+// audit: shared with `format::soul::SoulPair::write` per §6.9).
 
 /// Phase-0.5 router-model candidates. Plan §6.6.1 anchors the default at
 /// Qwen 2.5-1.5B (highest BFCL refusal-correctness in the calibrated set).

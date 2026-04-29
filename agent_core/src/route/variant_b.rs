@@ -21,7 +21,7 @@ use serde_json::{json, Value};
 
 use crate::grammar::{schema_to_llg, GrammarError};
 
-use super::{AlternativePath, RouteDecision, VARIANT_B_FLOOR};
+use super::{RouteDecision, VARIANT_B_FLOOR};
 
 const INBOX_PREFIX: &str = "_inbox/";
 const NEW_SENTINEL: &str = "NEW";

@@ -7,6 +7,7 @@ pub mod canon;
 pub mod format;
 pub mod grammar;
 pub mod route;
+pub mod util;
 pub mod channel_relay;
 pub mod command_center;
 pub mod compaction;

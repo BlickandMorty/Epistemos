@@ -238,7 +238,17 @@ pub trait HealthCheck: Send + Sync {
     /// Plan §3.2: must cover keychain item present, network reachable,
     /// rate-limit budget remaining (cloud), model resident or loadable
     /// in budget (local), per-tool circuit breaker not Open.
+    ///
+    /// Plan §3.2 footnote: results are "cached for 5s per (tool,
+    /// variant); evicted on any tool-error event." Concrete impls
+    /// implement the cache; consumers call `evict(tool)` from the
+    /// runner's error paths to invalidate stale "available" hits.
     async fn is_available(&self, tool: &str, variant: VariantId) -> bool;
+
+    /// Plan §3.2 footnote — invalidate cached availability after a
+    /// tool-error event. Default impl is a no-op for stub
+    /// implementations that don't cache.
+    async fn evict(&self, _tool: &str) {}
 }
 
 pub trait SchemaValidator: Send + Sync {

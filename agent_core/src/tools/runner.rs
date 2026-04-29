@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
 use serde_json::Value;
@@ -29,13 +29,18 @@ use super::{
 /// 2. HealthCheck pre-flight — skip variant if unavailable (record_skip).
 /// 3. Timed invoke (per-variant latency budget). Timeout is treated as
 ///    a soft Error result rather than hard panic.
-/// 4. Output-schema validation. Schema violation → record_schema_violation,
-///    advance to next variant.
+/// 4. Output-schema validation. Schema violation → record_schema_violation
+///    + ctx.health.evict(tool) per §3.2 footnote, advance to next variant.
 /// 5. Status interpretation:
 ///    - `Ok`: cache + return.
 ///    - `Partial` AND confidence > 0.7: cache + return.
-///    - Anything else: advance.
+///    - Anything else: ctx.health.evict(tool) + advance.
 /// 6. After exhausting all variants: return `error_with_context(Last, ...)`.
+///
+/// Plan §3.2 footnote: HealthCheck availability is cached for 5s per
+/// (tool, variant); evicted on any tool-error event. The runner is
+/// responsible for emitting that eviction signal — every "continue"
+/// path calls ctx.health.evict(tool.name()).await before advancing.
 pub async fn run_with_variants(
     tool: &dyn Tool,
     ctx: &ToolCtx,
@@ -59,11 +64,16 @@ pub async fn run_with_variants(
         .await
         {
             Ok(r) => r,
-            Err(_) => ToolResult::error(variant, "timeout"),
+            Err(_) => {
+                // Timeout is a tool-error event per §3.2 footnote.
+                ctx.health.evict(tool.name()).await;
+                ToolResult::error(variant, "timeout")
+            }
         };
 
         if let Err(e) = ctx.validator.validate(tool.output_schema(), &result.result) {
             ctx.tracer.record_schema_violation(tool.name(), variant, &e);
+            ctx.health.evict(tool.name()).await;
             last_err = Some(e);
             continue;
         }
@@ -78,6 +88,9 @@ pub async fn run_with_variants(
                 return result;
             }
             other => {
+                // Status::Error / Empty / low-confidence Partial — all
+                // tool-error events per §3.2 footnote.
+                ctx.health.evict(tool.name()).await;
                 last_err = Some(format!("variant {:?} returned status {:?}", variant, other));
                 continue;
             }
@@ -168,15 +181,22 @@ impl Tracer for NoopTracer {
 
 pub struct HealthCheckRegistry {
     breakers: Mutex<HashMap<String, CircuitBreaker>>,
+    /// Plan §3.2 footnote — `(tool, variant)` availability cached
+    /// for `cache_ttl` (default 5s); evicted via `evict(tool)`.
+    cache: Mutex<HashMap<(String, VariantId), (Instant, bool)>>,
+    cache_ttl: Duration,
     failure_threshold: u32,
     cooldown: Duration,
 }
 
 impl HealthCheckRegistry {
     /// Plan §5.3 default: open after 5 consecutive failures, 30s cooldown.
+    /// Plan §3.2 default: 5s availability cache.
     pub fn new() -> Self {
         Self {
             breakers: Mutex::new(HashMap::new()),
+            cache: Mutex::new(HashMap::new()),
+            cache_ttl: Duration::from_secs(5),
             failure_threshold: 5,
             cooldown: Duration::from_secs(30),
         }
@@ -185,9 +205,18 @@ impl HealthCheckRegistry {
     pub fn with_thresholds(failure_threshold: u32, cooldown: Duration) -> Self {
         Self {
             breakers: Mutex::new(HashMap::new()),
+            cache: Mutex::new(HashMap::new()),
+            cache_ttl: Duration::from_secs(5),
             failure_threshold,
             cooldown,
         }
+    }
+
+    /// Override the §3.2 5s availability cache TTL. Tests use this to
+    /// drive deterministic cache-eviction assertions without sleeping.
+    pub fn with_cache_ttl(mut self, ttl: Duration) -> Self {
+        self.cache_ttl = ttl;
+        self
     }
 
     /// Get-or-create the breaker for a tool. Cheap.
@@ -221,12 +250,38 @@ impl Default for HealthCheckRegistry {
 
 #[async_trait]
 impl HealthCheck for HealthCheckRegistry {
-    async fn is_available(&self, tool: &str, _variant: VariantId) -> bool {
+    async fn is_available(&self, tool: &str, variant: VariantId) -> bool {
         // Plan §3.2 says HealthCheck covers keychain/network/breaker. For
         // Phase 2C the breaker is the only signal; richer checks
         // (keychain item present, network reachable, model resident) are
         // composed in by callers wrapping us in a stack of checks.
-        self.breaker(tool).before_call().is_ok()
+        //
+        // Plan §3.2 footnote — cache the result for `cache_ttl` (5s
+        // default) keyed by (tool, variant) so the breaker isn't
+        // re-locked on every variant-A/B/C check inside a tight ladder.
+        let key = (tool.to_string(), variant);
+        let now = Instant::now();
+        {
+            let g = self.cache.lock().expect("health cache poisoned");
+            if let Some((stamp, val)) = g.get(&key) {
+                if now.duration_since(*stamp) < self.cache_ttl {
+                    return *val;
+                }
+            }
+        }
+        let avail = self.breaker(tool).before_call().is_ok();
+        self.cache
+            .lock()
+            .expect("health cache poisoned")
+            .insert(key, (now, avail));
+        avail
+    }
+
+    async fn evict(&self, tool: &str) {
+        // Plan §3.2 footnote — invalidate cached availability for this
+        // tool across all variants on any tool-error event.
+        let mut g = self.cache.lock().expect("health cache poisoned");
+        g.retain(|(t, _), _| t != tool);
     }
 }
 
@@ -488,5 +543,138 @@ mod tests {
         h.record_failure("test.blocked");
         assert!(!h.is_available("test.blocked", VariantId::A).await);
         assert!(h.is_available("test.fresh", VariantId::A).await);
+    }
+
+    /// Plan §3.2 footnote: "Cached for 5s per (tool, variant)." Verify
+    /// that within the cache TTL, breaker state changes don't affect
+    /// `is_available` results.
+    #[tokio::test]
+    async fn health_check_caches_availability_per_tool_variant_per_3_2_footnote() {
+        // Use a long TTL so the cache definitely doesn't expire mid-test.
+        let h = HealthCheckRegistry::with_thresholds(1, Duration::from_secs(60))
+            .with_cache_ttl(Duration::from_secs(60));
+        // First call: cache miss; tool is fresh (no failures), available = true.
+        assert!(h.is_available("cached.tool", VariantId::A).await);
+        // Now trip the breaker by recording a failure.
+        h.record_failure("cached.tool");
+        // The breaker is now Open, but the cached "available=true" should
+        // still come back per §3.2 footnote — caller must explicitly evict.
+        assert!(
+            h.is_available("cached.tool", VariantId::A).await,
+            "cached availability survives a breaker change until evicted"
+        );
+    }
+
+    #[tokio::test]
+    async fn health_check_evict_invalidates_cache_across_all_variants() {
+        let h = HealthCheckRegistry::with_thresholds(1, Duration::from_secs(60))
+            .with_cache_ttl(Duration::from_secs(60));
+        // Seed cache for two variants of the same tool.
+        let _ = h.is_available("evicted.tool", VariantId::A).await;
+        let _ = h.is_available("evicted.tool", VariantId::B).await;
+        // Trip the breaker silently then evict.
+        h.record_failure("evicted.tool");
+        h.evict("evicted.tool").await;
+        // Both variants must re-check (and now see breaker Open → false).
+        assert!(!h.is_available("evicted.tool", VariantId::A).await);
+        assert!(!h.is_available("evicted.tool", VariantId::B).await);
+    }
+
+    #[tokio::test]
+    async fn health_check_evict_only_affects_named_tool() {
+        let h = HealthCheckRegistry::with_thresholds(1, Duration::from_secs(60))
+            .with_cache_ttl(Duration::from_secs(60));
+        let _ = h.is_available("a", VariantId::A).await;
+        let _ = h.is_available("b", VariantId::A).await;
+        h.record_failure("a");
+        h.record_failure("b");
+        // Evict a only.
+        h.evict("a").await;
+        // a re-checks and sees breaker Open → false.
+        assert!(!h.is_available("a", VariantId::A).await);
+        // b is still cached at the pre-failure (true) value.
+        assert!(h.is_available("b", VariantId::A).await);
+    }
+
+    /// Plan §3.2 footnote: "evicted on any tool-error event." Verify the
+    /// runner emits the eviction signal on schema violations, timeouts,
+    /// and Status::Error results.
+    #[tokio::test]
+    async fn runner_evicts_health_cache_on_schema_violation() {
+        let evict_count = Arc::new(Mutex::new(0u32));
+        let evicted = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        struct CountingHealth {
+            evict_count: Arc<Mutex<u32>>,
+            evicted: Arc<Mutex<Vec<String>>>,
+        }
+        #[async_trait]
+        impl HealthCheck for CountingHealth {
+            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn evict(&self, tool: &str) {
+                *self.evict_count.lock().unwrap() += 1;
+                self.evicted.lock().unwrap().push(tool.to_string());
+            }
+        }
+
+        // Tool that returns a schema-invalid result on Variant A then a
+        // valid result on Variant B.
+        let tool = programmed(
+            vec![
+                ToolResult::ok(VariantId::A, 5, json!({"NOT_value": "wrong"})),
+                ToolResult::ok(VariantId::B, 8, json!({"value": 7})),
+            ],
+            vec![VariantId::A, VariantId::B],
+        );
+        let ctx = ToolCtx {
+            cache: Arc::new(InMemoryCache::new()),
+            health: Arc::new(CountingHealth {
+                evict_count: evict_count.clone(),
+                evicted: evicted.clone(),
+            }),
+            validator: Arc::new(JsonSchemaValidator),
+            tracer: Arc::new(NoopTracer),
+            variant: VariantId::A,
+            latency_budget: Duration::from_millis(800),
+        };
+        let r = run_with_variants(&tool, &ctx, json!({})).await;
+        assert_eq!(r.meta.status, Status::Ok);
+        assert_eq!(r.meta.variant_used, VariantId::B);
+        // Schema violation on A must have triggered evict.
+        let count = *evict_count.lock().unwrap();
+        assert!(count >= 1, "expected at least 1 evict from schema violation, got {}", count);
+        assert!(evicted.lock().unwrap().contains(&"test.programmable".to_string()));
+    }
+
+    #[tokio::test]
+    async fn runner_evicts_health_cache_on_status_error() {
+        let evict_count = Arc::new(Mutex::new(0u32));
+        struct CountingHealth(Arc<Mutex<u32>>);
+        #[async_trait]
+        impl HealthCheck for CountingHealth {
+            async fn is_available(&self, _: &str, _: VariantId) -> bool { true }
+            async fn evict(&self, _tool: &str) {
+                *self.0.lock().unwrap() += 1;
+            }
+        }
+        // Both variants return Error status — runner walks both and
+        // evicts on each, then returns Last sentinel.
+        let mut e1 = ToolResult::ok(VariantId::A, 5, json!({"value": 1}));
+        e1.meta.status = Status::Error;
+        let mut e2 = ToolResult::ok(VariantId::B, 5, json!({"value": 1}));
+        e2.meta.status = Status::Error;
+        let tool = programmed(vec![e1, e2], vec![VariantId::A, VariantId::B]);
+        let ctx = ToolCtx {
+            cache: Arc::new(InMemoryCache::new()),
+            health: Arc::new(CountingHealth(evict_count.clone())),
+            validator: Arc::new(JsonSchemaValidator),
+            tracer: Arc::new(NoopTracer),
+            variant: VariantId::A,
+            latency_budget: Duration::from_millis(800),
+        };
+        let r = run_with_variants(&tool, &ctx, json!({})).await;
+        assert_eq!(r.meta.status, Status::Error);
+        assert_eq!(r.meta.variant_used, VariantId::Last);
+        assert_eq!(*evict_count.lock().unwrap(), 2, "evict per error variant");
     }
 }
