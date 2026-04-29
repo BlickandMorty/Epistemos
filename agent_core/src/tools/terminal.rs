@@ -283,6 +283,41 @@ async fn pump_background(id: String, handle: Arc<Mutex<ProcessHandle>>) {
 
 pub struct TerminalHandler;
 
+/// Phase 2G-4 native `Tool` impl. Pattern documented in `todo.rs`.
+/// Pro-only because it spawns subprocesses; not small-model-safe.
+#[async_trait]
+impl super::Tool for TerminalHandler {
+    fn name(&self) -> &'static str { "action.terminal" }
+    fn input_schema(&self) -> &'static Value {
+        super::v2_catalog::action_terminal::input_schema()
+    }
+    fn output_schema(&self) -> &'static Value {
+        super::legacy_adapter::generic_text_or_object_output_schema()
+    }
+    fn variants(&self) -> &[super::VariantId] { &[super::VariantId::A] }
+    fn profile(&self) -> super::Profile { super::Profile::ProOnly }
+    fn small_model_safe(&self) -> bool { false }
+    async fn invoke(
+        &self,
+        _ctx: &super::ToolCtx,
+        variant: super::VariantId,
+        input: Value,
+    ) -> super::ToolResult {
+        let started = std::time::Instant::now();
+        match <Self as ToolHandler>::execute(self, &input).await {
+            Ok(s) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                let result = serde_json::from_str::<Value>(&s)
+                    .ok()
+                    .filter(|v| v.is_object() || v.is_array())
+                    .unwrap_or_else(|| serde_json::json!({"text": s}));
+                super::ToolResult { meta: super::ToolMeta::ok(variant, elapsed_ms), result }
+            }
+            Err(e) => super::ToolResult::error(variant, e.to_string()),
+        }
+    }
+}
+
 #[async_trait]
 impl ToolHandler for TerminalHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -423,6 +458,40 @@ pub fn terminal_schema() -> crate::types::ToolSchema {
 // MARK: - process tool
 
 pub struct ProcessHandler;
+
+/// Phase 2G-4 native `Tool` impl. Pattern documented in `todo.rs`.
+#[async_trait]
+impl super::Tool for ProcessHandler {
+    fn name(&self) -> &'static str { "system.process" }
+    fn input_schema(&self) -> &'static Value {
+        super::v2_catalog::system_process::input_schema()
+    }
+    fn output_schema(&self) -> &'static Value {
+        super::legacy_adapter::generic_text_or_object_output_schema()
+    }
+    fn variants(&self) -> &[super::VariantId] { &[super::VariantId::A] }
+    fn profile(&self) -> super::Profile { super::Profile::ProOnly }
+    fn small_model_safe(&self) -> bool { false }
+    async fn invoke(
+        &self,
+        _ctx: &super::ToolCtx,
+        variant: super::VariantId,
+        input: Value,
+    ) -> super::ToolResult {
+        let started = std::time::Instant::now();
+        match <Self as ToolHandler>::execute(self, &input).await {
+            Ok(s) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                let result = serde_json::from_str::<Value>(&s)
+                    .ok()
+                    .filter(|v| v.is_object() || v.is_array())
+                    .unwrap_or_else(|| serde_json::json!({"text": s}));
+                super::ToolResult { meta: super::ToolMeta::ok(variant, elapsed_ms), result }
+            }
+            Err(e) => super::ToolResult::error(variant, e.to_string()),
+        }
+    }
+}
 
 #[async_trait]
 impl ToolHandler for ProcessHandler {

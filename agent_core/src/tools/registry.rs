@@ -672,18 +672,10 @@ impl ToolRegistry {
             // the LegacyToolAdapter indirection. Other ~24 files follow
             // this same pattern in 2G-4b..z.
             Box::new(super::todo::TodoHandler) as Box<dyn super::Tool>,
-            LegacyToolAdapter::boxed(
-                v2_catalog::system_cron::SPEC,
-                Arc::new(super::scheduling::CronJobHandler::new()),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::action_terminal::SPEC,
-                Arc::new(super::terminal::TerminalHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::discovery_mcp_discover::SPEC,
-                Arc::new(super::discovery::McpDiscoverHandler),
-            ),
+            // Phase 2G-4 native Tool impls.
+            Box::new(super::scheduling::CronJobHandler::new()) as Box<dyn super::Tool>,
+            Box::new(super::terminal::TerminalHandler) as Box<dyn super::Tool>,
+            Box::new(super::discovery::McpDiscoverHandler) as Box<dyn super::Tool>,
             LegacyToolAdapter::boxed(
                 v2_catalog::media_text_to_speech::SPEC,
                 Arc::new(super::media::TextToSpeechHandler),
@@ -693,11 +685,9 @@ impl ToolRegistry {
         // fails (rare — only on reqwest TLS-init errors) we skip it
         // rather than poisoning the whole catalog. Mirrors the existing
         // legacy registration in register_phase_eight_discovery.
+        // Phase 2G-4 native Tool impl. Construction can fail (HTTP TLS init).
         if let Ok(catalog_handler) = super::discovery::ModelCatalogHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::discovery_model_catalog::SPEC,
-                Arc::new(catalog_handler),
-            ));
+            tools.push(Box::new(catalog_handler) as Box<dyn super::Tool>);
         }
         // Web family — same Ok-gating as the legacy
         // register_phase_three_web. web.fetch's `WebFetchTool::new()`
@@ -751,10 +741,8 @@ impl ToolRegistry {
         } else {
             std::path::PathBuf::from(".epistemos-memory")
         };
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::memory_curated::SPEC,
-            Arc::new(super::memory::MemoryTool::new(memory_dir)),
-        ));
+        // Phase 2G-4 native Tool impl.
+        tools.push(Box::new(super::memory::MemoryTool::new(memory_dir)) as Box<dyn super::Tool>);
         // communication.send_message + media.vision_analyze +
         // media.image_generate + intelligence.mixture_of_minds — all
         // Result-returning HTTP-client constructors. Same Ok-gating as
@@ -926,20 +914,12 @@ impl ToolRegistry {
             v2_catalog::skills_manage::SPEC,
             Arc::new(super::skills::SkillManageHandler::new()),
         ));
-        // system.process — manages action.terminal PTYs. Unit struct;
-        // unconditional. Pro-only same as action.terminal.
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::system_process::SPEC,
-            Arc::new(super::terminal::ProcessHandler),
-        ));
+        // Phase 2G-4 native Tool impl — manages action.terminal PTYs.
+        tools.push(Box::new(super::terminal::ProcessHandler) as Box<dyn super::Tool>);
         // trajectory.export needs the vault root for session-store reads.
-        // When the registry was constructed without a vault root path we
-        // skip it (same gating as the legacy register_phase_eight_trajectory).
         if let Some(root) = self.vault_root_path.clone() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::trajectory_export::SPEC,
-                Arc::new(super::trajectory::TrajectoryExportHandler::new(root.clone())),
-            ));
+            tools.push(Box::new(super::trajectory::TrajectoryExportHandler::new(root.clone()))
+                as Box<dyn super::Tool>);
             // intelligence.self_evolve also needs the vault root (it scans
             // session traces under it). Same gating.
             tools.push(LegacyToolAdapter::boxed(
