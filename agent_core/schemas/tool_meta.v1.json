@@ -11,9 +11,8 @@
       "enum": ["ok", "empty", "partial", "error"]
     },
     "variant_used": {
-      "type": "string",
-      "minLength": 1,
-      "description": "Variant id that produced the result (e.g. variant_a, variant_b)."
+      "enum": ["a", "b", "c", "d", "e", "f", "g", "h", "last"],
+      "description": "Slot in the variant ladder (§3.2). `last` is a sentinel set by the runner when all variants were exhausted."
     },
     "latency_ms": {
       "type": "integer",

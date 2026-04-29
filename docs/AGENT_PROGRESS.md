@@ -1,6 +1,56 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A shipped | Full agent_core sweep green: 552 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A + 2B shipped | Full agent_core sweep green: 554 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2B — Tool trait + variant types (Option C) ✅
+
+Plan reference: §3.1 (Tool trait shape + ToolMeta + ToolResult), §1.6 (Profile / PolicyProfile gating), §6.10 (PowerState), §17 (sampler-bound dispatch substrate). User-confirmed Option C — full replace of legacy `ToolHandler` trait with the new `Tool` trait per plan §3.1, migrating the 33 in-tree tools incrementally over 2E-2F, retiring `ToolHandler` in 2G.
+
+**Web research consulted (per §0.1 protocol):**
+- dev.to/rajmandaliya "Building a Rust AI Agent Framework", crates.io/mini-agent (Mar 2026), lib.rs/rs-agent (Feb 2026), github.com/yougigun/rust-adk, Agentor — confirmed 2026 industry pattern is `#[async_trait] Tool` with name/description/input_schema/invoke OR ToolRequest/ToolResponse. Plan §3.1's seven-method shape (name + input_schema + output_schema + variants + profile + small_model_safe + invoke) is more comprehensive than every public framework's surface — it carries the variant-ladder + profile-gating concepts that are uniquely Epistemos's moat.
+- mdpi.com "LLM-Informed Multi-Armed Bandit", tensorzero.com "Bandits in your LLM Gateway", IBM Research "Multi-Armed Bandits Meet LLMs" (AAAI 2026), fast.io "AI Agent Retry Patterns" — confirmed the variant-ladder model (deterministic walk through ordered variants) is a sound alternative to bandit-style adaptive routing for the latency-bounded tool-call path. Plan §3.2's deterministic ladder is plan-canonical; bandit-style adaptation lands at the routing layer (§6.7), not the variant layer.
+- pyimagesearch.com "Semantic Caching for LLMs", redis.io "What is semantic caching", tianpan.co "Cache Invalidation for AI" — confirmed cosine ≥0.85 (often 0.95) is the standard semantic-cache hit threshold; embedding-model-version pinning is a load-bearing invalidation key. Plan §3.6's 0.97 threshold + per-tool-family TTL + embedding-model-pin cache invalidation is plan-canonical and matches/exceeds best practice.
+
+**Migration architecture decision (Option C):**
+- Plan §3.1 is canonical. Legacy `ToolHandler` trait at `tools/registry.rs:117` (single-method `async fn execute(&self, input: &Value) -> Result<String, ToolError>`) coexists during 2B-2F. Phase 2E migrates the canary `reason.think` to native `Tool`. Phase 2F bulk-migrates the remaining 32 tools across multiple commits. Phase 2G removes `ToolHandler` + `RegisteredTool` wrapper.
+
+**Shipped:**
+- [x] `agent_core/src/lib.rs` refactored: `pub mod tools { ... }` inline → `pub mod tools;`. 30 existing submodule declarations preserved 1:1 in the new `tools/mod.rs`.
+- [x] `agent_core/src/tools/mod.rs` (NEW) — canonical home for the new `Tool` surface per §3.1:
+  - `VariantId` enum: A, B, C, D, E, F, G, H, Last (sentinel for runner exhaustion). Lowercase serialized.
+  - `Profile` enum: AppStoreSafe (both builds), ProOnly (Pro build only) per §1.6. Snake_case serialized.
+  - `Status` enum: Ok | Empty | Partial | Error.
+  - `PowerState` enum: AcNominal | AcHot | BatteryNominal | BatteryHot per §6.10.
+  - `ToolMeta` struct — `confidence: Option<f32>` per plan §3.1 literal (Phase 1's f64 corrected); `variant_used: VariantId` typed (Phase 1's String corrected).
+  - `ToolResult` struct — non-generic per plan §3.1 literal: `{ _meta: ToolMeta, result: Value }`. Field name is `result`, never `payload` / `data` / `output` (regression test enforces).
+  - Trait surfaces consumed by the Phase 2C runner: `ToolCache` (get/put), `HealthCheck` (is_available), `SchemaValidator` (validate), `Tracer` (record_skip / record_schema_violation / record_cache_hit).
+  - `ToolCtx` struct — Arc-shared cache + health + validator + tracer + per-call variant + latency_budget. `with_variant(v)` builder for the runner's per-attempt context.
+  - `Tool` trait — seven plan-§3.1 methods: name, input_schema, output_schema, variants, profile, small_model_safe, invoke. `#[async_trait]` per Rust 2021 edition + tokio.
+- [x] `agent_core/schemas/tool_meta.v1.json` — `variant_used` tightened from free string to `enum: ["a","b","c","d","e","f","g","h","last"]`. Aligns with Rust `VariantId` typed enum.
+- [x] `agent_core/src/format/tool_meta.rs` — DELETED. Phase 1 placement was a workaround (no `tools/mod.rs` existed yet); §3.1 specifies `tools/mod.rs` as canonical. Schema file retained at `agent_core/schemas/tool_meta.v1.json` (still referenced via `format::schemas::TOOL_META_V1`).
+- [x] `agent_core/src/format/mod.rs` — `pub mod tool_meta;` removed; doc comment explains the move.
+
+**Verification:**
+- cargo check --manifest-path agent_core/Cargo.toml --lib → clean.
+- cargo test --manifest-path agent_core/Cargo.toml --lib tools::tests → 7 passed.
+- cargo test --manifest-path agent_core/Cargo.toml --lib → **554 passed**, 0 failed (was 552 pre-2B; -5 deleted format/tool_meta tests + 7 new tools/mod.rs tests). Zero functional regressions.
+
+**Audit (no nuance lost vs canonical plan):**
+- §3.1 trait shape: ✅ all seven methods present with plan-literal signatures.
+- §3.1 ToolMeta f32 confidence: ✅ corrected from Phase 1's f64.
+- §3.1 VariantId typed: ✅ corrected from Phase 1's String.
+- §3.1 ToolResult non-generic + `result: Value`: ✅.
+- §3.1 field naming: ✅ regression test (tool_result_serializes_result_field_not_payload) enforces `_meta` + `result`, rejects `payload`/`data`.
+- §1.6 Profile = PolicyProfile: ✅ AppStoreSafe + ProOnly two-state per §1.6.
+- §6.10 PowerState 4-state: ✅.
+- Existing 33 tools: ✅ untouched. ToolHandler trait at registry.rs:117 unmodified.
+
+**Next (Phase 2C-2G plan):**
+- 2C: variant runner (`tools/runner.rs`) + per-tool circuit breaker (§5.3) + concrete InMemory/JsonSchema/Noop impls so the runner is testable end-to-end against MockTool.
+- 2D: `cache/mod.rs` SQLite-backed exact + semantic cache per §3.6.
+- 2E: canary reason.think v2 native Tool impl wired through the runner — plan §11 Phase 2 EXIT.
+- 2F: bulk-migrate the remaining 32 tools (multiple commits).
+- 2G: delete ToolHandler + RegisteredTool wrapper.
 
 ## 2026-04-29 Quick Capture Phase 2A — Grammar Compiler (sampler-bound dispatch) ✅
 

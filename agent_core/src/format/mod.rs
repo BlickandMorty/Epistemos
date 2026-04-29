@@ -19,7 +19,10 @@ pub mod intent;
 pub mod mem;
 pub mod skill;
 pub mod soul;
-pub mod tool_meta;
+// `tool_meta` Rust types moved to `crate::tools` per plan §3.1 in Phase 2B.
+// The schema file `agent_core/schemas/tool_meta.v1.json` stays here, embedded
+// via `schemas::TOOL_META_V1`, and is consumed by `crate::tools::ToolMeta`
+// validation paths.
 
 /// Embedded JSON Schemas, content-addressed at compile time. Schema lookup
 /// at runtime is `include_str!`-fast, no disk I/O.
