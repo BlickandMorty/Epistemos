@@ -562,6 +562,14 @@ pub struct SkillsListHandler {
     skills_dir: PathBuf,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    SkillsListHandler,
+    name = "skills.list",
+    input_schema = super::v2_catalog::skills_list::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl SkillsListHandler {
     pub fn new() -> Self {
         Self {
@@ -614,6 +622,14 @@ pub fn skills_list_schema() -> crate::types::ToolSchema {
 pub struct SkillViewHandler {
     skills_dir: PathBuf,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    SkillViewHandler,
+    name = "skills.view",
+    input_schema = super::v2_catalog::skills_view::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl SkillViewHandler {
     pub fn new() -> Self {
@@ -675,6 +691,14 @@ pub fn skill_view_schema() -> crate::types::ToolSchema {
 pub struct SkillManageHandler {
     skills_dir: PathBuf,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    SkillManageHandler,
+    name = "skills.manage",
+    input_schema = super::v2_catalog::skills_manage::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 impl SkillManageHandler {
     pub fn new() -> Self {

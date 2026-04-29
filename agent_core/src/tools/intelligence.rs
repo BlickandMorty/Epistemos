@@ -46,6 +46,14 @@ pub struct NightBrainTriggerHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    NightBrainTriggerHandler,
+    name = "intelligence.nightbrain_trigger",
+    input_schema = super::v2_catalog::intelligence_nightbrain_trigger::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl NightBrainTriggerHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
         Self { delegate }
@@ -123,6 +131,14 @@ pub fn nightbrain_trigger_schema() -> crate::types::ToolSchema {
 pub struct InlinePartnerHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    InlinePartnerHandler,
+    name = "intelligence.inline_partner",
+    input_schema = super::v2_catalog::intelligence_inline_partner::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl InlinePartnerHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
@@ -203,6 +219,14 @@ struct TraceEventRaw {
 pub struct SelfEvolveHandler {
     vault_root: PathBuf,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    SelfEvolveHandler,
+    name = "intelligence.self_evolve",
+    input_schema = super::v2_catalog::intelligence_self_evolve::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl SelfEvolveHandler {
     pub fn new(vault_root: PathBuf) -> Self {
@@ -434,6 +458,14 @@ pub fn self_evolve_schema() -> crate::types::ToolSchema {
 pub struct MixtureOfMindsHandler {
     client: Client,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    MixtureOfMindsHandler,
+    name = "intelligence.mixture_of_minds",
+    input_schema = super::v2_catalog::intelligence_mixture_of_minds::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 impl MixtureOfMindsHandler {
     pub fn new() -> Result<Self, ToolError> {

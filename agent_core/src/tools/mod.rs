@@ -64,6 +64,64 @@ pub mod reason_think;
 pub mod legacy_adapter;
 pub mod v2_catalog;
 
+/// Phase 2G-4 helper macro — wires a `ToolHandler` into a `Tool` impl
+/// with the standard text-or-object output handling. The handler must
+/// already implement `ToolHandler`. Pattern documented in `todo.rs`.
+#[macro_export]
+macro_rules! impl_tool_via_legacy_handler {
+    (
+        $handler:ty,
+        name = $name:literal,
+        input_schema = $schema:path,
+        profile = $profile:expr,
+        small_model_safe = $sms:expr $(,)?
+    ) => {
+        #[async_trait::async_trait]
+        impl $crate::tools::Tool for $handler {
+            fn name(&self) -> &'static str {
+                $name
+            }
+            fn input_schema(&self) -> &'static serde_json::Value {
+                $schema()
+            }
+            fn output_schema(&self) -> &'static serde_json::Value {
+                $crate::tools::legacy_adapter::generic_text_or_object_output_schema()
+            }
+            fn variants(&self) -> &[$crate::tools::VariantId] {
+                &[$crate::tools::VariantId::A]
+            }
+            fn profile(&self) -> $crate::tools::Profile {
+                $profile
+            }
+            fn small_model_safe(&self) -> bool {
+                $sms
+            }
+            async fn invoke(
+                &self,
+                _ctx: &$crate::tools::ToolCtx,
+                variant: $crate::tools::VariantId,
+                input: serde_json::Value,
+            ) -> $crate::tools::ToolResult {
+                let started = std::time::Instant::now();
+                match <Self as $crate::tools::registry::ToolHandler>::execute(self, &input).await {
+                    Ok(s) => {
+                        let elapsed_ms = started.elapsed().as_millis() as u32;
+                        let result = serde_json::from_str::<serde_json::Value>(&s)
+                            .ok()
+                            .filter(|v| v.is_object() || v.is_array())
+                            .unwrap_or_else(|| serde_json::json!({"text": s}));
+                        $crate::tools::ToolResult {
+                            meta: $crate::tools::ToolMeta::ok(variant, elapsed_ms),
+                            result,
+                        }
+                    }
+                    Err(e) => $crate::tools::ToolResult::error(variant, e.to_string()),
+                }
+            }
+        }
+    };
+}
+
 use std::sync::Arc;
 use std::time::Duration;
 

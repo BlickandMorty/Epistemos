@@ -42,6 +42,14 @@ pub struct VisionAnalyzeHandler {
     client: Client,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    VisionAnalyzeHandler,
+    name = "media.vision_analyze",
+    input_schema = super::v2_catalog::media_vision_analyze::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl VisionAnalyzeHandler {
     pub fn new() -> Result<Self, ToolError> {
         Ok(Self {
@@ -339,6 +347,14 @@ pub struct ImageGenerateHandler {
     delegate: Option<Arc<dyn AgentEventDelegate>>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    ImageGenerateHandler,
+    name = "media.image_generate",
+    input_schema = super::v2_catalog::media_image_generate::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl ImageGenerateHandler {
     /// Delegate-free constructor. Used by the pre-delegate registration
     /// pass and by pure-Rust unit tests. Without a delegate the MLX lane
@@ -562,6 +578,14 @@ pub fn image_generate_schema() -> crate::types::ToolSchema {
 // MARK: - text_to_speech (macOS `say` subprocess)
 
 pub struct TextToSpeechHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    TextToSpeechHandler,
+    name = "media.text_to_speech",
+    input_schema = super::v2_catalog::media_text_to_speech::input_schema,
+    profile = super::Profile::ProOnly,
+    small_model_safe = false,
+);
 
 #[async_trait]
 impl ToolHandler for TextToSpeechHandler {

@@ -33,6 +33,14 @@ pub struct VaultRecallHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    VaultRecallHandler,
+    name = "knowledge.recall",
+    input_schema = super::v2_catalog::knowledge_recall::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl VaultRecallHandler {
     pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
         Self { vault }
@@ -127,6 +135,14 @@ pub struct ContradictionCheckHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    ContradictionCheckHandler,
+    name = "knowledge.contradiction_check",
+    input_schema = super::v2_catalog::knowledge_contradiction::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl ContradictionCheckHandler {
     pub fn new(vault: Arc<dyn VaultBackend>) -> Self {
         Self { vault }
@@ -219,6 +235,14 @@ pub fn contradiction_check_schema() -> crate::types::ToolSchema {
 pub struct SessionSearchHandler {
     vault_root: PathBuf,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    SessionSearchHandler,
+    name = "knowledge.session_search",
+    input_schema = super::v2_catalog::knowledge_session_search::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl SessionSearchHandler {
     pub fn new(vault_root: PathBuf) -> Self {
@@ -318,6 +342,14 @@ pub struct NeuralRecallHandler {
     vault: Arc<dyn VaultBackend>,
     cache: Arc<NeuralCache>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    NeuralRecallHandler,
+    name = "knowledge.neural_recall",
+    input_schema = super::v2_catalog::knowledge_neural_recall::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl NeuralRecallHandler {
     pub fn new(vault: Arc<dyn VaultBackend>, cache: Arc<NeuralCache>) -> Self {

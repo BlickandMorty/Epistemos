@@ -72,6 +72,14 @@ pub struct GraphQueryHandler {
     vault_root: PathBuf,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    GraphQueryHandler,
+    name = "graph.query",
+    input_schema = super::v2_catalog::graph_query::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl GraphQueryHandler {
     pub fn new(vault_root: PathBuf) -> Self {
         Self { vault_root }
@@ -390,6 +398,14 @@ pub fn graph_query_schema() -> crate::types::ToolSchema {
 pub struct VaultNavigateHandler {
     vault_root: PathBuf,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    VaultNavigateHandler,
+    name = "graph.vault_navigate",
+    input_schema = super::v2_catalog::graph_vault_navigate::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl VaultNavigateHandler {
     pub fn new(vault_root: PathBuf) -> Self {

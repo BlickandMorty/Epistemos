@@ -227,6 +227,14 @@ pub fn lambda_rlm_search(
 
 pub struct WorkspaceSearchHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    WorkspaceSearchHandler,
+    name = "workspace.search",
+    input_schema = super::v2_catalog::workspace_search::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for WorkspaceSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -708,6 +716,14 @@ pub const FIND_SYMBOL_TOOL_SCHEMA: &str = r#"{
 
 pub struct FindSymbolHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    FindSymbolHandler,
+    name = "workspace.find_symbol",
+    input_schema = super::v2_catalog::workspace_find_symbol::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for FindSymbolHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -780,6 +796,14 @@ pub const GET_FUNCTION_SOURCE_TOOL_SCHEMA: &str = r#"{
 
 pub struct GetFunctionSourceHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    GetFunctionSourceHandler,
+    name = "workspace.get_function_source",
+    input_schema = super::v2_catalog::workspace_get_function_source::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for GetFunctionSourceHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -842,6 +866,14 @@ pub const GET_DEPENDENCIES_TOOL_SCHEMA: &str = r#"{
 
 pub struct GetDependenciesHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    GetDependenciesHandler,
+    name = "workspace.get_dependencies",
+    input_schema = super::v2_catalog::workspace_get_dependencies::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for GetDependenciesHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -893,6 +925,14 @@ pub const GET_DEPENDENTS_TOOL_SCHEMA: &str = r#"{
 }"#;
 
 pub struct GetDependentsHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    GetDependentsHandler,
+    name = "workspace.get_dependents",
+    input_schema = super::v2_catalog::workspace_get_dependents::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 #[async_trait]
 impl ToolHandler for GetDependentsHandler {
@@ -968,6 +1008,14 @@ pub const GET_CHANGE_IMPACT_TOOL_SCHEMA: &str = r#"{
 }"#;
 
 pub struct GetChangeImpactHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    GetChangeImpactHandler,
+    name = "workspace.get_change_impact",
+    input_schema = super::v2_catalog::workspace_get_change_impact::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 #[async_trait]
 impl ToolHandler for GetChangeImpactHandler {

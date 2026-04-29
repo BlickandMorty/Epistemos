@@ -26,6 +26,14 @@ use super::registry::{ToolError, ToolHandler};
 
 pub struct RoutePrivateHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    RoutePrivateHandler,
+    name = "inference.route_private",
+    input_schema = super::v2_catalog::inference_route_private::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl RoutePrivateHandler {
     pub fn new() -> Self {
         Self
@@ -212,6 +220,14 @@ pub struct SsmResumeHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    SsmResumeHandler,
+    name = "inference.ssm_resume",
+    input_schema = super::v2_catalog::inference_ssm_resume::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl SsmResumeHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
         Self { delegate }
@@ -284,6 +300,14 @@ pub fn ssm_resume_schema() -> crate::types::ToolSchema {
 pub struct ConstrainedGenerateHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    ConstrainedGenerateHandler,
+    name = "inference.constrained_generate",
+    input_schema = super::v2_catalog::inference_constrained_generate::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl ConstrainedGenerateHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {

@@ -142,6 +142,14 @@ fn is_blocked_for_read(path: &Path) -> Option<String> {
 
 pub struct ReadFileHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    ReadFileHandler,
+    name = "file.read",
+    input_schema = super::v2_catalog::file_read::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for ReadFileHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -238,6 +246,14 @@ pub fn read_file_schema() -> crate::types::ToolSchema {
 // MARK: - write_file
 
 pub struct WriteFileHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    WriteFileHandler,
+    name = "file.write",
+    input_schema = super::v2_catalog::file_write::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 #[async_trait]
 impl ToolHandler for WriteFileHandler {
@@ -352,6 +368,14 @@ fn short_diff_preview(before: &str, after: &str, context_lines: usize) -> String
 // MARK: - patch (5-strategy fuzzy match)
 
 pub struct PatchHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    PatchHandler,
+    name = "file.patch",
+    input_schema = super::v2_catalog::file_patch::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 #[async_trait]
 impl ToolHandler for PatchHandler {
@@ -758,6 +782,14 @@ fn try_best_substring(original: &str, old: &str, new: &str) -> Option<(String, u
 // MARK: - search_files
 
 pub struct SearchFilesHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    SearchFilesHandler,
+    name = "file.search",
+    input_schema = super::v2_catalog::file_search::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 #[async_trait]
 impl ToolHandler for SearchFilesHandler {

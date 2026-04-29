@@ -78,6 +78,14 @@ async fn run_osascript(script: &str) -> Result<String, ToolError> {
 
 pub struct AppleNotesHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    AppleNotesHandler,
+    name = "apple.notes",
+    input_schema = super::v2_catalog::apple_notes::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
+
 #[async_trait]
 impl ToolHandler for AppleNotesHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -288,6 +296,14 @@ pub fn apple_notes_schema() -> crate::types::ToolSchema {
 
 pub struct AppleRemindersHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    AppleRemindersHandler,
+    name = "apple.reminders",
+    input_schema = super::v2_catalog::apple_reminders::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
+
 #[async_trait]
 impl ToolHandler for AppleRemindersHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -453,6 +469,14 @@ pub fn apple_reminders_schema() -> crate::types::ToolSchema {
 
 pub struct AppleCalendarHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    AppleCalendarHandler,
+    name = "apple.calendar",
+    input_schema = super::v2_catalog::apple_calendar::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
+
 #[async_trait]
 impl ToolHandler for AppleCalendarHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -615,6 +639,14 @@ pub fn apple_calendar_schema() -> crate::types::ToolSchema {
 // MARK: - apple_mail
 
 pub struct AppleMailHandler;
+
+crate::impl_tool_via_legacy_handler!(
+    AppleMailHandler,
+    name = "apple.mail",
+    input_schema = super::v2_catalog::apple_mail::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 #[async_trait]
 impl ToolHandler for AppleMailHandler {

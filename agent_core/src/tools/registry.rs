@@ -602,71 +602,24 @@ impl ToolRegistry {
         use super::legacy_adapter::LegacyToolAdapter;
         use super::v2_catalog;
         let mut tools: Vec<Box<dyn super::Tool>> = vec![
-            LegacyToolAdapter::boxed(
-                v2_catalog::vault_search::SPEC,
-                Arc::new(VaultSearchHandler {
-                    vault: Arc::clone(&self.vault),
-                }),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::vault_read::SPEC,
-                Arc::new(VaultReadHandler {
-                    vault: Arc::clone(&self.vault),
-                }),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::vault_write::SPEC,
-                Arc::new(VaultWriteHandler {
-                    vault: Arc::clone(&self.vault),
-                }),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::workspace_search::SPEC,
-                Arc::new(super::workspace_search::WorkspaceSearchHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::graph_neighbors::SPEC,
-                Arc::new(GraphNeighborsHandler {
-                    vault: Arc::clone(&self.vault),
-                }),
-            ),
-            // Phase 2G-4 native Tool impl (no LegacyToolAdapter wrap).
+            // Phase 2G-4 native Tool impls.
+            Box::new(VaultSearchHandler { vault: Arc::clone(&self.vault) }) as Box<dyn super::Tool>,
+            Box::new(VaultReadHandler { vault: Arc::clone(&self.vault) }) as Box<dyn super::Tool>,
+            Box::new(VaultWriteHandler { vault: Arc::clone(&self.vault) }) as Box<dyn super::Tool>,
+            Box::new(super::workspace_search::WorkspaceSearchHandler) as Box<dyn super::Tool>,
+            Box::new(GraphNeighborsHandler { vault: Arc::clone(&self.vault) }) as Box<dyn super::Tool>,
             Box::new(super::chunk_reduce::ChunkReduceHandler) as Box<dyn super::Tool>,
-            LegacyToolAdapter::boxed(
-                v2_catalog::action_bash::SPEC,
-                Arc::new(BashExecuteHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::file_read::SPEC,
-                Arc::new(super::filesystem::ReadFileHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::file_write::SPEC,
-                Arc::new(super::filesystem::WriteFileHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::file_search::SPEC,
-                Arc::new(super::filesystem::SearchFilesHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::file_patch::SPEC,
-                Arc::new(super::filesystem::PatchHandler),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::knowledge_recall::SPEC,
-                Arc::new(super::knowledge::VaultRecallHandler::new(Arc::clone(&self.vault))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::knowledge_contradiction::SPEC,
-                Arc::new(super::knowledge::ContradictionCheckHandler::new(Arc::clone(&self.vault))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::knowledge_neural_recall::SPEC,
-                Arc::new(super::knowledge::NeuralRecallHandler::new(
-                    Arc::clone(&self.vault),
-                    Arc::clone(neural_cache()),
-                )),
-            ),
+            Box::new(BashExecuteHandler) as Box<dyn super::Tool>,
+            Box::new(super::filesystem::ReadFileHandler) as Box<dyn super::Tool>,
+            Box::new(super::filesystem::WriteFileHandler) as Box<dyn super::Tool>,
+            Box::new(super::filesystem::SearchFilesHandler) as Box<dyn super::Tool>,
+            Box::new(super::filesystem::PatchHandler) as Box<dyn super::Tool>,
+            Box::new(super::knowledge::VaultRecallHandler::new(Arc::clone(&self.vault))) as Box<dyn super::Tool>,
+            Box::new(super::knowledge::ContradictionCheckHandler::new(Arc::clone(&self.vault))) as Box<dyn super::Tool>,
+            Box::new(super::knowledge::NeuralRecallHandler::new(
+                Arc::clone(&self.vault),
+                Arc::clone(neural_cache()),
+            )) as Box<dyn super::Tool>,
             // Phase 2G-4a CANARY: TodoHandler natively implements `Tool`
             // (see todo.rs), so the v2 catalog uses it directly without
             // the LegacyToolAdapter indirection. Other ~24 files follow
@@ -676,10 +629,7 @@ impl ToolRegistry {
             Box::new(super::scheduling::CronJobHandler::new()) as Box<dyn super::Tool>,
             Box::new(super::terminal::TerminalHandler) as Box<dyn super::Tool>,
             Box::new(super::discovery::McpDiscoverHandler) as Box<dyn super::Tool>,
-            LegacyToolAdapter::boxed(
-                v2_catalog::media_text_to_speech::SPEC,
-                Arc::new(super::media::TextToSpeechHandler),
-            ),
+            Box::new(super::media::TextToSpeechHandler) as Box<dyn super::Tool>,
         ];
         // discovery.model_catalog needs an HTTP client; if construction
         // fails (rare — only on reqwest TLS-init errors) we skip it
@@ -694,43 +644,23 @@ impl ToolRegistry {
         // is infallible (`.expect()`s on reqwest init), so it's
         // unconditional.
         if let Ok(web_search) = super::web::WebSearchHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::web_search::SPEC,
-                Arc::new(web_search),
-            ));
+            tools.push(Box::new(web_search) as Box<dyn super::Tool>);
         }
         if let Ok(web_extract) = super::web::WebExtractHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::web_extract::SPEC,
-                Arc::new(web_extract),
-            ));
+            tools.push(Box::new(web_extract) as Box<dyn super::Tool>);
         }
         if let Ok(web_crawl) = super::web::WebCrawlHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::web_crawl::SPEC,
-                Arc::new(web_crawl),
-            ));
+            tools.push(Box::new(web_crawl) as Box<dyn super::Tool>);
         }
         // Phase 2G-4 native Tool impl.
         tools.push(Box::new(super::web_fetch::WebFetchTool::new()) as Box<dyn super::Tool>);
         // Apple-app family — all unit-struct handlers; osascript spawns
         // gated by harden_cli_subprocess in security.rs.
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::apple_notes::SPEC,
-            Arc::new(super::apple::AppleNotesHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::apple_reminders::SPEC,
-            Arc::new(super::apple::AppleRemindersHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::apple_calendar::SPEC,
-            Arc::new(super::apple::AppleCalendarHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::apple_mail::SPEC,
-            Arc::new(super::apple::AppleMailHandler),
-        ));
+        // Phase 2G-4 native Tool impls.
+        tools.push(Box::new(super::apple::AppleNotesHandler) as Box<dyn super::Tool>);
+        tools.push(Box::new(super::apple::AppleRemindersHandler) as Box<dyn super::Tool>);
+        tools.push(Box::new(super::apple::AppleCalendarHandler) as Box<dyn super::Tool>);
+        tools.push(Box::new(super::apple::AppleMailHandler) as Box<dyn super::Tool>);
         // memory.curated — derive memory dir from vault root, falling
         // back to ~/.epistemos/memory then "./.epistemos-memory" so the
         // tool always registers (mirrors register_phase_two_memory).
@@ -758,46 +688,28 @@ impl ToolRegistry {
             tools.push(Box::new(send_message) as Box<dyn super::Tool>);
         }
         if let Ok(vision_analyze) = super::media::VisionAnalyzeHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::media_vision_analyze::SPEC,
-                Arc::new(vision_analyze),
-            ));
+            tools.push(Box::new(vision_analyze) as Box<dyn super::Tool>);
         }
         if let Ok(image_generate) = super::media::ImageGenerateHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::media_image_generate::SPEC,
-                Arc::new(image_generate),
-            ));
+            tools.push(Box::new(image_generate) as Box<dyn super::Tool>);
         }
         if let Ok(mom) = super::intelligence::MixtureOfMindsHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::intelligence_mixture_of_minds::SPEC,
-                Arc::new(mom),
-            ));
+            tools.push(Box::new(mom) as Box<dyn super::Tool>);
         }
-        // Token-savior workspace tools — all unit struct handlers; the
-        // input_schema is parsed from the existing TOOL_SCHEMA constants
-        // so we don't fork the schema definition.
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::workspace_find_symbol::SPEC,
-            Arc::new(super::workspace_search::FindSymbolHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::workspace_get_function_source::SPEC,
-            Arc::new(super::workspace_search::GetFunctionSourceHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::workspace_get_dependencies::SPEC,
-            Arc::new(super::workspace_search::GetDependenciesHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::workspace_get_dependents::SPEC,
-            Arc::new(super::workspace_search::GetDependentsHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::workspace_get_change_impact::SPEC,
-            Arc::new(super::workspace_search::GetChangeImpactHandler),
-        ));
+        // Token-savior workspace tools — Phase 2G-4 native Tool impls.
+        tools.push(Box::new(super::workspace_search::FindSymbolHandler) as Box<dyn super::Tool>);
+        tools.push(
+            Box::new(super::workspace_search::GetFunctionSourceHandler) as Box<dyn super::Tool>,
+        );
+        tools.push(
+            Box::new(super::workspace_search::GetDependenciesHandler) as Box<dyn super::Tool>,
+        );
+        tools.push(
+            Box::new(super::workspace_search::GetDependentsHandler) as Box<dyn super::Tool>,
+        );
+        tools.push(
+            Box::new(super::workspace_search::GetChangeImpactHandler) as Box<dyn super::Tool>,
+        );
         // Browser family — all 11 share a single BrowserManager (per-call
         // ephemeral spawn; not always-on daemon per FINAL_SYNTHESIS §5.7).
         // Until Wave 6 BrowserEngine trait splits the adapters
@@ -963,40 +875,24 @@ impl ToolRegistry {
         &self,
         delegate: Arc<dyn crate::bridge::AgentEventDelegate>,
     ) -> Vec<Box<dyn super::Tool>> {
-        use super::legacy_adapter::LegacyToolAdapter;
-        use super::v2_catalog;
+        // Phase 2G-4 native Tool impls — no LegacyToolAdapter wraps.
         vec![
-            // Phase 2G-4 native Tool impl (no LegacyToolAdapter wrap).
             Box::new(super::clarify::ClarifyHandler::new(Arc::clone(&delegate)))
                 as Box<dyn super::Tool>,
-            LegacyToolAdapter::boxed(
-                v2_catalog::macos_perceive::SPEC,
-                Arc::new(super::macos::PerceiveHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::macos_interact::SPEC,
-                Arc::new(super::macos::InteractHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::macos_screen_watch::SPEC,
-                Arc::new(super::macos::ScreenWatchHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::inference_ssm_resume::SPEC,
-                Arc::new(super::inference::SsmResumeHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::inference_constrained_generate::SPEC,
-                Arc::new(super::inference::ConstrainedGenerateHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::intelligence_nightbrain_trigger::SPEC,
-                Arc::new(super::intelligence::NightBrainTriggerHandler::new(Arc::clone(&delegate))),
-            ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::intelligence_inline_partner::SPEC,
-                Arc::new(super::intelligence::InlinePartnerHandler::new(delegate)),
-            ),
+            Box::new(super::macos::PerceiveHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::macos::InteractHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::macos::ScreenWatchHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::inference::SsmResumeHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::inference::ConstrainedGenerateHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::intelligence::NightBrainTriggerHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
+            Box::new(super::intelligence::InlinePartnerHandler::new(delegate))
+                as Box<dyn super::Tool>,
         ]
     }
 
@@ -2134,6 +2030,14 @@ struct VaultSearchHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    VaultSearchHandler,
+    name = "vault.search",
+    input_schema = super::v2_catalog::vault_search::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for VaultSearchHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -2185,6 +2089,14 @@ struct VaultReadHandler {
     vault: Arc<dyn VaultBackend>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    VaultReadHandler,
+    name = "vault.read",
+    input_schema = super::v2_catalog::vault_read::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 #[async_trait]
 impl ToolHandler for VaultReadHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -2199,6 +2111,14 @@ impl ToolHandler for VaultReadHandler {
 struct VaultWriteHandler {
     vault: Arc<dyn VaultBackend>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    VaultWriteHandler,
+    name = "vault.write",
+    input_schema = super::v2_catalog::vault_write::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 #[async_trait]
 impl ToolHandler for VaultWriteHandler {
@@ -2291,6 +2211,14 @@ impl ToolHandler for VaultWriteHandler {
 
 struct BashExecuteHandler;
 
+crate::impl_tool_via_legacy_handler!(
+    BashExecuteHandler,
+    name = "action.bash",
+    input_schema = super::v2_catalog::action_bash::input_schema,
+    profile = super::Profile::ProOnly,
+    small_model_safe = false,
+);
+
 #[async_trait]
 impl ToolHandler for BashExecuteHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
@@ -2365,6 +2293,14 @@ impl ToolHandler for ThinkHandler {
 struct GraphNeighborsHandler {
     vault: Arc<dyn VaultBackend>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    GraphNeighborsHandler,
+    name = "graph.neighbors",
+    input_schema = super::v2_catalog::graph_neighbors::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 #[async_trait]
 impl ToolHandler for GraphNeighborsHandler {

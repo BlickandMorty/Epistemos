@@ -105,6 +105,14 @@ pub struct WebSearchHandler {
     client: Client,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    WebSearchHandler,
+    name = "web.search",
+    input_schema = super::v2_catalog::web_search::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl WebSearchHandler {
     pub fn new() -> Result<Self, ToolError> {
         Ok(Self {
@@ -350,6 +358,14 @@ pub struct WebExtractHandler {
     client: Client,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    WebExtractHandler,
+    name = "web.extract",
+    input_schema = super::v2_catalog::web_extract::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl WebExtractHandler {
     pub fn new() -> Result<Self, ToolError> {
         Ok(Self {
@@ -514,6 +530,14 @@ pub fn web_extract_schema() -> crate::types::ToolSchema {
 pub struct WebCrawlHandler {
     client: Client,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    WebCrawlHandler,
+    name = "web.crawl",
+    input_schema = super::v2_catalog::web_crawl::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl WebCrawlHandler {
     pub fn new() -> Result<Self, ToolError> {

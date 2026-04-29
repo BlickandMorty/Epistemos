@@ -27,6 +27,14 @@ pub struct PerceiveHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
 
+crate::impl_tool_via_legacy_handler!(
+    PerceiveHandler,
+    name = "macos.perceive",
+    input_schema = super::v2_catalog::macos_perceive::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
+
 impl PerceiveHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
         Self { delegate }
@@ -104,6 +112,14 @@ pub fn perceive_schema() -> crate::types::ToolSchema {
 pub struct InteractHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    InteractHandler,
+    name = "macos.interact",
+    input_schema = super::v2_catalog::macos_interact::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = false,
+);
 
 impl InteractHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
@@ -184,6 +200,14 @@ pub fn interact_schema() -> crate::types::ToolSchema {
 pub struct ScreenWatchHandler {
     delegate: Arc<dyn AgentEventDelegate>,
 }
+
+crate::impl_tool_via_legacy_handler!(
+    ScreenWatchHandler,
+    name = "macos.screen_watch",
+    input_schema = super::v2_catalog::macos_screen_watch::input_schema,
+    profile = super::Profile::AppStoreSafe,
+    small_model_safe = true,
+);
 
 impl ScreenWatchHandler {
     pub fn new(delegate: Arc<dyn AgentEventDelegate>) -> Self {
