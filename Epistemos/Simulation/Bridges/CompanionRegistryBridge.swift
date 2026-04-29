@@ -16,7 +16,7 @@ import Foundation
 
 /// 26-char Crockford-base32 ULID. Wraps `String` for type
 /// safety so it can't be confused with `MessageId` etc.
-public struct CompanionId: Hashable, Sendable, RawRepresentable {
+public struct CompanionId: Hashable, Sendable, RawRepresentable, Codable {
     public let rawValue: String
     public nonisolated init(rawValue: String) { self.rawValue = rawValue }
 }
@@ -154,8 +154,16 @@ public struct CompanionFarmEntry: Identifiable, Sendable, Hashable {
 /// calls cross this boundary. Per DOCTRINE I-8 this is the
 /// control-plane surface; per-frame visual deltas use the
 /// SPSC ring instead.
+///
+/// The `handle` field is `nonisolated(unsafe) let` because
+/// it's immutable post-`init` and just a u64 raw-pointer cast
+/// — Swift's actor isolation has no opinion on the underlying
+/// memory; the actor only protects the *ordering* of mutations
+/// to actor-isolated state, of which there are none here. The
+/// hierarchical-listing extension methods read this handle
+/// from any execution context.
 public actor CompanionRegistryBridge {
-    private let handle: UInt64
+    nonisolated(unsafe) public let handle: UInt64
     public let vaultRoot: URL
 
     /// Open or create the registry at `<vaultRoot>/.epistemos/companions.db`.
@@ -211,4 +219,109 @@ public enum CompanionRegistryBridgeError: Error {
     /// Forward-compat: a future Rust variant we don't yet know
     /// about — the bridge skips it rather than crashing.
     case malformedEntry
+}
+
+// MARK: - Hierarchical types (S6 v1.6)
+
+/// One company in the three-level Company → Model → Agent
+/// hierarchy per DOCTRINE §3.4 v1.4. Synthesised from
+/// `base_model` prefixes Rust-side.
+public struct Company: Identifiable, Sendable, Hashable {
+    public var id: String { slug }
+    public let slug: String
+    public let displayName: String
+    public let brandColorHex: String
+    public let modelCount: Int
+    public let agentCount: Int
+
+    public nonisolated init(ffi: CompanyFfi) {
+        self.slug = ffi.slug
+        self.displayName = ffi.displayName
+        self.brandColorHex = ffi.brandColorHex
+        self.modelCount = Int(ffi.modelCount)
+        self.agentCount = Int(ffi.agentCount)
+    }
+}
+
+/// One model row in the picker. Belongs to exactly one
+/// `Company`.
+public struct Model: Identifiable, Sendable, Hashable {
+    public let id: String
+    public let companySlug: String
+    public let displayName: String
+    public let baseModel: String
+    public let agentCount: Int
+    public let brandColorHex: String
+
+    public nonisolated init(ffi: ModelFfi) {
+        self.id = ffi.id
+        self.companySlug = ffi.companySlug
+        self.displayName = ffi.displayName
+        self.baseModel = ffi.baseModel
+        self.agentCount = Int(ffi.agentCount)
+        self.brandColorHex = ffi.brandColorHex
+    }
+}
+
+/// One vault on disk per DOCTRINE §3.4.1.
+public struct Vault: Identifiable, Sendable, Hashable {
+    public let id: String
+    public let label: String
+    public let absolutePath: String
+    public let isPrimary: Bool
+    public let modifiedAt: String
+
+    public nonisolated init(ffi: VaultFfi) {
+        self.id = ffi.id
+        self.label = ffi.label
+        self.absolutePath = ffi.absolutePath
+        self.isPrimary = ffi.isPrimary
+        self.modifiedAt = ffi.modifiedAt
+    }
+}
+
+// MARK: - Hierarchical bridge methods (S6 v1.6)
+
+extension CompanionRegistryBridge {
+    /// All companies that have at least one registered companion.
+    /// Synthesised from `base_model` prefixes Rust-side.
+    /// `nonisolated` because `handle` is `nonisolated(unsafe) let`
+    /// and the UniFFI call itself is thread-safe (Rust side
+    /// holds the registry mutex internally).
+    public nonisolated func listCompanies() -> [Company] {
+        epistemosCompanionsListCompanies(handle: handle).map(Company.init(ffi:))
+    }
+
+    /// All models for `company.slug`.
+    public nonisolated func listModels(for company: Company) -> [Model] {
+        epistemosCompanionsListModelsForCompany(
+            handle: handle, companySlug: company.slug
+        ).map(Model.init(ffi:))
+    }
+
+    /// All agents bound to `model.id`.
+    public nonisolated func listAgents(for model: Model) -> [CompanionFarmEntry] {
+        epistemosCompanionsListAgentsForModel(
+            handle: handle, modelId: model.id
+        )
+        .compactMap(CompanionFarmEntry.init(ffi:))
+    }
+
+    /// All vaults for an entity. Returns primary first, then
+    /// siblings.
+    public nonisolated func listVaults(for entity: CompanionId) -> [Vault] {
+        epistemosCompanionsListVaultsForEntity(
+            handle: handle, entityId: entity.rawValue
+        ).map(Vault.init(ffi:))
+    }
+
+    /// Create a new sibling vault under `<entity>/vaults/<name>/`.
+    public nonisolated func createVault(
+        for entity: CompanionId, name: String
+    ) throws -> Vault {
+        let ffi = try epistemosCompanionsCreateVault(
+            handle: handle, entityId: entity.rawValue, vaultName: name
+        )
+        return Vault(ffi: ffi)
+    }
 }

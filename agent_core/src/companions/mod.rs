@@ -33,9 +33,12 @@ pub use activity::{ActivityState, ActivityTracker, ActivityTransition};
 pub use audit::{AuditEntry, AuditEventKind};
 pub use bridge::{
     epistemos_companions_archive, epistemos_companions_create_local_helper,
-    epistemos_companions_destroy, epistemos_companions_list_active,
-    epistemos_companions_list_all, epistemos_companions_open, CompanionFarmEntryFFI,
-    CompanionsError,
+    epistemos_companions_create_vault, epistemos_companions_destroy,
+    epistemos_companions_list_active, epistemos_companions_list_agents_for_model,
+    epistemos_companions_list_all, epistemos_companions_list_companies,
+    epistemos_companions_list_models_for_company,
+    epistemos_companions_list_vaults_for_entity, epistemos_companions_open,
+    CompanionFarmEntryFFI, CompanionsError, CompanyFFI, ModelFFI, VaultFFI,
 };
 pub use registry::CompanionRegistry;
 pub use transaction::{create_companion, CreationError, FailureInjection};

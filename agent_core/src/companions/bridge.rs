@@ -103,6 +103,62 @@ pub struct CompanionFarmEntryFFI {
     pub archived_at: Option<String>,
 }
 
+/// One company in the three-level Company → Model → Agent
+/// hierarchy per DOCTRINE §3.4 v1.4. Synthesised from the
+/// distinct provider/company prefixes of registered companions'
+/// `base_model` values (e.g. `claude-sonnet-4-6` → company
+/// `Anthropic`, model `Claude Sonnet 4.6`). The synthetic
+/// `Local` company holds every MLX-backed companion.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct CompanyFFI {
+    /// Stable slug — `anthropic`, `moonshot`, `openai`, `local`, etc.
+    pub slug: String,
+    /// User-facing display name — `Anthropic`, `Moonshot AI`,
+    /// `OpenAI`, `Local`.
+    pub display_name: String,
+    /// Hex brand color from `provenance.json` (e.g. `#D97757`).
+    /// Empty string if unavailable.
+    pub brand_color_hex: String,
+    /// How many distinct models from this company have at least
+    /// one registered agent.
+    pub model_count: u32,
+    /// Total agent count across all this company's models.
+    pub agent_count: u32,
+}
+
+/// One model row in the picker. Belongs to exactly one
+/// `CompanyFFI`. The display name is whatever the agents'
+/// `base_model` values resolve to (e.g. `Claude Sonnet 4.6`).
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct ModelFFI {
+    pub id: String,
+    pub company_slug: String,
+    pub display_name: String,
+    /// `claude-sonnet-4-6`, `qwen3-4b-mlx`, etc.
+    pub base_model: String,
+    pub agent_count: u32,
+    /// Hex brand color inherited from the parent company. Empty
+    /// if unavailable.
+    pub brand_color_hex: String,
+}
+
+/// One vault on disk, owned by an entity (Model / Agent /
+/// Sub-agent) per DOCTRINE §3.4.1.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct VaultFFI {
+    pub id: String,
+    /// `"primary"` for the canonical `vault/` folder; the
+    /// directory name (e.g. `code-review-archive`) for siblings
+    /// under `vaults/`.
+    pub label: String,
+    /// Absolute filesystem path on the user's vault root.
+    pub absolute_path: String,
+    pub is_primary: bool,
+    /// RFC3339 — directory mtime, so the sidebar can sort by
+    /// recency.
+    pub modified_at: String,
+}
+
 /// Recoverable error from the companion bridge. Mirrors
 /// `crate::bridge::AgentErrorFFI` shape so Swift can pattern-match
 /// on `case` discriminants.
@@ -336,6 +392,211 @@ pub fn epistemos_companions_archive(
 }
 
 // =============================================================================
+// S6 v1.6 — three-level Company → Model → Agent hierarchy.
+// Companies are SYNTHESISED from registered companions' `base_model`
+// values; we don't persist them as their own SQLite rows because
+// company identity is fully derivable. Models likewise. Per
+// DOCTRINE §3.4 v1.4 + §3.4.1: only Companions (Agents and
+// Sub-agents) are persisted in the SQLite registry.
+// =============================================================================
+
+/// List the distinct companies that have at least one registered
+/// (non-archived) companion. Synthesised from `base_model`
+/// prefixes.
+#[uniffi::export]
+pub fn epistemos_companions_list_companies(handle: u64) -> Vec<CompanyFFI> {
+    if handle == 0 {
+        return Vec::new();
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let companions = lock.list_active().unwrap_or_default();
+            synthesise_companies(&companions)
+        },
+        Vec::new()
+    )
+}
+
+/// List the distinct models for a given company slug. Synthesised
+/// from registered companions' `base_model` values whose company
+/// resolves to `company_slug`.
+#[uniffi::export]
+pub fn epistemos_companions_list_models_for_company(
+    handle: u64,
+    company_slug: String,
+) -> Vec<ModelFFI> {
+    if handle == 0 {
+        return Vec::new();
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let companions = lock.list_active().unwrap_or_default();
+            synthesise_models_for_company(&companions, &company_slug)
+        },
+        Vec::new()
+    )
+}
+
+/// List agents whose `base_model` resolves to the given model id.
+#[uniffi::export]
+pub fn epistemos_companions_list_agents_for_model(
+    handle: u64,
+    model_id: String,
+) -> Vec<CompanionFarmEntryFFI> {
+    if handle == 0 {
+        return Vec::new();
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let model_id_norm = model_id_for(&model_id);
+            match lock.list_active() {
+                Ok(rows) => rows
+                    .into_iter()
+                    .filter(|c| model_id_for(&c.base_model) == model_id_norm)
+                    .map(|c| companion_to_ffi(&c, &lock))
+                    .collect(),
+                Err(_) => Vec::new(),
+            }
+        },
+        Vec::new()
+    )
+}
+
+/// List vaults owned by an entity (currently: an Agent — Sub-agent
+/// support extends in a future slice). Returns the primary `vault/`
+/// + every sibling under `vaults/`.
+#[uniffi::export]
+pub fn epistemos_companions_list_vaults_for_entity(
+    handle: u64,
+    entity_id: String,
+) -> Vec<VaultFFI> {
+    if handle == 0 {
+        return Vec::new();
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let cid = match super::CompanionId::parse(&entity_id) {
+                Some(v) => v,
+                None => return Vec::new(),
+            };
+            let companion = match lock.get(cid) {
+                Ok(Some(c)) => c,
+                _ => return Vec::new(),
+            };
+            list_vaults_on_disk(&companion.vault_path)
+        },
+        Vec::new()
+    )
+}
+
+/// Create a new sibling vault under `<entity>/vaults/<name>/`.
+/// Emits no audit event yet — that wires in S11 alongside the
+/// gift-box ledger; for now this is a thin filesystem op.
+#[uniffi::export]
+pub fn epistemos_companions_create_vault(
+    handle: u64,
+    entity_id: String,
+    vault_name: String,
+) -> Result<VaultFFI, CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let trimmed = vault_name.trim();
+            if trimmed.is_empty() {
+                return Err(CompanionsError::Validation {
+                    message: "vault name is empty".to_string(),
+                });
+            }
+            if trimmed.len() > 64
+                || trimmed.contains('/')
+                || trimmed.contains('\\')
+                || trimmed.contains('\0')
+            {
+                return Err(CompanionsError::Validation {
+                    message: format!("vault name '{}' has forbidden characters", trimmed),
+                });
+            }
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let cid = super::CompanionId::parse(&entity_id).ok_or(
+                CompanionsError::Validation {
+                    message: format!("invalid entity id '{}'", entity_id),
+                },
+            )?;
+            let companion = lock
+                .get(cid)
+                .map_err(CompanionsError::from)?
+                .ok_or(CompanionsError::Registry {
+                    message: format!("entity {} not found", entity_id),
+                })?;
+            let vaults_dir = companion.vault_path.join("vaults");
+            let new_path = vaults_dir.join(trimmed);
+            if new_path.exists() {
+                return Err(CompanionsError::Validation {
+                    message: format!("vault '{}' already exists", trimmed),
+                });
+            }
+            std::fs::create_dir_all(&new_path).map_err(|e| CompanionsError::Io {
+                message: format!("create vault folder: {}", e),
+            })?;
+            // Write a minimal provenance marker so the directory
+            // is recognisable as an Epistemos vault on disk.
+            let toml_path = new_path.join("vault.toml");
+            std::fs::write(
+                &toml_path,
+                format!(
+                    "# vault.toml\n# Created via epistemos_companions_create_vault for entity {}\n",
+                    entity_id
+                ),
+            )
+            .map_err(|e| CompanionsError::Io {
+                message: format!("write vault.toml: {}", e),
+            })?;
+            let meta = std::fs::metadata(&new_path).map_err(|e| CompanionsError::Io {
+                message: format!("stat vault folder: {}", e),
+            })?;
+            Ok(VaultFFI {
+                id: format!("{}::{}", entity_id, trimmed),
+                label: trimmed.to_string(),
+                absolute_path: new_path.to_string_lossy().to_string(),
+                is_primary: false,
+                modified_at: format_mtime(&meta),
+            })
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at create_vault".to_string(),
+        })
+    )
+}
+
+// =============================================================================
 // Helpers.
 // =============================================================================
 
@@ -366,6 +627,214 @@ fn companion_to_ffi(
         created_at: c.created_at.clone(),
         archived_at: c.archived_at.clone(),
     }
+}
+
+/// Map a base_model string (e.g. `claude-sonnet-4-6`,
+/// `qwen3-4b-mlx`, `gpt-5.5`) to the synthetic company slug per
+/// DOCTRINE §3.4 v1.4. Local MLX models go under `local`; cloud
+/// models route via prefix.
+fn company_slug_for(base_model: &str) -> &'static str {
+    let lower = base_model.to_ascii_lowercase();
+    if lower.ends_with("-mlx") || lower.contains("qwen") || lower.contains("mamba")
+        || lower.contains("gemma") || lower.contains("llama")
+    {
+        "local"
+    } else if lower.starts_with("claude") || lower.starts_with("anthropic") {
+        "anthropic"
+    } else if lower.starts_with("gpt") || lower.starts_with("openai")
+        || lower.starts_with("codex") || lower.starts_with("o1") || lower.starts_with("o3")
+    {
+        "openai"
+    } else if lower.starts_with("kimi") || lower.contains("moonshot") {
+        "moonshot"
+    } else if lower.starts_with("gemini") || lower.starts_with("google") {
+        "google"
+    } else if lower.starts_with("hermes") || lower.contains("nous") {
+        "hermes-agent"
+    } else {
+        "custom"
+    }
+}
+
+/// Display name for a company slug. Falls back to capitalised
+/// slug if unknown.
+fn company_display_name(slug: &str) -> String {
+    match slug {
+        "anthropic" => "Anthropic".to_string(),
+        "openai" => "OpenAI".to_string(),
+        "moonshot" => "Moonshot AI".to_string(),
+        "google" => "Google".to_string(),
+        "hermes-agent" => "Hermes Agent".to_string(),
+        "local" => "Local".to_string(),
+        "custom" => "Custom".to_string(),
+        other => {
+            let mut chars = other.chars();
+            chars
+                .next()
+                .map(|c| c.to_ascii_uppercase().to_string() + chars.as_str())
+                .unwrap_or_default()
+        }
+    }
+}
+
+/// Brand color hex by slug — matches DOCTRINE §10.7 V1 catalog.
+fn company_brand_hex(slug: &str) -> &'static str {
+    match slug {
+        "anthropic" => "#D97757",
+        "openai" => "#000000",
+        "moonshot" => "#5B8DEF",
+        "google" => "#4285F4",
+        "hermes-agent" => "#D4AF37",
+        "local" => "#2BA59B",
+        _ => "",
+    }
+}
+
+/// Stable, slug-style id for a model — `claude-sonnet-4-6` etc.
+/// Used as the model row key in the picker.
+fn model_id_for(base_model: &str) -> String {
+    base_model.to_ascii_lowercase().replace([' ', '_'], "-")
+}
+
+/// Display name for a base_model — light heuristic to title-case
+/// the canonical model strings without hard-coding every model.
+fn model_display_name(base_model: &str) -> String {
+    // `claude-sonnet-4-6` → `Claude Sonnet 4 6` (close enough for
+    // V1; later slices can map to a richer table).
+    base_model
+        .split(|c| c == '-' || c == '_')
+        .map(|seg| {
+            if seg.is_empty() {
+                String::new()
+            } else {
+                let mut chars = seg.chars();
+                chars
+                    .next()
+                    .map(|c| c.to_ascii_uppercase().to_string() + chars.as_str())
+                    .unwrap_or_default()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Group registered companions by company → return the synthetic
+/// company list with model + agent counts.
+fn synthesise_companies(companions: &[super::Companion]) -> Vec<CompanyFFI> {
+    use std::collections::BTreeMap;
+    let mut by_slug: BTreeMap<&str, (BTreeSetForCount<String>, u32)> = BTreeMap::new();
+    for c in companions {
+        let slug = company_slug_for(&c.base_model);
+        let entry = by_slug.entry(slug).or_default();
+        entry.0.insert(model_id_for(&c.base_model));
+        entry.1 += 1;
+    }
+    by_slug
+        .into_iter()
+        .map(|(slug, (models, agents))| CompanyFFI {
+            slug: slug.to_string(),
+            display_name: company_display_name(slug),
+            brand_color_hex: company_brand_hex(slug).to_string(),
+            model_count: models.len() as u32,
+            agent_count: agents,
+        })
+        .collect()
+}
+
+/// Group registered companions in `company_slug` by base_model →
+/// return the synthetic model list with agent counts.
+fn synthesise_models_for_company(
+    companions: &[super::Companion],
+    company_slug: &str,
+) -> Vec<ModelFFI> {
+    use std::collections::BTreeMap;
+    let mut by_model: BTreeMap<String, (String, u32)> = BTreeMap::new();
+    for c in companions {
+        if company_slug_for(&c.base_model) != company_slug {
+            continue;
+        }
+        let id = model_id_for(&c.base_model);
+        let entry = by_model
+            .entry(id.clone())
+            .or_insert_with(|| (c.base_model.clone(), 0));
+        entry.1 += 1;
+    }
+    by_model
+        .into_iter()
+        .map(|(id, (base_model, agent_count))| ModelFFI {
+            id: id.clone(),
+            company_slug: company_slug.to_string(),
+            display_name: model_display_name(&base_model),
+            base_model,
+            agent_count,
+            brand_color_hex: company_brand_hex(company_slug).to_string(),
+        })
+        .collect()
+}
+
+/// Wrapper used by `synthesise_companies` to dedupe model ids
+/// without pulling in the full `std::collections::BTreeSet` at
+/// every call site (keeps the import surface tight).
+type BTreeSetForCount<T> = std::collections::BTreeSet<T>;
+
+/// Enumerate vaults on disk for an entity. Primary `vault/` always
+/// returns first; sibling vaults under `vaults/` follow in
+/// modification-time order (newest first).
+fn list_vaults_on_disk(entity_vault_path: &std::path::Path) -> Vec<VaultFFI> {
+    let mut out = Vec::new();
+    // Primary vault is the entity's own vault_path. If it exists
+    // on disk, list it first.
+    if let Ok(meta) = std::fs::metadata(entity_vault_path) {
+        if meta.is_dir() {
+            out.push(VaultFFI {
+                id: format!("{}::primary", entity_vault_path.display()),
+                label: "primary".to_string(),
+                absolute_path: entity_vault_path.to_string_lossy().to_string(),
+                is_primary: true,
+                modified_at: format_mtime(&meta),
+            });
+        }
+    }
+    // Sibling vaults under <entity>/vaults/.
+    let vaults_dir = entity_vault_path.join("vaults");
+    if let Ok(entries) = std::fs::read_dir(&vaults_dir) {
+        let mut siblings: Vec<(VaultFFI, std::time::SystemTime)> = Vec::new();
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let meta = match entry.metadata() {
+                Ok(m) if m.is_dir() => m,
+                _ => continue,
+            };
+            let name = match path.file_name().and_then(|n| n.to_str()) {
+                Some(n) => n.to_string(),
+                None => continue,
+            };
+            // Skip dotfiles and the archive bin.
+            if name.starts_with('.') {
+                continue;
+            }
+            let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+            siblings.push((
+                VaultFFI {
+                    id: format!("{}::{}", entity_vault_path.display(), name),
+                    label: name,
+                    absolute_path: path.to_string_lossy().to_string(),
+                    is_primary: false,
+                    modified_at: format_mtime(&meta),
+                },
+                mtime,
+            ));
+        }
+        siblings.sort_by(|a, b| b.1.cmp(&a.1)); // newest first
+        out.extend(siblings.into_iter().map(|(v, _)| v));
+    }
+    out
+}
+
+fn format_mtime(meta: &std::fs::Metadata) -> String {
+    let mtime = meta.modified().unwrap_or(std::time::UNIX_EPOCH);
+    let datetime: chrono::DateTime<chrono::Utc> = mtime.into();
+    datetime.to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 /// Deterministic farm-grid layout per DOCTRINE §3.2. Positions
@@ -481,5 +950,158 @@ mod tests {
         assert!(x1 > x0 - 12.0 || y1 != y0);
         // Wraps to second row at index 4 (cols=4).
         assert!(y4 > y0);
+    }
+
+    // S6 v1.6 — hierarchical Company → Model → Agent + vault tests.
+
+    #[test]
+    fn company_slug_routing_covers_canonical_providers() {
+        assert_eq!(company_slug_for("claude-sonnet-4-6"), "anthropic");
+        assert_eq!(company_slug_for("claude-opus-4-7"), "anthropic");
+        assert_eq!(company_slug_for("gpt-5.5"), "openai");
+        assert_eq!(company_slug_for("codex-cli"), "openai");
+        assert_eq!(company_slug_for("kimi-k2"), "moonshot");
+        assert_eq!(company_slug_for("gemini-2-pro"), "google");
+        assert_eq!(company_slug_for("hermes-3-405b"), "hermes-agent");
+        assert_eq!(company_slug_for("qwen3-4b-mlx"), "local");
+        assert_eq!(company_slug_for("mamba-2-2.7b-mlx"), "local");
+        assert_eq!(company_slug_for("gemma-2-9b"), "local");
+        assert_eq!(company_slug_for("some-future-model"), "custom");
+    }
+
+    #[test]
+    fn list_companies_synthesises_from_registered_companions() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let _ = epistemos_companions_create_local_helper(h, "Note Helper".to_string())
+            .unwrap();
+        let _ = epistemos_companions_create_local_helper(h, "Memory Clerk".to_string())
+            .unwrap();
+
+        let companies = epistemos_companions_list_companies(h);
+        // Both Local Helpers route to the synthetic `Local`
+        // company per DOCTRINE §3.4 v1.4.
+        assert_eq!(companies.len(), 1);
+        assert_eq!(companies[0].slug, "local");
+        assert_eq!(companies[0].display_name, "Local");
+        assert_eq!(companies[0].agent_count, 2);
+        // Brand color non-empty for known providers.
+        assert!(!companies[0].brand_color_hex.is_empty());
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn list_models_for_company_returns_distinct_models() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        // Both companions share the same base_model — should
+        // appear as ONE model row.
+        let _ = epistemos_companions_create_local_helper(h, "A".to_string()).unwrap();
+        let _ = epistemos_companions_create_local_helper(h, "B".to_string()).unwrap();
+        let models = epistemos_companions_list_models_for_company(h, "local".to_string());
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].base_model, "qwen3-4b-mlx");
+        assert_eq!(models[0].agent_count, 2);
+        assert_eq!(models[0].company_slug, "local");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn list_agents_for_model_filters_correctly() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let entry = epistemos_companions_create_local_helper(h, "OnlyOne".to_string())
+            .unwrap();
+        let agents = epistemos_companions_list_agents_for_model(
+            h,
+            model_id_for(&entry.base_model),
+        );
+        assert_eq!(agents.len(), 1);
+        assert_eq!(agents[0].name, "OnlyOne");
+        // Unrelated model filter — empty.
+        let none = epistemos_companions_list_agents_for_model(
+            h,
+            "claude-opus-4-7".to_string(),
+        );
+        assert!(none.is_empty());
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn list_vaults_returns_primary_only_for_fresh_entity() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let entry = epistemos_companions_create_local_helper(h, "FreshOne".to_string())
+            .unwrap();
+        let vaults = epistemos_companions_list_vaults_for_entity(h, entry.id);
+        assert_eq!(vaults.len(), 1);
+        assert!(vaults[0].is_primary);
+        assert_eq!(vaults[0].label, "primary");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_vault_appends_sibling() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let entry = epistemos_companions_create_local_helper(
+            h,
+            "VaultOwner".to_string(),
+        )
+        .unwrap();
+        let new_vault = epistemos_companions_create_vault(
+            h,
+            entry.id.clone(),
+            "research".to_string(),
+        )
+        .expect("create vault OK");
+        assert!(!new_vault.is_primary);
+        assert_eq!(new_vault.label, "research");
+        // Now list should return primary + research.
+        let vaults = epistemos_companions_list_vaults_for_entity(h, entry.id);
+        assert_eq!(vaults.len(), 2);
+        assert!(vaults.iter().any(|v| v.is_primary));
+        assert!(vaults.iter().any(|v| v.label == "research"));
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_vault_rejects_invalid_names() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let entry =
+            epistemos_companions_create_local_helper(h, "Validator".to_string()).unwrap();
+        // Empty name.
+        assert!(matches!(
+            epistemos_companions_create_vault(h, entry.id.clone(), "".to_string()),
+            Err(CompanionsError::Validation { .. })
+        ));
+        // Slash in name.
+        assert!(matches!(
+            epistemos_companions_create_vault(h, entry.id.clone(), "a/b".to_string()),
+            Err(CompanionsError::Validation { .. })
+        ));
+        // Duplicate name.
+        let _ = epistemos_companions_create_vault(h, entry.id.clone(), "dup".to_string())
+            .unwrap();
+        assert!(matches!(
+            epistemos_companions_create_vault(h, entry.id, "dup".to_string()),
+            Err(CompanionsError::Validation { .. })
+        ));
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_vault_rejects_unknown_entity() {
+        use crate::companions::CompanionId;
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        // Fabricated id that doesn't exist in the registry.
+        let bogus_id = CompanionId::new_ulid().to_string();
+        assert!(matches!(
+            epistemos_companions_create_vault(h, bogus_id, "x".to_string()),
+            Err(CompanionsError::Registry { .. })
+        ));
+        epistemos_companions_destroy(h);
     }
 }
