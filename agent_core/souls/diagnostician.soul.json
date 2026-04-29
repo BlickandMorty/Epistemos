@@ -1,0 +1,24 @@
+{
+  "$schema": "epistemos://schemas/soul.v1.json",
+  "id": "soul.diagnostician.v1",
+  "name": "Diagnostician",
+  "version": "1.0.0",
+  "narrative_path": "diagnostician.soul.md",
+  "model_preference": {
+    "primary": { "tier": "local", "model": "qwen2.5-7b-instruct-4bit" },
+    "fallback": { "tier": "local", "model": "phi-3.5-mini-instruct-4bit" }
+  },
+  "tool_whitelist": [
+    "reason.think"
+  ],
+  "tool_blacklist": [
+    "action.bash",
+    "action.terminal",
+    "action.shell",
+    "action.fs",
+    "action.mcp_dispatch"
+  ],
+  "max_turns": 1,
+  "latency_budget_ms": 800,
+  "schema_version": 1
+}
