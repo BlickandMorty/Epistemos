@@ -142,6 +142,45 @@ pub struct ModelFFI {
     pub brand_color_hex: String,
 }
 
+/// Input to the §6.3 atomic creation transaction (S8). Mirrors
+/// `super::CompanionSpec` with stringified enums so Swift can
+/// build it from typed sources. Validation per §6.2 happens
+/// inside the transaction; this Record is the wire format only.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct CompanionSpecFFI {
+    pub name: String,
+    /// `"Block" | "Sage" | "Orb" | "HermesSnake"` — see
+    /// `super::HeadShape::as_str`.
+    pub head_shape: String,
+    /// Curated palette ref (`claude_warm_v1`, `kimi_indigo_v1`,
+    /// …) OR raw sRGB hex `#RRGGBB` when the user picked a
+    /// Custom palette. Validation per §6.2 enforces hex-format
+    /// + WCAG AA contrast for Custom values.
+    pub palette_ref: String,
+    /// `"Round" | "Slit" | "Visor" | "Closed" | "NegativeSpace"`.
+    pub eyes: String,
+    /// `"None" | "Short" | "Long"`.
+    pub arms: String,
+    /// `"Wrench" | "Scroll" | "Magnifier" | "Folder" | "Baton" |
+    /// "Lantern"`, or `None` for the no-prop case.
+    pub prop: Option<String>,
+    pub accessory_ref: Option<String>,
+    /// `"Orchestrator" | "Researcher" | "Worker" | "Critic" |
+    /// "CodeWorker" | "Faculty" | "Helper" | "Custom"`.
+    pub role: String,
+    pub base_model: String,
+    pub system_prompt_preset: String,
+    /// Path component(s) under the registry's `vault_root`. The
+    /// transaction joins this with the registry's own vault root
+    /// to produce the absolute folder path. Use forward slashes
+    /// for nested components (Rust normalises per OS).
+    pub vault_subpath: String,
+    /// Initial farm position per DOCTRINE §3.2. Caller normally
+    /// passes `(0, 0)` and lets the registry assign.
+    pub farm_position_x: f32,
+    pub farm_position_y: f32,
+}
+
 /// One vault on disk, owned by an entity (Model / Agent /
 /// Sub-agent) per DOCTRINE §3.4.1.
 #[derive(uniffi::Record, Debug, Clone, PartialEq)]
@@ -353,6 +392,94 @@ pub fn epistemos_companions_create_local_helper(
         },
         Err(CompanionsError::Registry {
             message: "panic at create_local_helper".to_string(),
+        })
+    )
+}
+
+/// Create a fully-customised companion via the §6.3 atomic
+/// transaction (S8). Validates per §6.2 (name, vault path,
+/// palette hex if Custom), then runs the 7-step transaction
+/// from `transaction::create_companion`. On any failure rolls
+/// back vault folder + SQLite rows + audit ledger and returns a
+/// typed `CompanionsError::Validation` so the wizard can
+/// re-enter the failing step.
+#[uniffi::export]
+pub fn epistemos_companions_create_from_spec(
+    handle: u64,
+    spec_ffi: CompanionSpecFFI,
+) -> Result<CompanionFarmEntryFFI, CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let mut lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            // Decode stringified enums → strongly-typed Rust
+            // values; surface a typed Validation error per axis
+            // so the Swift wizard can highlight the offending
+            // step.
+            let head_shape = HeadShape::parse(&spec_ffi.head_shape)
+                .ok_or_else(|| CompanionsError::Validation {
+                    message: format!("unknown head_shape '{}'", spec_ffi.head_shape),
+                })?;
+            let eyes = EyeStyle::parse(&spec_ffi.eyes)
+                .ok_or_else(|| CompanionsError::Validation {
+                    message: format!("unknown eyes '{}'", spec_ffi.eyes),
+                })?;
+            let arms = ArmStyle::parse(&spec_ffi.arms)
+                .ok_or_else(|| CompanionsError::Validation {
+                    message: format!("unknown arms '{}'", spec_ffi.arms),
+                })?;
+            let prop = match spec_ffi.prop.as_deref() {
+                Some(p) => Some(PropKind::parse(p).ok_or_else(|| CompanionsError::Validation {
+                    message: format!("unknown prop '{}'", p),
+                })?),
+                None => None,
+            };
+            let role = ProviderRole::parse(&spec_ffi.role).ok_or_else(|| {
+                CompanionsError::Validation {
+                    message: format!("unknown role '{}'", spec_ffi.role),
+                }
+            })?;
+            // Resolve the relative subpath to an absolute vault
+            // path under our owned vault_root. Reject absolute
+            // paths or paths escaping the root.
+            let trimmed = spec_ffi.vault_subpath.trim_start_matches('/');
+            let vault_path = h.vault_root.join(trimmed);
+            // Choose tool affinities — if a prop is selected the
+            // canonical mapping (§5.5 Category A) drives the
+            // bitset; otherwise default to a minimal helper set.
+            let tool_affinities = match prop {
+                Some(p) => ToolAffinities::from_prop(p),
+                None => ToolAffinities::empty(),
+            };
+            let spec = CompanionSpec {
+                name: spec_ffi.name,
+                head_shape,
+                palette_ref: spec_ffi.palette_ref,
+                eyes,
+                arms,
+                prop,
+                accessory_ref: spec_ffi.accessory_ref,
+                role,
+                base_model: spec_ffi.base_model,
+                system_prompt_preset: spec_ffi.system_prompt_preset,
+                tool_affinities,
+                vault_path,
+                farm_position: (spec_ffi.farm_position_x, spec_ffi.farm_position_y),
+            };
+            let companion = create_companion(&mut lock, spec, &h.vault_root)
+                .map_err(CompanionsError::from)?;
+            Ok(companion_to_ffi(&companion, &lock))
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at create_from_spec".to_string(),
         })
     )
 }
@@ -1102,6 +1229,127 @@ mod tests {
             epistemos_companions_create_vault(h, bogus_id, "x".to_string()),
             Err(CompanionsError::Registry { .. })
         ));
+        epistemos_companions_destroy(h);
+    }
+
+    // S8 — create_from_spec / CompanionSpecFFI tests.
+
+    fn fixture_spec_ffi(name: &str) -> CompanionSpecFFI {
+        CompanionSpecFFI {
+            name: name.to_string(),
+            head_shape: "Block".to_string(),
+            palette_ref: "claude_warm_v1".to_string(),
+            eyes: "NegativeSpace".to_string(),
+            arms: "None".to_string(),
+            prop: Some("Wrench".to_string()),
+            accessory_ref: None,
+            role: "CodeWorker".to_string(),
+            base_model: "claude-sonnet-4-6".to_string(),
+            system_prompt_preset: "careful_reviewer_v1".to_string(),
+            vault_subpath: format!("Companions/{}", name),
+            farm_position_x: 0.0,
+            farm_position_y: 0.0,
+        }
+    }
+
+    #[test]
+    fn create_from_spec_persists_full_axis_set() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let spec = fixture_spec_ffi("Sage Reviewer");
+        let entry = epistemos_companions_create_from_spec(h, spec).expect("create OK");
+        assert_eq!(entry.name, "Sage Reviewer");
+        assert_eq!(entry.head_shape, "Block");
+        assert_eq!(entry.eyes, "NegativeSpace");
+        assert_eq!(entry.role, "CodeWorker");
+        assert_eq!(entry.prop_ref.as_deref(), Some("Wrench"));
+        assert_eq!(entry.activity, "JustAcquired");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_from_spec_rejects_unknown_enum_strings() {
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        // Bad head_shape.
+        let mut s = fixture_spec_ffi("BadHead");
+        s.head_shape = "Doughnut".to_string();
+        assert!(matches!(
+            epistemos_companions_create_from_spec(h, s),
+            Err(CompanionsError::Validation { .. })
+        ));
+        // Bad eyes.
+        let mut s = fixture_spec_ffi("BadEyes");
+        s.eyes = "Cross".to_string();
+        assert!(matches!(
+            epistemos_companions_create_from_spec(h, s),
+            Err(CompanionsError::Validation { .. })
+        ));
+        // Bad role.
+        let mut s = fixture_spec_ffi("BadRole");
+        s.role = "Chairman".to_string();
+        assert!(matches!(
+            epistemos_companions_create_from_spec(h, s),
+            Err(CompanionsError::Validation { .. })
+        ));
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_from_spec_with_custom_palette_passes_contrast_gate() {
+        // Pure white passes against the dark sidebar (contrast
+        // 21:1) — should succeed.
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let mut s = fixture_spec_ffi("CustomBright");
+        s.palette_ref = "#FFFFFF".to_string();
+        let _ = epistemos_companions_create_from_spec(h, s).expect("white passes");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_from_spec_rejects_low_contrast_custom_palette() {
+        // Mid-grey fails both axes per WCAG AA 4.5:1 — should
+        // bounce back as a Validation error so the wizard can
+        // re-enter the palette step.
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let mut s = fixture_spec_ffi("CustomMid");
+        s.palette_ref = "#808080".to_string();
+        let err = epistemos_companions_create_from_spec(h, s).unwrap_err();
+        assert!(matches!(err, CompanionsError::Validation { .. }), "{err:?}");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_from_spec_with_null_handle_returns_validation_error() {
+        let r = epistemos_companions_create_from_spec(
+            0,
+            fixture_spec_ffi("NoHandle"),
+        );
+        assert!(matches!(r, Err(CompanionsError::Validation { .. })));
+    }
+
+    #[test]
+    fn create_from_spec_resolves_subpath_under_vault_root() {
+        // The wizard passes a subpath; the bridge joins with its
+        // own owned vault_root. Verify the resulting absolute
+        // path is in the same root and the companion lists OK.
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let spec = fixture_spec_ffi("ScopedAgent");
+        let entry = epistemos_companions_create_from_spec(h, spec).expect("create OK");
+        // The on-disk vault folder lives under the same root the
+        // bridge was opened against.
+        let expected = tmp
+            .path()
+            .join(".epistemos")
+            .parent()
+            .unwrap()
+            .join("Companions")
+            .join("ScopedAgent");
+        assert!(expected.exists(), "vault dir should exist at {expected:?}");
+        assert_eq!(entry.name, "ScopedAgent");
         epistemos_companions_destroy(h);
     }
 }

@@ -262,6 +262,7 @@ pub fn create_companion_with_failure(
 }
 
 fn validate_spec(spec: &CompanionSpec, vault_root: &Path) -> Result<(), CreationError> {
+    // §6.2 — name: non-empty, ≤ 64 chars, filesystem-safe.
     if spec.name.trim().is_empty() {
         return Err(CreationError::Validation("name is empty".to_string()));
     }
@@ -277,13 +278,105 @@ fn validate_spec(spec: &CompanionSpec, vault_root: &Path) -> Result<(), Creation
             spec.name
         )));
     }
+
+    // §6.2 — workspace: under vault root, normalised path component
+    // doesn't escape via "..", parent (if existing) is writable.
     if !spec.vault_path.starts_with(vault_root) {
         return Err(CreationError::Validation(format!(
             "vault_path {:?} not under vault_root {:?}",
             spec.vault_path, vault_root
         )));
     }
+    if spec
+        .vault_path
+        .components()
+        .any(|c| matches!(c, std::path::Component::ParentDir))
+    {
+        return Err(CreationError::Validation(format!(
+            "vault_path {:?} contains '..' — escaping the vault root is forbidden",
+            spec.vault_path
+        )));
+    }
+
+    // §6.2 — palette: when the user picked a Custom palette
+    // (everything not in the curated provider catalog), the value
+    // is treated as a sRGB hex literal `#RRGGBB` and must parse
+    // and pass the WCAG AA contrast threshold against both light
+    // and dark macOS sidebar backgrounds.
+    if is_custom_palette(&spec.palette_ref) {
+        validate_custom_palette_hex(&spec.palette_ref)?;
+    }
+
     Ok(())
+}
+
+/// A palette reference is "Custom" if it doesn't match a curated
+/// provider preset slug (`*_v1`, `*_v2`, …) — i.e. the user is
+/// supplying a raw hex literal directly.
+fn is_custom_palette(palette_ref: &str) -> bool {
+    !palette_ref.ends_with("_v1")
+        && !palette_ref.ends_with("_v2")
+        && !palette_ref.ends_with("_v3")
+}
+
+/// `#RRGGBB` parser + WCAG AA (≥ 4.5:1) contrast check against
+/// both the macOS dark-sidebar baseline (#1E1E1E) and light-sidebar
+/// baseline (#F5F5F5). The ratio is computed from relative
+/// luminance per WCAG 2.1.
+fn validate_custom_palette_hex(palette_ref: &str) -> Result<(), CreationError> {
+    let bytes = palette_ref.as_bytes();
+    if bytes.len() != 7 || bytes[0] != b'#' {
+        return Err(CreationError::Validation(format!(
+            "custom palette '{}' must be sRGB hex literal `#RRGGBB`",
+            palette_ref
+        )));
+    }
+    let parse_hex = |slice: &[u8]| -> Option<u8> {
+        let s = std::str::from_utf8(slice).ok()?;
+        u8::from_str_radix(s, 16).ok()
+    };
+    let r = parse_hex(&bytes[1..3]).ok_or_else(|| {
+        CreationError::Validation(format!("palette '{}' has non-hex characters", palette_ref))
+    })?;
+    let g = parse_hex(&bytes[3..5]).ok_or_else(|| {
+        CreationError::Validation(format!("palette '{}' has non-hex characters", palette_ref))
+    })?;
+    let b = parse_hex(&bytes[5..7]).ok_or_else(|| {
+        CreationError::Validation(format!("palette '{}' has non-hex characters", palette_ref))
+    })?;
+    let dark = relative_luminance(0x1E, 0x1E, 0x1E);
+    let light = relative_luminance(0xF5, 0xF5, 0xF5);
+    let chosen = relative_luminance(r, g, b);
+    let cr_dark = contrast_ratio(chosen, dark);
+    let cr_light = contrast_ratio(chosen, light);
+    // The palette must remain legible on whichever sidebar the
+    // user is using — both directions matter. WCAG AA threshold
+    // is 4.5:1 for body text; we use it as a coarse "this colour
+    // won't disappear" gate.
+    if cr_dark < 4.5 && cr_light < 4.5 {
+        return Err(CreationError::Validation(format!(
+            "palette '{}' contrast {:.2}:1 (dark) / {:.2}:1 (light) below WCAG AA 4.5:1 threshold",
+            palette_ref, cr_dark, cr_light
+        )));
+    }
+    Ok(())
+}
+
+fn relative_luminance(r: u8, g: u8, b: u8) -> f64 {
+    let lin = |c: u8| -> f64 {
+        let c = (c as f64) / 255.0;
+        if c <= 0.03928 {
+            c / 12.92
+        } else {
+            ((c + 0.055) / 1.055).powf(2.4)
+        }
+    };
+    0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+}
+
+fn contrast_ratio(l1: f64, l2: f64) -> f64 {
+    let (lighter, darker) = if l1 > l2 { (l1, l2) } else { (l2, l1) };
+    (lighter + 0.05) / (darker + 0.05)
 }
 
 fn ensure_vault_folder(path: &Path) -> Result<PathBuf, CreationError> {
@@ -568,6 +661,95 @@ mod tests {
         let all = registry.list_active().unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].name, "Twin");
+    }
+
+    #[test]
+    fn validation_rejects_name_with_forbidden_filesystem_chars() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        for bad in ["a/b", "back\\slash", "null\0byte"] {
+            let mut spec = fixture_spec(vault_root, "OK");
+            spec.name = bad.to_string();
+            let err = create_companion(&mut registry, spec, vault_root).unwrap_err();
+            assert!(matches!(err, CreationError::Validation(_)), "{bad}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn validation_rejects_vault_path_with_parent_dir_escape() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        let mut spec = fixture_spec(vault_root, "Escapist");
+        // "../" escape attempt that nominally starts under
+        // vault_root via prefix but contains a parent-dir
+        // component — should be rejected per §6.2.
+        spec.vault_path = vault_root.join("Companions").join("..").join("Sneaky");
+        let err = create_companion(&mut registry, spec, vault_root).unwrap_err();
+        assert!(matches!(err, CreationError::Validation(_)), "{err:?}");
+    }
+
+    #[test]
+    fn validation_accepts_curated_palette_refs_unchecked() {
+        // Curated provider presets (`*_v1`) are NOT subject to
+        // the hex/contrast gate — the catalog vouches for them.
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        for curated in ["claude_warm_v1", "kimi_indigo_v1", "local_teal_v1"] {
+            let mut spec = fixture_spec(vault_root, &format!("CuratedFor_{curated}"));
+            spec.palette_ref = curated.to_string();
+            let _ = create_companion(&mut registry, spec, vault_root)
+                .unwrap_or_else(|e| panic!("curated palette {curated} should validate: {e:?}"));
+        }
+    }
+
+    #[test]
+    fn validation_rejects_custom_palette_with_bad_hex() {
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        for bad in ["#XYZXYZ", "not-a-hex", "#FFF", "FFFFFF", "#GGGGGG"] {
+            let mut spec = fixture_spec(vault_root, "BadPalette");
+            spec.palette_ref = bad.to_string();
+            let err = create_companion(&mut registry, spec, vault_root).unwrap_err();
+            assert!(matches!(err, CreationError::Validation(_)), "{bad}: {err:?}");
+        }
+    }
+
+    #[test]
+    fn validation_rejects_custom_palette_below_contrast_threshold() {
+        // Mid-grey (#808080) sits at ~3.95:1 vs both #1E1E1E and
+        // #F5F5F5 — below the WCAG AA 4.5:1 threshold. Should
+        // reject as a Custom palette.
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        let mut spec = fixture_spec(vault_root, "MidGrey");
+        spec.palette_ref = "#808080".to_string();
+        let err = create_companion(&mut registry, spec, vault_root).unwrap_err();
+        assert!(matches!(err, CreationError::Validation(_)), "{err:?}");
+        // And the offending hex should appear in the message so
+        // the wizard can surface it.
+        let msg = format!("{err:?}");
+        assert!(msg.contains("#808080"), "{msg}");
+    }
+
+    #[test]
+    fn validation_accepts_high_contrast_custom_palette() {
+        // Pure white passes against the dark sidebar; pure black
+        // passes against the light sidebar. Either side is enough.
+        let tmp = tempfile::tempdir().unwrap();
+        let vault_root = tmp.path();
+        let mut registry = CompanionRegistry::open_in_memory().unwrap();
+        for ok in ["#FFFFFF", "#000000", "#D97757"] {
+            let mut spec = fixture_spec(vault_root, &format!("HighContrast_{}", &ok[1..]));
+            spec.palette_ref = ok.to_string();
+            let _ = create_companion(&mut registry, spec, vault_root).unwrap_or_else(|e| {
+                panic!("high-contrast palette {ok} should validate: {e:?}")
+            });
+        }
     }
 
     #[test]

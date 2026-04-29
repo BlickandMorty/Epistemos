@@ -585,7 +585,7 @@ mod tests {
             let spec = CompanionSpec {
                 name: "Archived".to_string(),
                 head_shape: HeadShape::Block,
-                palette_ref: "x".to_string(),
+                palette_ref: "claude_warm_v1".to_string(),
                 eyes: EyeStyle::Round,
                 arms: ArmStyle::None,
                 prop: None,

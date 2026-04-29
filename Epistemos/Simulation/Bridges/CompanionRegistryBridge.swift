@@ -206,6 +206,23 @@ public actor CompanionRegistryBridge {
         return typed
     }
 
+    /// Run the §6.3 atomic creation transaction with a
+    /// fully-customised spec (S8). The wizard builds the spec
+    /// from its live axes; the bridge here just routes the FFI
+    /// record to Rust and decodes the returned record.
+    /// Throws `CompanionsError` on validation or transaction
+    /// failure, or `CompanionRegistryBridgeError.malformedEntry`
+    /// on a forward-compat enum miss.
+    public func createFromSpec(_ spec: CompanionSpecFfi) throws -> CompanionFarmEntry {
+        let entry = try epistemosCompanionsCreateFromSpec(
+            handle: handle, specFfi: spec
+        )
+        guard let typed = CompanionFarmEntry(ffi: entry) else {
+            throw CompanionRegistryBridgeError.malformedEntry
+        }
+        return typed
+    }
+
     /// Soft-archive (DOCTRINE §3.5). Vault on disk preserved.
     public func archive(_ id: CompanionId, reason: String? = nil) throws {
         try epistemosCompanionsArchive(
