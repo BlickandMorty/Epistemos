@@ -9,6 +9,7 @@ pub mod error_classifier;
 pub mod evolution;
 pub mod example_bank;
 pub mod neocortex;
+pub mod perf;
 pub mod prompt_caching;
 pub mod prompts;
 pub mod provider;
