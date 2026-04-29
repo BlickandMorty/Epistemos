@@ -351,6 +351,40 @@ impl ToolRegistry {
             .map_err(map_vault_error)
     }
 
+    /// Phase 2F build factory — returns the new plan-§3.1 `Tool` catalog
+    /// driven by the existing handler logic via `LegacyToolAdapter`.
+    /// Migration is incremental: 2F-2 ships 4 tools; 2F-3..N add the rest;
+    /// 2G removes the legacy `ToolHandler` trait once the catalog is
+    /// complete.
+    pub fn build_v2_catalog(&self) -> Vec<Box<dyn super::Tool>> {
+        use super::legacy_adapter::LegacyToolAdapter;
+        use super::v2_catalog;
+        vec![
+            LegacyToolAdapter::boxed(
+                v2_catalog::vault_search::SPEC,
+                Arc::new(VaultSearchHandler {
+                    vault: Arc::clone(&self.vault),
+                }),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::vault_read::SPEC,
+                Arc::new(VaultReadHandler {
+                    vault: Arc::clone(&self.vault),
+                }),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::vault_write::SPEC,
+                Arc::new(VaultWriteHandler {
+                    vault: Arc::clone(&self.vault),
+                }),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::workspace_search::SPEC,
+                Arc::new(super::workspace_search::WorkspaceSearchHandler),
+            ),
+        ]
+    }
+
     fn register_default_tools(&mut self) {
         self.register_vault_search();
         self.register_vault_read();
@@ -1828,6 +1862,65 @@ mod tier_tests {
 
     fn build_registry(tier: ToolTier) -> ToolRegistry {
         ToolRegistry::with_tier(Arc::new(NullVault), true, None::<std::path::PathBuf>, tier)
+    }
+
+    #[test]
+    fn v2_catalog_builds_four_plan_canonical_tools() {
+        // Phase 2F-2 audit: factory produces a Vec<Box<dyn Tool>> whose
+        // entries carry dotted names + compiling input schemas. This is
+        // the integration check that pairs the v2_catalog static SPEC
+        // tests with real handler instances driven by a stub vault.
+        let registry = build_registry(ToolTier::Full);
+        let catalog = registry.build_v2_catalog();
+        assert_eq!(catalog.len(), 4, "2F-2 ships 4 adapted tools");
+
+        let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
+        assert!(names.contains(&"vault.search"));
+        assert!(names.contains(&"vault.read"));
+        assert!(names.contains(&"vault.write"));
+        assert!(names.contains(&"workspace.search"));
+
+        // Each tool's input schema must compile via the Phase 2A grammar
+        // compiler — proves §17.3 sampler-bound dispatch for each.
+        for tool in &catalog {
+            crate::grammar::schema_to_llg(tool.input_schema()).unwrap_or_else(|e| {
+                panic!(
+                    "v2 tool {} input schema must compile: {:?}",
+                    tool.name(),
+                    e
+                )
+            });
+        }
+    }
+
+    #[tokio::test]
+    async fn v2_catalog_vault_search_invokable_through_runner() {
+        // End-to-end: build the catalog, locate vault.search, run it
+        // through Phase 2C's run_with_variants against the NullVault
+        // (which returns empty hits). Verifies the adapter + runner
+        // + grammar + cache stack works for a wrapped legacy tool.
+        let registry = build_registry(ToolTier::Full);
+        let catalog = registry.build_v2_catalog();
+        let vault_search = catalog
+            .iter()
+            .find(|t| t.name() == "vault.search")
+            .expect("vault.search must be in v2 catalog");
+
+        let ctx = crate::tools::runner::default_ctx(std::time::Duration::from_millis(800));
+        let r = crate::tools::runner::run_with_variants(
+            vault_search.as_ref(),
+            &ctx,
+            serde_json::json!({"query": "test"}),
+        )
+        .await;
+        // NullVault returns Ok(Vec::new()), legacy handler maps this to a
+        // formatted string ("(no output)" or similar); adapter wraps that
+        // as `{ "text": "..." }`. We just assert the call completed Ok.
+        assert_eq!(
+            r.meta.status,
+            crate::tools::Status::Ok,
+            "vault.search must succeed against NullVault"
+        );
     }
 
     #[test]

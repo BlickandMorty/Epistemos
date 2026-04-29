@@ -1,6 +1,40 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-1 shipped | Full agent_core sweep green: 594 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E + 2F-1 + 2F-2 shipped | Full agent_core sweep green: 599 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2F-2 — Port 4 vault/workspace tools to Tool trait ✅
+
+Plan reference: §3.5 vault-family + workspace tools, §3.1 Tool trait, §17.3 sampler-bound dispatch, Option C purest-replace migration via Phase 2F-1's `LegacyToolAdapter`.
+
+**Shipped:**
+- [x] `agent_core/src/tools/v2_catalog/` (NEW directory) with per-tool static catalog modules. Each module exposes `pub fn input_schema() -> &'static Value` (OnceLock-backed) and `pub const SPEC: AdapterSpec`. The function-pointer-in-const pattern is what makes `AdapterSpec` Copy + const-constructable.
+- [x] `vault_search.rs` — name `vault.search`, AppStoreSafe, small_model_safe, single-variant. Schema: `query` required string, optional `limit` 1-20 default 5, optional `tags` string array. additionalProperties:false.
+- [x] `vault_read.rs` — name `vault.read`. Schema: `path` required string. additionalProperties:false.
+- [x] `vault_write.rs` — name `vault.write`. Schema: `path` + `content` required, optional `tags` + `append` default false. small_model_safe = false (modification needs reasoning; Phase 6 routing routes to 7B).
+- [x] `workspace_search.rs` — name `workspace.search`. Schema tightened from legacy free-form to additionalProperties:false at the v2 layer. additionalProperties:false.
+- [x] `agent_core/src/tools/v2_catalog/mod.rs` — module entry + 3 invariant tests: every spec compiles via grammar compiler, dispatch grammar over full catalog compiles, every name uses plan-canonical dotted form.
+- [x] `agent_core/src/tools/registry.rs` — `ToolRegistry::build_v2_catalog()` factory pairs each spec with a freshly-constructed handler instance (cloning the registry's vault Arc) to produce `Vec<Box<dyn Tool>>`. 2 new integration tests:
+  - `v2_catalog_builds_four_plan_canonical_tools` — verifies the factory returns 4 tools with dotted names; each tool's input schema compiles via the grammar compiler.
+  - `v2_catalog_vault_search_invokable_through_runner` — end-to-end through Phase 2C's `run_with_variants` against a NullVault; status comes back Ok.
+- [x] `agent_core/src/tools/mod.rs` — `pub mod v2_catalog;`.
+
+**Verification:**
+- `cargo test --lib v2_catalog` → 5 passed (3 spec invariants + 2 registry-driven integration).
+- Full agent_core lib → **599 passed**, 0 failed (was 594 post-2F-1; +5 net). Zero functional regressions across the still-active legacy `ToolHandler` path.
+
+**Audit (no nuance lost vs canonical plan):**
+- §3.1 trait surface: ✅ all 4 adapted tools expose name/input_schema/output_schema/variants/profile/small_model_safe/invoke.
+- §3.5 plan-canonical naming: ✅ all 4 use dotted names (`vault.search`, `vault.read`, `vault.write`, `workspace.search`).
+- §17.3 sampler-bound dispatch: ✅ each schema compiles via Phase 2A's `schema_to_llg`; full-catalog dispatch grammar compiles via `build_dispatch_grammar`.
+- §3.6 cache + Phase 2D semantic: ✅ adapter routes through `run_with_variants` → exercises Phase 2C runner + Phase 2D cache via `default_ctx`.
+- additionalProperties:false on every input schema: ✅ tighter than the legacy free-form schemas (which the legacy path keeps; the v2 surface is the strict path).
+- Behavior preservation per Option C purest path: ✅ legacy handler runs verbatim inside `LegacyToolAdapter::invoke`; existing 33-tool surface untouched.
+
+**Phase 2F roadmap (next batches):**
+- 2F-3: 5-8 more tools (tentative: web.search/fetch, knowledge.recall, memory.* ChatLite-tier).
+- 2F-4: Modification + destructive (knowledge.summarize, todo.*, scheduling.*, terminal/bash gated by Profile::ProOnly).
+- 2F-5: Specialized (apple.*, browser.*, computer_use.*, imessage.*, channel_*).
+- 2G: Once all 33 wrapped, expose `register_v2_catalog()` to Phase 3 router; remove legacy `ToolHandler` trait + `RegisteredTool` wrapper.
 
 ## 2026-04-29 Quick Capture Phase 2F-1 — LegacyToolAdapter scaffolding ✅
 

@@ -62,6 +62,7 @@ pub mod reason_think;
 
 // Phase 2F: bridge legacy ToolHandler into the new Tool trait surface.
 pub mod legacy_adapter;
+pub mod v2_catalog;
 
 use std::sync::Arc;
 use std::time::Duration;
