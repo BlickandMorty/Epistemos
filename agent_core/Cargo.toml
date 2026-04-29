@@ -13,6 +13,7 @@ anyhow = "1.0"
 async-stream = "0.3"
 async-trait = "0.1"
 base64 = "0.22"
+blake3 = "1.5"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 cron = "0.15"
 dirs = "5.0"

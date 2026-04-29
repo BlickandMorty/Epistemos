@@ -40,7 +40,7 @@ pub use transaction::{create_companion, CreationError, FailureInjection};
 /// Unique companion identifier. Backed by a ULID (monotonic
 /// time-ordered, 26-char Crockford base32 — matches the
 /// `"01JZ4..."`-shaped IDs in the DOCTRINE §6.4 audit example).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CompanionId(pub Ulid);
 
