@@ -22,7 +22,9 @@ use thiserror::Error;
 
 use crate::format::intent::Intent;
 
+pub mod dispatcher;
 pub mod vault_applier;
+pub use dispatcher::IntentDispatcher;
 pub use vault_applier::VaultIntentApplier;
 
 /// What the runtime emits after applying an Intent. Mirrors `Intent`'s
