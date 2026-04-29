@@ -20,6 +20,7 @@ pub mod apple_notes;
 pub mod apple_reminders;
 pub mod chunk_reduce;
 pub mod clarify_ask;
+pub mod communication_send_message;
 pub mod discovery_mcp_discover;
 pub mod discovery_model_catalog;
 pub mod file_patch;
@@ -30,6 +31,7 @@ pub mod graph_neighbors;
 pub mod inference_constrained_generate;
 pub mod inference_ssm_resume;
 pub mod intelligence_inline_partner;
+pub mod intelligence_mixture_of_minds;
 pub mod intelligence_nightbrain_trigger;
 pub mod intelligence_self_evolve;
 pub mod knowledge_contradiction;
@@ -38,7 +40,9 @@ pub mod knowledge_recall;
 pub mod macos_interact;
 pub mod macos_perceive;
 pub mod macos_screen_watch;
+pub mod media_image_generate;
 pub mod media_text_to_speech;
+pub mod media_vision_analyze;
 pub mod memory_curated;
 pub mod system_cron;
 pub mod system_todo;
@@ -50,6 +54,11 @@ pub mod web_crawl;
 pub mod web_extract;
 pub mod web_fetch;
 pub mod web_search;
+pub mod workspace_find_symbol;
+pub mod workspace_get_change_impact;
+pub mod workspace_get_dependencies;
+pub mod workspace_get_dependents;
+pub mod workspace_get_function_source;
 pub mod workspace_search;
 
 #[cfg(test)]
@@ -102,6 +111,15 @@ mod tests {
             super::apple_calendar::SPEC,
             super::apple_mail::SPEC,
             super::memory_curated::SPEC,
+            super::communication_send_message::SPEC,
+            super::media_vision_analyze::SPEC,
+            super::media_image_generate::SPEC,
+            super::intelligence_mixture_of_minds::SPEC,
+            super::workspace_find_symbol::SPEC,
+            super::workspace_get_function_source::SPEC,
+            super::workspace_get_dependencies::SPEC,
+            super::workspace_get_dependents::SPEC,
+            super::workspace_get_change_impact::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -275,6 +293,42 @@ mod tests {
                 super::memory_curated::SPEC.name,
                 (super::memory_curated::SPEC.input_schema)(),
             ),
+            (
+                super::communication_send_message::SPEC.name,
+                (super::communication_send_message::SPEC.input_schema)(),
+            ),
+            (
+                super::media_vision_analyze::SPEC.name,
+                (super::media_vision_analyze::SPEC.input_schema)(),
+            ),
+            (
+                super::media_image_generate::SPEC.name,
+                (super::media_image_generate::SPEC.input_schema)(),
+            ),
+            (
+                super::intelligence_mixture_of_minds::SPEC.name,
+                (super::intelligence_mixture_of_minds::SPEC.input_schema)(),
+            ),
+            (
+                super::workspace_find_symbol::SPEC.name,
+                (super::workspace_find_symbol::SPEC.input_schema)(),
+            ),
+            (
+                super::workspace_get_function_source::SPEC.name,
+                (super::workspace_get_function_source::SPEC.input_schema)(),
+            ),
+            (
+                super::workspace_get_dependencies::SPEC.name,
+                (super::workspace_get_dependencies::SPEC.input_schema)(),
+            ),
+            (
+                super::workspace_get_dependents::SPEC.name,
+                (super::workspace_get_dependents::SPEC.input_schema)(),
+            ),
+            (
+                super::workspace_get_change_impact::SPEC.name,
+                (super::workspace_get_change_impact::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -324,6 +378,15 @@ mod tests {
             super::apple_calendar::SPEC,
             super::apple_mail::SPEC,
             super::memory_curated::SPEC,
+            super::communication_send_message::SPEC,
+            super::media_vision_analyze::SPEC,
+            super::media_image_generate::SPEC,
+            super::intelligence_mixture_of_minds::SPEC,
+            super::workspace_find_symbol::SPEC,
+            super::workspace_get_function_source::SPEC,
+            super::workspace_get_dependencies::SPEC,
+            super::workspace_get_dependents::SPEC,
+            super::workspace_get_change_impact::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),

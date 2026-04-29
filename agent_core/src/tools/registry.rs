@@ -516,6 +516,62 @@ impl ToolRegistry {
             v2_catalog::memory_curated::SPEC,
             Arc::new(super::memory::MemoryTool::new(memory_dir)),
         ));
+        // communication.send_message + media.vision_analyze +
+        // media.image_generate + intelligence.mixture_of_minds — all
+        // Result-returning HTTP-client constructors. Same Ok-gating as
+        // legacy register_phase_six_communication / six_media /
+        // seven_intelligence registration paths. media.image_generate
+        // is the delegate-free fallback variant; the delegate-bound
+        // override lands separately in build_v2_delegate_catalog (per
+        // FINAL_SYNTHESIS §1 trust-boundary discipline — when the
+        // delegate is in place, MLX lane is reachable in-process).
+        if let Ok(send_message) = super::communication::SendMessageHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::communication_send_message::SPEC,
+                Arc::new(send_message),
+            ));
+        }
+        if let Ok(vision_analyze) = super::media::VisionAnalyzeHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::media_vision_analyze::SPEC,
+                Arc::new(vision_analyze),
+            ));
+        }
+        if let Ok(image_generate) = super::media::ImageGenerateHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::media_image_generate::SPEC,
+                Arc::new(image_generate),
+            ));
+        }
+        if let Ok(mom) = super::intelligence::MixtureOfMindsHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::intelligence_mixture_of_minds::SPEC,
+                Arc::new(mom),
+            ));
+        }
+        // Token-savior workspace tools — all unit struct handlers; the
+        // input_schema is parsed from the existing TOOL_SCHEMA constants
+        // so we don't fork the schema definition.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::workspace_find_symbol::SPEC,
+            Arc::new(super::workspace_search::FindSymbolHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::workspace_get_function_source::SPEC,
+            Arc::new(super::workspace_search::GetFunctionSourceHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::workspace_get_dependencies::SPEC,
+            Arc::new(super::workspace_search::GetDependenciesHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::workspace_get_dependents::SPEC,
+            Arc::new(super::workspace_search::GetDependentsHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::workspace_get_change_impact::SPEC,
+            Arc::new(super::workspace_search::GetChangeImpactHandler),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2083,13 +2139,23 @@ mod tier_tests {
         //                           web.fetch unconditional)
         //   2F-10  : +5 always (apple.{notes,reminders,calendar,mail},
         //                       memory.curated)
+        //   2F-11  : +9 always: 4 Ok-gated cloud-HTTP
+        //                       (communication.send_message,
+        //                        media.vision_analyze, media.image_generate,
+        //                        intelligence.mixture_of_minds) +
+        //                       5 token-savior workspace tools
+        //                       (workspace.find_symbol,
+        //                        workspace.get_function_source,
+        //                        workspace.get_dependencies,
+        //                        workspace.get_dependents,
+        //                        workspace.get_change_impact)
         //   trajectory.export + intelligence.self_evolve are skipped here
         //   because vault_root_path is None;
         //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 29, "2F-10 ships 29 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 38, "2F-11 ships 38 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2121,6 +2187,15 @@ mod tier_tests {
         assert!(names.contains(&"apple.calendar"));
         assert!(names.contains(&"apple.mail"));
         assert!(names.contains(&"memory.curated"));
+        assert!(names.contains(&"communication.send_message"));
+        assert!(names.contains(&"media.vision_analyze"));
+        assert!(names.contains(&"media.image_generate"));
+        assert!(names.contains(&"intelligence.mixture_of_minds"));
+        assert!(names.contains(&"workspace.find_symbol"));
+        assert!(names.contains(&"workspace.get_function_source"));
+        assert!(names.contains(&"workspace.get_dependencies"));
+        assert!(names.contains(&"workspace.get_dependents"));
+        assert!(names.contains(&"workspace.get_change_impact"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2164,8 +2239,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            31,
-            "all 31 unconditional + vault-root-bound v2 tools present"
+            40,
+            "all 40 unconditional + vault-root-bound v2 tools present"
         );
     }
 
