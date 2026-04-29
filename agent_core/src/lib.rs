@@ -2,6 +2,7 @@ pub mod agent_loop;
 pub mod approval;
 pub mod bootstrap;
 pub mod bridge;
+pub mod format;
 pub mod channel_relay;
 pub mod command_center;
 pub mod compaction;

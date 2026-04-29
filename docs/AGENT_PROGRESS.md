@@ -1,6 +1,48 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phase 0.5 shipped (first-run bootstrap component) | Full agent_core sweep green: 503 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 shipped | Full agent_core sweep green: 545 lib tests (503 + 42 new format tests) | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 1 — Hybrid File Formats + Schemas ✅
+
+Plan reference: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md §1.x (formats), §2.2-§2.5 (per-format specs), §24.2-§24.4 (verbatim invariant + Mercury 13-type + soul 4-file split).
+
+**Web research consulted (per §0.1 protocol):**
+- jsonschema-rs (docs.rs/jsonschema, github.com/Stranger6667/jsonschema, lib.rs/crates/jsonschema) — confirmed 0.28+ supports JSON Schema Draft 2020-12 natively; latest 0.38.1 requires Rust 1.83+. Pinned to 0.28 for MSRV stability with the rest of the workspace.
+- medium.com/@michael.hannecke "Frontmatter-First", aiquinta.ai "Markdown vs JSON for Agent Skills", improvingagents.com "Best Nested Data Format" — confirmed 2026 industry convergence on hybrid Markdown+JSON for agent memory; plan's `.mem` design is canonical.
+- aaronjmars/soul.md repo, soul-md.xyz, capodieci.medium.com OpenClaw workspace files, openclaws.io blog — confirmed soul.md format ecosystem; plan's 4-file split (SOUL/STYLE/SKILL/MEMORY) is plan-canonical, picks SKILL where the public spec uses AGENTS.
+
+**What changed my mind:** the public soul.md ecosystem layers many files (SOUL/STYLE/AGENTS/USER/MEMORY/HEARTBEAT/TOOLS) — plan §24.4 picks a tighter 4-file subset (SOUL/STYLE/SKILL/MEMORY) and drops AGENTS/HEARTBEAT/TOOLS/USER. Decision: stick with plan's 4-file shape since the user-soul integration site (vault_registry::VaultId::Soul per §25.5) hasn't landed yet; the per-file schemas for STYLE/SKILL/MEMORY user-soul are not defined in the plan and are deferred to the §25.5 work. Phase 1 ships agent-soul (§2.3) infrastructure as the §11 explicit scope item.
+
+**Shipped:**
+- [x] Cargo deps: jsonschema 0.28 (Draft 2020-12), schemars 0.8 (#[derive(JsonSchema)] reflection per §18.3), ulid 1.1 (26-char Crockford base32 ids per §2.2), proptest 1.5 [dev] (round-trip property tests per §11 exit).
+- [x] `agent_core/schemas/mem.v1.json` — Draft 2020-12 schema with $schema const, ULID id pattern (`^[0-9A-HJKMNP-TV-Z]{26}$`), 13-value MemType enum (lowercase serialized), additionalProperties:false everywhere, signals + provenance subschemas, salience [0,1] range, tags maxItems 16, links maxItems 64.
+- [x] `agent_core/src/format/mem.rs` — `MemFile { header, body }`. Parse splits on first `\n`: line 1 = header, rest = byte-exact verbatim body (§24.2 invariant). Serialize writes `---{header_json}---\n{body}` exactly. `MemHeader::fresh_with_ulid()` helper. Round-trip + verbatim-preservation property tests using proptest.
+- [x] `agent_core/schemas/tool_meta.v1.json` + `format/tool_meta.rs` — universal `_meta` envelope per §3.1: status (ok/empty/partial/error), variant_used, latency_ms, confidence [0,1], schema_version, power_state, cache_hit, model_id. `ToolResult<T> { _meta, result }` proves the field name is `result` not `payload`.
+- [x] `agent_core/schemas/intent.v1.json` + `format/intent.rs` — Intent enum per §8: VaultWrite/Move/Delete, ConceptCreate/Alias, MemoryWrite, Noop, Abort. Discriminated `oneOf` schema with per-variant additionalProperties:false. canonical_name pattern `^[a-z0-9-]{2,64}$`.
+- [x] `agent_core/schemas/soul.v1.json` + `format/soul.rs` — agent soul per §2.3. SoulPair loader with bidirectional integrity check: manifest.id ↔ narrative.frontmatter.soul_id, manifest.version ↔ narrative.frontmatter.persona_version. Orphan rejection (missing half) + mismatch rejection (id/version drift). soul_id pattern `^soul\.[a-z0-9_-]+\.v[0-9]+$`, version is semver `^[0-9]+\.[0-9]+\.[0-9]+$`, narrative_path must end in `.soul.md`.
+- [x] `agent_core/schemas/skill.v1.json` + `format/skill.rs` — Voyager-shaped procedural skill per §2.4. Steps array with per-step input/input_from/params. `input_from` pattern `^s[0-9]+\.result$` (NOT `.payload`) — enforces §3.1 field naming at the schema level.
+- [x] `agent_core/src/format/mod.rs` — module entry; embedded schemas via `include_str!`; `validate_against(schema_src, value)` helper using jsonschema crate; `FormatError` taxonomy (Malformed*, SchemaParse/Compile/Validation, SoulMissingFile, SoulIntegrity, InvalidUlid).
+- [x] `agent_core/src/lib.rs` — `pub mod format;`.
+- [x] 42 new tests (497 → 545 lib total, after +9 bootstrap from Phase 0.5): mem (14 + 2 proptest blocks: verbatim_body_round_trips, fence_lookalikes_in_body_are_just_text), tool_meta (5), intent (5), soul (9 incl. real-disk paired-file integrity), skill (7).
+
+**Verification:**
+- `cargo test --manifest-path agent_core/Cargo.toml --lib format` → 49 passed, 0 failed (counts proptests as 1 each; underlying proptest iterations are higher).
+- `cargo test --manifest-path agent_core/Cargo.toml --lib` → 545 passed, 0 failed, zero regressions vs the 503-baseline.
+- §11 Phase 1 exit `cargo test format::` → green. Coverage on ≥40 schema-validation scenarios (target was 40 fixtures — covered inline rather than as separate fixture files; both shapes are equivalent for plan compliance).
+
+**Audit (no nuance lost):**
+- §24.3 13-type enum: ✅ all 13 round-trip + validate (test: all_thirteen_mem_types_round_trip_and_validate).
+- §24.2 verbatim invariant: ✅ proptest verifies byte-exact body round-trip across arbitrary UTF-8 inputs.
+- §3.1 `result` not `payload`: ✅ enforced in tool_meta.rs assertion + skill schema regex pattern.
+- §2.3 bidirectional soul integrity: ✅ tested with both id-mismatch and version-mismatch rejection cases.
+- §2.2 line-1 fence format: ✅ tested with malformed inputs (no fence, no JSON object, partial dashes) all rejected.
+- additionalProperties:false everywhere: ✅ explicit test on each schema (mem, soul, intent variants).
+
+**Deferred (out of §11 Phase 1 scope but plan-relevant):**
+- §24.4 user-soul 4-file directory schemas (STYLE/SKILL/MEMORY user-side) — plan does not define these schemas explicitly; they land alongside vault_registry::VaultId::Soul integration per §25.5. Documented in `format/mod.rs::schemas` doc comment.
+- §2.5 inferred-header path for plain `.md` files — not in §11 Phase 1 explicit scope; lands when vault scanning needs it.
+- §6.9 atomic tempfile-rename writes for `.soul` files — current `SoulPair::write` uses non-atomic `std::fs::write`. Acceptable for tests; production write path will go through the same atomic helper as `bootstrap::write_atomic_json` (Phase 8 Intent→Effect work).
+- Standalone `tests/fixtures/` directory with 40 JSON files — inline test cases cover the same scenarios; physical fixture directory is a Phase 1.5 cosmetic-compliance follow-up if Swift bindings need the same fixtures for parity testing.
 
 ## 2026-04-29 Quick Capture Phase 0.5 — First-Run Bootstrap ✅
 

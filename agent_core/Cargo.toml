@@ -51,6 +51,18 @@ walkdir = "2.5"
 which = "6.0"
 uuid = { version = "1.11", features = ["serde", "v4"] }
 
+# Quick Capture Phase 1 (hybrid file formats). Plan §0.1 + §1 require:
+# - jsonschema for JSON Schema 2020-12 validation of .mem / .soul / .skill etc.
+# - schemars for `#[derive(JsonSchema)]` reflection from Rust types (§18.3)
+# - ulid for the 26-char Crockford-base32 IDs in mem.v1.json (§2.2)
+jsonschema = { version = "0.28", default-features = false }
+schemars = { version = "0.8", features = ["chrono"] }
+ulid = { version = "1.1", features = ["serde"] }
+
+[dev-dependencies]
+# Quick Capture Phase 1 — round-trip property tests (§11 Phase 1 exit).
+proptest = "1.5"
+
 [profile.release]
 # SAFETY: agent_core MUST use "unwind" so catch_unwind can intercept panics
 # and return typed AgentErrorFFI to Swift instead of aborting the process.
