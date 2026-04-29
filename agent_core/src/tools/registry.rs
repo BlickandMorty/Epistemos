@@ -484,6 +484,38 @@ impl ToolRegistry {
             v2_catalog::web_fetch::SPEC,
             Arc::new(super::web_fetch::WebFetchTool::new()),
         ));
+        // Apple-app family — all unit-struct handlers; osascript spawns
+        // gated by harden_cli_subprocess in security.rs.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::apple_notes::SPEC,
+            Arc::new(super::apple::AppleNotesHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::apple_reminders::SPEC,
+            Arc::new(super::apple::AppleRemindersHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::apple_calendar::SPEC,
+            Arc::new(super::apple::AppleCalendarHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::apple_mail::SPEC,
+            Arc::new(super::apple::AppleMailHandler),
+        ));
+        // memory.curated — derive memory dir from vault root, falling
+        // back to ~/.epistemos/memory then "./.epistemos-memory" so the
+        // tool always registers (mirrors register_phase_two_memory).
+        let memory_dir = if let Some(root) = self.vault_root_path.as_ref() {
+            root.join(".epistemos").join("memory")
+        } else if let Some(home) = dirs::home_dir() {
+            home.join(".epistemos").join("memory")
+        } else {
+            std::path::PathBuf::from(".epistemos-memory")
+        };
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::memory_curated::SPEC,
+            Arc::new(super::memory::MemoryTool::new(memory_dir)),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2049,13 +2081,15 @@ mod tier_tests {
         //                       media.text_to_speech)
         //   2F-9   : +4 web family (web.search/extract/crawl Ok-gated;
         //                           web.fetch unconditional)
+        //   2F-10  : +5 always (apple.{notes,reminders,calendar,mail},
+        //                       memory.curated)
         //   trajectory.export + intelligence.self_evolve are skipped here
         //   because vault_root_path is None;
         //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 24, "2F-9 ships 24 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 29, "2F-10 ships 29 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2082,6 +2116,11 @@ mod tier_tests {
         assert!(names.contains(&"web.extract"));
         assert!(names.contains(&"web.crawl"));
         assert!(names.contains(&"web.fetch"));
+        assert!(names.contains(&"apple.notes"));
+        assert!(names.contains(&"apple.reminders"));
+        assert!(names.contains(&"apple.calendar"));
+        assert!(names.contains(&"apple.mail"));
+        assert!(names.contains(&"memory.curated"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2125,8 +2164,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            26,
-            "all 26 unconditional + vault-root-bound v2 tools present"
+            31,
+            "all 31 unconditional + vault-root-bound v2 tools present"
         );
     }
 

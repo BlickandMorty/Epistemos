@@ -14,6 +14,10 @@
 
 pub mod action_bash;
 pub mod action_terminal;
+pub mod apple_calendar;
+pub mod apple_mail;
+pub mod apple_notes;
+pub mod apple_reminders;
 pub mod chunk_reduce;
 pub mod clarify_ask;
 pub mod discovery_mcp_discover;
@@ -35,6 +39,7 @@ pub mod macos_interact;
 pub mod macos_perceive;
 pub mod macos_screen_watch;
 pub mod media_text_to_speech;
+pub mod memory_curated;
 pub mod system_cron;
 pub mod system_todo;
 pub mod trajectory_export;
@@ -92,6 +97,11 @@ mod tests {
             super::web_extract::SPEC,
             super::web_crawl::SPEC,
             super::web_fetch::SPEC,
+            super::apple_notes::SPEC,
+            super::apple_reminders::SPEC,
+            super::apple_calendar::SPEC,
+            super::apple_mail::SPEC,
+            super::memory_curated::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -245,6 +255,26 @@ mod tests {
                 super::web_fetch::SPEC.name,
                 (super::web_fetch::SPEC.input_schema)(),
             ),
+            (
+                super::apple_notes::SPEC.name,
+                (super::apple_notes::SPEC.input_schema)(),
+            ),
+            (
+                super::apple_reminders::SPEC.name,
+                (super::apple_reminders::SPEC.input_schema)(),
+            ),
+            (
+                super::apple_calendar::SPEC.name,
+                (super::apple_calendar::SPEC.input_schema)(),
+            ),
+            (
+                super::apple_mail::SPEC.name,
+                (super::apple_mail::SPEC.input_schema)(),
+            ),
+            (
+                super::memory_curated::SPEC.name,
+                (super::memory_curated::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -289,6 +319,11 @@ mod tests {
             super::web_extract::SPEC,
             super::web_crawl::SPEC,
             super::web_fetch::SPEC,
+            super::apple_notes::SPEC,
+            super::apple_reminders::SPEC,
+            super::apple_calendar::SPEC,
+            super::apple_mail::SPEC,
+            super::memory_curated::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
