@@ -1,6 +1,7 @@
 pub mod agent_loop;
 pub mod bridge;
 pub mod compaction;
+pub mod companions;
 pub mod context_compiler;
 pub mod context_loader;
 pub mod dispatcher;

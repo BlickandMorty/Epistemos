@@ -44,6 +44,7 @@ memchr = "2.7"
 memmap2 = "0.9"
 rayon = "1.10"
 tracing = "0.1"
+ulid = { version = "1.1", features = ["serde"] }
 uniffi = { version = "0.28", features = ["tokio"] }
 walkdir = "2.5"
 uuid = { version = "1.11", features = ["serde", "v4"] }
