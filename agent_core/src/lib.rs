@@ -2,6 +2,7 @@ pub mod agent_loop;
 pub mod approval;
 pub mod bootstrap;
 pub mod bridge;
+pub mod cache;
 pub mod format;
 pub mod grammar;
 pub mod channel_relay;
