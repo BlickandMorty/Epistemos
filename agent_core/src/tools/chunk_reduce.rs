@@ -13,6 +13,7 @@ use serde_json::Value;
 use tracing::debug;
 
 use super::registry::{ToolError, ToolHandler};
+use super::{Profile, Tool, ToolCtx, ToolMeta, ToolResult, VariantId};
 
 /// The tool name as it appears in the tool registry and API calls.
 pub const CHUNK_REDUCE_TOOL_NAME: &str = "chunk_reduce";
@@ -248,6 +249,33 @@ fn reduce_deduplicate(results: Vec<String>) -> String {
 // ── Handler ─────────────────────────────────────────────────────────────
 
 pub struct ChunkReduceHandler;
+
+/// Phase 2G-4 native `Tool` impl. Pattern documented in `todo.rs`.
+#[async_trait]
+impl Tool for ChunkReduceHandler {
+    fn name(&self) -> &'static str { "chunk.reduce" }
+    fn input_schema(&self) -> &'static Value { super::v2_catalog::chunk_reduce::input_schema() }
+    fn output_schema(&self) -> &'static Value {
+        super::legacy_adapter::generic_text_or_object_output_schema()
+    }
+    fn variants(&self) -> &[VariantId] { &[VariantId::A] }
+    fn profile(&self) -> Profile { Profile::AppStoreSafe }
+    fn small_model_safe(&self) -> bool { true }
+    async fn invoke(&self, _ctx: &ToolCtx, variant: VariantId, input: Value) -> ToolResult {
+        let started = std::time::Instant::now();
+        match <Self as ToolHandler>::execute(self, &input).await {
+            Ok(s) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                let result = serde_json::from_str::<Value>(&s)
+                    .ok()
+                    .filter(|v| v.is_object() || v.is_array())
+                    .unwrap_or_else(|| serde_json::json!({"text": s}));
+                ToolResult { meta: ToolMeta::ok(variant, elapsed_ms), result }
+            }
+            Err(e) => ToolResult::error(variant, e.to_string()),
+        }
+    }
+}
 
 #[async_trait]
 impl ToolHandler for ChunkReduceHandler {

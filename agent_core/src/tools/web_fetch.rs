@@ -204,6 +204,38 @@ pub struct WebFetchTool {
     client: Client,
 }
 
+/// Phase 2G-4 native `Tool` impl. Pattern documented in `todo.rs`.
+#[async_trait::async_trait]
+impl super::Tool for WebFetchTool {
+    fn name(&self) -> &'static str { "web.fetch" }
+    fn input_schema(&self) -> &'static Value { super::v2_catalog::web_fetch::input_schema() }
+    fn output_schema(&self) -> &'static Value {
+        super::legacy_adapter::generic_text_or_object_output_schema()
+    }
+    fn variants(&self) -> &[super::VariantId] { &[super::VariantId::A] }
+    fn profile(&self) -> super::Profile { super::Profile::AppStoreSafe }
+    fn small_model_safe(&self) -> bool { true }
+    async fn invoke(
+        &self,
+        _ctx: &super::ToolCtx,
+        variant: super::VariantId,
+        input: Value,
+    ) -> super::ToolResult {
+        let started = std::time::Instant::now();
+        match <Self as super::registry::ToolHandler>::execute(self, &input).await {
+            Ok(s) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                let result = serde_json::from_str::<Value>(&s)
+                    .ok()
+                    .filter(|v| v.is_object() || v.is_array())
+                    .unwrap_or_else(|| serde_json::json!({"text": s}));
+                super::ToolResult { meta: super::ToolMeta::ok(variant, elapsed_ms), result }
+            }
+            Err(e) => super::ToolResult::error(variant, e.to_string()),
+        }
+    }
+}
+
 impl WebFetchTool {
     pub fn new() -> Self {
         let client = Client::builder()

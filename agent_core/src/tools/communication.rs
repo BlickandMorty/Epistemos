@@ -59,6 +59,42 @@ impl SendMessageHandler {
     }
 }
 
+/// Phase 2G-4 native `Tool` impl. Pattern documented in `todo.rs`.
+/// `small_model_safe: false` — sending is irreversible and visible to
+/// others. The legacy registry tags this Destructive for the same reason.
+#[async_trait]
+impl super::Tool for SendMessageHandler {
+    fn name(&self) -> &'static str { "communication.send_message" }
+    fn input_schema(&self) -> &'static Value {
+        super::v2_catalog::communication_send_message::input_schema()
+    }
+    fn output_schema(&self) -> &'static Value {
+        super::legacy_adapter::generic_text_or_object_output_schema()
+    }
+    fn variants(&self) -> &[super::VariantId] { &[super::VariantId::A] }
+    fn profile(&self) -> super::Profile { super::Profile::AppStoreSafe }
+    fn small_model_safe(&self) -> bool { false }
+    async fn invoke(
+        &self,
+        _ctx: &super::ToolCtx,
+        variant: super::VariantId,
+        input: serde_json::Value,
+    ) -> super::ToolResult {
+        let started = std::time::Instant::now();
+        match <Self as ToolHandler>::execute(self, &input).await {
+            Ok(s) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                let result = serde_json::from_str::<serde_json::Value>(&s)
+                    .ok()
+                    .filter(|v| v.is_object() || v.is_array())
+                    .unwrap_or_else(|| serde_json::json!({"text": s}));
+                super::ToolResult { meta: super::ToolMeta::ok(variant, elapsed_ms), result }
+            }
+            Err(e) => super::ToolResult::error(variant, e.to_string()),
+        }
+    }
+}
+
 #[async_trait]
 impl ToolHandler for SendMessageHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {

@@ -630,10 +630,8 @@ impl ToolRegistry {
                     vault: Arc::clone(&self.vault),
                 }),
             ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::chunk_reduce::SPEC,
-                Arc::new(super::chunk_reduce::ChunkReduceHandler),
-            ),
+            // Phase 2G-4 native Tool impl (no LegacyToolAdapter wrap).
+            Box::new(super::chunk_reduce::ChunkReduceHandler) as Box<dyn super::Tool>,
             LegacyToolAdapter::boxed(
                 v2_catalog::action_bash::SPEC,
                 Arc::new(BashExecuteHandler),
@@ -723,10 +721,8 @@ impl ToolRegistry {
                 Arc::new(web_crawl),
             ));
         }
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::web_fetch::SPEC,
-            Arc::new(super::web_fetch::WebFetchTool::new()),
-        ));
+        // Phase 2G-4 native Tool impl.
+        tools.push(Box::new(super::web_fetch::WebFetchTool::new()) as Box<dyn super::Tool>);
         // Apple-app family — all unit-struct handlers; osascript spawns
         // gated by harden_cli_subprocess in security.rs.
         tools.push(LegacyToolAdapter::boxed(
@@ -768,11 +764,10 @@ impl ToolRegistry {
         // override lands separately in build_v2_delegate_catalog (per
         // FINAL_SYNTHESIS §1 trust-boundary discipline — when the
         // delegate is in place, MLX lane is reachable in-process).
+        // Phase 2G-4 native Tool impl. Construction can fail (HTTP client
+        // init) so still Ok-gated.
         if let Ok(send_message) = super::communication::SendMessageHandler::new() {
-            tools.push(LegacyToolAdapter::boxed(
-                v2_catalog::communication_send_message::SPEC,
-                Arc::new(send_message),
-            ));
+            tools.push(Box::new(send_message) as Box<dyn super::Tool>);
         }
         if let Ok(vision_analyze) = super::media::VisionAnalyzeHandler::new() {
             tools.push(LegacyToolAdapter::boxed(
@@ -908,18 +903,14 @@ impl ToolRegistry {
         // unit-struct handlers; iMessage send is Destructive but the
         // existing legacy permission gate fires regardless of the v2
         // surface choice.
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::communication_imessage::SPEC,
-            Arc::new(super::imessage::IMessageHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::communication_imessage_contacts::SPEC,
-            Arc::new(super::imessage_contacts::IMessageContactsHandler),
-        ));
-        tools.push(LegacyToolAdapter::boxed(
-            v2_catalog::communication_channel_contacts::SPEC,
-            Arc::new(super::channel_contacts::ChannelContactsHandler),
-        ));
+        // Phase 2G-4 native Tool impls (no LegacyToolAdapter wrap).
+        tools.push(Box::new(super::imessage::IMessageHandler) as Box<dyn super::Tool>);
+        tools.push(
+            Box::new(super::imessage_contacts::IMessageContactsHandler) as Box<dyn super::Tool>,
+        );
+        tools.push(
+            Box::new(super::channel_contacts::ChannelContactsHandler) as Box<dyn super::Tool>,
+        );
         // skills.{list, view, manage} — progressive-disclosure family.
         // skills.manage gates installs through the existing 40-rule
         // security scanner per plan §17 Compile-Verify-Mint.
@@ -995,10 +986,9 @@ impl ToolRegistry {
         use super::legacy_adapter::LegacyToolAdapter;
         use super::v2_catalog;
         vec![
-            LegacyToolAdapter::boxed(
-                v2_catalog::clarify_ask::SPEC,
-                Arc::new(super::clarify::ClarifyHandler::new(Arc::clone(&delegate))),
-            ),
+            // Phase 2G-4 native Tool impl (no LegacyToolAdapter wrap).
+            Box::new(super::clarify::ClarifyHandler::new(Arc::clone(&delegate)))
+                as Box<dyn super::Tool>,
             LegacyToolAdapter::boxed(
                 v2_catalog::macos_perceive::SPEC,
                 Arc::new(super::macos::PerceiveHandler::new(Arc::clone(&delegate))),
