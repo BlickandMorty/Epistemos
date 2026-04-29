@@ -22,6 +22,9 @@ use thiserror::Error;
 
 use crate::format::intent::Intent;
 
+pub mod vault_applier;
+pub use vault_applier::VaultIntentApplier;
+
 /// What the runtime emits after applying an Intent. Mirrors `Intent`'s
 /// shape but carries the post-apply state (timestamps, content hashes,
 /// resolved paths) that Swift renders.
