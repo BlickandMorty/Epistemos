@@ -243,6 +243,58 @@ pub fn builtin_tools() -> Vec<ToolDefinition> {
             r#"{"app": "Safari"}"#,
             r#"{"type":"object","properties":{"app":{"type":"string","description":"Target app (optional, captures frontmost window if omitted)"}}}"#
         ),
+        // ── Hermes Graph Faculty (Simulation Mode S9; DOCTRINE §8.3) ─────────
+        // The seven canonical graph verbs Hermes is allowed to invoke.
+        // Each call emits the matching AgentEvent / GraphEvent so the
+        // honesty contract (I-5 "every animation maps to a real event")
+        // holds end-to-end. Other capabilities (filesystem write, network,
+        // computer-use) are NOT in this faculty scope per §8.3 and route
+        // through the standard MCP catalog above.
+        tool!(
+            "graph.search_semantic", "hermes",
+            "Search the cognitive graph by semantic similarity. Emits graph_traverse_started/completed events for each path Hermes touches.",
+            r#"{"query": "concepts about retrieval-augmented memory", "k": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string","description":"Natural-language query to embed and rank against graph nodes"},"k":{"type":"integer","minimum":1,"maximum":100,"default":10,"description":"Top-k results (default 10)"},"scope":{"type":"string","description":"GraphSlice id; defaults to active companion's slice"}},"required":["query"]}"#
+        ),
+        tool!(
+            "graph.search_fulltext", "hermes",
+            "Full-text search across the graph (FTS5 over node bodies). Emits FTS access events for each hit.",
+            r#"{"query": "exact phrase or keyword", "k": 10}"#,
+            r#"{"type":"object","properties":{"query":{"type":"string","description":"Lexical query passed to FTS5"},"k":{"type":"integer","minimum":1,"maximum":100,"default":10,"description":"Top-k results (default 10)"},"scope":{"type":"string","description":"GraphSlice id; defaults to active companion's slice"}},"required":["query"]}"#
+        ),
+        tool!(
+            "graph.get_node", "hermes",
+            "Fetch a node by id. Returns kind, title, body, edges, metadata. Emits graph_node_accessed.",
+            r#"{"node_id": "01J..."}"#,
+            r#"{"type":"object","properties":{"node_id":{"type":"string","description":"Crockford-base32 NodeId"}},"required":["node_id"]}"#
+        ),
+        tool!(
+            "graph.traverse", "hermes",
+            "Walk outward from a starting node up to max_depth, optionally filtered by edge kind. Emits graph_traverse_started/completed for each step.",
+            r#"{"start": "01J...", "max_depth": 3}"#,
+            r#"{"type":"object","properties":{"start":{"type":"string","description":"NodeId to walk from"},"max_depth":{"type":"integer","minimum":1,"maximum":16,"description":"Hop limit"},"edge_kinds":{"type":"array","items":{"type":"string"},"description":"Restrict traversal to these EdgeKinds"}},"required":["start","max_depth"]}"#
+        ),
+        tool!(
+            "graph.create_node", "hermes",
+            "Mint a new node and link it to its parent_refs. Emits graph_node_created and graph_edge_created.",
+            r#"{"kind": "Note", "title": "...", "body": "...", "parent_refs": []}"#,
+            r#"{"type":"object","properties":{"kind":{"type":"string","description":"NodeKind (Note / Concept / Artifact / etc.)"},"title":{"type":"string"},"body":{"type":"string"},"parent_refs":{"type":"array","items":{"type":"string"},"description":"Optional parent NodeIds"}},"required":["kind","title","body"]}"#,
+            destructive
+        ),
+        tool!(
+            "graph.create_edge", "hermes",
+            "Create an edge between two existing nodes. Emits graph_edge_created.",
+            r#"{"from": "01J...A", "to": "01J...B", "kind": "Cites"}"#,
+            r#"{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"kind":{"type":"string","description":"EdgeKind"},"metadata":{"type":"object"}},"required":["from","to","kind"]}"#,
+            destructive
+        ),
+        tool!(
+            "graph.commit_session", "hermes",
+            "Finalize the active session — promote durable artifacts and emit session_committed.",
+            r#"{"session_id": "01J..."}"#,
+            r#"{"type":"object","properties":{"session_id":{"type":"string","description":"SessionId returned by SessionStarted"}},"required":["session_id"]}"#,
+            destructive
+        ),
     ]
 }
 
@@ -253,7 +305,8 @@ mod tests {
     #[test]
     fn builtin_catalog_has_all_agents() {
         let tools = builtin_tools();
-        assert!(tools.len() >= 32, "expected at least 32 tools, got {}", tools.len());
+        // 32 pre-S9 tools + 7 Hermes graph verbs = 39 minimum.
+        assert!(tools.len() >= 39, "expected at least 39 tools, got {}", tools.len());
 
         let agents: std::collections::HashSet<&str> =
             tools.iter().map(|t| t.agent.as_str()).collect();
@@ -263,6 +316,69 @@ mod tests {
         assert!(agents.contains("terminal"), "missing terminal agent");
         assert!(agents.contains("automation"), "missing automation agent");
         assert!(agents.contains("computer"), "missing computer agent");
+        assert!(agents.contains("hermes"), "missing hermes graph faculty agent");
+    }
+
+    #[test]
+    fn hermes_catalog_has_seven_canonical_graph_verbs() {
+        // DOCTRINE §8.3 enumerates exactly 7 verbs the Hermes graph
+        // faculty is allowed to invoke. Anti-drift gate.
+        let tools = builtin_tools();
+        let hermes: std::collections::HashSet<&str> = tools
+            .iter()
+            .filter(|t| t.agent == "hermes")
+            .map(|t| t.name.as_str())
+            .collect();
+        assert_eq!(hermes.len(), 7, "expected exactly 7 hermes verbs, got {hermes:?}");
+        for required in [
+            "graph.search_semantic",
+            "graph.search_fulltext",
+            "graph.get_node",
+            "graph.traverse",
+            "graph.create_node",
+            "graph.create_edge",
+            "graph.commit_session",
+        ] {
+            assert!(
+                hermes.contains(required),
+                "missing canonical Hermes verb {required} (have {hermes:?})"
+            );
+        }
+    }
+
+    #[test]
+    fn hermes_destructive_verbs_require_confirmation() {
+        // create_node / create_edge / commit_session mutate the graph
+        // and must require confirmation per the §6.4 audit contract.
+        let tools = builtin_tools();
+        for name in ["graph.create_node", "graph.create_edge", "graph.commit_session"] {
+            let t = tools
+                .iter()
+                .find(|t| t.name == name)
+                .unwrap_or_else(|| panic!("missing tool {name}"));
+            assert!(t.safety.destructive, "{name} should be destructive");
+            assert!(
+                t.safety.requires_confirmation,
+                "{name} should require confirmation"
+            );
+        }
+    }
+
+    #[test]
+    fn hermes_read_only_verbs_are_not_destructive() {
+        let tools = builtin_tools();
+        for name in [
+            "graph.search_semantic",
+            "graph.search_fulltext",
+            "graph.get_node",
+            "graph.traverse",
+        ] {
+            let t = tools
+                .iter()
+                .find(|t| t.name == name)
+                .unwrap_or_else(|| panic!("missing tool {name}"));
+            assert!(!t.safety.destructive, "{name} should NOT be destructive");
+        }
     }
 
     #[test]

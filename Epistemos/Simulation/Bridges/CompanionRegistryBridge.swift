@@ -223,6 +223,20 @@ public actor CompanionRegistryBridge {
         return typed
     }
 
+    /// Create the canonical Hermes graph faculty companion (S9;
+    /// DOCTRINE §5.4 + §8.1). Locked axes per §8.1 — the
+    /// privileged faculty is not user-customisable through
+    /// this entry point.
+    public func createHermes(name: String) throws -> CompanionFarmEntry {
+        let entry = try epistemosCompanionsCreateHermes(
+            handle: handle, name: name
+        )
+        guard let typed = CompanionFarmEntry(ffi: entry) else {
+            throw CompanionRegistryBridgeError.malformedEntry
+        }
+        return typed
+    }
+
     /// Soft-archive (DOCTRINE §3.5). Vault on disk preserved.
     public func archive(_ id: CompanionId, reason: String? = nil) throws {
         try epistemosCompanionsArchive(

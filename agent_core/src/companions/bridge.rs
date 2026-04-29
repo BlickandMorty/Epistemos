@@ -396,6 +396,65 @@ pub fn epistemos_companions_create_local_helper(
     )
 }
 
+/// Create the canonical Hermes graph faculty companion (S9;
+/// DOCTRINE §5.4 + §8.1). Always uses HermesSnake head shape +
+/// `hermes_gold_v1` palette + Slit eyes + None arms + Scroll
+/// prop + Faculty role per §5.4 — Hermes is privileged and
+/// these axes are NOT user-customisable through this entry.
+/// (Users who want a custom faculty-style companion go through
+/// the regular Custom preset in the §6.1 wizard.)
+///
+/// Per DOCTRINE §8.2 the *session* (the Hermes session
+/// substrate) is created by `crate::hermes::HermesSession::begin`
+/// AFTER this call returns — this FFI is the registry-side step
+/// that materialises the persistent companion record + vault
+/// folder; the 7-phase landing ritual then plays over it.
+#[uniffi::export]
+pub fn epistemos_companions_create_hermes(
+    handle: u64,
+    name: String,
+) -> Result<CompanionFarmEntryFFI, CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let mut lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let (px, py) = farm_position_for(
+                &name,
+                lock.list_active().map(|v| v.len()).unwrap_or(0),
+            );
+            let spec = CompanionSpec {
+                name: name.clone(),
+                head_shape: HeadShape::HermesSnake,
+                palette_ref: "hermes_gold_v1".to_string(),
+                eyes: EyeStyle::Slit,
+                arms: ArmStyle::None,
+                prop: Some(PropKind::Scroll),
+                accessory_ref: None,
+                role: ProviderRole::Faculty,
+                base_model: "hermes-3-405b".to_string(),
+                system_prompt_preset: "hermes_faculty_v1".to_string(),
+                tool_affinities: ToolAffinities::from_prop(PropKind::Scroll),
+                vault_path: h.vault_root.join("Companions").join(&name),
+                farm_position: (px, py),
+            };
+            let companion = create_companion(&mut lock, spec, &h.vault_root)
+                .map_err(CompanionsError::from)?;
+            Ok(companion_to_ffi(&companion, &lock))
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at create_hermes".to_string(),
+        })
+    )
+}
+
 /// Create a fully-customised companion via the §6.3 atomic
 /// transaction (S8). Validates per §6.2 (name, vault path,
 /// palette hex if Custom), then runs the 7-step transaction
@@ -1328,6 +1387,52 @@ mod tests {
             fixture_spec_ffi("NoHandle"),
         );
         assert!(matches!(r, Err(CompanionsError::Validation { .. })));
+    }
+
+    // S9 — Hermes preset creation tests.
+
+    #[test]
+    fn create_hermes_uses_canonical_axes() {
+        // §5.4 + §8.1: Hermes is privileged and locked to the
+        // canonical axes regardless of user wishes through this
+        // entry point.
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let entry = epistemos_companions_create_hermes(h, "Hermes Faculty".to_string())
+            .expect("create OK");
+        assert_eq!(entry.name, "Hermes Faculty");
+        assert_eq!(entry.head_shape, "HermesSnake");
+        assert_eq!(entry.palette_ref, "hermes_gold_v1");
+        assert_eq!(entry.eyes, "Slit");
+        assert_eq!(entry.arms, "None");
+        assert_eq!(entry.prop_ref.as_deref(), Some("Scroll"));
+        assert_eq!(entry.role, "Faculty");
+        assert_eq!(entry.base_model, "hermes-3-405b");
+        assert_eq!(entry.activity, "JustAcquired");
+        epistemos_companions_destroy(h);
+    }
+
+    #[test]
+    fn create_hermes_with_null_handle_returns_validation_error() {
+        let r = epistemos_companions_create_hermes(0, "X".to_string());
+        assert!(matches!(r, Err(CompanionsError::Validation { .. })));
+    }
+
+    #[test]
+    fn create_hermes_appears_under_hermes_agent_company() {
+        // The synthetic Company derivation in S6 routes
+        // `hermes-*` base_models to the `hermes-agent` company
+        // slug — a Hermes companion should land in that bucket.
+        let tmp = tempfile::tempdir().unwrap();
+        let h = epistemos_companions_open(vault_at(&tmp));
+        let _ = epistemos_companions_create_hermes(h, "HermesPick".to_string()).unwrap();
+        let companies = epistemos_companions_list_companies(h);
+        assert!(
+            companies.iter().any(|c| c.slug == "hermes-agent"),
+            "expected hermes-agent company synthesised, got {:?}",
+            companies.iter().map(|c| &c.slug).collect::<Vec<_>>()
+        );
+        epistemos_companions_destroy(h);
     }
 
     #[test]

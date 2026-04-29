@@ -25,6 +25,7 @@ public enum CompanionPresetId: String, Hashable, Sendable, CaseIterable {
     case kimiWorker
     case codexWorker
     case gptOrchestrator
+    case hermesFaculty
     case localHelper
     case custom
 }
@@ -118,6 +119,26 @@ public enum PresetCatalog {
         systemPromptPreset: "gpt_orchestrator_v1",
         brandHex: "#9C9C9C"
     )
+    /// DOCTRINE §5.4 + §8.1 — Hermes is privileged. The picker
+    /// tile triggers the §8.2.2 7-phase landing ritual rather
+    /// than the regular wizard. The preset's axes are the ones
+    /// `epistemos_companions_create_hermes` enforces; we surface
+    /// them here for the live preview only — the wizard's
+    /// downstream steps are skipped when this preset is chosen.
+    public static let hermesFaculty = CompanionPreset(
+        id: .hermesFaculty,
+        displayName: "Hermes Faculty",
+        blurb: "Graph-native faculty (privileged)",
+        headShape: "HermesSnake",
+        paletteRef: "hermes_gold_v1",
+        eyes: "Slit",
+        arms: "None",
+        prop: "Scroll",
+        role: "Faculty",
+        baseModel: "hermes-3-405b",
+        systemPromptPreset: "hermes_faculty_v1",
+        brandHex: "#D4AF37"
+    )
     public static let localHelper = CompanionPreset(
         id: .localHelper,
         displayName: "Local Helper",
@@ -147,12 +168,14 @@ public enum PresetCatalog {
         brandHex: "#6F6F6F"
     )
 
-    /// All presets in canonical wizard order.
+    /// All presets in canonical wizard order. Order mirrors
+    /// DOCTRINE §5.4 table.
     public static let all: [CompanionPreset] = [
         claudeCodeWorker,
         kimiWorker,
         codexWorker,
         gptOrchestrator,
+        hermesFaculty,
         localHelper,
         custom,
     ]

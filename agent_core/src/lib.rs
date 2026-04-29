@@ -8,6 +8,7 @@ pub mod digest;
 pub mod event_log;
 pub mod events;
 pub mod ffi;
+pub mod hermes;
 pub mod normalize;
 pub mod context_loader;
 pub mod dispatcher;
