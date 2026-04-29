@@ -704,7 +704,23 @@ impl ToolRegistry {
             // session traces under it). Same gating.
             tools.push(LegacyToolAdapter::boxed(
                 v2_catalog::intelligence_self_evolve::SPEC,
-                Arc::new(super::intelligence::SelfEvolveHandler::new(root)),
+                Arc::new(super::intelligence::SelfEvolveHandler::new(root.clone())),
+            ));
+            // graph.{query, vault_navigate} + knowledge.session_search —
+            // all walk the vault directory tree directly, so they need
+            // the configured vault root. Mirrors register_phase_two_graph
+            // and register_phase_two_knowledge gating.
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::graph_query::SPEC,
+                Arc::new(super::graph::GraphQueryHandler::new(root.clone())),
+            ));
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::graph_vault_navigate::SPEC,
+                Arc::new(super::graph::VaultNavigateHandler::new(root.clone())),
+            ));
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::knowledge_session_search::SPEC,
+                Arc::new(super::knowledge::SessionSearchHandler::new(root)),
             ));
         }
         tools
@@ -2279,8 +2295,13 @@ mod tier_tests {
         //                       communication.{imessage, imessage_contacts,
         //                                      channel_contacts},
         //                       skills.{list, view, manage})
-        //   trajectory.export + intelligence.self_evolve are skipped here
-        //   because vault_root_path is None;
+        //   2F-14  : +3 vault-root-bound (graph.query,
+        //                       graph.vault_navigate,
+        //                       knowledge.session_search) — gated out
+        //                       in the None branch
+        //   trajectory.export, intelligence.self_evolve, graph.query,
+        //   graph.vault_navigate, knowledge.session_search are skipped
+        //   here because vault_root_path is None;
         //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
@@ -2348,6 +2369,18 @@ mod tier_tests {
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
         );
+        assert!(
+            !names.contains(&"graph.query"),
+            "graph.query requires vault_root_path; gated out when None"
+        );
+        assert!(
+            !names.contains(&"graph.vault_navigate"),
+            "graph.vault_navigate requires vault_root_path; gated out when None"
+        );
+        assert!(
+            !names.contains(&"knowledge.session_search"),
+            "knowledge.session_search requires vault_root_path; gated out when None"
+        );
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.
@@ -2385,10 +2418,22 @@ mod tier_tests {
             names.contains(&"intelligence.self_evolve"),
             "intelligence.self_evolve must register when vault_root_path is Some"
         );
+        assert!(
+            names.contains(&"graph.query"),
+            "graph.query must register when vault_root_path is Some"
+        );
+        assert!(
+            names.contains(&"graph.vault_navigate"),
+            "graph.vault_navigate must register when vault_root_path is Some"
+        );
+        assert!(
+            names.contains(&"knowledge.session_search"),
+            "knowledge.session_search must register when vault_root_path is Some"
+        );
         assert_eq!(
             catalog.len(),
-            58,
-            "all 58 unconditional + vault-root-bound v2 tools present"
+            61,
+            "all 61 unconditional + vault-root-bound v2 tools present"
         );
     }
 

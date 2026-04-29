@@ -42,6 +42,8 @@ pub mod file_read;
 pub mod file_search;
 pub mod file_write;
 pub mod graph_neighbors;
+pub mod graph_query;
+pub mod graph_vault_navigate;
 pub mod inference_constrained_generate;
 pub mod inference_route_private;
 pub mod inference_ssm_resume;
@@ -52,6 +54,7 @@ pub mod intelligence_self_evolve;
 pub mod knowledge_contradiction;
 pub mod knowledge_neural_recall;
 pub mod knowledge_recall;
+pub mod knowledge_session_search;
 pub mod macos_interact;
 pub mod macos_perceive;
 pub mod macos_screen_watch;
@@ -156,6 +159,9 @@ mod tests {
             super::skills_list::SPEC,
             super::skills_view::SPEC,
             super::skills_manage::SPEC,
+            super::graph_query::SPEC,
+            super::graph_vault_navigate::SPEC,
+            super::knowledge_session_search::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -437,6 +443,18 @@ mod tests {
                 super::skills_manage::SPEC.name,
                 (super::skills_manage::SPEC.input_schema)(),
             ),
+            (
+                super::graph_query::SPEC.name,
+                (super::graph_query::SPEC.input_schema)(),
+            ),
+            (
+                super::graph_vault_navigate::SPEC.name,
+                (super::graph_vault_navigate::SPEC.input_schema)(),
+            ),
+            (
+                super::knowledge_session_search::SPEC.name,
+                (super::knowledge_session_search::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -513,6 +531,9 @@ mod tests {
             super::skills_list::SPEC,
             super::skills_view::SPEC,
             super::skills_manage::SPEC,
+            super::graph_query::SPEC,
+            super::graph_vault_navigate::SPEC,
+            super::knowledge_session_search::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
