@@ -130,6 +130,90 @@ pub enum ToolError {
     PermissionDenied,
 }
 
+/// Phase 2G-3 — map from legacy underscored tool names to their canonical
+/// dotted v2 names. The model emits names from `get_definitions()` which
+/// still returns legacy schemas with underscored names (vault_search,
+/// read_file, …); the v2 catalog uses the plan-canonical dotted form
+/// (vault.search, file.read, …). Without this table, every legacy-named
+/// dispatch in `execute_v2` would fall through to legacy `execute()`
+/// instead of routing via `Tool::invoke`.
+///
+/// Naming notes:
+/// - `think` is intentionally NOT aliased to `reason.think`. Legacy
+///   `ThinkHandler` returns the input thought verbatim as plain text;
+///   the native v2 `reason.think` (Phase 2E) returns
+///   `{"thought": "..."}`. Aliasing them would change model-visible
+///   output shape — a deliberate non-alias.
+/// - `web_fetch` has no legacy registration; the v2 `web.fetch` is the
+///   only entry, so no alias needed.
+/// - `pkm_graph_neighbors` / `graph.neighbors` are the same handler
+///   under two names; aliased so the model can keep using the legacy
+///   form during the migration window.
+const LEGACY_TO_V2_ALIASES: &[(&str, &str)] = &[
+    ("vault_search", "vault.search"),
+    ("vault_read", "vault.read"),
+    ("vault_write", "vault.write"),
+    ("bash_execute", "action.bash"),
+    ("chunk_reduce", "chunk.reduce"),
+    ("pkm_graph_neighbors", "graph.neighbors"),
+    ("read_file", "file.read"),
+    ("write_file", "file.write"),
+    ("patch", "file.patch"),
+    ("search_files", "file.search"),
+    ("terminal", "action.terminal"),
+    ("process", "system.process"),
+    ("todo", "system.todo"),
+    ("cronjob", "system.cron"),
+    ("skills_list", "skills.list"),
+    ("skill_view", "skills.view"),
+    ("skill_manage", "skills.manage"),
+    ("vault_recall", "knowledge.recall"),
+    ("contradiction_check", "knowledge.contradiction_check"),
+    ("neural_recall", "knowledge.neural_recall"),
+    ("session_search", "knowledge.session_search"),
+    ("graph_query", "graph.query"),
+    ("vault_navigate", "graph.vault_navigate"),
+    ("memory", "memory.curated"),
+    ("web_search", "web.search"),
+    ("web_extract", "web.extract"),
+    ("web_crawl", "web.crawl"),
+    ("apple_notes", "apple.notes"),
+    ("apple_reminders", "apple.reminders"),
+    ("apple_calendar", "apple.calendar"),
+    ("apple_mail", "apple.mail"),
+    ("send_message", "communication.send_message"),
+    ("vision_analyze", "media.vision_analyze"),
+    ("image_generate", "media.image_generate"),
+    ("text_to_speech", "media.text_to_speech"),
+    ("imessage", "communication.imessage"),
+    ("imessage_contacts", "communication.imessage_contacts"),
+    ("channel_contacts", "communication.channel_contacts"),
+    ("route_private", "inference.route_private"),
+    ("mcp_discover", "discovery.mcp_discover"),
+    ("model_catalog", "discovery.model_catalog"),
+    ("trajectory_export", "trajectory.export"),
+    ("self_evolve", "intelligence.self_evolve"),
+    ("mixture_of_minds", "intelligence.mixture_of_minds"),
+    ("find_symbol", "workspace.find_symbol"),
+    ("get_function_source", "workspace.get_function_source"),
+    ("get_dependencies", "workspace.get_dependencies"),
+    ("get_dependents", "workspace.get_dependents"),
+    ("get_change_impact", "workspace.get_change_impact"),
+    // Delegate-bound tools — only resolve when build_v2_delegate_catalog
+    // has been wired into the registry. Currently the v2_catalog_cache
+    // holds only `build_v2_catalog` output, so these aliases are no-ops
+    // until Phase 2G-4 merges the delegate catalog. Listed here so the
+    // table is the single source of truth for legacy→v2 name mapping.
+    ("clarify", "clarify.ask"),
+    ("perceive", "macos.perceive"),
+    ("interact", "macos.interact"),
+    ("screen_watch", "macos.screen_watch"),
+    ("ssm_resume", "inference.ssm_resume"),
+    ("constrained_generate", "inference.constrained_generate"),
+    ("nightbrain_trigger", "intelligence.nightbrain_trigger"),
+    ("inline_partner", "intelligence.inline_partner"),
+];
+
 /// Phase 2G-1 helper — convert a v2 `Tool::invoke` `result.result` Value
 /// into the legacy `Result<String, ToolError>` shape `execute()` returns.
 ///
@@ -413,19 +497,34 @@ impl ToolRegistry {
             m
         });
 
-        // Phase 2G-2: when the requested name isn't in the v2 catalog,
-        // fall back to legacy execute(). Most legacy tool names use
-        // underscored form (vault_search, read_file, bash_execute) while
-        // v2 catalog uses dotted form (vault.search, file.read,
-        // action.bash). Without this fallback, callers like agent_loop
-        // and bridge.rs that pass model-emitted underscored names would
-        // never resolve. The legacy execute() already enforces
-        // permission gating, so dropping through to it preserves all
-        // existing tier/allowlist semantics.
-        let tool = match map.get(name) {
-            Some(t) => t,
-            None => return self.execute(name, input).await,
+        // Phase 2G-3: try the requested name in the v2 catalog first;
+        // if missing, consult LEGACY_TO_V2_ALIASES to resolve a legacy
+        // underscored name to its dotted v2 counterpart. Only after both
+        // lookups miss do we fall back to legacy `execute()` — this
+        // unifies dispatch through `Tool::invoke` for every name that
+        // has a v2 entry, regardless of whether the model emitted the
+        // legacy or dotted form.
+        let resolved_name: &str = if map.contains_key(name) {
+            name
+        } else {
+            match LEGACY_TO_V2_ALIASES.iter().find(|(legacy, _)| *legacy == name) {
+                Some((_, dotted)) if map.contains_key(*dotted) => dotted,
+                _ => return self.execute(name, input).await,
+            }
         };
+
+        // Permission gate runs again under the resolved name when the
+        // dotted form happens to also be in the legacy registry (rare,
+        // but handled defensively).
+        if let Some(legacy) = self.tools.get(resolved_name) {
+            if !self.is_tool_permitted(legacy) {
+                return Err(ToolError::PermissionDenied);
+            }
+        }
+
+        let tool = map
+            .get(resolved_name)
+            .expect("resolved name confirmed present above");
 
         // Default ToolCtx with a 30s latency budget per variant —
         // matches the legacy bash_execute timeout cap and gives space
@@ -2632,6 +2731,117 @@ mod tier_tests {
             matches!(err, ToolError::InvalidArguments(_)),
             "unknown tool must surface as InvalidArguments, got: {err:?}"
         );
+    }
+
+    #[tokio::test]
+    async fn execute_v2_resolves_legacy_underscored_name_via_alias_table() {
+        // Phase 2G-3 invariant: a model-emitted legacy name like
+        // `vault_search` resolves through LEGACY_TO_V2_ALIASES to
+        // `vault.search` in the v2 catalog, so dispatch routes through
+        // `Tool::invoke` instead of falling back to legacy `execute()`.
+        // The end-to-end output must still match what the legacy path
+        // would have returned (drop-in semantics).
+        let registry = build_registry(ToolTier::Full);
+        let input = serde_json::json!({"query": "anything"});
+        let legacy_path = registry
+            .execute("vault_search", &input)
+            .await
+            .expect("legacy vault_search must succeed");
+        let v2_path = registry
+            .execute_v2("vault_search", &input)
+            .await
+            .expect("vault_search via execute_v2 alias must succeed");
+        assert_eq!(legacy_path, v2_path, "alias-resolved dispatch must be byte-identical");
+    }
+
+    #[test]
+    fn legacy_v2_alias_table_has_no_typos_against_actual_v2_catalog() {
+        // Phase 2G-3 invariant: every dotted name on the right side of
+        // LEGACY_TO_V2_ALIASES must exist in the v2 catalog (either the
+        // unconditional set or the delegate-bound set). Catches typos
+        // and missing-port regressions early.
+        let unconditional: std::collections::HashSet<&str> = [
+            crate::tools::v2_catalog::vault_search::SPEC.name,
+            crate::tools::v2_catalog::vault_read::SPEC.name,
+            crate::tools::v2_catalog::vault_write::SPEC.name,
+            crate::tools::v2_catalog::workspace_search::SPEC.name,
+            crate::tools::v2_catalog::graph_neighbors::SPEC.name,
+            crate::tools::v2_catalog::chunk_reduce::SPEC.name,
+            crate::tools::v2_catalog::action_bash::SPEC.name,
+            crate::tools::v2_catalog::file_read::SPEC.name,
+            crate::tools::v2_catalog::file_write::SPEC.name,
+            crate::tools::v2_catalog::file_search::SPEC.name,
+            crate::tools::v2_catalog::file_patch::SPEC.name,
+            crate::tools::v2_catalog::knowledge_recall::SPEC.name,
+            crate::tools::v2_catalog::knowledge_contradiction::SPEC.name,
+            crate::tools::v2_catalog::knowledge_neural_recall::SPEC.name,
+            crate::tools::v2_catalog::system_todo::SPEC.name,
+            crate::tools::v2_catalog::system_cron::SPEC.name,
+            crate::tools::v2_catalog::action_terminal::SPEC.name,
+            crate::tools::v2_catalog::discovery_mcp_discover::SPEC.name,
+            crate::tools::v2_catalog::discovery_model_catalog::SPEC.name,
+            crate::tools::v2_catalog::media_text_to_speech::SPEC.name,
+            crate::tools::v2_catalog::trajectory_export::SPEC.name,
+            crate::tools::v2_catalog::web_search::SPEC.name,
+            crate::tools::v2_catalog::web_extract::SPEC.name,
+            crate::tools::v2_catalog::web_crawl::SPEC.name,
+            crate::tools::v2_catalog::web_fetch::SPEC.name,
+            crate::tools::v2_catalog::apple_notes::SPEC.name,
+            crate::tools::v2_catalog::apple_reminders::SPEC.name,
+            crate::tools::v2_catalog::apple_calendar::SPEC.name,
+            crate::tools::v2_catalog::apple_mail::SPEC.name,
+            crate::tools::v2_catalog::memory_curated::SPEC.name,
+            crate::tools::v2_catalog::communication_send_message::SPEC.name,
+            crate::tools::v2_catalog::media_vision_analyze::SPEC.name,
+            crate::tools::v2_catalog::media_image_generate::SPEC.name,
+            crate::tools::v2_catalog::intelligence_mixture_of_minds::SPEC.name,
+            crate::tools::v2_catalog::workspace_find_symbol::SPEC.name,
+            crate::tools::v2_catalog::workspace_get_function_source::SPEC.name,
+            crate::tools::v2_catalog::workspace_get_dependencies::SPEC.name,
+            crate::tools::v2_catalog::workspace_get_dependents::SPEC.name,
+            crate::tools::v2_catalog::workspace_get_change_impact::SPEC.name,
+            crate::tools::v2_catalog::browser_navigate::SPEC.name,
+            crate::tools::v2_catalog::browser_snapshot::SPEC.name,
+            crate::tools::v2_catalog::browser_click::SPEC.name,
+            crate::tools::v2_catalog::browser_type::SPEC.name,
+            crate::tools::v2_catalog::browser_scroll::SPEC.name,
+            crate::tools::v2_catalog::browser_back::SPEC.name,
+            crate::tools::v2_catalog::browser_press::SPEC.name,
+            crate::tools::v2_catalog::browser_close::SPEC.name,
+            crate::tools::v2_catalog::browser_get_images::SPEC.name,
+            crate::tools::v2_catalog::browser_vision::SPEC.name,
+            crate::tools::v2_catalog::browser_console::SPEC.name,
+            crate::tools::v2_catalog::inference_route_private::SPEC.name,
+            crate::tools::v2_catalog::communication_imessage::SPEC.name,
+            crate::tools::v2_catalog::communication_imessage_contacts::SPEC.name,
+            crate::tools::v2_catalog::communication_channel_contacts::SPEC.name,
+            crate::tools::v2_catalog::skills_list::SPEC.name,
+            crate::tools::v2_catalog::skills_view::SPEC.name,
+            crate::tools::v2_catalog::skills_manage::SPEC.name,
+            crate::tools::v2_catalog::graph_query::SPEC.name,
+            crate::tools::v2_catalog::graph_vault_navigate::SPEC.name,
+            crate::tools::v2_catalog::knowledge_session_search::SPEC.name,
+            crate::tools::v2_catalog::system_process::SPEC.name,
+            crate::tools::v2_catalog::intelligence_self_evolve::SPEC.name,
+            // Delegate-bound (build_v2_delegate_catalog):
+            crate::tools::v2_catalog::clarify_ask::SPEC.name,
+            crate::tools::v2_catalog::macos_perceive::SPEC.name,
+            crate::tools::v2_catalog::macos_interact::SPEC.name,
+            crate::tools::v2_catalog::macos_screen_watch::SPEC.name,
+            crate::tools::v2_catalog::inference_ssm_resume::SPEC.name,
+            crate::tools::v2_catalog::inference_constrained_generate::SPEC.name,
+            crate::tools::v2_catalog::intelligence_nightbrain_trigger::SPEC.name,
+            crate::tools::v2_catalog::intelligence_inline_partner::SPEC.name,
+        ]
+        .into_iter()
+        .collect();
+
+        for (legacy, dotted) in crate::tools::registry::LEGACY_TO_V2_ALIASES {
+            assert!(
+                unconditional.contains(dotted),
+                "alias {legacy} → {dotted} but {dotted} is not a known v2 catalog name"
+            );
+        }
     }
 
     #[tokio::test]
