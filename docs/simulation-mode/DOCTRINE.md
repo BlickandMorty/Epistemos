@@ -214,6 +214,8 @@ Per the v1.6 expansion, the Graph Live Theater is **multi-room** — each active
 
 **Cardinality rule.** N concurrent sessions ⇒ N rooms. A user running 1 Kimi-with-3-subagents session + 1 Claude Code session = **2 rooms** (the Kimi room shows 4 companions co-located; the Claude room shows 1).
 
+**Session-toggle chip row.** Above the room area sits a horizontal **toggle row** with one chip per active session — chips are session-scoped, not companion-scoped (a Kimi-with-3-subagents session is one chip, not four). Each chip carries: the session's lead-companion mascot (pixel-art, 16 pt), the session label, the participating-companion count, and a working-state pulse when at least one event for that session fired in the last 30 s. Clicking a chip transitions to **drill-in mode for that session** (see §3.3.3 v1.6). When zero sessions are active the toggle row is empty + the empty-state copy (`"No active agents"`) renders below.
+
 **Performance — single MTKView, viewport tiling (I-15 + §12).** Multi-room is rendered as **one MTKView with one Metal pipeline state and one command buffer per frame**. Each room is a `MTLViewport` rectangle within the same drawable. The renderer iterates rooms in a single render pass:
 
 ```
@@ -267,6 +269,41 @@ Per the v1.6 expansion, the Graph Live Theater is **the canonical full chat surf
 The traditional chat sidebar continues to work — it is NOT removed by v1.6. Both surfaces drive the same `AgentEvent` stream; per I-5 typing in the graph chat is identical event-stream-wise to typing in the sidebar chat.
 
 **Precedence.** When BOTH surfaces are open for the same session, the most-recently-focused surface takes input. The other surface mirrors the stream read-only. This is enforced by a single-input-focus invariant in the simulation Swift layer.
+
+#### 3.3.3 Overview vs. drill-in modes (v1.6 — "entering the room")
+
+Per the v1.6 expansion, the Graph Live Theater has **two modes** that the session-toggle row (§3.3.1) switches between:
+
+**Overview mode** — default when ≥ 2 sessions are active. The full multi-room viewport tiling is visible (per the §3.3.1 layout table); each room renders simplified, glanceable content:
+
+- Stage with sprite motion (companions doing their per-event animations).
+- Working-state badge in each room's upper-right corner — same 3-dot / mini-prop / gate-icon vocabulary as the farm dispatch badge per §3.2.2.
+- One-line helper-model summary at the bottom of each room (per §3.4.5).
+- Title strip with session id + companion count + elapsed time + total tokens.
+- **No chat input strip** in overview mode — typing requires drill-in.
+- **No inspector panel** in overview mode — clicking a companion shows a hover tooltip only.
+
+Overview mode is the *glance-and-monitor* surface — the user sees everything that's running at a glance and decides where to go next.
+
+**Drill-in mode** — entered by clicking a session-toggle chip OR clicking inside a room's stage area in overview mode. The selected session's room expands to fill the view; the other rooms collapse to a **thumbnail strip** along the right edge (32-pt mascot tiles + working-state badge + click to switch). The drilled-in room renders the full inspection chrome:
+
+- **Stage** at full size with all companions, edges, speech bubbles, sub-agent orbits, hand-off scrolls per §4.
+- **Full event timeline** — scrollable ribbon (right side, ~280 pt wide) showing every `AgentEvent` for this session, not just the last 10. Filtering by event kind (messages / tool calls / graph mutations / approvals) via chip toggles at the top.
+- **Inspector panel** for the focused companion (left side, ~240 pt wide) showing current task, current animation state, held prop, palette, current frame, recent tool input/output values, cost / token usage breakdown, sub-agent provenance chain.
+- **Graph-node activity ribbon** (bottom, ~80 pt tall) — live pulse of which graph nodes the agents in this session have accessed in the last 30 s, with click-to-jump to the node in the underlying graph view.
+- **Chat input strip** (per §3.3.2) — full chat surface for THIS session (send / cancel / regenerate / branch / attach / inspect).
+- **Per-companion mini-inspectors** — clicking another companion in the drilled-in room swaps the inspector panel content; the focused companion is the chat input target by default.
+
+Drill-in mode is the *deep work* surface — when the user wants to understand exactly what an agent is doing or steer the session at high resolution.
+
+**Transitions.**
+
+- Click a session-toggle chip OR click inside a room's stage in overview → drill in to that session (220 ms ease-out, room scales up while neighbours fade to thumbnails).
+- Press `Esc` OR click the overview-toggle button (top-left of the drilled-in room) → return to overview (220 ms ease-in, thumbnails expand back to viewport tiles).
+- Click a thumbnail in the drill-in side strip → switch drill-in target (no overview transition; cross-fade between rooms 180 ms).
+- When only ONE session is active, drill-in mode IS overview mode — there's no second room to overview between, so the chrome simply renders the drill-in shape (no thumbnail strip).
+
+**Performance.** Overview mode runs the simpler per-tile chrome (badge + summary + title strip — all SwiftUI overlays, not Metal-rendered). Drill-in mode runs the full inspector chrome but only for one session at a time + N-1 small thumbnails (each thumbnail is one Metal viewport drawing the same companion sprites at lower res, no inspector chrome). Both fit comfortably in the §12 ≤ 5 ms p99 budget — drill-in even has more headroom because only one room renders at full fidelity, not all N. The transition animation is a SwiftUI scale + opacity layer over the Metal render, not a re-render.
 
 ### 3.4 Placement C — Notes Sidebar (Agent-Themed Workspace Skin)
 
@@ -1909,6 +1946,7 @@ These are not in scope for V0–V2. They are listed here to prevent scope creep 
   *Graph theater multi-room (§3.3.x):*
   - §3.3.1 added — multi-room theater. ONE room per active **session** (companions sharing a session share a room; parallel sessions get separate rooms). Single MTKView with viewport tiling — N rooms cost ~N × per-companion-render, NOT N × pipeline-rebuild. Layouts: 1, 2, 3 (1+2), 2×2, 3×2, 3×3 + carousel ≥10. Pipelines + atlas shared across rooms (one IOSurface for the whole simulation); per-room camera + viewport + buffer-region differ. Per-room cost stays inside the §12 5 ms p99 budget.
   - §3.3.2 added — graph as full chat replacement. Each room's chat input strip carries every action available in the traditional chat sidebar (send / cancel / regenerate / branch / attach / inspect). Both surfaces drive the same `AgentEvent` stream; single-input-focus invariant prevents double-typing.
+  - §3.3.3 added — Overview vs drill-in modes ("entering the room"). Session-toggle chip row at the top (one chip per active session, scoped to session not companion). **Overview mode** (default, ≥ 2 sessions): tiled rooms with simplified glance-able chrome (working badge, helper summary, title strip — no chat / inspector). **Drill-in mode** (entered by clicking a chip / room): selected session expands to full view; thumbnail strip of other sessions on the right; full inspector + event timeline + graph-node activity ribbon + chat input strip render. Single-session-active collapses overview into drill-in shape automatically. Transitions are SwiftUI scale + opacity over the Metal render — not a re-render.
 
   *Sidebar as knowledge-brick (§3.4.x):*
   - §3.4.1 added — persistent vault hierarchy (Models / Agents / Sub-agents each have `vault/` + optional `vaults/` siblings; Companies have no direct vault). Sub-agents nest indefinitely on disk.
