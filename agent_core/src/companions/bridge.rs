@@ -12,8 +12,18 @@
 //! `ffi_guard_value!` so panics map to safe defaults under
 //! `panic = "unwind"`.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+use crate::adapters::applier::{
+    accessory_unlock::AccessoryUnlockApplier,
+    palette_unlock::PaletteUnlockApplier,
+    prop_unlock::PropUnlockApplier,
+    system_prompt_preset::SystemPromptPresetApplier,
+    tool_affinity_bundle::ToolAffinityBundleApplier,
+    Applier, ApplierError,
+};
+use crate::adapters::epbox::{open_epbox, EpBoxParseError, EpBoxType};
 
 use super::activity::ActivityState;
 use super::transaction::{create_companion, CreationError};
@@ -219,6 +229,32 @@ impl From<CreationError> for CompanionsError {
                 message: io.to_string(),
             },
             other => CompanionsError::Registry {
+                message: other.to_string(),
+            },
+        }
+    }
+}
+
+impl From<ApplierError> for CompanionsError {
+    fn from(e: ApplierError) -> Self {
+        match e {
+            ApplierError::Validation(m) => CompanionsError::Validation { message: m },
+            ApplierError::Registry(r) => CompanionsError::from(r),
+            other => CompanionsError::Registry {
+                message: other.to_string(),
+            },
+        }
+    }
+}
+
+impl From<EpBoxParseError> for CompanionsError {
+    fn from(e: EpBoxParseError) -> Self {
+        match e {
+            EpBoxParseError::Io(io) => CompanionsError::Io {
+                message: io.to_string(),
+            },
+            EpBoxParseError::Validation(m) => CompanionsError::Validation { message: m },
+            other => CompanionsError::Validation {
                 message: other.to_string(),
             },
         }
@@ -778,6 +814,280 @@ pub fn epistemos_companions_create_vault(
         },
         Err(CompanionsError::Registry {
             message: "panic at create_vault".to_string(),
+        })
+    )
+}
+
+// =============================================================================
+// S11 — Adapter gift-box FFI surface (DOCTRINE §7).
+// =============================================================================
+
+/// Result of a successful gift-box apply. Returned to the
+/// Mailroom UX so it can render the success animation +
+/// surface the change to the user.
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct AppliedGiftBoxFFI {
+    /// Gift-box id as recorded in the manifest. Same value
+    /// the audit ledger references.
+    pub epbox_id: String,
+    /// `"system_prompt_preset" | "tool_affinity_bundle" |
+    /// "prop_unlock" | "accessory_unlock" | "palette_unlock"`.
+    pub epbox_type: String,
+    /// Estimated apply duration from the manifest — caller
+    /// (Swift unwrap-animation VM) uses this to pick its wait
+    /// loop length per §7.4 + I-11.
+    pub apply_duration_estimate_ms: u64,
+    /// `true` when this gift-box is reversible per the
+    /// manifest's `reversible` flag.
+    pub reversible: bool,
+    /// JSON-serialised `ConfigDiff` for the audit trail. The
+    /// Audit View renders this directly.
+    pub diff_json: String,
+    /// Opaque blob the Mailroom holds onto so it can call
+    /// `epistemos_companions_revert_giftbox` later. Must round-
+    /// trip verbatim — Swift treats it as a black box.
+    pub revert_blob_json: String,
+}
+
+/// One gift-box discovered in a companion's mailroom. Matches
+/// the §7.2 manifest minus the inline content payload (the
+/// Mailroom UI only needs the metadata to render the tile).
+#[derive(uniffi::Record, Debug, Clone, PartialEq)]
+pub struct GiftBoxFFI {
+    pub id: String,
+    pub epbox_type: String,
+    pub title: String,
+    pub origin: String,
+    pub origin_class: String, // "Official" / "Community" / "UserLocal"
+    pub apply_duration_estimate_ms: u64,
+    pub reversible: bool,
+    pub license: String,
+    /// Absolute path on disk — the Mailroom UI passes this back
+    /// to apply_giftbox unchanged. Sandboxed to the registry's
+    /// vault_root.
+    pub absolute_path: String,
+}
+
+/// Apply an `.epbox` gift-box to a companion. Per §7.4 the
+/// caller (Swift unwrap-animation VM) drives this in parallel
+/// with the unwrap animation; the animation phase NEVER
+/// completes before this call returns (I-11).
+///
+/// Sandboxing per §7.3: `epbox_path` MUST be inside the
+/// registry's `vault_root`. The MAS profile only ships gift-
+/// boxes via the official registry; the Pro profile additionally
+/// allows filesystem import (still under the vault root).
+#[uniffi::export]
+pub fn epistemos_companions_apply_giftbox(
+    handle: u64,
+    companion_id: String,
+    epbox_path: String,
+) -> Result<AppliedGiftBoxFFI, CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let mut lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let cid = super::CompanionId::parse(&companion_id).ok_or(
+                CompanionsError::Validation {
+                    message: format!("invalid companion id '{}'", companion_id),
+                },
+            )?;
+            let path = Path::new(&epbox_path);
+            let opened = open_epbox(path, &h.vault_root).map_err(CompanionsError::from)?;
+            let outcome = match opened.manifest.r#type {
+                EpBoxType::SystemPromptPreset => SystemPromptPresetApplier::apply(
+                    &mut lock, cid, &opened.manifest, &opened.content,
+                ),
+                EpBoxType::ToolAffinityBundle => ToolAffinityBundleApplier::apply(
+                    &mut lock, cid, &opened.manifest, &opened.content,
+                ),
+                EpBoxType::PropUnlock => PropUnlockApplier::apply(
+                    &mut lock, cid, &opened.manifest, &opened.content,
+                ),
+                EpBoxType::AccessoryUnlock => AccessoryUnlockApplier::apply(
+                    &mut lock, cid, &opened.manifest, &opened.content,
+                ),
+                EpBoxType::PaletteUnlock => PaletteUnlockApplier::apply(
+                    &mut lock, cid, &opened.manifest, &opened.content,
+                ),
+            }
+            .map_err(CompanionsError::from)?;
+            Ok(AppliedGiftBoxFFI {
+                epbox_id: outcome.epbox_id,
+                epbox_type: outcome.epbox_type.as_str().to_string(),
+                apply_duration_estimate_ms: opened.manifest.apply_duration_estimate_ms,
+                reversible: opened.manifest.reversible,
+                diff_json: serde_json::to_string(&outcome.diff).unwrap_or_else(|_| "{}".to_string()),
+                revert_blob_json: outcome.revert_blob.to_string(),
+            })
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at apply_giftbox".to_string(),
+        })
+    )
+}
+
+/// List the gift-boxes pending for a companion in its
+/// mailroom. The mailroom is `<vault_root>/Companions/<name>/mailroom/`
+/// — every `.epbox` directory inside is enumerated here.
+/// Empty list when the directory doesn't exist (the user
+/// hasn't received any gift boxes yet).
+#[uniffi::export]
+pub fn epistemos_companions_list_inbox(
+    handle: u64,
+    companion_id: String,
+) -> Result<Vec<GiftBoxFFI>, CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let cid = super::CompanionId::parse(&companion_id).ok_or(
+                CompanionsError::Validation {
+                    message: format!("invalid companion id '{}'", companion_id),
+                },
+            )?;
+            let companion = lock
+                .get(cid)
+                .map_err(CompanionsError::from)?
+                .ok_or(CompanionsError::Validation {
+                    message: format!("companion {} not found", companion_id),
+                })?;
+            let mailroom = companion.vault_path.join("mailroom");
+            if !mailroom.is_dir() {
+                return Ok(Vec::new());
+            }
+            let mut found: Vec<GiftBoxFFI> = Vec::new();
+            for entry in std::fs::read_dir(&mailroom).map_err(|e| CompanionsError::Io {
+                message: format!("read mailroom: {}", e),
+            })? {
+                let entry = match entry {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                let p = entry.path();
+                if !p.is_dir() {
+                    continue;
+                }
+                if !p.extension().map(|s| s == "epbox").unwrap_or(false) {
+                    continue;
+                }
+                match open_epbox(&p, &h.vault_root) {
+                    Ok(opened) => {
+                        let origin_class = match opened.manifest.parsed_origin() {
+                            Some(crate::adapters::epbox::EpBoxOrigin::Official { .. }) => "Official",
+                            Some(crate::adapters::epbox::EpBoxOrigin::Community { .. }) => "Community",
+                            Some(crate::adapters::epbox::EpBoxOrigin::UserLocal { .. }) => "UserLocal",
+                            None => "Unknown",
+                        };
+                        found.push(GiftBoxFFI {
+                            id: opened.manifest.id,
+                            epbox_type: opened.manifest.r#type.as_str().to_string(),
+                            title: opened.manifest.title,
+                            origin: opened.manifest.origin,
+                            origin_class: origin_class.to_string(),
+                            apply_duration_estimate_ms: opened.manifest.apply_duration_estimate_ms,
+                            reversible: opened.manifest.reversible,
+                            license: opened.manifest.license,
+                            absolute_path: p.to_string_lossy().to_string(),
+                        });
+                    }
+                    Err(_e) => {
+                        // Skip malformed boxes — surfaced via
+                        // diagnostic logging in a follow-up.
+                    }
+                }
+            }
+            // Stable order so the Mailroom UI doesn't reshuffle on
+            // every refresh.
+            found.sort_by(|a, b| a.id.cmp(&b.id));
+            Ok(found)
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at list_inbox".to_string(),
+        })
+    )
+}
+
+/// Revert a previously-applied gift-box. The caller passes the
+/// `applied` record returned from `apply_giftbox`; the bridge
+/// dispatches back to the matching applier's `revert` method.
+#[uniffi::export]
+pub fn epistemos_companions_revert_giftbox(
+    handle: u64,
+    companion_id: String,
+    applied: AppliedGiftBoxFFI,
+) -> Result<(), CompanionsError> {
+    if handle == 0 {
+        return Err(CompanionsError::Validation {
+            message: "registry handle is null".to_string(),
+        });
+    }
+    ffi_guard_value!(
+        {
+            let h = unsafe { &*(handle as *const RegistryHandle) };
+            let mut lock = match h.registry.lock() {
+                Ok(g) => g,
+                Err(p) => p.into_inner(),
+            };
+            let cid = super::CompanionId::parse(&companion_id).ok_or(
+                CompanionsError::Validation {
+                    message: format!("invalid companion id '{}'", companion_id),
+                },
+            )?;
+            let ty = match applied.epbox_type.as_str() {
+                "system_prompt_preset" => EpBoxType::SystemPromptPreset,
+                "tool_affinity_bundle" => EpBoxType::ToolAffinityBundle,
+                "prop_unlock" => EpBoxType::PropUnlock,
+                "accessory_unlock" => EpBoxType::AccessoryUnlock,
+                "palette_unlock" => EpBoxType::PaletteUnlock,
+                other => return Err(CompanionsError::Validation {
+                    message: format!("unknown epbox_type '{}'", other),
+                }),
+            };
+            let revert_blob: serde_json::Value =
+                serde_json::from_str(&applied.revert_blob_json).map_err(|e| {
+                    CompanionsError::Validation {
+                        message: format!("revert_blob_json parse: {}", e),
+                    }
+                })?;
+            let outcome = crate::adapters::ApplyOutcome {
+                epbox_id: applied.epbox_id.clone(),
+                epbox_type: ty,
+                diff: crate::events::ConfigDiff::empty(),
+                revert_blob,
+            };
+            match ty {
+                EpBoxType::SystemPromptPreset =>
+                    SystemPromptPresetApplier::revert(&mut lock, cid, &outcome),
+                EpBoxType::ToolAffinityBundle =>
+                    ToolAffinityBundleApplier::revert(&mut lock, cid, &outcome),
+                EpBoxType::PropUnlock =>
+                    PropUnlockApplier::revert(&mut lock, cid, &outcome),
+                EpBoxType::AccessoryUnlock =>
+                    AccessoryUnlockApplier::revert(&mut lock, cid, &outcome),
+                EpBoxType::PaletteUnlock =>
+                    PaletteUnlockApplier::revert(&mut lock, cid, &outcome),
+            }
+            .map_err(CompanionsError::from)
+        },
+        Err(CompanionsError::Registry {
+            message: "panic at revert_giftbox".to_string(),
         })
     )
 }

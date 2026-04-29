@@ -46,6 +46,8 @@ pub enum RegistryError {
     NotFound(CompanionId),
     #[error("serde: {0}")]
     Serde(#[from] serde_json::Error),
+    #[error("schema/validation: {0}")]
+    Schema(String),
 }
 
 /// SQLite-backed companion registry. Single-threaded access via
@@ -286,6 +288,91 @@ impl CompanionRegistry {
         // Drop from the activity tracker — Active/Recent/Dormant/
         // Parked is meaningless for archived companions.
         self.activity.unregister(id);
+        Ok(())
+    }
+
+    /// Update one or more columns on a companion row + write the
+    /// matching `CompanionUpdated` audit entry. Used by the S11
+    /// adapter appliers to atomically mutate a companion's
+    /// `system_prompt_preset` / `tool_affinities` / `prop` /
+    /// `palette_ref` / `accessory_ref` columns.
+    ///
+    /// `setters` is a list of `(column_name, sqlite_value)`
+    /// pairs. The column allowlist is hard-coded — any column
+    /// name not in the allowlist is rejected as a validation
+    /// error so callers can't smuggle a SQL fragment in.
+    pub fn update_companion_fields(
+        &mut self,
+        id: CompanionId,
+        setters: &[(&'static str, rusqlite::types::Value)],
+        audit_kind: AuditEventKind,
+        audit_payload: serde_json::Value,
+    ) -> Result<(), RegistryError> {
+        const ALLOWED: &[&str] = &[
+            "system_prompt_preset",
+            "tool_affinities",
+            "prop_ref",
+            "palette_ref",
+            "accessory_ref",
+        ];
+        for (col, _) in setters {
+            if !ALLOWED.contains(col) {
+                return Err(RegistryError::Schema(format!(
+                    "column '{col}' not in allowlist"
+                )));
+            }
+        }
+        if setters.is_empty() {
+            return Ok(());
+        }
+        let now = sqlite_now(&self.db)?;
+
+        // Placeholder layout: ?1..?N for column values, ?N+1 for
+        // the new updated_at timestamp, ?N+2 for the WHERE id.
+        let assignments: String = setters
+            .iter()
+            .enumerate()
+            .map(|(i, (col, _))| format!("{col} = ?{}", i + 1))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let now_index = setters.len() + 1;
+        let id_index = setters.len() + 2;
+        let sql = format!(
+            "UPDATE companions
+             SET {assignments}, updated_at = ?{now_index}, config_version = config_version + 1
+             WHERE id = ?{id_index} AND archived_at IS NULL"
+        );
+        let mut params_vec: Vec<rusqlite::types::Value> = Vec::with_capacity(setters.len() + 2);
+        for (_, v) in setters {
+            params_vec.push(v.clone());
+        }
+        params_vec.push(rusqlite::types::Value::Text(now.clone()));
+        params_vec.push(rusqlite::types::Value::Text(id.to_string()));
+        let updated = self.db.execute(
+            &sql,
+            rusqlite::params_from_iter(params_vec.iter()),
+        )?;
+        if updated == 0 {
+            if self.get(id)?.is_none() {
+                return Err(RegistryError::NotFound(id));
+            }
+            // Archived — refuse to mutate.
+            return Err(RegistryError::Schema(format!(
+                "companion {} is archived; cannot apply update",
+                id
+            )));
+        }
+        self.db.execute(
+            "INSERT INTO companion_audit_log
+                (companion_id, event_type, payload, created_at)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![
+                id.to_string(),
+                audit_kind.as_str(),
+                audit_payload.to_string(),
+                &now,
+            ],
+        )?;
         Ok(())
     }
 

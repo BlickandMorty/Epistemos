@@ -294,9 +294,20 @@ impl ToolAffinities {
         self.0 |= 1u64 << tool as u8;
     }
 
+    pub fn remove(&mut self, tool: ToolKind) {
+        self.0 &= !(1u64 << tool as u8);
+    }
+
     pub fn has(self, tool: ToolKind) -> bool {
         (self.0 & (1u64 << tool as u8)) != 0
     }
+
+    /// Raw bitset value — used by the S11 adapters for revert
+    /// state + audit-ledger payloads.
+    pub fn bits(self) -> u64 { self.0 }
+
+    /// Reconstruct from a raw bitset (S11 revert path).
+    pub fn from_bits(bits: u64) -> Self { Self(bits) }
 
     /// Default bitset for a given prop, per DOCTRINE §6.1 step 6 +
     /// §5.5 mapping. Used as the seed when a user picks a prop in the

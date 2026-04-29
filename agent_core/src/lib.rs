@@ -1,3 +1,4 @@
+pub mod adapters;
 pub mod agent_loop;
 pub mod audit;
 pub mod bridge;
