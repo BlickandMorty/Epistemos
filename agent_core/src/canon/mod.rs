@@ -21,6 +21,8 @@
 
 use rust_stemmers::{Algorithm, Stemmer};
 
+pub mod alias;
+
 /// Canonical English stopwords. Hand-curated rather than crate-pulled
 /// to keep the dep surface narrow and stable across rust-stemmers
 /// vendoring decisions.
