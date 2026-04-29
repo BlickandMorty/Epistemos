@@ -655,6 +655,43 @@ impl ToolRegistry {
                 super::browser::BrowserAction::Console,
             )),
         ));
+        // inference.route_private — pure-Rust dimension classifier; no
+        // delegate, no constructor failure.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::inference_route_private::SPEC,
+            Arc::new(super::inference::RoutePrivateHandler::new()),
+        ));
+        // communication.{imessage, imessage_contacts, channel_contacts} —
+        // unit-struct handlers; iMessage send is Destructive but the
+        // existing legacy permission gate fires regardless of the v2
+        // surface choice.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::communication_imessage::SPEC,
+            Arc::new(super::imessage::IMessageHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::communication_imessage_contacts::SPEC,
+            Arc::new(super::imessage_contacts::IMessageContactsHandler),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::communication_channel_contacts::SPEC,
+            Arc::new(super::channel_contacts::ChannelContactsHandler),
+        ));
+        // skills.{list, view, manage} — progressive-disclosure family.
+        // skills.manage gates installs through the existing 40-rule
+        // security scanner per plan §17 Compile-Verify-Mint.
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::skills_list::SPEC,
+            Arc::new(super::skills::SkillsListHandler::new()),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::skills_view::SPEC,
+            Arc::new(super::skills::SkillViewHandler::new()),
+        ));
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::skills_manage::SPEC,
+            Arc::new(super::skills::SkillManageHandler::new()),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2238,13 +2275,17 @@ mod tier_tests {
         //                        FINAL_SYNTHESIS §5.7 / §6 wave sequencing
         //                        until Wave 6 BrowserEngine trait splits
         //                        the adapters
+        //   2F-13  : +7 always (inference.route_private,
+        //                       communication.{imessage, imessage_contacts,
+        //                                      channel_contacts},
+        //                       skills.{list, view, manage})
         //   trajectory.export + intelligence.self_evolve are skipped here
         //   because vault_root_path is None;
         //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
         //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 49, "2F-12 ships 49 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 56, "2F-13 ships 56 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2296,6 +2337,13 @@ mod tier_tests {
         assert!(names.contains(&"browser.get_images"));
         assert!(names.contains(&"browser.vision"));
         assert!(names.contains(&"browser.console"));
+        assert!(names.contains(&"inference.route_private"));
+        assert!(names.contains(&"communication.imessage"));
+        assert!(names.contains(&"communication.imessage_contacts"));
+        assert!(names.contains(&"communication.channel_contacts"));
+        assert!(names.contains(&"skills.list"));
+        assert!(names.contains(&"skills.view"));
+        assert!(names.contains(&"skills.manage"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2339,8 +2387,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            51,
-            "all 51 unconditional + vault-root-bound v2 tools present"
+            58,
+            "all 58 unconditional + vault-root-bound v2 tools present"
         );
     }
 

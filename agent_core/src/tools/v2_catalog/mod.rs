@@ -31,6 +31,9 @@ pub mod browser_type;
 pub mod browser_vision;
 pub mod chunk_reduce;
 pub mod clarify_ask;
+pub mod communication_channel_contacts;
+pub mod communication_imessage;
+pub mod communication_imessage_contacts;
 pub mod communication_send_message;
 pub mod discovery_mcp_discover;
 pub mod discovery_model_catalog;
@@ -40,6 +43,7 @@ pub mod file_search;
 pub mod file_write;
 pub mod graph_neighbors;
 pub mod inference_constrained_generate;
+pub mod inference_route_private;
 pub mod inference_ssm_resume;
 pub mod intelligence_inline_partner;
 pub mod intelligence_mixture_of_minds;
@@ -55,6 +59,9 @@ pub mod media_image_generate;
 pub mod media_text_to_speech;
 pub mod media_vision_analyze;
 pub mod memory_curated;
+pub mod skills_list;
+pub mod skills_manage;
+pub mod skills_view;
 pub mod system_cron;
 pub mod system_todo;
 pub mod trajectory_export;
@@ -142,6 +149,13 @@ mod tests {
             super::browser_get_images::SPEC,
             super::browser_vision::SPEC,
             super::browser_console::SPEC,
+            super::inference_route_private::SPEC,
+            super::communication_imessage::SPEC,
+            super::communication_imessage_contacts::SPEC,
+            super::communication_channel_contacts::SPEC,
+            super::skills_list::SPEC,
+            super::skills_view::SPEC,
+            super::skills_manage::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -395,6 +409,34 @@ mod tests {
                 super::browser_console::SPEC.name,
                 (super::browser_console::SPEC.input_schema)(),
             ),
+            (
+                super::inference_route_private::SPEC.name,
+                (super::inference_route_private::SPEC.input_schema)(),
+            ),
+            (
+                super::communication_imessage::SPEC.name,
+                (super::communication_imessage::SPEC.input_schema)(),
+            ),
+            (
+                super::communication_imessage_contacts::SPEC.name,
+                (super::communication_imessage_contacts::SPEC.input_schema)(),
+            ),
+            (
+                super::communication_channel_contacts::SPEC.name,
+                (super::communication_channel_contacts::SPEC.input_schema)(),
+            ),
+            (
+                super::skills_list::SPEC.name,
+                (super::skills_list::SPEC.input_schema)(),
+            ),
+            (
+                super::skills_view::SPEC.name,
+                (super::skills_view::SPEC.input_schema)(),
+            ),
+            (
+                super::skills_manage::SPEC.name,
+                (super::skills_manage::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -464,6 +506,13 @@ mod tests {
             super::browser_get_images::SPEC,
             super::browser_vision::SPEC,
             super::browser_console::SPEC,
+            super::inference_route_private::SPEC,
+            super::communication_imessage::SPEC,
+            super::communication_imessage_contacts::SPEC,
+            super::communication_channel_contacts::SPEC,
+            super::skills_list::SPEC,
+            super::skills_view::SPEC,
+            super::skills_manage::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
