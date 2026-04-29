@@ -298,10 +298,58 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> Result<UndoEntry, UndoLogError> {
     })
 }
 
+// ============================================================================
+// NightBrain task — evict expired undo entries.
+//
+// Plan §8.5: "A NightBrain job evicts expired entries." Plan §7.1
+// explicitly lists "rotate heal_log/action_trace" as a NightBrain
+// maintenance task; this is the undo-log equivalent.
+//
+// Per FINAL_SYNTHESIS §2 layer 7 (Metabolism): NightBrain runs at
+// idle time + thermal nominal + battery healthy; tasks check
+// cancellation between batch units.
+// ============================================================================
+
+use std::sync::Arc;
+
+/// Wraps an `UndoLog` as a `NightBrainTask` so the scheduler can
+/// drive eviction during idle windows.
+pub struct UndoEvictionTask {
+    log: Arc<UndoLog>,
+}
+
+impl UndoEvictionTask {
+    pub fn new(log: Arc<UndoLog>) -> Self {
+        Self { log }
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::nightbrain::NightBrainTask for UndoEvictionTask {
+    fn name(&self) -> &str {
+        "undo_log.evict_expired"
+    }
+
+    async fn run(
+        &self,
+        ctx: &crate::nightbrain::TaskCtx,
+    ) -> Result<crate::nightbrain::TaskOutcome, crate::nightbrain::NightBrainError> {
+        if ctx.is_cancelled() {
+            return Ok(crate::nightbrain::TaskOutcome::preempted(0));
+        }
+        let dropped = self
+            .log
+            .evict_expired()
+            .map_err(|e| crate::nightbrain::NightBrainError::TaskFailed(e.to_string()))?;
+        Ok(crate::nightbrain::TaskOutcome::complete(dropped))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::effect::PriorState;
+    use crate::nightbrain::{CancellationToken, NightBrainTask, TaskCtx};
 
     fn write_intent() -> Intent {
         Intent::VaultWrite {
@@ -465,6 +513,49 @@ mod tests {
             "TTL should be ~24h; got {} seconds off target",
             diff
         );
+    }
+
+    #[tokio::test]
+    async fn nightbrain_undo_eviction_task_drops_expired_and_reports_count() {
+        let log = Arc::new(UndoLog::open_in_memory().expect("open"));
+        // alive
+        log.append(&UndoEntry::new(
+            "s".to_string(),
+            write_intent(),
+            write_effect(),
+            write_effect().compute_inverse(None),
+        ))
+        .expect("append");
+        // 3 expired
+        for _ in 0..3 {
+            let mut expired = UndoEntry::new(
+                "s".to_string(),
+                write_intent(),
+                write_effect(),
+                write_effect().compute_inverse(None),
+            );
+            expired.ttl_until = Utc::now() - chrono::Duration::seconds(1);
+            log.append(&expired).expect("append");
+        }
+        let task = UndoEvictionTask::new(Arc::clone(&log));
+        assert_eq!(task.name(), "undo_log.evict_expired");
+        let ctx = TaskCtx::new(CancellationToken::new());
+        let outcome = task.run(&ctx).await.expect("eviction task ok");
+        assert_eq!(outcome.items_processed, 3, "exactly the 3 expired entries dropped");
+        assert!(outcome.completed);
+        assert_eq!(log.len().unwrap(), 1, "alive entry preserved");
+    }
+
+    #[tokio::test]
+    async fn nightbrain_undo_eviction_task_honors_cancellation() {
+        let log = Arc::new(UndoLog::open_in_memory().expect("open"));
+        let task = UndoEvictionTask::new(log);
+        let token = CancellationToken::new();
+        token.cancel();
+        let ctx = TaskCtx::new(token);
+        let outcome = task.run(&ctx).await.expect("ok");
+        assert!(!outcome.completed, "preempted task must not complete");
+        assert_eq!(outcome.items_processed, 0);
     }
 
     #[test]
