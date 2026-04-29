@@ -325,7 +325,7 @@ fn blob_to_vec(b: &[u8]) -> Vec<f32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tools::{Status, VariantId};
+    use crate::tools::VariantId;
     use serde_json::json;
     use std::collections::HashMap;
     use std::sync::Arc;

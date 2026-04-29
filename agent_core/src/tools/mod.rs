@@ -57,6 +57,9 @@ pub mod workspace_search;
 pub mod breaker;
 pub mod runner;
 
+// Phase 2E: canary `reason.think` — first native Tool impl.
+pub mod reason_think;
+
 use std::sync::Arc;
 use std::time::Duration;
 

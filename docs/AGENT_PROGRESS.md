@@ -1,6 +1,45 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A + 2B + 2C + 2D shipped | Full agent_core sweep green: 581 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A-2E shipped (Phase 2 EXIT criterion satisfied) | Full agent_core sweep green: 589 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2E — Canary `reason.think` (§11 Phase 2 EXIT) ✅
+
+Plan reference: §11 Phase 2 EXIT criterion verbatim — "A canary tool (`reason.think`) can be invoked through the runner with grammar-constrained output validated against schema." Plus §4.2 Brief-Is-Better 280-char reasoning cap (arxiv:2604.02155).
+
+**Web research consulted (per §0.1 protocol):**
+- Already-loaded research from Phase 2A-2D — llguidance grammar compiler, JSON Schema 2020-12 validation, ToolCache trait. No new external research needed for the canary integration.
+
+**Shipped:**
+- [x] `agent_core/src/tools/reason_think.rs` (NEW) — `ReasonThinkTool` is the first native `Tool` trait impl. Single-variant (VariantId::A), Profile::AppStoreSafe, small_model_safe = true. Input schema enforces 280-char cap on `thought` per §4.2 Brief-Is-Better; output schema requires non-empty `thought`. Both schemas additionalProperties:false.
+- [x] OnceLock-backed `&'static Value` schemas — proves the Tool trait's `&'static Value` lifetime contract works with stable runtime-built schemas (no compile-time JSON literal needed).
+- [x] 8 integration tests covering the full §11 Phase 2 EXIT path:
+  - input_schema_compiles_to_grammar — Phase 2A's `schema_to_llg` accepts the canary's input schema.
+  - output_schema_compiles_to_grammar — same for output.
+  - dispatch_grammar_with_reason_think_alone_compiles — `build_dispatch_grammar` from Phase 2A composes a §17.3 dispatch table for the canary.
+  - **invokable_through_runner_with_schema_validation** — THE EXIT CRITERION: canary invoked via `run_with_variants`, output passes JsonSchemaValidator against output_schema.
+  - second_invocation_hits_cache — Phase 2D's PersistentCache (defaulted via runner's default_ctx) short-circuits the ladder on identical input.
+  - missing_thought_returns_error_status_not_panic — invoke surfaces Status::Error rather than panicking on bad input.
+  - schema_rejects_thought_over_280_chars_at_validation_time — §4.2 280-char cap enforced at the schema layer.
+  - schemas_are_static_and_round_trip_through_serde — `&'static Value` semantics + serde JSON round-trip.
+
+**Verification:**
+- `cargo test --lib 'tools::reason_think'` → 8 passed.
+- Full agent_core lib → **589 passed**, 0 failed (was 581 post-2D; +8 net). Zero functional regressions.
+- Plan §11 Phase 2 EXIT criterion satisfied empirically: see `invokable_through_runner_with_schema_validation` test.
+
+**Audit (no nuance lost vs canonical plan):**
+- §11 Phase 2 EXIT exact wording: "A canary tool (`reason.think`) can be invoked through the runner with grammar-constrained output validated against schema." → ✅ test passes; output validates against output_schema both inside the runner (JsonSchemaValidator path) AND in the test's explicit re-validation.
+- §4.2 280-char reasoning cap: ✅ schema rejects 281 chars.
+- §3.1 field naming: ✅ `result.thought` (not `payload.thought`).
+- §3.1 trait surface: ✅ all 7 methods present (name, input_schema, output_schema, variants, profile, small_model_safe, invoke).
+- §17.3 sampler-bound dispatch: ✅ canary's input schema compiles into a TopLevelGrammar via Phase 2A; build_dispatch_grammar accepts it.
+
+**Phase 2 status — EXIT met, remainder is consolidation:**
+- ✅ §11 Phase 2 EXIT — canary invokable through runner with grammar-constrained output validated.
+- 🟡 2F: bulk-migrate remaining 32 tools to native `Tool` (multiple commits ahead — pure consolidation, doesn't gate downstream phases).
+- 🟡 2G: delete `ToolHandler` + `RegisteredTool` wrapper (after 2F).
+
+The legacy `tools/think.rs` `execute_think` + `ThinkHandler` in registry.rs:1710 remain in place pending 2F/2G.
 
 ## 2026-04-29 Quick Capture Phase 2D — SQLite-backed semantic + exact cache ✅
 
