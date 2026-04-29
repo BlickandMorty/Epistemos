@@ -412,6 +412,21 @@ impl ToolRegistry {
                 v2_catalog::file_patch::SPEC,
                 Arc::new(super::filesystem::PatchHandler),
             ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::knowledge_recall::SPEC,
+                Arc::new(super::knowledge::VaultRecallHandler::new(Arc::clone(&self.vault))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::knowledge_contradiction::SPEC,
+                Arc::new(super::knowledge::ContradictionCheckHandler::new(Arc::clone(&self.vault))),
+            ),
+            LegacyToolAdapter::boxed(
+                v2_catalog::knowledge_neural_recall::SPEC,
+                Arc::new(super::knowledge::NeuralRecallHandler::new(
+                    Arc::clone(&self.vault),
+                    Arc::clone(neural_cache()),
+                )),
+            ),
         ]
     }
 
@@ -1902,7 +1917,7 @@ mod tier_tests {
         // tests with real handler instances driven by a stub vault.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 11, "2F-4 ships 11 adapted tools");
+        assert_eq!(catalog.len(), 14, "2F-5 ships 14 adapted tools");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -1916,6 +1931,9 @@ mod tier_tests {
         assert!(names.contains(&"file.write"));
         assert!(names.contains(&"file.search"));
         assert!(names.contains(&"file.patch"));
+        assert!(names.contains(&"knowledge.recall"));
+        assert!(names.contains(&"knowledge.contradiction_check"));
+        assert!(names.contains(&"knowledge.neural_recall"));
 
         // Each tool's input schema must compile via the Phase 2A grammar
         // compiler — proves §17.3 sampler-bound dispatch for each.

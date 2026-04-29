@@ -19,6 +19,9 @@ pub mod file_read;
 pub mod file_search;
 pub mod file_write;
 pub mod graph_neighbors;
+pub mod knowledge_contradiction;
+pub mod knowledge_neural_recall;
+pub mod knowledge_recall;
 pub mod vault_read;
 pub mod vault_search;
 pub mod vault_write;
@@ -46,6 +49,9 @@ mod tests {
             super::file_write::SPEC,
             super::file_search::SPEC,
             super::file_patch::SPEC,
+            super::knowledge_recall::SPEC,
+            super::knowledge_contradiction::SPEC,
+            super::knowledge_neural_recall::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -107,6 +113,18 @@ mod tests {
                 super::file_patch::SPEC.name,
                 (super::file_patch::SPEC.input_schema)(),
             ),
+            (
+                super::knowledge_recall::SPEC.name,
+                (super::knowledge_recall::SPEC.input_schema)(),
+            ),
+            (
+                super::knowledge_contradiction::SPEC.name,
+                (super::knowledge_contradiction::SPEC.input_schema)(),
+            ),
+            (
+                super::knowledge_neural_recall::SPEC.name,
+                (super::knowledge_neural_recall::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -128,6 +146,9 @@ mod tests {
             super::file_write::SPEC,
             super::file_search::SPEC,
             super::file_patch::SPEC,
+            super::knowledge_recall::SPEC,
+            super::knowledge_contradiction::SPEC,
+            super::knowledge_neural_recall::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),
