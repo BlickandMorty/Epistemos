@@ -53,6 +53,10 @@ pub mod web;
 pub mod web_fetch;
 pub mod workspace_search;
 
+// Phase 2C: variant runner + per-tool circuit breaker.
+pub mod breaker;
+pub mod runner;
+
 use std::sync::Arc;
 use std::time::Duration;
 

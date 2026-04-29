@@ -1,6 +1,47 @@
 # Agent System Implementation Progress
 
-Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A + 2B shipped | Full agent_core sweep green: 554 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+Last updated: 2026-04-29 | Quick Capture Phases 0.5 + 1 + 2A + 2B + 2C shipped | Full agent_core sweep green: 570 lib tests | Quick Capture plan: docs/QUICK_CAPTURE_IMPLEMENTATION_PLAN.md (canonical, 26 sections, ~32k words) | Prior sweep baseline: 2978 Rust + 331 Swift critical (2026-04-15)
+
+## 2026-04-29 Quick Capture Phase 2C — Variant runner + circuit breaker ✅
+
+Plan reference: §3.2 (variant runner — plan-literal mirrored verbatim), §3.6 (semantic-cache placeholder via InMemoryCache; SQLite-backed semantic cache lands in 2D), §5.3 (per-tool circuit breaker), §5.4 (latency budget).
+
+**Web research consulted (per §0.1 protocol):**
+- oneuptime.com "How to Implement Circuit Breakers in Rust Services" (Jan 2026), dev.to/dylan_dumont "Building a Circuit Breaker in Rust", crates.io/circuitbreaker-rs, lib.rs/tower-circuitbreaker — confirmed 3-state Closed/Open/HalfOpen pattern is industry standard. Plan §5.3's "two consecutive successes to close" + per-tool (not global) scoping is plan-canonical and matches best practice. Skipped failsafe-rs / circuitbreaker-rs deps because the plan spec is small (~150 LOC), tightly tied to our HealthCheck trait, and adding a transitive dep just to wrap a state machine is gratuitous.
+- reintech.io "Tokio Tutorial 2026" — confirmed `tokio::time::timeout(budget, fut)` is the canonical async timeout primitive. Used verbatim in `run_with_variants` per plan §3.2's literal snippet.
+
+**Shipped:**
+- [x] `agent_core/src/tools/breaker.rs` — `CircuitBreaker { state: BreakerState, failure_threshold, cooldown, successes_to_close }`. State machine: Closed (count failures) → Open after N consecutive failures → HalfOpen after cooldown elapses → Closed after M consecutive probe successes (plan §5.3 says 2). HalfOpen failure reopens. Mutex-protected internal state; cheap to clone (Arc). Plan-aligned defaults: 5 failures opens, 30s cooldown, 2 successes close. 6 unit tests covering every state transition + the consecutive-failure-reset case.
+- [x] `agent_core/src/tools/runner.rs` — `run_with_variants(tool: &dyn Tool, ctx: &ToolCtx, input: Value) -> ToolResult` mirrors plan §3.2 verbatim:
+  - Cache hit short-circuits the entire ladder.
+  - For each variant: HealthCheck pre-flight (skip if unavailable, record_skip), `tokio::time::timeout(latency_budget, invoke)`, output-schema validation (skip on violation, record_schema_violation), status interpretation (Ok or Partial>0.7 → cache + return).
+  - All variants exhausted → `ToolResult::error_with_context(VariantId::Last, last_err)`.
+- [x] Concrete trait impls so the runner is end-to-end testable:
+  - `InMemoryCache` — HashMap<sha256_key, ToolResult> exact cache. Phase 2D adds the SQLite-backed semantic-cosine layer.
+  - `JsonSchemaValidator` — wraps jsonschema 0.28 (Draft 2020-12). Returns `Err(at <path>: <error>)` on violation.
+  - `NoopTracer` — silent. Phase 8 will wire `tracing` crate + `os_signpost` per §5.5.
+  - `HealthCheckRegistry` — per-tool CircuitBreaker dispatch with breaker-state-only `is_available`. Plan §3.2 footnote calls for keychain/network checks too; those compose in by stacking HealthCheck impls (Phase 6 model_select wiring).
+  - `default_ctx(latency_budget)` convenience builder for tests + ad-hoc callers.
+- [x] 10 runner integration tests covering: first-variant Ok short-circuit, schema-violation advance, Partial>0.7 short-circuit, Partial<0.7 advance, all-variants-fail returns Last sentinel, cache hit short-circuits ladder, timeout treated as variant error, custom HealthCheck variant skip, successful call writes to cache, breaker-blocks-tool path through HealthCheckRegistry.
+
+**Verification:**
+- `cargo test --lib 'tools::breaker'` → 6 passed.
+- `cargo test --lib 'tools::runner'` → 10 passed.
+- Full agent_core lib → **570 passed**, 0 failed (was 554 post-2B; +16 net). Zero functional regressions across the 33-tool surface.
+
+**Audit (no nuance lost vs canonical plan):**
+- §3.2 runner control flow: ✅ plan-literal mirrored — cache.get → loop variants → health.is_available → tokio::time::timeout → validator.validate → status match → Ok|Partial>0.7 → cache.put → return.
+- §3.2 latency budget: ✅ `tokio::time::timeout(ctx.latency_budget_per_variant(), tool.invoke(...))` per plan-literal.
+- §3.2 last-error context: ✅ `error_with_context(VariantId::Last, last_err.unwrap_or_default())`.
+- §5.3 circuit-breaker state machine: ✅ Closed/Open/HalfOpen with correct transitions; "2 successes to close" honored.
+- §5.3 per-tool (not global): ✅ `HealthCheckRegistry` keys by tool name.
+- §3.1 field naming: ✅ runner uses `result.result` (not `payload`) when validating + caching.
+
+**Next:**
+- 2D: SQLite-backed semantic cache per §3.6 (cosine ≥0.97 hit, per-tool-family TTL, embedding-model-pin invalidation).
+- 2E: canary `reason.think v2` migrated to native Tool, wired through runner — plan §11 Phase 2 EXIT.
+- 2F: bulk-migrate remaining 32 tools (multiple commits).
+- 2G: delete ToolHandler + RegisteredTool wrapper.
 
 ## 2026-04-29 Quick Capture Phase 2B — Tool trait + variant types (Option C) ✅
 
