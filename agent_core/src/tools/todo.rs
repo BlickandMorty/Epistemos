@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 use super::registry::{ToolError, ToolHandler};
+use super::{
+    Profile, Status, Tool, ToolCtx, ToolMeta, ToolResult, VariantId,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TodoItem {
@@ -34,22 +37,153 @@ fn store() -> &'static Mutex<Vec<TodoItem>> {
 
 pub struct TodoHandler;
 
+/// Phase 2G-4a CANARY — first non-test handler to natively implement
+/// `Tool` (joining `reason_think::ReasonThinkTool` from Phase 2E). The
+/// existing `impl ToolHandler` stays for now so legacy
+/// `register_phase_one_todo` continues to work; the v2 catalog wiring
+/// uses this native impl directly (no `LegacyToolAdapter` wrap), which
+/// is what makes this a true 2G canary — it removes one indirection
+/// layer from `system.todo` dispatch.
+///
+/// Pattern for replicating in the other ~24 files (Phase 2G-4b..z):
+///   1. Move the `*_schema()` body out of the `v2_catalog/<name>.rs`
+///      module into the handler's own module (or keep it where it is
+///      and reference it from the `impl Tool::input_schema`).
+///   2. Add an `impl Tool for <Handler>` block whose `invoke` body
+///      calls a private helper that contains the existing
+///      `ToolHandler::execute` logic, then wraps the resulting String
+///      via `wrap_text_result(variant, started, ...)` (or builds a
+///      structured `ToolResult::ok` when the handler already returns
+///      JSON).
+///   3. Update `build_v2_catalog` in registry.rs to construct the
+///      handler directly via `Box::new(<Handler>) as Box<dyn Tool>`
+///      instead of `LegacyToolAdapter::boxed(<spec>, Arc::new(<Handler>))`.
+///   4. Optional: delete the now-unused `v2_catalog/<name>.rs` module
+///      (only safe once nothing else references its `SPEC` const).
+fn todo_input_schema() -> &'static Value {
+    use std::sync::OnceLock;
+    static S: OnceLock<Value> = OnceLock::new();
+    S.get_or_init(|| {
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "write", "merge", "clear"],
+                    "default": "list"
+                },
+                "todos": {
+                    "type": "array",
+                    "description": "Todo items for write/merge actions.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "string" },
+                            "content": { "type": "string" },
+                            "active_form": { "type": "string" },
+                            "status": {
+                                "type": "string",
+                                "enum": ["pending", "in_progress", "completed", "cancelled"]
+                            }
+                        },
+                        "required": ["content"]
+                    }
+                }
+            }
+        })
+    })
+}
+
+fn todo_output_schema() -> &'static Value {
+    use std::sync::OnceLock;
+    static S: OnceLock<Value> = OnceLock::new();
+    S.get_or_init(|| {
+        json!({
+            "type": "object",
+            "required": ["todos", "summary"],
+            "properties": {
+                "todos": { "type": "array" },
+                "summary": { "type": "object" }
+            }
+        })
+    })
+}
+
+fn dispatch_action(input: &Value) -> Result<String, ToolError> {
+    let action = input
+        .get("action")
+        .and_then(Value::as_str)
+        .unwrap_or("list");
+
+    match action {
+        "list" => list_todos(),
+        "write" => write_todos(input, false),
+        "merge" => write_todos(input, true),
+        "clear" => clear_todos(),
+        other => Err(ToolError::InvalidArguments(format!(
+            "unknown action '{other}' (expected: list|write|merge|clear)"
+        ))),
+    }
+}
+
 #[async_trait]
 impl ToolHandler for TodoHandler {
     async fn execute(&self, input: &Value) -> Result<String, ToolError> {
-        let action = input
-            .get("action")
-            .and_then(Value::as_str)
-            .unwrap_or("list");
+        dispatch_action(input)
+    }
+}
 
-        match action {
-            "list" => list_todos(),
-            "write" => write_todos(input, false),
-            "merge" => write_todos(input, true),
-            "clear" => clear_todos(),
-            other => Err(ToolError::InvalidArguments(format!(
-                "unknown action '{other}' (expected: list|write|merge|clear)"
-            ))),
+#[async_trait]
+impl Tool for TodoHandler {
+    fn name(&self) -> &'static str {
+        "system.todo"
+    }
+
+    fn input_schema(&self) -> &'static Value {
+        todo_input_schema()
+    }
+
+    fn output_schema(&self) -> &'static Value {
+        todo_output_schema()
+    }
+
+    fn variants(&self) -> &[VariantId] {
+        &[VariantId::A]
+    }
+
+    fn profile(&self) -> Profile {
+        Profile::AppStoreSafe
+    }
+
+    fn small_model_safe(&self) -> bool {
+        true
+    }
+
+    async fn invoke(&self, _ctx: &ToolCtx, variant: VariantId, input: Value) -> ToolResult {
+        let started = std::time::Instant::now();
+        match dispatch_action(&input) {
+            Ok(json_string) => {
+                let elapsed_ms = started.elapsed().as_millis() as u32;
+                // dispatch_action returns a JSON-encoded String; parse
+                // back into Value so the v2 surface yields structured
+                // result (not a String wrap).
+                let parsed: Value = serde_json::from_str(&json_string).unwrap_or_else(
+                    |_| serde_json::json!({ "text": json_string }),
+                );
+                ToolResult {
+                    meta: ToolMeta::ok(variant, elapsed_ms),
+                    result: parsed,
+                }
+            }
+            Err(e) => {
+                let mut meta = ToolMeta::error(variant);
+                meta.status = Status::Error;
+                ToolResult {
+                    meta,
+                    result: serde_json::json!({"error": e.to_string()}),
+                }
+            }
         }
     }
 }

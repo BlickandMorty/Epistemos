@@ -669,10 +669,11 @@ impl ToolRegistry {
                     Arc::clone(neural_cache()),
                 )),
             ),
-            LegacyToolAdapter::boxed(
-                v2_catalog::system_todo::SPEC,
-                Arc::new(super::todo::TodoHandler),
-            ),
+            // Phase 2G-4a CANARY: TodoHandler natively implements `Tool`
+            // (see todo.rs), so the v2 catalog uses it directly without
+            // the LegacyToolAdapter indirection. Other ~24 files follow
+            // this same pattern in 2G-4b..z.
+            Box::new(super::todo::TodoHandler) as Box<dyn super::Tool>,
             LegacyToolAdapter::boxed(
                 v2_catalog::system_cron::SPEC,
                 Arc::new(super::scheduling::CronJobHandler::new()),
