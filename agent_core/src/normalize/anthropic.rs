@@ -232,7 +232,6 @@ impl Normalizer for AnthropicNormalizer {
 mod tests {
     use super::*;
     use crate::companions::CompanionId;
-    use crate::events::SimulationState;
 
     fn ctx() -> NormalizeContext {
         NormalizeContext::new(CompanionId::new_ulid())

@@ -118,8 +118,7 @@ pub fn create_companion_with_failure(
     // either before or after the on-disk creation. After-failure is
     // closer to a real disk-full mid-write, so we fail there.
     if failure == Some(FailureInjection::Step2VaultFolder) {
-        return Err(CreationError::Step2Vault(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        return Err(CreationError::Step2Vault(std::io::Error::other(
             "synthetic step-2 failure",
         )));
     }
