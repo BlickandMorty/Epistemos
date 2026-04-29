@@ -25,10 +25,12 @@ use crate::format::intent::Intent;
 pub mod concept_applier;
 pub mod dispatcher;
 pub mod memory_applier;
+pub mod receipt;
 pub mod vault_applier;
 pub use concept_applier::ConceptGraphApplier;
 pub use dispatcher::IntentDispatcher;
 pub use memory_applier::MemoryApplier;
+pub use receipt::{Capability, ExecutionReceipt, HmacSha256SigningKey, SigningKey};
 pub use vault_applier::VaultIntentApplier;
 
 /// What the runtime emits after applying an Intent. Mirrors `Intent`'s
