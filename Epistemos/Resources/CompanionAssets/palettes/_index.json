@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "channel_convention": {
+    "r_channel": "eye",
+    "g_channel": "accent",
+    "b_channel": "body",
+    "a_channel": "alpha"
+  },
+  "palettes": [
+    "claude_warm_v1",
+    "kimi_indigo_v1",
+    "codex_neutral_v1",
+    "gpt_neutral_v1",
+    "hermes_gold_v1",
+    "local_teal_v1"
+  ],
+  "notes": "The fragment shader (Companion.metal) reads palette uniforms by `palette_id` index into a constant Palette[N] buffer. Atlas pixels are rendered in mask-channel space (R=eye, G=accent, B=body); the shader recolors at draw time by multiplying each channel by the corresponding palette field. See DOCTRINE §10.5."
+}

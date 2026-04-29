@@ -328,14 +328,51 @@ pub fn epistemos_simulation_inject_test_companions(handle: u64, count: u32) {
                     }
                 }
                 // Re-snapshot the moved companion so the ring
-                // reflects the position update.
+                // reflects the position update. The synthetic
+                // harness cycles through the 5 head-shape slices
+                // so the visual harness shows variety per
+                // companion (block_compact, block_wide, orb,
+                // sage, hermes_snake).
+                let head_idx = (i % 5) as u8;
+                {
+                    let mut inner = sim.inner.lock().unwrap_or_else(|p| p.into_inner());
+                    inner.state.set_head_shape(id, head_idx);
+                }
                 {
                     let inner = sim.inner.lock().unwrap_or_else(|p| p.into_inner());
                     if let Some(agent) = inner.state.agent(id) {
-                        sim.delta_ring.push(agent.snapshot_for_render());
+                        sim.delta_ring.push(agent.snapshot_for_render(head_idx));
                     }
                 }
             }
+        },
+        ()
+    );
+}
+
+/// Set the texture-array slice index (0..4) for an agent.
+/// Called by the Swift bridge when a companion is registered in
+/// the simulation so the §10.5 fragment shader can sample the
+/// correct head-shape slice. Indices follow
+/// `Epistemos/Simulation/AtlasLoader.swift::AtlasHeadShape`:
+///   0 = block_compact
+///   1 = block_wide
+///   2 = orb
+///   3 = sage
+///   4 = hermes_snake
+#[uniffi::export]
+pub fn epistemos_simulation_set_head_shape(
+    handle: u64, agent_id: String, head_shape_index: u8,
+) {
+    if handle == 0 || head_shape_index > 4 {
+        return;
+    }
+    ffi_guard_value!(
+        {
+            let Some(parsed) = CompanionId::parse(&agent_id) else { return; };
+            let sim = unsafe { &*(handle as *const Simulation) };
+            let mut inner = sim.inner.lock().unwrap_or_else(|p| p.into_inner());
+            inner.state.set_head_shape(parsed, head_shape_index);
         },
         ()
     );

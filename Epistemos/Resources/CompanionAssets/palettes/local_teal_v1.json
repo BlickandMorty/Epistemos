@@ -1,0 +1,9 @@
+{
+  "id": "local_teal_v1",
+  "display_name": "Local teal",
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "body":   { "hex": "#2BA59B", "rgba": [ 43, 165, 155, 255] },
+  "accent": { "hex": "#7CC9C2", "rgba": [124, 201, 194, 255] },
+  "eye":    { "hex": "#FFFFFF", "rgba": [255, 255, 255, 255] },
+  "notes": "Per §5.4 'Local Helper' — teal / muted green. Filled-round eye style. Drives the §5.4 Local Helper preset + any user-picked Custom companion that opts for the local-MLX colour family."
+}

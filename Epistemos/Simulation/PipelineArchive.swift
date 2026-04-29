@@ -66,10 +66,17 @@ public enum PipelineArchive {
     /// rendering: `sampleCount = 1` (MSAA off), pixel format
     /// `.bgra8Unorm` (NOT `_srgb` — gamma re-encoding adds
     /// intermediate values and breaks pixel sharpness).
+    ///
+    /// `useRealAtlas`: if `true` (S10 default), bind the real
+    /// `companion_fragment` (palette-mask sampling). If `false`,
+    /// bind the S4 `companion_fragment_placeholder` (striped
+    /// tint) so the synthetic harness can still run when no
+    /// atlas is loaded.
     public static func makeBodyPipeline(
         device: MTLDevice,
         library: MTLLibrary,
-        view: MTKView
+        view: MTKView,
+        useRealAtlas: Bool = true
     ) throws -> MTLRenderPipelineState {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Simulation.Body"
@@ -77,7 +84,8 @@ public enum PipelineArchive {
             named: "companion_vertex", in: library
         )
         descriptor.fragmentFunction = try requireFunction(
-            named: "companion_fragment_placeholder", in: library
+            named: useRealAtlas ? "companion_fragment" : "companion_fragment_placeholder",
+            in: library
         )
 
         let attachment = descriptor.colorAttachments[0]
@@ -112,7 +120,8 @@ public enum PipelineArchive {
     public static func makeHaloPipeline(
         device: MTLDevice,
         library: MTLLibrary,
-        view: MTKView
+        view: MTKView,
+        useRealAtlas: Bool = true
     ) throws -> MTLRenderPipelineState {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.label = "Simulation.Halo"
@@ -120,7 +129,8 @@ public enum PipelineArchive {
             named: "companion_vertex", in: library
         )
         descriptor.fragmentFunction = try requireFunction(
-            named: "halo_fragment_placeholder", in: library
+            named: useRealAtlas ? "halo_fragment" : "halo_fragment_placeholder",
+            in: library
         )
 
         let attachment = descriptor.colorAttachments[0]

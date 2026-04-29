@@ -1,0 +1,9 @@
+{
+  "id": "claude_warm_v1",
+  "display_name": "Claude warm",
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "body":   { "hex": "#D97757", "rgba": [217,  119,  87, 255] },
+  "accent": { "hex": "#FFF1E5", "rgba": [255,  241, 229, 255] },
+  "eye":    { "hex": "#1B1B1B", "rgba": [ 27,   27,  27, 255] },
+  "notes": "Per §5.4 'Claude Code worker' — warm orange / cream / amber. The Wide Block uses NegativeSpace eye treatment (mask alpha 0); for the rare Custom companion that picks Block(Wide) with filled eyes, this hex provides the fallback dark accent."
+}

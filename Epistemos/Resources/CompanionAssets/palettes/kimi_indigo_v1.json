@@ -1,0 +1,9 @@
+{
+  "id": "kimi_indigo_v1",
+  "display_name": "Kimi indigo",
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "body":   { "hex": "#5B8DEF", "rgba": [ 91, 141, 239, 255] },
+  "accent": { "hex": "#7BA3F4", "rgba": [123, 163, 244, 255] },
+  "eye":    { "hex": "#FFFFFF", "rgba": [255, 255, 255, 255] },
+  "notes": "Per §5.4 'Kimi worker' — indigo / blue / purple family. Filled eye style (white-on-indigo for legibility against the §3.4.3 dark sidebar)."
+}

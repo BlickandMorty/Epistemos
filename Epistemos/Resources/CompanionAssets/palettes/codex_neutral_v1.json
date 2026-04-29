@@ -1,0 +1,9 @@
+{
+  "id": "codex_neutral_v1",
+  "display_name": "Codex neutral",
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "body":   { "hex": "#E8E8E8", "rgba": [232, 232, 232, 255] },
+  "accent": { "hex": "#3A3A3A", "rgba": [ 58,  58,  58, 255] },
+  "eye":    { "hex": "#000000", "rgba": [  0,   0,   0, 255] },
+  "notes": "Per §5.4 'Codex worker' — white body / black accents. Filled-black eye treatment for the §5.4 Codex preset (high contrast, distinguishes from the Kimi indigo block)."
+}

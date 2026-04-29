@@ -1,0 +1,9 @@
+{
+  "id": "hermes_gold_v1",
+  "display_name": "Hermes gold",
+  "doctrine_refs": ["§5.4", "§8.1", "§10.5", "§10.7"],
+  "body":   { "hex": "#D4AF37", "rgba": [212, 175,  55, 255] },
+  "accent": { "hex": "#A07028", "rgba": [160, 112,  40, 255] },
+  "eye":    { "hex": "#FFCC00", "rgba": [255, 204,   0, 255] },
+  "notes": "Per §5.4 + §8.1 'Hermes Faculty' — gold / orange / bronze. Slit eye style on the dedicated Hermes Snake body family. Eye hex matches the canonical wordmark primary per §8.2.1 (the wordmark-hero-color.svg yellow #FFCC00). Wizard locks this palette per §6.1 — Hermes axes are not user-customisable."
+}

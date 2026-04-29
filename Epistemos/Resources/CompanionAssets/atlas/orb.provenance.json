@@ -1,0 +1,33 @@
+{
+  "category": "raster-companion-atlas",
+  "origin": "epistemos-original",
+  "license": "CC0-1.0",
+  "author": "Epistemos asset pipeline (procedural V1)",
+  "model": null,
+  "character_dna": "docs/simulation-mode/character-dna/orb.md",
+  "generated_at": "2026-04-29T21:34:44Z",
+  "generator": "Tools/asset_pipeline/procedural_atlas_v1.py",
+  "allowed_inspirations": [
+    "Ancient hovering spheres in mythological / sci-fi imagery",
+    "8-bit ball enemies (drifting circle archetype)",
+    "Crystal balls / scrying orbs",
+    "Bauhaus circle counterpart to the Block's square",
+    "Kimi CLI's circular variant \u2014 INSPIRATION ONLY"
+  ],
+  "forbidden_inspirations": [
+    "OpenAI logo (smooth-vector swirl mark; different asset)",
+    "Verbatim Kimi orb mascot tracing",
+    "Pok\u00e9mon Voltorb / Electrode (Nintendo IP)",
+    "Tamagotchi orb-pets (Bandai trademark)"
+  ],
+  "doctrine_refs": [
+    "\u00a75.1",
+    "\u00a75.3",
+    "\u00a710.1",
+    "\u00a710.2",
+    "\u00a710.3",
+    "\u00a710.5",
+    "I-16"
+  ],
+  "v2_substitution_policy": "When an artist refines this atlas to V2 in Aseprite, the artist works from the matching Character DNA + this V1 atlas. Their refined PNG must keep the silhouette parameters (aspect, legs, antennae, eye_treatment) doctrine-mandated by \u00a75.1; only the pixel pattern within the silhouette changes. The artist's provenance.json must record the artist name, date, model used (if any), and a visual-diff report against this V1 atlas."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "gpt_neutral_v1",
+  "display_name": "GPT neutral",
+  "doctrine_refs": ["§5.4", "§10.5", "§10.7"],
+  "body":   { "hex": "#9C9C9C", "rgba": [156, 156, 156, 255] },
+  "accent": { "hex": "#7B95A8", "rgba": [123, 149, 168, 255] },
+  "eye":    { "hex": "#E0E8F0", "rgba": [224, 232, 240, 255] },
+  "notes": "Per §5.4 'GPT Orchestrator' — white / gray / blue-gray. Closed eye style for the §5.4 GPT preset; the eye channel here provides the bright resting glow. Used by the Orb body family in V1."
+}

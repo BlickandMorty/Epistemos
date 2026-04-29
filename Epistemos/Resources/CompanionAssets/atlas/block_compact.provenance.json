@@ -1,0 +1,32 @@
+{
+  "category": "raster-companion-atlas",
+  "origin": "epistemos-original",
+  "license": "CC0-1.0",
+  "author": "Epistemos asset pipeline (procedural V1)",
+  "model": null,
+  "character_dna": "docs/simulation-mode/character-dna/block_compact.md",
+  "generated_at": "2026-04-29T21:34:44Z",
+  "generator": "Tools/asset_pipeline/procedural_atlas_v1.py",
+  "allowed_inspirations": [
+    "Bauhaus square \u2014 geometric, deliberate, chunky",
+    "Early-arcade pixel-art enemies (1-bit silhouette discipline)",
+    "Tetris pieces (chunky, satisfying weight)",
+    "Industrial robots (no-nonsense block-with-prop archetype)"
+  ],
+  "forbidden_inspirations": [
+    "Kimi CLI mascot (verbatim trace)",
+    "Codex CLI mascot (verbatim trace)",
+    "Tamagotchi / Bandai pixel-pet silhouettes (Bandai trademark)",
+    "Apple Macintosh-classic silhouette"
+  ],
+  "doctrine_refs": [
+    "\u00a75.1",
+    "\u00a75.3",
+    "\u00a710.1",
+    "\u00a710.2",
+    "\u00a710.3",
+    "\u00a710.5",
+    "I-16"
+  ],
+  "v2_substitution_policy": "When an artist refines this atlas to V2 in Aseprite, the artist works from the matching Character DNA + this V1 atlas. Their refined PNG must keep the silhouette parameters (aspect, legs, antennae, eye_treatment) doctrine-mandated by \u00a75.1; only the pixel pattern within the silhouette changes. The artist's provenance.json must record the artist name, date, model used (if any), and a visual-diff report against this V1 atlas."
+}

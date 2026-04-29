@@ -95,6 +95,28 @@ public final class MetalSimulationRenderer: NSObject, MTKViewDelegate {
     /// buffer in tile-bucketed order.
     private let tileSortedBuffer: MTLBuffer
 
+    /// S10 — texture-array of 5 head-shape atlases (block_compact,
+    /// block_wide, orb, sage, hermes_snake). Loaded once at
+    /// renderer init from `Resources/CompanionAssets/atlas/`.
+    /// `nil` only if the bundle resources are missing — in that
+    /// case the renderer falls back to the placeholder shader
+    /// path so the synthetic harness keeps working.
+    private let atlasTexture: MTLTexture?
+    private let atlasManifests: [AtlasHeadShape: AtlasManifest]
+    /// `(cell_w / atlas_w, cell_h / atlas_h, max_cols, _pad)` per
+    /// head shape — passed as `buffer(4)` to the body fragment
+    /// per Companion.metal §S10.
+    private let atlasGridBuffer: MTLBuffer?
+
+    /// S10 — palette uniform buffer (6 entries × 64-byte stride).
+    /// Loaded once from `Resources/CompanionAssets/palettes/`.
+    private let paletteRegistry: PaletteRegistry?
+
+    /// S10 — pre-baked halo PNG. Bound to the halo fragment
+    /// `texture(1)`. `nil` only if the bundle resource is
+    /// missing.
+    private let haloTexture: MTLTexture?
+
     private weak var view: MTKView?
 
     /// Current layout. Updated by the host view (e.g.
@@ -135,14 +157,55 @@ public final class MetalSimulationRenderer: NSObject, MTKViewDelegate {
         // Sampler — bit-perfect.
         self.spriteSampler = try PipelineArchive.makeSpriteSampler(device: device)
 
+        // S10 — load the V1 atlases + palettes + halo texture
+        // BEFORE building pipelines so the pipeline-state choice
+        // (real vs placeholder fragment) follows resource
+        // availability. Missing resources fall back gracefully
+        // to the S4 placeholder path.
+        let atlasResult: (MTLTexture, [AtlasHeadShape: AtlasManifest])?
+        do {
+            atlasResult = try AtlasLoader.loadV1Atlases(device: device)
+        } catch {
+            os_log(
+                "[Simulation] AtlasLoader fallback to placeholder: %{public}@",
+                log: .default, type: .info, "\(error)"
+            )
+            atlasResult = nil
+        }
+        let palette: PaletteRegistry?
+        do {
+            palette = try PaletteRegistry(device: device)
+        } catch {
+            os_log(
+                "[Simulation] PaletteRegistry fallback to placeholder: %{public}@",
+                log: .default, type: .info, "\(error)"
+            )
+            palette = nil
+        }
+        let halo: MTLTexture? = (atlasResult != nil)
+            ? Self.tryLoadHalo(device: device)
+            : nil
+        let useReal = atlasResult != nil && palette != nil && halo != nil
+
+        self.atlasTexture = atlasResult?.0
+        self.atlasManifests = atlasResult?.1 ?? [:]
+        self.paletteRegistry = palette
+        self.haloTexture = halo
+        self.atlasGridBuffer = useReal
+            ? Self.makeAtlasGridBuffer(
+                device: device,
+                manifests: atlasResult!.1
+            )
+            : nil
+
         // Pipelines — pre-compiled in init, never on the
         // per-frame path.
         let library = try PipelineArchive.loadLibrary(device: device)
         self.bodyPipelineState = try PipelineArchive.makeBodyPipeline(
-            device: device, library: library, view: view
+            device: device, library: library, view: view, useRealAtlas: useReal
         )
         self.haloPipelineState = try PipelineArchive.makeHaloPipeline(
-            device: device, library: library, view: view
+            device: device, library: library, view: view, useRealAtlas: useReal
         )
 
         // Persistent quad geometry.
@@ -264,6 +327,21 @@ public final class MetalSimulationRenderer: NSObject, MTKViewDelegate {
 
             encoder.setVertexBuffer(quadVertices, offset: 0, index: 0)
             encoder.setFragmentSamplerState(spriteSampler, index: 0)
+
+            // S10 — bind the real atlas + palette buffer when
+            // available. The placeholder path skips these.
+            if let atlas = atlasTexture {
+                encoder.setFragmentTexture(atlas, index: 0)
+            }
+            if let halo = haloTexture {
+                encoder.setFragmentTexture(halo, index: 1)
+            }
+            if let palette = paletteRegistry {
+                encoder.setFragmentBuffer(palette.buffer, offset: 0, index: 3)
+            }
+            if let grid = atlasGridBuffer {
+                encoder.setFragmentBuffer(grid, offset: 0, index: 4)
+            }
 
             for (tileIdx, region) in regions.enumerated() {
                 guard region.count > 0 else { continue }
@@ -432,5 +510,64 @@ public final class MetalSimulationRenderer: NSObject, MTKViewDelegate {
             )
             memcpy(base + tileIdx * stride, &uniform, MemoryLayout<CameraUniforms>.size)
         }
+    }
+
+    // MARK: - S10 atlas + halo loaders
+
+    /// Try to load the pre-baked halo PNG. Returns `nil` on
+    /// missing-resource (falls back to placeholder shader).
+    private static func tryLoadHalo(device: MTLDevice) -> MTLTexture? {
+        guard let url = Bundle.main.url(
+            forResource: "halo_active",
+            withExtension: "png",
+            subdirectory: "effects"
+        ) ?? Bundle.main.url(
+            forResource: "halo_active", withExtension: "png"
+        ) else {
+            return nil
+        }
+        let loader = MTKTextureLoader(device: device)
+        let opts: [MTKTextureLoader.Option: Any] = [
+            .generateMipmaps: NSNumber(value: false),
+            .SRGB: NSNumber(value: false),
+            .textureUsage: NSNumber(value: MTLTextureUsage.shaderRead.rawValue),
+            .textureStorageMode: NSNumber(value: MTLStorageMode.private.rawValue),
+        ]
+        return try? loader.newTexture(URL: url, options: opts)
+    }
+
+    /// Build the `(cell_w_norm, cell_h_norm, max_cols, _pad)`
+    /// uniform passed to the body fragment per Companion.metal
+    /// §S10. The atlas-array slices share the same `(maxW, maxH)`
+    /// dimensions; the per-head cell sizes differ. We bind a
+    /// single grid uniform for all instances per frame — when a
+    /// frame mixes head shapes with different cell sizes the
+    /// shader still reads from the right cell because
+    /// `frame_index = (atlas_row << 4) | frame_col` indexes the
+    /// SAME grid layout (8 cols × 14 rows), just at different
+    /// physical pixel sizes per slice.
+    private static func makeAtlasGridBuffer(
+        device: MTLDevice,
+        manifests: [AtlasHeadShape: AtlasManifest]
+    ) -> MTLBuffer? {
+        guard let buf = device.makeBuffer(
+            length: 16, options: [.storageModeShared]
+        ) else {
+            return nil
+        }
+        buf.label = "Simulation.AtlasGrid"
+        // Pick block_compact's cell as the default — all atlases
+        // share the same 8×14 grid shape, so cell-fraction
+        // varies per slice but the grid dims (max_cols=8) are
+        // identical. The shader uses these to compute UVs.
+        let manifest = manifests[.blockCompact]
+            ?? manifests.values.first
+        guard let manifest = manifest else { return buf }
+        let cellW = Float(manifest.cellSize.width) / Float(manifest.atlasSize.width)
+        let cellH = Float(manifest.cellSize.height) / Float(manifest.atlasSize.height)
+        let maxCols = Float(manifest.maxFrames)
+        var values: [Float] = [cellW, cellH, maxCols, 0]
+        memcpy(buf.contents(), &values, 16)
+        return buf
     }
 }

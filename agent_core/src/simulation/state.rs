@@ -118,7 +118,13 @@ pub struct AgentVisualState {
     pub scale: f32,
     pub palette_id: u32,
     pub tint: [f32; 4],
-    pub atlas_index: u32,
+    /// Row index 0..13 within the §5.3 14-state grid — i.e.
+    /// which animation row of the atlas this agent's current
+    /// state lives on. The shader-facing `atlas_index` field on
+    /// `PerInstanceData` is the texture-array slice (head shape
+    /// 0..4), NOT this row; the encoding happens at snapshot
+    /// time via `snapshot_for_render`.
+    pub atlas_row: u32,
     pub current_animation: AnimationState,
     pub current_frame: u32,
     pub held_prop: Option<PropKind>,
@@ -136,7 +142,7 @@ impl AgentVisualState {
             scale: 1.0,
             palette_id: 0,
             tint: [1.0, 1.0, 1.0, 1.0],
-            atlas_index: 0,
+            atlas_row: 0,
             current_animation: AnimationState::Idle,
             current_frame: 0,
             held_prop: None,
@@ -152,25 +158,48 @@ impl AgentVisualState {
         if self.current_animation != next {
             self.current_animation = next;
             self.current_frame = 0;
-            self.atlas_index = next.atlas_row();
+            self.atlas_row = next.atlas_row();
         }
     }
 
     /// Snapshot for FFI ring push. Clamps scale to integer per
     /// I-16; production callers `debug_assert!` upstream so the
     /// clamp is a safety net, not the canonical enforcement.
-    pub fn snapshot_for_render(&self) -> PerInstanceData {
+    ///
+    /// `head_shape_index` is the texture-array slice (0..4) the
+    /// renderer should sample. The reducer doesn't track per-
+    /// agent head_shape; the simulation owner (Swift bridge)
+    /// supplies it via `SimulationState::set_head_shape` when a
+    /// companion joins. Default 0 = block_compact slice (the
+    /// canonical fallback for agents whose head_shape hasn't
+    /// been set yet).
+    ///
+    /// Encoding (per Companion.metal `computeAtlasUV`):
+    ///   `frame_index` packs `(atlas_row << 4) | current_frame`
+    ///   so the fragment shader can compute (row, col) inside
+    ///   the head's grid using a single uniform.
+    pub fn snapshot_for_render(&self, head_shape_index: u8) -> PerInstanceData {
         debug_assert!(
             (self.scale - self.scale.round()).abs() < 1e-6,
             "fractional sprite scale {}: violates I-16",
             self.scale
         );
+        debug_assert!(
+            self.current_frame < 16,
+            "current_frame {} exceeds 4-bit packing ceiling",
+            self.current_frame
+        );
+        debug_assert!(
+            self.atlas_row < 16,
+            "atlas_row {} exceeds 4-bit packing ceiling (max 14 states + 1 reserved)",
+            self.atlas_row
+        );
         let s = self.scale.round().clamp(1.0, 4.0);
         let mut data = PerInstanceData::new(self.id);
         data.position = self.position;
         data.scale = [s, s];
-        data.atlas_index = self.atlas_index;
-        data.frame_index = self.current_frame;
+        data.atlas_index = head_shape_index as u32;
+        data.frame_index = (self.atlas_row << 4) | (self.current_frame & 0xF);
         data.palette_id = self.palette_id;
         data.tint = self.tint;
         data.state_flags = self.state_flags;
@@ -227,6 +256,26 @@ impl SessionMeta {
     }
 }
 
+/// Stable mapping from `HeadShape` to texture-array slice index.
+/// Mirror of `Epistemos/Simulation/AtlasLoader.swift::AtlasHeadShape`
+/// — adding a head shape requires changing both sides in lock-
+/// step. The reducer reads this when encoding `atlas_index` for
+/// the FFI snapshot per §10.5.
+pub fn head_shape_atlas_index(shape: crate::companions::HeadShape) -> u8 {
+    use crate::companions::HeadShape;
+    match shape {
+        // Most provider presets in §5.4 default to Block(Compact),
+        // and Block(Wide) is exclusive to Claude Code worker.
+        // The reducer doesn't know aspect parameters; the Swift
+        // bridge picks Compact vs Wide via
+        // `epistemos_simulation_set_head_shape` directly.
+        HeadShape::Block       => 0, // block_compact slice
+        HeadShape::Sage        => 3, // sage slice
+        HeadShape::Orb         => 2, // orb slice
+        HeadShape::HermesSnake => 4, // hermes_snake slice
+    }
+}
+
 /// The simulation's full per-companion state. Mutated by the
 /// reducer; never accessed concurrently from multiple threads
 /// (single-writer per IMPLEMENTATION §2.1).
@@ -235,6 +284,11 @@ pub struct SimulationState {
     /// All known companions, keyed by id. `BTreeMap` for stable
     /// ordering at serialisation / replay-digest time.
     pub agents: BTreeMap<CompanionId, AgentVisualState>,
+    /// agent → texture-array slice index 0..4 (atlas head shape).
+    /// Populated via `set_head_shape`. Defaults to 0
+    /// (block_compact) when not set — keeps the renderer well-
+    /// behaved while the Swift bridge is still wiring up.
+    pub head_shapes: BTreeMap<CompanionId, u8>,
     /// Currently-running sessions. Used to enforce DOCTRINE I-2
     /// (every visible action belongs to a session) and to gate
     /// graph-theater visibility per §3.3 ("only companions whose
@@ -288,7 +342,21 @@ impl SimulationState {
     }
 
     pub fn snapshot_all(&self) -> Vec<PerInstanceData> {
-        self.agents.values().map(|a| a.snapshot_for_render()).collect()
+        self.agents
+            .values()
+            .map(|a| {
+                let head = self.head_shapes.get(&a.id).copied().unwrap_or(0);
+                a.snapshot_for_render(head)
+            })
+            .collect()
+    }
+
+    /// Set the texture-array slice index (0..4) for an agent.
+    /// Called by `epistemos_simulation_set_head_shape` from the
+    /// Swift bridge when a companion joins; the reducer then
+    /// picks this up at FFI snapshot time per §10.5.
+    pub fn set_head_shape(&mut self, id: CompanionId, head_shape_index: u8) {
+        self.head_shapes.insert(id, head_shape_index);
     }
 
     /// Open a new session — called from the reducer's
@@ -434,16 +502,29 @@ mod tests {
         a.transition_to(AnimationState::Walk); // different state — reset
         assert_eq!(a.current_frame, 0);
         assert_eq!(a.current_animation, AnimationState::Walk);
-        // Atlas index follows.
-        assert_eq!(a.atlas_index, AnimationState::Walk.atlas_row());
+        // atlas_row follows the §5.3 state row.
+        assert_eq!(a.atlas_row, AnimationState::Walk.atlas_row());
     }
 
     #[test]
     fn snapshot_for_render_clamps_scale_to_integer() {
         let mut a = AgentVisualState::initial_for(cid());
         a.scale = 2.0;
-        let snap = a.snapshot_for_render();
+        let snap = a.snapshot_for_render(0);
         assert_eq!(snap.scale, [2.0, 2.0]);
+    }
+
+    #[test]
+    fn snapshot_for_render_packs_atlas_row_and_frame_index() {
+        // §S10 ABI: PerInstanceData.atlas_index = head_shape slice;
+        // PerInstanceData.frame_index = (atlas_row << 4) | current_frame.
+        let mut a = AgentVisualState::initial_for(cid());
+        a.scale = 1.0;
+        a.transition_to(AnimationState::Walk); // atlas_row → 1
+        a.current_frame = 5;
+        let snap = a.snapshot_for_render(4); // hermes_snake slice
+        assert_eq!(snap.atlas_index, 4);
+        assert_eq!(snap.frame_index, (1 << 4) | 5);
     }
 
     #[test]
@@ -452,7 +533,7 @@ mod tests {
     fn snapshot_panics_in_debug_for_fractional_scale() {
         let mut a = AgentVisualState::initial_for(cid());
         a.scale = 1.5;
-        let _ = a.snapshot_for_render();
+        let _ = a.snapshot_for_render(0);
     }
 
     #[test]
