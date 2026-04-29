@@ -41,6 +41,10 @@ pub mod trajectory_export;
 pub mod vault_read;
 pub mod vault_search;
 pub mod vault_write;
+pub mod web_crawl;
+pub mod web_extract;
+pub mod web_fetch;
+pub mod web_search;
 pub mod workspace_search;
 
 #[cfg(test)]
@@ -84,6 +88,10 @@ mod tests {
             super::intelligence_nightbrain_trigger::SPEC,
             super::intelligence_inline_partner::SPEC,
             super::intelligence_self_evolve::SPEC,
+            super::web_search::SPEC,
+            super::web_extract::SPEC,
+            super::web_crawl::SPEC,
+            super::web_fetch::SPEC,
         ];
         for spec in specs {
             let s = (spec.input_schema)();
@@ -221,6 +229,22 @@ mod tests {
                 super::intelligence_self_evolve::SPEC.name,
                 (super::intelligence_self_evolve::SPEC.input_schema)(),
             ),
+            (
+                super::web_search::SPEC.name,
+                (super::web_search::SPEC.input_schema)(),
+            ),
+            (
+                super::web_extract::SPEC.name,
+                (super::web_extract::SPEC.input_schema)(),
+            ),
+            (
+                super::web_crawl::SPEC.name,
+                (super::web_crawl::SPEC.input_schema)(),
+            ),
+            (
+                super::web_fetch::SPEC.name,
+                (super::web_fetch::SPEC.input_schema)(),
+            ),
         ];
         build_dispatch_grammar(&pairs).expect("v2 dispatch grammar must compile");
     }
@@ -261,6 +285,10 @@ mod tests {
             super::intelligence_nightbrain_trigger::SPEC,
             super::intelligence_inline_partner::SPEC,
             super::intelligence_self_evolve::SPEC,
+            super::web_search::SPEC,
+            super::web_extract::SPEC,
+            super::web_crawl::SPEC,
+            super::web_fetch::SPEC,
         ] {
             assert!(
                 spec.name.contains('.'),

@@ -458,6 +458,32 @@ impl ToolRegistry {
                 Arc::new(catalog_handler),
             ));
         }
+        // Web family — same Ok-gating as the legacy
+        // register_phase_three_web. web.fetch's `WebFetchTool::new()`
+        // is infallible (`.expect()`s on reqwest init), so it's
+        // unconditional.
+        if let Ok(web_search) = super::web::WebSearchHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::web_search::SPEC,
+                Arc::new(web_search),
+            ));
+        }
+        if let Ok(web_extract) = super::web::WebExtractHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::web_extract::SPEC,
+                Arc::new(web_extract),
+            ));
+        }
+        if let Ok(web_crawl) = super::web::WebCrawlHandler::new() {
+            tools.push(LegacyToolAdapter::boxed(
+                v2_catalog::web_crawl::SPEC,
+                Arc::new(web_crawl),
+            ));
+        }
+        tools.push(LegacyToolAdapter::boxed(
+            v2_catalog::web_fetch::SPEC,
+            Arc::new(super::web_fetch::WebFetchTool::new()),
+        ));
         // trajectory.export needs the vault root for session-store reads.
         // When the registry was constructed without a vault root path we
         // skip it (same gating as the legacy register_phase_eight_trajectory).
@@ -2021,12 +2047,15 @@ mod tier_tests {
         //   2F-2..6: 17 tools always present
         //   2F-7   : +3 always (discovery.mcp_discover, discovery.model_catalog,
         //                       media.text_to_speech)
-        //   trajectory.export is skipped here because vault_root_path is None;
-        //   `v2_catalog_includes_trajectory_export_when_vault_root_set` covers
-        //   the with-root branch.
+        //   2F-9   : +4 web family (web.search/extract/crawl Ok-gated;
+        //                           web.fetch unconditional)
+        //   trajectory.export + intelligence.self_evolve are skipped here
+        //   because vault_root_path is None;
+        //   `v2_catalog_includes_trajectory_export_when_vault_root_set`
+        //   covers the with-root branch.
         let registry = build_registry(ToolTier::Full);
         let catalog = registry.build_v2_catalog();
-        assert_eq!(catalog.len(), 20, "2F-7 ships 20 adapted tools when vault_root is None");
+        assert_eq!(catalog.len(), 24, "2F-9 ships 24 adapted tools when vault_root is None");
 
         let names: Vec<&'static str> = catalog.iter().map(|t| t.name()).collect();
         assert!(names.contains(&"vault.search"));
@@ -2049,6 +2078,10 @@ mod tier_tests {
         assert!(names.contains(&"discovery.mcp_discover"));
         assert!(names.contains(&"discovery.model_catalog"));
         assert!(names.contains(&"media.text_to_speech"));
+        assert!(names.contains(&"web.search"));
+        assert!(names.contains(&"web.extract"));
+        assert!(names.contains(&"web.crawl"));
+        assert!(names.contains(&"web.fetch"));
         assert!(
             !names.contains(&"trajectory.export"),
             "trajectory.export requires vault_root_path; gated out when None"
@@ -2092,8 +2125,8 @@ mod tier_tests {
         );
         assert_eq!(
             catalog.len(),
-            22,
-            "all 22 unconditional + vault-root-bound v2 tools present"
+            26,
+            "all 26 unconditional + vault-root-bound v2 tools present"
         );
     }
 
