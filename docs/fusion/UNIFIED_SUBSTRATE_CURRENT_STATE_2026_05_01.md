@@ -333,6 +333,13 @@ Proven or actively wired:
   Hermes subprocess adapter. Hermes is not Rex, not the graph, and not the
   deterministic substrate; structured evidence returns through typed artifacts,
   mutation envelopes, and gates.
+- Hermes Gateway Directness PR1 is now code-closed at the prompt boundary:
+  `HermesPromptBuilder.systemPrompt` names Hermes as the tool-call and
+  external-intelligence membrane while preserving direct local answers for
+  already-available substrate context. No provider, subprocess, MCP, cloud,
+  graph, Rust, or generated transport path was touched. Red/green evidence:
+  `/tmp/epistemos-hermes-gateway-directness-pr1-red-20260502.log` and
+  `/tmp/epistemos-hermes-gateway-directness-pr1-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -426,7 +433,9 @@ Still open:
    and external subprocess surfaces cannot leak into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
-   authorities.
+   authorities. Hermes Gateway Directness PR1 is closed for the local prompt
+   invariant only; future runtime/provider routing still requires a new exact
+   gate.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are
@@ -554,7 +563,8 @@ durable GraphEvent projection consumer PR4, durable GraphEvent Settings
 projection visibility PR5,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
-PR2, Halo V1 visible panel actions PR3, R16 memory-pressure dispatch pause PR3E,
+PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1, R16
+memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema

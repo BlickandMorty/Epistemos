@@ -1026,3 +1026,65 @@ Stop triggers:
 - Sensitive grace survives explicit clearing, crosses category boundaries,
   accepts invalid durations, survives clock rollback, or applies to destructive
   requirements.
+
+## Card 10 - Hermes Gateway Directness
+
+Status:
+Prompt-boundary PR1 is closed. `HermesPromptBuilder.systemPrompt` now states
+that Hermes is the tool-call and external-intelligence membrane, not the graph,
+Rex, or deterministic substrate authority. It also preserves the direct local
+answer path when context is already available, so Hermes stays unified without
+becoming a slow wrapper around deterministic substrate work.
+
+Build Intent:
+Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
+tools, browser/computer-use, Docker/devcontainer work, and Claude/Codex/Kimi/
+Gemini CLI delegation. Keep the Core/App Store path local-first and clean.
+Structured external evidence must return through typed artifacts, mutation
+envelopes, provenance events, and gates rather than ad hoc graph authority.
+
+Allowed Future Write Set:
+- Prompt-only follow-up: `Epistemos/LocalAgent/HermesPromptBuilder.swift`.
+- Prompt-only tests: `EpistemosTests/HermesPromptBuilderTests.swift`.
+- Runtime/provider slices only after a new gate names exact provider, MCP,
+  subprocess, entitlement, auth, event, and projection files.
+- Documentation: this card, current state, and a dedicated deliberation note.
+
+Forbidden Without New Gate:
+- Direct cloud/provider calls from Core/App Store paths.
+- Independent CLI architectures that bypass Hermes/gateway.
+- Treating Hermes as Rex, the graph, the deterministic substrate, or source of
+  truth for durable state.
+- Subprocess launchers, MCP bridges, browser/computer-use, Docker/devcontainer,
+  OAuth/auth services, entitlements, Xcode project files, Rust kernels,
+  generated bindings, generated libraries, protected graph files, or protected
+  note editor files.
+
+Evidence:
+- Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_directness_pr1_deliberation_2026_05_02.md`.
+- Red log:
+  `/tmp/epistemos-hermes-gateway-directness-pr1-red-20260502.log`.
+- Green log:
+  `/tmp/epistemos-hermes-gateway-directness-pr1-green-20260502.log`.
+- Focused command:
+  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
+- Note: the focused Swift Testing suite passed 9 tests. Xcode still printed
+  known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+
+Acceptance:
+- PR1 wired: the local Hermes-family system prompt names Hermes as the
+  external-intelligence/tool membrane.
+- PR1 reachable: focused prompt tests prove the wording stays present.
+- PR1 visible: docs now tell future builders that direct local substrate answers
+  should not be routed through tools.
+- PR1 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
+  transport, entitlement, protected graph, or protected editor path was touched.
+
+Stop Triggers:
+- A future slice wants to execute a provider request, shell command, MCP call,
+  browser/computer-use action, or Docker/devcontainer route without a new exact
+  runtime gate.
+- A prompt or runtime path frames Hermes as graph/Rex/substrate authority.
+- Direct local answers start taking tool hops when the necessary context is
+  already available.

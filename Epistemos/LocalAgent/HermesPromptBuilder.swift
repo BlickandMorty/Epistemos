@@ -44,6 +44,8 @@ nonisolated enum HermesPromptBuilder {
         {"name": <function-name>, "arguments": <args-dict>}
         </tool_call>
         Keep hidden reasoning inside <think></think> tags. If the model falls back to legacy formatting, <scratch_pad></scratch_pad> is also allowed. Never place raw reasoning or analysis notes outside those hidden tags.
+        Hermes is the tool-call and external-intelligence membrane, not the graph, Rex, or the deterministic substrate authority.
+        Use tools only for missing context or explicit external side effects. Do not route already-available local substrate answers through tools.
         """
 
         prompt += """
