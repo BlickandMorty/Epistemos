@@ -173,6 +173,29 @@ public struct ApprovalModalView: View {
     private func resolve(_ decision: Decision) {
         guard !didResolve else { return }
         didResolve = true
+        guard ChatApprovalSovereignGate.requiresConfirmation(for: decision) else {
+            finishResolve(decision)
+            return
+        }
+
+        Task { @MainActor in
+            let requirement = ChatApprovalSovereignGate.requirement(
+                for: decision,
+                toolName: approval.toolName
+            )
+            let reason = ChatApprovalSovereignGate.reason(
+                for: decision,
+                toolName: approval.toolName
+            )
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                requirement,
+                reason: reason
+            ) ?? .denied(.authenticationFailed)
+            finishResolve(outcome == .allowed ? decision : .deny)
+        }
+    }
+
+    private func finishResolve(_ decision: Decision) {
         log.info("approval resolved tool=\(approval.toolName, privacy: .public) decision=\(String(describing: decision), privacy: .public)")
         onResolve(decision)
     }
@@ -183,6 +206,53 @@ public enum ChatApprovalResolution: Sendable, Equatable {
     case alwaysAllow
     case applyLessInterruptions
     case deny
+}
+
+enum ChatApprovalSovereignGate {
+    static func requiresConfirmation(for decision: ApprovalModalView.Decision) -> Bool {
+        switch decision {
+        case .approveOnce, .applyLessInterruptions, .approveAlways:
+            return true
+        case .deny, .timedOut:
+            return false
+        }
+    }
+
+    static func requirement(
+        for decision: ApprovalModalView.Decision,
+        toolName: String
+    ) -> SovereignGateRequirement {
+        switch decision {
+        case .approveOnce:
+            .biometric(category: SovereignGateCategory(rawValue: "agent-tool-\(normalizedToolName(toolName))"))
+        case .applyLessInterruptions, .approveAlways:
+            .deviceOwnerAuthentication
+        case .deny, .timedOut:
+            .none
+        }
+    }
+
+    static func reason(
+        for decision: ApprovalModalView.Decision,
+        toolName: String
+    ) -> String {
+        let toolName = normalizedToolName(toolName)
+        switch decision {
+        case .approveOnce:
+            return "Approve \(toolName) for this agent action."
+        case .applyLessInterruptions:
+            return "Apply Less Interruptions for \(toolName). This changes future approval behavior."
+        case .approveAlways:
+            return "Always allow \(toolName). This changes future approval behavior."
+        case .deny, .timedOut:
+            return "No approval requested for \(toolName)."
+        }
+    }
+
+    private static func normalizedToolName(_ toolName: String) -> String {
+        let trimmed = toolName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "unknown-tool" : trimmed
+    }
 }
 
 @MainActor @Observable

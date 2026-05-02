@@ -137,6 +137,11 @@ closed:
   resign-active, app hide, workspace sleep, session resign-active, and screen
   sleep. It does not migrate existing confirmation dialogs, decide action
   classes in Swift, touch Rust/generated transport, or add Pro/Research routes.
+- Sovereign Gate Approval Surface PR3 is now closed for the existing agent tool
+  approval sheet: approve-once maps to a category-scoped biometric requirement,
+  `Less Interruptions` and `Always Allow` map to device-owner authentication,
+  and deny/timeout remain immediate. Failed authentication resolves as deny,
+  with no Rust/Omega/ChatCoordinator/generated-transport changes.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -414,9 +419,10 @@ Still open:
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, and read-only Settings projection counts,
   such as graph, retrieval, Halo, Theater, or audit surfaces.
-- Sovereign Gate follow-through beyond the Core Swift executor: Rust-side
-  action-class matrix, generated transport, existing confirmation-surface
-  migration, and any Pro/Research Secure Enclave or Sovereign-class routes.
+- Sovereign Gate follow-through beyond the Core Swift executor and the agent
+  approval sheet migration: Rust-side action-class matrix, generated
+  transport, additional existing confirmation-surface migrations, and any
+  Pro/Research Secure Enclave or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
 - Halo V1 manual runtime verification remains open. The protected editor
   mount/glyph/panel route, domain re-query path, and visible row actions are
@@ -477,13 +483,16 @@ Still open:
    OpLog, worker, runtime, and visibility files.
 
 4. **Core/MAS release split audit and Sovereign follow-through.**
-   Sovereign Gate Core PR1 is closed for the single Swift executor. Future
-   Sovereign slices must start from
+   Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
+   PR2 is closed for app/session/sleep grace clearing, and Approval Surface PR3
+   is closed for the existing agent approval sheet. Future Sovereign slices
+   must start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
    and may only add Rust action classification, generated transport, lifecycle
-   follow-up, or existing confirmation migrations behind new exact gates. Also
-   ensure Pro tunnels, Hermes, CLI passthrough, browser/computer-use, Docker,
-   and external subprocess surfaces cannot leak into the Core/App Store build.
+   follow-up, or additional existing confirmation migrations behind new exact
+   gates. Also ensure Pro tunnels, Hermes, CLI passthrough,
+   browser/computer-use, Docker, and external subprocess surfaces cannot leak
+   into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
    authorities. Hermes Gateway Directness PR1 is closed for the local prompt
@@ -539,10 +548,11 @@ are:
   model-derived badge visibility is closed as PR3G, and ETL worker execution is
   closed as PR3H. Do not assign Card 2 sidecar mirror work unless a new gate
   first introduces an actual Rust note-sidecar mirror target.
-- Sovereign Gate follow-up only for exact gated slices after Core PR1: Rust
-  action classification, generated requirement transport, lifecycle follow-up
-  beyond PR2's app/session/sleep grace clearing, or migration of existing confirmation
-  surfaces to `SovereignGate`.
+- Sovereign Gate follow-up only for exact gated slices after Core PR1, Lifecycle
+  PR2, and Approval Surface PR3: Rust action classification, generated
+  requirement transport, lifecycle follow-up beyond PR2's app/session/sleep
+  grace clearing, or additional existing confirmation surfaces migrated to
+  `SovereignGate`.
 
 Agents should not start:
 
@@ -617,7 +627,8 @@ durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
 projection visibility PR5,
-Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
+Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
+Surface PR3, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
@@ -629,7 +640,7 @@ visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either live GraphEvent consumer projection,
 Omega/broader runtime AgentEvent coverage,
-Sovereign Gate Rust/transport/surface
+Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
 verification, depending on whether the immediate priority is provenance

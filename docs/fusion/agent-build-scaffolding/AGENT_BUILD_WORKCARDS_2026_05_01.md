@@ -955,6 +955,11 @@ starts/stops `SovereignGateLifecycleObserver`, and clears Sensitive grace on
 app resign-active, app hide, workspace sleep, session resign-active, and screen
 sleep. PR2 did not migrate existing dialogs, decide the action-class matrix in
 Swift, touch Rust, touch generated transport, or add Pro/Research routes.
+Approval Surface PR3 is also closed. `ApprovalModalView` routes approve-once
+through a category-scoped biometric requirement and persistent approval choices
+(`Less Interruptions` / `Always Allow`) through device-owner authentication via
+the existing shared `SovereignGate`, without touching Rust, Omega,
+ChatCoordinator, `AppBootstrap`, `EpistemosApp`, or generated transport.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -962,19 +967,24 @@ without parallel Touch ID prompts or Swift-owned policy matrices.
 
 Authority to read first:
 - `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/sovereign_gate_approval_surface_pr3_deliberation_2026_05_02.md`
 - `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §4.2 and Annex B
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 - `Epistemos/Sovereign/SovereignGate.swift`
+- `Epistemos/Views/Approval/ApprovalModalView.swift`
 - `EpistemosTests/SovereignGateTests.swift`
 - `/tmp/epistemos-sovereign-gate-pr1-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-pr1-green-20260502.log`
 - `/tmp/epistemos-sovereign-gate-pr1-green-20260502-r2.log`
 - `/tmp/epistemos-sovereign-gate-pr2-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`
+- `/tmp/epistemos-sovereign-gate-approval-pr3-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-approval-pr3-green-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
 - PR2 app-owned lifecycle observer and focused tests: already closed.
+- PR3 agent approval sheet migration and focused tests: already closed.
 - Future Rust action-class matrix only after a gate names exact Rust files
   and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1020,6 +1030,10 @@ Tests and logs:
 - PR2 red log: `/tmp/epistemos-sovereign-gate-pr2-red-20260502.log`.
 - PR2 focused green log:
   `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`.
+- PR3 red log:
+  `/tmp/epistemos-sovereign-gate-approval-pr3-red-20260502.log`.
+- PR3 focused green log:
+  `/tmp/epistemos-sovereign-gate-approval-pr3-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1043,10 +1057,16 @@ Acceptance:
 - PR2 boundary: no existing dialogs, Rust kernels, generated bindings,
   entitlements, protected graph/editor files, subprocesses, solver hot paths,
   tensor copies, or memory hot paths are touched.
+- PR3 wired/reachable/visible: the existing agent approval sheet supplies
+  Sovereign Gate requirements for approve-once and persistent-approval
+  decisions, focused tests prove the mapping, and deny/timeout remain immediate.
+- PR3 boundary: no Rust kernels, Omega policy, ChatCoordinator, generated
+  bindings, entitlements, protected graph/editor files, subprocesses, solver
+  hot paths, tensor copies, or memory hot paths are touched.
 
 Stop triggers:
 - A future slice needs generated UniFFI, Rust matrix, new lifecycle hooks, or
-  existing dialog migration without naming exact files in a new gate.
+  additional existing dialog migration without naming exact files in a new gate.
 - `LocalAuthentication`, `LAContext`, `canEvaluatePolicy`, `evaluatePolicy`,
   Touch ID, or biometric prompting appears outside
   `Epistemos/Sovereign/SovereignGate.swift`.
