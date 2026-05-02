@@ -11,10 +11,9 @@ import SwiftUI
 // schema itself.
 //
 // Depth source-of-truth precedence (highest → lowest):
-//   1. Per-note sidecar (`<note-stem>.epistemos.json` `depth` field)
-//   2. In-memory user override (e.g. user manually promoted a note
-//      to coreBelief from the inspector — written through to sidecar
-//      on next save)
+//   1. In-memory user preview override (e.g. inspector promotion
+//      before the user commits or cancels)
+//   2. Per-note sidecar (`<note-stem>.epistemos.json` `depth` field)
 //   3. Default `surface` for any note not yet classified
 //
 // The overlay is queried by the graph rendering layer per-frame in
@@ -82,11 +81,11 @@ public final class CognitiveDepthOverlay {
     /// nothing has classified the note yet.
     public func depth(for source: URL) -> DepthMarker {
         let key = source.path
+        if let pending = pendingOverrides[key] { return pending }
         if let cached = cache[key] {
             touchLRU(key)
             return cached
         }
-        if let pending = pendingOverrides[key] { return pending }
 
         // Sidecar lookup. Edge-case-hardened: treat ANY decode error
         // as a fall-through (instead of crashing) so a corrupt
