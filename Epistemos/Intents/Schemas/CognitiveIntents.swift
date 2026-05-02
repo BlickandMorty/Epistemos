@@ -49,24 +49,38 @@ struct CaptureBrainDumpIntent: AppIntent {
     }
 
     @MainActor
-    func perform() async throws -> some IntentResult {
+    private static func activeContextAnchor() -> QuarantineAnchor? {
+        guard let bootstrap = AppBootstrap.shared else { return nil }
+        if let pageId = bootstrap.notesUI.activePageId {
+            return QuarantineAnchor(contextKind: "note", contextId: pageId)
+        }
+        if let chatId = bootstrap.chatState.activeChatId {
+            return QuarantineAnchor(contextKind: "chat", contextId: chatId)
+        }
+        return nil
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         cogIntentLog.info("CaptureBrainDumpIntent fired (chars=\(body.count, privacy: .public))")
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            // Direct text path — capture immediately into the
-            // quarantine archive. UI surface (open the inspector
-            // showing the entry) is a follow-up SwiftUI commit.
-            QuarantineArchive.shared.capture(
-                body: trimmed,
-                kind: .rawThought,
-                anchor: nil
-            )
+        guard !trimmed.isEmpty else {
+            NotificationCenter.default.post(name: .showQuickCapture, object: nil)
+            _ = try? await donate()
+            return .result(dialog: "Opening Quick Capture so you can dictate your brain dump.")
         }
+        // Direct text path: capture immediately into the quarantine
+        // archive, preserving the focused note/chat as an anchor.
+        QuarantineArchive.shared.capture(
+            body: trimmed,
+            kind: .rawThought,
+            anchor: Self.activeContextAnchor()
+        )
         // Wave 14 — donate so Siri / Spotlight learn the user's
         // brain-dump cadence + surface this intent on the lock screen
         // / Siri SmartStack at the right time of day.
         _ = try? await donate()
-        return .result()
+        return .result(dialog: "Captured brain dump in Epistemos.")
     }
 }
 
