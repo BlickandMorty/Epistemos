@@ -4353,10 +4353,69 @@ Guardrails:
 Remaining R15 gaps:
 
 - MLX thermal fixture baselines.
-- sqlite-vec 100k KNN fixture baselines.
 - Full graph FFI fixture baselines.
-- Editor shell fixture baselines.
 - UniFFI callback throughput fixture baselines.
+- Production GRDB/768d KNN remains a future gate if claimed.
+- Any production optimization remains blocked behind a new fixture gate.
+
+## R15 sqlite-vec KNN Fixture Baseline PR4 Results
+
+Gate status: **passed and closed**.
+
+Change:
+
+- Added an ignored-by-default Rust integration baseline for real sqlite-vec
+  `vec0` KNN at 100k deterministic 32-dimensional vectors.
+- Used R13's direct per-connection sqlite-vec loader and the validated
+  `note_embeddings_schema` helper through a source-loaded test module, avoiding
+  any production Cargo crate-type change.
+- Wrote an R15 schema-compatible JSON report under `benchmarks/results/`.
+- Recorded a Kimi read-only advisory confirming no architecture drift, false
+  production claim, or protected-path risk.
+
+Files changed by this slice:
+
+- `epistemos-core/tests/sqlite_vec_knn_baseline.rs`
+- `benchmarks/results/2026-05-01t00-00-00-000z-r15-sqlite-vec-knn-sqlite_vec_knn_100k_32d.json`
+- `docs/fusion/deliberation/r15_sqlite_vec_knn_fixture_baseline_pr4_deliberation_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_057_2026_05_01.md`
+
+Verification:
+
+```bash
+cargo test --manifest-path epistemos-core/Cargo.toml --test sqlite_vec_knn_baseline -- --ignored --nocapture
+EPISTEMOS_BENCHMARK_RESULTS_DIR=/Users/jojo/Downloads/Epistemos/benchmarks/results cargo test --manifest-path epistemos-core/Cargo.toml --test sqlite_vec_knn_baseline -- --ignored --nocapture
+cargo test --manifest-path epistemos-core/Cargo.toml --test sqlite_vec_knn_baseline
+```
+
+- Red log:
+  `/tmp/epistemos-r15-sqlite-vec-knn-pr4-red-cargo-20260501.log`
+- Green log:
+  `/tmp/epistemos-r15-sqlite-vec-knn-pr4-green-cargo-20260501.log`
+- Default ignored-behavior log:
+  `/tmp/epistemos-r15-sqlite-vec-knn-pr4-default-cargo-20260501.log`
+- Kimi read-only advisory:
+  `/tmp/epistemos-r15-sqlite-vec-knn-kimi-advisory-20260501.log`
+- Result: the focused ignored run passed with `1` test; the default target run
+  passed with `5` lightweight source-loaded checks and the 100k KNN baseline
+  ignored by default.
+- JSON metrics: p50 `0.012303229499999999`, p95 `0.01238895875`, p99
+  `0.012405858950000001` seconds for the deterministic 100k x 32d fixture.
+
+Guardrails:
+
+- `git diff --check -- epistemos-core/tests/sqlite_vec_knn_baseline.rs docs/fusion/deliberation/r15_sqlite_vec_knn_fixture_baseline_pr4_deliberation_2026_05_01.md docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_057_2026_05_01.md benchmarks/results/2026-05-01t00-00-00-000z-r15-sqlite-vec-knn-sqlite_vec_knn_100k_32d.json`
+  passed.
+- Protected-path scan found only protective prose references in docs; no
+  protected editor, graph UI, `graph-engine/**`, `epistemos-shadow/**`,
+  generated binding, or project file was touched.
+
+Remaining R15 gaps:
+
+- MLX thermal fixture baselines.
+- Full graph FFI fixture baselines.
+- UniFFI callback throughput fixture baselines.
+- Production GRDB/768d KNN remains a future gate if claimed.
 - Any production optimization remains blocked behind a new fixture gate.
 
 ## R16 MAS Bookmark Enforcement PR3F Results
