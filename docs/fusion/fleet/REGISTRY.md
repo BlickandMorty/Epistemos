@@ -5,7 +5,7 @@ Claude side-fleet, Claude red-team, Kimi, and other long-running agent/process
 dispatches. Update it before and after every spawn. Never delete rows; archive
 old rows monthly to `docs/fusion/fleet/REGISTRY_ARCHIVE_<YYYY-MM>.md`.
 
-Current status on 2026-05-02: round 5 RootView destructive controls PR8 is code/docs/test complete.
+Current status on 2026-05-02: round 10 AgentQueryEngine PR15 code, docs, fleet artifacts, red-team packet, focused green tests, and staged audits are complete.
 
 | round | spawned_at | role | scope | tool_surface | terminal_or_pid | status | artifact | usefulness |
 |---|---|---|---|---|---|---|---|---|
@@ -33,3 +33,10 @@ Current status on 2026-05-02: round 5 RootView destructive controls PR8 is code/
 | 9 | 2026-05-02T18:29Z | aggregator | slice=agent-grep-agent-event-pr14 | codex/local | n/a | done | docs/fusion/fleet/agent-grep-agent-event-pr14/aggregator.md | +1 |
 | 9 | 2026-05-02T18:29Z | pipeline-builder | slice=agent-grep-agent-event-pr14 | codex/local | n/a | done | docs/fusion/deliberation/agent_grep_agent_event_pr14_deliberation_2026_05_02.md | +1 |
 | 9 | 2026-05-02T18:31Z | claude-red-team | brief=agent-grep-agent-event-pr14 | codex/explorer-agent | agent:019de9f5-8e27-7ce2-8299-2803e40cc73c | done | docs/fusion/fleet/agent-grep-agent-event-pr14/claude-red-team/attacks.md | +1 |
+| 10 | 2026-05-02T18:41Z | explorer | scope=agent-event-next-slice-scout | codex/explorer-agent | agent:019de9fe-d595-7970-b08b-ecbad8e97e3e | done | transcript | +1 |
+| 10 | 2026-05-02T18:41Z | explorer | scope=graph-event-next-slice-scout | codex/explorer-agent | agent:019de9fe-d600-7752-a559-586cb10104a2 | done | transcript | +1 |
+| 10 | 2026-05-02T18:46Z | detective | concept=AgentEvent provenance hardening | codex/local | n/a | done | docs/fusion/fleet/agent-query-engine-agent-event-pr15/detectives/agent-event-provenance.md | +1 |
+| 10 | 2026-05-02T18:46Z | detective | concept=AgentQueryEngine backend stream | codex/local | n/a | done | docs/fusion/fleet/agent-query-engine-agent-event-pr15/detectives/agent-query-engine.md | +1 |
+| 10 | 2026-05-02T18:46Z | aggregator | slice=agent-query-engine-agent-event-pr15 | codex/local | n/a | done | docs/fusion/fleet/agent-query-engine-agent-event-pr15/aggregator.md | +1 |
+| 10 | 2026-05-02T18:46Z | pipeline-builder | slice=agent-query-engine-agent-event-pr15 | codex/local | n/a | done | docs/fusion/deliberation/agent_query_engine_agent_event_pr15_deliberation_2026_05_02.md | +1 |
+| 10 | 2026-05-02T18:46Z | claude-red-team | brief=agent-query-engine-agent-event-pr15 | codex/local-red-team | n/a | done | docs/fusion/fleet/agent-query-engine-agent-event-pr15/claude-red-team/attacks.md | +1 |

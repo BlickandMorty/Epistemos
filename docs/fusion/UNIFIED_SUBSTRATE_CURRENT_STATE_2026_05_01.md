@@ -220,6 +220,16 @@ closed:
   are intentionally excluded. This does not change search behavior, indexing,
   unindexing, sidecar enrichment, UI, approval, routing, graph, Rust, generated
   bindings, or EventStore schema.
+- AgentEvent PR15 now instruments `AgentQueryEngine` backend tool streams.
+  Backend `.toolUse` / `.toolResult` events persist requested, started, and
+  completed/failed AgentEvents with `agent-query-engine-...` run ids,
+  `agent-query-engine` actor metadata, backend/model/turn/tool metadata,
+  output byte counts, and error flags. Prompt bodies, chat history, system
+  prompts, cwd, backend tool inputs, backend tool outputs, raw text, thinking
+  text, and session ids are intentionally excluded. This does not change backend
+  streaming, prompt construction, approval, UI, provider routing,
+  ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, graph,
+  Rust, generated bindings, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -466,6 +476,11 @@ Proven or actively wired:
   Hermes `hermesGateway` route metadata without changing provider behavior.
   CloudLLM direct streaming now emits the same lifecycle shape with chunk/byte
   counts only, preserving existing provider streaming and SSE parsing behavior.
+  CloudLLM structured generation, LocalAgentLoop parsed tool calls,
+  DriverChannelToolExecutor wrappers, remote relay HTTP calls, AgentGrep search,
+  and AgentQueryEngine backend tool streams now emit the same bounded lifecycle
+  shape with surface-specific sanitized metadata and no prompt/body/output
+  persistence.
 - Settings diagnostics now expose read-only durable AgentEvent visibility from
   EventStore, including total row count, distinct run count, distinct tool
   count, latest event metadata, and last event kind.
@@ -626,8 +641,9 @@ Still open:
   Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount,
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
   CloudLLM direct stream, CloudLLM structured generation, LocalAgentLoop
-  tool execution, DriverChannelToolExecutor channel wrapper paths, and remote
-  relay channel HTTP client paths.
+  tool execution, DriverChannelToolExecutor channel wrapper paths, remote relay
+  channel HTTP client paths, AgentGrep search, and AgentQueryEngine backend tool
+  streams.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
@@ -699,7 +715,8 @@ before building.
   CloudLLM stream provenance PR9, AgentEvent CloudLLM structured provenance
   PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
   DriverChannelToolExecutor provenance PR12, AgentEvent remote relay channel
-  provenance PR13, AgentEvent AgentGrep search provenance PR14, durable
+  provenance PR13, AgentEvent AgentGrep search provenance PR14, AgentEvent
+  AgentQueryEngine backend-stream provenance PR15, durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
@@ -772,7 +789,8 @@ are:
   structured generation provenance is closed as PR10, LocalAgentLoop tool
   provenance is closed as PR11, DriverChannelToolExecutor channel provenance is
   closed as PR12, remote relay channel provenance is closed as PR13, AgentGrep
-  search provenance is closed as PR14, durable GraphEvent mutation mapping is closed as PR1,
+  search provenance is closed as PR14, AgentQueryEngine backend-stream
+  provenance is closed as PR15, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
@@ -877,6 +895,8 @@ AgentEvent CloudLLM structured generation provenance PR10,
 AgentEvent LocalAgentLoop tool provenance PR11,
 AgentEvent DriverChannelToolExecutor channel provenance PR12,
 AgentEvent remote relay channel provenance PR13,
+AgentEvent AgentGrep search provenance PR14,
+AgentEvent AgentQueryEngine backend-stream provenance PR15,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings

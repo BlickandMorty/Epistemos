@@ -744,6 +744,17 @@ sidecar provenance ids, and tool-use ids. This preserves search behavior,
 sidecar enrichment, indexing, unindexing, UI, approval, routing, graph, Rust,
 generated bindings, and EventStore schema.
 
+PR15 AgentQueryEngine backend-stream provenance is also closed.
+`AgentQueryEngine` now records requested, started, and completed/failed
+AgentEvents for backend `.toolUse` / `.toolResult` stream events with
+`agent-query-engine-...` run ids, `agent-query-engine` actor metadata,
+backend/model/turn/tool metadata, output byte counts, and error flags.
+Persisted provenance excludes prompt bodies, chat history, system prompts, cwd,
+backend tool inputs, backend tool outputs, raw text, thinking text, and session
+ids. This preserves backend streaming, prompt construction, approval, UI,
+provider routing, ChatCoordinator, PipelineService, LocalAgentLoop, LLMService,
+Omega, graph, Rust, generated bindings, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -784,6 +795,13 @@ Authority to read first:
 - `Epistemos/Omega/Channels/DriverChannelControlPlane.swift` only for PR13
   remote relay channel evidence or a future remote-relay provenance regression
   fix gate.
+- `docs/fusion/deliberation/agent_grep_agent_event_pr14_deliberation_2026_05_02.md`
+- `Epistemos/KnowledgeFusion/AgentGrepService.swift` only for PR14 AgentGrep
+  evidence or a future AgentGrep provenance regression fix gate.
+- `docs/fusion/deliberation/agent_query_engine_agent_event_pr15_deliberation_2026_05_02.md`
+- `Epistemos/Engine/AgentHarness/AgentQueryEngine.swift` only for PR15
+  AgentQueryEngine backend-stream evidence or a future AgentQueryEngine
+  provenance regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -809,12 +827,16 @@ Allowed write set:
   `RemoteRelayChannelAdapter` relay send/fetch/list/audit HTTP calls only.
 - PR14 AgentGrep search provenance: already closed for
   `AgentGrepService.search(query:kindFilter:limit:)` only.
+- PR15 AgentQueryEngine backend-stream provenance: already closed for backend
+  `.toolUse` / `.toolResult` events emitted by `AgentQueryEngine.runTurn(...)`
+  only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
-  HTTP client, Omega paths beyond ReasoningLoop internal search, or broader
-  runtime instrumentation only after a new deliberation gate names exact
-  runtime files and focused tests.
+  HTTP client, AgentQueryEngine paths beyond backend tool stream events, Omega
+  paths beyond ReasoningLoop internal search, or broader runtime
+  instrumentation only after a new deliberation gate names exact runtime files
+  and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -921,6 +943,13 @@ Tests and logs:
   The focused `AgentGrepService (Wave 9.9 base)` Swift Testing suite passed
   10 tests; Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
+- PR15 red log:
+  `/tmp/epistemos-agent-query-engine-agent-event-pr15-red-20260502.log`.
+- PR15 green log:
+  `/tmp/epistemos-agent-query-engine-agent-event-pr15-green-20260502.log`.
+  The focused `AgentQueryEngine AgentEvent provenance` Swift Testing suite
+  passed 2 tests; Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -1020,6 +1049,16 @@ Acceptance:
   changes, unindexing, UI, approvals, provider routing, PipelineService,
   ChatCoordinator, LocalAgentLoop, LLMService, Omega, graph, Rust, generated
   bindings, and EventStore schema.
+- PR15 wired/reachable/visible: AgentQueryEngine emits requested, started, and
+  completed/failed AgentEvents around backend `.toolUse` / `.toolResult` stream
+  events with non-empty run id, tool call id, actor, backend/model/turn/tool
+  metadata, output byte count, and error flag. Tests prove prompts, history,
+  system prompts, cwd, backend tool input, backend tool output, raw text,
+  thinking text, and session ids are not persisted in AgentEvent
+  arguments/results. Source and behavior stay away from backend streaming
+  semantics, prompt construction, UI, approvals, provider routing,
+  ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, graph,
+  Rust, generated bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

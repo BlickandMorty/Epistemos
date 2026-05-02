@@ -16,3 +16,12 @@
 - staged guard: `git diff --cached --name-only -- agent_core graph-engine Epistemos/Views Epistemos/Omega Epistemos.xcodeproj Epistemos/State/EventStore.swift`
 - log: `✔ Test "search records sanitized AgentEvents" passed`
 - test: `AgentGrepService (Wave 9.9 base)`
+
+## agent-query-engine-agent-event-pr15
+
+- grep: `toolName: name`
+- grep: `agentQueryEngineToolArgumentsJSON`
+- forbidden grep: `argumentsJSON.*prompt|argumentsJSON.*history|argumentsJSON.*cwd|resultJSON.*output|resultJSON.*text|toolInput`
+- staged guard: `git diff --cached --name-only -- agent_core graph-engine Epistemos/Views Epistemos/Omega Epistemos.xcodeproj Epistemos/State/EventStore.swift Epistemos/App/ChatCoordinator.swift Epistemos/Engine/PipelineService.swift Epistemos/LocalAgent/LocalAgentLoop.swift Epistemos/Engine/LLMService.swift`
+- log: `✔ Test "AgentQueryEngine records sanitized backend tool AgentEvents" passed`
+- test: `AgentQueryEngine AgentEvent provenance`
