@@ -4212,6 +4212,27 @@ struct RuntimeValidationTests {
         #expect(coordinator.contains("agentChat.appendStreamingThinking(text, explicit: true)"))
     }
 
+    @Test("ChatCoordinator Rust stream persists live AgentEvent tool provenance")
+    func chatCoordinatorRustStreamPersistsLiveAgentEventToolProvenance() throws {
+        let coordinator = try loadRepoTextFile("Epistemos/App/ChatCoordinator.swift")
+
+        #expect(coordinator.contains("private func recordRustAgentToolEvent("))
+        #expect(coordinator.contains("let commandCenterProvenanceRecorder = AgentToolProvenanceRecorder()"))
+        #expect(coordinator.contains("let managedChatProvenanceRecorder = AgentToolProvenanceRecorder()"))
+        #expect(coordinator.contains("runID: sessionId"))
+        #expect(coordinator.contains("kind: .toolCallRequested"))
+        #expect(coordinator.contains("kind: approved ? .toolCallApproved : .toolCallDenied"))
+        #expect(coordinator.contains("kind: .toolCallStarted"))
+        #expect(coordinator.contains("kind: isError ? .toolCallFailed : .toolCallCompleted"))
+        #expect(coordinator.contains(#""source": "chat_coordinator_command_center_rust_stream""#))
+        #expect(coordinator.contains(#""source": "chat_coordinator_managed_rust_stream""#))
+        #expect(!coordinator.contains("MutationOpLog"))
+        #expect(!coordinator.contains("RustOpLogFFIClient"))
+        #expect(!coordinator.contains("GraphEvent"))
+        #expect(!coordinator.contains("ReplayBundle"))
+        #expect(!coordinator.contains("HookRegistry"))
+    }
+
     @Test("note chat always treats the current note body as primary context")
     func noteChatAlwaysTreatsTheCurrentNoteBodyAsPrimaryContext() throws {
         let source = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")

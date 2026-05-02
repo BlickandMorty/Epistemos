@@ -521,7 +521,7 @@ final class ChatCoordinator {
     var receivedAgentContent = false
     var terminalAgentError: AgentRuntimeError?
     var finalizedAssistantMessage = false
-    var activeToolStarts: [String: (name: String, startedAt: Date)] = [:]
+    var activeToolStarts: [String: (name: String, inputJson: String, startedAt: Date)] = [:]
 
     // Build system prompt from compiled context + plan.
     var systemParts: [String] = []
@@ -602,6 +602,16 @@ final class ChatCoordinator {
 
     let accSessionInterval = Log.agentStreaming.beginInterval("accAgentSession")
     let resolvedAgentModelLabel = self.inferenceState.effectiveModelLabel(for: .agent)
+    let commandCenterProvenanceRecorder = AgentToolProvenanceRecorder()
+    let commandCenterProvenanceActor = AgentProvenanceActor.agent(
+      id: "chat-command-center-rust-stream",
+      modelID: resolvedAgentModelLabel
+    )
+    let commandCenterProvenanceMetadata: [String: String] = [
+      "source": "chat_coordinator_command_center_rust_stream",
+      "provider": providerName,
+      "tool_tier": toolTier.rawValue
+    ]
     // Wave 2.1 canonical perf signpost (subsystem io.epistemos.core / mcp).
     // Wraps the agent session consumption loop. Per dpp §1.1 Task 0.1.
     // Uses begin/end+defer to avoid Sendable-closure crossing for the
@@ -629,7 +639,18 @@ final class ChatCoordinator {
         agentChat.activeToolName = name
         agentChat.isAgentExecuting = true
         agentChat.recordToolUse(id: id, name: name, inputJson: inputJson)
-        activeToolStarts[id] = (name, Date())
+        activeToolStarts[id] = (name: name, inputJson: inputJson, startedAt: Date())
+        recordRustAgentToolEvent(
+          recorder: commandCenterProvenanceRecorder,
+          runID: sessionId,
+          actor: commandCenterProvenanceActor,
+          kind: .toolCallStarted,
+          toolCallID: id,
+          toolName: name,
+          argumentsJSON: inputJson,
+          status: .started,
+          metadata: commandCenterProvenanceMetadata
+        )
         accState.diagnostics.recordActiveTool(name: name)
 
       case .toolCompleted(let id, let result, let isError):
@@ -638,29 +659,71 @@ final class ChatCoordinator {
         agentChat.activeToolName = nil
         agentChat.isAgentExecuting = false
         let startInfo = activeToolStarts.removeValue(forKey: id)
-        let durationMs =
-          startInfo.map {
-            UInt64(Date().timeIntervalSince($0.startedAt) * 1000)
-          } ?? 0
+        let durationMs = Self.rustAgentToolDurationMs(since: startInfo?.startedAt)
         agentChat.recordToolResult(
           toolUseId: id,
           result: result,
           isError: isError,
-          durationMs: durationMs
+          durationMs: durationMs ?? 0
         )
         let record = ACCToolExecutionRecord(
           id: id,
           toolName: startInfo?.name ?? "unknown",
           inputSummary: "",
           resultSummary: String(result.prefix(200)),
-          durationMs: durationMs,
+          durationMs: durationMs ?? 0,
           isError: isError
         )
         accState.diagnostics.recordToolExecution(record)
+        if let startInfo {
+          recordRustAgentToolEvent(
+            recorder: commandCenterProvenanceRecorder,
+            runID: sessionId,
+            actor: commandCenterProvenanceActor,
+            kind: isError ? .toolCallFailed : .toolCallCompleted,
+            toolCallID: id,
+            toolName: startInfo.name,
+            argumentsJSON: startInfo.inputJson,
+            resultJSON: result,
+            durationMs: durationMs,
+            status: isError ? .failed : .completed,
+            errorMessage: isError ? Self.boundedRustAgentToolError(result) : nil,
+            metadata: commandCenterProvenanceMetadata
+          )
+        }
         accState.diagnostics.recordActiveTool(name: nil)
 
       case .permissionRequired(let request):
+        let permissionMetadata = Self.rustAgentPermissionMetadata(
+          base: commandCenterProvenanceMetadata,
+          request: request
+        )
+        recordRustAgentToolEvent(
+          recorder: commandCenterProvenanceRecorder,
+          runID: sessionId,
+          actor: commandCenterProvenanceActor,
+          kind: .toolCallRequested,
+          toolCallID: request.id,
+          toolName: request.toolName,
+          argumentsJSON: request.inputJson,
+          approvalID: request.id,
+          status: .requested,
+          metadata: permissionMetadata
+        )
         let approved = !request.requiresHumanApproval
+        recordRustAgentToolEvent(
+          recorder: commandCenterProvenanceRecorder,
+          runID: sessionId,
+          actor: commandCenterProvenanceActor,
+          kind: approved ? .toolCallApproved : .toolCallDenied,
+          toolCallID: request.id,
+          toolName: request.toolName,
+          argumentsJSON: request.inputJson,
+          approvalID: request.id,
+          status: approved ? .approved : .denied,
+          errorMessage: approved ? nil : "Tool permission denied by policy.",
+          metadata: permissionMetadata
+        )
         capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
         accState.diagnostics.recordPermissionDecision(
           CommandCenterExecutionDiagnostics.PermissionDecisionRecord(
@@ -750,6 +813,68 @@ final class ChatCoordinator {
     if let err = terminalAgentError {
       throw err
     }
+  }
+
+  @discardableResult
+  private func recordRustAgentToolEvent(
+    recorder: AgentToolProvenanceRecorder,
+    runID: String,
+    actor: AgentProvenanceActor,
+    kind: AgentProvenanceEventKind,
+    toolCallID: String,
+    toolName: String,
+    argumentsJSON: String?,
+    resultJSON: String? = nil,
+    durationMs: UInt64? = nil,
+    approvalID: String? = nil,
+    status: AgentToolEventStatus,
+    errorMessage: String? = nil,
+    metadata: [String: String]
+  ) -> Bool {
+    recorder.recordToolEvent(
+      runID: runID,
+      traceID: nil,
+      kind: kind,
+      actor: actor,
+      toolCallID: toolCallID,
+      toolName: toolName,
+      argumentsJSON: argumentsJSON,
+      resultJSON: resultJSON,
+      durationMs: durationMs,
+      approvalID: approvalID,
+      status: status,
+      errorMessage: errorMessage,
+      metadata: metadata
+    )
+  }
+
+  private static func rustAgentToolDurationMs(since startedAt: Date?) -> UInt64? {
+    guard let startedAt else { return nil }
+    let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+    guard milliseconds.isFinite,
+          milliseconds >= 0,
+          milliseconds <= Double(UInt64.max)
+    else {
+      return nil
+    }
+    return UInt64(milliseconds.rounded())
+  }
+
+  private static func boundedRustAgentToolError(_ result: String) -> String? {
+    let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return "Tool execution failed." }
+    guard trimmed.count > 500 else { return trimmed }
+    return String(trimmed.prefix(500)) + "..."
+  }
+
+  private static func rustAgentPermissionMetadata(
+    base: [String: String],
+    request: AgentPermissionRequest
+  ) -> [String: String] {
+    var metadata = base
+    metadata["risk_level"] = String(describing: request.riskLevel)
+    metadata["approval_required"] = request.requiresHumanApproval ? "true" : "false"
+    return metadata
   }
 
   private func commandCenterExecutionPlan(
@@ -2071,7 +2196,7 @@ final class ChatCoordinator {
     var terminalAgentError: AgentRuntimeError?
     var finalizedAssistantMessage = false
     let requiresVerifiedVaultRead = Self.queryRequiresVerifiedVaultRead(originalQuery)
-    var toolInputsByID: [String: (name: String, inputJson: String)] = [:]
+    var toolInputsByID: [String: (name: String, inputJson: String, startedAt: Date)] = [:]
     var attemptedRequiredVaultRead = false
     var successfulRequiredVaultRead = false
     var lastRequiredVaultReadFailure: String?
@@ -2380,6 +2505,17 @@ final class ChatCoordinator {
     }
 
     let resolvedModelLabel = self.inferenceState.effectiveModelLabel(for: .agent)
+    let managedChatProvenanceRecorder = AgentToolProvenanceRecorder()
+    let managedChatProvenanceActor = AgentProvenanceActor.agent(
+      id: "chat-managed-rust-stream",
+      modelID: resolvedModelLabel
+    )
+    let managedChatProvenanceMetadata: [String: String] = [
+      "source": "chat_coordinator_managed_rust_stream",
+      "provider": providerName,
+      "tool_tier": toolTier,
+      "operating_mode": surfaceOperatingMode.rawValue
+    ]
     func persistCompletedAgentTurn() {
       if let lastMsg = chatState.messages.last {
         let processed = self.executeVaultActions(in: lastMsg.content)
@@ -2441,15 +2577,28 @@ final class ChatCoordinator {
         receivedAgentContent = true
         chatState.activeToolName = name
         chatState.isAgentExecuting = true
-        toolInputsByID[id] = (name: name, inputJson: inputJson)
+        toolInputsByID[id] = (name: name, inputJson: inputJson, startedAt: Date())
         chatState.recordToolUse(id: id, name: name, inputJson: inputJson)
+        recordRustAgentToolEvent(
+          recorder: managedChatProvenanceRecorder,
+          runID: sessionId,
+          actor: managedChatProvenanceActor,
+          kind: .toolCallStarted,
+          toolCallID: id,
+          toolName: name,
+          argumentsJSON: inputJson,
+          status: .started,
+          metadata: managedChatProvenanceMetadata
+        )
 
       case .toolCompleted(let id, let result, let isError):
         receivedAgentContent = true
         chatState.activeToolName = nil
         chatState.isAgentExecuting = false
+        let toolInput = toolInputsByID.removeValue(forKey: id)
+        let durationMs = Self.rustAgentToolDurationMs(since: toolInput?.startedAt)
         if requiresVerifiedVaultRead,
-          let toolInput = toolInputsByID.removeValue(forKey: id),
+          let toolInput,
           Self.isVaultReadVerificationTool(
             toolName: toolInput.name,
             inputJson: toolInput.inputJson,
@@ -2467,9 +2616,41 @@ final class ChatCoordinator {
             lastRequiredVaultReadFailure = nil
           }
         }
+        if let toolInput {
+          recordRustAgentToolEvent(
+            recorder: managedChatProvenanceRecorder,
+            runID: sessionId,
+            actor: managedChatProvenanceActor,
+            kind: isError ? .toolCallFailed : .toolCallCompleted,
+            toolCallID: id,
+            toolName: toolInput.name,
+            argumentsJSON: toolInput.inputJson,
+            resultJSON: result,
+            durationMs: durationMs,
+            status: isError ? .failed : .completed,
+            errorMessage: isError ? Self.boundedRustAgentToolError(result) : nil,
+            metadata: managedChatProvenanceMetadata
+          )
+        }
         chatState.recordToolResult(toolUseId: id, result: result, isError: isError)
 
       case .permissionRequired(let request):
+        let permissionMetadata = Self.rustAgentPermissionMetadata(
+          base: managedChatProvenanceMetadata,
+          request: request
+        )
+        recordRustAgentToolEvent(
+          recorder: managedChatProvenanceRecorder,
+          runID: sessionId,
+          actor: managedChatProvenanceActor,
+          kind: .toolCallRequested,
+          toolCallID: request.id,
+          toolName: request.toolName,
+          argumentsJSON: request.inputJson,
+          approvalID: request.id,
+          status: .requested,
+          metadata: permissionMetadata
+        )
         let approved: Bool
         if request.requiresHumanApproval {
           switch storedAuthorityDecision(for: request) {
@@ -2483,6 +2664,19 @@ final class ChatCoordinator {
         } else {
           approved = true
         }
+        recordRustAgentToolEvent(
+          recorder: managedChatProvenanceRecorder,
+          runID: sessionId,
+          actor: managedChatProvenanceActor,
+          kind: approved ? .toolCallApproved : .toolCallDenied,
+          toolCallID: request.id,
+          toolName: request.toolName,
+          argumentsJSON: request.inputJson,
+          approvalID: request.id,
+          status: approved ? .approved : .denied,
+          errorMessage: approved ? nil : "Tool permission denied by policy.",
+          metadata: permissionMetadata
+        )
         capturedDelegate?.resolvePermission(permissionId: request.id, approved: approved)
 
       case .complete(_, let inputTokens, let outputTokens, _):
