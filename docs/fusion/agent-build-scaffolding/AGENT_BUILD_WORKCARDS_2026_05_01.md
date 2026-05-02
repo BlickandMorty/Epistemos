@@ -476,13 +476,14 @@ Stop triggers:
 
 ## Card 6 - EventStore To OpLog Projection Gate
 
-Status on 2026-05-01:
+Status on 2026-05-02:
 Closed as the PR2 foundation slice, PR3A lease/retry foundation, and PR3B
 dead-letter foundation. PR3C also closes the smallest production scheduling
 worker shell. PR3D closes basic read-only Settings visibility for projection
 health and dead letters. PR4A closes Swift-only read-only projection replay
 snapshots and logical cutoff rollback inspection. PR4B closes read-only
-cryptographic OpLog chain verification and expected-tip anchoring. See:
+cryptographic OpLog chain verification and expected-tip anchoring. PR5 closes
+deterministic read-only ReplayBundle JSON export over replay snapshots. See:
 
 - `docs/fusion/deliberation/eventstore_oplog_projection_pr2_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/eventstore_oplog_projection_lease_retry_pr3a_deliberation_2026_05_01.md`
@@ -491,6 +492,7 @@ cryptographic OpLog chain verification and expected-tip anchoring. See:
 - `docs/fusion/deliberation/eventstore_oplog_projection_visibility_pr3d_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/eventstore_oplog_replay_snapshot_pr4a_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/oplog_chain_verification_pr4b_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/oplog_replay_bundle_export_pr5_deliberation_2026_05_02.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_038_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_041_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_042_2026_05_01.md`
@@ -499,12 +501,14 @@ cryptographic OpLog chain verification and expected-tip anchoring. See:
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 
 Do not assign agents to rebuild the basic projection scaffold. Future
-provenance work should open new gates for incremental replay, ReplayBundle
-export, live AgentEvent emission, GraphEvent projection, or deeper audit/repair
-surfaces. Background projection worker scheduling is already closed as PR3C.
+provenance work should open new gates for incremental replay, live AgentEvent
+emission, GraphEvent projection, production ReplayBundle visibility, or deeper
+audit/repair surfaces. Background projection worker scheduling is already
+closed as PR3C.
 Basic read-only dead-letter/projection visibility is already closed as PR3D.
 Read-only projection replay snapshots are already closed as PR4A. Read-only
-cryptographic chain verification is already closed as PR4B.
+cryptographic chain verification is already closed as PR4B. Read-only
+ReplayBundle export is already closed as PR5.
 
 Goal:
 Mirror committed `MutationEnvelope` provenance into the append-only Rust OpLog
@@ -571,6 +575,11 @@ Implementation contract:
   expected-tip anchoring over the Rust OpLog through `RustOpLogFFIClient`. Do
   not add repair, rollback execution, Settings buttons, generated bindings, or
   a second raw ABI bridge in future verification gates.
+- PR5 already supplies deterministic read-only `MutationOpLogReplayBundle`
+  export over replay snapshots through
+  `RustOpLogFFIClient.exportMutationReplayBundle(...)`. Do not export raw
+  `sourcePayloadJSON`, add a new raw ABI, execute rollback/repair, add UI, or
+  wire production scheduling in future bundle gates.
 - If new Rust payload variants are needed, add serde parity tests before Swift
   wiring.
 
@@ -593,6 +602,10 @@ Tests and logs:
 - PR4B chain verification evidence is
   `/tmp/epistemos-oplog-chain-verify-pr4b-green-cargo-20260501-r1.log` and
   `/tmp/epistemos-oplog-chain-verify-pr4b-green-xcode-20260501-r1.log`.
+- PR5 ReplayBundle red evidence is
+  `/tmp/epistemos-oplog-replay-bundle-pr5-red-20260502.log`.
+- PR5 ReplayBundle green evidence is
+  `/tmp/epistemos-oplog-replay-bundle-pr5-green-final-20260502.log`.
 - Existing OpLog bridge/boundary tests.
 - `git diff --check -- <allowed files> docs/fusion`
 - Production raw-symbol grep excluding `RustOpLogFFIClient`.
@@ -612,6 +625,9 @@ Acceptance:
   read-only snapshots and cutoff rollback views without mutating rows.
 - Chain verification: persisted OpLog rows can be checked for sequence/hash
   continuity and optional expected-tip anchoring without mutating rows.
+- ReplayBundle export: replay snapshots can be encoded as deterministic
+  Codable JSON with records/duplicates/counts while omitting raw source payload
+  JSON and without adding new raw ABI or mutation/repair behavior.
 
 Stop triggers:
 - Projection requires protected editor or graph files.

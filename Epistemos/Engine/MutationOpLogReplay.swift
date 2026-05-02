@@ -32,6 +32,92 @@ nonisolated struct MutationOpLogReplaySnapshot: Equatable, Sendable {
     }
 }
 
+nonisolated struct MutationOpLogReplayBundle: Codable, Equatable, Sendable {
+    nonisolated struct Record: Codable, Equatable, Sendable {
+        let mutationID: String
+        let opLogSeq: UInt64
+        let projectedAtMs: Int64
+        let recordedAtMs: Int64?
+        let traceID: String?
+        let eventKind: String?
+        let status: String?
+        let artifactID: String?
+        let artifactKind: String?
+        let integrityHash: String?
+
+        init(_ record: MutationOpLogReplayRecord) {
+            mutationID = record.mutationID
+            opLogSeq = record.opLogSeq
+            projectedAtMs = Self.unixMilliseconds(from: record.projectedAt)
+            recordedAtMs = record.recordedAt.map(Self.unixMilliseconds(from:))
+            traceID = record.traceID
+            eventKind = record.eventKind
+            status = record.status
+            artifactID = record.artifactID
+            artifactKind = record.artifactKind
+            integrityHash = record.integrityHash
+        }
+
+        private static func unixMilliseconds(from date: Date) -> Int64 {
+            let milliseconds = date.timeIntervalSince1970 * 1_000
+            guard milliseconds.isFinite else { return 0 }
+            if milliseconds >= Double(Int64.max) { return Int64.max }
+            if milliseconds <= Double(Int64.min) { return Int64.min }
+            return Int64(milliseconds.rounded())
+        }
+    }
+
+    nonisolated struct Duplicate: Codable, Equatable, Sendable {
+        let mutationID: String
+        let firstSeq: UInt64
+        let duplicateSeq: UInt64
+
+        init(_ duplicate: MutationOpLogReplayDuplicate) {
+            mutationID = duplicate.mutationID
+            firstSeq = duplicate.firstSeq
+            duplicateSeq = duplicate.duplicateSeq
+        }
+    }
+
+    static let currentSchemaVersion = 1
+
+    let schemaVersion: Int
+    let source: String
+    let cutoffSeq: UInt64?
+    let highestReplayedSeq: UInt64?
+    let replayedEntryCount: Int
+    let recordCount: Int
+    let duplicateCount: Int
+    let ignoredNonProjectionCount: Int
+    let records: [Record]
+    let duplicates: [Duplicate]
+
+    init(
+        snapshot: MutationOpLogReplaySnapshot,
+        source: String = "mutation-oplog-replay",
+        schemaVersion: Int = Self.currentSchemaVersion
+    ) {
+        self.schemaVersion = schemaVersion
+        self.source = source
+        cutoffSeq = snapshot.cutoffSeq
+        highestReplayedSeq = snapshot.highestReplayedSeq
+        replayedEntryCount = snapshot.records.count
+            + snapshot.duplicates.count
+            + snapshot.ignoredNonProjectionCount
+        recordCount = snapshot.records.count
+        duplicateCount = snapshot.duplicates.count
+        ignoredNonProjectionCount = snapshot.ignoredNonProjectionCount
+        records = snapshot.records.map(Record.init)
+        duplicates = snapshot.duplicates.map(Duplicate.init)
+    }
+
+    func deterministicJSONData() throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try encoder.encode(self)
+    }
+}
+
 nonisolated enum MutationOpLogReplay {
     static func replay(
         _ entries: [OpLogEntry],
@@ -116,6 +202,16 @@ nonisolated enum MutationOpLogReplay {
 extension RustOpLogFFIClient {
     nonisolated func replayMutationProjections(upToSeq cutoffSeq: UInt64? = nil) throws -> MutationOpLogReplaySnapshot {
         try MutationOpLogReplay.replay(iterateAll(), upToSeq: cutoffSeq)
+    }
+
+    nonisolated func exportMutationReplayBundle(
+        upToSeq cutoffSeq: UInt64? = nil,
+        source: String = "rust-oplog-ffi"
+    ) throws -> MutationOpLogReplayBundle {
+        try MutationOpLogReplayBundle(
+            snapshot: replayMutationProjections(upToSeq: cutoffSeq),
+            source: source
+        )
     }
 }
 
