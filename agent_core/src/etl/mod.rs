@@ -19,10 +19,17 @@
 //   ignore = "0.4.25"
 //   xxhash-rust = "0.8.15" (xxh3 feature)
 //   apalis = "=1.0.0-rc.7"  (PR2)
-//   apalis-sql = "0.7.3"    (PR2)
+//   apalis-sqlite = "=1.0.0-rc.7" (PR2)
 
+pub mod ffi;
 pub mod hash;
+pub mod jobs;
+pub mod queue;
 pub mod walker;
+pub mod worker;
 
 pub use hash::xxh3_64;
+pub use jobs::{EtlIngestJob, EtlInputKind};
+pub use queue::{EtlQueue, EtlQueueStats, ETL_QUEUE_NAME};
 pub use walker::{crawl_vault, VaultEntry};
+pub use worker::{run_bounded_validation_worker, validate_ingest_job, EtlWorkerRunSummary};

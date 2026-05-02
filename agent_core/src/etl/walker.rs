@@ -13,10 +13,9 @@ use ignore::WalkBuilder;
 use std::path::{Path, PathBuf};
 
 const CODE_EXTENSIONS: &[&str] = &[
-    "swift", "rs", "py", "ts", "tsx", "js", "jsx", "go", "java",
-    "kt", "c", "cpp", "h", "hpp", "rb", "php", "cs", "scala",
-    "clj", "ex", "exs", "ml", "fs", "fsi", "hs", "elm", "rkt",
-    "lua", "r", "jl", "nim", "zig", "v", "lean", "vala", "dart",
+    "swift", "rs", "py", "ts", "tsx", "js", "jsx", "go", "java", "kt", "c", "cpp", "h", "hpp",
+    "rb", "php", "cs", "scala", "clj", "ex", "exs", "ml", "fs", "fsi", "hs", "elm", "rkt", "lua",
+    "r", "jl", "nim", "zig", "v", "lean", "vala", "dart",
 ];
 
 #[derive(Debug, Clone)]
