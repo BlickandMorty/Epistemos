@@ -1,6 +1,28 @@
 import SwiftData
 import SwiftUI
 
+enum DiffSheetVersionDeletionSovereignGate {
+    enum Target: Equatable {
+        case version(label: String)
+    }
+
+    static func requirement(for _: Target) -> SovereignGateRequirement {
+        .deviceOwnerAuthentication
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case let .version(label):
+            return "Permanently delete version \"\(safeName(label))\"."
+        }
+    }
+
+    private static func safeName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
 // MARK: - DiffSheetView
 // GitHub-style diff viewer presented as a sheet.
 // Features: unified + split toggle, version picker, context folding,
@@ -216,7 +238,7 @@ struct DiffSheetView: View {
                     Divider()
 
                     Button(role: .destructive) {
-                        deleteSelectedVersion()
+                        requestSelectedVersionDeleteAuthorization()
                     } label: {
                         Label("Delete This Version", systemImage: "trash")
                     }
@@ -556,8 +578,28 @@ struct DiffSheetView: View {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
+    private func requestSelectedVersionDeleteAuthorization() {
+        guard let version = selectedVersion else { return }
+        let target = DiffSheetVersionDeletionSovereignGate.Target.version(label: versionLabel(version))
+
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                DiffSheetVersionDeletionSovereignGate.requirement(for: target),
+                reason: DiffSheetVersionDeletionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else { return }
+
+            deleteSelectedVersion(version)
+        }
+    }
+
     private func deleteSelectedVersion() {
         guard let version = selectedVersion else { return }
+        deleteSelectedVersion(version)
+    }
+
+    private func deleteSelectedVersion(_ version: SDPageVersion) {
         modelContext.delete(version)
         do {
             try modelContext.save()
