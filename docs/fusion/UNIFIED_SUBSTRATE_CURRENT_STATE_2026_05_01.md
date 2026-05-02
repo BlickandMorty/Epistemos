@@ -130,6 +130,11 @@ closed:
   resign-active, app hide, workspace sleep, session resign-active, and screen
   sleep. It does not migrate existing confirmation dialogs, decide action
   classes in Swift, touch Rust/generated transport, or add Pro/Research routes.
+- R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
+  code. A refreshed Rust/Swift audit found no active Rust reader or writer for
+  note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
+  source through `EpistemosSidecarStore` and no Rust mirror should be invented
+  without a new exact gate and v2/v3/additive-field parity fixtures.
 - Durable GraphEvent mutation mapping PR1 is now closed. EventStore has a
   `graph_events` table and bounded `saveGraphEvent(_:)`,
   `loadGraphEvent(eventID:)`, and `graphEvents(mutationID:limit:)` APIs.
@@ -180,7 +185,9 @@ closed:
   and
   `/tmp/epistemos-graph-event-projection-pr3-green-20260501.log`,
   and
-  `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`.
+  `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`,
+  and
+  `/tmp/epistemos-r16-sidecar-schema-swift-green-20260502.log`.
 - Kimi found no P0/P1 blockers in
   `/tmp/epistemos-oplog-swift-bridge-pr1-kimi-advisory-fallback-20260501.log`
   `/tmp/epistemos-eventstore-oplog-projection-kimi-final-advisory-20260501.log`,
@@ -275,6 +282,9 @@ Proven or actively wired:
   honest ETL worker execution through the approved PR3 slices. ETL jobs now
   reach `done` only after the Rust worker re-validates file existence,
   readability, byte length, input kind, and fingerprint.
+- R16 sidecar schema mirror Card 2 is closed as audit-only: active sidecar
+  reads/writes are Swift surfaces, optional AFM fields remain additive, and no
+  Rust note-sidecar mirror exists to patch.
 - V0 Contextual Shadows is production-mounted and now prefers the configured
   per-vault `ShadowSearchService` backend when the Shadow backend is ready,
   while preserving the `InstantRecallService` fallback. Recall cards carry
@@ -326,9 +336,11 @@ Still open:
 3. **R16 runtime/manual closure.**
    ETL worker execution is closed as PR3H. Memory-pressure dispatch pause is
    closed as PR3E, MAS bookmark enforcement is closed as PR3F, and
-   model-derived badge visibility is closed as PR3G. Do not claim full R16
-   product readiness until a separate runtime/manual gate verifies the user
-   flow against a real vault and records logs.
+   model-derived badge visibility is closed as PR3G, and Sidecar Schema Mirror
+   Card 2 is closed as audit-only/no-code because no Rust note-sidecar mirror
+   exists. Do not claim full R16 product readiness until a separate
+   runtime/manual gate verifies the user flow against a real vault and records
+   logs.
 
 4. **OpLog provenance hardening.**
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
@@ -387,7 +399,8 @@ are:
   sidecar-generation expansion behind a new exact gate. Memory-pressure
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
   model-derived badge visibility is closed as PR3G, and ETL worker execution is
-  closed as PR3H.
+  closed as PR3H. Do not assign Card 2 sidecar mirror work unless a new gate
+  first introduces an actual Rust note-sidecar mirror target.
 - Sovereign Gate follow-up only for exact gated slices after Core PR1: Rust
   action classification, generated requirement transport, lifecycle follow-up
   beyond PR2's app/session/sleep grace clearing, or migration of existing confirmation
@@ -460,7 +473,8 @@ durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapsh
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, R16 memory-pressure dispatch pause PR3E, and R16 MAS bookmark
 enforcement PR3F, R16 model-derived badge visibility PR3G, and R16 ETL worker
-execution PR3H are good to build on.
+execution PR3H, plus the R16 Sidecar Schema Mirror Card 2 audit/no-op closure,
+are good to build on.
 The next best build card is either live GraphEvent consumer projection,
 Omega/broader runtime AgentEvent coverage,
 production hook call-site mounting, Sovereign Gate Rust/transport/surface
