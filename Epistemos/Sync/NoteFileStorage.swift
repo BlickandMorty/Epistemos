@@ -48,7 +48,7 @@ private enum EpistemosCoreIntegrityBridge {
     private nonisolated static let callSuccess: Int8 = 0
     private nonisolated static let callError: Int8 = 1
     private nonisolated static let callUnexpectedError: Int8 = 2
-    private nonisolated static let bindingsContractVersion: UInt32 = 26
+    private nonisolated static let bindingsContractVersion: UInt32 = 29
 
     private nonisolated static let initializationFailure: String? = {
 #if canImport(epistemos_coreFFI)
