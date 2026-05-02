@@ -302,6 +302,13 @@ Proven or actively wired:
   visible source provenance.
 - V1 Halo controller/editor bridge/search panel scaffolding exists and is
   tested, but is not production-mounted.
+- Hermes Cloud Gateway architecture is now doc-locked: Pro/Research cloud
+  models, MCP/web/browser tools, Docker/devcontainer work, and
+  Claude/Codex/Kimi/Gemini CLI delegation use one unified gateway/control
+  surface. Concrete adapters can be gated in-process Rex/provider paths or a
+  Hermes subprocess adapter. Hermes is not Rex, not the graph, and not the
+  deterministic substrate; structured evidence returns through typed artifacts,
+  mutation envelopes, and gates.
 
 Still open:
 
@@ -381,6 +388,9 @@ Still open:
    follow-up, or existing confirmation migrations behind new exact gates. Also
    ensure Pro tunnels, Hermes, CLI passthrough, browser/computer-use, Docker,
    and external subprocess surfaces cannot leak into the Core/App Store build.
+   For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
+   CLIs are delegated tools behind it, not separate app architectures or graph
+   authorities.
 
 6. **V1.5 typed artifacts and Pro tunnels.**
    Only after the Core provenance/retrieval/diagnostics substrate is stable.

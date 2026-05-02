@@ -244,6 +244,9 @@ What ships in each tier. Everything not listed is forbidden in that tier.
 - Cache biometric approval across app sleep / lock / background. Cross category boundaries with a single grace.
 - Spawn user-installed coding CLIs from the **Core** target.
 - Put Hermes / Docker / browser-use in **Core**. Hidden cloud calls in any tier.
+- Treat Hermes as the graph/Rex authority, or add new Pro/Research cloud/CLI/tool
+  routes that bypass the unified gateway/control surface without an explicit
+  deliberation gate.
 - Use OSFT / PSOFT / coSO with QLoRA — they are not 4-bit compatible. Use QOFT / QDoRA / QPiSSA for production continual learning. (See Annex A.5.)
 - Promote a behavior past L3 in the residency hierarchy without T2+ verification and a measurable runtime gain. (See Annex A.3.)
 
@@ -521,11 +524,37 @@ CoreML is just a convenience layer on top of these. ANE per-core state is not ex
 
 **Tier impact:** Research only. Loading `AppleNeuralEngine.framework` is Sovereign-class.
 
-### A.12 Hermes prompt format — donor pattern reference
+### A.12 Hermes cloud/tool gateway + prompt format — donor pattern reference
+
+Hermes is the unified Pro/Research external-intelligence control surface for
+cloud model orchestration, MCP/web tooling, browser/computer-use,
+Docker/devcontainer work, and user-installed coding CLI delegation. This does
+not mean every token must flow through one Hermes subprocess: fast in-process
+provider paths in Rex / `agent_core` remain valid when a gate approves them.
+Hermes is **not** the graph, **not** Rex, and **not** the deterministic
+substrate. Rex / `epistemos-core` / local Swift services own the claim graph,
+ledger, residency governor, KV/cache state, verification ladder, and
+mutation/event logs.
+
+Direct CLIs are tools behind the gateway/control surface, not parallel app
+architectures. New Pro/Research cloud/tool surfaces should start from that
+gateway decision unless a deliberation gate explicitly approves a narrower
+legacy/provider path. If a Hermes subprocess adapter is unavailable, the
+Pro/Research feature degrades or falls back only through a gated in-process
+provider path; do not pierce the Core/MAS boundary with a direct subprocess
+fallback.
+
+Cloud Hermes gateway and local Hermes-family model prompting are different
+things. Cloud providers require network. The local Hermes prompt format can be
+used offline when the corresponding local model is installed.
 
 When wiring local-agent tool-calling under Hermes-3 / Hermes-Function-Calling: use the NousResearch ChatML XML format (`<tools>…</tools>`, `<tool_call>…</tool_call>`, `<tool_response>…</tool_response>`). Reference repo: `https://github.com/NousResearch/Hermes-Function-Calling` (per user memory). This format is what the existing `Epistemos/LocalAgent/HermesPromptBuilder.swift` targets — do not invent a different one.
 
-**Tier impact:** Pro (orchestration only — Hermes subprocess). Never Core.
+**Tier impact:** Pro/Research for the Hermes subprocess adapter
+(orchestration only). Rex / `agent_core` can own gated in-process provider
+paths. Local Hermes-family prompt formatting may be Core-safe when it targets
+in-process local inference. Never put Hermes subprocess, MCP, Docker,
+browser/computer-use, or user-installed coding CLIs in Core.
 
 ### A.13 Knowledge Sieve + Gap Winner Rule (graph mechanics)
 
