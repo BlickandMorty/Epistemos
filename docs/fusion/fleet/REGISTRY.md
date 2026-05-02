@@ -116,3 +116,13 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 26 | 2026-05-02T22:48Z | implementation | slice=oplog-replay-bundle-production-visibility-pr7 | codex/local | n/a | done | Epistemos/Engine/MutationOpLogReplay.swift; Epistemos/Views/Settings/OpLogProjectionHealthRow.swift | +1 |
 | 26 | 2026-05-02T22:48Z | guard | slice=oplog-replay-bundle-production-visibility-pr7 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
 | 26 | 2026-05-02T22:49Z | claude-red-team | brief=oplog-replay-bundle-production-visibility-pr7-post-implementation | claude/print-readonly | pid:2299 | failed | docs/fusion/fleet/oplog-replay-bundle-production-visibility-pr7/claude-red-team/attacks.md | -1 |
+| 27 | 2026-05-02T22:52Z | aggregator | scope=next-master-plan-slice-selection | codex/local | n/a | done | docs/fusion/fleet/round-27-next-master-plan-slice-selection/aggregator.md | +1 |
+| 28 | 2026-05-02T22:53Z | detective | concept=AgentEvent provenance hardening | codex/local | n/a | done | docs/fusion/fleet/agent-event-sync-recorder-enabler-pr0/detectives/agent-event-provenance.md | +1 |
+| 28 | 2026-05-02T22:53Z | detective | concept=sync-safe recorder constraint | codex/local | n/a | done | docs/fusion/fleet/agent-event-sync-recorder-enabler-pr0/detectives/sync-recorder-constraint.md | +1 |
+| 28 | 2026-05-02T22:53Z | aggregator | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | docs/fusion/fleet/agent-event-sync-recorder-enabler-pr0/aggregator.md | +1 |
+| 28 | 2026-05-02T22:53Z | pipeline-builder | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_sync_recorder_enabler_pr0_deliberation_2026_05_02.md | +1 |
+| 28 | 2026-05-02T22:54Z | claude-red-team | brief=agent-event-sync-recorder-enabler-pr0 | claude/print-readonly | pid:42446 | failed | docs/fusion/fleet/agent-event-sync-recorder-enabler-pr0/claude-red-team/attacks.md | -1 |
+| 28 | 2026-05-02T22:55Z | codex-red-team | brief=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | docs/fusion/fleet/agent-event-sync-recorder-enabler-pr0/codex-red-team/attacks.md | +1 |
+| 28 | 2026-05-02T23:05Z | implementation | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | Epistemos/Engine/AgentToolProvenanceRecorder.swift | +1 |
+| 28 | 2026-05-02T23:05Z | test | suite=EventStoreSchemaTests | xcodebuild | session:69595 | done | /tmp/epistemos-agent-event-sync-recorder-enabler-pr0-green-20260502.log | +1 |
+| 28 | 2026-05-02T23:05Z | guard | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
