@@ -995,65 +995,137 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         schema: CloudJSONSchema,
         type: T.Type
     ) async throws -> StructuredGenerationResult<T> {
-        let credential = try await resolvedCredential(for: model.provider)
-        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
-            from: systemPrompt,
+        let runID = "cloud-llm-\(UUID().uuidString)"
+        let toolCallID = "cloud-llm-generate-structured:1"
+        let actor = AgentProvenanceActor.agent(
+            id: "cloud-llm-client",
             modelID: model.vendorModelID
         )
+        let argumentsJSON = cloudLLMStructuredArgumentsJSON(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: operatingMode,
+            schema: schema
+        )
+        let metadata = cloudLLMStructuredMetadata(
+            model: model,
+            operatingMode: operatingMode,
+            schema: schema
+        )
+        recordCloudLLMToolEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "cloud_model.generate_structured",
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: metadata
+        )
+        recordCloudLLMToolEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "cloud_model.generate_structured",
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: metadata
+        )
+        let startedAt = Date()
 
-        switch model.provider {
-        case .openAI:
-            // o3/o3-mini may not support json_schema — fall back to prompt-based
-            if !model.supportsStructuredOutput {
-                // Use default protocol extension (prompt-based fallback)
+        do {
+            let credential = try await resolvedCredential(for: model.provider)
+            let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
+                from: systemPrompt,
+                modelID: model.vendorModelID
+            )
+
+            let result: StructuredGenerationResult<T>
+            switch model.provider {
+            case .openAI:
+                // o3/o3-mini may not support json_schema — fall back to prompt-based
+                if !model.supportsStructuredOutput {
+                    // Use default protocol extension (prompt-based fallback)
+                    let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
+                    let raw = try await generateOpenAI(
+                        model: model,
+                        credential: credential,
+                        prompt: augmented,
+                        systemPrompt: resolvedSystemPrompt,
+                        maxTokens: maxTokens,
+                        operatingMode: operatingMode
+                    )
+                    let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
+                    do {
+                        let value = try JSONDecoder().decode(T.self, from: data)
+                        result = StructuredGenerationResult(value: value, rawJSON: cleaned)
+                    } catch {
+                        throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
+                    }
+                } else {
+                    result = try await generateStructuredOpenAI(
+                        model: model, credential: credential, prompt: prompt,
+                        systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
+                        operatingMode: operatingMode,
+                        schema: schema, type: type
+                    )
+                }
+            case .anthropic:
+                result = try await generateStructuredAnthropic(
+                    model: model, credential: credential, prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
+                    schema: schema, type: type
+                )
+            default:
+                // Other providers: use prompt-based fallback (default protocol extension)
                 let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
-                let raw = try await generateOpenAI(
-                    model: model,
-                    credential: credential,
+                let raw = try await generate(
                     prompt: augmented,
-                    systemPrompt: resolvedSystemPrompt,
+                    systemPrompt: systemPrompt,
                     maxTokens: maxTokens,
+                    model: model,
                     operatingMode: operatingMode
                 )
                 let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
                 guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
                 do {
                     let value = try JSONDecoder().decode(T.self, from: data)
-                    return StructuredGenerationResult(value: value, rawJSON: cleaned)
+                    result = StructuredGenerationResult(value: value, rawJSON: cleaned)
                 } catch {
                     throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
                 }
             }
-            return try await generateStructuredOpenAI(
-                model: model, credential: credential, prompt: prompt,
-                systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
-                operatingMode: operatingMode,
-                schema: schema, type: type
+            recordCloudLLMToolEvent(
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: "cloud_model.generate_structured",
+                argumentsJSON: argumentsJSON,
+                resultJSON: cloudLLMStructuredResultJSON(rawJSON: result.rawJSON),
+                durationMs: cloudLLMDurationMilliseconds(since: startedAt),
+                status: .completed,
+                metadata: metadata
             )
-        case .anthropic:
-            return try await generateStructuredAnthropic(
-                model: model, credential: credential, prompt: prompt,
-                systemPrompt: resolvedSystemPrompt, maxTokens: maxTokens,
-                schema: schema, type: type
+            return result
+        } catch {
+            recordCloudLLMToolEvent(
+                runID: runID,
+                kind: .toolCallFailed,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: "cloud_model.generate_structured",
+                argumentsJSON: argumentsJSON,
+                durationMs: cloudLLMDurationMilliseconds(since: startedAt),
+                status: .failed,
+                errorMessage: error.localizedDescription,
+                metadata: metadata
             )
-        default:
-            // Other providers: use prompt-based fallback (default protocol extension)
-            let augmented = prompt + "\n\nRespond with valid JSON matching schema: \(schema.name). Output ONLY the JSON, no fences."
-            let raw = try await generate(
-                prompt: augmented,
-                systemPrompt: systemPrompt,
-                maxTokens: maxTokens,
-                model: model,
-                operatingMode: operatingMode
-            )
-            let cleaned = raw.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
-            guard let data = cleaned.data(using: .utf8) else { throw StructuredOutputError.emptyResponse }
-            do {
-                let value = try JSONDecoder().decode(T.self, from: data)
-                return StructuredGenerationResult(value: value, rawJSON: cleaned)
-            } catch {
-                throw StructuredOutputError.decodingFailed(underlyingError: error, rawJSON: cleaned)
-            }
+            throw error
         }
     }
 
@@ -1139,6 +1211,34 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ])
     }
 
+    private func cloudLLMStructuredArgumentsJSON(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
+        schema: CloudJSONSchema
+    ) -> String {
+        cloudLLMJSONPayload([
+            "provider": model.provider.rawValue,
+            "model": model.vendorModelID,
+            "operating_mode": operatingMode.rawValue,
+            "max_tokens": String(maxTokens),
+            "prompt_utf8_bytes": String(prompt.utf8.count),
+            "has_system_prompt": String(systemPrompt?.isEmpty == false),
+            "schema_name": schema.name,
+            "schema_strict": String(schema.strict),
+            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+        ])
+    }
+
+    private func cloudLLMStructuredResultJSON(rawJSON: String) -> String {
+        cloudLLMJSONPayload([
+            "raw_json_utf8_bytes": String(rawJSON.utf8.count),
+            "raw_json_length": String(rawJSON.count),
+        ])
+    }
+
     private func cloudLLMGenerateMetadata(
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
@@ -1151,6 +1251,20 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             "surface": "cloud_provider",
             "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
         ]
+    }
+
+    private func cloudLLMStructuredMetadata(
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode,
+        schema: CloudJSONSchema
+    ) -> [String: String] {
+        var metadata = cloudLLMGenerateMetadata(
+            model: model,
+            operatingMode: operatingMode
+        )
+        metadata["schema_name"] = schema.name
+        metadata["structured_output"] = "true"
+        return metadata
     }
 
     private func recordCloudLLMToolEvent(

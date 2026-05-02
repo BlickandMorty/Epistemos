@@ -669,6 +669,16 @@ byte count, never streamed text. This records the streaming surface as
 `hermesGateway` class without changing provider routing, SSE parsing, sinks, or
 adding a Hermes subprocess adapter.
 
+PR10 CloudLLM provider-native structured-output provenance is also closed.
+`CloudLLMClient.generateStructured(...)` now records requested, started, and
+completed/failed AgentEvents for structured cloud generation with
+`cloud-llm-...` run ids, `cloud-llm-client` actor metadata, and sanitized
+provider/model/mode/schema/route payloads. Results record only raw JSON byte
+and length counts, never the returned structured JSON contents. This records
+the structured-output surface as `hermesGateway` class without changing
+provider routing, schema request construction, fallback prompt behavior, or
+adding a Hermes subprocess adapter.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -694,9 +704,10 @@ Authority to read first:
   or a future ReasoningLoop regression fix gate.
 - `docs/fusion/deliberation/cloud_llm_agent_event_pr8_deliberation_2026_05_02.md`
 - `Epistemos/Engine/LLMService.swift` only for PR8 CloudLLM generate evidence
-  or PR9 CloudLLM stream evidence or a future CloudLLM provenance regression
-  fix gate.
+  or PR9 CloudLLM stream evidence or PR10 CloudLLM structured-output evidence
+  or a future CloudLLM provenance regression fix gate.
 - `docs/fusion/deliberation/cloud_llm_stream_agent_event_pr9_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/cloud_llm_structured_agent_event_pr10_deliberation_2026_05_02.md`
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -712,10 +723,12 @@ Allowed write set:
   `CloudLLMClient.generate(...)` only.
 - PR9 CloudLLM direct cloud streaming provenance: already closed for
   `CloudLLMClient.stream(...)` only.
-- Future provider-native structured output paths, ChatCoordinator paths beyond
-  PR3, Omega paths beyond ReasoningLoop internal search, or broader runtime
-  instrumentation only after a new deliberation gate names exact runtime files
-  and focused tests.
+- PR10 CloudLLM provider-native structured-output provenance: already closed
+  for `CloudLLMClient.generateStructured(...)` only.
+- Future CloudLLM paths beyond generate/stream/structured output,
+  ChatCoordinator paths beyond PR3, Omega paths beyond ReasoningLoop internal
+  search, or broader runtime instrumentation only after a new deliberation gate
+  names exact runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -789,6 +802,12 @@ Tests and logs:
   `/tmp/epistemos-cloud-llm-stream-agent-event-pr9-green-20260502.log`.
   The focused behavior tests passed; Xcode still printed known SwiftLint
   package-plugin noise after `TEST SUCCEEDED`.
+- PR10 red log:
+  `/tmp/epistemos-cloud-llm-structured-agent-event-pr10-red-20260502.log`.
+- PR10 green log:
+  `/tmp/epistemos-cloud-llm-structured-agent-event-pr10-green-20260502.log`.
+  The focused behavior tests passed; Xcode still printed known SwiftLint
+  package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -845,6 +864,15 @@ Acceptance:
   reasoning/usage sinks, structured-output native paths, Hermes subprocesses,
   MCP, CLI, approvals, ChatCoordinator, PipelineService, Omega, graph, Rust,
   generated bindings, UI, and EventStore schema.
+- PR10 wired/reachable/visible: CloudLLM
+  `generateStructured(...)` emits requested, started, and completed/failed
+  AgentEvents with non-empty run id, tool call id, actor, Hermes route metadata,
+  schema-name metadata, and sanitized JSON payloads that exclude prompts,
+  system prompts, credentials, schema bodies, request bodies, URLs, and raw
+  structured JSON contents. Source and behavior stay away from provider
+  routing, schema request construction, fallback prompt behavior, Hermes
+  subprocesses, MCP, CLI, approvals, ChatCoordinator, PipelineService, Omega,
+  graph, Rust, generated bindings, UI, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
