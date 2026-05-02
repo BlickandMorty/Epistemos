@@ -116,3 +116,19 @@
 - log: `✔ Test "evidence return follows the gateway route" passed`
 - log: `✔ Test run with 11 tests in 1 suite passed`
 - test: `Hermes Gateway Policy`
+
+## agent-event-sync-recorder-enabler-pr0
+
+- grep: `final class AgentToolProvenanceSyncRecorder`
+- grep: `private let sequenceLock = NSLock()`
+- grep: `AgentToolProvenanceEventFactory.makeToolEvent`
+- forbidden grep: `DispatchQueue\.main\.sync|MainActor\.assumeIsolated|Task\.detached|Task \{` in `Epistemos/Engine/AgentToolProvenanceRecorder.swift`
+- forbidden sync grep: `git grep -n -A 35 "nonisolated public func fusedSearch(" Epistemos/Sync/SearchIndexService.swift | grep -E "(agentProvenanceRecorder|recordToolEvent)"` returns empty
+- hunk-scoped tier grep: `git diff -- Epistemos/Engine/AgentToolProvenanceRecorder.swift EpistemosTests/CognitiveSubstrateTests.swift | rg -n 'Hermes|MCP|stdio_subprocess|docker|cli_passthrough|computer_use|_ANEClient|MTLBuffer.*contents|disable-library-validation'` returns empty for this slice's hunks
+- log: `✔ Test "Agent tool provenance sync recorder persists ordered lifecycle events" passed`
+- log: `✔ Test "Agent tool provenance sync recorder preserves payload semantics and EventStore schema" passed`
+- log: `✔ Test "Agent tool provenance sync recorder refuses incomplete identities" passed`
+- log: `✔ Test "Agent tool provenance sync recorder source stays non bridged" passed`
+- log: `✔ Test run with 38 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-sync-recorder-enabler-pr0-green-20260502.log`; Xcode printed `** TEST SUCCEEDED **` followed by the known SwiftLint plugin footer noise.
+- test: `EventStoreSchemaTests`

@@ -862,6 +862,14 @@ passes 55 selected tests across `RRFFusionQueryTests`,
 SearchIndex source guard; the focused runtime tests compile on this host but
 remain skipped by the pre-existing FTS5 availability gate.
 
+PR0 sync recorder enabler is also closed. `AgentToolProvenanceRecorder` now
+shares event construction with a nonisolated `AgentToolProvenanceSyncRecorder`
+that can persist ordered AgentEvents from synchronous callers without
+main-actor bridge patterns. The enabler intentionally does not instrument
+`SearchIndexService.fusedSearch(...)`; PR20 may consume
+`AgentToolProvenanceSyncRecorder` only under a separate deliberation gate with
+fresh tests for sync fused-search behavior and privacy bounds.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1233,6 +1241,12 @@ Acceptance:
   source surface excludes sync `fusedSearch` instrumentation and forbidden
   recorder fire-and-forget patterns; the FTS5-gated runtime assertions are
   present but skipped on hosts where the suite's existing FTS5 probe is false.
+- PR0 sync recorder enabler wired/reachable/visible: the shared
+  `AgentToolProvenanceEventFactory` feeds both the existing main-actor recorder
+  and the new nonisolated `AgentToolProvenanceSyncRecorder`. Focused tests prove
+  ordered sync lifecycle events, EventStore schema compatibility, incomplete
+  identity refusal, and source guards for forbidden bridge patterns while sync
+  `SearchIndexService.fusedSearch(...)` remains direct until PR20.
   Source and behavior stay away from RRF SQL, VaultSyncService, UI, graph, Rust,
   generated bindings, and EventStore schema.
 

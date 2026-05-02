@@ -862,6 +862,176 @@ struct EventStoreSchemaTests {
         #expect(captured.isEmpty)
     }
 
+    @Test("Agent tool provenance sync recorder persists ordered lifecycle events")
+    func agentToolProvenanceSyncRecorderPersistsOrderedLifecycleEvents() {
+        let capture = AgentEventCapture()
+        let recorder = AgentToolProvenanceSyncRecorder(
+            nowMilliseconds: { 20_000 },
+            persist: { event in
+                capture.append(event)
+                return true
+            }
+        )
+        let queue = DispatchQueue(label: "com.epistemos.tests.agent-event-sync-recorder")
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let runID = "run-sync-\(UUID().uuidString)"
+
+        queue.sync {
+            #expect(recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: .toolCallRequested,
+                actor: actor,
+                toolCallID: "tool-sync-1",
+                toolName: "search_index.fused_search",
+                argumentsJSON: "{\"query_term_count\":2}",
+                status: .requested,
+                metadata: ["source": "sync_recorder_test"]
+            ))
+            #expect(recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: .toolCallStarted,
+                actor: actor,
+                toolCallID: "tool-sync-1",
+                toolName: "search_index.fused_search",
+                argumentsJSON: "{\"query_term_count\":2}",
+                status: .started,
+                metadata: ["source": "sync_recorder_test"]
+            ))
+            #expect(recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: "tool-sync-1",
+                toolName: "search_index.fused_search",
+                argumentsJSON: "{\"query_term_count\":2}",
+                resultJSON: "{\"hit_count\":3}",
+                durationMs: 9,
+                status: .completed,
+                metadata: ["source": "sync_recorder_test"]
+            ))
+        }
+
+        let events = capture.events
+        #expect(events.map(\.sequence) == [0, 1, 2])
+        #expect(events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(events.allSatisfy { $0.runID == runID })
+        #expect(events.allSatisfy { $0.tool?.toolCallID == "tool-sync-1" })
+        #expect(events.allSatisfy { $0.tool?.toolName == "search_index.fused_search" })
+        #expect(events.last?.tool?.resultJSON == "{\"hit_count\":3}")
+        #expect(events.last?.tool?.durationMs == 9)
+    }
+
+    @Test("Agent tool provenance sync recorder preserves payload semantics and EventStore schema")
+    func agentToolProvenanceSyncRecorderPreservesPayloadSemanticsAndEventStoreSchema() throws {
+        let fixture = try #require(makeTestStoreWithURL())
+        let recorder = AgentToolProvenanceSyncRecorder(
+            nowMilliseconds: { 21_000 },
+            persist: { event in
+                fixture.store.saveAgentEvent(event)
+            }
+        )
+        let runID = "run-sync-store-\(UUID().uuidString)"
+
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: "   ",
+            kind: .toolCallCompleted,
+            actor: .system,
+            toolCallID: "tool-sync-store",
+            toolName: "vault_search",
+            argumentsJSON: nil,
+            resultJSON: "{\"ok\":true}",
+            approvalID: "   ",
+            status: .completed,
+            errorMessage: "   ",
+            metadata: ["surface": "sync_recorder_test"]
+        ))
+
+        let event = try #require(fixture.store.agentEvents(runID: runID, limit: 10).first)
+        #expect(event.traceID == nil)
+        #expect(event.tool?.argumentsJSON == "{}")
+        #expect(event.tool?.resultJSON == "{\"ok\":true}")
+        #expect(event.tool?.approvalID == nil)
+        #expect(event.tool?.errorMessage == nil)
+        #expect(event.metadata["surface"] == "sync_recorder_test")
+
+        let data = try JSONEncoder().encode(event)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(json.contains("\"event_id\""))
+        #expect(json.contains("\"run_id\""))
+        #expect(json.contains("\"tool_call_id\""))
+        #expect(json.contains("\"arguments_json\""))
+        #expect(json.contains("\"result_json\""))
+        #expect(json.contains("\"occurred_at_ms\""))
+    }
+
+    @Test("Agent tool provenance sync recorder refuses incomplete identities")
+    func agentToolProvenanceSyncRecorderRefusesIncompleteIdentities() {
+        let capture = AgentEventCapture()
+        let recorder = AgentToolProvenanceSyncRecorder(
+            nowMilliseconds: { 22_000 },
+            persist: { event in
+                capture.append(event)
+                return true
+            }
+        )
+
+        #expect(!recorder.recordToolEvent(
+            runID: " ",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(!recorder.recordToolEvent(
+            runID: "run-1",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "",
+            toolName: "vault_search",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(!recorder.recordToolEvent(
+            runID: "run-1",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "tool-1",
+            toolName: "\n",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(capture.events.isEmpty)
+    }
+
+    @Test("Agent tool provenance sync recorder source stays non bridged")
+    func agentToolProvenanceSyncRecorderSourceStaysNonBridged() throws {
+        let recorderSource = try loadMirroredSourceTextFile("Epistemos/Engine/AgentToolProvenanceRecorder.swift")
+        #expect(recorderSource.contains("final class AgentToolProvenanceSyncRecorder"))
+        #expect(recorderSource.contains("private let sequenceLock = NSLock()"))
+        #expect(recorderSource.contains("AgentToolProvenanceEventFactory.makeToolEvent"))
+        #expect(!recorderSource.contains("DispatchQueue.main.sync"))
+        #expect(!recorderSource.contains("MainActor.assumeIsolated"))
+        #expect(!recorderSource.contains("Task.detached"))
+        #expect(!recorderSource.contains("Task {"))
+
+        let searchSource = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
+        let start = try #require(searchSource.range(of: "nonisolated public func fusedSearch("))
+        let end = try #require(searchSource[start.upperBound...].range(of: "public func fusedSearchAsync("))
+        let syncBody = String(searchSource[start.lowerBound..<end.lowerBound])
+        #expect(!syncBody.contains("AgentToolProvenanceSyncRecorder"))
+        #expect(!syncBody.contains("AgentToolProvenanceRecorder"))
+        #expect(!syncBody.contains("recordToolEvent"))
+    }
+
     @Test("HookRegistry persists hook lifecycle AgentEvents")
     func hookRegistryPersistsHookLifecycleAgentEvents() async {
         let capture = AgentEventCapture()

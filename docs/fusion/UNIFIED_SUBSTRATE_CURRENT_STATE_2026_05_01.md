@@ -302,6 +302,18 @@ closed:
   `ReadableBlocksProjectorTests`, and the non-gated SearchIndex source guard;
   the existing RRF Fusion runtime suite still compiles but remains skipped on
   this host behind its FTS5 availability gate.
+- AgentEvent sync recorder enabler PR0 is closed as the safe prerequisite for a
+  later sync fused-search instrumentation gate. `AgentToolProvenanceRecorder`
+  now shares event construction with a new nonisolated
+  `AgentToolProvenanceSyncRecorder` that keeps sequence allocation behind an
+  `NSLock`, preserves optional-field semantics, validates run/tool identity
+  before sequence allocation, and persists via a synchronous `@Sendable`
+  closure. Tests prove ordered sync lifecycle emission, EventStore schema
+  compatibility, incomplete-identity refusal, absence of forbidden main-actor
+  bridge patterns, and that sync `SearchIndexService.fusedSearch(...)` remains
+  uninstrumented. This PR0 does not change SearchIndexService behavior, RRF SQL,
+  VaultSyncService, UI, graph, Rust, generated bindings, or EventStore schema;
+  PR20 must open a separate gate before any sync consumer records AgentEvents.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -815,7 +827,7 @@ before building.
   AgentQueryEngine backend-stream provenance PR15, AgentEvent InstantRecall sync
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
   AgentEvent ShadowSearch backend provenance PR18, AgentEvent SearchIndex
-  fused async provenance PR19,
+  fused async provenance PR19, AgentEvent sync recorder enabler PR0,
   durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
@@ -1007,6 +1019,7 @@ AgentEvent InstantRecall sync recall provenance PR16,
 AgentEvent InstantRecall async recall provenance PR17,
 AgentEvent ShadowSearch backend provenance PR18,
 AgentEvent SearchIndex fused async provenance PR19,
+AgentEvent sync recorder enabler PR0,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
