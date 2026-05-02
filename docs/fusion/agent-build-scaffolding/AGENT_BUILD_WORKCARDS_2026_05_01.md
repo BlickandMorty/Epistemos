@@ -829,6 +829,25 @@ behavior, catch-to-empty behavior, `searchOrThrow`, `stats`, Halo,
 ContextualShadowsState, UI, graph, Rust, generated bindings, and EventStore
 schema.
 
+PR19 SearchIndex fused async provenance is also closed.
+`SearchIndexService.fusedSearchAsync(query:weights:now:)` now records
+requested, started, and completed/failed AgentEvents for valid non-empty async
+RRF fused-search calls with `search-index-fused-async-...` run ids,
+`search-index-service` actor metadata, per-instance
+`search-index-fused-async:N` ids, `surface=fused_search_async`, query character
+count, term count, `weights_profile=default|custom`, now timestamp, hit count,
+elapsed milliseconds, zero-hit completed events, cancellation terminal events,
+and closed `cancelled|sql_error|unknown_error` failure classes. Persisted
+provenance excludes query text, sanitized FTS query, hit ids, titles, snippets,
+scores, source labels, document bodies, vault paths, SQL, GRDB error strings,
+localized descriptions, scalar weight values, and arbitrary error text. Source
+and behavior stay away from sync `fusedSearch`, RRF SQL, VaultSyncService, UI,
+graph, Rust, generated bindings, and EventStore schema. Expanded verification
+passes 55 selected tests across `RRFFusionQueryTests`,
+`ReadableBlocksIndexTests`, `ReadableBlocksProjectorTests`, and the non-gated
+SearchIndex source guard; the focused runtime tests compile on this host but
+remain skipped by the pre-existing FTS5 availability gate.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1190,6 +1209,18 @@ Acceptance:
   not persisted in AgentEvent arguments/results/errors. Source and behavior stay
   away from `searchOrThrow`, `stats`, Halo, ContextualShadowsState, UI, graph,
   Rust, generated bindings, and EventStore schema.
+- PR19 wired/reachable/visible: SearchIndex fused async search emits requested,
+  started, and completed/failed AgentEvents for valid non-empty
+  `fusedSearchAsync(query:weights:now:)` calls with non-empty run id,
+  per-instance tool call id, actor, source/surface metadata, query character
+  count, term count, `weights_profile`, now timestamp, hit count, elapsed
+  milliseconds, zero-hit completed events, cancellation terminal events, and
+  bounded `cancelled|sql_error|unknown_error` failure classes. Tests prove the
+  source surface excludes sync `fusedSearch` instrumentation and forbidden
+  recorder fire-and-forget patterns; the FTS5-gated runtime assertions are
+  present but skipped on hosts where the suite's existing FTS5 probe is false.
+  Source and behavior stay away from RRF SQL, VaultSyncService, UI, graph, Rust,
+  generated bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

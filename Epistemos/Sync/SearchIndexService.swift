@@ -133,8 +133,13 @@ actor SearchIndexService {
     nonisolated private let queryQueue: DispatchQueue
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
+    private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
+    private var fusedAsyncSearchToolSequence: UInt64 = 0
 
-    init(databaseURL providedDatabaseURL: URL? = nil) throws {
+    init(
+        databaseURL providedDatabaseURL: URL? = nil,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
+    ) throws {
         let resolvedDatabaseURL: URL
         let dbPool: DatabasePool
         if let providedURL = providedDatabaseURL {
@@ -171,6 +176,7 @@ actor SearchIndexService {
         self.queryQueue = queryQueue
         supportsPageFTS5 = features.pageFTS5
         supportsBlockFTS5 = features.blockFTS5
+        self.agentProvenanceRecorder = agentProvenanceRecorder
 
         log.info(
             "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
@@ -201,12 +207,25 @@ actor SearchIndexService {
             // adopt the dpp NORMAL/fullfsync=0 profile here for ~3–5× write
             // throughput; the spec's FULL+F_FULLFSYNC requirement still applies to
             // any future store that owns user source-of-truth bytes.
+            // Memory-budget: this is a *derivative* FTS5 index (rebuildable
+            // via `rebuildFromSwiftData` / `diffSync`), so we should NOT
+            // anchor large amounts of resident memory on its behalf. The
+            // dpp profile sized for the SoT store was inherited here by
+            // copy-paste; trim aggressively for idle memory:
+            //   - mmap_size 1 GiB → 256 MiB (kernel page cache fills any
+            //     gap on hot reads via OS readahead — FTS5 sequential
+            //     scans benefit more from page cache than per-DB cache)
+            //   - cache_size 64 MiB → 8 MiB (pure resident savings; the
+            //     B-tree indexed FTS rowid fetches are cheap to refault)
+            // ~55 MB resident saved at idle on a vault that has the index
+            // open. Cold-query latency may regress 5–15 ms; warm-query
+            // latency unchanged (page cache absorbs).
             try db.execute(sql: """
                 PRAGMA journal_mode = WAL;
                 PRAGMA synchronous = NORMAL;
                 PRAGMA temp_store = MEMORY;
-                PRAGMA mmap_size = 1073741824;
-                PRAGMA cache_size = -65536;
+                PRAGMA mmap_size = 268435456;
+                PRAGMA cache_size = -8192;
                 PRAGMA page_size = 4096;
                 PRAGMA foreign_keys = ON;
                 PRAGMA wal_autocheckpoint = 1000;
@@ -262,6 +281,52 @@ actor SearchIndexService {
         try Self.refreshDatabaseFileProtections(databaseURL)
     }
 
+    /// Audit gap F8 close-out (per
+    /// `docs/audits/T+4_T+5_DEEP_AUDIT_2026-04-27.md`) + plan §225
+    /// ("Existing page_search + block_search tables continue to
+    /// serve current Prose-only search; readable_blocks is the new
+    /// universal projection that absorbs Documents + Raw Thoughts +
+    /// Code + Source"). Hosts pass this writer to
+    /// `EpistemosDocumentController(databaseWriter:)` so .epdoc
+    /// saves refresh the universal FTS index in the same SQLite
+    /// schema as the prose indices.
+    ///
+    /// Returning the underlying `DatabasePool` (which conforms to
+    /// `DatabaseWriter`) keeps the cross-index ranking story whole:
+    /// future RRF fusion across `page_search` + `block_search` +
+    /// `readable_blocks` becomes a one-DB JOIN rather than an
+    /// in-memory merge across pools.
+    nonisolated public func databaseWriter() -> any DatabaseWriter {
+        dbPool
+    }
+
+    /// Drop SQLite-side caches and ask GRDB to release any unused
+    /// connections in the pool. Wired from the global memory-pressure
+    /// handler in `EpistemosApp.RuntimeDiagnosticsMonitor.recordMemoryPressure`
+    /// so a `.warning` event sheds page cache + idle connection slots
+    /// without forcing a vacuum (vacuum is too expensive for the warning
+    /// tier; reserve it for `.critical` if added later).
+    ///
+    /// - `PRAGMA optimize` — runs accumulated query-planner stats updates
+    /// - `PRAGMA shrink_memory` — releases page cache held by this conn
+    /// - `dbPool.releaseMemory()` — closes idle reader connections
+    ///
+    /// Best-effort; failures are logged and swallowed so memory-pressure
+    /// recovery never throws back into the AppKit event loop.
+    nonisolated public func releaseMemoryPressureCaches() {
+        do {
+            try dbPool.write { db in
+                try db.execute(sql: "PRAGMA optimize;")
+                try db.execute(sql: "PRAGMA shrink_memory;")
+            }
+            dbPool.releaseMemory()
+        } catch {
+            log.warning(
+                "SearchIndexService: releaseMemoryPressureCaches failed: \(error.localizedDescription, privacy: .public)"
+            )
+        }
+    }
+
     private nonisolated static func setupSchema(_ db: DatabasePool) throws {
         var migrator = DatabaseMigrator()
         migrator.registerMigration("v1") { db in
@@ -288,6 +353,16 @@ actor SearchIndexService {
 
             try createBlockSearchArtifactsIfAvailable(db)
         }
+
+        // Audit gap F8 close-out + implementation plan §225 — the
+        // `readable_blocks` universal projection ships in the same
+        // SQLite schema so the .epdoc autosave path can refresh it
+        // in the same transaction as a future cross-index rewrite.
+        // Migration key = "v3_readable_blocks" (defined as
+        // `ReadableBlocksIndex.migrationKey`); idempotent across
+        // process restarts.
+        ReadableBlocksIndex.registerMigration(&migrator)
+
         try migrator.migrate(db)
     }
 
@@ -458,6 +533,307 @@ actor SearchIndexService {
             try cancellation.check()
             return try searchBlocks(terms: terms, limit: limit, cancellation: cancellation)
         }
+    }
+
+    // MARK: - RRF Cross-Index Fusion (Phase 3)
+    //
+    // `fusedSearch` is a single-SQL Reciprocal Rank Fusion over three
+    // FTS5 sources (page_search, block_search, readable_blocks_fts)
+    // sharing this actor's `dbPool` (F8 close-out). The query lives in
+    // `RRFFusionQuery.sql`; this method wraps it with the actor's
+    // `Sig.storage` signpost ceremony (F10 close-out for the search
+    // path) + the same nonisolated/async pair as the legacy methods.
+    //
+    // Phase 4 wiring sites switch from `search()` / `searchBlocks()` to
+    // `fusedSearch()` behind the `EPISTEMOS_RRF_FUSION_V1` flag (read
+    // via `RRFFusionFlags.isEnabled`).
+    //
+    // F9 (MutationEnvelope retrieval-event emission) is INTENTIONALLY
+    // deferred from Phase 3: the existing `MutationEnvelope` schema is
+    // write-side (SourceOp = artifact_create/update/delete/...) with no
+    // retrieval variant. Adding a retrieval variant requires a Rust
+    // parity-locked schema change and is tracked under §9 item 3 of
+    // `docs/RRF_FUSION_DESIGN.md` for the T+13 hardening pass.
+
+    /// Fused search across page-level prose, block-level prose, and
+    /// the universal `readable_blocks` projection. Returns up to
+    /// `weights.maxResults` ranked entities (deduplicated at the
+    /// parent-doc level). Synchronous; `dbPool.read` is GRDB's
+    /// own thread-safe entry.
+    nonisolated public func fusedSearch(
+        query: String,
+        weights: FusionWeights = .default,
+        now: Date = Date()
+    ) throws -> [FusedResult] {
+        let signpostId = Sig.storage.makeSignpostID()
+        let state = Sig.storage.beginInterval("fused_search", id: signpostId)
+        defer { Sig.storage.endInterval("fused_search", state) }
+
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
+        let sanitized = Self.sanitizeFTS5Query(terms)
+        let startTime = DispatchTime.now()
+
+        do {
+            let results = try dbPool.read { db in
+                try RRFFusionQuery.execute(
+                    query: sanitized,
+                    weights: weights,
+                    now: now,
+                    in: db
+                )
+            }
+            let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
+            SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+            return results
+        } catch {
+            SearchFusionMetrics.shared.recordError(error)
+            throw error
+        }
+    }
+
+    /// Async variant offloaded onto the `queryQueue` with cooperative
+    /// cancellation (matches `searchAsync` / `searchBlocksAsync`).
+    public func fusedSearchAsync(
+        query: String,
+        weights: FusionWeights = .default,
+        now: Date = Date()
+    ) async throws -> [FusedResult] {
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
+        let sanitized = Self.sanitizeFTS5Query(terms)
+        let recorder = await resolvedAgentProvenanceRecorder()
+        let runID = "search-index-fused-async-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextFusedAsyncSearchToolCallID()
+        let weightsProfile = weights == .default ? "default" : "custom"
+        let queryCharacterCount = min(query.count, 500)
+        let nowMs = Self.millisecondsSinceEpoch(now)
+        let argumentsJSON = Self.searchIndexAgentJSON([
+            "now_ms": nowMs,
+            "query_char_count": queryCharacterCount,
+            "query_term_count": terms.count,
+            "weights_profile": weightsProfile
+        ])
+        let baseMetadata = [
+            "source": "search_index_service",
+            "surface": "fused_search_async",
+            "query_char_count": "\(queryCharacterCount)",
+            "query_term_count": "\(terms.count)",
+            "weights_profile": weightsProfile
+        ]
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
+
+        await recordFusedAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        await recordFusedAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        if Task.isCancelled {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            await recordFusedAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: .cancelled,
+                metadata: baseMetadata
+            )
+            throw CancellationError()
+        }
+
+        do {
+            let results = try await offloadSearch { [self, sanitized, weights, now] cancellation in
+                try cancellation.check()
+                let signpostId = Sig.storage.makeSignpostID()
+                let state = Sig.storage.beginInterval("fused_search", id: signpostId)
+                defer { Sig.storage.endInterval("fused_search", state) }
+
+                let startTime = DispatchTime.now()
+
+                do {
+                    let results = try dbPool.read { db in
+                        try Self.withSQLiteCancellation(db: db, cancellation: cancellation) {
+                            try RRFFusionQuery.execute(
+                                query: sanitized,
+                                weights: weights,
+                                now: now,
+                                in: db
+                            )
+                        }
+                    }
+                    let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
+                    SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+                    return results
+                } catch {
+                    SearchFusionMetrics.shared.recordError(error)
+                    throw error
+                }
+            }
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": elapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            await recordFusedAsyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: elapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
+            return results
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.fusedAsyncFailureClass(for: error)
+            await recordFusedAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
+            throw error
+        }
+    }
+
+    private enum FusedAsyncFailureClass: String, Sendable {
+        case cancelled
+        case sqlError = "sql_error"
+        case unknownError = "unknown_error"
+    }
+
+    private func resolvedAgentProvenanceRecorder() async -> AgentToolProvenanceRecorder {
+        if let agentProvenanceRecorder {
+            return agentProvenanceRecorder
+        }
+        let recorder = await MainActor.run {
+            AgentToolProvenanceRecorder()
+        }
+        agentProvenanceRecorder = recorder
+        return recorder
+    }
+
+    private func nextFusedAsyncSearchToolCallID() -> String {
+        fusedAsyncSearchToolSequence += 1
+        return "search-index-fused-async:\(fusedAsyncSearchToolSequence)"
+    }
+
+    private func recordFusedAsyncFailure(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: FusedAsyncFailureClass,
+        metadata: [String: String]
+    ) async {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        await recordFusedAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
+    }
+
+    private func recordFusedAsyncAgentEvent(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        await recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.fused_search_async",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private nonisolated static func fusedAsyncFailureClass(for error: Error) -> FusedAsyncFailureClass {
+        if error is CancellationError {
+            return .cancelled
+        }
+        if error is DatabaseError {
+            return .sqlError
+        }
+        return .unknownError
+    }
+
+    private nonisolated static func millisecondsSinceEpoch(_ date: Date) -> Int64 {
+        let milliseconds = date.timeIntervalSince1970 * 1_000
+        guard milliseconds.isFinite else { return 0 }
+        return Int64(milliseconds.rounded())
+    }
+
+    private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {
+        (DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds) / 1_000_000
+    }
+
+    private nonisolated static func searchIndexAgentJSON(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
     }
 
     // MARK: - Block Upsert / Delete

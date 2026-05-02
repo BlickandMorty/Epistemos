@@ -277,6 +277,26 @@ closed:
   catch-to-empty behavior, `searchOrThrow`, `stats`, Halo,
   ContextualShadowsState, UI, graph, Rust, generated bindings, or EventStore
   schema.
+- AgentEvent PR19 now instruments
+  `SearchIndexService.fusedSearchAsync(query:weights:now:)` on the async RRF
+  fused-search rail. Valid non-empty async fused searches persist requested,
+  started, and completed/failed AgentEvents with
+  `search-index-fused-async-...` run ids, per-instance
+  `search-index-fused-async:N` tool ids, `search-index-service` actor metadata,
+  `surface=fused_search_async`, query character count, term count,
+  `weights_profile=default|custom`, now timestamp, hit count, elapsed
+  milliseconds, zero-hit completed rows, and closed failure classes
+  `cancelled|sql_error|unknown_error`. Query text, sanitized FTS query, hit ids,
+  titles, snippets, scores, source labels, document bodies, vault paths, SQL,
+  GRDB error strings, localized descriptions, scalar weight values, and
+  arbitrary error text are intentionally excluded from persisted provenance.
+  This does not change sync `fusedSearch`, RRF SQL, VaultSyncService,
+  SearchFusionMetrics semantics, UI, graph, Rust, generated bindings, or
+  EventStore schema. Expanded verification passed 55 selected tests across
+  `RRFFusionQueryTests`, `ReadableBlocksIndexTests`,
+  `ReadableBlocksProjectorTests`, and the non-gated SearchIndex source guard;
+  the existing RRF Fusion runtime suite still compiles but remains skipped on
+  this host behind its FTS5 availability gate.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -772,7 +792,8 @@ before building.
   provenance PR13, AgentEvent AgentGrep search provenance PR14, AgentEvent
   AgentQueryEngine backend-stream provenance PR15, AgentEvent InstantRecall sync
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
-  AgentEvent ShadowSearch backend provenance PR18,
+  AgentEvent ShadowSearch backend provenance PR18, AgentEvent SearchIndex
+  fused async provenance PR19,
   durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
@@ -961,6 +982,7 @@ AgentEvent AgentQueryEngine backend-stream provenance PR15,
 AgentEvent InstantRecall sync recall provenance PR16,
 AgentEvent InstantRecall async recall provenance PR17,
 AgentEvent ShadowSearch backend provenance PR18,
+AgentEvent SearchIndex fused async provenance PR19,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
