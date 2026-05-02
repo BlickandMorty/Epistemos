@@ -803,3 +803,102 @@ Stop triggers:
 - Event ids become nondeterministic or not tied to a mutation id.
 - The implementation tries to collapse `DurableGraphEvent` into the FFI
   `GraphEvent` ring type without a collision-resolution gate.
+
+## Card 9 - Sovereign Gate Core Authorization
+
+Status on 2026-05-02:
+Core PR1 is closed. `Epistemos/Sovereign/SovereignGate.swift` is the single
+Swift authorization executor and the only production source allowed to import
+`LocalAuthentication` or instantiate `LAContext`. It executes externally
+supplied requirements rather than deciding the app's action classes in Swift:
+`.none` allows immediately, `.biometric(category:graceDuration:)` prompts with
+category-scoped Sensitive grace, and `.deviceOwnerAuthentication` prompts every
+time for Destructive-class presentation. The grace cache has explicit clearing,
+does not cross categories, rejects empty reasons before prompting, does not
+cache failed authentication, rejects non-finite / non-positive grace durations,
+and does not survive clock rollback.
+
+Goal:
+Route future Core confirmation surfaces through one native macOS biometric gate
+without parallel Touch ID prompts or Swift-owned policy matrices.
+
+Authority to read first:
+- `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
+- `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` §4.2 and Annex B
+- `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
+- `Epistemos/Sovereign/SovereignGate.swift`
+- `EpistemosTests/SovereignGateTests.swift`
+- `/tmp/epistemos-sovereign-gate-pr1-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-pr1-green-20260502.log`
+- `/tmp/epistemos-sovereign-gate-pr1-green-20260502-r2.log`
+
+Allowed write set:
+- PR1 Swift executor and focused tests: already closed.
+- Future PR2 Rust action-class matrix only after a gate names exact Rust files
+  and generated transport boundaries.
+- Future lifecycle-clearing PR only after a gate names exact app lifecycle
+  files and proves no unrelated authorization migration.
+- Future confirmation-surface migration PRs only after a gate names each exact
+  existing surface and its focused tests.
+- Docs under `docs/fusion/**`.
+
+Forbidden write set:
+- `Epistemos/Views/Notes/ProseEditor*.swift`
+- `Epistemos/Views/Notes/ProseTextView2.swift`
+- `Epistemos/Views/Graph/**`
+- `graph-engine/**`
+- `agent_core/**` unless a future Rust matrix gate names exact files
+- `epistemos-core/**` / generated UniFFI bindings unless a generated-transport
+  gate names exact files
+- Existing confirmation dialogs, Omega approvals, destructive vault actions,
+  Settings footers, entitlements, Xcode project files, generated libraries,
+  DerivedData, `.xcresult`, staging, commits, stashes, or branch operations
+  unless the current gate explicitly includes them.
+
+Implementation contract:
+- `Epistemos/Sovereign/SovereignGate.swift` remains the only Swift source that
+  touches `LocalAuthentication` / `LAContext`.
+- Swift executes an externally supplied `SovereignGateRequirement`; it does not
+  decide whether an app action is Trivial, Reversible, Sensitive, Destructive,
+  or Sovereign.
+- Sensitive grace is category-scoped, finite, positive, explicit-clearable, and
+  invalidated by clock rollback.
+- Destructive requirements use device-owner authentication every time and never
+  receive grace.
+- Tests must use the injectable authenticator seam and never trigger real Touch
+  ID.
+
+Tests and logs:
+- PR1 red log: `/tmp/epistemos-sovereign-gate-pr1-red-20260502.log`.
+- PR1 green log:
+  `/tmp/epistemos-sovereign-gate-pr1-green-20260502.log`.
+- PR1 hardened green log:
+  `/tmp/epistemos-sovereign-gate-pr1-green-20260502-r2.log`.
+- Guardrails: `git diff --check`, source grep proving LocalAuthentication /
+  LAContext confinement, diff-only invariant greps, and staged protected-path
+  scan.
+- Future PRs must add a failing focused test first, then a focused green Swift
+  Testing or Rust test log before staging.
+
+Acceptance:
+- PR1 wired: one Swift entrypoint executes Core-safe prompt requirements.
+- PR1 reachable: focused tests cover no-auth, Sensitive grace, category
+  boundaries, grace expiry, explicit clearing, destructive every-time auth,
+  failed auth, empty reasons, clock rollback, and invalid grace durations.
+- PR1 visible: source guard proves `LocalAuthentication` / `LAContext` are
+  confined to `Epistemos/Sovereign/SovereignGate.swift`.
+- PR1 boundary: no existing dialogs, Rust kernels, generated bindings,
+  entitlements, protected graph/editor files, subprocesses, solver hot paths,
+  tensor copies, or memory hot paths are touched.
+
+Stop triggers:
+- A future slice needs generated UniFFI, Rust matrix, lifecycle hooks, or
+  existing dialog migration without naming exact files in a new gate.
+- `LocalAuthentication`, `LAContext`, `canEvaluatePolicy`, `evaluatePolicy`,
+  Touch ID, or biometric prompting appears outside
+  `Epistemos/Sovereign/SovereignGate.swift`.
+- Swift starts owning the app-action class matrix instead of executing the
+  externally supplied requirement.
+- Sensitive grace survives explicit clearing, crosses category boundaries,
+  accepts invalid durations, survives clock rollback, or applies to destructive
+  requirements.
