@@ -29,33 +29,224 @@ nonisolated enum DriverChannelError: LocalizedError, Sendable, Equatable {
     }
 }
 
+nonisolated struct DriverChannelToolExecutionResult: Equatable, Sendable {
+    let success: Bool
+    let outputJson: String
+    let error: String?
+}
+
+typealias DriverChannelToolRunner = @Sendable (
+    _ vaultPath: String,
+    _ tier: String,
+    _ toolName: String,
+    _ inputJson: String
+) async throws -> DriverChannelToolExecutionResult
+
 nonisolated enum DriverChannelToolExecutor {
     static func execute(
         _ toolCall: DriverChannelToolCall,
         vaultPath: String,
         tier: String = "agent",
-        channelID: String
+        channelID: String,
+        toolRunner: DriverChannelToolRunner? = nil,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
     ) async throws -> String {
+        let runID = makeDriverChannelRunID(channelID: channelID)
+        let toolCallID = "driver-channel-tool:1"
+        let recorder = await resolvedAgentProvenanceRecorder(agentProvenanceRecorder)
+        let metadata = driverChannelToolMetadata(channelID: channelID, tier: tier)
+        let actor = AgentProvenanceActor.agent(
+            id: "driver-channel-\(normalizedChannelID(channelID))",
+            modelID: nil
+        )
+        await recordDriverChannelToolEvent(
+            recorder: recorder,
+            runID: runID,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolCall: toolCall,
+            kind: .toolCallRequested,
+            status: .requested,
+            metadata: metadata
+        )
+        await recordDriverChannelToolEvent(
+            recorder: recorder,
+            runID: runID,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolCall: toolCall,
+            kind: .toolCallStarted,
+            status: .started,
+            metadata: metadata
+        )
+
+        let startedAt = Date()
+        let runner = toolRunner ?? executeDefaultToolCall
+        var recordedFailure = false
+        do {
+            let result = try await runner(vaultPath, tier, toolCall.toolName, toolCall.inputJson)
+            let durationMs = durationMilliseconds(since: startedAt)
+            if result.success {
+                await recordDriverChannelToolEvent(
+                    recorder: recorder,
+                    runID: runID,
+                    actor: actor,
+                    toolCallID: toolCallID,
+                    toolCall: toolCall,
+                    kind: .toolCallCompleted,
+                    status: .completed,
+                    resultJSON: boundedToolPayload(result.outputJson),
+                    durationMs: durationMs,
+                    metadata: metadata
+                )
+                return result.outputJson
+            }
+
+            let reason = result.error ?? "unknown"
+            await recordDriverChannelToolEvent(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolCall: toolCall,
+                kind: .toolCallFailed,
+                status: .failed,
+                resultJSON: boundedToolPayload(result.outputJson),
+                durationMs: durationMs,
+                errorMessage: boundedToolPayload(reason),
+                metadata: metadata
+            )
+            recordedFailure = true
+            throw DriverChannelError.toolCallFailed(
+                channelID: channelID,
+                reason: reason
+            )
+        } catch {
+            if !recordedFailure {
+                await recordDriverChannelToolEvent(
+                    recorder: recorder,
+                    runID: runID,
+                    actor: actor,
+                    toolCallID: toolCallID,
+                    toolCall: toolCall,
+                    kind: .toolCallFailed,
+                    status: .failed,
+                    durationMs: durationMilliseconds(since: startedAt),
+                    errorMessage: boundedToolPayload(error.localizedDescription),
+                    metadata: metadata
+                )
+            }
+            throw error
+        }
+    }
+
+    private static func executeDefaultToolCall(
+        vaultPath: String,
+        tier: String,
+        toolName: String,
+        inputJson: String
+    ) async throws -> DriverChannelToolExecutionResult {
         #if canImport(agent_coreFFI)
         let result = try await executeToolCall(
             vaultPath: vaultPath,
             tier: tier,
-            toolName: toolCall.toolName,
-            inputJson: toolCall.inputJson
+            toolName: toolName,
+            inputJson: inputJson
         )
-        guard result.success else {
-            throw DriverChannelError.toolCallFailed(
-                channelID: channelID,
-                reason: result.error ?? "unknown"
-            )
-        }
-        return result.outputJson
+        return DriverChannelToolExecutionResult(
+            success: result.success,
+            outputJson: result.outputJson,
+            error: result.error
+        )
         #else
-        throw DriverChannelError.toolCallFailed(
-            channelID: channelID,
-            reason: "agent_core bindings unavailable"
+        return DriverChannelToolExecutionResult(
+            success: false,
+            outputJson: "{}",
+            error: "agent_core bindings unavailable"
         )
         #endif
+    }
+
+    private static func recordDriverChannelToolEvent(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        toolCall: DriverChannelToolCall,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        await MainActor.run {
+            _ = recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: kind,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolCall.toolName,
+                argumentsJSON: toolCall.inputJson,
+                resultJSON: resultJSON,
+                durationMs: durationMs,
+                approvalID: nil,
+                status: status,
+                errorMessage: errorMessage,
+                metadata: metadata
+            )
+        }
+    }
+
+    private static func resolvedAgentProvenanceRecorder(
+        _ recorder: AgentToolProvenanceRecorder?
+    ) async -> AgentToolProvenanceRecorder {
+        if let recorder {
+            return recorder
+        }
+        return await MainActor.run {
+            AgentToolProvenanceRecorder()
+        }
+    }
+
+    private nonisolated static func makeDriverChannelRunID(channelID: String) -> String {
+        let milliseconds = Date().timeIntervalSince1970 * 1_000
+        let safeMilliseconds = milliseconds.isFinite ? Int64(milliseconds.rounded()) : 0
+        let suffix = String(UUID().uuidString.prefix(8))
+        return "driver-channel-\(normalizedChannelID(channelID))-\(safeMilliseconds)-\(suffix)"
+    }
+
+    private nonisolated static func normalizedChannelID(_ channelID: String) -> String {
+        let trimmed = channelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "unknown" : trimmed
+    }
+
+    private nonisolated static func driverChannelToolMetadata(
+        channelID: String,
+        tier: String
+    ) -> [String: String] {
+        [
+            "source": "driver_channel_tool_executor",
+            "surface": "driver_channel",
+            "channel": normalizedChannelID(channelID),
+            "tier": tier,
+        ]
+    }
+
+    private nonisolated static func durationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else {
+            return 0
+        }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private nonisolated static func boundedToolPayload(_ value: String, limit: Int = 4_096) -> String {
+        guard value.count > limit else {
+            return value
+        }
+        return String(value.prefix(limit))
     }
 }
 

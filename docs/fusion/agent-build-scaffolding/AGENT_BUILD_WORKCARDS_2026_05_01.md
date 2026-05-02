@@ -688,6 +688,16 @@ model routing, tool parsing, tool execution, repair semantics, approvals, UI,
 provider calls, HookRegistry, PipelineService, ChatCoordinator, Omega, graph,
 Rust, generated bindings, and EventStore schema.
 
+PR12 DriverChannelToolExecutor channel provenance is also closed.
+`DriverChannelToolExecutor.execute(...)` now records requested, started, and
+completed/failed AgentEvents for channel-driver tool wrappers with
+`driver-channel-...` run ids, `driver-channel-<channel>` actor metadata,
+`driver-channel-tool:1` ids, source/surface/channel/tier metadata, and bounded
+result/error payloads. This preserves channel adapter payload construction,
+contact routing fallback, LocalAgentLoop, PipelineService, ChatCoordinator,
+Omega reasoning, graph, Rust, generated bindings, approval, UI, provider
+routing, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -720,6 +730,10 @@ Authority to read first:
 - `docs/fusion/deliberation/local_agent_loop_agent_event_pr11_deliberation_2026_05_02.md`
 - `Epistemos/LocalAgent/LocalAgentLoop.swift` only for PR11 LocalAgentLoop
   evidence or a future LocalAgentLoop provenance regression fix gate.
+- `docs/fusion/deliberation/driver_channel_agent_event_pr12_deliberation_2026_05_02.md`
+- `Epistemos/Omega/iMessageDriver/IMessageDriverService.swift` only for PR12
+  DriverChannelToolExecutor evidence or a future driver-channel provenance
+  regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -739,11 +753,13 @@ Allowed write set:
   for `CloudLLMClient.generateStructured(...)` only.
 - PR11 LocalAgentLoop tool execution provenance: already closed for parsed
   `LocalAgentLoop` tool calls only.
+- PR12 DriverChannelToolExecutor channel provenance: already closed for
+  `DriverChannelToolExecutor.execute(...)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
-  execution, Omega paths beyond ReasoningLoop internal search, or broader
-  runtime instrumentation only after a new deliberation gate names exact
-  runtime files and focused tests.
+  execution, driver-channel paths beyond the executor wrapper, Omega paths
+  beyond ReasoningLoop internal search, or broader runtime instrumentation only
+  after a new deliberation gate names exact runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -829,6 +845,12 @@ Tests and logs:
   `/tmp/epistemos-local-agent-agent-event-pr11-green-20260502.log`.
   The focused `LocalAgentLoopTests` suite passed 36 tests; Xcode still printed
   known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR12 red log:
+  `/tmp/epistemos-driver-channel-agent-event-pr12-red-20260502.log`.
+- PR12 green log:
+  `/tmp/epistemos-driver-channel-agent-event-pr12-green-20260502.log`.
+  The focused `ControlPlaneSurfaceTests` suite passed 20 tests; Xcode still
+  printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -901,6 +923,14 @@ Acceptance:
   tool parsing, tool execution semantics, repair semantics, approvals, UI,
   provider calls, HookRegistry, PipelineService, ChatCoordinator, Omega, graph,
   Rust, generated bindings, and EventStore schema.
+- PR12 wired/reachable/visible: DriverChannelToolExecutor emits requested,
+  started, and completed/failed AgentEvents around channel-driver tool wrapper
+  execution with non-empty run id, tool call id, actor,
+  source/surface/channel/tier metadata, bounded result payloads, and bounded
+  failure payloads. Source and behavior stay away from channel adapter payload
+  construction, contact routing fallback, LocalAgentLoop, PipelineService,
+  ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
+  UI, provider routing, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

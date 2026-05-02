@@ -165,6 +165,15 @@ closed:
   execution, repair semantics, approvals, UI, provider calls, HookRegistry,
   PipelineService, ChatCoordinator, Omega, graph, Rust, generated bindings, or
   EventStore schema.
+- AgentEvent PR12 now instruments the `DriverChannelToolExecutor` channel
+  tool wrapper used by driver send/fetch/list/audit calls. Channel tool calls
+  persist requested, started, and completed/failed AgentEvents with
+  `driver-channel-...` run ids, `driver-channel-<channel>` actor metadata,
+  `driver-channel-tool:1` ids, source/surface/channel/tier metadata, and
+  bounded result/error payloads. This does not change channel adapter payload
+  construction, contact routing fallback, `LocalAgentLoop`, PipelineService,
+  ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
+  UI, provider routing, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -512,8 +521,8 @@ Still open:
 - AgentEvent emission beyond PipelineService observed-tool, ChatCoordinator
   Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount,
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
-  CloudLLM direct stream, CloudLLM structured generation, and LocalAgentLoop
-  tool execution paths.
+  CloudLLM direct stream, CloudLLM structured generation, LocalAgentLoop
+  tool execution, and DriverChannelToolExecutor channel wrapper paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
@@ -576,7 +585,8 @@ Still open:
    Pipeline HookRegistry mount PR6, AgentEvent Omega ReasoningLoop internal
    tool provenance PR7, AgentEvent CloudLLM generate provenance PR8, AgentEvent
    CloudLLM stream provenance PR9, AgentEvent CloudLLM structured provenance
-   PR10, AgentEvent LocalAgentLoop tool provenance PR11, durable GraphEvent
+   PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
+   DriverChannelToolExecutor provenance PR12, durable GraphEvent
    mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
@@ -624,8 +634,8 @@ are:
   already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR7, AgentEvent PR8, AgentEvent PR9, AgentEvent PR10, AgentEvent
-  PR11, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent projection
-  snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
+  PR11, AgentEvent PR12, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
+  projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, incremental replay/export, deeper repair/audit
   visibility, and trace/audit projection semantics.
@@ -640,8 +650,8 @@ are:
   provenance is closed as PR7, CloudLLM non-streaming generate provenance is
   closed as PR8, CloudLLM direct stream provenance is closed as PR9, CloudLLM
   structured generation provenance is closed as PR10, LocalAgentLoop tool
-  provenance is closed as PR11, durable GraphEvent mutation mapping is closed
-  as PR1,
+  provenance is closed as PR11, DriverChannelToolExecutor channel provenance is
+  closed as PR12, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
@@ -742,6 +752,7 @@ AgentEvent CloudLLM non-streaming generate provenance PR8,
 AgentEvent CloudLLM direct stream provenance PR9,
 AgentEvent CloudLLM structured generation provenance PR10,
 AgentEvent LocalAgentLoop tool provenance PR11,
+AgentEvent DriverChannelToolExecutor channel provenance PR12,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -763,7 +774,8 @@ Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either remaining live GraphEvent consumer projection
 beyond Halo's read-only ribbon,
 remaining broader runtime AgentEvent coverage beyond CloudLLM
-generate/stream/structured and LocalAgentLoop tool execution,
+generate/stream/structured, LocalAgentLoop tool execution, and
+DriverChannelToolExecutor channel wrappers,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
