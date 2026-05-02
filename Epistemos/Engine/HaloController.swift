@@ -51,12 +51,14 @@ public struct NullHaloTelemetry: HaloTelemetry, Sendable {
 @MainActor
 @Observable
 public final class HaloController {
+    typealias GraphProjectionReportProvider = @MainActor (Int) -> GraphEventAuditProjectionReport
 
     // MARK: - Public state (SwiftUI-bound)
 
     public private(set) var state: HaloState = .dormant
     public private(set) var matches: [ShadowHit] = []
     public private(set) var domain: ShadowDomain = .notes
+    private(set) var graphProjectionReport: GraphEventAuditProjectionReport = .empty
 
     // MARK: - Tunables (V1 decision §"performance budget")
 
@@ -73,14 +75,16 @@ public final class HaloController {
 
     private let search: any ShadowSearchServicing
     private let telemetry: any HaloTelemetry
+    private let graphProjectionReportProvider: GraphProjectionReportProvider
     private static let log = Logger(subsystem: "com.epistemos", category: "Halo")
+    private static let graphProjectionReportLimit = 100
 
     // MARK: - In-flight task
 
     private var pendingSearch: Task<Void, Never>?
     private var lastQueryContext: String = ""
 
-    public init(
+    public convenience init(
         search: any ShadowSearchServicing,
         telemetry: any HaloTelemetry = NullHaloTelemetry(),
         debounceWindowMs: Int = 200,
@@ -88,12 +92,35 @@ public final class HaloController {
         scoreThreshold: Float = 0.2,
         stopWords: Set<String> = ["the", "a", "an", "and", "or", "but", "is", "are"]
     ) {
+        self.init(
+            search: search,
+            telemetry: telemetry,
+            debounceWindowMs: debounceWindowMs,
+            minQueryChars: minQueryChars,
+            scoreThreshold: scoreThreshold,
+            stopWords: stopWords,
+            graphProjectionReportProvider: { limit in
+                GraphEventAuditProjectionService().auditReport(limit: limit)
+            }
+        )
+    }
+
+    init(
+        search: any ShadowSearchServicing,
+        telemetry: any HaloTelemetry = NullHaloTelemetry(),
+        debounceWindowMs: Int = 200,
+        minQueryChars: Int = 3,
+        scoreThreshold: Float = 0.2,
+        stopWords: Set<String> = ["the", "a", "an", "and", "or", "but", "is", "are"],
+        graphProjectionReportProvider: @escaping GraphProjectionReportProvider
+    ) {
         self.search = search
         self.telemetry = telemetry
         self.debounceWindowMs = debounceWindowMs
         self.minQueryChars = minQueryChars
         self.scoreThreshold = scoreThreshold
         self.stopWords = stopWords
+        self.graphProjectionReportProvider = graphProjectionReportProvider
     }
 
     // MARK: - Editor input
@@ -194,6 +221,7 @@ public final class HaloController {
     /// User clicked the Halo glyph. Opens the panel for the current domain.
     public func openPanel() {
         guard case .available = state else { return }
+        refreshGraphProjectionReport()
         transition(to: .open(domain: domain))
     }
 
@@ -236,6 +264,10 @@ public final class HaloController {
     /// the user can retry without looking at the console.
     public func reportRecoverableError(_ message: String) {
         transition(to: .errorRecoverable(message))
+    }
+
+    func refreshGraphProjectionReport(limit: Int = HaloController.graphProjectionReportLimit) {
+        graphProjectionReport = graphProjectionReportProvider(limit)
     }
 
     // MARK: - State transition

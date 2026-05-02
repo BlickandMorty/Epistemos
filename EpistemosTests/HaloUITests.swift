@@ -131,6 +131,17 @@ struct HaloUITests {
         #expect(source.contains("if hit.domain == .chats"))
     }
 
+    @Test("Shadow panel exposes read-only GraphEvent projection ribbon")
+    func shadowPanelExposesGraphEventProjectionRibbon() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Halo/ShadowPanelContent.swift")
+
+        #expect(source.contains("private var graphProjectionRibbon"))
+        #expect(source.contains("controller.graphProjectionReport"))
+        #expect(source.contains("report.eventCount"))
+        #expect(source.contains("report.nodeCount"))
+        #expect(source.contains("report.edgeCount"))
+    }
+
     // MARK: - HaloButton
 
     @Test("HaloButton initializes with the controller passed through")

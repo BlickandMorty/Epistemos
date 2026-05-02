@@ -194,6 +194,43 @@ struct HaloControllerTests {
         #expect(ctrl.state == .open(domain: .notes))
     }
 
+    @Test("opening Halo panel refreshes GraphEvent projection report")
+    func openPanelRefreshesGraphEventProjectionReport() async {
+        let mock = MockShadowSearchService()
+        mock.nextResults = [sampleHit("n1")]
+        var requestedLimit = 0
+        let report = GraphEventAuditProjectionReport(
+            generatedAtMs: 42,
+            eventCount: 3,
+            nodeCount: 2,
+            edgeCount: 1,
+            latestEventID: "graph-event-latest",
+            nodeIDs: ["n1", "n2"],
+            edgeIDs: ["n1->n2:mentions"]
+        )
+        let ctrl = HaloController(
+            search: mock,
+            debounceWindowMs: 1,
+            minQueryChars: 3,
+            scoreThreshold: 0.2,
+            graphProjectionReportProvider: { limit in
+                requestedLimit = limit
+                return report
+            }
+        )
+
+        ctrl.editorTextDidChange("hello kant world", domain: .notes)
+        await Self.waitForState(ctrl, until: { state in
+            if case .available = state { return true }
+            return false
+        })
+        ctrl.openPanel()
+
+        #expect(ctrl.state == .open(domain: .notes))
+        #expect(requestedLimit == 100)
+        #expect(ctrl.graphProjectionReport == report)
+    }
+
     @Test("openPanel ignored when not in .available")
     func openPanelIgnoredWhenNotAvailable() {
         let (ctrl, _) = mockController()

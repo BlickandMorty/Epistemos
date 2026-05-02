@@ -12,6 +12,16 @@ nonisolated struct GraphEventAuditProjectionReport: Equatable, Sendable {
     var isEmpty: Bool {
         eventCount == 0 && nodeCount == 0 && edgeCount == 0
     }
+
+    static let empty = GraphEventAuditProjectionReport(
+        generatedAtMs: 0,
+        eventCount: 0,
+        nodeCount: 0,
+        edgeCount: 0,
+        latestEventID: nil,
+        nodeIDs: [],
+        edgeIDs: []
+    )
 }
 
 final class GraphEventAuditProjectionService {
