@@ -22,6 +22,15 @@ If a card contradicts the master index, stop at the deliberation gate, verify
 against current code/logs, and update the card or canon before building. Do not
 resolve contradictions by guessing or by raw-merging donor worktrees.
 
+Every card's "Authority To Read First" section must include the local
+concept/source lookup from `MASTER_RESEARCH_INDEX_2026_05_02.md`. If that local
+lookup does not provide a structured answer, or the card depends on current API,
+framework, OS, model, package, App Store, or security behavior, add a targeted
+web-validation line and prefer primary/official sources. Semantic expansion is
+required: for example, "zero-copy" also means UMA, in-process, single-binary,
+deterministic, no hot-path subprocess, direct/bare-metal path, and zero tensor
+copies.
+
 ## Non-Negotiable Rules
 
 - Every work card still requires a deliberation gate before code changes unless

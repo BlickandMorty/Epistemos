@@ -795,3 +795,27 @@ When Codex hits a concept or term:
 7. **Don't read everything.** The user explicitly said "should be accurate" not exhaustive. Time-box to what the slice needs.
 
 If you hit a concept this index doesn't list: surface it in `docs/fusion/oversight/CODEX_DELIBERATION_RESPONSE_2026_05_02.md` so the index can be extended in the next merge pass.
+
+### 22.1 Research-first validation protocol
+
+The user's research corpus is presumed high-signal. For every task, deliberation,
+build card, refactor, reroute/reduction, bug fix, or "simple" code change:
+
+1. Search local canon first: this master index, then the canonical source it
+   names, then `rg` over `docs/`, `docs/_consolidated/`,
+   `docs/fusion/`, relevant worktree docs, and external research roots only
+   when the index points there.
+2. Use semantic expansion, not only literal terms. Example: "zero-copy" also
+   means Apple Silicon UMA, `MTLBuffer.storageModeShared`, IOSurface,
+   in-process, single-binary, no hot-path subprocess, no tensor copies,
+   deterministic/provenance-linked state transitions, direct/bare-metal path,
+   and "as complex as a brain, as simple as an app, as fast as a jet."
+3. If local docs give a structured approach, follow it unless current code/logs
+   disprove it.
+4. If local docs do not answer, or if a coding task depends on current API,
+   package, OS, model, security, App Store, or framework behavior, do a targeted
+   web validation pass using primary/official sources where possible. The web
+   pass validates or updates the local plan; it does not replace the local
+   canon.
+5. Keep it useful: search smartly, quote only the load-bearing claim or path,
+   and stop reading once the slice has enough evidence to act safely.
