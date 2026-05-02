@@ -707,20 +707,22 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             model: model,
             operatingMode: operatingMode
         )
-        recordCloudLLMGenerateEvent(
+        recordCloudLLMToolEvent(
             runID: runID,
             kind: .toolCallRequested,
             actor: actor,
             toolCallID: toolCallID,
+            toolName: "cloud_model.generate",
             argumentsJSON: argumentsJSON,
             status: .requested,
             metadata: metadata
         )
-        recordCloudLLMGenerateEvent(
+        recordCloudLLMToolEvent(
             runID: runID,
             kind: .toolCallStarted,
             actor: actor,
             toolCallID: toolCallID,
+            toolName: "cloud_model.generate",
             argumentsJSON: argumentsJSON,
             status: .started,
             metadata: metadata
@@ -779,11 +781,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                     maxTokens: maxTokens
                 )
             }
-            recordCloudLLMGenerateEvent(
+            recordCloudLLMToolEvent(
                 runID: runID,
                 kind: .toolCallCompleted,
                 actor: actor,
                 toolCallID: toolCallID,
+                toolName: "cloud_model.generate",
                 argumentsJSON: argumentsJSON,
                 resultJSON: cloudLLMGenerateResultJSON(output: output),
                 durationMs: cloudLLMDurationMilliseconds(since: startedAt),
@@ -792,11 +795,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             )
             return output
         } catch {
-            recordCloudLLMGenerateEvent(
+            recordCloudLLMToolEvent(
                 runID: runID,
                 kind: .toolCallFailed,
                 actor: actor,
                 toolCallID: toolCallID,
+                toolName: "cloud_model.generate",
                 argumentsJSON: argumentsJSON,
                 durationMs: cloudLLMDurationMilliseconds(since: startedAt),
                 status: .failed,
@@ -833,12 +837,52 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
     ) -> AsyncThrowingStream<String, Error> {
-        StreamingBufferPolicy.throwingStream { continuation in
+        let runID = "cloud-llm-\(UUID().uuidString)"
+        let toolCallID = "cloud-llm-stream:1"
+        let actor = AgentProvenanceActor.agent(
+            id: "cloud-llm-client",
+            modelID: model.vendorModelID
+        )
+        let argumentsJSON = cloudLLMGenerateArgumentsJSON(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: operatingMode
+        )
+        let metadata = cloudLLMGenerateMetadata(
+            model: model,
+            operatingMode: operatingMode
+        )
+
+        return StreamingBufferPolicy.throwingStream { continuation in
             let task = Task { @MainActor [weak self] in
                 guard let self else {
                     continuation.finish()
                     return
                 }
+
+                self.recordCloudLLMToolEvent(
+                    runID: runID,
+                    kind: .toolCallRequested,
+                    actor: actor,
+                    toolCallID: toolCallID,
+                    toolName: "cloud_model.stream",
+                    argumentsJSON: argumentsJSON,
+                    status: .requested,
+                    metadata: metadata
+                )
+                self.recordCloudLLMToolEvent(
+                    runID: runID,
+                    kind: .toolCallStarted,
+                    actor: actor,
+                    toolCallID: toolCallID,
+                    toolName: "cloud_model.stream",
+                    argumentsJSON: argumentsJSON,
+                    status: .started,
+                    metadata: metadata
+                )
+                let startedAt = Date()
 
                 do {
                     let credential = try await self.resolvedCredential(for: model.provider)
@@ -894,11 +938,42 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
                         )
                     }
 
+                    var chunkCount = 0
+                    var outputUTF8Bytes = 0
                     for try await token in upstream {
+                        chunkCount += 1
+                        outputUTF8Bytes += token.utf8.count
                         continuation.yield(token)
                     }
+                    self.recordCloudLLMToolEvent(
+                        runID: runID,
+                        kind: .toolCallCompleted,
+                        actor: actor,
+                        toolCallID: toolCallID,
+                        toolName: "cloud_model.stream",
+                        argumentsJSON: argumentsJSON,
+                        resultJSON: self.cloudLLMStreamResultJSON(
+                            chunkCount: chunkCount,
+                            outputUTF8Bytes: outputUTF8Bytes
+                        ),
+                        durationMs: self.cloudLLMDurationMilliseconds(since: startedAt),
+                        status: .completed,
+                        metadata: metadata
+                    )
                     continuation.finish()
                 } catch {
+                    self.recordCloudLLMToolEvent(
+                        runID: runID,
+                        kind: .toolCallFailed,
+                        actor: actor,
+                        toolCallID: toolCallID,
+                        toolName: "cloud_model.stream",
+                        argumentsJSON: argumentsJSON,
+                        durationMs: self.cloudLLMDurationMilliseconds(since: startedAt),
+                        status: .failed,
+                        errorMessage: error.localizedDescription,
+                        metadata: metadata
+                    )
                     continuation.finish(throwing: error)
                 }
             }
@@ -1057,6 +1132,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ])
     }
 
+    private func cloudLLMStreamResultJSON(chunkCount: Int, outputUTF8Bytes: Int) -> String {
+        cloudLLMJSONPayload([
+            "chunk_count": String(chunkCount),
+            "output_utf8_bytes": String(outputUTF8Bytes),
+        ])
+    }
+
     private func cloudLLMGenerateMetadata(
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
@@ -1071,11 +1153,12 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         ]
     }
 
-    private func recordCloudLLMGenerateEvent(
+    private func recordCloudLLMToolEvent(
         runID: String,
         kind: AgentProvenanceEventKind,
         actor: AgentProvenanceActor,
         toolCallID: String,
+        toolName: String,
         argumentsJSON: String,
         resultJSON: String? = nil,
         durationMs: UInt64? = nil,
@@ -1089,7 +1172,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             kind: kind,
             actor: actor,
             toolCallID: toolCallID,
-            toolName: "cloud_model.generate",
+            toolName: toolName,
             argumentsJSON: argumentsJSON,
             resultJSON: resultJSON,
             durationMs: durationMs,

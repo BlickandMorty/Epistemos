@@ -148,6 +148,130 @@ struct CloudLLMAgentEventTests {
             #expect(tool.resultJSON == nil)
         }
     }
+
+    @Test("cloud stream records sanitized AgentEvents")
+    func cloudStreamRecordsSanitizedAgentEvents() async throws {
+        let inference = makeCloudLLMInferenceState(keychainValues: [
+            CloudModelProvider.openAI.apiKeyKeychainKey: "sk-openai-test"
+        ])
+        let session = makeCloudLLMAgentEventURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/v1/responses")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer sk-openai-test")
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            let data = """
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":"Hello"}
+
+            event: response.output_text.delta
+            data: {"type":"response.output_text.delta","delta":" there"}
+
+            event: response.completed
+            data: {"type":"response.completed"}
+
+            """.data(using: .utf8) ?? Data()
+            return (response, data)
+        }
+        let sink = CloudLLMAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 789 },
+            persist: { event in sink.append(event) }
+        )
+        let client = CloudLLMClient(
+            inference: inference,
+            urlSession: session,
+            agentProvenanceRecorder: recorder
+        )
+
+        var output = ""
+        let stream = client.stream(
+            prompt: "secret prompt",
+            systemPrompt: "secret system",
+            maxTokens: 64,
+            model: .openAIGPT41Mini,
+            operatingMode: .fast
+        )
+        for try await token in stream {
+            output += token
+        }
+
+        #expect(output == "Hello there")
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("cloud-llm-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "cloud_model.stream" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "cloud-llm-stream:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == HermesGatewayRoute.hermesGateway.rawValue })
+        #expect(sink.events.last?.tool?.resultJSON?.contains("chunk_count") == true)
+
+        for event in sink.events {
+            let argumentsJSON = event.tool?.argumentsJSON ?? ""
+            let resultJSON = event.tool?.resultJSON ?? ""
+            #expect(!argumentsJSON.contains("secret prompt"))
+            #expect(!argumentsJSON.contains("secret system"))
+            #expect(!argumentsJSON.contains("sk-openai-test"))
+            #expect(!resultJSON.contains("Hello"))
+            #expect(!resultJSON.contains("there"))
+        }
+    }
+
+    @Test("cloud stream records sanitized failure before provider request")
+    func cloudStreamRecordsSanitizedFailureBeforeProviderRequest() async throws {
+        let inference = makeCloudLLMInferenceState(keychainValues: [:])
+        let sink = CloudLLMAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 987 },
+            persist: { event in sink.append(event) }
+        )
+        let client = CloudLLMClient(
+            inference: inference,
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            let stream = client.stream(
+                prompt: "secret prompt",
+                systemPrompt: "secret system",
+                maxTokens: 64,
+                model: .openAIGPT54,
+                operatingMode: .pro
+            )
+            for try await _ in stream {}
+            Issue.record("Expected missing OpenAI access to fail streaming.")
+        } catch let error as CloudLLMError {
+            switch error {
+            case .missingAccess("OpenAI"):
+                break
+            default:
+                Issue.record("Expected missing OpenAI access, got \(error).")
+            }
+        } catch {
+            Issue.record("Expected CloudLLMError.missingAccess, got \(error).")
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "cloud_model.stream" })
+
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("secret prompt"))
+            #expect(!tool.argumentsJSON.contains("secret system"))
+            #expect(tool.resultJSON == nil)
+        }
+    }
 }
 
 private func makeCloudLLMAgentEventURLSession(
