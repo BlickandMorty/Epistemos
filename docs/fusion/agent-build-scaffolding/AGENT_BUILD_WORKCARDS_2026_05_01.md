@@ -601,7 +601,7 @@ Stop triggers:
 
 ## Card 7 - AgentEvent Tool Provenance
 
-Status on 2026-05-01:
+Status on 2026-05-02:
 PR1 durable EventStore persistence is closed. Swift now has
 `AgentProvenanceEvent`, typed tool provenance payloads, an `agent_events` table
 with unique `event_id`, and bounded EventStore APIs:
@@ -643,6 +643,14 @@ results. The mount preserves no-hook behavior and does not change approval
 policy, routing, UI, ChatCoordinator, Omega, graph, Rust, generated bindings,
 EventStore schema, or provider-native/direct-stream paths.
 
+PR7 Omega ReasoningLoop internal tool-call provenance is also closed.
+ReasoningLoop now records requested, started, and completed-or-failed
+AgentEvents around its existing internal `vault_search` / `graph_search` calls
+with per-run `reasoning-loop-...` ids and `omega-reasoning-loop` actor
+metadata, without changing approval, routing, UI, HookRegistry,
+ChatCoordinator, PipelineService, graph, Rust, generated bindings, or
+EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -663,6 +671,9 @@ Authority to read first:
   regression fix gate.
 - `Epistemos/Engine/HookRegistry.swift` only for PR4 evidence or a future
   production hook call-site mounting gate.
+- `docs/fusion/deliberation/reasoning_loop_agent_event_pr7_deliberation_2026_05_02.md`
+- `Epistemos/Omega/Inference/ReasoningLoopService.swift` only for PR7 evidence
+  or a future ReasoningLoop regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -672,14 +683,16 @@ Allowed write set:
 - PR5 read-only Settings visibility: already closed.
 - PR6 PipelineService HookRegistry production mount: already closed for the
   local tool-loop only.
-- Future Omega, provider-native, direct-stream, ChatCoordinator, or broader
-  runtime instrumentation only after a new deliberation gate names exact
-  runtime files and focused tests.
+- PR7 Omega ReasoningLoop internal tool-call provenance: already closed for
+  existing reasoning-loop internal search calls only.
+- Future provider-native, direct-stream, ChatCoordinator, Omega paths beyond
+  ReasoningLoop internal search, or broader runtime instrumentation only after
+  a new deliberation gate names exact runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
-- Production chat, Omega, hooks, approvals, or tool execution without a fresh
-  live-emission gate.
+- Future production chat, Omega beyond ReasoningLoop internal search, hooks,
+  approvals, or tool execution without a fresh live-emission gate.
 - `Epistemos/Views/Notes/ProseEditor*.swift`
 - `Epistemos/Views/Graph/MetalGraphView.swift`
 - `Epistemos/Views/Graph/HologramController.swift`
@@ -730,6 +743,12 @@ Tests and logs:
   `/tmp/epistemos-agent-event-hook-mount-pr6-green-20260502.log`.
   The focused Swift Testing suite passed 2 tests; Xcode still printed known
   SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR7 red guard:
+  `/tmp/epistemos-reasoning-loop-agent-event-pr7-red-guard-20260502.log`.
+- PR7 green log:
+  `/tmp/epistemos-reasoning-loop-agent-event-pr7-green-20260502.log`.
+  The focused behavior test passed; Xcode still printed known SwiftLint
+  package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -765,6 +784,11 @@ Acceptance:
   out of ChatCoordinator and Omega, and the implementation avoids graph,
   editor, Rust, generated-binding, approval-policy, UI, and provider-route
   changes.
+- PR7 wired/reachable/visible: ReasoningLoop emits requested, started, and
+  completed/failed AgentEvents for parsed internal tool calls with non-empty
+  run id, tool call id, actor, metadata, and bounded JSON result payload.
+  Source and behavior stay away from HookRegistry, approvals, ChatCoordinator,
+  PipelineService, graph, Rust, generated bindings, UI, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
