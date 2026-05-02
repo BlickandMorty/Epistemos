@@ -249,6 +249,19 @@ struct SovereignGateTests {
         #expect(folderReason.localizedCaseInsensitiveContains("permanently delete"))
     }
 
+    @Test("Chat sidebar deletes map to destructive Sovereign Gate requirements")
+    func chatSidebarDeletesMapToSovereignGateRequirements() {
+        #expect(
+            ChatSidebarDeletionSovereignGate.requirement(for: .chat(title: "Planning Thread"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = ChatSidebarDeletionSovereignGate.reason(for: .chat(title: "Planning Thread"))
+
+        #expect(reason.contains("Planning Thread"))
+        #expect(reason.localizedCaseInsensitiveContains("permanently delete"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])

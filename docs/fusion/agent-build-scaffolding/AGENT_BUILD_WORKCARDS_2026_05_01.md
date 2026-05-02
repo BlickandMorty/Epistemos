@@ -1253,6 +1253,13 @@ is captured before async auth, denied/unavailable auth clears pending state and
 does not delete, and the slice does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, change planner/delete semantics, migrate any other
 confirmation popup, or touch Rust/generated/graph/editor/Omega/ChatCoordinator.
+Chat Delete PR6 is also closed. `Epistemos/Views/Chat/ChatSidebarView.swift`
+now routes the existing Chat Sidebar context-menu destructive chat delete action
+through the shared `AppBootstrap` `SovereignGate` with
+`.deviceOwnerAuthentication` before delete execution. Missing/unavailable auth
+is denied, the existing `SDChat` deletion/error handling remains unchanged, and
+the slice does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`,
+migrate note chat, or touch Rust/generated/graph/editor/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1280,6 +1287,9 @@ Authority to read first:
 - `docs/fusion/deliberation/sovereign_gate_notes_delete_pr5_deliberation_2026_05_02.md`
 - `/tmp/epistemos-sovereign-gate-notes-delete-pr5-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-notes-delete-pr5-green-20260502.log`
+- `docs/fusion/deliberation/sovereign_gate_chat_delete_pr6_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-chat-delete-pr6-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-chat-delete-pr6-green-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
@@ -1288,13 +1298,16 @@ Allowed write set:
 - PR4 Rust action-class matrix seed and focused tests: already closed.
 - PR5 Notes Sidebar permanent page/folder delete migration and focused tests:
   already closed.
+- PR6 Chat Sidebar context-menu destructive chat delete migration and focused
+  tests: already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
   not already covered by PR2 and proves no unrelated authorization migration.
 - Future confirmation-surface migration PRs only after a gate names each exact
   existing surface and its focused tests; Notes Sidebar page/folder permanent
-  deletes are already covered by PR5.
+  deletes are already covered by PR5, and Chat Sidebar context-menu chat
+  deletes are already covered by PR6.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1348,6 +1361,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-notes-delete-pr5-red-20260502.log`.
 - PR5 focused green log:
   `/tmp/epistemos-sovereign-gate-notes-delete-pr5-green-20260502.log`.
+- PR6 red log:
+  `/tmp/epistemos-sovereign-gate-chat-delete-pr6-red-20260502.log`.
+- PR6 focused green log:
+  `/tmp/epistemos-sovereign-gate-chat-delete-pr6-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1392,6 +1409,14 @@ Acceptance:
   `LocalAuthentication`, delete planner semantics, generated transport, Rust,
   graph/editor files, Omega, ChatCoordinator, subprocesses, solver hot paths,
   tensor copies, and memory hot paths.
+- PR6 wired/reachable/visible: the existing Chat Sidebar context-menu
+  destructive chat delete action requests shared `SovereignGate` device-owner
+  authentication before deletion, focused tests prove the delete surface maps to
+  Destructive auth with an explicit reason string, denied/unavailable auth
+  performs no delete, and the slice stays out of `SovereignGate.swift`,
+  duplicate `LocalAuthentication`, chat persistence semantics, generated
+  transport, Rust, graph/editor files, Omega, ChatCoordinator, subprocesses,
+  solver hot paths, tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

@@ -1,6 +1,28 @@
 import SwiftData
 import SwiftUI
 
+enum ChatSidebarDeletionSovereignGate {
+    enum Target: Equatable {
+        case chat(title: String)
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        .deviceOwnerAuthentication
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case let .chat(title):
+            return "Permanently delete chat \"\(safeName(title))\"."
+        }
+    }
+
+    private static func safeName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
 // MARK: - Chat Sidebar
 // Floating glass card with Liquid Glass interactive elements.
 // Parent applies .glassEffect for the card background. Search bar, chat rows,
@@ -144,7 +166,7 @@ struct ChatSidebarView: View {
                             sdChat: sdChat,
                             isActive: sdChat.id == chat.activeChatId,
                             onSelect: { loadChatIntoSession(sdChat) },
-                            onDelete: { deleteChat(sdChat) }
+                            onDelete: { requestChatDeleteAuthorization(sdChat) }
                         )
                     }
                 }
@@ -229,6 +251,21 @@ struct ChatSidebarView: View {
     }
 
     // MARK: - Data
+
+    private func requestChatDeleteAuthorization(_ sdChat: SDChat) {
+        let target = ChatSidebarDeletionSovereignGate.Target.chat(title: sdChat.title)
+
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                ChatSidebarDeletionSovereignGate.requirement(for: target),
+                reason: ChatSidebarDeletionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else { return }
+
+            deleteChat(sdChat)
+        }
+    }
 
     private func deleteChat(_ sdChat: SDChat) {
         let deletingActiveChat = sdChat.id == chat.activeChatId
