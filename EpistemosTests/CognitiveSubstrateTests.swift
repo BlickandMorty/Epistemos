@@ -2682,14 +2682,15 @@ struct OpLogSwiftBridgeTests {
         mutationID: String,
         traceID: String? = nil,
         artifactID: String? = nil,
-        recordedAtMs: Int = 1_000
+        recordedAtMs: Int = 1_000,
+        sourcePayloadJSON: String? = nil
     ) -> OpLogEntry {
         var fields: [String: OpLogJSONValue] = [
             "event_kind": .string("mutation_envelope"),
             "integrity_hash": .string("sha256:\(mutationID)"),
             "mutation_id": .string(mutationID),
             "recorded_at_ms": .int(recordedAtMs),
-            "source_payload_json": .string("{\"mutation_id\":\"\(mutationID)\"}"),
+            "source_payload_json": .string(sourcePayloadJSON ?? "{\"mutation_id\":\"\(mutationID)\"}"),
             "status": .string("committed"),
         ]
         if let traceID {
@@ -2825,6 +2826,101 @@ struct OpLogSwiftBridgeTests {
         #expect(snapshot.duplicates.first?.duplicateSeq == 1)
     }
 
+    @Test("Mutation OpLog replay exports deterministic ReplayBundle JSON")
+    func mutationOpLogReplayExportsDeterministicReplayBundleJSON() throws {
+        let entries = [
+            projectionEntry(
+                seq: 2,
+                mutationID: "mutation-二",
+                traceID: "trace-private",
+                artifactID: "artifact-🚀",
+                sourcePayloadJSON: """
+                {"body":"PRIVATE_NOTE_BODY","cwd":"/Users/jojo/Vault","system_prompt":"system prompt"}
+                """
+            ),
+            projectionEntry(seq: 3, mutationID: "mutation-二", traceID: "trace-duplicate"),
+            nonProjectionEntry(seq: 1),
+        ]
+
+        let snapshot = MutationOpLogReplay.replay(entries)
+        let bundle = MutationOpLogReplayBundle(snapshot: snapshot, source: "unit-test")
+
+        #expect(bundle.schemaVersion == 1)
+        #expect(bundle.source == "unit-test")
+        #expect(bundle.cutoffSeq == nil)
+        #expect(bundle.highestReplayedSeq == 3)
+        #expect(bundle.replayedEntryCount == 3)
+        #expect(bundle.recordCount == 1)
+        #expect(bundle.duplicateCount == 1)
+        #expect(bundle.ignoredNonProjectionCount == 1)
+        #expect(bundle.records.first?.mutationID == "mutation-二")
+        #expect(bundle.records.first?.artifactID == "artifact-🚀")
+
+        let firstJSON = try bundle.deterministicJSONData()
+        let secondJSON = try bundle.deterministicJSONData()
+        #expect(firstJSON == secondJSON)
+
+        let decoded = try JSONDecoder().decode(MutationOpLogReplayBundle.self, from: firstJSON)
+        #expect(decoded == bundle)
+
+        let json = String(decoding: firstJSON, as: UTF8.self)
+        #expect(json.contains("mutation-二"))
+        #expect(json.contains("artifact-🚀"))
+        #expect(!json.contains("sourcePayloadJSON"))
+        #expect(!json.contains("source_payload_json"))
+        #expect(!json.contains("PRIVATE_NOTE_BODY"))
+        #expect(!json.contains("/Users/jojo/Vault"))
+        #expect(!json.contains("system prompt"))
+    }
+
+    @Test("Mutation OpLog ReplayBundle handles empty and max sequence snapshots")
+    func mutationOpLogReplayBundleHandlesEmptyAndMaxSequenceSnapshots() throws {
+        let empty = MutationOpLogReplayBundle(snapshot: MutationOpLogReplay.replay([]), source: "empty")
+        #expect(empty.replayedEntryCount == 0)
+        #expect(empty.recordCount == 0)
+        #expect(empty.duplicateCount == 0)
+        #expect(empty.ignoredNonProjectionCount == 0)
+        #expect(empty.records.isEmpty)
+        #expect(empty.duplicates.isEmpty)
+
+        let maxRecord = MutationOpLogReplayRecord(
+            mutationID: "mutation-max-Ω",
+            opLogSeq: .max,
+            projectedAt: Date(timeIntervalSince1970: 9_999),
+            recordedAt: nil,
+            traceID: "trace-max",
+            eventKind: "mutation_envelope",
+            status: "committed",
+            artifactID: "artifact-max-Ω",
+            artifactKind: "prose_note",
+            integrityHash: "sha256:max",
+            sourcePayloadJSON: "{\"body\":\"PRIVATE_NOTE_BODY\"}"
+        )
+        let maxSnapshot = MutationOpLogReplaySnapshot(
+            cutoffSeq: .max,
+            highestReplayedSeq: .max,
+            records: [maxRecord],
+            duplicates: [
+                MutationOpLogReplayDuplicate(
+                    mutationID: "mutation-max-Ω",
+                    firstSeq: .max - 1,
+                    duplicateSeq: .max
+                ),
+            ],
+            ignoredNonProjectionCount: 1
+        )
+
+        let maxBundle = MutationOpLogReplayBundle(snapshot: maxSnapshot, source: "edge-test")
+        #expect(maxBundle.cutoffSeq == .max)
+        #expect(maxBundle.highestReplayedSeq == .max)
+        #expect(maxBundle.replayedEntryCount == 3)
+
+        let data = try maxBundle.deterministicJSONData()
+        let decoded = try JSONDecoder().decode(MutationOpLogReplayBundle.self, from: data)
+        #expect(decoded == maxBundle)
+        #expect(String(decoding: data, as: UTF8.self).contains("mutation-max-Ω"))
+    }
+
     @Test("Swift bridge replays mutation projections from real OpLog")
     func swiftBridgeReplaysMutationProjectionsFromRealOpLog() throws {
         let url = FileManager.default.temporaryDirectory
@@ -2858,5 +2954,44 @@ struct OpLogSwiftBridgeTests {
         #expect(full.records.first?.opLogSeq == projectionSeq)
         #expect(full.records.first?.traceID == "trace-bridge")
         #expect(full.ignoredNonProjectionCount == 1)
+    }
+
+    @Test("Swift bridge exports ReplayBundle from real OpLog")
+    func swiftBridgeExportsReplayBundleFromRealOpLog() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-replay-bundle-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let client = try RustOpLogFFIClient(databaseURL: url, actorID: "replay-bundle-test")
+        _ = try client.append(.nodeAdd(id: "note-ignored", kind: "prose_note", title: "Ignored"))
+        _ = try client.append(.propSet(
+            nodeID: "mutation-bundle",
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "artifact_id": .string("artifact-bundle"),
+                "artifact_kind": .string("prose_note"),
+                "event_kind": .string("mutation_envelope"),
+                "integrity_hash": .string("sha256:mutation-bundle"),
+                "mutation_id": .string("mutation-bundle"),
+                "recorded_at_ms": .int(4_321),
+                "source_payload_json": .string("{\"body\":\"PRIVATE_NOTE_BODY\"}"),
+                "status": .string("committed"),
+                "trace_id": .string("trace-bundle"),
+            ])
+        ))
+
+        let bundle = try client.exportMutationReplayBundle(source: "bridge-test")
+        #expect(bundle.source == "bridge-test")
+        #expect(bundle.replayedEntryCount == 2)
+        #expect(bundle.recordCount == 1)
+        #expect(bundle.duplicateCount == 0)
+        #expect(bundle.ignoredNonProjectionCount == 1)
+        #expect(bundle.records.first?.mutationID == "mutation-bundle")
+        #expect(bundle.records.first?.traceID == "trace-bundle")
+
+        let json = String(decoding: try bundle.deterministicJSONData(), as: UTF8.self)
+        #expect(json.contains("mutation-bundle"))
+        #expect(!json.contains("PRIVATE_NOTE_BODY"))
     }
 }

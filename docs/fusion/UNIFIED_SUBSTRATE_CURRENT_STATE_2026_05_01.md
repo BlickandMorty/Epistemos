@@ -113,6 +113,12 @@ closed:
   tips, and optionally anchors against an externally supplied expected tip.
   Swift exposes this through `RustOpLogFFIClient.verifyChain(expectedTipHex:)`
   without generated binding edits or production UI changes.
+- OpLog ReplayBundle export PR5 is now closed. `MutationOpLogReplayBundle`
+  exports replay snapshots as deterministic Codable JSON with schema/source,
+  cutoff, count, record, and duplicate fields; it deliberately omits raw
+  `sourcePayloadJSON` while staying read-only through
+  `RustOpLogFFIClient.exportMutationReplayBundle(...)` and adding no new raw
+  ABI, rollback execution, repair, UI, or scheduling path.
 - AgentEvent/tool provenance now has a durable Swift EventStore foundation:
   `AgentProvenanceEvent` encodes lower-snake-case run/tool provenance JSON, the
   `agent_events` table enforces unique `event_id`, and EventStore exposes
@@ -645,9 +651,9 @@ Proven or actively wired:
 
 Still open:
 
-- Incremental replay, ReplayBundle export, and mutating rollback/repair
-  semantics beyond read-only projection snapshots and read-only chain
-  verification.
+- Incremental replay, production visibility, and mutating rollback/repair
+  semantics beyond read-only projection snapshots, read-only ReplayBundle
+  export, and read-only chain verification.
 - AgentEvent emission beyond PipelineService observed-tool, ChatCoordinator
   Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount,
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
@@ -717,8 +723,9 @@ before building.
 
 3. **OpLog / GraphEvent / AgentEvent provenance hardening.**
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
-   visibility PR3D, replay snapshot PR4A, AgentEvent persistence PR1,
-   OpLog chain verification PR4B, AgentEvent PipelineService live tool
+   visibility PR3D, replay snapshot PR4A, OpLog chain verification PR4B,
+   OpLog ReplayBundle export PR5, AgentEvent persistence PR1,
+   AgentEvent PipelineService live tool
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
    HookRegistry lifecycle PR4, AgentEvent Settings visibility PR5, AgentEvent
   Pipeline HookRegistry mount PR6, AgentEvent Omega ReasoningLoop internal
@@ -786,12 +793,13 @@ are:
   PR11, AgentEvent PR12, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
-  Halo's read-only ribbon, incremental replay/export, deeper repair/audit
+  Halo's read-only ribbon, incremental replay, deeper repair/audit
   visibility, and trace/audit projection semantics.
   Background worker scheduling is closed as PR3C, basic read-only Settings
   visibility is closed as PR3D, read-only projection replay snapshots are
-  closed as PR4A, read-only OpLog chain verification is closed as PR4B, durable
-  AgentEvent persistence is closed as PR1, PipelineService observed tool
+  closed as PR4A, read-only OpLog chain verification is closed as PR4B,
+  read-only OpLog ReplayBundle export is closed as PR5, durable AgentEvent
+  persistence is closed as PR1, PipelineService observed tool
   lifecycle emission is closed as PR2, ChatCoordinator Rust-stream lifecycle
   emission is closed as PR3, HookRegistry API-level lifecycle emission is
   closed as PR4, AgentEvent Settings visibility is closed as PR5, Pipeline
@@ -897,8 +905,9 @@ MLX tok/s harness with blocked-run evidence, R15 PR9 evidence-ledger guard,
 EventStore OpLog
 lease/retry PR3A, EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
-PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
-PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
+PR4A, EventStore OpLog chain verification PR4B, EventStore OpLog ReplayBundle
+export PR5, AgentEvent durable persistence PR1, AgentEvent PipelineService live
+tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, AgentEvent Pipeline HookRegistry mount PR6,
 AgentEvent Omega ReasoningLoop internal tool provenance PR7,
