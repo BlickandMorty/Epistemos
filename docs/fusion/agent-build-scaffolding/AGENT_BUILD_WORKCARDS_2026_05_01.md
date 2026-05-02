@@ -655,6 +655,12 @@ bounded `saveGraphEvent(_:)`, `loadGraphEvent(eventID:)`, and
 the envelope/outbox save. Pending/failed/reverted envelopes do not emit graph
 events.
 
+PR2 read-only Settings visibility is also closed. EventStore now exposes
+bounded `graphEventDiagnostics()` for total rows, distinct mutations, latest
+event metadata, and last kind, and Settings mounts `GraphEventVisibilityRow`
+without repair, projection, graph renderer, retrieval, Halo, Theater, or Rust
+OpLog side effects.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -667,15 +673,19 @@ any live graph, retrieval, Halo, Theater, or audit projection consumes it.
 
 Authority to read first:
 - `docs/fusion/deliberation/graph_event_durable_mapping_pr1_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/graph_event_visibility_pr2_deliberation_2026_05_01.md`
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 - `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`
+- `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`
 - `Epistemos/Models/MutationEnvelope.swift`
 - `Epistemos/State/EventStore.swift`
 - `EpistemosTests/CognitiveSubstrateTests.swift`
+- `Epistemos/Views/Settings/GraphEventVisibilityRow.swift`
 - `Epistemos/Engine/EventDrain.swift` only for the naming collision context.
 
 Allowed write set:
 - PR1 durable EventStore mapping: already closed.
+- PR2 read-only Settings visibility: already closed.
 - Future live GraphEvent projections only after a new deliberation gate names
   exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -699,10 +709,16 @@ Implementation contract:
 - Event ids remain deterministic from `mutationID` plus an ordered index.
 - Future projection slices may read `graph_events`; they must not mutate graph
   renderer/editor surfaces without a protected-path gate.
+- PR2 already supplies bounded read-only Settings visibility through EventStore
+  diagnostics. Do not add repair buttons, live projection, polling loops, raw
+  Rust OpLog calls, or duplicate GraphEvent diagnostic rows in a future
+  projection gate.
 
 Tests and logs:
 - Red log: `/tmp/epistemos-graph-event-pr1-red-20260501.log`.
 - Green log: `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`.
+- PR2 final green log:
+  `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -717,6 +733,9 @@ Acceptance:
   GraphEvent rows.
 - PR1 visible: tests prove lower-snake-case JSON, bounded ordering, table
   creation, committed-envelope emission, and pending-envelope exclusion.
+- PR2 wired/reachable/visible: Settings diagnostics expose total durable graph
+  event rows, distinct mutation count, latest event metadata, and last event
+  kind through read-only EventStore diagnostics.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named
