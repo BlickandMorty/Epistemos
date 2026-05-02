@@ -721,6 +721,19 @@ contact routing fallback, LocalAgentLoop, PipelineService, ChatCoordinator,
 Omega reasoning, graph, Rust, generated bindings, approval, UI, provider
 routing, and EventStore schema.
 
+PR13 remote relay channel provenance is also closed.
+`RemoteRelayChannelAdapter` now routes relay send/fetch/list/audit HTTP calls
+through a URLSession-injectable relay client that records requested, started,
+and completed/failed AgentEvents with `relay-channel-...` run ids,
+`relay-channel-<channel>` actor metadata, `relay-channel-tool:1` ids,
+source/surface/channel/route/method metadata, and sanitized result/error
+payloads. Tests prove message text, relay endpoint hosts, relay credentials,
+sender identity values, relay response bodies, and HTTP error bodies are not
+persisted in provenance. This preserves relay payload construction, parser
+behavior, native fallback, DriverChannelToolExecutor, LocalAgentLoop,
+PipelineService, ChatCoordinator, Omega, graph, Rust, generated bindings,
+approval, UI, provider routing, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -757,6 +770,10 @@ Authority to read first:
 - `Epistemos/Omega/iMessageDriver/IMessageDriverService.swift` only for PR12
   DriverChannelToolExecutor evidence or a future driver-channel provenance
   regression fix gate.
+- `docs/fusion/deliberation/relay_channel_agent_event_pr13_deliberation_2026_05_02.md`
+- `Epistemos/Omega/Channels/DriverChannelControlPlane.swift` only for PR13
+  remote relay channel evidence or a future remote-relay provenance regression
+  fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -778,11 +795,14 @@ Allowed write set:
   `LocalAgentLoop` tool calls only.
 - PR12 DriverChannelToolExecutor channel provenance: already closed for
   `DriverChannelToolExecutor.execute(...)` only.
+- PR13 remote relay channel provenance: already closed for
+  `RemoteRelayChannelAdapter` relay send/fetch/list/audit HTTP calls only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
-  execution, driver-channel paths beyond the executor wrapper, Omega paths
-  beyond ReasoningLoop internal search, or broader runtime instrumentation only
-  after a new deliberation gate names exact runtime files and focused tests.
+  execution, driver-channel paths beyond the executor wrapper and remote relay
+  HTTP client, Omega paths beyond ReasoningLoop internal search, or broader
+  runtime instrumentation only after a new deliberation gate names exact
+  runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -874,6 +894,14 @@ Tests and logs:
   `/tmp/epistemos-driver-channel-agent-event-pr12-green-20260502.log`.
   The focused `ControlPlaneSurfaceTests` suite passed 20 tests; Xcode still
   printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR13 first red log:
+  `/tmp/epistemos-relay-channel-agent-event-pr13-red-20260502.log`.
+- PR13 HTTP-body red log:
+  `/tmp/epistemos-relay-channel-agent-event-pr13-http-red-20260502.log`.
+- PR13 green log:
+  `/tmp/epistemos-relay-channel-agent-event-pr13-green-20260502.log`.
+  The focused `ControlPlaneSurfaceTests` suite passed 23 tests; Xcode still
+  printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -954,6 +982,16 @@ Acceptance:
   construction, contact routing fallback, LocalAgentLoop, PipelineService,
   ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
   UI, provider routing, and EventStore schema.
+- PR13 wired/reachable/visible: RemoteRelayChannelAdapter emits requested,
+  started, and completed/failed AgentEvents around relay send/fetch/list/audit
+  HTTP calls with non-empty run id, tool call id, actor, route/method metadata,
+  bounded result/error payloads, and privacy-preserving argument/result JSON.
+  Tests prove message text, relay endpoint host, relay credential, sender
+  identity value, relay response body text, and HTTP error body text are not
+  persisted in provenance. Source and behavior stay away from channel parser
+  semantics, native fallback, DriverChannelToolExecutor, LocalAgentLoop,
+  PipelineService, ChatCoordinator, Omega reasoning, graph, Rust, generated
+  bindings, approval, UI, provider routing, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

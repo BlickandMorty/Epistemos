@@ -145,18 +145,67 @@ nonisolated fileprivate enum RelayChannelClient {
         route: RelayChannelRoute,
         method: String,
         queryItems: [URLQueryItem] = [],
-        payload: [String: Any]? = nil
+        payload: [String: Any]? = nil,
+        urlSession: URLSession = .shared,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
     ) async throws -> String {
-        let request = try makeRequest(
+        let normalizedChannel = normalizedChannelID(channelID)
+        let runID = makeRelayChannelRunID(channelID: normalizedChannel)
+        let toolCallID = "relay-channel-tool:1"
+        let toolName = "driver_channel.remote_relay"
+        let actor = AgentProvenanceActor.agent(
+            id: "relay-channel-\(normalizedChannel)",
+            modelID: nil
+        )
+        let metadata = relayChannelToolMetadata(
+            channelID: normalizedChannel,
+            route: route,
+            method: method
+        )
+        let argumentsJSON = relayChannelArgumentsJSON(
             relay: relay,
-            channelID: channelID,
+            channelID: normalizedChannel,
             route: route,
             method: method,
             queryItems: queryItems,
             payload: payload
         )
+        let recorder = await resolvedAgentProvenanceRecorder(agentProvenanceRecorder)
+
+        await recordRelayChannelToolEvent(
+            recorder: recorder,
+            runID: runID,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: toolName,
+            argumentsJSON: argumentsJSON,
+            kind: .toolCallRequested,
+            status: .requested,
+            metadata: metadata
+        )
+        await recordRelayChannelToolEvent(
+            recorder: recorder,
+            runID: runID,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: toolName,
+            argumentsJSON: argumentsJSON,
+            kind: .toolCallStarted,
+            status: .started,
+            metadata: metadata
+        )
+
+        let startedAt = Date()
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let request = try makeRequest(
+                relay: relay,
+                channelID: channelID,
+                route: route,
+                method: method,
+                queryItems: queryItems,
+                payload: payload
+            )
+            let (data, response) = try await urlSession.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw DriverChannelError.invalidResponse(
                     channelID: channelID,
@@ -177,14 +226,58 @@ nonisolated fileprivate enum RelayChannelClient {
                     reason: "relay HTTP \(httpResponse.statusCode): \(reason)"
                 )
             }
+            let resultJSON = relayChannelResultJSON(
+                statusCode: httpResponse.statusCode,
+                responseByteCount: data.count
+            )
+            await recordRelayChannelToolEvent(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolName,
+                argumentsJSON: argumentsJSON,
+                kind: .toolCallCompleted,
+                status: .completed,
+                resultJSON: resultJSON,
+                durationMs: durationMilliseconds(since: startedAt),
+                metadata: metadata
+            )
             return String(data: data, encoding: .utf8) ?? "{}"
         } catch let error as DriverChannelError {
+            await recordRelayChannelToolEvent(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolName,
+                argumentsJSON: argumentsJSON,
+                kind: .toolCallFailed,
+                status: .failed,
+                durationMs: durationMilliseconds(since: startedAt),
+                errorMessage: relayChannelErrorMessage(error),
+                metadata: metadata
+            )
             throw error
         } catch {
-            throw DriverChannelError.toolCallFailed(
+            let wrappedError = DriverChannelError.toolCallFailed(
                 channelID: channelID,
                 reason: "relay request failed: \(error.localizedDescription)"
             )
+            await recordRelayChannelToolEvent(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolName,
+                argumentsJSON: argumentsJSON,
+                kind: .toolCallFailed,
+                status: .failed,
+                durationMs: durationMilliseconds(since: startedAt),
+                errorMessage: relayChannelErrorMessage(wrappedError),
+                metadata: metadata
+            )
+            throw wrappedError
         }
     }
 
@@ -238,6 +331,142 @@ nonisolated fileprivate enum RelayChannelClient {
         }
         return request
     }
+
+    private static func recordRelayChannelToolEvent(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        toolName: String,
+        argumentsJSON: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        await MainActor.run {
+            _ = recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: kind,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolName,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: durationMs,
+                approvalID: nil,
+                status: status,
+                errorMessage: errorMessage,
+                metadata: metadata
+            )
+        }
+    }
+
+    private static func resolvedAgentProvenanceRecorder(
+        _ recorder: AgentToolProvenanceRecorder?
+    ) async -> AgentToolProvenanceRecorder {
+        if let recorder {
+            return recorder
+        }
+        return await MainActor.run {
+            AgentToolProvenanceRecorder()
+        }
+    }
+
+    private nonisolated static func relayChannelToolMetadata(
+        channelID: String,
+        route: RelayChannelRoute,
+        method: String
+    ) -> [String: String] {
+        [
+            "source": "relay_channel_client",
+            "surface": "driver_channel_remote_relay",
+            "channel": normalizedChannelID(channelID),
+            "route": route.rawValue,
+            "method": method,
+        ]
+    }
+
+    private nonisolated static func relayChannelArgumentsJSON(
+        relay: ChannelRelayConfiguration,
+        channelID: String,
+        route: RelayChannelRoute,
+        method: String,
+        queryItems: [URLQueryItem],
+        payload: [String: Any]?
+    ) -> String {
+        let payloadByteCount = payload.flatMap { object in
+            try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).count
+        } ?? 0
+        return stableJSONString([
+            "channel": normalizedChannelID(channelID),
+            "route": route.rawValue,
+            "method": method,
+            "query_count": queryItems.count,
+            "has_payload": payload != nil,
+            "payload_utf8_bytes": payloadByteCount,
+            "has_credential": !relay.credential.isEmpty,
+            "has_sender_identity": !relay.senderIdentity.isEmpty,
+        ])
+    }
+
+    private nonisolated static func relayChannelResultJSON(
+        statusCode: Int,
+        responseByteCount: Int
+    ) -> String {
+        stableJSONString([
+            "status_code": statusCode,
+            "response_utf8_bytes": responseByteCount,
+        ])
+    }
+
+    private nonisolated static func relayChannelErrorMessage(_ error: Error) -> String {
+        if let driverError = error as? DriverChannelError {
+            switch driverError {
+            case .toolCallFailed(let channelID, let reason) where reason.hasPrefix("relay HTTP "):
+                let status = reason.split(separator: ":", maxSplits: 1).first.map(String.init) ?? "relay HTTP failure"
+                return "\(channelID) tool call failed: \(status)"
+            default:
+                break
+            }
+        }
+        let description = error.localizedDescription
+        guard description.count > 512 else {
+            return description
+        }
+        return String(description.prefix(512))
+    }
+
+    private nonisolated static func stableJSONString(_ object: [String: Any]) -> String {
+        guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
+    }
+
+    private nonisolated static func makeRelayChannelRunID(channelID: String) -> String {
+        let milliseconds = Date().timeIntervalSince1970 * 1_000
+        let safeMilliseconds = milliseconds.isFinite ? Int64(milliseconds.rounded()) : 0
+        let suffix = String(UUID().uuidString.prefix(8))
+        return "relay-channel-\(normalizedChannelID(channelID))-\(safeMilliseconds)-\(suffix)"
+    }
+
+    private nonisolated static func durationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else {
+            return 0
+        }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private nonisolated static func normalizedChannelID(_ channelID: String) -> String {
+        let trimmed = channelID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "unknown" : trimmed
+    }
 }
 
 nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
@@ -245,6 +474,24 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
     let displayName: String
     let relay: ChannelRelayConfiguration
     let deliveryMetadata: [String: String]
+    let urlSession: URLSession
+    let agentProvenanceRecorder: AgentToolProvenanceRecorder?
+
+    init(
+        channelID: String,
+        displayName: String,
+        relay: ChannelRelayConfiguration,
+        deliveryMetadata: [String: String],
+        urlSession: URLSession = .shared,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
+    ) {
+        self.channelID = channelID
+        self.displayName = displayName
+        self.relay = relay
+        self.deliveryMetadata = deliveryMetadata
+        self.urlSession = urlSession
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+    }
 
     var capabilities: [DriverChannelCapability] {
         [.outboundMessaging, .inboundPolling, .threadHistory, .auditTrail, .relayPairing]
@@ -256,7 +503,9 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
             channelID: channelID,
             route: .unread,
             method: "GET",
-            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))]
+            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))],
+            urlSession: urlSession,
+            agentProvenanceRecorder: agentProvenanceRecorder
         )
         return Self.parseUnreadMessages(from: outputJson, channelID: channelID)
     }
@@ -280,7 +529,9 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
             channelID: channelID,
             route: .send,
             method: "POST",
-            payload: payload
+            payload: payload,
+            urlSession: urlSession,
+            agentProvenanceRecorder: agentProvenanceRecorder
         )
     }
 
@@ -290,7 +541,9 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
             channelID: channelID,
             route: .threads,
             method: "GET",
-            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))]
+            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))],
+            urlSession: urlSession,
+            agentProvenanceRecorder: agentProvenanceRecorder
         )
         return Self.parseThreads(from: outputJson)
     }
@@ -301,7 +554,9 @@ nonisolated struct RemoteRelayChannelAdapter: DriverChannelAdapting {
             channelID: channelID,
             route: .audit,
             method: "GET",
-            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))]
+            queryItems: [URLQueryItem(name: "limit", value: String(max(1, limit)))],
+            urlSession: urlSession,
+            agentProvenanceRecorder: agentProvenanceRecorder
         )
         return Self.parseAuditEntries(from: outputJson)
     }

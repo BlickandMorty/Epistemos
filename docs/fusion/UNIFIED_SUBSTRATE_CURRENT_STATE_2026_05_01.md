@@ -198,6 +198,19 @@ closed:
   construction, contact routing fallback, `LocalAgentLoop`, PipelineService,
   ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
   UI, provider routing, or EventStore schema.
+- AgentEvent PR13 now instruments the remote relay channel HTTP client path.
+  `RemoteRelayChannelAdapter` injects `URLSession` and an optional
+  `AgentToolProvenanceRecorder`; send/fetch/list/audit relay requests persist
+  requested, started, and completed/failed AgentEvents with
+  `relay-channel-...` run ids, `relay-channel-<channel>` actor metadata,
+  `relay-channel-tool:1` ids, source/surface/channel/route/method metadata,
+  and sanitized JSON payloads. Message text, relay endpoint URLs,
+  credentials, sender identities, relay response bodies, and HTTP error bodies
+  are intentionally excluded. This does not change channel adapter parsing,
+  relay request construction, native fallback semantics,
+  `DriverChannelToolExecutor`, `LocalAgentLoop`, PipelineService,
+  ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
+  UI, provider routing, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -546,7 +559,8 @@ Still open:
   Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount,
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
   CloudLLM direct stream, CloudLLM structured generation, LocalAgentLoop
-  tool execution, and DriverChannelToolExecutor channel wrapper paths.
+  tool execution, DriverChannelToolExecutor channel wrapper paths, and remote
+  relay channel HTTP client paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
@@ -612,12 +626,12 @@ before building.
    OpLog chain verification PR4B, AgentEvent PipelineService live tool
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
    HookRegistry lifecycle PR4, AgentEvent Settings visibility PR5, AgentEvent
-   Pipeline HookRegistry mount PR6, AgentEvent Omega ReasoningLoop internal
-   tool provenance PR7, AgentEvent CloudLLM generate provenance PR8, AgentEvent
-   CloudLLM stream provenance PR9, AgentEvent CloudLLM structured provenance
-   PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
-   DriverChannelToolExecutor provenance PR12, durable GraphEvent
-   mutation mapping PR1, durable
+  Pipeline HookRegistry mount PR6, AgentEvent Omega ReasoningLoop internal
+  tool provenance PR7, AgentEvent CloudLLM generate provenance PR8, AgentEvent
+  CloudLLM stream provenance PR9, AgentEvent CloudLLM structured provenance
+  PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
+  DriverChannelToolExecutor provenance PR12, AgentEvent remote relay channel
+  provenance PR13, durable GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
    Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -783,6 +797,7 @@ AgentEvent CloudLLM direct stream provenance PR9,
 AgentEvent CloudLLM structured generation provenance PR10,
 AgentEvent LocalAgentLoop tool provenance PR11,
 AgentEvent DriverChannelToolExecutor channel provenance PR12,
+AgentEvent remote relay channel provenance PR13,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -803,9 +818,10 @@ visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either remaining live GraphEvent consumer projection
 beyond Halo's read-only ribbon,
-remaining broader runtime AgentEvent coverage beyond CloudLLM
-generate/stream/structured, LocalAgentLoop tool execution, and
-DriverChannelToolExecutor channel wrappers,
+remaining broader runtime AgentEvent coverage beyond the already closed
+CloudLLM generate/stream/structured, LocalAgentLoop tool execution,
+DriverChannelToolExecutor channel wrapper, and remote relay channel HTTP client
+paths,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
