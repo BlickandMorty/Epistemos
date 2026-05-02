@@ -2921,6 +2921,89 @@ struct OpLogSwiftBridgeTests {
         #expect(String(decoding: data, as: UTF8.self).contains("mutation-max-Ω"))
     }
 
+    @Test("Mutation OpLog incremental replay matches full replay")
+    func mutationOpLogIncrementalReplayMatchesFullReplay() throws {
+        let firstBatch = [
+            projectionEntry(seq: 0, mutationID: "mutation-one-Ω", traceID: "trace-one", artifactID: "artifact-one"),
+            nonProjectionEntry(seq: 1),
+            projectionEntry(seq: 2, mutationID: "mutation-two-二", traceID: "trace-two"),
+        ]
+        let secondBatch = [
+            projectionEntry(seq: 3, mutationID: "mutation-one-Ω", traceID: "trace-duplicate"),
+            nonProjectionEntry(seq: 4),
+            projectionEntry(seq: 5, mutationID: "mutation-three", traceID: "trace-three"),
+        ]
+        let overlapBatch = [
+            nonProjectionEntry(seq: 4),
+            projectionEntry(seq: 5, mutationID: "mutation-three", traceID: "trace-three-overlap"),
+            projectionEntry(seq: 6, mutationID: "mutation-four", traceID: "trace-four"),
+            projectionEntry(seq: 6, mutationID: "mutation-same-seq", traceID: "trace-same-seq"),
+        ]
+
+        let firstSnapshot = MutationOpLogReplay.replay(firstBatch, upToSeq: 2)
+        let secondSnapshot = MutationOpLogReplay.applyIncremental(
+            snapshot: firstSnapshot,
+            newEntries: secondBatch,
+            upToSeq: 5
+        )
+        let thirdSnapshot = MutationOpLogReplay.applyIncremental(
+            snapshot: secondSnapshot,
+            newEntries: Array(overlapBatch.prefix(3)),
+            upToSeq: 6
+        )
+        let finalSnapshot = MutationOpLogReplay.applyIncremental(
+            snapshot: thirdSnapshot,
+            newEntries: [overlapBatch[3]],
+            upToSeq: 6
+        )
+        let fullSnapshot = MutationOpLogReplay.replay(firstBatch + secondBatch + [overlapBatch[2]], upToSeq: 6)
+
+        #expect(finalSnapshot == fullSnapshot)
+        #expect(finalSnapshot.records.map(\.mutationID) == [
+            "mutation-one-Ω",
+            "mutation-two-二",
+            "mutation-three",
+            "mutation-four",
+        ])
+        #expect(finalSnapshot.duplicates.count == 1)
+        #expect(finalSnapshot.duplicates.first?.mutationID == "mutation-one-Ω")
+        #expect(finalSnapshot.duplicates.first?.firstSeq == 0)
+        #expect(finalSnapshot.duplicates.first?.duplicateSeq == 3)
+        #expect(finalSnapshot.ignoredNonProjectionCount == 2)
+        #expect(finalSnapshot.highestReplayedSeq == 6)
+        #expect(finalSnapshot.cutoffSeq == 6)
+    }
+
+    @Test("Mutation OpLog incremental ReplayBundle remains privacy safe")
+    func mutationOpLogIncrementalReplayBundleRemainsPrivacySafe() throws {
+        let base = MutationOpLogReplay.replay([
+            projectionEntry(seq: 0, mutationID: "mutation-base"),
+        ])
+        let incremental = MutationOpLogReplay.applyIncremental(
+            snapshot: base,
+            newEntries: [
+                projectionEntry(
+                    seq: 1,
+                    mutationID: "mutation-private",
+                    sourcePayloadJSON: """
+                    {"body":"PRIVATE_NOTE_BODY","cwd":"/Users/jojo/Vault","system_prompt":"system prompt"}
+                    """
+                ),
+            ]
+        )
+
+        let json = String(
+            decoding: try MutationOpLogReplayBundle(snapshot: incremental).deterministicJSONData(),
+            as: UTF8.self
+        )
+        #expect(json.contains("mutation-private"))
+        #expect(!json.contains("sourcePayloadJSON"))
+        #expect(!json.contains("source_payload_json"))
+        #expect(!json.contains("PRIVATE_NOTE_BODY"))
+        #expect(!json.contains("/Users/jojo/Vault"))
+        #expect(!json.contains("system prompt"))
+    }
+
     @Test("Swift bridge replays mutation projections from real OpLog")
     func swiftBridgeReplaysMutationProjectionsFromRealOpLog() throws {
         let url = FileManager.default.temporaryDirectory
@@ -2993,5 +3076,65 @@ struct OpLogSwiftBridgeTests {
         let json = String(decoding: try bundle.deterministicJSONData(), as: UTF8.self)
         #expect(json.contains("mutation-bundle"))
         #expect(!json.contains("PRIVATE_NOTE_BODY"))
+    }
+
+    @Test("Swift bridge incrementally replays mutation projections from real OpLog")
+    func swiftBridgeIncrementallyReplaysMutationProjectionsFromRealOpLog() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-incremental-replay-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let client = try RustOpLogFFIClient(databaseURL: url, actorID: "incremental-replay-test")
+        _ = try client.append(.propSet(
+            nodeID: "mutation-first",
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "event_kind": .string("mutation_envelope"),
+                "integrity_hash": .string("sha256:mutation-first"),
+                "mutation_id": .string("mutation-first"),
+                "recorded_at_ms": .int(1_000),
+                "source_payload_json": .string("{\"mutation_id\":\"mutation-first\"}"),
+                "status": .string("committed"),
+            ])
+        ))
+        _ = try client.append(.nodeAdd(id: "note-ignored", kind: "prose_note", title: "Ignored"))
+
+        let bootstrap = try client.incrementalReplayMutationProjections(from: MutationOpLogReplay.replay([]))
+        #expect(bootstrap.records.map(\.mutationID) == ["mutation-first"])
+        #expect(bootstrap.ignoredNonProjectionCount == 1)
+
+        _ = try client.append(.propSet(
+            nodeID: "mutation-first",
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "event_kind": .string("mutation_envelope"),
+                "integrity_hash": .string("sha256:mutation-first-duplicate"),
+                "mutation_id": .string("mutation-first"),
+                "recorded_at_ms": .int(2_000),
+                "source_payload_json": .string("{\"mutation_id\":\"mutation-first\"}"),
+                "status": .string("committed"),
+            ])
+        ))
+        _ = try client.append(.propSet(
+            nodeID: "mutation-second",
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "event_kind": .string("mutation_envelope"),
+                "integrity_hash": .string("sha256:mutation-second"),
+                "mutation_id": .string("mutation-second"),
+                "recorded_at_ms": .int(3_000),
+                "source_payload_json": .string("{\"mutation_id\":\"mutation-second\"}"),
+                "status": .string("committed"),
+            ])
+        ))
+
+        let incremental = try client.incrementalReplayMutationProjections(from: bootstrap)
+        let full = try client.replayMutationProjections()
+
+        #expect(incremental == full)
+        #expect(incremental.records.map(\.mutationID) == ["mutation-first", "mutation-second"])
+        #expect(incremental.duplicates.count == 1)
+        #expect(incremental.duplicates.first?.mutationID == "mutation-first")
     }
 }

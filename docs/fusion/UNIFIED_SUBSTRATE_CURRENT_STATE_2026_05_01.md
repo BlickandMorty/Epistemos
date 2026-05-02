@@ -119,6 +119,12 @@ closed:
   `sourcePayloadJSON` while staying read-only through
   `RustOpLogFFIClient.exportMutationReplayBundle(...)` and adding no new raw
   ABI, rollback execution, repair, UI, or scheduling path.
+- OpLog incremental replay PR6 is now closed. `MutationOpLogReplay.applyIncremental(...)`
+  extends read-only snapshots from tail entries, drops overlap rows before
+  projection/non-projection counting, seeds duplicate detection from prior
+  records, preserves PR5 ReplayBundle privacy, and
+  `RustOpLogFFIClient.incrementalReplayMutationProjections(from:upToSeq:)`
+  uses only the existing `iterateAll()` / `iterate(after:)` bridge surface.
 - AgentEvent/tool provenance now has a durable Swift EventStore foundation:
   `AgentProvenanceEvent` encodes lower-snake-case run/tool provenance JSON, the
   `agent_events` table enforces unique `event_id`, and EventStore exposes
@@ -437,7 +443,8 @@ closed:
 This is provenance foundation, not full product event logging. EventStore remains
 the committed source of truth; OpLog is now a deterministic projection target for
 mutation provenance with read-only replay snapshots and cryptographic chain
-verification, and `agent_events` is now the durable Swift source for agent/tool
+verification, read-only ReplayBundle export, and incremental replay, and
+`agent_events` is now the durable Swift source for agent/tool
 provenance with the first PipelineService and ChatCoordinator Rust-stream live
 emission paths closed, HookRegistry API-level lifecycle emission, read-only
 Settings visibility, the first PipelineService HookRegistry production mount,
@@ -448,10 +455,10 @@ provenance with a read-only projection snapshot fold. The next provenance gates
 are AgentEvent coverage beyond PipelineService, ChatCoordinator, HookRegistry,
 Omega ReasoningLoop, and CloudLLM generate/stream/structured paths, GraphEvent
 projection into live graph, retrieval, Halo, and Theater surfaces,
-incremental replay/export, and deeper audit/repair surfaces beyond the current
-read-only Settings diagnostics, projection snapshot replay, chain verification,
-AgentEvent visibility diagnostics, and GraphEvent visibility/projection
-diagnostics.
+production ReplayBundle visibility, and deeper audit/repair surfaces beyond the
+current read-only Settings diagnostics, projection snapshot replay, chain
+verification, incremental replay, AgentEvent visibility diagnostics, and
+GraphEvent visibility/projection diagnostics.
 
 ## Current Substrate Spine Status
 
@@ -477,6 +484,9 @@ Proven or actively wired:
   EventStore, including dead-letter counts and latest dead-letter detail.
 - Swift replay can fold projected mutation provenance into deterministic
   read-only snapshots and inspect logical rollback cutoffs by OpLog sequence.
+- Swift incremental replay can extend read-only OpLog replay snapshots from tail
+  entries without re-folding old rows, mutating projection state, or exporting
+  private payloads through ReplayBundle JSON.
 - Rust OpLog chain verification can validate persisted sequence/hash continuity
   and expected-tip anchoring through the Swift-owned raw ABI bridge.
 - EventStore now persists typed agent/tool provenance in `agent_events` through
@@ -651,9 +661,9 @@ Proven or actively wired:
 
 Still open:
 
-- Incremental replay, production visibility, and mutating rollback/repair
-  semantics beyond read-only projection snapshots, read-only ReplayBundle
-  export, and read-only chain verification.
+- Production visibility and mutating rollback/repair semantics beyond read-only
+  projection snapshots, read-only ReplayBundle export, read-only incremental
+  replay, and read-only chain verification.
 - AgentEvent emission beyond PipelineService observed-tool, ChatCoordinator
   Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount,
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
@@ -724,7 +734,8 @@ before building.
 3. **OpLog / GraphEvent / AgentEvent provenance hardening.**
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
    visibility PR3D, replay snapshot PR4A, OpLog chain verification PR4B,
-   OpLog ReplayBundle export PR5, AgentEvent persistence PR1,
+   OpLog ReplayBundle export PR5, OpLog incremental replay PR6,
+   AgentEvent persistence PR1,
    AgentEvent PipelineService live tool
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
    HookRegistry lifecycle PR4, AgentEvent Settings visibility PR5, AgentEvent
@@ -742,7 +753,7 @@ before building.
    Settings projection visibility PR5, durable GraphEvent audit projection PR6,
    durable GraphEvent Halo projection PR7, and durable GraphEvent audit
    visibility PR8 are closed. Add remaining broader runtime AgentEvent coverage,
-   incremental replay/export, live GraphEvent consumer projections beyond the
+   production ReplayBundle visibility, live GraphEvent consumer projections beyond the
    closed read-only Settings/Halo consumers, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
@@ -793,12 +804,13 @@ are:
   PR11, AgentEvent PR12, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
-  Halo's read-only ribbon, incremental replay, deeper repair/audit
+  Halo's read-only ribbon, deeper repair/audit
   visibility, and trace/audit projection semantics.
   Background worker scheduling is closed as PR3C, basic read-only Settings
   visibility is closed as PR3D, read-only projection replay snapshots are
   closed as PR4A, read-only OpLog chain verification is closed as PR4B,
-  read-only OpLog ReplayBundle export is closed as PR5, durable AgentEvent
+  read-only OpLog ReplayBundle export is closed as PR5, read-only OpLog
+  incremental replay is closed as PR6, durable AgentEvent
   persistence is closed as PR1, PipelineService observed tool
   lifecycle emission is closed as PR2, ChatCoordinator Rust-stream lifecycle
   emission is closed as PR3, HookRegistry API-level lifecycle emission is
@@ -906,7 +918,7 @@ EventStore OpLog
 lease/retry PR3A, EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, EventStore OpLog ReplayBundle
-export PR5, AgentEvent durable persistence PR1, AgentEvent PipelineService live
+export PR5, EventStore OpLog incremental replay PR6, AgentEvent durable persistence PR1, AgentEvent PipelineService live
 tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, AgentEvent Pipeline HookRegistry mount PR6,

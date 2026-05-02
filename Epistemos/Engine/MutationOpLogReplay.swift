@@ -169,6 +169,72 @@ nonisolated enum MutationOpLogReplay {
         )
     }
 
+    static func applyIncremental(
+        snapshot: MutationOpLogReplaySnapshot,
+        newEntries: [OpLogEntry],
+        upToSeq cutoffSeq: UInt64? = nil
+    ) -> MutationOpLogReplaySnapshot {
+        if let priorCutoff = snapshot.cutoffSeq,
+           let cutoffSeq,
+           cutoffSeq < priorCutoff {
+            preconditionFailure("incremental replay cannot lower an existing cutoff")
+        }
+
+        let effectiveCutoff = cutoffSeq ?? snapshot.cutoffSeq
+        let sortedEntries = newEntries.sorted { lhs, rhs in
+            if lhs.seq == rhs.seq {
+                return lhs.lamport < rhs.lamport
+            }
+            return lhs.seq < rhs.seq
+        }
+
+        var records = snapshot.records
+        var recordsByMutationID: [String: Int] = [:]
+        for (index, record) in records.enumerated() where recordsByMutationID[record.mutationID] == nil {
+            recordsByMutationID[record.mutationID] = index
+        }
+        var duplicates = snapshot.duplicates
+        var ignoredNonProjectionCount = snapshot.ignoredNonProjectionCount
+        var highestReplayedSeq = snapshot.highestReplayedSeq
+
+        for entry in sortedEntries {
+            if let effectiveCutoff, entry.seq > effectiveCutoff {
+                continue
+            }
+
+            if let highestReplayedSeq, entry.seq <= highestReplayedSeq {
+                // OpLog sequence numbers are unique; same-seq tail rows are stale overlap.
+                continue
+            }
+            highestReplayedSeq = entry.seq
+
+            guard let record = record(from: entry) else {
+                ignoredNonProjectionCount += 1
+                continue
+            }
+
+            if let firstRecordIndex = recordsByMutationID[record.mutationID] {
+                duplicates.append(MutationOpLogReplayDuplicate(
+                    mutationID: record.mutationID,
+                    firstSeq: records[firstRecordIndex].opLogSeq,
+                    duplicateSeq: record.opLogSeq
+                ))
+                continue
+            }
+
+            recordsByMutationID[record.mutationID] = records.count
+            records.append(record)
+        }
+
+        return MutationOpLogReplaySnapshot(
+            cutoffSeq: effectiveCutoff,
+            highestReplayedSeq: highestReplayedSeq,
+            records: records,
+            duplicates: duplicates,
+            ignoredNonProjectionCount: ignoredNonProjectionCount
+        )
+    }
+
     private static func record(from entry: OpLogEntry) -> MutationOpLogReplayRecord? {
         guard case .propSet(let nodeID, let key, let value) = entry.payload,
               key == MutationOpLogProjector.projectionKey,
@@ -202,6 +268,23 @@ nonisolated enum MutationOpLogReplay {
 extension RustOpLogFFIClient {
     nonisolated func replayMutationProjections(upToSeq cutoffSeq: UInt64? = nil) throws -> MutationOpLogReplaySnapshot {
         try MutationOpLogReplay.replay(iterateAll(), upToSeq: cutoffSeq)
+    }
+
+    nonisolated func incrementalReplayMutationProjections(
+        from snapshot: MutationOpLogReplaySnapshot,
+        upToSeq cutoffSeq: UInt64? = nil
+    ) throws -> MutationOpLogReplaySnapshot {
+        let entries: [OpLogEntry]
+        if let highestReplayedSeq = snapshot.highestReplayedSeq {
+            entries = try iterate(after: highestReplayedSeq)
+        } else {
+            entries = try iterateAll()
+        }
+        return MutationOpLogReplay.applyIncremental(
+            snapshot: snapshot,
+            newEntries: entries,
+            upToSeq: cutoffSeq
+        )
     }
 
     nonisolated func exportMutationReplayBundle(
