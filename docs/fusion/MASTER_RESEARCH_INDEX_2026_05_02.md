@@ -736,6 +736,8 @@ Replaces removed status bar (per H9 audit).
 |---|---|---|
 | Truth-router (NEW) | `docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` | Three-tier ship model + killer features + invariants |
 | Codex overseer (NEW) | `docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` | Tier-aware / killer-feature / biometric work |
+| Codex fleet protocol (NEW) | `docs/fusion/CODEX_AGENT_FLEET_PROMPT_2026_05_02.md` | Parallel local/web/Claude research fleet, red-team brief gate, heartbeat, live registry |
+| Fleet live registry (NEW) | `docs/fusion/fleet/REGISTRY.md` | Durable record of spawned/running/returned fleet agents and long-running processes |
 | Worktree salvage (NEW) | `docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md` | 10 stay-stellar items + per-worktree state |
 | Canon gaps (NEW) | `docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` | 15 gaps + 3 bonus findings + pre-drafted addenda |
 | Codex deliberation prompt (NEW) | `docs/fusion/CODEX_DELIBERATION_PROMPT_2026_05_02.md` | Non-interrupting deliberation request |
