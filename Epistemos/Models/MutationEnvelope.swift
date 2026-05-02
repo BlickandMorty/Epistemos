@@ -501,3 +501,171 @@ nonisolated public struct DurableGraphEvent: Codable, Sendable, Hashable {
         case schemaVersion = "schema_version"
     }
 }
+
+nonisolated public struct DurableGraphProjectionNode: Sendable, Hashable {
+    public let id: String
+    public let kind: String?
+    public let lastEventID: String
+    public let lastMutationID: String
+    public let lastEventKind: DurableGraphEventKind
+    public let lastOccurredAtMs: Int64
+
+    public init(
+        id: String,
+        kind: String?,
+        lastEventID: String,
+        lastMutationID: String,
+        lastEventKind: DurableGraphEventKind,
+        lastOccurredAtMs: Int64
+    ) {
+        self.id = id
+        self.kind = kind
+        self.lastEventID = lastEventID
+        self.lastMutationID = lastMutationID
+        self.lastEventKind = lastEventKind
+        self.lastOccurredAtMs = lastOccurredAtMs
+    }
+}
+
+nonisolated public struct DurableGraphProjectionEdge: Sendable, Hashable {
+    public let id: String
+    public let fromID: String
+    public let toID: String
+    public let label: String
+    public let lastEventID: String
+    public let lastMutationID: String
+    public let lastEventKind: DurableGraphEventKind
+    public let lastOccurredAtMs: Int64
+
+    public init(
+        id: String,
+        fromID: String,
+        toID: String,
+        label: String,
+        lastEventID: String,
+        lastMutationID: String,
+        lastEventKind: DurableGraphEventKind,
+        lastOccurredAtMs: Int64
+    ) {
+        self.id = id
+        self.fromID = fromID
+        self.toID = toID
+        self.label = label
+        self.lastEventID = lastEventID
+        self.lastMutationID = lastMutationID
+        self.lastEventKind = lastEventKind
+        self.lastOccurredAtMs = lastOccurredAtMs
+    }
+}
+
+nonisolated public struct DurableGraphProjectionSnapshot: Sendable, Hashable {
+    public let nodes: [DurableGraphProjectionNode]
+    public let edges: [DurableGraphProjectionEdge]
+    public let eventCount: Int
+    public let latestEventID: String?
+
+    public init(
+        nodes: [DurableGraphProjectionNode],
+        edges: [DurableGraphProjectionEdge],
+        eventCount: Int,
+        latestEventID: String?
+    ) {
+        self.nodes = nodes
+        self.edges = edges
+        self.eventCount = eventCount
+        self.latestEventID = latestEventID
+    }
+}
+
+nonisolated public enum DurableGraphEventProjection {
+    public static func snapshot(from events: [DurableGraphEvent]) -> DurableGraphProjectionSnapshot {
+        var nodesByID: [String: DurableGraphProjectionNode] = [:]
+        var edgesByID: [String: DurableGraphProjectionEdge] = [:]
+        nodesByID.reserveCapacity(events.count)
+        edgesByID.reserveCapacity(events.count)
+
+        var latestEventID: String?
+        for event in events {
+            latestEventID = event.eventID
+            switch event.kind {
+            case .nodeCreated, .nodeUpdated:
+                guard let nodeID = normalized(event.entityID) else { continue }
+                nodesByID[nodeID] = DurableGraphProjectionNode(
+                    id: nodeID,
+                    kind: normalized(event.entityKind),
+                    lastEventID: event.eventID,
+                    lastMutationID: event.mutationID,
+                    lastEventKind: event.kind,
+                    lastOccurredAtMs: event.occurredAtMs
+                )
+            case .nodeDeleted:
+                guard let nodeID = normalized(event.entityID) else { continue }
+                nodesByID.removeValue(forKey: nodeID)
+                edgesByID = edgesByID.filter { _, edge in
+                    edge.fromID != nodeID && edge.toID != nodeID
+                }
+            case .edgeCreated, .edgeUpdated:
+                guard let relation = event.relation,
+                      let normalizedRelation = normalizedRelation(relation) else { continue }
+                if event.kind == .edgeUpdated,
+                   let oldLabel = normalized(relation.oldLabel),
+                   oldLabel != normalizedRelation.label {
+                    edgesByID.removeValue(forKey: edgeID(
+                        fromID: normalizedRelation.fromID,
+                        toID: normalizedRelation.toID,
+                        label: oldLabel
+                    ))
+                }
+                let id = edgeID(
+                    fromID: normalizedRelation.fromID,
+                    toID: normalizedRelation.toID,
+                    label: normalizedRelation.label
+                )
+                edgesByID[id] = DurableGraphProjectionEdge(
+                    id: id,
+                    fromID: normalizedRelation.fromID,
+                    toID: normalizedRelation.toID,
+                    label: normalizedRelation.label,
+                    lastEventID: event.eventID,
+                    lastMutationID: event.mutationID,
+                    lastEventKind: event.kind,
+                    lastOccurredAtMs: event.occurredAtMs
+                )
+            case .edgeDeleted:
+                guard let relation = event.relation,
+                      let normalizedRelation = normalizedRelation(relation) else { continue }
+                edgesByID.removeValue(forKey: edgeID(
+                    fromID: normalizedRelation.fromID,
+                    toID: normalizedRelation.toID,
+                    label: normalizedRelation.label
+                ))
+            case .graphMutation:
+                continue
+            }
+        }
+
+        return DurableGraphProjectionSnapshot(
+            nodes: nodesByID.values.sorted { $0.id < $1.id },
+            edges: edgesByID.values.sorted { $0.id < $1.id },
+            eventCount: events.count,
+            latestEventID: latestEventID
+        )
+    }
+
+    private static func edgeID(fromID: String, toID: String, label: String) -> String {
+        "\(fromID)->\(toID):\(label)"
+    }
+
+    private static func normalizedRelation(_ relation: DurableGraphEventRelation) -> (fromID: String, toID: String, label: String)? {
+        guard let fromID = normalized(relation.fromID),
+              let toID = normalized(relation.toID),
+              let label = normalized(relation.label) else { return nil }
+        return (fromID, toID, label)
+    }
+
+    private static func normalized(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+}
