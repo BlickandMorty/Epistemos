@@ -1,0 +1,30 @@
+{
+  "generated_at" : "2026-05-01T00:00:00.000Z",
+  "max" : 0.037091125,
+  "measurement" : "editor_shell_viewport_attribute_220_lines",
+  "metadata" : {
+    "baseline_kind" : "editor_shell_pr3_real",
+    "checksum" : "350365",
+    "fixture_name" : "editor_shell_viewport_attribute",
+    "fixture_status" : "real_appkit_textkit_fixture",
+    "payload_bytes" : "60972",
+    "payload_lines" : "1200",
+    "sample_source" : "focused_xcode_test",
+    "styled_lines" : "220"
+  },
+  "min" : 0.031933667,
+  "p50" : 0.03371075,
+  "p95" : 0.0366019418,
+  "p99" : 0.03699328836000001,
+  "sample_count" : 5,
+  "samples" : [
+    0.031933667,
+    0.032757625,
+    0.03371075,
+    0.034645209,
+    0.037091125
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Editor Shell Baselines",
+  "unit" : "seconds"
+}

@@ -73,4 +73,17 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
         #expect(!source.contains("@Suite(\"R15 Fixture Baselines\", .disabled"))
     }
+
+    @Test("R15 PR3 editor shell fixture baseline is real AppKit work")
+    @MainActor
+    func r15PR3EditorShellFixtureBaselineIsRealAppKitWork() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/EditorShellFixtureBaselineTests.swift")
+
+        #expect(source.contains("EditorShellFixtureBaselineRunner"))
+        #expect(source.contains("editor_shell_pr3_real"))
+        #expect(source.contains("NSTextStorage"))
+        #expect(source.contains("NSTextView"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+    }
 }

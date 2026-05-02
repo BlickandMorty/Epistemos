@@ -1,0 +1,30 @@
+{
+  "generated_at" : "2026-05-01T00:00:00.000Z",
+  "max" : 0.0228935,
+  "measurement" : "editor_shell_batch_insert_96_lines",
+  "metadata" : {
+    "baseline_kind" : "editor_shell_pr3_real",
+    "checksum" : "351210",
+    "fixture_name" : "editor_shell_batch_insert",
+    "fixture_status" : "real_appkit_textkit_fixture",
+    "insert_count" : "96",
+    "payload_bytes" : "45522",
+    "payload_lines" : "900",
+    "sample_source" : "focused_xcode_test"
+  },
+  "min" : 0.021001875,
+  "p50" : 0.02241725,
+  "p95" : 0.022852191799999998,
+  "p99" : 0.02288523836,
+  "sample_count" : 5,
+  "samples" : [
+    0.021001875,
+    0.02213,
+    0.02241725,
+    0.022686959,
+    0.0228935
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Editor Shell Baselines",
+  "unit" : "seconds"
+}
