@@ -211,6 +211,15 @@ closed:
   `DriverChannelToolExecutor`, `LocalAgentLoop`, PipelineService,
   ChatCoordinator, Omega reasoning, graph, Rust, generated bindings, approval,
   UI, provider routing, or EventStore schema.
+- AgentEvent PR14 now instruments `AgentGrepService.search(...)`. AgentGrep
+  searches persist requested, started, and completed/failed AgentEvents with
+  `agent-grep-...` run ids, `agent-grep-service` actor metadata,
+  `agent-grep-search:1` tool identity, source/surface metadata, bounded kind
+  filter, limit, hit count, and backend failure class. Query text, snippets,
+  vault paths, file bodies, source text, sidecar provenance ids, and tool-use ids
+  are intentionally excluded. This does not change search behavior, indexing,
+  unindexing, sidecar enrichment, UI, approval, routing, graph, Rust, generated
+  bindings, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -690,7 +699,8 @@ before building.
   CloudLLM stream provenance PR9, AgentEvent CloudLLM structured provenance
   PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
   DriverChannelToolExecutor provenance PR12, AgentEvent remote relay channel
-  provenance PR13, durable GraphEvent mutation mapping PR1, durable
+  provenance PR13, AgentEvent AgentGrep search provenance PR14, durable
+  GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
    Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -761,7 +771,8 @@ are:
   closed as PR8, CloudLLM direct stream provenance is closed as PR9, CloudLLM
   structured generation provenance is closed as PR10, LocalAgentLoop tool
   provenance is closed as PR11, DriverChannelToolExecutor channel provenance is
-  closed as PR12, durable GraphEvent mutation mapping is closed as PR1,
+  closed as PR12, remote relay channel provenance is closed as PR13, AgentGrep
+  search provenance is closed as PR14, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is

@@ -734,6 +734,16 @@ behavior, native fallback, DriverChannelToolExecutor, LocalAgentLoop,
 PipelineService, ChatCoordinator, Omega, graph, Rust, generated bindings,
 approval, UI, provider routing, and EventStore schema.
 
+PR14 AgentGrep search provenance is also closed.
+`AgentGrepService.search(query:kindFilter:limit:)` now records requested,
+started, and completed/failed AgentEvents with `agent-grep-...` run ids,
+`agent-grep-search:1` tool identity, source/surface metadata, bounded kind
+filter, limit, hit count, and backend failure class. Persisted provenance
+excludes query text, snippets, vault-relative paths, file bodies, source text,
+sidecar provenance ids, and tool-use ids. This preserves search behavior,
+sidecar enrichment, indexing, unindexing, UI, approval, routing, graph, Rust,
+generated bindings, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -797,6 +807,8 @@ Allowed write set:
   `DriverChannelToolExecutor.execute(...)` only.
 - PR13 remote relay channel provenance: already closed for
   `RemoteRelayChannelAdapter` relay send/fetch/list/audit HTTP calls only.
+- PR14 AgentGrep search provenance: already closed for
+  `AgentGrepService.search(query:kindFilter:limit:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
@@ -902,6 +914,13 @@ Tests and logs:
   `/tmp/epistemos-relay-channel-agent-event-pr13-green-20260502.log`.
   The focused `ControlPlaneSurfaceTests` suite passed 23 tests; Xcode still
   printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR14 red log:
+  `/tmp/epistemos-agent-grep-agent-event-pr14-red-20260502.log`.
+- PR14 green log:
+  `/tmp/epistemos-agent-grep-agent-event-pr14-green-20260502.log`.
+  The focused `AgentGrepService (Wave 9.9 base)` Swift Testing suite passed
+  10 tests; Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -992,6 +1011,15 @@ Acceptance:
   semantics, native fallback, DriverChannelToolExecutor, LocalAgentLoop,
   PipelineService, ChatCoordinator, Omega reasoning, graph, Rust, generated
   bindings, approval, UI, provider routing, and EventStore schema.
+- PR14 wired/reachable/visible: AgentGrepService emits requested, started, and
+  completed/failed AgentEvents around `search(...)` with non-empty run id, tool
+  call id, actor, kind-filter/limit metadata, hit-count result payload, and
+  backend failure class. Tests prove query text, snippets, vault paths, source
+  text, sidecar provenance ids, and tool-use ids are not persisted in AgentEvent
+  arguments/results. Source and behavior stay away from indexing algorithm
+  changes, unindexing, UI, approvals, provider routing, PipelineService,
+  ChatCoordinator, LocalAgentLoop, LLMService, Omega, graph, Rust, generated
+  bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

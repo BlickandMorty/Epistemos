@@ -3,6 +3,16 @@ import Testing
 
 @testable import Epistemos
 
+@MainActor
+private final class AgentGrepAgentEventSink {
+    private(set) var events: [AgentProvenanceEvent] = []
+
+    func append(_ event: AgentProvenanceEvent) -> Bool {
+        events.append(event)
+        return true
+    }
+}
+
 /// Wave 9.9 source-guard for the agent-grep API.
 @MainActor
 @Suite("AgentGrepService (Wave 9.9 base)")
@@ -127,6 +137,102 @@ struct AgentGrepServiceTests {
             switch error {
             case .backendFailure: break
             }
+        }
+    }
+
+    @Test("search records sanitized AgentEvents")
+    func searchRecordsSanitizedAgentEvents() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let files = CodeFileService(vaultRoot: vault)
+        let stub = StubCodeIndexClient()
+        let sink = AgentGrepAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 111 },
+            persist: { event in sink.append(event) }
+        )
+        let svc = AgentGrepService(
+            index: stub,
+            files: files,
+            agentProvenanceRecorder: recorder
+        )
+        let url = try files.createCodeFile(
+            relativeDirectory: "Sources",
+            name: "Secret",
+            kind: .swift,
+            body: "func secret() { print(\"private snippet\") }\n",
+            provenance: Self.agentProvenance
+        )
+        try svc.indexDocument(at: url)
+
+        let hits = try svc.search(query: "private", kindFilter: .swift, limit: 5)
+
+        #expect(hits.count == 1)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("agent-grep-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "agent_grep.search" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "agent-grep-search:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "agent_grep_service" })
+        #expect(sink.events.allSatisfy { $0.metadata["kind_filter"] == CodeArtifactKind.swift.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["limit"] == "5" })
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("hit_count") == true)
+
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("private"))
+            #expect(!tool.argumentsJSON.contains("Secret.swift"))
+            #expect(!tool.argumentsJSON.contains("Sources"))
+            #expect(!(tool.resultJSON ?? "").contains("private snippet"))
+            #expect(!(tool.resultJSON ?? "").contains("Secret.swift"))
+            #expect(!(tool.resultJSON ?? "").contains("run-9999"))
+            #expect(!(tool.resultJSON ?? "").contains("tu-zzz"))
+        }
+    }
+
+    @Test("search records sanitized backend failure AgentEvents")
+    func searchRecordsSanitizedBackendFailureAgentEvents() throws {
+        let (vault, cleanup) = makeVault()
+        defer { cleanup() }
+        let files = CodeFileService(vaultRoot: vault)
+        let sink = AgentGrepAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 222 },
+            persist: { event in sink.append(event) }
+        )
+        let svc = AgentGrepService(
+            index: ThrowingStubIndex(),
+            files: files,
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try svc.search(query: "private", kindFilter: .rust, limit: 7)
+            Issue.record("Expected backend search failure.")
+        } catch let error as AgentGrepService.ServiceError {
+            switch error {
+            case .backendFailure: break
+            }
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.metadata["failure_class"] == "backend_failure")
+
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("private"))
+            #expect(tool.resultJSON == nil)
         }
     }
 

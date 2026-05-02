@@ -134,11 +134,23 @@ public final class AgentGrepService {
 
     private let index: any CodeIndexClient
     private let files: CodeFileService
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
     private static let log = Logger(subsystem: "com.epistemos", category: "AgentGrepService")
 
     public init(index: any CodeIndexClient, files: CodeFileService) {
         self.index = index
         self.files = files
+        self.agentProvenanceRecorder = AgentToolProvenanceRecorder()
+    }
+
+    init(
+        index: any CodeIndexClient,
+        files: CodeFileService,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder
+    ) {
+        self.index = index
+        self.files = files
+        self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
     /// Search the workspace + return hits enriched with provenance.
@@ -150,13 +162,50 @@ public final class AgentGrepService {
         kindFilter: CodeArtifactKind? = nil,
         limit: Int = 25
     ) throws -> [AgentGrepHit] {
+        let runID = "agent-grep-\(UUID().uuidString)"
+        let toolCallID = "agent-grep-search:1"
+        let actor = AgentProvenanceActor.agent(id: "agent-grep-service", modelID: nil)
+        let argumentsJSON = agentGrepSearchArgumentsJSON(kindFilter: kindFilter, limit: limit)
+        let baseMetadata = agentGrepSearchMetadata(kindFilter: kindFilter, limit: limit)
+        recordAgentGrepSearchEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordAgentGrepSearchEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+        let startedAt = Date()
         let backendHits: [AgentGrepBackendHit]
         do {
             backendHits = try index.search(query: query, kindFilter: kindFilter, limit: limit)
         } catch {
+            var metadata = baseMetadata
+            metadata["failure_class"] = "backend_failure"
+            recordAgentGrepSearchEvent(
+                runID: runID,
+                kind: .toolCallFailed,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: agentGrepDurationMilliseconds(since: startedAt),
+                status: .failed,
+                errorMessage: "backend_failure",
+                metadata: metadata
+            )
             throw ServiceError.backendFailure(underlying: error)
         }
-        return backendHits.map { hit in
+        let hits = backendHits.map { hit in
             let fileURL = files.vaultRoot.appendingPathComponent(hit.vaultRelativePath, isDirectory: false)
             let sidecar = (try? files.readCodeFile(at: fileURL))?.sidecar
             return AgentGrepHit(
@@ -170,6 +219,20 @@ public final class AgentGrepService {
                 crossReferences: sidecar?.crossReferences ?? []
             )
         }
+        var completedMetadata = baseMetadata
+        completedMetadata["hit_count"] = String(hits.count)
+        recordAgentGrepSearchEvent(
+            runID: runID,
+            kind: .toolCallCompleted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: agentGrepSearchResultJSON(hitCount: hits.count),
+            durationMs: agentGrepDurationMilliseconds(since: startedAt),
+            status: .completed,
+            metadata: completedMetadata
+        )
+        return hits
     }
 
     /// Push a document into the backend index. Called by the W9.5
@@ -201,6 +264,70 @@ public final class AgentGrepService {
         } catch {
             throw ServiceError.backendFailure(underlying: error)
         }
+    }
+
+    private func recordAgentGrepSearchEvent(
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        agentProvenanceRecorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "agent_grep.search",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private func agentGrepSearchArgumentsJSON(kindFilter: CodeArtifactKind?, limit: Int) -> String {
+        agentGrepJSONPayload([
+            "kind_filter": kindFilter?.rawValue ?? "all",
+            "limit": String(limit),
+        ])
+    }
+
+    private func agentGrepSearchResultJSON(hitCount: Int) -> String {
+        agentGrepJSONPayload(["hit_count": String(hitCount)])
+    }
+
+    private func agentGrepSearchMetadata(kindFilter: CodeArtifactKind?, limit: Int) -> [String: String] {
+        [
+            "source": "agent_grep_service",
+            "surface": "agent_grep",
+            "kind_filter": kindFilter?.rawValue ?? "all",
+            "limit": String(limit),
+        ]
+    }
+
+    private func agentGrepDurationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else { return 0 }
+        guard milliseconds < Double(UInt64.max) else { return UInt64.max }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private func agentGrepJSONPayload(_ values: [String: String]) -> String {
+        guard JSONSerialization.isValidJSONObject(values),
+              let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
     }
 }
 
