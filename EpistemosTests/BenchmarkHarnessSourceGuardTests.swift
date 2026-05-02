@@ -86,4 +86,16 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.contains("Task.sleep"))
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
     }
+
+    @Test("R15 PR4 sqlite-vec KNN benchmark points at the real Rust fixture")
+    @MainActor
+    func r15PR4SQLiteVecKNNBenchmarkPointsAtRealRustFixture() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/SQLiteVecKNNBenchTests.swift")
+
+        #expect(source.contains("sqlite_vec_knn_100k_32d"))
+        #expect(source.contains("real sqlite-vec vec0 KNN fixture"))
+        #expect(source.contains("target_vector_count"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+    }
 }
