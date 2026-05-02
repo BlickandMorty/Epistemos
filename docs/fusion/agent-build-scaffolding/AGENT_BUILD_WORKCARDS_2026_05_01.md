@@ -1269,6 +1269,16 @@ performs no delete, and the existing delete/save/reinsert rollback semantics
 remain unchanged. The slice does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, migrate other note/editor dialogs, or touch
 Rust/generated/graph/Omega/ChatCoordinator.
+RootView Destructive PR8 is also closed. `Epistemos/App/RootView.swift` now
+routes the existing database error "Reset Database" and vault recovery
+"Disconnect Vault" destructive controls through the shared `AppBootstrap`
+`SovereignGate` with `.deviceOwnerAuthentication` before calling their original
+closures. Red-team P2/P3 findings are addressed: denied reset auth restores the
+database recovery alert while the database error remains present, and vault
+disconnect has an in-flight auth guard to prevent duplicate prompts/actions.
+The slice does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`,
+alter database reset or vault recovery semantics, or touch Rust/generated/
+graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1302,6 +1312,10 @@ Authority to read first:
 - `docs/fusion/deliberation/sovereign_gate_version_delete_pr7_deliberation_2026_05_02.md`
 - `/tmp/epistemos-sovereign-gate-version-delete-pr7-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-20260502.log`
+- `docs/fusion/deliberation/sovereign_gate_rootview_destructive_pr8_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-rootview-pr8-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-rootview-pr8-green-20260502.log`
+- `/tmp/epistemos-sovereign-gate-rootview-pr8-green-r2-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
@@ -1314,6 +1328,8 @@ Allowed write set:
   tests: already closed.
 - PR7 DiffSheet version-delete menu migration and focused tests: already
   closed.
+- PR8 RootView database reset and vault disconnect migration and focused tests:
+  already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1321,8 +1337,9 @@ Allowed write set:
 - Future confirmation-surface migration PRs only after a gate names each exact
   existing surface and its focused tests; Notes Sidebar page/folder permanent
   deletes are already covered by PR5, and Chat Sidebar context-menu chat
-  deletes are already covered by PR6, and DiffSheet version deletes are already
-  covered by PR7.
+  deletes are already covered by PR6, DiffSheet version deletes are already
+  covered by PR7, and RootView database reset/vault disconnect controls are
+  already covered by PR8.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1386,6 +1403,12 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-20260502.log`.
 - PR7 final focused green log:
   `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-final-20260502.log`.
+- PR8 red log:
+  `/tmp/epistemos-sovereign-gate-rootview-pr8-red-20260502.log`.
+- PR8 focused green log:
+  `/tmp/epistemos-sovereign-gate-rootview-pr8-green-20260502.log`.
+- PR8 post-red-team focused green log:
+  `/tmp/epistemos-sovereign-gate-rootview-pr8-green-r2-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1448,6 +1471,17 @@ Acceptance:
   `LocalAuthentication`, version persistence semantics, generated transport,
   Rust, graph files, Omega, ChatCoordinator, subprocesses, solver hot paths,
   tensor copies, and memory hot paths.
+- PR8 wired/reachable/visible: the existing RootView database error "Reset
+  Database" and vault recovery "Disconnect Vault" destructive controls request
+  shared `SovereignGate` device-owner authentication before calling their
+  original closures, focused tests prove both controls map to Destructive auth
+  with explicit reason strings, source guards prove direct closure calls moved
+  behind the gate, denied reset auth restores the database recovery alert while
+  the error remains present, vault disconnect has an in-flight auth guard, and
+  the slice stays out of `SovereignGate.swift`, duplicate `LocalAuthentication`,
+  database reset/vault recovery semantics, generated transport, Rust, graph
+  files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor copies,
+  and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

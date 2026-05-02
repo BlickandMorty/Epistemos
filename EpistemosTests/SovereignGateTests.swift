@@ -312,6 +312,79 @@ struct SovereignGateTests {
         #expect(allowed.lowerBound < delete.lowerBound)
     }
 
+    @Test("Root view destructive actions map to destructive Sovereign Gate requirements")
+    func rootViewDestructiveActionsMapToSovereignGateRequirements() {
+        #expect(
+            RootViewDestructiveActionSovereignGate.requirement(for: .databaseReset)
+                == .deviceOwnerAuthentication
+        )
+        #expect(
+            RootViewDestructiveActionSovereignGate.requirement(for: .vaultDisconnect)
+                == .deviceOwnerAuthentication
+        )
+
+        let resetReason = RootViewDestructiveActionSovereignGate.reason(for: .databaseReset)
+        let disconnectReason = RootViewDestructiveActionSovereignGate.reason(for: .vaultDisconnect)
+
+        #expect(resetReason.localizedCaseInsensitiveContains("reset database"))
+        #expect(resetReason.localizedCaseInsensitiveContains("delete saved data"))
+        #expect(disconnectReason.localizedCaseInsensitiveContains("disconnect vault"))
+    }
+
+    @Test("Root view destructive controls route through Sovereign Gate")
+    func rootViewDestructiveControlsRouteThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/App/RootView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let resetButton = try section(
+            from: "Button(\"Reset Database\", role: .destructive) {",
+            to: "Button(\"Quit\")"
+        )
+        #expect(resetButton.contains("requestDatabaseResetAuthorization()"))
+        #expect(!resetButton.contains("onResetDatabase?()"))
+
+        let resetRequest = try section(
+            from: "private func requestDatabaseResetAuthorization()",
+            to: "private func handleDatabaseCheck()"
+        )
+        #expect(resetRequest.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(resetRequest.contains("guard outcome == .allowed else {"))
+        #expect(resetRequest.contains("showDatabaseAlert = true"))
+        #expect(resetRequest.contains("onResetDatabase?()"))
+
+        let resetDenied = try #require(resetRequest.range(of: "guard outcome == .allowed else {"))
+        let resetReopen = try #require(resetRequest.range(of: "showDatabaseAlert = true"))
+        let resetClosure = try #require(resetRequest.range(of: "onResetDatabase?()"))
+        #expect(resetDenied.lowerBound < resetReopen.lowerBound)
+        #expect(resetReopen.lowerBound < resetClosure.lowerBound)
+
+        let disconnectButton = try section(
+            from: "Button(\"Disconnect Vault\", role: .destructive) {",
+            to: ".disabled(isRecovering || isVaultDisconnectAuthorizationInFlight)"
+        )
+        #expect(disconnectButton.contains("requestVaultDisconnectAuthorization()"))
+        #expect(!disconnectButton.contains("disconnectAction()"))
+        #expect(source.contains(".disabled(isRecovering || isVaultDisconnectAuthorizationInFlight)"))
+
+        let disconnectRequest = try section(
+            from: "private func requestVaultDisconnectAuthorization()",
+            to: "var body: some View"
+        )
+        #expect(disconnectRequest.contains("guard !isVaultDisconnectAuthorizationInFlight else { return }"))
+        #expect(disconnectRequest.contains("isVaultDisconnectAuthorizationInFlight = true"))
+        #expect(disconnectRequest.contains("defer { isVaultDisconnectAuthorizationInFlight = false }"))
+        #expect(disconnectRequest.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(disconnectRequest.contains("guard outcome == .allowed else { return }"))
+        #expect(disconnectRequest.contains("disconnectAction()"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])
