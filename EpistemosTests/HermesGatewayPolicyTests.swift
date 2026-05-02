@@ -92,4 +92,36 @@ nonisolated struct HermesGatewayPolicyTests {
             #expect(!HermesGatewayPolicy.usesHermesGateway(surface))
         }
     }
+
+    @Test("local surfaces do not require structured external evidence return")
+    func localSurfacesDoNotRequireStructuredExternalEvidenceReturn() {
+        #expect(HermesGatewayPolicy.evidenceReturn(for: .deterministicLocalSubstrate) == .none)
+        #expect(HermesGatewayPolicy.evidenceReturn(for: .localPromptFormatting) == .inProcessPromptContext)
+        #expect(!HermesGatewayPolicy.requiresStructuredEvidenceReturn(.deterministicLocalSubstrate))
+        #expect(!HermesGatewayPolicy.requiresStructuredEvidenceReturn(.localPromptFormatting))
+    }
+
+    @Test("external gateway surfaces require structured evidence provenance")
+    func externalGatewaySurfacesRequireStructuredEvidenceProvenance() {
+        for surface in HermesGatewayPolicy.Surface.externalGatewaySurfaces {
+            #expect(HermesGatewayPolicy.evidenceReturn(for: surface) == .structuredEvidenceProvenance)
+            #expect(HermesGatewayPolicy.requiresStructuredEvidenceReturn(surface))
+        }
+    }
+
+    @Test("evidence return follows the gateway route")
+    func evidenceReturnFollowsGatewayRoute() {
+        for surface in HermesGatewayPolicy.Surface.allCases {
+            let route = HermesGatewayPolicy.route(for: surface)
+            let requiresStructuredEvidence = HermesGatewayPolicy.requiresStructuredEvidenceReturn(surface)
+
+            switch route {
+            case .directSubstrate, .inProcessLocalPrompt:
+                #expect(!requiresStructuredEvidence)
+            case .hermesGateway:
+                #expect(requiresStructuredEvidence)
+                #expect(HermesGatewayPolicy.evidenceReturn(for: surface) == .structuredEvidenceProvenance)
+            }
+        }
+    }
 }

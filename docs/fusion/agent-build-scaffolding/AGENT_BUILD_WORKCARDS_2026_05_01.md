@@ -1784,6 +1784,11 @@ Route Policy PR6 is closed. `HermesGatewayPolicy` now assigns each surface to
 code can keep already-local substrate answers direct, keep local Hermes-family
 prompt formatting in-process, and route cloud/CLI/MCP/browser/Docker/external
 side-effect work through the single Hermes gateway.
+Evidence Return PR7 is closed. `HermesGatewayPolicy` now declares each surface's
+return contract: direct substrate work returns no external evidence, local
+in-process prompt formatting returns prompt context only, and every unified
+Hermes gateway surface must return structured evidence/provenance rather than
+graph, Rex, or substrate authority.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1848,12 +1853,19 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-route-pr6-red-20260502.log`.
 - PR6 Green log:
   `/tmp/epistemos-hermes-gateway-route-pr6-green-20260502.log`.
+- PR7 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_evidence_return_policy_pr7_deliberation_2026_05_02.md`.
+- PR7 Red log:
+  `/tmp/epistemos-hermes-gateway-evidence-return-pr7-red-20260502.log`.
+- PR7 Green log:
+  `/tmp/epistemos-hermes-gateway-evidence-return-pr7-green-20260502.log`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
   10-test suite; PR3 passed the expanded 11-test suite; PR4 passed 15 focused
   tests across the policy and prompt suites; PR5 passed the expanded 6-test
-  policy suite; PR6 passed the expanded 8-test policy suite. Xcode still
+  policy suite; PR6 passed the expanded 8-test policy suite; PR7 passed the
+  expanded 11-test policy suite. Xcode still
   printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
@@ -1897,6 +1909,14 @@ Acceptance:
 - PR6 reachable: focused tests prove local work avoids the Hermes gateway route
   while every external gateway surface uses it.
 - PR6 boundary: no runtime adapter, provider, subprocess, MCP, browser,
+  Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
+  protected graph, or protected editor path was touched.
+- PR7 wired: `evidenceReturn(for:)` and
+  `requiresStructuredEvidenceReturn(_:)` map direct, in-process, and external
+  gateway surfaces to explicit evidence-return contracts.
+- PR7 reachable: focused tests prove local surfaces do not require structured
+  external evidence while every Hermes gateway surface does.
+- PR7 boundary: no runtime adapter, provider, subprocess, MCP, browser,
   Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
   protected graph, or protected editor path was touched.
 
