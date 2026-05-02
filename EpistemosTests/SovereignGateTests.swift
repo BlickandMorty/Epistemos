@@ -385,6 +385,64 @@ struct SovereignGateTests {
         #expect(disconnectRequest.contains("disconnectAction()"))
     }
 
+    @Test("Model vault deletes map to destructive Sovereign Gate requirements")
+    func modelVaultDeletesMapToDestructiveSovereignGateRequirements() {
+        #expect(
+            ModelVaultDeletionSovereignGate.requirement(for: .file(name: "weights.gguf"))
+                == .deviceOwnerAuthentication
+        )
+        #expect(
+            ModelVaultDeletionSovereignGate.requirement(for: .folder(name: "adapters"))
+                == .deviceOwnerAuthentication
+        )
+
+        let fileReason = ModelVaultDeletionSovereignGate.reason(for: .file(name: "weights.gguf"))
+        let folderReason = ModelVaultDeletionSovereignGate.reason(for: .folder(name: "adapters"))
+
+        #expect(fileReason.contains("weights.gguf"))
+        #expect(folderReason.contains("adapters"))
+        #expect(fileReason.localizedCaseInsensitiveContains("permanently delete"))
+        #expect(folderReason.localizedCaseInsensitiveContains("permanently delete"))
+    }
+
+    @Test("Model vault delete alert routes through captured Sovereign Gate target")
+    func modelVaultDeleteAlertRoutesThroughCapturedSovereignGateTarget() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/ModelVaultsSidebarSection.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let alert = try section(
+            from: ".alert(item: $pendingDeleteTarget) { target in",
+            to: ".sheet(item: $pendingCreateRequest)"
+        )
+        #expect(alert.contains("requestDeleteAuthorization(target)"))
+        #expect(!alert.contains("delete(target)"))
+
+        let request = try section(
+            from: "private func requestDeleteAuthorization(_ target: ModelVaultDeleteTarget)",
+            to: "private func delete(_ target: ModelVaultDeleteTarget)"
+        )
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("delete(target)"))
+
+        let confirm = try #require(request.range(of: "AppBootstrap.shared?.sovereignGate.confirm("))
+        let allowed = try #require(request.range(of: "guard outcome == .allowed else { return }"))
+        let delete = try #require(request.range(of: "delete(target)"))
+        #expect(confirm.lowerBound < allowed.lowerBound)
+        #expect(allowed.lowerBound < delete.lowerBound)
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])

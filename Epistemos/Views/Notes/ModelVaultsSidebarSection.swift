@@ -179,6 +179,31 @@ struct ModelVaultsSidebarSection: View {
     }
 }
 
+enum ModelVaultDeletionSovereignGate {
+    enum Target: Equatable {
+        case file(name: String)
+        case folder(name: String)
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        .deviceOwnerAuthentication
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case let .file(name):
+            return "Permanently delete model vault file \"\(safeName(name))\"."
+        case let .folder(name):
+            return "Permanently delete model vault folder \"\(safeName(name))\" and its contents."
+        }
+    }
+
+    private static func safeName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
 private struct ModelVaultSidebarRow: View {
     let entry: ModelVaultEntry
     @Binding var isExpanded: Bool
@@ -213,7 +238,7 @@ private struct ModelVaultSidebarRow: View {
                 title: Text("Delete \(target.title)?"),
                 message: Text("This removes the item from the model vault immediately."),
                 primaryButton: .destructive(Text("Delete")) {
-                    delete(target)
+                    requestDeleteAuthorization(target)
                 },
                 secondaryButton: .cancel()
             )
@@ -536,6 +561,19 @@ private struct ModelVaultSidebarRow: View {
         }
     }
 
+    private func requestDeleteAuthorization(_ target: ModelVaultDeleteTarget) {
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                ModelVaultDeletionSovereignGate.requirement(for: target.gateTarget),
+                reason: ModelVaultDeletionSovereignGate.reason(for: target.gateTarget)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else { return }
+
+            delete(target)
+        }
+    }
+
     private func delete(_ target: ModelVaultDeleteTarget) {
         guard ModelVaultBrowserStore.deleteItem(at: target.url) else { return }
         let removedPageIDs = ModelVaultBrowserStore.removeWorkspacePages(
@@ -631,7 +669,8 @@ private struct ModelVaultTreeRow: View {
                         pendingDeleteTarget = ModelVaultDeleteTarget(
                             url: node.url,
                             relativePath: node.relativePath,
-                            title: node.name
+                            title: node.name,
+                            gateTarget: .folder(name: node.name)
                         )
                     }
                 }
@@ -688,7 +727,8 @@ private struct ModelVaultTreeRow: View {
                             pendingDeleteTarget = ModelVaultDeleteTarget(
                                 url: document.url,
                                 relativePath: document.relativePath,
-                                title: document.displayName
+                                title: document.displayName,
+                                gateTarget: .file(name: document.displayName)
                             )
                         }
                     }
@@ -790,6 +830,7 @@ private struct ModelVaultDeleteTarget: Identifiable {
     let url: URL
     let relativePath: String
     let title: String
+    let gateTarget: ModelVaultDeletionSovereignGate.Target
 
     var id: String { relativePath }
 }

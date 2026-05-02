@@ -1592,6 +1592,14 @@ disconnect has an in-flight auth guard to prevent duplicate prompts/actions.
 The slice does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`,
 alter database reset or vault recovery semantics, or touch Rust/generated/
 graph/Omega/ChatCoordinator.
+Model Vault Delete PR9 is also closed. `Epistemos/Views/Notes/ModelVaultsSidebarSection.swift`
+now routes the existing Model Vaults sidebar file/folder destructive delete
+alert through the shared `AppBootstrap` `SovereignGate` with
+`.deviceOwnerAuthentication` before delete execution. The pending delete target
+stores a typed file/folder gate target before async auth, denied/unavailable auth
+performs no delete, and the slice does not edit `SovereignGate.swift`,
+duplicate `LocalAuthentication`, alter model-vault browser/delete semantics, or
+touch Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1629,6 +1637,9 @@ Authority to read first:
 - `/tmp/epistemos-sovereign-gate-rootview-pr8-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-rootview-pr8-green-20260502.log`
 - `/tmp/epistemos-sovereign-gate-rootview-pr8-green-r2-20260502.log`
+- `docs/fusion/deliberation/sovereign_gate_model_vault_delete_pr9_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-model-vault-pr9-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
@@ -1643,6 +1654,8 @@ Allowed write set:
   closed.
 - PR8 RootView database reset and vault disconnect migration and focused tests:
   already closed.
+- PR9 Model Vaults sidebar file/folder delete migration and focused tests:
+  already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1651,8 +1664,9 @@ Allowed write set:
   existing surface and its focused tests; Notes Sidebar page/folder permanent
   deletes are already covered by PR5, and Chat Sidebar context-menu chat
   deletes are already covered by PR6, DiffSheet version deletes are already
-  covered by PR7, and RootView database reset/vault disconnect controls are
-  already covered by PR8.
+  covered by PR7, RootView database reset/vault disconnect controls are already
+  covered by PR8, and Model Vaults sidebar file/folder deletes are already
+  covered by PR9.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1722,6 +1736,12 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-rootview-pr8-green-20260502.log`.
 - PR8 post-red-team focused green log:
   `/tmp/epistemos-sovereign-gate-rootview-pr8-green-r2-20260502.log`.
+- PR9 red log:
+  `/tmp/epistemos-sovereign-gate-model-vault-pr9-red-20260502.log`.
+- PR9 focused green log:
+  `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-20260502.log`.
+- PR9 final focused green log:
+  `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-r2-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1795,6 +1815,16 @@ Acceptance:
   database reset/vault recovery semantics, generated transport, Rust, graph
   files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor copies,
   and memory hot paths.
+- PR9 wired/reachable/visible: the existing Model Vaults sidebar file/folder
+  delete alert requests shared `SovereignGate` device-owner authentication
+  before deleting the captured file or folder target, focused tests prove both
+  delete target types map to Destructive auth with explicit reason strings,
+  source guards prove the alert calls the authorization path instead of direct
+  deletion, the authorized delete runs only after `.allowed`, denied/unavailable
+  auth performs no delete, and the slice stays out of `SovereignGate.swift`,
+  duplicate `LocalAuthentication`, model-vault browser/delete semantics,
+  generated transport, Rust, graph files, Omega, ChatCoordinator, subprocesses,
+  solver hot paths, tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

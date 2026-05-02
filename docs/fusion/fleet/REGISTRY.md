@@ -133,3 +133,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 29 | 2026-05-02T23:22Z | implementation | slice=search-index-service-fused-sync-agent-event-pr20 | codex/local | n/a | done | Epistemos/Sync/SearchIndexService.swift | +1 |
 | 29 | 2026-05-02T23:22Z | test | suite=SearchIndexServiceFusionTests+SearchIndexServiceAgentEventSourceGuardTests | xcodebuild | session:8198 | done | /tmp/epistemos-search-index-fused-sync-agent-event-pr20-green-20260502.log | +1 |
 | 29 | 2026-05-02T23:22Z | guard | slice=search-index-service-fused-sync-agent-event-pr20 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 30 | 2026-05-02T23:24Z | claude-side-fleet | scope=next-master-plan-slice-selection-after-pr20 | claude/print-readonly | pid:76231 | failed | docs/fusion/fleet/round-30-next-master-plan-slice-selection/claude-side-fleet/aggregator.md | -1 |
+| 30 | 2026-05-02T23:27Z | aggregator | scope=next-master-plan-slice-selection-after-pr20 | codex/local | n/a | done | docs/fusion/fleet/round-30-next-master-plan-slice-selection/aggregator.md | +1 |
+| 31 | 2026-05-02T23:29Z | detective | concept=Sovereign Gate model vault destructive delete migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-model-vault-delete-pr9/detectives/sovereign-gate-model-vault-delete.md | +1 |
+| 31 | 2026-05-02T23:29Z | aggregator | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-model-vault-delete-pr9/aggregator.md | +1 |
+| 31 | 2026-05-02T23:29Z | pipeline-builder | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_model_vault_delete_pr9_deliberation_2026_05_02.md | +1 |
+| 31 | 2026-05-02T23:29Z | codex-red-team | brief=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-model-vault-delete-pr9/codex-red-team/attacks.md | +1 |
+| 31 | 2026-05-02T23:37Z | implementation | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | Epistemos/Views/Notes/ModelVaultsSidebarSection.swift | +1 |
+| 31 | 2026-05-02T23:42Z | test | suite=SovereignGateTests | xcodebuild | session:37207 | done | /tmp/epistemos-sovereign-gate-model-vault-pr9-green-r2-20260502.log | +1 |
+| 31 | 2026-05-02T23:37Z | guard | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
