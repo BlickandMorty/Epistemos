@@ -48,11 +48,17 @@ public struct ShadowPanelContent: View {
 
     let controller: HaloController
     let handlers: ShadowPanelHandlers
+    let onClose: @MainActor () -> Void
     @State private var hoveredID: String?
 
-    public init(controller: HaloController, handlers: ShadowPanelHandlers = ShadowPanelHandlers()) {
+    public init(
+        controller: HaloController,
+        handlers: ShadowPanelHandlers = ShadowPanelHandlers(),
+        onClose: @escaping @MainActor () -> Void = {}
+    ) {
         self.controller = controller
         self.handlers = handlers
+        self.onClose = onClose
     }
 
     public var body: some View {
@@ -67,7 +73,10 @@ public struct ShadowPanelContent: View {
         }
         .frame(width: 360, height: 480)
         .background(.ultraThinMaterial)
-        .onExitCommand { controller.closePanel() }
+        .onExitCommand {
+            controller.closePanel()
+            onClose()
+        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Contextual shadows")
     }

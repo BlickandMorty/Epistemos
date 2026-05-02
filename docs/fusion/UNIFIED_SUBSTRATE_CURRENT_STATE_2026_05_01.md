@@ -304,8 +304,12 @@ Proven or actively wired:
   per-vault `ShadowSearchService` backend when the Shadow backend is ready,
   while preserving the `InstantRecallService` fallback. Recall cards carry
   visible source provenance.
-- V1 Halo controller/editor bridge/search panel scaffolding exists and is
-  tested, but is not production-mounted.
+- V1 Halo protected editor mount PR1 is closed in code and focused tests:
+  `ProseEditorRepresentable2.Coordinator2` uses a direct route to the existing
+  `HaloController` when ambient recall is enabled and the per-vault Shadow
+  backend is configured, hosts the glyph in the editor scroll view, and opens
+  the existing trailing-edge `ShadowPanelController`. `HaloEditorBridge` remains
+  scaffold/test-only and is not instantiated in production.
 - Hermes Cloud Gateway architecture is now doc-locked: Pro/Research cloud
   models, MCP/web/browser tools, Docker/devcontainer work, and
   Claude/Codex/Kimi/Gemini CLI delegation use one unified gateway/control
@@ -329,8 +333,10 @@ Still open:
   action-class matrix, generated transport, existing confirmation-surface
   migration, and any Pro/Research Secure Enclave or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
-- Full V1 Halo editor mount, trailing-edge editor glyph, and inline editor
-  integration remain separate protected-path decisions.
+- Halo V1 manual runtime verification, richer panel actions, and live domain
+  re-query remain open. The protected editor mount/glyph/panel route itself is
+  closed in code, but it is not product-ready until manual runtime verification
+  is reopened and passes against a real vault.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
   live MLX token throughput under sufficient-memory/thermal-soak conditions and
   the true Rust callback-loop export. Any production GRDB/768-dimensional KNN
@@ -340,14 +346,11 @@ Still open:
 
 ## Safe Next Build Order
 
-1. **Halo V1 implementation deliberation.**
-   V0 backend routing is closed for PR1: production Contextual Shadows can use
-   `ShadowSearchService` when the per-vault Shadow backend is configured and
-   falls back to `InstantRecallService` otherwise. Any full V1 Halo editor mount
-   still requires a protected editor gate. Do not touch `ProseEditor*` unless
-   that gate explicitly approves it.
-
-2. **R15 remaining specialized baselines.**
+1. **R15 remaining specialized baselines.**
+   Halo V1 protected editor mount PR1 is now closed in code and focused tests.
+   Manual runtime verification for the recall UX is still open, but the next
+   autonomous code-safe build lane is the remaining R15 baselines unless the
+   user explicitly reopens manual app testing.
    PR2 real fixtures are closed for Swift graph payload construction, markdown
    parser FFI, and code-token parser FFI. PR3 is closed for editor-shell
    AppKit/TextKit fixture work. PR4 is closed for sqlite-vec 100k x 32d KNN.
@@ -363,7 +366,7 @@ Still open:
    that writes real JSON results and promotes `try?` recorder calls only when the
    benchmark becomes authoritative.
 
-3. **R16 runtime/manual closure.**
+2. **R16 runtime/manual closure.**
    ETL worker execution is closed as PR3H. Memory-pressure dispatch pause is
    closed as PR3E, MAS bookmark enforcement is closed as PR3F, and
    model-derived badge visibility is closed as PR3G, and Sidecar Schema Mirror
@@ -372,7 +375,7 @@ Still open:
    runtime/manual gate verifies the user flow against a real vault and records
    logs.
 
-4. **OpLog provenance hardening.**
+3. **OpLog / GraphEvent / AgentEvent provenance hardening.**
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
    visibility PR3D, replay snapshot PR4A, AgentEvent persistence PR1,
    OpLog chain verification PR4B, AgentEvent PipelineService live tool
@@ -385,7 +388,7 @@ Still open:
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
 
-5. **Core/MAS release split audit.**
+4. **Core/MAS release split audit and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor. Future
    Sovereign slices must start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
@@ -397,6 +400,11 @@ Still open:
    CLIs are delegated tools behind it, not separate app architectures or graph
    authorities.
 
+5. **Halo runtime/manual follow-up.**
+   The protected V1 editor mount/glyph/panel route is code-closed. Remaining
+   Halo work is manual runtime verification against a real vault, richer panel
+   actions, and live domain re-query, all behind new exact gates.
+
 6. **V1.5 typed artifacts and Pro tunnels.**
    Only after the Core provenance/retrieval/diagnostics substrate is stable.
 
@@ -405,9 +413,9 @@ Still open:
 Agents are good to work on narrow, gated cards only. The safest immediate cards
 are:
 
-- Card 5 Halo Live Loop follow-up, but only for the remaining full V1/editor
-  mount work behind a protected-path gate. The V0 Shadow backend route PR1 is
-  already closed.
+- Card 5 Halo follow-up only for manual runtime verification, richer panel
+  actions, or live domain re-query. V0 Shadow backend route PR1 and V1
+  protected editor mount PR1 are already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR4, GraphEvent PR1, GraphEvent visibility PR2, and GraphEvent
   projection snapshot PR3 with
@@ -474,10 +482,13 @@ Contextual Shadows V0:
 
 Halo V1:
 
-- Wired: controller, editor bridge, search service, panel scaffold.
-- Reachable: not production-mounted yet.
-- Visible: tests only.
-- Gap: needs a protected-path route decision before editor integration.
+- Wired: controller, direct editor coordinator mount, search service, glyph, and
+  trailing-edge panel scaffold. `HaloEditorBridge` remains scaffold/test-only.
+- Reachable: flag-gated by `EPISTEMOS_AMBIENT_RECALL_V0=1` and requires a
+  configured per-vault Shadow backend.
+- Visible: glyph and panel route are code-mounted and covered by focused tests.
+- Gap: manual runtime verification against a real vault, richer panel actions,
+  and live domain re-query.
 
 ## Operating Rule For New Sessions
 
@@ -508,15 +519,15 @@ ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
-backend route, R16 memory-pressure dispatch pause PR3E, and R16 MAS bookmark
-enforcement PR3F, R16 model-derived badge visibility PR3G, and R16 ETL worker
-execution PR3H, plus the R16 Sidecar Schema Mirror Card 2 audit/no-op closure,
-are good to build on.
+backend route, Halo V1 protected editor mount PR1, R16 memory-pressure dispatch
+pause PR3E, and R16 MAS bookmark enforcement PR3F, R16 model-derived badge
+visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
+Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either live GraphEvent consumer projection,
 Omega/broader runtime AgentEvent coverage,
 production hook call-site mounting, Sovereign Gate Rust/transport/surface
 follow-through, remaining
-R15 specialized baselines, R16 runtime/manual closure, or a protected V1 Halo
-editor gate, depending on whether the immediate priority is provenance
+R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
+verification, depending on whether the immediate priority is provenance
 projection, security/policy gating, performance-safe graph/FFI work,
 background retrieval, or richer recall UX.
