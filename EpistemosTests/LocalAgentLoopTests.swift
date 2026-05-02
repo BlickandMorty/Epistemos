@@ -427,6 +427,51 @@ struct LocalAgentLoopTests {
         #expect(answer == "Transformer notes found after reflex execution.")
     }
 
+    @Test("reflex mode flushes trailing tag-prefix plaintext once at stream end")
+    @MainActor
+    func reflexModeFlushesTrailingTagPrefixPlaintextOnceAtStreamEnd() async throws {
+        let streamQueue = StreamChunkQueue(streams: [
+            [
+                "The relation is A ",
+                "<",
+            ],
+        ])
+
+        var visibleText = ""
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                Issue.record("Reflex mode should stay on the streaming path.")
+                return ""
+            },
+            streamingGenerator: { _, _, _, _, _ in
+                let chunks = await streamQueue.nextStream()
+                return AsyncThrowingStream<String, Error> { continuation in
+                    for chunk in chunks {
+                        continuation.yield(chunk)
+                    }
+                    continuation.finish()
+                }
+            },
+            toolExecutor: { _, _ in
+                Issue.record("No tool should execute for plain text.")
+                return LocalToolResult(toolName: "unexpected", resultJson: "{}", isError: true)
+            }
+        )
+
+        let answer = try await loop.run(
+            objective: "Answer directly.",
+            tools: [sampleTool()],
+            maxTurns: 1,
+            reflexMode: true,
+            onToken: { token in
+                visibleText += token
+            }
+        )
+
+        #expect(visibleText == "The relation is A <")
+        #expect(answer == "The relation is A <")
+    }
+
     @Test("reflex mode retries when a tool-capable turn emits only hidden scratchpad")
     @MainActor
     func reflexModeRetriesInvisibleScratchpadOnlyTurns() async throws {

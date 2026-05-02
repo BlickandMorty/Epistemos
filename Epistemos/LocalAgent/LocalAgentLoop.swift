@@ -565,6 +565,21 @@ actor LocalAgentLoop {
             // Expected when we break out or the parent task is cancelled.
         }
 
+        // Stream EOF without a tool-call detection: the detector may
+        // still hold trailing text in its private read-ahead buffer
+        // (a tag-prefix candidate that never disambiguated, e.g. a
+        // lone `<` near the end of the model's output). Without this
+        // flush, summaries on the note-ask bar truncated deterministically
+        // at the same character every time. See
+        // `IncrementalToolCallDetector.flushOnStreamEnd()` for the
+        // privacy semantics on hidden tags + malformed tool opens.
+        if reflexDetection == nil {
+            let flushed = detector.flushOnStreamEnd()
+            if !flushed.isEmpty {
+                await onToken(flushed)
+            }
+        }
+
         let output = accumulatedOutput
 
         if let detection = reflexDetection {
