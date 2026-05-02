@@ -238,6 +238,15 @@ closed:
   `Less Interruptions` and `Always Allow` map to device-owner authentication,
   and deny/timeout remain immediate. Failed authentication resolves as deny,
   with no Rust/Omega/ChatCoordinator/generated-transport changes.
+- Sovereign Gate Rust Matrix PR4 is now closed as an additive Rust-only
+  classifier seed: `agent_core/src/sovereign/mod.rs` declares
+  Trivial/Reversible/Sensitive/Destructive/Sovereign action classes, doctrine
+  example intents, `GateRequirement`, `GateOutcome`, category-scoped Sensitive
+  900-second grace, Destructive every-time device-owner auth, and a forward
+  Secure-Enclave key-release requirement for Sovereign-class Pro/Research work.
+  Focused Rust tests passed 6/6. This does not add generated UniFFI transport,
+  Swift policy, popup migration, Secure Enclave sealing, or tool behavior
+  changes.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -643,13 +652,14 @@ before building.
 
 4. **Core/MAS release split audit and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
-   PR2 is closed for app/session/sleep grace clearing, and Approval Surface PR3
-   is closed for the existing agent approval sheet. Future Sovereign slices
+   PR2 is closed for app/session/sleep grace clearing, Approval Surface PR3
+   is closed for the existing agent approval sheet, and Rust Matrix PR4 is
+   closed for the additive Rust action-class seed only. Future Sovereign slices
    must start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
-   and may only add Rust action classification, generated transport, lifecycle
-   follow-up, or additional existing confirmation migrations behind new exact
-   gates. Also ensure Pro tunnels, Hermes, CLI passthrough,
+   and may only add generated requirement transport, lifecycle follow-up,
+   Secure Enclave sealing, or additional existing confirmation migrations
+   behind new exact gates. Also ensure Pro tunnels, Hermes, CLI passthrough,
    browser/computer-use, Docker, and external subprocess surfaces cannot leak
    into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
@@ -805,7 +815,7 @@ projection visibility PR5,
 durable GraphEvent audit projection PR6,
 durable GraphEvent Halo projection PR7,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
-Surface PR3, the Halo V0 Shadow
+Surface PR3, Sovereign Gate Rust Matrix PR4, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway

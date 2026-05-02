@@ -1237,6 +1237,14 @@ through a category-scoped biometric requirement and persistent approval choices
 (`Less Interruptions` / `Always Allow`) through device-owner authentication via
 the existing shared `SovereignGate`, without touching Rust, Omega,
 ChatCoordinator, `AppBootstrap`, `EpistemosApp`, or generated transport.
+Rust Matrix PR4 is also closed. `agent_core/src/sovereign/mod.rs` now declares
+the Rust-owned action-class matrix seed, doctrine example intents,
+`GateRequirement`, `GateOutcome`, category-scoped Sensitive 900-second grace,
+Destructive every-time device-owner auth, and a forward Secure-Enclave
+key-release requirement for Sovereign-class Pro/Research work. It is additive
+and does not wire generated transport, Swift policy, popup migration, Secure
+Enclave sealing, tool behavior, UI, Omega, ChatCoordinator, or approval
+semantics.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1257,13 +1265,18 @@ Authority to read first:
 - `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`
 - `/tmp/epistemos-sovereign-gate-approval-pr3-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-approval-pr3-green-20260502.log`
+- `docs/fusion/deliberation/sovereign_gate_rust_matrix_pr4_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502.log`
+- `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502-r2.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
 - PR2 app-owned lifecycle observer and focused tests: already closed.
 - PR3 agent approval sheet migration and focused tests: already closed.
-- Future Rust action-class matrix only after a gate names exact Rust files
-  and generated transport boundaries.
+- PR4 Rust action-class matrix seed and focused tests: already closed.
+- Future generated requirement transport only after a gate names exact Rust,
+  Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
   not already covered by PR2 and proves no unrelated authorization migration.
 - Future confirmation-surface migration PRs only after a gate names each exact
@@ -1311,6 +1324,12 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-approval-pr3-red-20260502.log`.
 - PR3 focused green log:
   `/tmp/epistemos-sovereign-gate-approval-pr3-green-20260502.log`.
+- PR4 red log:
+  `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-red-20260502.log`.
+- PR4 focused green log:
+  `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502.log`.
+- PR4 post-rustfmt green log:
+  `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502-r2.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1340,10 +1359,18 @@ Acceptance:
 - PR3 boundary: no Rust kernels, Omega policy, ChatCoordinator, generated
   bindings, entitlements, protected graph/editor files, subprocesses, solver
   hot paths, tensor copies, or memory hot paths are touched.
+- PR4 wired/reachable/visible: Rust exposes the additive
+  `agent_core::sovereign` matrix seed, focused Rust tests prove doctrine
+  examples, risk-level bridging, Sensitive grace, Destructive no-grace,
+  Sovereign forward requirement, and lower-snake-case serialization, and the
+  slice stays out of Swift policy, generated transport, popup migration, UI,
+  approval semantics, Secure Enclave sealing, graph/editor files, subprocesses,
+  solver hot paths, tensor copies, and memory hot paths.
 
 Stop triggers:
-- A future slice needs generated UniFFI, Rust matrix, new lifecycle hooks, or
-  additional existing dialog migration without naming exact files in a new gate.
+- A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave
+  sealing, or additional existing dialog migration without naming exact files
+  in a new gate.
 - `LocalAuthentication`, `LAContext`, `canEvaluatePolicy`, `evaluatePolicy`,
   Touch ID, or biometric prompting appears outside
   `Epistemos/Sovereign/SovereignGate.swift`.

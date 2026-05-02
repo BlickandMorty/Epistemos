@@ -113,7 +113,7 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 **Canonical:** doctrine §4.2 + Annex A.7.
 **Donor research:** `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/EPISTEMOS_RESEARCH_LANDSLIDE.md` Part I §1.1 (LAContext snippet); `/Users/jojo/Documents/Epistemos-QuickCapture/BIOMETRIC_TAMAGOTCHI_BRAIN_EXPORT_ADDENDUM.md` §1 (Wave 9 biometric authority via Secure Enclave).
 
-**Action-class matrix:** Trivial / Reversible / Sensitive (15-min grace) / Destructive (every time + passcode) / Sovereign (every time + Secure Enclave seal).
+**Action-class matrix:** Trivial / Reversible / Sensitive (15-min grace) / Destructive (every time + passcode) / Sovereign (every time + Secure Enclave seal). Current Rust seed: `agent_core/src/sovereign/mod.rs`; generated requirement transport remains open.
 
 **Capability enum (Codex must import, do not redesign):**
 - `worktree:vigorous-goldberg-3a2d35/agent_core/src/effect/receipt.rs` lines 44–54: `Capability::BiometricSession { ttl_secs }` ALREADY EXISTS as canonical type.
