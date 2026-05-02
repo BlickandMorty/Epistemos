@@ -5,6 +5,12 @@ nonisolated enum HermesGatewayTier: String, Equatable, Sendable {
     case proResearch
 }
 
+nonisolated enum HermesGatewayRoute: String, Equatable, Sendable {
+    case directSubstrate
+    case inProcessLocalPrompt
+    case hermesGateway
+}
+
 nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     case deterministicLocalSubstrate
     case localPromptFormatting
@@ -29,6 +35,7 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
 
 nonisolated struct HermesGatewayDecision: Equatable, Sendable {
     let tier: HermesGatewayTier
+    let route: HermesGatewayRoute
     let requiresNetwork: Bool
     let requiresSubprocess: Bool
     let preservesDirectSubstratePath: Bool
@@ -38,6 +45,7 @@ nonisolated struct HermesGatewayDecision: Equatable, Sendable {
 nonisolated enum HermesGatewayPolicy {
     typealias Surface = HermesGatewaySurface
     typealias Tier = HermesGatewayTier
+    typealias Route = HermesGatewayRoute
     typealias Decision = HermesGatewayDecision
 
     static let externalTierBoundaryLine =
@@ -53,11 +61,20 @@ nonisolated enum HermesGatewayPolicy {
             && decision.preservesDirectSubstratePath
     }
 
+    static func route(for surface: Surface) -> Route {
+        decision(for: surface).route
+    }
+
+    static func usesHermesGateway(_ surface: Surface) -> Bool {
+        route(for: surface) == .hermesGateway
+    }
+
     static func decision(for surface: Surface) -> Decision {
         switch surface {
         case .deterministicLocalSubstrate:
             Decision(
                 tier: .core,
+                route: .directSubstrate,
                 requiresNetwork: false,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: true,
@@ -66,6 +83,7 @@ nonisolated enum HermesGatewayPolicy {
         case .localPromptFormatting:
             Decision(
                 tier: .core,
+                route: .inProcessLocalPrompt,
                 requiresNetwork: false,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: true,
@@ -74,6 +92,7 @@ nonisolated enum HermesGatewayPolicy {
         case .cloudProvider:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: true,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: false,
@@ -82,6 +101,7 @@ nonisolated enum HermesGatewayPolicy {
         case .cliDelegation:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -90,6 +110,7 @@ nonisolated enum HermesGatewayPolicy {
         case .mcpWebTool:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -98,6 +119,7 @@ nonisolated enum HermesGatewayPolicy {
         case .hermesSubprocess:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -106,6 +128,7 @@ nonisolated enum HermesGatewayPolicy {
         case .browserComputerUse:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -114,6 +137,7 @@ nonisolated enum HermesGatewayPolicy {
         case .dockerDevcontainer:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
@@ -122,6 +146,7 @@ nonisolated enum HermesGatewayPolicy {
         case .explicitExternalSideEffect:
             Decision(
                 tier: .proResearch,
+                route: .hermesGateway,
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,

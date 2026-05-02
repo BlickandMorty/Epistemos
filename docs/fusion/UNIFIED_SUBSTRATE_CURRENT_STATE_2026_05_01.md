@@ -423,6 +423,17 @@ Proven or actively wired:
   entitlement, project file, or protected editor path was touched. Red/green
   evidence: `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-red-20260502.log`
   and `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-green-20260502.log`.
+- Hermes Gateway Route Policy PR6 is now code-closed as a pure policy helper:
+  `HermesGatewayPolicy.route(for:)` and `usesHermesGateway(_:)` classify
+  deterministic local substrate work as `directSubstrate`, local Hermes-family
+  prompt formatting as `inProcessLocalPrompt`, and cloud/CLI/MCP/browser/Docker/
+  external side effects as `hermesGateway`. This keeps Hermes unified for the
+  outside world without adding gateway tax to already-local substrate answers.
+  No runtime adapter, provider, subprocess launcher, MCP bridge, graph, Rust,
+  generated transport, entitlement, project file, or protected editor path was
+  touched. Red/green evidence:
+  `/tmp/epistemos-hermes-gateway-route-pr6-red-20260502.log` and
+  `/tmp/epistemos-hermes-gateway-route-pr6-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -523,9 +534,9 @@ Still open:
    into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
-   authorities. Hermes Gateway Directness PR1 is closed for the local prompt
-   invariant only; future runtime/provider routing still requires a new exact
-   gate.
+   authorities. Hermes Gateway Directness PR1 through Route Policy PR6 are
+   closed for prompt/policy invariants only; future runtime/provider routing
+   still requires a new exact gate.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are
@@ -666,7 +677,8 @@ Surface PR3, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
-Policy PR4, Hermes Gateway App Store Guard PR5, R16
+Policy PR4, Hermes Gateway App Store Guard PR5, Hermes Gateway Route Policy
+PR6, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge

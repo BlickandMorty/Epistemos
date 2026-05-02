@@ -70,4 +70,26 @@ nonisolated struct HermesGatewayPolicyTests {
             }
         }
     }
+
+    @Test("gateway route keeps local work direct and external work unified")
+    func gatewayRouteKeepsLocalWorkDirectAndExternalWorkUnified() {
+        #expect(HermesGatewayPolicy.route(for: .deterministicLocalSubstrate) == .directSubstrate)
+        #expect(HermesGatewayPolicy.route(for: .localPromptFormatting) == .inProcessLocalPrompt)
+        #expect(!HermesGatewayPolicy.usesHermesGateway(.deterministicLocalSubstrate))
+        #expect(!HermesGatewayPolicy.usesHermesGateway(.localPromptFormatting))
+
+        for surface in HermesGatewayPolicy.Surface.externalGatewaySurfaces {
+            let decision = HermesGatewayPolicy.decision(for: surface)
+
+            #expect(decision.route == .hermesGateway)
+            #expect(HermesGatewayPolicy.usesHermesGateway(surface))
+        }
+    }
+
+    @Test("Core App Store allowed surfaces never use Hermes gateway route")
+    func coreAppStoreAllowedSurfacesNeverUseHermesGatewayRoute() {
+        for surface in HermesGatewayPolicy.Surface.allCases where HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface) {
+            #expect(!HermesGatewayPolicy.usesHermesGateway(surface))
+        }
+    }
 }

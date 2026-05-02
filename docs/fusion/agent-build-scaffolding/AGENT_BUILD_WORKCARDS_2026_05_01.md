@@ -1147,6 +1147,11 @@ also distinguishes cloud/network need from offline CLI subprocess policy.
 App Store Guard PR5 is closed. `HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(_:)`
 now allows only direct, no-network, no-subprocess Core surfaces, preserving the
 fast substrate path while keeping external gateway surfaces out of Core/App Store.
+Route Policy PR6 is closed. `HermesGatewayPolicy` now assigns each surface to
+`directSubstrate`, `inProcessLocalPrompt`, or `hermesGateway`, so future runtime
+code can keep already-local substrate answers direct, keep local Hermes-family
+prompt formatting in-process, and route cloud/CLI/MCP/browser/Docker/external
+side-effect work through the single Hermes gateway.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1205,13 +1210,19 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-red-20260502.log`.
 - PR5 Green log:
   `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-green-20260502.log`.
+- PR6 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_route_policy_pr6_deliberation_2026_05_02.md`.
+- PR6 Red log:
+  `/tmp/epistemos-hermes-gateway-route-pr6-red-20260502.log`.
+- PR6 Green log:
+  `/tmp/epistemos-hermes-gateway-route-pr6-green-20260502.log`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
   10-test suite; PR3 passed the expanded 11-test suite; PR4 passed 15 focused
   tests across the policy and prompt suites; PR5 passed the expanded 6-test
-  policy suite. Xcode still printed known SwiftLint package-plugin noise after
-  `TEST SUCCEEDED`.
+  policy suite; PR6 passed the expanded 8-test policy suite. Xcode still
+  printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
@@ -1248,6 +1259,14 @@ Acceptance:
 - PR5 boundary: no runtime adapter, provider, subprocess, MCP, graph, Rust,
   generated transport, entitlement, project, protected graph, or protected
   editor path was touched.
+- PR6 wired: `HermesGatewayPolicy.route(for:)` and `usesHermesGateway(_:)`
+  classify direct substrate, in-process local prompt formatting, and unified
+  Hermes gateway surfaces.
+- PR6 reachable: focused tests prove local work avoids the Hermes gateway route
+  while every external gateway surface uses it.
+- PR6 boundary: no runtime adapter, provider, subprocess, MCP, browser,
+  Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
+  protected graph, or protected editor path was touched.
 
 Stop Triggers:
 - A future slice wants to execute a provider request, shell command, MCP call,
