@@ -1,5 +1,9 @@
 import Foundation
+import GRDB
 import OSLog
+#if canImport(epistemos_coreFFI)
+import epistemos_coreFFI
+#endif
 
 // MARK: - FSRSDecayState
 //
@@ -18,24 +22,24 @@ import OSLog
 //   - DSR model: Difficulty ∈ [1, 10], Stability in days,
 //     Retrievability ∈ [0, 1]
 //   - 21 trainable params; defaults from `fsrs::DEFAULT_PARAMETERS`
-//   - R(t) = exp(ln(0.9) * t / S)  (NOT 0.9^(t/S) — meta-advice
-//     agent flagged this; always go through the canonical formula
-//     so DSR updates stay consistent with future trainer output)
+//   - Current retrievability comes from `fsrs::current_retrievability`
+//     when the generated UniFFI bridge is available. The local Swift
+//     approximation preserves R(t=S)=0.9 for builds without the bridge.
 //   - Bayesian cold-start: defaults dominate until ~50 reviews;
 //     blend per-note params via `(1-α)·default + α·user` with
 //     `α = min(reviews/50, 1)`
 //
-// Rust integration (deferred — separate Cargo dep + UniFFI surface):
+// Rust integration:
 //   - `fsrs = "5.2.0"` (BSD-3, Anki's lead dev + Jarrett Ye, Burn-
-//     based, no libtorch) provides the trained state machine
-//   - This Swift module defines the contract + Codable persistence
-//     so the Rust port can read/write the same JSON shape via its
-//     own struct mirror
+//     based, no libtorch) provides the trained state machine.
+//   - The Swift store persists the row contract to GRDB and prefers
+//     generated UniFFI bindings for scheduling/current retrievability
+//     whenever they are available.
 //
 // Storage path (NightBrain-owned, GRDB):
 //   CREATE TABLE fsrs_state (
 //     note_id        TEXT PRIMARY KEY,
-//     last_reviewed  INTEGER NOT NULL,         -- unix seconds
+//     last_reviewed  REAL    NOT NULL,         -- unix seconds
 //     difficulty     REAL    NOT NULL,         -- D ∈ [1, 10]
 //     stability      REAL    NOT NULL,         -- S in days
 //     retrievability REAL    NOT NULL,         -- R(t) at last_reviewed
@@ -146,13 +150,13 @@ nonisolated public struct FSRSHighRisk: Sendable, Equatable {
     public static let surfaceThreshold: Double = 0.80
 }
 
-// MARK: - Pure-Swift retrievability formula
+// MARK: - Retrievability bridge + fallback
 //
-// Wave 13 / meta-advice agent flagged: ALWAYS go through the
-// canonical formula so DSR updates stay consistent with the Rust
-// trainer's output. Do NOT inline `0.9^(t/S)` anywhere — the FSRS
-// crate uses `exp(ln(0.9) * t / S)` and the algorithm shape is
-// load-bearing.
+// Wave 13 / meta-advice agent flagged: ALWAYS prefer the Rust FSRS
+// implementation so DSR updates stay consistent with the trainer's
+// output. Do NOT inline `0.9^(t/S)` anywhere — the FSRS crate owns
+// the curve shape and the fallback is only for builds without
+// generated UniFFI bindings.
 
 nonisolated public enum FSRSRetrievability {
     /// Compute current retrievability for an FSRS row at `now`.
@@ -161,6 +165,16 @@ nonisolated public enum FSRSRetrievability {
     public static func current(
         for row: FSRSDecayRow,
         now: Date = Date()
+    ) -> Double {
+        if let bridged = FSRSRustSchedulerBridge.currentRetrievability(row: row, now: now) {
+            return bridged
+        }
+        return swiftFallbackCurrent(for: row, now: now)
+    }
+
+    private static func swiftFallbackCurrent(
+        for row: FSRSDecayRow,
+        now: Date
     ) -> Double {
         let elapsed = max(0, now.timeIntervalSince1970 - row.lastReviewedAt)
         let elapsedDays = elapsed / 86_400.0
@@ -187,11 +201,183 @@ nonisolated public enum FSRSRetrievability {
     }
 }
 
-// MARK: - In-memory store (Rust persistence is the canonical store)
+// MARK: - GRDB persistence
+
+nonisolated public enum FSRSDecayDatabase {
+    public static let migrationKey = "v1_fsrs_state"
+
+    public static func registerMigration(_ migrator: inout DatabaseMigrator) {
+        migrator.registerMigration(migrationKey) { db in
+            try installSchema(in: db)
+        }
+    }
+
+    public static func installSchema(in db: Database) throws {
+        try db.execute(sql: """
+            CREATE TABLE IF NOT EXISTS fsrs_state (
+                note_id TEXT PRIMARY KEY,
+                last_reviewed REAL NOT NULL,
+                difficulty REAL NOT NULL,
+                stability REAL NOT NULL,
+                retrievability REAL NOT NULL,
+                last_grade INTEGER NOT NULL DEFAULT 0,
+                reviews INTEGER NOT NULL DEFAULT 0
+            )
+        """)
+
+        try db.execute(sql: """
+            CREATE INDEX IF NOT EXISTS fsrs_due
+            ON fsrs_state(retrievability)
+        """)
+    }
+}
+
+private struct FSRSDecayDatabaseRow: Codable, FetchableRecord, PersistableRecord {
+    static let databaseTableName = "fsrs_state"
+
+    var noteId: String
+    var lastReviewedAt: TimeInterval
+    var difficulty: Double
+    var stability: Double
+    var retrievability: Double
+    var lastGrade: Int
+    var reviews: Int64
+
+    enum CodingKeys: String, CodingKey {
+        case noteId = "note_id"
+        case lastReviewedAt = "last_reviewed"
+        case difficulty
+        case stability
+        case retrievability
+        case lastGrade = "last_grade"
+        case reviews
+    }
+
+    enum Columns: String, ColumnExpression {
+        case noteId = "note_id"
+        case lastReviewedAt = "last_reviewed"
+        case difficulty
+        case stability
+        case retrievability
+        case lastGrade = "last_grade"
+        case reviews
+    }
+
+    init(_ row: FSRSDecayRow) {
+        noteId = row.noteId
+        lastReviewedAt = row.lastReviewedAt
+        difficulty = row.memory.difficulty
+        stability = row.memory.stability
+        retrievability = row.memory.retrievability
+        lastGrade = row.lastGrade?.rawValue ?? 0
+        reviews = Int64(row.reviews)
+    }
+
+    func toDecayRow() -> FSRSDecayRow {
+        FSRSDecayRow(
+            noteId: noteId,
+            lastReviewedAt: lastReviewedAt,
+            memory: FSRSMemoryState(
+                difficulty: difficulty,
+                stability: stability,
+                retrievability: retrievability
+            ),
+            lastGrade: FSRSGrade(rawValue: lastGrade),
+            reviews: UInt32(clamping: reviews)
+        )
+    }
+}
+
+// MARK: - Rust scheduler bridge
+
+nonisolated private enum FSRSRustSchedulerBridge {
+    private static let desiredRetention = 0.9
+    private static let log = Logger(
+        subsystem: "com.epistemos",
+        category: "FSRSRustSchedulerBridge"
+    )
+
+    static func currentRetrievability(row: FSRSDecayRow, now: Date) -> Double? {
+#if canImport(epistemos_coreFFI)
+        do {
+            return try fsrsRowCurrentRetrievability(
+                row: bridgeRow(from: row),
+                nowTimestamp: now.timeIntervalSince1970
+            )
+        } catch {
+            log.error("Rust FSRS current retrievability failed; falling back to Swift approximation: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+#else
+        return nil
+#endif
+    }
+
+    static func scheduleReview(
+        row: FSRSDecayRow,
+        grade: FSRSGrade,
+        now: Date
+    ) -> FSRSDecayRow? {
+#if canImport(epistemos_coreFFI)
+        do {
+            let outcome = try fsrsScheduleReview(
+                row: bridgeRow(from: row),
+                grade: UInt32(grade.rawValue),
+                reviewedAt: now.timeIntervalSince1970,
+                desiredRetention: desiredRetention
+            )
+            return outcome.row.toSwiftDecayRow()
+        } catch {
+            log.error("Rust FSRS scheduler failed; falling back to Swift placeholder update: \(String(describing: error), privacy: .public)")
+            return nil
+        }
+#else
+        return nil
+#endif
+    }
+
+#if canImport(epistemos_coreFFI)
+    private static func bridgeRow(from row: FSRSDecayRow) -> FsrsDecayRow {
+        let memory = FsrsMemoryState(
+            difficulty: row.memory.difficulty,
+            stability: row.memory.stability,
+            retrievability: row.memory.retrievability
+        )
+        return FsrsDecayRow(
+            noteId: row.noteId,
+            lastReviewed: row.lastReviewedAt,
+            memory: memory,
+            lastGrade: UInt32(row.lastGrade?.rawValue ?? 0),
+            reviews: row.reviews
+        )
+    }
+#endif
+}
+
+#if canImport(epistemos_coreFFI)
+nonisolated private extension FsrsDecayRow {
+    func toSwiftDecayRow() -> FSRSDecayRow {
+        FSRSDecayRow(
+            noteId: noteId,
+            lastReviewedAt: lastReviewed,
+            memory: FSRSMemoryState(
+                difficulty: memory.difficulty,
+                stability: memory.stability,
+                retrievability: memory.retrievability
+            ),
+            lastGrade: FSRSGrade(rawValue: Int(lastGrade)),
+            reviews: reviews
+        )
+    }
+}
+#endif
+
+// MARK: - Store
 
 /// Lightweight in-memory store the Swift surface uses while the
-/// Rust `fsrs` crate is being wired in. Matches the GRDB schema
-/// shape so the Rust port can swap in without changing call sites.
+/// Rust `fsrs` crate is being wired in. When configured with a GRDB
+/// writer, mutations persist to `fsrs_state` while preserving the same
+/// actor API for call sites.
 ///
 /// AP5 perf-fix: actor-isolated under Swift 6.2 (was DispatchQueue
 /// + nonisolated `@unchecked Sendable` class). The actor model
@@ -208,6 +394,7 @@ public actor FSRSDecayStore {
     )
 
     private var rows: [String: FSRSDecayRow] = [:]
+    private var databaseWriter: (any DatabaseWriter)?
 
     /// Sorted-by-retrievability heap maintained incrementally on
     /// every `recordReview()` so `topAtRisk()` is O(K) instead of
@@ -215,7 +402,63 @@ public actor FSRSDecayStore {
     /// lazily on first surfacing call after a bulkUpsert.
     private var sortedByRiskCache: [FSRSDecayRow]?
 
-    private init() {}
+    public init() {}
+
+    public func configurePersistence(_ writer: any DatabaseWriter) throws {
+        var migrator = DatabaseMigrator()
+        FSRSDecayDatabase.registerMigration(&migrator)
+        try migrator.migrate(writer)
+        databaseWriter = writer
+        try loadPersistedRows()
+    }
+
+    private func loadPersistedRows() throws {
+        guard let databaseWriter else { return }
+        let persisted = try databaseWriter.read { db in
+            try FSRSDecayDatabaseRow.fetchAll(db)
+        }
+        rows = Dictionary(uniqueKeysWithValues: persisted.map {
+            let row = $0.toDecayRow()
+            return (row.noteId, row)
+        })
+        sortedByRiskCache = nil
+    }
+
+    private func persist(_ row: FSRSDecayRow) {
+        guard let databaseWriter else { return }
+        do {
+            try databaseWriter.write { db in
+                try FSRSDecayDatabaseRow(row).save(db)
+            }
+        } catch {
+            Self.log.error("FSRSDecayStore: failed to persist row \(row.noteId, privacy: .public): \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func persistAllRows() {
+        guard let databaseWriter else { return }
+        let databaseRows = rows.values.map(FSRSDecayDatabaseRow.init)
+        do {
+            try databaseWriter.write { db in
+                for row in databaseRows {
+                    try row.save(db)
+                }
+            }
+        } catch {
+            Self.log.error("FSRSDecayStore: failed to persist rows: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func deletePersistedRows() {
+        guard let databaseWriter else { return }
+        do {
+            try databaseWriter.write { db in
+                try db.execute(sql: "DELETE FROM fsrs_state")
+            }
+        } catch {
+            Self.log.error("FSRSDecayStore: failed to reset persisted rows: \(error.localizedDescription, privacy: .public)")
+        }
+    }
 
     // MARK: - Read / write
 
@@ -226,6 +469,7 @@ public actor FSRSDecayStore {
     public func upsert(_ row: FSRSDecayRow) {
         rows[row.noteId] = row
         sortedByRiskCache = nil
+        persist(row)
     }
 
     /// Mint an initial row for a note that hasn't been seen by the
@@ -236,24 +480,27 @@ public actor FSRSDecayStore {
         let fresh = FSRSDecayRow(noteId: noteId)
         rows[noteId] = fresh
         sortedByRiskCache = nil
+        persist(fresh)
         return fresh
     }
 
-    /// Record an explicit user grade. Updates `lastReviewedAt`,
-    /// increments `reviews`, persists the grade.
-    /// **Note**: the actual D / S / R update is the Rust `fsrs`
-    /// crate's job (the algorithm is non-trivial and trained); this
-    /// Swift surface only updates the timestamp + grade + counter
-    /// until the Rust integration lands.
+    /// Record an explicit user grade. Prefers the Rust `fsrs` scheduler
+    /// for D / S / R updates, with the old timestamp/grade/count update
+    /// preserved as a fail-closed fallback.
     public func recordReview(noteId: String, grade: FSRSGrade, now: Date = Date()) {
         var row = rows[noteId] ?? FSRSDecayRow(noteId: noteId)
-        row.lastReviewedAt = now.timeIntervalSince1970
-        row.lastGrade = grade
-        row.reviews += 1
-        // R resets to 1.0 on any review (the user remembered it).
-        row.memory.retrievability = 1.0
+        if let scheduled = FSRSRustSchedulerBridge.scheduleReview(row: row, grade: grade, now: now) {
+            row = scheduled
+        } else {
+            row.lastReviewedAt = now.timeIntervalSince1970
+            row.lastGrade = grade
+            row.reviews += 1
+            // R resets to 1.0 on any review (the user remembered it).
+            row.memory.retrievability = 1.0
+        }
         rows[noteId] = row
         sortedByRiskCache = nil
+        persist(row)
     }
 
     // MARK: - Surfacing
@@ -284,10 +531,12 @@ public actor FSRSDecayStore {
     public func bulkUpsert(_ incoming: [FSRSDecayRow]) {
         for row in incoming { rows[row.noteId] = row }
         sortedByRiskCache = nil
+        persistAllRows()
     }
 
     public func reset() {
         rows.removeAll()
         sortedByRiskCache = nil
+        deletePersistedRows()
     }
 }

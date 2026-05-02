@@ -13,6 +13,55 @@ use crate::vault_analyzer::classifier;
 use crate::vault_analyzer::mtld;
 use crate::vault_analyzer::token_estimator;
 
+// ── sqlite-vec + petgraph Foundation ───────────────────────────────────────
+
+pub fn sqlite_vec_register_auto_extension() -> Result<bool, crate::vector_graph::VectorGraphError> {
+    crate::vector_graph::register_sqlite_vec_auto_extension()
+}
+
+pub fn sqlite_vec_note_embeddings_schema(
+    table_name: String,
+    dimensions: u32,
+) -> Result<String, crate::vector_graph::VectorGraphError> {
+    crate::vector_graph::note_embeddings_schema(table_name, dimensions)
+}
+
+pub fn vector_graph_project_stable(
+    nodes: Vec<crate::vector_graph::VectorGraphNode>,
+    edges: Vec<crate::vector_graph::VectorGraphEdge>,
+) -> Result<crate::vector_graph::StableGraphProjection, crate::vector_graph::VectorGraphError> {
+    crate::vector_graph::project_stable_digraph(nodes, edges)
+}
+
+// ── FSRS-6 Decay Bridge ────────────────────────────────────────────────────
+
+pub fn fsrs_default_parameters() -> Vec<f64> {
+    crate::fsrs_decay::default_parameters()
+}
+
+pub fn fsrs_current_retrievability(
+    memory: crate::fsrs_decay::FsrsMemoryState,
+    days_elapsed: f64,
+) -> Result<f64, crate::fsrs_decay::FsrsDecayError> {
+    crate::fsrs_decay::current(memory, days_elapsed)
+}
+
+pub fn fsrs_row_current_retrievability(
+    row: crate::fsrs_decay::FsrsDecayRow,
+    now_timestamp: f64,
+) -> Result<f64, crate::fsrs_decay::FsrsDecayError> {
+    crate::fsrs_decay::row_current(row, now_timestamp)
+}
+
+pub fn fsrs_schedule_review(
+    row: crate::fsrs_decay::FsrsDecayRow,
+    grade: u32,
+    reviewed_at: f64,
+    desired_retention: f64,
+) -> Result<crate::fsrs_decay::FsrsReviewOutcome, crate::fsrs_decay::FsrsDecayError> {
+    crate::fsrs_decay::schedule_review(row, grade, reviewed_at, desired_retention)
+}
+
 // ── Vault Analysis ──────────────────────────────────────────────────────────
 
 pub fn compute_mtld(tokens: Vec<String>, threshold: f64) -> f64 {

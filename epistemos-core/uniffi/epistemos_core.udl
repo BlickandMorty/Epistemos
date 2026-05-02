@@ -1,4 +1,43 @@
 namespace epistemos_core {
+    // ── sqlite-vec + petgraph Foundation ───────────────────────────────────
+
+    /// Register sqlite-vec as a process-level SQLite auto-extension.
+    [Throws=VectorGraphError]
+    boolean sqlite_vec_register_auto_extension();
+
+    /// Render validated vec0 schema for note embeddings.
+    [Throws=VectorGraphError]
+    string sqlite_vec_note_embeddings_schema(string table_name, u32 dimensions);
+
+    /// Project node/edge inputs into a StableDiGraph summary.
+    [Throws=VectorGraphError]
+    StableGraphProjection vector_graph_project_stable(
+        sequence<VectorGraphNode> nodes,
+        sequence<VectorGraphEdge> edges
+    );
+
+    // ── FSRS-6 Decay Bridge ────────────────────────────────────────────────
+
+    /// Default parameter vector from fsrs-rs 5.2.0.
+    sequence<double> fsrs_default_parameters();
+
+    /// Current retrievability for a memory state after elapsed days.
+    [Throws=FsrsDecayError]
+    double fsrs_current_retrievability(FsrsMemoryState memory, double days_elapsed);
+
+    /// Current retrievability for a persisted row at a wall-clock timestamp.
+    [Throws=FsrsDecayError]
+    double fsrs_row_current_retrievability(FsrsDecayRow row, double now_timestamp);
+
+    /// Schedule a review through fsrs-rs and return the updated row plus interval.
+    [Throws=FsrsDecayError]
+    FsrsReviewOutcome fsrs_schedule_review(
+        FsrsDecayRow row,
+        u32 grade,
+        double reviewed_at,
+        double desired_retention
+    );
+
     // ── Vault Analysis ──────────────────────────────────────────────────────
 
     /// Bi-directional MTLD lexical diversity score.
@@ -306,6 +345,43 @@ dictionary RoutingDecision {
     double confidence;
 };
 
+dictionary FsrsMemoryState {
+    double difficulty;
+    double stability;
+    double retrievability;
+};
+
+dictionary FsrsDecayRow {
+    string note_id;
+    double last_reviewed;
+    FsrsMemoryState memory;
+    u32 last_grade;
+    u32 reviews;
+};
+
+dictionary FsrsReviewOutcome {
+    FsrsDecayRow row;
+    double interval_days;
+};
+
+dictionary VectorGraphNode {
+    string id;
+    string label;
+};
+
+dictionary VectorGraphEdge {
+    string source_id;
+    string target_id;
+    double weight;
+};
+
+dictionary StableGraphProjection {
+    u32 node_count;
+    u32 edge_count;
+    sequence<string> node_ids;
+    string edge_pairs_json;
+};
+
 dictionary AgentEvent {
     u64 sequence;
     string phase;
@@ -333,6 +409,26 @@ enum TextNormalizationError {
 enum SSMStateError {
     "Io",
     "InvalidFormat"
+};
+
+[Error]
+enum FsrsDecayError {
+    "InvalidNoteId",
+    "InvalidTimestamp",
+    "InvalidMemoryState",
+    "InvalidGrade",
+    "InvalidDesiredRetention",
+    "Scheduler"
+};
+
+[Error]
+enum VectorGraphError {
+    "InvalidIdentifier",
+    "InvalidDimension",
+    "DuplicateNode",
+    "MissingNode",
+    "InvalidWeight",
+    "SqliteVecUnavailable"
 };
 
 [Error]
