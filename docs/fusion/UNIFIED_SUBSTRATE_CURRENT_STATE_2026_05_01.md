@@ -264,6 +264,19 @@ closed:
   graph state are intentionally excluded. This does not change async recall
   behavior, hydration, MainActor metrics, UI, approval, routing, graph, Rust,
   generated bindings, or EventStore schema.
+- AgentEvent PR18 now instruments `ShadowSearchService.search(text:domain:limit:)`
+  backend recall search. Valid ShadowSearch calls persist requested, started,
+  and completed/failed AgentEvents with `shadow-search-...` run ids,
+  per-instance `shadow-search:N` tool ids, `shadow-search-service` actor
+  metadata, `surface=shadow_search`, domain/limit/query-count metadata, hit
+  counts, elapsed milliseconds, zero-hit completed rows, cancellation terminal
+  rows, and closed ShadowFFI failure classes. Query text, hit ids, titles,
+  snippets, scores, source labels, document bodies, vault paths, raw FFI payloads,
+  localized descriptions, and arbitrary error text are intentionally excluded
+  from persisted provenance. This does not change ShadowSearch hit behavior,
+  catch-to-empty behavior, `searchOrThrow`, `stats`, Halo,
+  ContextualShadowsState, UI, graph, Rust, generated bindings, or EventStore
+  schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -759,6 +772,7 @@ before building.
   provenance PR13, AgentEvent AgentGrep search provenance PR14, AgentEvent
   AgentQueryEngine backend-stream provenance PR15, AgentEvent InstantRecall sync
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
+  AgentEvent ShadowSearch backend provenance PR18,
   durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
@@ -945,6 +959,8 @@ AgentEvent remote relay channel provenance PR13,
 AgentEvent AgentGrep search provenance PR14,
 AgentEvent AgentQueryEngine backend-stream provenance PR15,
 AgentEvent InstantRecall sync recall provenance PR16,
+AgentEvent InstantRecall async recall provenance PR17,
+AgentEvent ShadowSearch backend provenance PR18,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings

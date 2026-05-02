@@ -70,3 +70,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 16 | 2026-05-02T20:36Z | implementation | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | Epistemos/KnowledgeFusion/InstantRecallService.swift | +1 |
 | 16 | 2026-05-02T20:36Z | test | suite=InstantRecallServiceTests | xcodebuild | session:44506 | done | /tmp/epistemos-instant-recall-async-agent-event-pr17-green-20260502.log | +1 |
 | 16 | 2026-05-02T20:36Z | guard | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 17 | 2026-05-02T20:40Z | claude-side-fleet | scope=next-master-plan-slice-selection | claude/print-readonly | session:1031 | done | docs/fusion/fleet/round-17-next-master-plan-slice-selection/claude-side-fleet/aggregator.md | +1 |
+| 18 | 2026-05-02T20:47Z | detective | concept=AgentEvent provenance hardening | codex/local | n/a | done | docs/fusion/fleet/shadow-search-agent-event-pr18/detectives/agent-event-provenance.md | +1 |
+| 18 | 2026-05-02T20:47Z | detective | concept=ShadowSearch backend provenance | codex/local | n/a | done | docs/fusion/fleet/shadow-search-agent-event-pr18/detectives/shadow-search.md | +1 |
+| 18 | 2026-05-02T20:47Z | aggregator | slice=shadow-search-agent-event-pr18 | codex/local | n/a | done | docs/fusion/fleet/shadow-search-agent-event-pr18/aggregator.md | +1 |
+| 18 | 2026-05-02T20:47Z | pipeline-builder | slice=shadow-search-agent-event-pr18 | codex/local | n/a | done | docs/fusion/deliberation/shadow_search_agent_event_pr18_deliberation_2026_05_02.md | +1 |
+| 18 | 2026-05-02T20:48Z | claude-red-team | brief=shadow-search-agent-event-pr18 | claude/print-readonly | session:32632 | done | docs/fusion/fleet/shadow-search-agent-event-pr18/claude-red-team/attacks.md | +1 |
+| 18 | 2026-05-02T21:08Z | implementation | slice=shadow-search-agent-event-pr18 | codex/local | n/a | done | Epistemos/Engine/ShadowSearchService.swift | +1 |
+| 18 | 2026-05-02T21:08Z | test | suite=ShadowServicesTests | xcodebuild | session:70556 | done | /tmp/epistemos-shadow-search-agent-event-pr18-green-20260502.log | +1 |
+| 18 | 2026-05-02T21:08Z | guard | slice=shadow-search-agent-event-pr18 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
