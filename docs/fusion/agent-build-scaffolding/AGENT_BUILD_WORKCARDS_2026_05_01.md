@@ -229,10 +229,12 @@ closed for Swift graph payload construction, markdown parser FFI, and
 code-token parser FFI. PR3 editor-shell AppKit/TextKit fixture baseline is
 closed. PR4 sqlite-vec 100k x 32d KNN fixture baseline is closed. The existing
 disabled manual benchmark suites now write validated machine-readable JSON
-through `BenchmarkRunRecorder`, and the recorder contract is tested. Remaining
-specialized baselines for MLX thermal, full graph FFI, and UniFFI callback
-throughput stay open for later fixture gates; production GRDB/768d KNN still
-needs its own future gate before any product claim.
+through `BenchmarkRunRecorder`, and the recorder contract is tested. PR5 closes
+the generated UniFFI callback-handle baseline and explicitly does not claim the
+future true Rust-to-Swift callback-loop export. Remaining specialized baselines
+for MLX thermal, full graph FFI, and the true Rust callback-loop export stay
+open for later fixture gates; production GRDB/768d KNN still needs its own
+future gate before any product claim.
 
 Goal:
 Create measurement scaffolding before touching graph renderer, FFI, or
@@ -274,6 +276,9 @@ Acceptance:
   `markdown_parser_160_sections`, and `code_token_parser_1200_lines`.
 - For PR3/PR4-closed surfaces, cite the editor-shell fixture JSON reports and
   `2026-05-01t00-00-00-000z-r15-sqlite-vec-knn-sqlite_vec_knn_100k_32d.json`.
+- For PR5-closed surfaces, cite
+  `2026-05-02t00-00-00-000z-r15-uniffi-callback-baseline-uniffi_callback_handle_roundtrip_10000.json`
+  as a generated UniFFI callback-handle baseline only.
 - For remaining specialized surfaces, the baseline must come from a later real
   fixture gate, not the PR1 placeholder bodies.
 
