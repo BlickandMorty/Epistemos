@@ -804,6 +804,11 @@ final class AppBootstrap {
         persistence: FileBackedAgentAuthorityPersistence()
     )
     let chatApprovalQueue = ChatApprovalQueue()
+    let sovereignGate = SovereignGate()
+    private let sovereignGateLifecycleObserver = SovereignGateLifecycleObserver()
+    var isSovereignGateLifecycleObserverStarted: Bool {
+        sovereignGateLifecycleObserver.isStarted
+    }
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
     let channelRegistry: ChannelRegistryState
@@ -1507,6 +1512,7 @@ final class AppBootstrap {
 
         // Set shared before wiring so that any callbacks can access it.
         AppBootstrap.shared = self
+        sovereignGateLifecycleObserver.start(gate: sovereignGate)
 
         self._workspaceService = WorkspaceService(modelContainer: container)
         self._workspaceSummaryService = WorkspaceSummaryService(
@@ -3111,6 +3117,8 @@ final class AppBootstrap {
     }
 
     func teardownRuntimeObservers() {
+        sovereignGateLifecycleObserver.stop()
+
         if let monitor = commandCenterLocalHotkeyMonitor {
             NSEvent.removeMonitor(monitor)
             commandCenterLocalHotkeyMonitor = nil
