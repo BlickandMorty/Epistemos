@@ -803,6 +803,7 @@ final class AppBootstrap {
     let agentAuthorityStore = AgentAuthorityStore(
         persistence: FileBackedAgentAuthorityPersistence()
     )
+    let chatApprovalQueue = ChatApprovalQueue()
     private var commandCenterLocalHotkeyMonitor: Any?
     private var commandCenterGlobalHotkeyMonitor: Any?
     let channelRegistry: ChannelRegistryState

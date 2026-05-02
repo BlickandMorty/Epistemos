@@ -3108,47 +3108,37 @@ final class ChatCoordinator {
     _ request: AgentPermissionRequest,
     authorityCategory: AgentAuthorityCategory
   ) async -> ToolApprovalPromptChoice {
-    let alert = NSAlert()
-    alert.alertStyle = request.permissionCategory == .destructive ? .critical : .warning
-    alert.messageText = "Allow \(request.toolName)?"
-    let targetSummary = request.approvalTargetSummary.map { "Target:\n\($0)\n\n" } ?? ""
-    alert.informativeText = """
-      Permission group: \(authorityCategory.displayName)
+    let targetSummary = request.approvalTargetSummary.map { "Target:\n\($0)" }
+    let summary = [
+      "Permission group: \(authorityCategory.displayName)",
+      "The agent requested \(request.approvalReason).",
+      targetSummary,
+      "Always Allow \(authorityCategory.displayName) updates this permission group.",
+      "Tip: Use Less Interruptions in Settings → Agent → Authority → Less Interruptions to stop repeated prompts for normal work, then fine-tune this permission group if needed.",
+    ]
+    .compactMap { $0 }
+    .joined(separator: "\n\n")
 
-      The agent requested \(request.approvalReason).
-
-      \(targetSummary)Request:
-      \(String(request.inputJson.prefix(500)))
-
-      Tip: Use Settings → Agent → Authority → Less Interruptions to stop repeated prompts for normal work, then fine-tune this permission group if needed.
-      """
-    alert.addButton(withTitle: "Allow Once")
-    alert.addButton(withTitle: "Always Allow \(authorityCategory.displayName)")
-    alert.addButton(withTitle: "Use Less Interruptions")
-    alert.addButton(withTitle: "Deny")
-
-    if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-      return await withCheckedContinuation { continuation in
-        alert.beginSheetModal(for: window) { response in
-          continuation.resume(returning: self.toolApprovalPromptChoice(for: response))
-        }
-      }
-    }
-
-    return toolApprovalPromptChoice(for: alert.runModal())
+    let resolution = await bootstrap.chatApprovalQueue.enqueue(
+      sessionId: request.id,
+      toolName: request.toolName,
+      argsJSON: String(request.inputJson.prefix(500)),
+      deadline: Date().addingTimeInterval(60),
+      summary: summary,
+      authorityCategoryLabel: authorityCategory.displayName
+    )
+    return toolApprovalPromptChoice(for: resolution)
   }
 
-  private func toolApprovalPromptChoice(
-    for response: NSApplication.ModalResponse
-  ) -> ToolApprovalPromptChoice {
-    switch response {
-    case .alertFirstButtonReturn:
+  private func toolApprovalPromptChoice(for resolution: ChatApprovalResolution) -> ToolApprovalPromptChoice {
+    switch resolution {
+    case .allowOnce:
       return .allowOnce
-    case .alertSecondButtonReturn:
+    case .alwaysAllow:
       return .alwaysAllow
-    case .alertThirdButtonReturn:
+    case .applyLessInterruptions:
       return .applyLessInterruptions
-    default:
+    case .deny:
       return .deny
     }
   }

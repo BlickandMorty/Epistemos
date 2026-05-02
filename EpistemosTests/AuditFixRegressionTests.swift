@@ -109,6 +109,95 @@ struct AuditFixRegressionTests {
         #expect(authority.contains("case lessInterruptions = \"Less Interruptions\""))
     }
 
+    @Test("agent tool approvals route through SwiftUI queue instead of NSAlert")
+    func agentToolApprovalsRouteThroughSwiftUIQueueInsteadOfNSAlert() throws {
+        let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
+        let approvalModal = try loadAuditSource("Epistemos/Views/Approval/ApprovalModalView.swift")
+        let bootstrap = try loadAuditSource("Epistemos/App/AppBootstrap.swift")
+        let environment = try loadAuditSource("Epistemos/App/AppEnvironment.swift")
+        let app = try loadAuditSource("Epistemos/App/EpistemosApp.swift")
+
+        #expect(approvalModal.contains("enum ChatApprovalResolution"))
+        #expect(approvalModal.contains("@MainActor @Observable"))
+        #expect(approvalModal.contains("final class ChatApprovalQueue"))
+        #expect(approvalModal.contains("var pendingApproval: ApprovalModalView.PendingApproval?"))
+        #expect(approvalModal.contains("func enqueue("))
+        #expect(approvalModal.contains("withCheckedContinuation"))
+        #expect(approvalModal.contains("func resolve("))
+        #expect(approvalModal.contains("case applyLessInterruptions"))
+
+        #expect(bootstrap.contains("let chatApprovalQueue = ChatApprovalQueue()"))
+        #expect(environment.contains(".environment(bootstrap.chatApprovalQueue)"))
+        #expect(app.contains("Binding<ApprovalModalView.PendingApproval?>"))
+        #expect(app.contains("bootstrap.chatApprovalQueue.pendingApproval"))
+        #expect(app.contains("bootstrap.chatApprovalQueue.resolve"))
+        #expect(app.contains(".interactiveDismissDisabled(true)"))
+
+        #expect(coordinator.contains("bootstrap.chatApprovalQueue.enqueue("))
+        #expect(coordinator.contains("toolApprovalPromptChoice(for resolution: ChatApprovalResolution)"))
+        #expect(!coordinator.contains("let alert = NSAlert()"))
+        #expect(!coordinator.contains("beginSheetModal"))
+        #expect(!coordinator.contains("runModal()"))
+    }
+
+    @MainActor
+    @Test("chat approval queue resolves modal decisions without hanging continuations")
+    func chatApprovalQueueResolvesModalDecisions() async throws {
+        let queue = ChatApprovalQueue()
+
+        let first = Task { @MainActor in
+            await queue.enqueue(
+                sessionId: "session-a",
+                toolName: "shell.execute",
+                argsJSON: "{}",
+                deadline: Date().addingTimeInterval(60),
+                summary: nil,
+                authorityCategoryLabel: nil
+            )
+        }
+        let firstApproval = try await nextPendingApproval(from: queue)
+        queue.resolve(firstApproval, decision: .applyLessInterruptions)
+        #expect(await first.value == .applyLessInterruptions)
+        #expect(queue.pendingApproval == nil)
+
+        let timeout = Task { @MainActor in
+            await queue.enqueue(
+                sessionId: "session-b",
+                toolName: "file.write",
+                argsJSON: "{}",
+                deadline: Date(),
+                summary: nil,
+                authorityCategoryLabel: nil
+            )
+        }
+        let timeoutApproval = try await nextPendingApproval(from: queue)
+        queue.resolve(timeoutApproval, decision: .timedOut)
+        #expect(await timeout.value == .deny)
+
+        let held = Task { @MainActor in
+            await queue.enqueue(
+                sessionId: "session-c",
+                toolName: "browser.click",
+                argsJSON: "{}",
+                deadline: Date().addingTimeInterval(60),
+                summary: nil,
+                authorityCategoryLabel: nil
+            )
+        }
+        let heldApproval = try await nextPendingApproval(from: queue)
+        let overlapping = await queue.enqueue(
+            sessionId: "session-d",
+            toolName: "browser.type",
+            argsJSON: "{}",
+            deadline: Date().addingTimeInterval(60),
+            summary: nil,
+            authorityCategoryLabel: nil
+        )
+        #expect(overlapping == .deny)
+        queue.resolve(heldApproval, decision: .approveOnce)
+        #expect(await held.value == .allowOnce)
+    }
+
     @Test("managed tools use an application-support scratch vault instead of crashing when no vault is attached")
     func managedToolsUseApplicationSupportScratchVaultWhenNoVaultIsAttached() throws {
         let coordinator = try loadAuditSource("Epistemos/App/ChatCoordinator.swift")
@@ -351,4 +440,21 @@ struct AuditFixRegressionTests {
 
 private func loadAuditSource(_ relativePath: String) throws -> String {
     try loadMirroredSourceTextFile(relativePath)
+}
+
+@MainActor
+private func nextPendingApproval(
+    from queue: ChatApprovalQueue
+) async throws -> ApprovalModalView.PendingApproval {
+    for _ in 0..<100 {
+        if let pendingApproval = queue.pendingApproval {
+            return pendingApproval
+        }
+        await Task.yield()
+    }
+    throw ChatApprovalQueueTestError.pendingApprovalNeverArrived
+}
+
+private enum ChatApprovalQueueTestError: Error {
+    case pendingApprovalNeverArrived
 }

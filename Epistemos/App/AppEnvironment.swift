@@ -43,6 +43,7 @@ extension View {
             #endif
             .environment(bootstrap.agentCommandCenterState)
             .environment(bootstrap.agentChatState)
+            .environment(bootstrap.chatApprovalQueue)
             .environment(bootstrap.overseerAuditState)
             .environment(bootstrap.textCapturePipeline)
             .environment(bootstrap.rawThoughtsState)

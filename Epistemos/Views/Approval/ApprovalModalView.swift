@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 import OSLog
 
@@ -31,34 +32,50 @@ public struct ApprovalModalView: View {
         public let toolName: String
         public let argsJSON: String
         public let deadline: Date
+        public let issuedAt: Date
+        public let summary: String?
+        public let authorityCategoryLabel: String?
 
         public init(
             id: String = UUID().uuidString,
             sessionId: String,
             toolName: String,
             argsJSON: String,
-            deadline: Date
+            deadline: Date,
+            issuedAt: Date = Date(),
+            summary: String? = nil,
+            authorityCategoryLabel: String? = nil
         ) {
             self.id = id
             self.sessionId = sessionId
             self.toolName = toolName
             self.argsJSON = argsJSON
             self.deadline = deadline
+            self.issuedAt = issuedAt
+            self.summary = summary
+            self.authorityCategoryLabel = authorityCategoryLabel
         }
     }
 
-    public enum Decision: Sendable {
+    public enum Decision: Sendable, Equatable {
         case approveOnce
         case approveAlways
+        case applyLessInterruptions
         case deny
         case timedOut
     }
 
     private let approval: PendingApproval
     private let onResolve: (Decision) -> Void
+    @State private var didResolve = false
 
-    @State private var now: Date = Date()
-    private let timer = Timer.publish(every: 0.5, on: .main, in: .common).autoconnect()
+    // No `Timer.publish().autoconnect()` here. Combine timers retain
+    // their backing scheduler across view-struct re-creations and the
+    // `.autoconnect()` keeps them ticking until every subscriber is
+    // gone, which can lag behind a `.sheet(item:)` dismissal. A
+    // `TimelineView(.periodic(...))` is the SwiftUI-native pattern: it
+    // pauses when the view is offscreen / occluded and stops cold when
+    // the modal is dismissed — no explicit invalidate needed.
     private let log = Logger(subsystem: "com.epistemos", category: "ApprovalModal")
 
     public init(
@@ -70,70 +87,82 @@ public struct ApprovalModalView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                Image(systemName: "shield.lefthalf.filled.badge.checkmark")
-                    .font(.title2)
-                    .foregroundStyle(.tint)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Approve agent action?")
-                        .font(.headline)
-                    Text(approval.toolName)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
+        TimelineView(.periodic(from: .now, by: 0.5)) { context in
+            let now = context.date
+            let remaining = max(0, approval.deadline.timeIntervalSince(now))
+            let total = max(1, approval.deadline.timeIntervalSince(approval.issuedAt))
+            let fraction = min(1, max(0, remaining / total))
+
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 12) {
+                    Image(systemName: "shield.lefthalf.filled.badge.checkmark")
+                        .font(.title2)
+                        .foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Approve agent action?")
+                            .font(.headline)
+                        Text(approval.toolName)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                    }
+                    if let authorityCategoryLabel = approval.authorityCategoryLabel {
+                        Text(authorityCategoryLabel)
+                            .font(.caption2.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.quaternary, in: Capsule())
+                    }
+                    Spacer()
+                    countdownRing(remaining: remaining, fraction: fraction)
                 }
-                Spacer()
-                countdownRing
+
+                Divider()
+
+                if let summary = approval.summary, !summary.isEmpty {
+                    Text(summary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                ScrollView {
+                    Text(approval.argsJSON)
+                        .font(.system(.caption, design: .monospaced))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                        .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                }
+                .frame(maxHeight: 180)
+
+                HStack {
+                    Button("Deny") { resolve(.deny) }
+                        .keyboardShortcut(.cancelAction)
+                    Spacer()
+                    Button("Allow Once") { resolve(.approveOnce) }
+                    Button("Less Interruptions") { resolve(.applyLessInterruptions) }
+                    Button("Always Allow") { resolve(.approveAlways) }
+                        .keyboardShortcut(.defaultAction)
+                }
             }
-
-            Divider()
-
-            ScrollView {
-                Text(approval.argsJSON)
-                    .font(.system(.caption, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-            }
-            .frame(maxHeight: 180)
-
-            HStack {
-                Button("Deny") { resolve(.deny) }
-                    .keyboardShortcut(.cancelAction)
-                Spacer()
-                Button("Allow Once") { resolve(.approveOnce) }
-                Button("Always Allow") { resolve(.approveAlways) }
-                    .keyboardShortcut(.defaultAction)
+            .padding(20)
+            .frame(minWidth: 480, idealWidth: 540)
+            .task(id: remaining <= 0) {
+                if remaining <= 0 {
+                    resolve(.timedOut)
+                }
             }
         }
-        .padding(20)
-        .frame(minWidth: 480, idealWidth: 540)
-        .onReceive(timer) { tick in
-            now = tick
-            if remaining <= 0 {
-                resolve(.timedOut)
-            }
-        }
     }
 
-    private var remaining: TimeInterval {
-        max(0, approval.deadline.timeIntervalSince(now))
-    }
-
-    private var fractionRemaining: Double {
-        let total = max(1, approval.deadline.timeIntervalSinceNow + remaining)
-        return min(1, max(0, remaining / total))
-    }
-
-    private var countdownRing: some View {
+    private func countdownRing(remaining: TimeInterval, fraction: Double) -> some View {
         ZStack {
             Circle()
                 .stroke(.quaternary, lineWidth: 3)
             Circle()
-                .trim(from: 0, to: fractionRemaining)
+                .trim(from: 0, to: fraction)
                 .stroke(remaining < 5 ? Color.red : Color.accentColor, style: .init(lineWidth: 3, lineCap: .round))
                 .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.5), value: fractionRemaining)
+                .animation(.linear(duration: 0.5), value: fraction)
             Text("\(Int(remaining))s")
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
@@ -142,8 +171,77 @@ public struct ApprovalModalView: View {
     }
 
     private func resolve(_ decision: Decision) {
+        guard !didResolve else { return }
+        didResolve = true
         log.info("approval resolved tool=\(approval.toolName, privacy: .public) decision=\(String(describing: decision), privacy: .public)")
         onResolve(decision)
+    }
+}
+
+public enum ChatApprovalResolution: Sendable, Equatable {
+    case allowOnce
+    case alwaysAllow
+    case applyLessInterruptions
+    case deny
+}
+
+@MainActor @Observable
+public final class ChatApprovalQueue {
+    public var pendingApproval: ApprovalModalView.PendingApproval?
+
+    @ObservationIgnored private var continuation: CheckedContinuation<ChatApprovalResolution, Never>?
+    @ObservationIgnored private let log = Logger(subsystem: "com.epistemos", category: "ChatApprovalQueue")
+
+    public init() {}
+
+    public func enqueue(
+        sessionId: String,
+        toolName: String,
+        argsJSON: String,
+        deadline: Date,
+        summary: String?,
+        authorityCategoryLabel: String?
+    ) async -> ChatApprovalResolution {
+        if pendingApproval != nil {
+            log.error("denying overlapping approval request tool=\(toolName, privacy: .public)")
+            return .deny
+        }
+
+        return await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            pendingApproval = ApprovalModalView.PendingApproval(
+                sessionId: sessionId,
+                toolName: toolName,
+                argsJSON: argsJSON,
+                deadline: deadline,
+                summary: summary,
+                authorityCategoryLabel: authorityCategoryLabel
+            )
+        }
+    }
+
+    public func resolve(
+        _ approval: ApprovalModalView.PendingApproval,
+        decision: ApprovalModalView.Decision
+    ) {
+        guard pendingApproval?.id == approval.id, let continuation else { return }
+
+        self.continuation = nil
+        pendingApproval = nil
+        continuation.resume(returning: resolution(for: decision))
+    }
+
+    private func resolution(for decision: ApprovalModalView.Decision) -> ChatApprovalResolution {
+        switch decision {
+        case .approveOnce:
+            return .allowOnce
+        case .approveAlways:
+            return .alwaysAllow
+        case .applyLessInterruptions:
+            return .applyLessInterruptions
+        case .deny, .timedOut:
+            return .deny
+        }
     }
 }
 
@@ -154,7 +252,9 @@ public struct ApprovalModalView: View {
             sessionId: "s-123",
             toolName: "shell.execute",
             argsJSON: #"{"command":"rm -rf ~/Downloads/old-build"}"#,
-            deadline: Date().addingTimeInterval(30)
+            deadline: Date().addingTimeInterval(30),
+            summary: "Permission group: Shell\n\nThe agent requested a shell command.",
+            authorityCategoryLabel: "Shell"
         ),
         onResolve: { _ in }
     )
