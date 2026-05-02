@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import OSLog
 
 // MARK: - EpistemosSidecar
@@ -22,6 +23,8 @@ import OSLog
 //       entity_id: Ulid,
 //       depth: DepthMarker,
 //       parent_domain: Option<String>,
+//       child_concept: Option<String>,
+//       interpretation_directive: Option<String>,
 //       derived_from: Vec<Ulid>,
 //       embeddings: Option<EmbeddingRef>,
 //       cognitive_meta: CognitiveMeta,
@@ -64,6 +67,30 @@ nonisolated public struct EpistemosSidecar: Codable, Sendable, Equatable {
     /// Optional because user-created notes may not be classified yet.
     public var parentDomain: String?
 
+    /// Primary child concept under `parentDomain` — emitted by the
+    /// W10.1 classifier as lowercase kebab-case (e.g. "basal-ganglia").
+    /// Optional for pre-classifier sidecars and manual user notes.
+    public var childConcept: String?
+
+    /// Additive model-facing instruction for how to interpret the
+    /// sidecar without replacing the user's canonical Markdown source.
+    public var interpretationDirective: String?
+
+    /// AFM-generated 1-2 sentence note summary. Optional for legacy
+    /// sidecars and user-authored stubs that have not passed through
+    /// the R16 sidecar generator.
+    public var summary: String?
+
+    /// AFM-generated retrieval tags. Kept separate from the user's
+    /// visible note tags so generated metadata remains auditable.
+    public var tags: [String]?
+
+    /// AFM-generated salient entities (people, projects, concepts).
+    public var entities: [String]?
+
+    /// AFM-suggested links to other notes by stable note/page ID.
+    public var suggestedLinks: [AFMSidecarSuggestedLink]?
+
     /// Other entity IDs this sidecar was derived from (note merges,
     /// summarisations, transclusions). Empty for primary user notes.
     public var derivedFrom: [String]
@@ -89,6 +116,12 @@ nonisolated public struct EpistemosSidecar: Codable, Sendable, Equatable {
         entityId: String,
         depth: DepthMarker,
         parentDomain: String? = nil,
+        childConcept: String? = nil,
+        interpretationDirective: String? = nil,
+        summary: String? = nil,
+        tags: [String]? = nil,
+        entities: [String]? = nil,
+        suggestedLinks: [AFMSidecarSuggestedLink]? = nil,
         derivedFrom: [String] = [],
         embeddings: EmbeddingRef? = nil,
         cognitiveMeta: CognitiveMeta = CognitiveMeta(),
@@ -98,6 +131,12 @@ nonisolated public struct EpistemosSidecar: Codable, Sendable, Equatable {
         self.entityId = entityId
         self.depth = depth
         self.parentDomain = parentDomain
+        self.childConcept = childConcept
+        self.interpretationDirective = interpretationDirective
+        self.summary = summary
+        self.tags = tags
+        self.entities = entities
+        self.suggestedLinks = suggestedLinks
         self.derivedFrom = derivedFrom
         self.embeddings = embeddings
         self.cognitiveMeta = cognitiveMeta
@@ -106,17 +145,49 @@ nonisolated public struct EpistemosSidecar: Codable, Sendable, Equatable {
 
     /// Current schema version. Bump when fields are added/renamed
     /// with semantic meaning so writes always carry the latest tag.
-    public static let currentSchemaVersion: UInt16 = 1
+    public static let currentSchemaVersion: UInt16 = 3
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
         case entityId = "entity_id"
         case depth
         case parentDomain = "parent_domain"
+        case childConcept = "child_concept"
+        case interpretationDirective = "interpretation_directive"
+        case summary
+        case tags
+        case entities
+        case suggestedLinks = "suggested_links"
         case derivedFrom = "derived_from"
         case embeddings
         case cognitiveMeta = "cognitive_meta"
         case annotations
+    }
+}
+
+// MARK: - Suggested Links
+
+nonisolated public struct AFMSidecarSuggestedLink: Codable, Sendable, Equatable, Hashable {
+    /// Stable target note/page ID. The generator should choose from
+    /// caller-provided candidates, not invent file paths.
+    public var targetId: String
+
+    /// Human-readable note title for display and diff review.
+    public var title: String
+
+    /// Short model-generated reason this link may matter.
+    public var reason: String
+
+    public init(targetId: String, title: String, reason: String) {
+        self.targetId = targetId
+        self.title = title
+        self.reason = reason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case targetId = "target_id"
+        case title
+        case reason
     }
 }
 
@@ -283,6 +354,8 @@ nonisolated public enum EpistemosSidecarPolicy {
 /// prettyPrinted) so `git diff` is human-readable.
 nonisolated public enum EpistemosSidecarStore {
 
+    public static let modelDerivedAttributeName = "com.epistemos.modelDerived"
+
     private static let log = Logger(
         subsystem: "com.epistemos",
         category: "EpistemosSidecar"
@@ -294,6 +367,7 @@ nonisolated public enum EpistemosSidecarStore {
         case writeFailed(URL, Error)
         case decodeFailed(URL, Error)
         case encodeFailed(URL, Error)
+        case modelDerivedMarkFailed(URL, Int32)
     }
 
     /// Resolve the canonical sidecar URL for a source file. Returns
@@ -336,7 +410,11 @@ nonisolated public enum EpistemosSidecarStore {
     /// Atomically write `sidecar` for `source`. Encoding is
     /// deterministic so re-saving an unchanged sidecar is a no-op
     /// at the byte level (git-friendly).
-    public static func write(_ sidecar: EpistemosSidecar, for source: URL) throws {
+    public static func write(
+        _ sidecar: EpistemosSidecar,
+        for source: URL,
+        modelDerived: Bool = false
+    ) throws {
         guard let url = sidecarURL(for: source) else {
             throw SidecarError.ineligibleSource(source)
         }
@@ -345,6 +423,9 @@ nonisolated public enum EpistemosSidecarStore {
         catch { throw SidecarError.encodeFailed(url, error) }
         do { try data.write(to: url, options: [.atomic]) }
         catch { throw SidecarError.writeFailed(url, error) }
+        if modelDerived {
+            try Self.markModelDerived(url)
+        }
         // AP2 — refresh the in-memory cache after a successful
         // write. Subsequent reads hit the cache without a disk
         // round-trip.
@@ -354,14 +435,62 @@ nonisolated public enum EpistemosSidecarStore {
         )
     }
 
-    /// AP7 — bulk pre-warm the in-memory sidecar cache by reading
-    /// every `*.epistemos.json` under `vaultRoot` in parallel via
-    /// concurrent file I/O. Called from AppBootstrap after the vault
-    /// is ready so the first graph render / depth-overlay query pays
-    /// no per-node disk cost. Returns the count of sidecars warmed.
+    private static func markModelDerived(_ url: URL) throws {
+        let value = Array("true".utf8)
+        let result = url.path.withCString { path in
+            modelDerivedAttributeName.withCString { name in
+                value.withUnsafeBytes { rawBuffer in
+                    setxattr(path, name, rawBuffer.baseAddress, rawBuffer.count, 0, 0)
+                }
+            }
+        }
+        guard result == 0 else {
+            throw SidecarError.modelDerivedMarkFailed(url, errno)
+        }
+    }
+
+    /// Read-only audit helper for UI disclosure. Fails closed: missing,
+    /// ineligible, unreadable, or malformed sidecars are treated as
+    /// not model-derived rather than surfacing a misleading badge.
+    public static func isModelDerived(for source: URL) -> Bool {
+        guard let url = sidecarURL(for: source),
+              FileManager.default.fileExists(atPath: url.path)
+        else { return false }
+        return modelDerivedAttributeValue(for: url) == "true"
+    }
+
+    private static func modelDerivedAttributeValue(for url: URL) -> String? {
+        let size = url.path.withCString { path in
+            modelDerivedAttributeName.withCString { name in
+                getxattr(path, name, nil, 0, 0, 0)
+            }
+        }
+        guard size > 0 else { return nil }
+        var buffer = [UInt8](repeating: 0, count: size)
+        let read = buffer.withUnsafeMutableBytes { rawBuffer in
+            url.path.withCString { path in
+                modelDerivedAttributeName.withCString { name in
+                    getxattr(path, name, rawBuffer.baseAddress, rawBuffer.count, 0, 0)
+                }
+            }
+        }
+        guard read > 0 else { return nil }
+        return String(decoding: buffer.prefix(read), as: UTF8.self)
+    }
+
+    /// AP7 — bulk pre-warm the in-memory sidecar cache by reading up
+    /// to `maxSidecars` `*.epistemos.json` files under `vaultRoot` in
+    /// parallel via concurrent file I/O. Called from AppBootstrap
+    /// after the vault is ready so the first graph render /
+    /// depth-overlay query avoids unbounded per-node disk cost.
+    /// Returns the count of sidecars warmed.
     @discardableResult
-    public static func prefetchAll(under vaultRoot: URL) async -> Int {
-        let sidecarURLs = enumerateSidecarsSync(under: vaultRoot)
+    public static func prefetchAll(
+        under vaultRoot: URL,
+        maxSidecars: Int = SidecarCache.bound
+    ) async -> Int {
+        guard maxSidecars > 0 else { return 0 }
+        let sidecarURLs = enumerateSidecarsSync(under: vaultRoot, maxCount: maxSidecars)
         // Cap parallelism so we don't open thousands of file
         // descriptors at once on huge vaults.
         let parallelism = min(8, max(2, ProcessInfo.processInfo.activeProcessorCount / 2))
@@ -400,8 +529,10 @@ nonisolated public enum EpistemosSidecarStore {
     /// nonisolated sync function and pass the resulting `[URL]` (a
     /// Sendable value type) into the async prefetch loop.
     nonisolated private static func enumerateSidecarsSync(
-        under vaultRoot: URL
+        under vaultRoot: URL,
+        maxCount: Int
     ) -> [URL] {
+        guard maxCount > 0 else { return [] }
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(
             at: vaultRoot,
@@ -413,6 +544,7 @@ nonisolated public enum EpistemosSidecarStore {
             if url.pathExtension == "json",
                url.lastPathComponent.hasSuffix(".epistemos.json") {
                 urls.append(url)
+                if urls.count >= maxCount { break }
             }
         }
         return urls
