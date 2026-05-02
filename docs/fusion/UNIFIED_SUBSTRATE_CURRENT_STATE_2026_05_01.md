@@ -286,7 +286,11 @@ Proven or actively wired:
   `GraphEngine`/C FFI bridge fixture baseline over a 250-node deterministic
   graph, with p50 68,846,708 ns/fixture roundtrip, p95 100,320,625 ns/fixture
   roundtrip, p99 102,145,625 ns/fixture roundtrip, and metadata explicitly
-  marking it as `not_live_render_frame_rate`.
+  marking it as `not_live_render_frame_rate`. R15 PR8 adds an opt-in live MLX
+  token-throughput harness around `MLXInferenceService` and `LocalMLXClient`
+  using the installed DeepSeek R1 7B MLX model; the gated harness is green, but
+  the live sentinel run stopped at canonical insufficient-memory preflight
+  (`requiredGB=12`, `availableGB=4`), so no live tok/s JSON artifact exists yet.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
   AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
   MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
@@ -328,9 +332,9 @@ Still open:
 - Full V1 Halo editor mount, trailing-edge editor glyph, and inline editor
   integration remain separate protected-path decisions.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
-  live MLX token throughput under thermal soak and the true Rust callback-loop
-  export. Any production GRDB/768-dimensional KNN claim still needs its own
-  later fixture gate.
+  live MLX token throughput under sufficient-memory/thermal-soak conditions and
+  the true Rust callback-loop export. Any production GRDB/768-dimensional KNN
+  claim still needs its own later fixture gate.
 - MAS/Core versus Pro capability symbol separation.
 - Manual runtime verification for user-facing ship claims.
 
@@ -350,9 +354,10 @@ Still open:
    PR5 is closed for generated UniFFI callback-handle lowering/lifting only.
    PR6 is closed for `PowerGate.deferSnapshot` MLX thermal policy/backpressure
    decisions only. PR7 is closed for live `GraphEngine`/C FFI bridge fixture
-   roundtrips only. Live MLX token throughput under thermal soak, live renderer
-   FPS/optimization, and the true Rust callback-loop export remain later
-   runtime/generated-transport gates.
+   roundtrips only. PR8 now has an opt-in live MLX tok/s harness and a documented
+   blocked sentinel run, but live MLX token throughput under sufficient-memory
+   thermal soak, live renderer FPS/optimization, and the true Rust callback-loop
+   export remain later runtime/generated-transport gates.
    Before modifying graph-engine, graph rendering, BoltFFI, live MLX inference,
    production KNN, or any hot path beyond those surfaces, run a new fixture gate
    that writes real JSON results and promotes `try?` recorder calls only when the
@@ -422,9 +427,10 @@ are:
   for Swift graph payload construction, markdown parser FFI, code-token parser
   FFI, editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, generated
   UniFFI callback-handle lowering/lifting, and MLX thermal policy/backpressure
-  decisions, and live `GraphEngine`/C FFI bridge roundtrips. Remaining R15
-  baseline work stays benchmark/test-only until a fixture gate explicitly names
-  any production path.
+  decisions, and live `GraphEngine`/C FFI bridge roundtrips. R15 PR8 is a green
+  opt-in live MLX tok/s harness plus blocked-run evidence, not a tok/s baseline
+  artifact. Remaining R15 baseline work stays benchmark/test-only until a
+  fixture gate explicitly names any production path.
 - R16 follow-up only for runtime/manual verification, throughput/backfill, or
   sidecar-generation expansion behind a new exact gate. Memory-pressure
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
@@ -492,7 +498,8 @@ tests, record raw logs, and stop at the next gate.
 You can resume building now, and the substrate spine is stronger than the April
 30 plan text: Quick Capture's minimal typed-artifact path, the
 EventStore-to-OpLog projection foundation, the R15 JSON benchmark-recorder
-foundation, R15 PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines, EventStore OpLog
+foundation, R15 PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines, R15 PR8 live
+MLX tok/s harness with blocked-run evidence, EventStore OpLog
 lease/retry PR3A, EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
