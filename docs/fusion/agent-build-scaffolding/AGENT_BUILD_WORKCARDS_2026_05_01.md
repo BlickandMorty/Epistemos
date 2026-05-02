@@ -620,14 +620,20 @@ Registering and firing existing hooks now persists tool-less `hook_registered`,
 `hook_fired`, and `hook_completed` rows with source, hook id, hook point, run id,
 sequence, and completion outcome metadata while preserving hook order and
 cancellation semantics. Do not assign another agent to rebuild HookRegistry
-instrumentation. Production hook call-site mounting still requires a separate
-runtime gate.
+instrumentation.
 
 PR5 read-only Settings visibility is also closed. EventStore exposes bounded
 `agentEventDiagnostics()` for total rows, distinct runs, distinct tools, latest
 event metadata, and last kind, and Settings mounts `AgentEventVisibilityRow`
 as a diagnostic-only surface. Do not assign another agent to rebuild this
 same AgentEvent visibility row.
+
+PR6 Pipeline HookRegistry production mount is also closed. `PipelineService`
+now calls the existing HookRegistry at the local tool-loop prompt-build
+boundary, before observed local tool calls, and after observed local tool
+results. The mount preserves no-hook behavior and does not change approval
+policy, routing, UI, ChatCoordinator, Omega, graph, Rust, generated bindings,
+EventStore schema, or provider-native/direct-stream paths.
 
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
@@ -656,9 +662,11 @@ Allowed write set:
 - PR3 ChatCoordinator/Rust-stream instrumentation: already closed.
 - PR4 HookRegistry API-level lifecycle instrumentation: already closed.
 - PR5 read-only Settings visibility: already closed.
-- Future Omega, production hook call-site, or broader runtime
-  instrumentation only after a new deliberation gate names exact runtime files
-  and focused tests.
+- PR6 PipelineService HookRegistry production mount: already closed for the
+  local tool-loop only.
+- Future Omega, provider-native, direct-stream, ChatCoordinator, or broader
+  runtime instrumentation only after a new deliberation gate names exact
+  runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -708,6 +716,12 @@ Tests and logs:
   `/tmp/epistemos-agent-event-visibility-pr5-green-20260502.log`.
 - PR5 EventStore regression green log:
   `/tmp/epistemos-agent-event-visibility-pr5-eventstore-regression-20260502.log`.
+- PR6 red log:
+  `/tmp/epistemos-agent-event-hook-mount-pr6-red-20260502.log`.
+- PR6 green log:
+  `/tmp/epistemos-agent-event-hook-mount-pr6-green-20260502.log`.
+  The focused Swift Testing suite passed 2 tests; Xcode still printed known
+  SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -736,6 +750,13 @@ Acceptance:
   diagnostics, and Settings mounts `AgentEventVisibilityRow` beside the sibling
   provenance diagnostics without schema, emission, routing, OpLog, GraphEvent,
   editor, graph, Rust, or generated-binding changes.
+- PR6 wired/reachable/visible: PipelineService's local tool-loop path mounts
+  `HookRegistry.shared.fireBeforePromptBuild`,
+  `HookRegistry.shared.fireBeforeToolCall`, and
+  `HookRegistry.shared.fireAfterToolCall`; source guards prove the mount stays
+  out of ChatCoordinator and Omega, and the implementation avoids graph,
+  editor, Rust, generated-binding, approval-policy, UI, and provider-route
+  changes.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

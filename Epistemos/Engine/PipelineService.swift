@@ -409,12 +409,19 @@ final class PipelineService {
         // Build the objective: include notes context and history inline so
         // the loop sees a single self-contained prompt. LocalAgentLoop
         // manages its own turn history internally once the loop starts.
+        let hookPromptContext = await HookRegistry.shared.fireBeforePromptBuild(
+            context: PromptContext(),
+            runID: runID.uuidString
+        )
         let objective = Self.buildPromptEnvelope(
             query: query,
             notesContext: notesContext,
             conversationHistory: conversationHistory
         )
-        let additionalSystemPrompt = executionPlan?.additionalSystemPrompt()
+        let additionalSystemPrompt = Self.combinedAdditionalSystemPrompt(
+            base: executionPlan?.additionalSystemPrompt(),
+            hookContext: hookPromptContext
+        )
 
         let reasoningMode: LocalReasoningMode = switch operatingMode {
         case .thinking: .thinking
@@ -500,13 +507,42 @@ final class PipelineService {
         return { name, argumentsJson in
             let callID = UUID().uuidString
             let startedAt = Date()
-            let metadata = toolMetadataByName[name]
+            let requestedCall = HookToolCall(id: callID, name: name, argsJson: argumentsJson)
+            guard let preparedCall = await HookRegistry.shared.fireBeforeToolCall(
+                call: requestedCall,
+                runID: normalizedRunID
+            ) else {
+                let cancelledResult = LocalToolResult(
+                    toolName: name,
+                    resultJson: Self.toolErrorJSON("Tool '\(name)' was hook_cancelled by HookRegistry."),
+                    isError: true
+                )
+                let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
+                let durationMs = UInt64(elapsedSeconds * 1000)
+                await MainActor.run {
+                    toolEventHandler?(
+                        .completed(
+                            id: callID,
+                            name: name,
+                            inputJson: argumentsJson,
+                            resultJson: cancelledResult.resultJson,
+                            isError: true,
+                            durationMs: durationMs
+                        )
+                    )
+                }
+                return cancelledResult
+            }
+
+            let effectiveName = preparedCall.name
+            let effectiveArgumentsJson = preparedCall.argsJson
+            let metadata = toolMetadataByName[effectiveName]
             let permissionRequest = AgentPermissionRequest(
                 id: callID,
-                toolName: name,
-                inputJson: argumentsJson,
+                toolName: effectiveName,
+                inputJson: effectiveArgumentsJson,
                 riskLevel: Self.pipelineToolRiskLevel(for: metadata),
-                description: "Local tool execution requested \(name)."
+                description: "Local tool execution requested \(effectiveName)."
             )
 
             func recordAgentToolEvent(
@@ -526,8 +562,8 @@ final class PipelineService {
                         kind: kind,
                         actor: actor,
                         toolCallID: callID,
-                        toolName: name,
-                        argumentsJSON: argumentsJson,
+                        toolName: effectiveName,
+                        argumentsJSON: effectiveArgumentsJson,
                         resultJSON: resultJson,
                         durationMs: durationMs,
                         approvalID: approvalID,
@@ -545,15 +581,15 @@ final class PipelineService {
             )
 
             await MainActor.run {
-                toolEventHandler?(.started(id: callID, name: name, inputJson: argumentsJson))
+                toolEventHandler?(.started(id: callID, name: effectiveName, inputJson: effectiveArgumentsJson))
             }
 
             if permissionRequest.requiresHumanApproval {
                 let approved = await toolApprovalHandler?(permissionRequest) ?? false
                 if !approved {
                     let deniedResult = LocalToolResult(
-                        toolName: name,
-                        resultJson: Self.toolErrorJSON("Tool '\(name)' was denied by the user."),
+                        toolName: effectiveName,
+                        resultJson: Self.toolErrorJSON("Tool '\(effectiveName)' was denied by the user."),
                         isError: true
                     )
                     let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
@@ -564,15 +600,15 @@ final class PipelineService {
                         resultJson: deniedResult.resultJson,
                         durationMs: durationMs,
                         approvalID: permissionRequest.id,
-                        errorMessage: "Tool '\(name)' was denied by the user."
+                        errorMessage: "Tool '\(effectiveName)' was denied by the user."
                     )
 
                     await MainActor.run {
                         toolEventHandler?(
                             .completed(
                                 id: callID,
-                                name: name,
-                                inputJson: argumentsJson,
+                                name: effectiveName,
+                                inputJson: effectiveArgumentsJson,
                                 resultJson: deniedResult.resultJson,
                                 isError: true,
                                 durationMs: durationMs
@@ -597,7 +633,21 @@ final class PipelineService {
                 status: .started
             )
 
-            let result = await baseExecutor(name, argumentsJson)
+            let rawResult = await baseExecutor(effectiveName, effectiveArgumentsJson)
+            let hookedResult = await HookRegistry.shared.fireAfterToolCall(
+                call: preparedCall,
+                result: HookToolResult(
+                    toolCallId: callID,
+                    content: rawResult.resultJson,
+                    isError: rawResult.isError
+                ),
+                runID: normalizedRunID
+            )
+            let result = LocalToolResult(
+                toolName: effectiveName,
+                resultJson: hookedResult.content,
+                isError: hookedResult.isError
+            )
             let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
             let durationMs = UInt64(elapsedSeconds * 1000)
             await recordAgentToolEvent(
@@ -612,8 +662,8 @@ final class PipelineService {
                 toolEventHandler?(
                     .completed(
                         id: callID,
-                        name: name,
-                        inputJson: argumentsJson,
+                        name: effectiveName,
+                        inputJson: effectiveArgumentsJson,
                         resultJson: result.resultJson,
                         isError: result.isError,
                         durationMs: durationMs
@@ -651,6 +701,37 @@ final class PipelineService {
             return "{\"error\":\"\(message)\",\"success\":false}"
         }
         return json
+    }
+
+    nonisolated private static func combinedAdditionalSystemPrompt(
+        base: String?,
+        hookContext: PromptContext
+    ) -> String? {
+        var sections: [String] = []
+        if let base = base?.trimmingCharacters(in: .whitespacesAndNewlines), !base.isEmpty {
+            sections.append(base)
+        }
+
+        let facts = hookContext.injectedFacts
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !facts.isEmpty {
+            sections.append("Hook injected facts:\n" + facts.map { "- \($0)" }.joined(separator: "\n"))
+        }
+
+        let toolDescriptions = hookContext.additionalToolDescriptions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if !toolDescriptions.isEmpty {
+            sections.append("Hook tool notes:\n" + toolDescriptions.joined(separator: "\n"))
+        }
+
+        let suffix = hookContext.systemPromptSuffix.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !suffix.isEmpty {
+            sections.append(suffix)
+        }
+
+        return sections.isEmpty ? nil : sections.joined(separator: "\n\n")
     }
 
     func cancelActiveRun() {
