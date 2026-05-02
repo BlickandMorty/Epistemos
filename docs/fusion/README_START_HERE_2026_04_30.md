@@ -25,11 +25,13 @@ Use this packet to prevent drift:
 Research protocol for Codex, Claude, Kimi, and future builders:
 
 1. Search the user's disk canon first for every concept, deliberation, coding
-   task, refactor, reroute, reduction, bug fix, or "simple" change.
+   task, dependency choice, deletion, simplification, refactor, reroute,
+   reduction, bug fix, or "simple" change.
 2. Use semantic keyword expansion. Example: "zero-copy" means UMA,
    in-process, single-binary, deterministic, no tensor copies, no hot-path
    subprocess, direct/bare-metal path, and the philosophy "as complex as a
-   brain, as simple as an app, as fast as a jet."
+   brain, as simple as an app, as fast as a jet." Treat terms like this as
+   architectural symbols, not only literal feature names.
 3. If the local canon lacks a structured answer or the task depends on current
    external API/framework/model/App Store/security facts, do targeted web
    validation with primary/official sources where possible.
