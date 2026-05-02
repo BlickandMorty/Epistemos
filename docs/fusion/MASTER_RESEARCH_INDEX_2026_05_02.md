@@ -798,8 +798,10 @@ If you hit a concept this index doesn't list: surface it in `docs/fusion/oversig
 
 ### 22.1 Research-first validation protocol
 
-The user's research corpus is presumed high-signal. For every task, deliberation,
-build card, refactor, reroute/reduction, bug fix, or "simple" code change:
+The user's research corpus is presumed high-signal and architecturally
+intentional. This is not a "big design only" ritual. For every concept, task,
+deliberation, build card, refactor, reroute/reduction, bug fix, dependency
+choice, deletion, simplification, or "simple" code change:
 
 1. Search local canon first: this master index, then the canonical source it
    names, then `rg` over `docs/`, `docs/_consolidated/`,
@@ -810,6 +812,8 @@ build card, refactor, reroute/reduction, bug fix, or "simple" code change:
    in-process, single-binary, no hot-path subprocess, no tensor copies,
    deterministic/provenance-linked state transitions, direct/bare-metal path,
    and "as complex as a brain, as simple as an app, as fast as a jet."
+   Treat these as philosophy terms as much as implementation terms: they point
+   to the shortest safe path from intent to execution, not merely a memory API.
 3. If local docs give a structured approach, follow it unless current code/logs
    disprove it.
 4. If local docs do not answer, or if a coding task depends on current API,

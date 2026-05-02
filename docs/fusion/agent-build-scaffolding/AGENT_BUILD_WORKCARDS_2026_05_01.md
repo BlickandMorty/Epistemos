@@ -13,10 +13,11 @@ and integrates only verified work.
 ## Master Research Index Rule
 
 `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` is the first read for any
-feature, concept, mini-task, worktree, or research-root question before a card
-is assigned or implemented. Use §22 for the lookup procedure, §20 for worktree
-material, §21 for external research roots, and §0 Honest Discoveries to correct
-older workcard or fusion-packet claims.
+feature, concept, mini-task, dependency choice, deletion, simplification,
+worktree, or research-root question before a card is assigned or implemented.
+Use §22 for the lookup procedure, §20 for worktree material, §21 for external
+research roots, and §0 Honest Discoveries to correct older workcard or
+fusion-packet claims.
 
 If a card contradicts the master index, stop at the deliberation gate, verify
 against current code/logs, and update the card or canon before building. Do not
@@ -29,7 +30,8 @@ framework, OS, model, package, App Store, or security behavior, add a targeted
 web-validation line and prefer primary/official sources. Semantic expansion is
 required: for example, "zero-copy" also means UMA, in-process, single-binary,
 deterministic, no hot-path subprocess, direct/bare-metal path, and zero tensor
-copies.
+copies. Treat philosophy terms as implementation constraints, not vibes: the
+goal is the shortest safe path from intent to execution.
 
 ## Non-Negotiable Rules
 

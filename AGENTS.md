@@ -9,6 +9,16 @@
 5. **Test-first.** Write a failing test before the fix. Edge cases: empty, nil, max, unicode, concurrent, rapid toggle.
 6. **Read before writing.** Never modify a file you haven't read. Understand existing code before touching it.
 7. **macOS Opulent only.** Never touch `~/Epistemos-RETRO/`, `src-tauri/`, or `~/meta-analytical-pfc/` from this repo. Those are separate projects.
+8. **Research-first.** For every concept, deliberation, task, refactor, reroute,
+   reduction, bug fix, or simple edit, search the local canon before coding:
+   start at `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, follow the
+   canonical source it names, then verify current code/logs. If the local canon
+   lacks a structured answer or the task depends on current external facts
+   (API, OS, package, model, App Store, security, framework), do a targeted web
+   validation pass with primary/official sources where possible. Use semantic
+   expansion: "zero-copy" also means UMA, in-process, single-binary,
+   deterministic, no hot-path subprocess, no tensor copies, direct/bare-metal
+   path, and "as complex as a brain, as simple as an app, as fast as a jet."
 
 ## Release Audit Rule
 

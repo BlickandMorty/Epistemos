@@ -13,6 +13,15 @@
 - NO SIDECAR for INFERENCE. All inference in-process via Rust FFI or MLX-Swift. ONLY exception: oMLX bridge for oversized models. Hermes subprocess is for ORCHESTRATION, not inference.
 - REAL APIs ONLY. Every cloud endpoint verified against provider docs. No fake features.
 - HONEST CAPABILITY GATING. Local models get fast/thinking/research. Cloud models get agent/liveAgent. Never fake agent capability for local models.
+- RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
+  reductions, or "simple" edits, search
+  `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, read the canonical local
+  source it names, then verify current code/logs. If local canon has no
+  structured answer or current API/OS/model/package/App Store/security facts
+  matter, run targeted web validation with primary/official sources. Use
+  semantic expansion: "zero-copy" means UMA, shared buffers, IOSurface,
+  in-process, single-binary, deterministic provenance, no hot-path subprocess,
+  no tensor copies, and the direct/bare-metal Epistemos philosophy.
 - Zero test regressions against the 2,679-test suite.
 - PRESERVE THINKING BLOCKS. When stop_reason is "tool_use", pass the ENTIRE content array back including thinking blocks + signatures. Dropping them kills the agent.
 - STREAM EVERYTHING. Forward every token to the delegate immediately. No buffering.
