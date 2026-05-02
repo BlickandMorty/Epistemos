@@ -1062,6 +1062,10 @@ effects while saying deterministic local substrate answers must stay on the
 direct path and must not pay a gateway hop when no external context is needed.
 External evidence returns as structured artifacts and provenance, not graph or
 Rex authority.
+Tier-boundary PR3 is closed. The prompt now separates local Hermes-family prompt
+formatting, which may remain Core-safe only when it runs in-process over local
+context, from cloud/provider/CLI/MCP/Hermes subprocess orchestration, which is
+Pro/Research only.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1100,11 +1104,17 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-fast-path-pr2-red-20260502.log`.
 - PR2 Green log:
   `/tmp/epistemos-hermes-gateway-fast-path-pr2-green-20260502.log`.
+- PR3 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_tier_boundary_pr3_deliberation_2026_05_02.md`.
+- PR3 Red log:
+  `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-red-20260502.log`.
+- PR3 Green log:
+  `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-green-20260502.log`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
-  10-test suite. Xcode still printed known SwiftLint package-plugin noise
-  after `TEST SUCCEEDED`.
+  10-test suite; PR3 passed the expanded 11-test suite. Xcode still printed
+  known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
@@ -1118,6 +1128,12 @@ Acceptance:
   structured external evidence invariants.
 - PR2 reachable: focused prompt tests prove the fast-path wording stays present.
 - PR2 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
+  transport, entitlement, protected graph, or protected editor path was touched.
+- PR3 wired: Hermes prompt separates Core-safe in-process local prompt
+  formatting from Pro/Research external gateway orchestration.
+- PR3 reachable: focused prompt tests prove the tier-boundary wording stays
+  present.
+- PR3 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
   transport, entitlement, protected graph, or protected editor path was touched.
 
 Stop Triggers:
