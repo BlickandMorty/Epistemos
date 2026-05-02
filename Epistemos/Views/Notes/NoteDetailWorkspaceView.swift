@@ -550,6 +550,7 @@ struct NoteDetailWorkspaceView: View {
     @Environment(VaultSyncService.self) private var vaultSync
     @Environment(EventBus.self) private var eventBus
     @Environment(TriageService.self) private var triageService
+    @Environment(ContextualShadowsState.self) private var contextualShadows
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query private var pages: [SDPage]
@@ -568,8 +569,11 @@ struct NoteDetailWorkspaceView: View {
     @State private var hasMultipleTabs = false
     @State private var wordCount: Int = 0
     @State private var tocItems: [TOCItem] = []
+    @State private var hasModelDerivedSidecar = false
+    @State private var deterministicOutlineState: KnowledgeCoreOutlineProjectionState
     @State private var wordCountDebounce: Task<Void, Never>?
     @State private var metricsTask: Task<Void, Never>?
+    @State private var modelDerivedSidecarTask: Task<Void, Never>?
     @State private var missingPageRecoveryTask: Task<Void, Never>?
     @State private var showBlockPropertySheet = false
     @State private var blockPropertyLineText = ""
@@ -600,6 +604,9 @@ struct NoteDetailWorkspaceView: View {
         _pages = Query(filter: #Predicate<SDPage> { $0.id == pageId })
         _noteChatState = State(initialValue: NoteChatState(pageId: pageId))
         _persistedBody = State(initialValue: NoteWindowManager.shared.currentBody(for: pageId))
+        _deterministicOutlineState = State(
+            initialValue: KnowledgeCoreOutlineProjectionState()
+        )
     }
 
     static func resolvedPersistedBody(_ persistedBody: String, for page: SDPage) -> String {
@@ -875,6 +882,11 @@ struct NoteDetailWorkspaceView: View {
                 noteFooter
                 .allowsHitTesting(false)
             }
+            .overlay(alignment: .bottomTrailing) {
+                contextualShadowsOverlay
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 52)
+            }
             .overlay(alignment: .trailing) {
                 let outlineMarkdown = pages.first.map(displayBody(for:)) ?? persistedBody
                 NoteOutlineOverlay(
@@ -898,12 +910,14 @@ struct NoteDetailWorkspaceView: View {
                         if persistedBody != body {
                             persistedBody = body
                         }
+                        refreshModelDerivedSidecarBadge(for: page)
                         refreshLegacyRecoveryPresentation()
                         scheduleMetricsRefresh(
                             body: body,
                             includeMarkdownHeadings: true
                         )
                     } else {
+                        refreshModelDerivedSidecarBadge(for: nil)
                         queueMissingPageRecovery()
                     }
                     // Apply pending workspace editor restore (cursor + scroll).
@@ -917,6 +931,8 @@ struct NoteDetailWorkspaceView: View {
             .onDisappear {
                 wordCountDebounce?.cancel()
                 metricsTask?.cancel()
+                modelDerivedSidecarTask?.cancel()
+                modelDerivedSidecarTask = nil
                 missingPageRecoveryTask?.cancel()
                 missingPageRecoveryTask = nil
                 legacyRecoveryRefreshTask?.cancel()
@@ -925,12 +941,17 @@ struct NoteDetailWorkspaceView: View {
             }
             .onChange(of: pages.isEmpty) { _, isEmpty in
                 if isEmpty {
+                    refreshModelDerivedSidecarBadge(for: nil)
                     queueMissingPageRecovery()
                 } else {
                     missingPageRecoveryTask?.cancel()
                     missingPageRecoveryTask = nil
+                    refreshModelDerivedSidecarBadge(for: pages.first)
                     refreshLegacyRecoveryPresentation()
                 }
+            }
+            .onChange(of: pages.first?.filePath) { _, _ in
+                refreshModelDerivedSidecarBadge(for: pages.first)
             }
             .onChange(of: noteChatState.isStreaming) { wasStreaming, isNowStreaming in
                 if wasStreaming && !isNowStreaming, let page = pages.first {
@@ -944,9 +965,27 @@ struct NoteDetailWorkspaceView: View {
                 guard persistedBody != freshBody else { return }
                 persistedBody = freshBody
                 scheduleMetricsRefresh(body: freshBody, includeMarkdownHeadings: true)
+                refreshModelDerivedSidecarBadge(for: pages.first)
                 refreshLegacyRecoveryPresentation()
             }
         }
+    }
+
+    private var contextualShadowsOverlay: some View {
+        VStack(alignment: .trailing, spacing: 8) {
+            ContextualShadowsPanel(onOpen: openContextualShadowHit)
+            ContextualShadowsButton()
+        }
+    }
+
+    private func openContextualShadowHit(_ hit: ContextualShadowsState.RecallHit) {
+        switch hit.kind {
+        case .note:
+            NoteWindowManager.shared.open(pageId: hit.id)
+        case .chat:
+            MiniChatWindowController.shared.openChat(hit.id)
+        }
+        contextualShadows.closePanel()
     }
 
     private func refreshLegacyRecoveryPresentation() {
@@ -981,6 +1020,14 @@ struct NoteDetailWorkspaceView: View {
                         .font(AppDisplayTypography.font(size: 13))
                         .monospacedDigit()
                         .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.55))
+                }
+
+                if hasModelDerivedSidecar {
+                    noteFooterBubble {
+                        Label("Model-derived", systemImage: "sparkles")
+                            .font(AppDisplayTypography.font(size: 12))
+                            .foregroundStyle(ui.theme.resolved.foreground.color.opacity(0.58))
+                    }
                 }
             }
 
@@ -1028,6 +1075,24 @@ struct NoteDetailWorkspaceView: View {
             .padding(.vertical, NoteWorkspaceFooterDisplay.chipVerticalPadding)
             .background(.clear, in: Capsule())
             .glassEffect(.regular.interactive(), in: Capsule())
+    }
+
+    private func refreshModelDerivedSidecarBadge(for page: SDPage?) {
+        modelDerivedSidecarTask?.cancel()
+        guard let path = page?.filePath,
+              !path.isEmpty else {
+            hasModelDerivedSidecar = false
+            return
+        }
+
+        let sourceURL = URL(fileURLWithPath: path)
+        modelDerivedSidecarTask = Task { @MainActor in
+            let isModelDerived = await Task.detached(priority: .utility) {
+                EpistemosSidecarStore.isModelDerived(for: sourceURL)
+            }.value
+            guard !Task.isCancelled else { return }
+            hasModelDerivedSidecar = isModelDerived
+        }
     }
 
     @ViewBuilder
@@ -1228,8 +1293,24 @@ struct NoteDetailWorkspaceView: View {
             if wordCount != snapshot.wordCount {
                 wordCount = snapshot.wordCount
             }
-            if includeMarkdownHeadings, tocItems != snapshot.headings {
-                tocItems = snapshot.headings
+            if includeMarkdownHeadings {
+                let nextHeadings: [TOCItem]
+                if deterministicOutlineState.isEnabled {
+                    let result = await deterministicOutlineState.refresh(
+                        pageId: pageId,
+                        markdown: body,
+                        fallbackHeadings: snapshot.headings
+                    )
+                    guard !Task.isCancelled else { return }
+                    nextHeadings = result.appliedCount > 0
+                        ? deterministicOutlineState.items
+                        : snapshot.headings
+                } else {
+                    nextHeadings = snapshot.headings
+                }
+                if tocItems != nextHeadings {
+                    tocItems = nextHeadings
+                }
             }
         }
     }

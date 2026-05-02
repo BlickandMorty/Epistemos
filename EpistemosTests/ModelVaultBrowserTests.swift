@@ -492,6 +492,16 @@ struct ModelVaultBrowserTests {
         #expect(source.contains("ModelInvolvementContent: failed to fetch contributions"))
     }
 
+    @Test("note workspace surfaces model-derived sidecar badge from cached state")
+    func noteWorkspaceSurfacesModelDerivedSidecarBadgeFromCachedState() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NoteDetailWorkspaceView.swift")
+
+        #expect(source.contains("Model-derived"))
+        #expect(source.contains("hasModelDerivedSidecar"))
+        #expect(source.contains("refreshModelDerivedSidecarBadge"))
+        #expect(source.contains("EpistemosSidecarStore.isModelDerived"))
+    }
+
     @Test("gpt_5_4_sidebar_shows_full_history")
     @MainActor
     func gpt_5_4_sidebar_shows_full_history() throws {

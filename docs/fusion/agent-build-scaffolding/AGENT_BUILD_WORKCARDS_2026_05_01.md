@@ -1,0 +1,719 @@
+# Agent Build Workcards - 2026-05-01
+
+## Purpose
+
+This is the safe scaffolding pack for fast multi-agent implementation.
+
+Do not scaffold broad fake APIs, empty placeholder systems, or "wire later"
+stubs that encode guesses. The safe pattern is a vertical work card: each agent
+gets source-of-truth docs, a narrow allowed write set, forbidden surfaces,
+acceptance tests, evidence logs, and stop triggers. Codex then reviews the diff
+and integrates only verified work.
+
+## Non-Negotiable Rules
+
+- Every work card still requires a deliberation gate before code changes unless
+  the card is explicitly docs-only.
+- Current code plus fresh logs win over plan text.
+- No raw merge from stale worktrees.
+- No staging, commit, stash, branch switch, generated artifact edit, or
+  destructive git operation unless explicitly requested.
+- No protected note editor, graph renderer/controller, `graph-engine/**`,
+  `epistemos-shadow/**`, or `agent_core/**` edits without a card that names
+  those paths and a gate approving them.
+- Every feature must identify WRV: Wired, Reachable, Visible.
+- Every agent must leave raw command logs under `/tmp/` and list them in its
+  completion report.
+
+## Work Card Template
+
+```markdown
+# Work Card - <slice name>
+
+## Goal
+<One-sentence vertical outcome.>
+
+## Authority To Read First
+- <repo docs>
+- <implementation files>
+- <tests>
+- <research docs, if relevant>
+
+## Allowed Write Set
+- <exact files or narrow subsystem>
+
+## Forbidden Write Set
+- <protected files and adjacent tempting files>
+
+## Implementation Contract
+- <specific behavior>
+- <no-go behavior>
+- <data/schema/FFI contract>
+
+## Tests And Logs
+- <red test command if applicable>
+- <focused test command>
+- <full or regression command>
+- <guardrail commands>
+- <expected `/tmp/...log` names>
+
+## Acceptance
+- <observable pass/fail criteria>
+
+## Stop Triggers
+- <conditions that require stopping and reporting>
+
+## Completion Report
+- Files changed
+- Tests run
+- Raw log paths
+- WRV proof
+- Remaining risks
+- Rollback
+```
+
+## Card 1 - R16 Bootstrapper ETL Dispatch And Pause UI
+
+Goal:
+Wire the existing Shadow bootstrap lifecycle to the ETL queue after the
+BM25/HNSW pass, and surface honest running/paused state in the existing
+Background Indexing diagnostics.
+
+Status on 2026-05-01:
+PR3D closes ShadowVaultBootstrapper ETL dispatch, ETL queue stats visibility,
+and low-power/thermal/battery pause diagnostics. PR3E closes memory-pressure
+dispatch pause by wiring the existing `RuntimeIssueMonitor`
+`DispatchSourceMemoryPressure` observer into canonical `PowerGate` snapshots.
+PR3F closes MAS/security-scoped bookmark enforcement for vault restore,
+bookmark fallback, and sandbox-required watch starts. Do not assign agents to
+rebuild PR3D, PR3E, or PR3F. PR3G closes model-derived sidecar badge
+visibility in the note workspace footer without touching the protected
+ProseEditor bridge. Remaining R16 work is ETL worker execution.
+
+Authority to read first:
+- `docs/fusion/deliberation/r16_etl_pr3_background_indexing_status_shell_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_etl_apalis_queue_pr2_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_etl_stats_swift_diagnostics_pr3b2_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_afm_sidecar_generation_pr3c_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_memory_pressure_pause_pr3e_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_mas_bookmark_enforcement_pr3f_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/r16_model_derived_badge_pr3g_deliberation_2026_05_01.md`
+- `docs/plan/03_EXECUTION_MAP.md` R16 section
+- `Epistemos/Engine/ShadowVaultBootstrapper.swift`
+- `Epistemos/App/AppBootstrap.swift`
+- `Epistemos/Views/Settings/EditorBundleHealthRow.swift`
+- `Epistemos/State/PowerGate.swift`
+- `Epistemos/State/ThermalGuard.swift`
+- `EpistemosTests/ShadowVaultBootstrapperTests.swift`
+
+Allowed write set:
+- `Epistemos/Engine/ShadowVaultBootstrapper.swift`
+- `Epistemos/App/AppBootstrap.swift`
+- `Epistemos/Views/Settings/EditorBundleHealthRow.swift`
+- `EpistemosTests/ShadowVaultBootstrapperTests.swift`
+- A new Swift ETL dispatch client only if the gate names its exact file.
+- Docs under `docs/fusion/**`
+
+Forbidden write set:
+- `Epistemos/Views/Notes/ProseEditor*.swift`
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- `Epistemos/Views/Graph/HologramController.swift`
+- `graph-engine/**`
+- `epistemos-shadow/**`
+- `agent_core/**` unless the gate explicitly includes a Rust dispatch API
+- Xcode project files, entitlements, generated bindings, generated libraries,
+  DerivedData, `.xcresult`, staging, commits, stashes, or branch operations
+
+Implementation contract:
+- Use the existing ETL queue/stats foundation rather than inventing a second
+  queue.
+- Do not create an ETL database merely to display diagnostics.
+- Use `PowerGate.deferSnapshot()` / `PowerGate.shouldDefer()` for pause
+  decisions. Memory-pressure pause is already part of that canonical path.
+- Display "Paused - on battery" or equivalent honest copy when the pause path
+  is reachable.
+- Keep AFM generation failures nonfatal to indexing.
+
+Tests and logs:
+- `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -parallel-testing-enabled NO -only-testing:EpistemosTests/ShadowVaultBootstrapperTests test`
+- `cargo test --manifest-path agent_core/Cargo.toml etl --lib` if Rust ETL is
+  touched or dispatch behavior depends on current ETL tests.
+- `git diff --check -- <allowed files> docs/fusion`
+- Protected-path name-only diff scan.
+- Logs must use `/tmp/epistemos-r16-pr3d-...-20260501.log` names.
+
+Acceptance:
+- A real bootstrap path can enqueue ETL work after Shadow indexing, or the card
+  must explicitly remain diagnostics-only and say so in visible copy.
+- Diagnostics show running/paused/stopped plus file counts from the canonical
+  state source.
+- Full R16 WRV is not claimed until ETL worker execution is reachable. MAS
+  bookmark enforcement is already closed as PR3F, and sidecar badge visibility
+  is closed as PR3G.
+
+Stop triggers:
+- The implementation needs new Rust FFI not approved by the PR3D gate.
+- It needs protected editor or graph files.
+- It bypasses security-scoped vault boundaries.
+- It marks sidecars generated without using `EpistemosSidecarStore`.
+
+## Card 2 - R16 Sidecar Schema Mirror Gate
+
+Goal:
+Ensure any Rust-side sidecar reader/writer accepts the current Swift sidecar
+contract, including generated payload fields.
+
+Authority to read first:
+- `Epistemos/Engine/EpistemosSidecar.swift`
+- `Epistemos/Engine/AFMSidecarGenerator.swift`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_033_2026_05_01.md`
+- `docs/fusion/deliberation/w1012_sidecar_interpretation_directive_deliberation_2026_04_30.md`
+- `docs/fusion/deliberation/r16_afm_sidecar_generation_pr3c_deliberation_2026_05_01.md`
+- `rg -n "EpistemosSidecar|epistemos.json|suggested_links|modelDerived" agent_core epistemos-shadow graph-engine Epistemos`
+
+Allowed write set:
+- Docs-only by default.
+- Rust sidecar mirror files only after a separate gate names exact files.
+- Swift sidecar tests only if the gate names exact tests.
+
+Forbidden write set:
+- Any schema version bump without compatibility tests.
+- Any generated binding edit without a binding-specific gate.
+- Any change that makes legacy v2/v3 sidecars fail to decode.
+
+Implementation contract:
+- Optional fields must remain optional unless a migration plan is approved.
+- Rust must not reject sidecars containing `summary`, `tags`, `entities`,
+  `suggested_links`, `child_concept`, or `interpretation_directive`.
+- Source-code sidecar exclusion remains intact.
+
+Tests and logs:
+- Swift sidecar focused tests.
+- Rust JSON decode tests if a Rust mirror exists.
+- `rg` audit proving no strict stale decoder remains.
+
+Acceptance:
+- The sidecar contract is documented and tested on every active read/write
+  surface.
+
+Stop triggers:
+- No actual Rust sidecar mirror exists. In that case write an audit note only;
+  do not invent one inside this card.
+- A migration is required. Open a separate migration gate.
+
+## Card 3 - R15 Benchmark Harness Foundation
+
+Status update 2026-05-01:
+PR1 JSON recorder foundation is closed. PR2 real fixture baselines are also
+closed for Swift graph payload construction, markdown parser FFI, and
+code-token parser FFI. The existing disabled manual benchmark suites now write
+validated machine-readable JSON through `BenchmarkRunRecorder`, and the
+recorder contract is tested. Remaining specialized baselines for MLX thermal,
+sqlite-vec 100k KNN, full graph FFI, editor shell, and UniFFI callback
+throughput stay open for later fixture gates.
+
+Goal:
+Create measurement scaffolding before touching graph renderer, FFI, or
+performance-sensitive storage.
+
+Authority to read first:
+- `docs/plan/03_EXECUTION_MAP.md` R15 section
+- `docs/architecture/BOLTFFI_AUDIT_2026_04_15.md`
+- `docs/fusion/FUSED_IMPLEMENTATION_QUEUE_2026_04_30.md` benchmark harness item
+- Existing benchmark files under `bench/`
+- Existing performance tests under `EpistemosTests/*Performance*`
+
+Allowed write set:
+- Benchmark/test-only files named by the deliberation gate.
+- Docs under `docs/fusion/**`
+
+Forbidden write set:
+- `graph-engine/src/renderer.rs`
+- graph physics internals
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- production FFI replacement code
+- generated artifacts
+
+Implementation contract:
+- Measure before optimizing.
+- Keep benchmark harness out of shipping hot paths.
+- Emit machine-readable results under a non-shipping results path.
+
+Tests and logs:
+- Focused benchmark compile/run command chosen by the gate.
+- Guardrail diff check.
+- Protected-path scan proving production graph internals were not touched.
+
+Acceptance:
+- A future graph/FFI optimization card can cite a repeatable baseline.
+- For PR2-closed surfaces, cite the deterministic JSON reports under
+  `benchmarks/results/`:
+  `graph_payload_construction_750_nodes`,
+  `markdown_parser_160_sections`, and `code_token_parser_1200_lines`.
+- For remaining specialized surfaces, the baseline must come from a later real
+  fixture gate, not the PR1 placeholder bodies.
+
+Stop triggers:
+- The harness requires production renderer edits.
+- Results are not repeatable or are not written to logs.
+
+## Card 4 - Quick Capture Typed Artifact Vertical Slice
+
+Status on 2026-05-01:
+Closed as already-current for the minimal typed-artifact vertical slice. See
+`docs/fusion/deliberation/quick_capture_typed_artifact_current_state_deliberation_2026_05_01.md`
+and
+`docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`.
+
+Do not assign agents to rebuild this scaffold. Future Quick Capture donor ideas
+such as universal undo, route capture, review/defer, semantic cache, and heal
+loops require new gates.
+
+Goal:
+Make one minimal Quick Capture path persist through the typed artifact and
+provenance spine rather than loose markdown-only state.
+
+Authority to read first:
+- `docs/fusion/FUSED_IMPLEMENTATION_QUEUE_2026_04_30.md` Quick Capture item
+- `docs/fusion/CANONICAL_SOURCE_MAP_AND_GATE_REGISTER_2026_04_30.md` Quick
+  Capture source cluster
+- Current Quick Capture UI and App Intent files found by
+  `rg -n "QuickCapture|CaptureBrainDumpIntent|RawThought|MutationEnvelope" Epistemos EpistemosTests`
+- `Epistemos/Models/MutationEnvelope.swift`
+- Relevant donor worktree inventory before copying any idea
+
+Allowed write set:
+- Exact Quick Capture UI/intent/model/test files named by the gate.
+- Docs under `docs/fusion/**`
+
+Forbidden write set:
+- Raw worktree merge.
+- Pro-only browser/computer-use tools.
+- Protected note editor internals.
+- Broad `agent_core` registry rewrites.
+
+Implementation contract:
+- Preserve verbatim user input.
+- Emit or link a typed provenance artifact before claiming UI success.
+- Keep Core/MAS path free of shell, Docker, or external CLI spawning.
+
+Tests and logs:
+- A failing test first for the selected capture path.
+- Focused Swift Testing suite for capture/provenance.
+- Source audit for subprocess/pro-only leakage.
+
+Acceptance:
+- One real capture gesture is Wired, Reachable, Visible.
+- The output can answer what created it and where it was stored.
+
+Stop triggers:
+- The implementation bypasses `MutationEnvelope` or equivalent provenance.
+- It depends on donor worktree code without revalidating current APIs.
+
+## Card 5 - Halo Live Loop Proof
+
+Status update 2026-05-01:
+PR1 V0 Shadow backend route is closed. The production-mounted Contextual
+Shadows V0 surface now prefers `ShadowSearchService` when AppBootstrap has a
+current per-vault Shadow backend, preserves `InstantRecallService` fallback,
+shows source provenance, and guards vault switches against stale backend or
+page-reindex writes. Full V1 Halo editor mounting remains open and requires a
+separate protected `ProseEditor*` gate.
+
+Goal:
+Prove the minimal Halo/Contextual Shadows recall loop is wired to real current
+context and visible without editor hot-path regressions.
+
+Authority to read first:
+- `docs/fusion/FUSED_IMPLEMENTATION_QUEUE_2026_04_30.md` Halo item
+- `docs/fusion/deliberation/halo_contextual_shadows_audit_defer_deliberation_2026_04_30.md`
+- `Epistemos/Engine/HaloController.swift`
+- `Epistemos/Engine/HaloEditorBridge.swift`
+- `Epistemos/Engine/ShadowSearchService.swift`
+- `Epistemos/Views/Recall/ContextualShadowsPanel.swift`
+- `EpistemosTests/HaloControllerTests.swift`
+- `EpistemosTests/HaloEditorBridgeTests.swift`
+- `EpistemosTests/ContextualShadowsStateTests.swift`
+
+Allowed write set:
+- Halo/search/panel files named by the gate.
+- Tests named by the gate.
+- Docs under `docs/fusion/**`
+
+Forbidden write set:
+- `Epistemos/Views/Notes/ProseEditor*.swift` without a protected editor gate.
+- `graph-engine/**`
+- `MetalGraphView.swift`
+- `HologramController.swift`
+
+Implementation contract:
+- No per-keystroke disk/body load cascade.
+- No main-thread heavy retrieval.
+- Cards must show provenance and source.
+- If editor integration is required, stop and open a protected-path gate.
+
+Tests and logs:
+- Focused Halo/controller/editor-bridge tests.
+- Manual app verification only when the user reopens manual runtime testing.
+- Source audit for hot-path `loadBody()` and unbounded timers.
+
+Acceptance:
+- Wired: production caller exists.
+- Reachable: documented user gesture reaches it.
+- Visible: panel/card/log proves the recall happened.
+- PR1 satisfied this for the V0 Shadow backend route; future work should target
+  either manual runtime verification or the protected V1 editor route.
+
+Stop triggers:
+- Protected editor edit needed.
+- Recall results have no provenance.
+- Typing latency or SwiftUI cascade risk appears.
+
+## Card 6 - EventStore To OpLog Projection Gate
+
+Status on 2026-05-01:
+Closed as the PR2 foundation slice, PR3A lease/retry foundation, and PR3B
+dead-letter foundation. PR3C also closes the smallest production scheduling
+worker shell. PR3D closes basic read-only Settings visibility for projection
+health and dead letters. PR4A closes Swift-only read-only projection replay
+snapshots and logical cutoff rollback inspection. PR4B closes read-only
+cryptographic OpLog chain verification and expected-tip anchoring. See:
+
+- `docs/fusion/deliberation/eventstore_oplog_projection_pr2_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/eventstore_oplog_projection_lease_retry_pr3a_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/eventstore_oplog_projection_dead_letter_pr3b_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/eventstore_oplog_projection_worker_pr3c_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/eventstore_oplog_projection_visibility_pr3d_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/eventstore_oplog_replay_snapshot_pr4a_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/oplog_chain_verification_pr4b_deliberation_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_038_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_041_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_042_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_044_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_045_2026_05_01.md`
+- `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
+
+Do not assign agents to rebuild the basic projection scaffold. Future
+provenance work should open new gates for incremental replay, ReplayBundle
+export, live AgentEvent emission, GraphEvent projection, or deeper audit/repair
+surfaces. Background projection worker scheduling is already closed as PR3C.
+Basic read-only dead-letter/projection visibility is already closed as PR3D.
+Read-only projection replay snapshots are already closed as PR4A. Read-only
+cryptographic chain verification is already closed as PR4B.
+
+Goal:
+Mirror committed `MutationEnvelope` provenance into the append-only Rust OpLog
+without creating a second source of truth or production UI dependency.
+
+Authority to read first:
+- `docs/fusion/deliberation/oplog_swift_bridge_pr1_deliberation_2026_05_01.md`
+- `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_037_2026_05_01.md`
+- `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
+- `Epistemos/State/EventStore.swift`
+- `Epistemos/Models/MutationEnvelope.swift`
+- `Epistemos/Engine/RustOpLogFFIClient.swift`
+- `agent_core/src/oplog.rs`
+- `EpistemosTests/CognitiveSubstrateTests.swift`
+- `EpistemosTests/MutationEnvelopeParityTests.swift`
+
+Allowed write set:
+- `Epistemos/State/EventStore.swift`
+- `Epistemos/Engine/RustOpLogFFIClient.swift`
+- A new narrow projection service file only if the deliberation gate names it.
+- `EpistemosTests/CognitiveSubstrateTests.swift`
+- Focused EventStore/projection tests named by the gate.
+- `agent_core/src/oplog.rs` only for narrowly required payload/ABI support named
+  by the gate.
+- Docs under `docs/fusion/**`
+
+Forbidden write set:
+- `Epistemos/Views/Notes/ProseEditor*.swift`
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- `Epistemos/Views/Graph/HologramController.swift`
+- `graph-engine/**`
+- `epistemos-shadow/**`
+- generated bindings, generated libraries, Xcode project files, entitlements,
+  DerivedData, `.xcresult`, staging, commits, stashes, or branch operations
+
+Implementation contract:
+- EventStore remains the source of committed `MutationEnvelope` persistence.
+- OpLog projection must be append-only and idempotent across restart/retry.
+- Projection must preserve trace id, artifact id, operation, actor/tool/model
+  provenance, and committed timestamp if those fields are available.
+- No UI success path may depend on OpLog until the projection has focused tests.
+- No background worker may spin or allocate per-frame/per-keystroke.
+- PR3A already supplies deterministic claim/retry primitives: owner-scoped
+  leases, retry deadlines, attempt counts, bounded last errors, and
+  owner-guarded projection marking. Do not reimplement these in a new worker
+  gate; call the existing EventStore APIs.
+- PR3B already supplies max-attempt dead-letter primitives: dead-letter
+  timestamp/reason metadata, claim/pending exclusion, bounded last-error
+  visibility, and explicit projection repair clearing. Do not reimplement these
+  in a new worker gate; call the existing EventStore APIs.
+- PR3C already supplies the finite production scheduling shell:
+  `MutationOpLogProjectionWorker` is scheduled once from AppBootstrap deferred
+  runtime services, lazily creates `RustOpLogFFIClient`, coalesces drains, and
+  delegates projection semantics to `MutationOpLogProjector`. Do not add a
+  timer, loop, second scheduler, or duplicate projector.
+- PR3D already supplies read-only Settings visibility through EventStore
+  diagnostics. Do not add raw OpLog ABI calls, polling loops, repair buttons, or
+  duplicate projection diagnostics in a future provenance gate.
+- PR4A already supplies read-only projection replay snapshots over decoded
+  `OpLogEntry` values. Do not rebuild this fold layer; future replay work should
+  target incremental replay, ReplayBundle export, or production visibility
+  behind a new gate.
+- PR4B already supplies read-only cryptographic chain verification and
+  expected-tip anchoring over the Rust OpLog through `RustOpLogFFIClient`. Do
+  not add repair, rollback execution, Settings buttons, generated bindings, or
+  a second raw ABI bridge in future verification gates.
+- If new Rust payload variants are needed, add serde parity tests before Swift
+  wiring.
+
+Tests and logs:
+- Red test first for the selected projection behavior.
+- `cargo test --manifest-path agent_core/Cargo.toml oplog --lib` if Rust payload
+  or ABI is touched.
+- Focused Swift tests for EventStore projection/retry/idempotency. PR3A green
+  evidence is `/tmp/epistemos-oplog-lease-retry-pr3a-green-20260501.log`.
+- PR3B dead-letter green evidence is
+  `/tmp/epistemos-oplog-dead-letter-pr3b-green-2-20260501.log`.
+- PR3C worker green evidence is
+  `/tmp/epistemos-oplog-worker-pr3c-green-20260501.log`.
+- PR3C boundary evidence is
+  `/tmp/epistemos-oplog-worker-pr3c-boundary-20260501.log`.
+- PR3D visibility evidence is
+  `/tmp/epistemos-oplog-visibility-pr3d-focused-2-20260501.log`.
+- PR4A replay snapshot evidence is
+  `/tmp/epistemos-oplog-replay-pr4a-green-20260501.log`.
+- PR4B chain verification evidence is
+  `/tmp/epistemos-oplog-chain-verify-pr4b-green-cargo-20260501-r1.log` and
+  `/tmp/epistemos-oplog-chain-verify-pr4b-green-xcode-20260501-r1.log`.
+- Existing OpLog bridge/boundary tests.
+- `git diff --check -- <allowed files> docs/fusion`
+- Production raw-symbol grep excluding `RustOpLogFFIClient`.
+- Protected-path name-only diff scan.
+- Logs must use `/tmp/epistemos-eventstore-oplog-projection-...-20260501.log`.
+
+Acceptance:
+- Wired: a committed envelope can be projected into OpLog through the approved
+  production-safe path.
+- Reachable: the projection is reachable from existing EventStore/outbox flow or
+  an explicitly named test-only projection entrypoint for this slice.
+- Visible: tests can show the OpLog row, sequence, chain-tip advancement, and
+  restart-safe idempotency.
+- Visible diagnostics: Settings can show projection/dead-letter health through
+  EventStore without mutating rows.
+- Replay snapshot: decoded OpLog projection entries can produce deterministic
+  read-only snapshots and cutoff rollback views without mutating rows.
+- Chain verification: persisted OpLog rows can be checked for sequence/hash
+  continuity and optional expected-tip anchoring without mutating rows.
+
+Stop triggers:
+- Projection requires protected editor or graph files.
+- Projection bypasses `EventStore.saveMutationEnvelope`.
+- Retry/idempotency cannot be proven.
+- The implementation needs broad `agent_core` registry rewrites or generated
+  binding edits.
+- The slice starts adding UI, AgentEvent, or GraphEvent features instead of
+  closing the projection contract.
+
+## Card 7 - AgentEvent Tool Provenance
+
+Status on 2026-05-01:
+PR1 durable EventStore persistence is closed. Swift now has
+`AgentProvenanceEvent`, typed tool provenance payloads, an `agent_events` table
+with unique `event_id`, and bounded EventStore APIs:
+`saveAgentEvent(_:)`, `loadAgentEvent(eventID:)`, and
+`agentEvents(runID:limit:)`.
+
+PR2 PipelineService live tool provenance is also closed. The local
+`PipelineService.observedToolExecutor(...)` chokepoint now persists requested,
+approved/denied, started, and completed/failed lifecycle rows for observed
+local tool execution without changing approval, execution, UI, streaming, or
+routing semantics. Do not assign another agent to rebuild this same
+PipelineService instrumentation.
+
+PR3 ChatCoordinator Rust-stream provenance is also closed. Both
+`AgentStreamEvent` consumers in `ChatCoordinator` now persist requested,
+approved/denied, started, and completed/failed lifecycle rows for Command
+Center and managed chat Rust agent sessions without changing approval,
+execution, UI, streaming, routing, Rust bindings, OpLog, GraphEvent, Omega,
+hooks, or generated files. Do not assign another agent to rebuild this same
+ChatCoordinator Rust-stream instrumentation.
+
+The durable model is intentionally named `AgentProvenanceEvent` because
+generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
+not rename it back without a generated-binding gate.
+
+Goal:
+Persist and then wire bounded agent/tool provenance so future agent work can
+answer who requested a tool, what was approved, what ran, what failed, and
+which run/trace it belongs to.
+
+Authority to read first:
+- `docs/fusion/deliberation/agent_event_tool_provenance_pr1_deliberation_2026_05_01.md`
+- `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
+- `/tmp/epistemos-agent-event-pr1-green-20260501.log`
+- `Epistemos/Models/AgentProvenanceEvent.swift`
+- `Epistemos/State/EventStore.swift`
+- `EpistemosTests/CognitiveSubstrateTests.swift`
+- `Epistemos/App/ChatCoordinator.swift` only for PR3 evidence or a future
+  regression fix gate.
+- `Epistemos/Engine/HookRegistry.swift` only for a future hook-emission gate.
+
+Allowed write set:
+- PR1 persistence-only: already closed.
+- PR2 PipelineService observed tool instrumentation: already closed.
+- PR3 ChatCoordinator/Rust-stream instrumentation: already closed.
+- Future Omega, hook, or broader runtime
+  instrumentation only after a new deliberation gate names exact runtime files
+  and focused tests.
+- Docs under `docs/fusion/**`.
+
+Forbidden write set:
+- Production chat, Omega, hooks, approvals, or tool execution without a fresh
+  live-emission gate.
+- `Epistemos/Views/Notes/ProseEditor*.swift`
+- `Epistemos/Views/Graph/MetalGraphView.swift`
+- `Epistemos/Views/Graph/HologramController.swift`
+- `graph-engine/**`
+- `agent_core/**`
+- generated Swift/header bindings, generated libraries, Xcode project files,
+  entitlements, DerivedData, `.xcresult`, staging, commits, stashes, or branch
+  operations.
+
+Implementation contract:
+- EventStore remains the durable Swift source for `agent_events`.
+- Preserve lower-snake-case JSON and bounded reads.
+- Failed and denied tool events are first-class events, not exceptions from the
+  EventStore persistence API.
+- Future live emission must be additive instrumentation only: no approval,
+  routing, tool execution, or UI control-flow changes unless explicitly gated.
+- Do not project AgentEvents into OpLog, GraphEvent, Halo, Theater, or
+  ReplayBundle until a separate projection gate exists.
+
+Tests and logs:
+- PR1 red log: `/tmp/epistemos-agent-event-pr1-red-20260501.log`.
+- PR1 green log: `/tmp/epistemos-agent-event-pr1-green-20260501.log`.
+- PR2 red log: `/tmp/epistemos-agent-event-pr2-red-20260501.log`.
+- PR2 Kimi advisory:
+  `/tmp/epistemos-agent-event-pr2-kimi-advisory-20260501.log`.
+- PR2 final green log:
+  `/tmp/epistemos-agent-event-pr2-combined-green-20260501-r3.log`.
+- PR3 red log: `/tmp/epistemos-agent-event-pr3-red-20260501-r2.log`.
+- PR3 green log: `/tmp/epistemos-agent-event-pr3-green-20260501-r1.log`.
+- PR3 Kimi audit attempt:
+  `/tmp/epistemos-agent-event-pr3-kimi-audit-20260501-r1.log` produced no
+  output after several minutes and was terminated.
+- Future live-emission PRs must write a failing test first for the selected
+  path, then a focused green Swift Testing log.
+- Guardrails: `git diff --check`, source grep for forbidden production paths,
+  and protected-path name-only diff scan.
+
+Acceptance:
+- PR1 wired: durable typed model plus EventStore table/API.
+- PR1 reachable: focused tests save, load, list, and idempotently update
+  AgentEvent provenance rows.
+- PR1 visible: tests prove lower-snake-case JSON, bounded ordering, and table
+  creation.
+- PR2 wired/reachable/visible: PipelineService observed local tools emit
+  requested, approved/denied, started, and completed/failed rows with non-empty
+  run id and tool call id. Trace id remains nil in PR2 because that chokepoint
+  does not expose a canonical trace id.
+- PR3 wired/reachable/visible: ChatCoordinator Command Center and managed chat
+  Rust stream loops emit typed events for exposed permission and tool lifecycle
+  events without changing behavior. Trace id remains nil because these paths do
+  not expose a canonical trace id today.
+
+Stop triggers:
+- A live-emission slice needs broad `agent_core`, generated binding, editor,
+  graph, or UI rewrites.
+- Any code path would emit AgentEvents without run id or tool call identity; if
+  the chosen runtime exposes canonical trace context, dropping that trace also
+  stops the slice.
+- Instrumentation changes tool approval semantics or user-facing behavior.
+- The implementation tries to collapse `AgentProvenanceEvent` into the
+  generated UniFFI `AgentEvent`.
+
+## Card 8 - Durable GraphEvent Mutation Mapping
+
+Status on 2026-05-01:
+PR1 durable EventStore mapping is closed. Swift now has
+`DurableGraphEvent`, `DurableGraphEventKind`, and
+`DurableGraphEventRelation`; EventStore now has a `graph_events` table with
+bounded `saveGraphEvent(_:)`, `loadGraphEvent(eventID:)`, and
+`graphEvents(mutationID:limit:)` APIs. Committed graph-affecting
+`MutationEnvelope`s persist deterministic graph-event rows transactionally with
+the envelope/outbox save. Pending/failed/reverted envelopes do not emit graph
+events.
+
+Naming note:
+The durable model is intentionally named `DurableGraphEvent` because
+`Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
+`GraphEvent` FFI ring-event type. Do not rename it without a gate that handles
+that collision explicitly.
+
+Goal:
+Persist deterministic graph provenance from committed mutation envelopes before
+any live graph, retrieval, Halo, Theater, or audit projection consumes it.
+
+Authority to read first:
+- `docs/fusion/deliberation/graph_event_durable_mapping_pr1_deliberation_2026_05_01.md`
+- `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
+- `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`
+- `Epistemos/Models/MutationEnvelope.swift`
+- `Epistemos/State/EventStore.swift`
+- `EpistemosTests/CognitiveSubstrateTests.swift`
+- `Epistemos/Engine/EventDrain.swift` only for the naming collision context.
+
+Allowed write set:
+- PR1 durable EventStore mapping: already closed.
+- Future live GraphEvent projections only after a new deliberation gate names
+  exact projection files and focused tests.
+- Docs under `docs/fusion/**`.
+
+Forbidden write set:
+- `Epistemos/Views/Graph/**`
+- `Epistemos/Graph/**`
+- `graph-engine/**`
+- `agent_core/**`
+- OpLog workers, Rust OpLog FFI, PipelineService, ChatCoordinator, Omega, hooks,
+  protected note editor files, generated bindings, generated libraries, Xcode
+  project files, entitlements, DerivedData, `.xcresult`, staging, commits,
+  stashes, or branch operations unless a future gate names them.
+
+Implementation contract:
+- EventStore remains the durable Swift source for `graph_events`.
+- Existing `MutationEnvelope` wire format must not change.
+- Graph events derive only from committed graph-affecting mutation envelopes:
+  `affectsGraph == true`, non-empty `relationChanges`, or
+  `op == .graphMutation`.
+- Event ids remain deterministic from `mutationID` plus an ordered index.
+- Future projection slices may read `graph_events`; they must not mutate graph
+  renderer/editor surfaces without a protected-path gate.
+
+Tests and logs:
+- Red log: `/tmp/epistemos-graph-event-pr1-red-20260501.log`.
+- Green log: `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`.
+- Kimi audit attempt:
+  `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
+  output and was terminated.
+- Future projection PRs must write a failing test first for the selected
+  consumer path, then a focused green Swift Testing log.
+- Guardrails: `git diff --check`, source grep on implementation files for
+  forbidden production paths, and protected-path name-only diff scan.
+
+Acceptance:
+- PR1 wired: durable typed model plus EventStore table/API.
+- PR1 reachable: focused tests save, load, list, and idempotently update
+  GraphEvent rows.
+- PR1 visible: tests prove lower-snake-case JSON, bounded ordering, table
+  creation, committed-envelope emission, and pending-envelope exclusion.
+
+Stop triggers:
+- A live projection slice requires protected graph/editor/Rust files not named
+  by its gate.
+- The implementation needs to change `MutationEnvelope` wire format.
+- Event ids become nondeterministic or not tied to a mutation id.
+- The implementation tries to collapse `DurableGraphEvent` into the FFI
+  `GraphEvent` ring type without a collision-resolution gate.
