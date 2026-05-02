@@ -315,6 +315,9 @@ Proven or actively wired:
   using the installed DeepSeek R1 7B MLX model; the gated harness is green, but
   the live sentinel run stopped at canonical insufficient-memory preflight
   (`requiredGB=12`, `availableGB=4`), so no live tok/s JSON artifact exists yet.
+  R15 PR9 adds a test-only evidence ledger that names the ten closed R15 JSON
+  artifacts and keeps the open PR8 tok/s, renderer FPS, and true Rust
+  callback-loop artifact names out of the closed set.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
   AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
   MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
@@ -527,8 +530,9 @@ are:
   UniFFI callback-handle lowering/lifting, and MLX thermal policy/backpressure
   decisions, and live `GraphEngine`/C FFI bridge roundtrips. R15 PR8 is a green
   opt-in live MLX tok/s harness plus blocked-run evidence, not a tok/s baseline
-  artifact. Remaining R15 baseline work stays benchmark/test-only until a
-  fixture gate explicitly names any production path.
+  artifact. R15 PR9 is a green evidence-ledger guard for the closed/open
+  artifact boundary, not a new benchmark. Remaining R15 baseline work stays
+  benchmark/test-only until a fixture gate explicitly names any production path.
 - R16 follow-up only for runtime/manual verification, throughput/backfill, or
   sidecar-generation expansion behind a new exact gate. Memory-pressure
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
@@ -601,7 +605,8 @@ You can resume building now, and the substrate spine is stronger than the April
 30 plan text: Quick Capture's minimal typed-artifact path, the
 EventStore-to-OpLog projection foundation, the R15 JSON benchmark-recorder
 foundation, R15 PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines, R15 PR8 live
-MLX tok/s harness with blocked-run evidence, EventStore OpLog
+MLX tok/s harness with blocked-run evidence, R15 PR9 evidence-ledger guard,
+EventStore OpLog
 lease/retry PR3A, EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence

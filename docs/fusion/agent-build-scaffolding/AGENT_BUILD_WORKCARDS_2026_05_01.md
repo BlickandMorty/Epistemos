@@ -239,10 +239,13 @@ renderer FPS or graph optimization. PR8 adds an opt-in live MLX token
 throughput harness that reaches `MLXInferenceService` and `LocalMLXClient`
 against the installed DeepSeek R1 7B MLX model, but the live sentinel run was
 blocked by canonical memory preflight (`requiredGB=12`, `availableGB=4`), so it
-does not claim tok/s yet. Remaining specialized baselines for live MLX token
-throughput under sufficient-memory/thermal-soak conditions and the true Rust
-callback-loop export stay open for later fixture gates; production GRDB/768d KNN
-still needs its own future gate before any product claim.
+does not claim tok/s yet. PR9 adds an app-hosted evidence ledger guard that
+names the ten closed R15 JSON artifacts and keeps the open PR8 tok/s, renderer
+FPS, and true Rust callback-loop artifacts explicitly forbidden from the closed
+set. Remaining specialized baselines for live MLX token throughput under
+sufficient-memory/thermal-soak conditions and the true Rust callback-loop export
+stay open for later fixture gates; production GRDB/768d KNN still needs its own
+future gate before any product claim.
 
 Goal:
 Create measurement scaffolding before touching graph renderer, FFI, or
@@ -299,6 +302,11 @@ Acceptance:
   as the opt-in live MLX tok/s harness and blocked-run evidence only. There is
   no PR8 tok/s JSON artifact yet because the live sentinel run stopped at
   canonical insufficient-memory preflight.
+- For PR9, cite
+  `docs/fusion/deliberation/r15_benchmark_evidence_ledger_pr9_deliberation_2026_05_02.md`
+  and `EpistemosTests/Benchmarks/R15BenchmarkEvidenceLedgerTests.swift` as the
+  evidence-ledger guard only. It names closed artifact filenames and metadata,
+  and it must not be weakened into a product benchmark or live-runtime claim.
 - For remaining specialized surfaces, the baseline must come from a later real
   fixture gate, not the PR1 placeholder bodies.
 
