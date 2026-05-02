@@ -199,6 +199,36 @@ struct SovereignGateTests {
         #expect(authenticator.requests.isEmpty)
     }
 
+    @Test("Agent approval decisions map to Sovereign Gate requirements")
+    func agentApprovalDecisionsMapToSovereignGateRequirements() {
+        #expect(
+            ChatApprovalSovereignGate.requirement(
+                for: .approveOnce,
+                toolName: "shell.execute"
+            ) == .biometric(category: SovereignGateCategory(rawValue: "agent-tool-shell.execute"))
+        )
+        #expect(
+            ChatApprovalSovereignGate.requirement(
+                for: .applyLessInterruptions,
+                toolName: "shell.execute"
+            ) == .deviceOwnerAuthentication
+        )
+        #expect(
+            ChatApprovalSovereignGate.requirement(
+                for: .approveAlways,
+                toolName: "shell.execute"
+            ) == .deviceOwnerAuthentication
+        )
+        #expect(ChatApprovalSovereignGate.requirement(for: .deny, toolName: "shell.execute") == .none)
+        #expect(ChatApprovalSovereignGate.requirement(for: .timedOut, toolName: "shell.execute") == .none)
+        #expect(
+            ChatApprovalSovereignGate.reason(
+                for: .approveAlways,
+                toolName: "shell.execute"
+            ).contains("shell.execute")
+        )
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])
