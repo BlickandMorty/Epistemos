@@ -821,5 +821,12 @@ choice, deletion, simplification, or "simple" code change:
    web validation pass using primary/official sources where possible. The web
    pass validates or updates the local plan; it does not replace the local
    canon.
-5. Keep it useful: search smartly, quote only the load-bearing claim or path,
+5. Match depth to risk: simple edits get a quick local pass, while
+   architecture, security, performance, agent-routing, substrate, or release
+   work gets deeper local retrieval before coding.
+6. Delegated Claude/Kimi/Codex handoffs must include the relevant local canon
+   paths, semantic search terms, and any unresolved external-validation need.
+   Do not hand an agent a generic task if the user's research already gives the
+   map.
+7. Keep it useful: search smartly, quote only the load-bearing claim or path,
    and stop reading once the slice has enough evidence to act safely.

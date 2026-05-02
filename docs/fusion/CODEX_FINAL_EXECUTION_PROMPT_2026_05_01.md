@@ -48,6 +48,11 @@ the local corpus lacks a structured answer, or the slice depends on current API,
 OS, model, package, security, App Store, or framework behavior, validate with a
 targeted web search using primary/official sources where possible. The web pass
 validates the local plan; it does not replace the user's research corpus.
+Use proportional depth: a quick local lookup is enough for a tiny mechanical
+edit, but architecture, security, performance, agent routing, or substrate work
+requires a deeper local pass before implementation. When delegating to Claude,
+Kimi, or another agent, include the relevant local canon paths/search terms in
+the handoff so the delegate inherits the same research-first frame.
 
 Semantic expansion examples:
 

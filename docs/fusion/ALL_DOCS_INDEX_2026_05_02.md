@@ -192,6 +192,7 @@ If a session looks for any of these keywords, they almost always resolve to the 
 - **ANE direct path**, **`_ANEClient`**, **MIL**, **E5**, **disable-library-validation** → Annex A.11
 - **Hermes prompt**, **NousResearch**, **ChatML XML** → `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H2 + doctrine Annex A.12. Current hermes-parity donor uses plain markdown; ChatML is future/local-agent unless the active path verifies otherwise.
 - **Knowledge Sieve**, **Gap Winner Rule** → Annex A.13
+- **research-first**, **disk first**, **semantic expansion**, **Claude/Kimi handoff**, **web validation** → `MASTER_RESEARCH_INDEX_2026_05_02.md` §22.1 + `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` §2 + `AGENTS.md` Golden Rule 8
 - **VRM**, **Verified Research Mode** → Annex A.14
 - **NeMoCLAW**, **OpenCLAW**, **REP mesh**, **CRDT** → Annex A.8
 - **Symphony OS**, **KIVI**, **KV virtualization** → Annex A.9
