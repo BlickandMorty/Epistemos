@@ -1,0 +1,32 @@
+{
+  "generated_at" : "2026-05-01T00:00:00.000Z",
+  "max" : 0.035784916,
+  "measurement" : "code_token_parser_1200_lines",
+  "metadata" : {
+    "baseline_kind" : "fixture_pr2_real",
+    "checksum" : "51814",
+    "fixture_name" : "code_token_parser",
+    "fixture_status" : "real_local_fixture",
+    "language" : "swift",
+    "payload_bytes" : "33892",
+    "payload_lines" : "1200",
+    "sample_source" : "focused_xcode_test"
+  },
+  "min" : 0.014948291,
+  "p50" : 0.015337125,
+  "p95" : 0.029723241399999985,
+  "p99" : 0.03457258107999999,
+  "sample_count" : 7,
+  "samples" : [
+    0.014948291,
+    0.015135917,
+    0.015255167,
+    0.015337125,
+    0.015372333,
+    0.015579334,
+    0.035784916
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Fixture Baselines",
+  "unit" : "seconds"
+}

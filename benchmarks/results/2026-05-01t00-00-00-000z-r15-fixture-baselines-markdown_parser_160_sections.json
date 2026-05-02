@@ -1,0 +1,31 @@
+{
+  "generated_at" : "2026-05-01T00:00:00.000Z",
+  "max" : 0.00317675,
+  "measurement" : "markdown_parser_160_sections",
+  "metadata" : {
+    "baseline_kind" : "fixture_pr2_real",
+    "checksum" : "7840",
+    "fixture_name" : "markdown_parser",
+    "fixture_status" : "real_local_fixture",
+    "payload_bytes" : "20522",
+    "payload_sections" : "160",
+    "sample_source" : "focused_xcode_test"
+  },
+  "min" : 0.0019155,
+  "p50" : 0.001991166,
+  "p95" : 0.002866799899999999,
+  "p99" : 0.0031147599799999995,
+  "sample_count" : 7,
+  "samples" : [
+    0.0019155,
+    0.001980708,
+    0.001987,
+    0.001991166,
+    0.002021333,
+    0.002143583,
+    0.00317675
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Fixture Baselines",
+  "unit" : "seconds"
+}
