@@ -274,6 +274,17 @@ closed:
   `LocalAuthentication`, migrate other note/editor dialogs, alter version
   persistence semantics, or touch Rust/generated/graph/Omega/ChatCoordinator
   surfaces.
+- Sovereign Gate RootView Destructive PR8 is now closed for the existing
+  database error "Reset Database" and vault recovery "Disconnect Vault"
+  destructive controls. Both buttons now route through the shared
+  `AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication` before
+  calling their original closures. Red-team P2/P3 findings were addressed:
+  denied reset auth restores the database recovery alert while the database
+  error remains present, and vault disconnect has an in-flight auth guard to
+  prevent duplicate prompts/actions. Focused Swift tests passed 17/17. This
+  does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`, alter
+  database reset or vault recovery semantics, or touch Rust/generated/graph/
+  Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -685,8 +696,9 @@ before building.
    closed for the additive Rust action-class seed only. Notes Delete PR5 is
    closed for the existing Notes Sidebar permanent page/folder delete surface,
    Chat Delete PR6 is closed for the existing Chat Sidebar context-menu
-   destructive chat delete surface, and Version Delete PR7 is closed for the
-   existing DiffSheet version-delete menu surface. Future Sovereign slices must
+   destructive chat delete surface, Version Delete PR7 is closed for the
+   existing DiffSheet version-delete menu surface, and RootView Destructive PR8
+   is closed for database reset and vault disconnect. Future Sovereign slices must
    start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
    and may only add generated requirement transport, lifecycle follow-up,
@@ -760,7 +772,7 @@ are:
   first introduces an actual Rust note-sidecar mirror target.
 - Sovereign Gate follow-up only for exact gated slices after Core PR1, Lifecycle
   PR2, Approval Surface PR3, Rust Matrix PR4, Notes Delete PR5, Chat Delete PR6,
-  and Version Delete PR7: generated requirement transport, lifecycle follow-up
+  Version Delete PR7, and RootView Destructive PR8: generated requirement transport, lifecycle follow-up
   beyond PR2's app/session/sleep grace clearing, additional existing
   confirmation surfaces migrated to `SovereignGate`, or Pro/Research Secure
   Enclave/Sovereign-class routes.
@@ -848,7 +860,9 @@ projection visibility PR5,
 durable GraphEvent audit projection PR6,
 durable GraphEvent Halo projection PR7,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
-Surface PR3, Sovereign Gate Rust Matrix PR4, the Halo V0 Shadow
+Surface PR3, Sovereign Gate Rust Matrix PR4, Sovereign Gate Notes Delete PR5,
+Sovereign Gate Chat Delete PR6, Sovereign Gate Version Delete PR7, Sovereign
+Gate RootView Destructive PR8, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway

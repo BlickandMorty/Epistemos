@@ -49,6 +49,26 @@ enum HomeWindowIdentity {
     }
 }
 
+enum RootViewDestructiveActionSovereignGate {
+    enum Target: Equatable {
+        case databaseReset
+        case vaultDisconnect
+    }
+
+    static func requirement(for _: Target) -> SovereignGateRequirement {
+        .deviceOwnerAuthentication
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case .databaseReset:
+            "Reset database and delete saved data."
+        case .vaultDisconnect:
+            "Disconnect vault from this workspace."
+        }
+    }
+}
+
 private struct HomeWindowIdentityObserver: NSViewRepresentable {
     func makeNSView(context: Context) -> HomeWindowIdentityObserverView {
         HomeWindowIdentityObserverView()
@@ -248,10 +268,32 @@ struct RootView: View {
         .onAppear(perform: handleDatabaseCheck)
         .alert("Database Error", isPresented: $showDatabaseAlert) {
             Button("Continue Empty") { }
-            Button("Reset Database", role: .destructive) { onResetDatabase?() }
+            Button("Reset Database", role: .destructive) {
+                requestDatabaseResetAuthorization()
+            }
             Button("Quit") { NSApp.terminate(nil) }
         } message: {
             Text("The database could not be loaded. You can continue with an empty session, reset the database (deletes saved data), or quit.\n\n\(databaseError?.localizedDescription ?? "")")
+        }
+    }
+
+    private func requestDatabaseResetAuthorization() {
+        let target = RootViewDestructiveActionSovereignGate.Target.databaseReset
+
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                RootViewDestructiveActionSovereignGate.requirement(for: target),
+                reason: RootViewDestructiveActionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else {
+                if databaseError != nil {
+                    showDatabaseAlert = true
+                }
+                return
+            }
+
+            onResetDatabase?()
         }
     }
 
@@ -1708,11 +1750,33 @@ struct LocalModelToolbarMenu: View {
 
 
 private struct VaultRecoveryOverlay: View {
+    @State private var isVaultDisconnectAuthorizationInFlight = false
+
     let issue: VaultRecoveryIssue
     let isRecovering: Bool
     let rebuildAction: () -> Void
     let chooseVaultAction: () -> Void
     let disconnectAction: () -> Void
+
+    private func requestVaultDisconnectAuthorization() {
+        guard !isVaultDisconnectAuthorizationInFlight else { return }
+
+        let target = RootViewDestructiveActionSovereignGate.Target.vaultDisconnect
+        isVaultDisconnectAuthorizationInFlight = true
+
+        Task { @MainActor in
+            defer { isVaultDisconnectAuthorizationInFlight = false }
+
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                RootViewDestructiveActionSovereignGate.requirement(for: target),
+                reason: RootViewDestructiveActionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else { return }
+
+            disconnectAction()
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -1740,9 +1804,9 @@ private struct VaultRecoveryOverlay: View {
                     .disabled(isRecovering)
 
                     Button("Disconnect Vault", role: .destructive) {
-                        disconnectAction()
+                        requestVaultDisconnectAuthorization()
                     }
-                    .disabled(isRecovering)
+                    .disabled(isRecovering || isVaultDisconnectAuthorizationInFlight)
                 }
             }
             .padding(24)
