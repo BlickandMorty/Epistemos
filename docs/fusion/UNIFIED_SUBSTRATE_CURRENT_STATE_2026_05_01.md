@@ -153,6 +153,11 @@ closed:
   in chronological projection order, and `DurableGraphEventProjection` folds
   durable rows into deterministic read-only node/edge snapshots without graph
   renderer, retrieval, Halo, Theater, Rust, OpLog, or UI side effects.
+- Durable GraphEvent projection consumer PR4 is now closed. EventStore exposes
+  bounded `graphEventProjectionSnapshot(limit:)`, composing the existing recent
+  durable GraphEvent read with the deterministic read-only projection fold
+  without renderer, retrieval, Halo, Theater, Rust, OpLog, mutation, repair,
+  polling, or UI side effects.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,
@@ -267,6 +272,9 @@ Proven or actively wired:
   `DurableGraphEventProjection` can fold those rows into deterministic
   node/edge snapshots for future graph, retrieval, Halo, Theater, or audit
   consumers.
+- EventStore now exposes the direct read-only GraphEvent projection consumer
+  `graphEventProjectionSnapshot(limit:)` so future consumers can request a
+  bounded snapshot without hand-composing row reads and projection folding.
 - R15 benchmark JSON recorder foundation is now present for the existing manual
   benchmark suites, with a tested schema and non-shipping
   `benchmarks/results/` output path. R15 PR2 also adds real fixture baselines
@@ -335,8 +343,9 @@ Still open:
   `AgentEvent` emission beyond the PipelineService observed-tool,
   ChatCoordinator Rust-stream, and HookRegistry API-level paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
-  read-only Settings visibility, and the read-only projection snapshot, such
-  as graph, retrieval, Halo, Theater, or audit surfaces.
+  read-only Settings visibility, the read-only projection snapshot, and the
+  EventStore projection-consumer API, such as graph, retrieval, Halo, Theater,
+  or audit surfaces.
 - Sovereign Gate follow-through beyond the Core Swift executor: Rust-side
   action-class matrix, generated transport, existing confirmation-surface
   migration, and any Pro/Research Secure Enclave or Sovereign-class routes.
@@ -391,7 +400,8 @@ Still open:
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
    HookRegistry lifecycle PR4, durable GraphEvent mutation mapping PR1,
    durable GraphEvent Settings visibility PR2, and durable GraphEvent
-   projection snapshot PR3 are closed. Add Omega/broader
+   projection snapshot PR3, and durable GraphEvent projection consumer PR4 are
+   closed. Add Omega/broader
    runtime AgentEvent coverage, production hook call-site mounting,
    incremental replay/export, live GraphEvent consumer projections, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
@@ -441,7 +451,8 @@ are:
   emission is closed as PR3, HookRegistry API-level lifecycle emission is
   closed as PR4, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
-  GraphEvent projection snapshots are closed as PR3.
+  GraphEvent projection snapshots plus the EventStore read-only consumer API
+  are closed as PR3/PR4.
 - R15 Benchmark Harness PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines are closed
   for Swift graph payload construction, markdown parser FFI, code-token parser
   FFI, editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, generated
@@ -530,6 +541,7 @@ PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
+durable GraphEvent projection consumer PR4,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, R16 memory-pressure dispatch pause PR3E,

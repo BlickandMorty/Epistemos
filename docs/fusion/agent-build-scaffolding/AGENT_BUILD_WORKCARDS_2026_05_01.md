@@ -771,6 +771,12 @@ in chronological projection order, and `DurableGraphEventProjection` folds
 durable rows into deterministic read-only node/edge snapshots without graph
 renderer, retrieval, Halo, Theater, Rust, OpLog, or UI side effects.
 
+PR4 read-only EventStore projection consumer is also closed. EventStore now
+exposes `graphEventProjectionSnapshot(limit:)`, which composes the existing
+bounded recent-row read with `DurableGraphEventProjection.snapshot(from:)`.
+This is a read-only consumer API only: no renderer, retrieval, Halo, Theater,
+Rust, OpLog, mutation, repair, polling, or UI side effects.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -799,6 +805,7 @@ Allowed write set:
 - PR1 durable EventStore mapping: already closed.
 - PR2 read-only Settings visibility: already closed.
 - PR3 read-only projection snapshots: already closed.
+- PR4 read-only EventStore projection consumer: already closed.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -830,6 +837,9 @@ Implementation contract:
   GraphEvent rows. Future consumer gates may read that snapshot but must not
   mutate renderer, retrieval, Halo, Theater, or audit surfaces unless their
   gate names the exact files.
+- PR4 already supplies the direct EventStore consumer API for a recent
+  read-only snapshot. Do not add second wrapper methods, polling, UI, repair,
+  renderer, retrieval, Halo, Theater, Rust, or OpLog work without a new gate.
 
 Tests and logs:
 - Red log: `/tmp/epistemos-graph-event-pr1-red-20260501.log`.
@@ -840,6 +850,12 @@ Tests and logs:
   `/tmp/epistemos-graph-event-projection-pr3-red-20260501.log`.
 - PR3 green log:
   `/tmp/epistemos-graph-event-projection-pr3-green-20260501.log`.
+- PR4 red log:
+  `/tmp/epistemos-graph-event-projection-consumer-pr4-red-20260502.log`.
+- PR4 accepted green log:
+  `/tmp/epistemos-graph-event-projection-consumer-pr4-green-r2-20260502.log`.
+  The first PR4 green command targeted the filename and selected 0 tests, so it
+  is not acceptance evidence.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -861,6 +877,10 @@ Acceptance:
   chronological projection order, and `DurableGraphEventProjection` folds
   node/edge create, update, label-change, delete, and generic graph-mutation
   rows deterministically without live consumer side effects.
+- PR4 wired/reachable/visible: EventStore returns a bounded read-only
+  projection snapshot through `graphEventProjectionSnapshot(limit:)`; the
+  focused `EventStoreSchemaTests` suite executed 34 tests including the new
+  consumer test.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named
