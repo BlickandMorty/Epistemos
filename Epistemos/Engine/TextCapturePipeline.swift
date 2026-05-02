@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 import NaturalLanguage
 import os
 import SwiftData
@@ -85,6 +86,8 @@ struct CaptureResult: Sendable {
     let createdNoteID: String?
     let draftNoteID: String?
     let graphWriteSummary: GraphWriteSummary
+    let mutationEnvelope: MutationEnvelope?
+    let mutationEnvelopePersisted: Bool
     let traceID: String
 }
 
@@ -174,6 +177,24 @@ extension TraceEvent {
         )
     }
 
+    static func mutationEnvelopeCommitted(
+        sessionId: String, traceId: String, envelope: MutationEnvelope
+    ) -> TraceEvent {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try? encoder.encode(envelope)
+        let content = data.flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
+        return TraceEvent(
+            ts: isoNow(), type: .mutationEnvelopeCommitted, sessionId: sessionId, taskId: traceId,
+            harnessVersion: "capture-v1", turn: nil,
+            provider: nil, model: nil, tool: "text_capture", toolInput: nil, toolOutput: nil,
+            exitCode: nil, durationMs: nil, content: content,
+            tokensUsed: nil, stopReason: nil, inputTokens: nil, outputTokens: nil,
+            checkerType: nil, passed: nil, evidence: nil, errorMessage: nil,
+            thermalState: nil, domain: "capture", progressSnapshot: nil, bootstrapPacket: nil
+        )
+    }
+
     static func evidenceLinked(
         sessionId: String, traceId: String, spanCount: Int
     ) -> TraceEvent {
@@ -209,13 +230,16 @@ final class TextCapturePipeline {
 
     private let traceCollector: TraceCollector
     private let sessionId: String
+    private let eventStoreProvider: @Sendable () -> EventStore?
 
     init(
         traceCollector: TraceCollector = .shared,
-        sessionId: String = UUID().uuidString
+        sessionId: String = UUID().uuidString,
+        eventStoreProvider: @escaping @Sendable () -> EventStore? = { EventStore.shared }
     ) {
         self.traceCollector = traceCollector
         self.sessionId = sessionId
+        self.eventStoreProvider = eventStoreProvider
     }
 
     /// Run the full capture pipeline on raw text.
@@ -308,6 +332,35 @@ final class TextCapturePipeline {
             sessionId: sessionId, traceId: traceId, summary: graphSummary
         ))
 
+        let mutationEnvelope: MutationEnvelope?
+        let mutationEnvelopePersisted: Bool
+        if let noteId = createdNoteID {
+            mutationEnvelope = makeCaptureMutationEnvelope(
+                noteId: noteId,
+                title: title,
+                cleanedText: cleaned,
+                graphSummary: graphSummary,
+                traceId: traceId
+            )
+            if let mutationEnvelope {
+                mutationEnvelopePersisted = eventStoreProvider()?
+                    .saveMutationEnvelope(mutationEnvelope, traceId: traceId) ?? false
+                if !mutationEnvelopePersisted {
+                    log.error(
+                        "TextCapturePipeline: mutation envelope persistence failed for \(mutationEnvelope.mutationID, privacy: .public)"
+                    )
+                }
+                traceCollector.record(.mutationEnvelopeCommitted(
+                    sessionId: sessionId, traceId: traceId, envelope: mutationEnvelope
+                ))
+            } else {
+                mutationEnvelopePersisted = false
+            }
+        } else {
+            mutationEnvelope = nil
+            mutationEnvelopePersisted = false
+        }
+
         // Step 5: Evidence linking trace
         traceCollector.record(.evidenceLinked(
             sessionId: sessionId, traceId: traceId, spanCount: allSpans.count
@@ -324,8 +377,67 @@ final class TextCapturePipeline {
             createdNoteID: createdNoteID,
             draftNoteID: nil,
             graphWriteSummary: graphSummary,
+            mutationEnvelope: mutationEnvelope,
+            mutationEnvelopePersisted: mutationEnvelopePersisted,
             traceID: traceId
         )
+    }
+
+    private nonisolated func makeCaptureMutationEnvelope(
+        noteId: String,
+        title: String,
+        cleanedText: String,
+        graphSummary: GraphWriteSummary,
+        traceId: String
+    ) -> MutationEnvelope {
+        let committedAtMs = Int64(Date().timeIntervalSince1970 * 1000)
+        return MutationEnvelope(
+            mutationID: "capture-\(traceId)",
+            sequence: 1,
+            causedByEventID: traceId,
+            actor: .user,
+            status: .committed,
+            createdAtMs: committedAtMs,
+            committedAtMs: committedAtMs,
+            op: .artifactCreate(
+                artifactID: noteId,
+                artifactKind: ArtifactKind.proseNote.snakeCaseString
+            ),
+            sensitivity: .internal,
+            reversibility: .reversible,
+            integrityHash: captureIntegrityHash(
+                noteId: noteId,
+                title: title,
+                cleanedText: cleanedText,
+                graphSummary: graphSummary
+            ),
+            touchedArtifacts: [
+                EpdocArtifactRef(id: noteId, kind: .proseNote, title: title)
+            ],
+            affectsSummary: true,
+            affectsSearchProjection: true,
+            affectsGraph: graphSummary.noteNodeCreated,
+            affectsBody: true
+        )
+    }
+
+    private nonisolated func captureIntegrityHash(
+        noteId: String,
+        title: String,
+        cleanedText: String,
+        graphSummary: GraphWriteSummary
+    ) -> String {
+        let canonical = [
+            noteId,
+            title,
+            cleanedText,
+            "\(graphSummary.noteNodeCreated)",
+            "\(graphSummary.entityNodesCreated)",
+            "\(graphSummary.edgesCreated)",
+            graphSummary.skippedReason ?? ""
+        ].joined(separator: "\u{1f}")
+        let digest = SHA256.hash(data: Data(canonical.utf8))
+        return "sha256:" + digest.map { String(format: "%02x", $0) }.joined()
     }
 
     // MARK: - Text Cleaning
