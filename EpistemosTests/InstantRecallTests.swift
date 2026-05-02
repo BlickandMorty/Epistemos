@@ -99,27 +99,6 @@ struct InstantRecallServiceTests {
         let _ = instantRecallClear(handle: "test-empty-q")
     }
 
-    @Test("Service rebuild replaces stale indexed documents")
-    @MainActor func serviceRebuildReplacesStaleDocuments() {
-        let service = InstantRecallService()
-        service.initialize()
-        service.indexNote(noteId: "old-doc", text: "Rust systems programming language")
-
-        let oldResults = service.search(queryText: "Rust programming", topK: 5)
-        #expect(oldResults.contains(where: { $0.docId == "old-doc" }))
-
-        service.rebuildIndex(notes: [
-            (id: "fresh-doc", text: "Italian pasta recipes and sauce technique"),
-        ])
-
-        #expect(service.documentCount == 1)
-        let staleResults = service.search(queryText: "Rust programming", topK: 5)
-        #expect(!staleResults.contains(where: { $0.docId == "old-doc" }))
-
-        let freshResults = service.search(queryText: "Italian pasta", topK: 5)
-        #expect(freshResults.first?.docId == "fresh-doc")
-    }
-
     @Test("Async service rebuild replaces stale indexed documents")
     @MainActor func serviceAsyncRebuildReplacesStaleDocuments() async {
         let service = InstantRecallService()
@@ -214,6 +193,24 @@ struct InstantRecallServiceTests {
         let secondResults = service.search(queryText: "posterior decoding", topK: 5)
         #expect(!secondResults.isEmpty,
                 "after async hydration completes, recall searches return populated results")
+    }
+
+    @Test("Async search triggers lazy initial snapshot hydration")
+    @MainActor func asyncSearchTriggersLazyInitialSnapshotHydration() async {
+        let service = InstantRecallService()
+        service.configureInitialSnapshotProvider {
+            [
+                (id: "doc-async-seeded", text: "Contextual shadows retrieve Bayesian evidence from the vault"),
+                (id: "doc-async-other", text: "Pasta sauce and tomato reduction notes"),
+            ]
+        }
+
+        _ = await service.searchAsync(query: "Bayesian evidence", topK: 5)
+
+        try? await waitUntilHydrated(service: service, expectedCount: 2)
+
+        let hydratedResults = await service.searchAsync(query: "Bayesian evidence", topK: 5)
+        #expect(hydratedResults.first?.docId == "doc-async-seeded")
     }
 
     /// Polls until the InstantRecall service has finished its async hydration.
