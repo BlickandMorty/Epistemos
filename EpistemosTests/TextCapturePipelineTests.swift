@@ -833,6 +833,25 @@ struct TextCapturePipelineTests {
         #expect(source.contains("throw IntentError.creationFailed"))
     }
 
+    @Test("Quick Capture sheet success requires durable mutation envelope persistence")
+    func quickCaptureSheetRequiresDurableMutationEnvelopeBeforeSuccess() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/QuickCaptureView.swift")
+        let durableGuards = source.components(separatedBy: "guard result.mutationEnvelopePersisted else").count - 1
+
+        #expect(durableGuards >= 2)
+        #expect(source.contains("mutation envelope was not persisted"))
+    }
+
+    @Test("Shortcut Quick Capture success requires durable mutation envelope persistence")
+    func quickCaptureIntentRequiresDurableMutationEnvelopeBeforeSuccess() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Intents/Custom/NoteActionIntents.swift")
+        let guardRange = try #require(source.range(of: "guard result.mutationEnvelopePersisted else"))
+        let openRange = try #require(source.range(of: "NoteWindowManager.shared.open(pageId: noteId)"))
+
+        #expect(guardRange.lowerBound < openRange.lowerBound)
+        #expect(source.contains("mutation envelope was not persisted"))
+    }
+
     @Test("Brain Dump intent with no body opens Quick Capture for dictation")
     func blankBrainDumpIntentOpensQuickCaptureForDictation() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Intents/Schemas/CognitiveIntents.swift")
