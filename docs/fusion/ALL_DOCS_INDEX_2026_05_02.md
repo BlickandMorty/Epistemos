@@ -1,6 +1,6 @@
 # All Docs Index — 2026-05-02
 
-> **NEW DOC — created 2026-05-02.** Filename: `ALL_DOCS_INDEX_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`. All three are mirrored into the active worktree's `docs/fusion/` folder. Open this file first when you join a session — it lists every load-bearing doc with absolute paths, so links work regardless of which worktree your shell is in.
+> **NEW DOC — created 2026-05-02.** Filename: `ALL_DOCS_INDEX_2026_05_02.md`. If your session can't find it, search by name. Sister packet docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, and `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. The packet is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Open this file first when you join a session — it lists every load-bearing doc with absolute paths, so links work regardless of which worktree your shell is in.
 
 This index is **flat and link-clickable from anywhere on the machine**. Every path is absolute. Every entry has a one-line role. Use this when:
 
@@ -16,6 +16,8 @@ This index is **flat and link-clickable from anywhere on the machine**. Every pa
 |---|---|
 | [EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md) | Truth-router. Three-tier ship model, three killer features, architectural invariants, ACS recursion, full Annex |
 | [CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md) | Codex overseer prompt — supersedes Apr 30 active prompt for tier-aware / killer-feature / biometric work |
+| [WORKTREE_INSIGHT_SALVAGE_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md) | **Cross-worktree + cross-branch insight salvage map.** Stay-stellar checklist of 10 highest-stakes insights, per-worktree salvage state, doctrine ↔ worktree dependency map, 10 deliberation-brief targets to protect substrate as doctrine ships |
+| [CODEX_DELIBERATION_PROMPT_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_DELIBERATION_PROMPT_2026_05_02.md) | **Non-interrupting deliberation prompt for Codex.** Asks Codex to read the new packet between slices and surface anything missing. Output goes to `docs/fusion/oversight/CODEX_DELIBERATION_RESPONSE_2026_05_02.md` |
 | [ALL_DOCS_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/ALL_DOCS_INDEX_2026_05_02.md) | This file. Links to everything else |
 
 ## 2. CURRENT CODE TRUTH (always-on context)
@@ -158,7 +160,7 @@ The active worktrees, with branches and roles:
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/agent-a0550f9c](/Users/jojo/Downloads/Epistemos/.claude/worktrees/agent-a0550f9c) | locked | Audit pass #3 — OpLog/BLAKE3 Merkle chain hardening |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/hermes-parity](/Users/jojo/Downloads/Epistemos/.claude/worktrees/hermes-parity) | `worktree-hermes-parity` | Hermes 22-tool parity, provider routing, session persistence |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/inspiring-heisenberg-ea9dc3](/Users/jojo/Downloads/Epistemos/.claude/worktrees/inspiring-heisenberg-ea9dc3) | `claude/inspiring-heisenberg-ea9dc3` | Streaming instrumentation, FFI benchmarking, syntax-core scaffolding |
-| [/Users/jojo/Downloads/Epistemos/.claude/worktrees/quirky-pascal-135a98](/Users/jojo/Downloads/Epistemos/.claude/worktrees/quirky-pascal-135a98) | `claude/quirky-pascal-135a98` | This session's worktree |
+| [/Users/jojo/Downloads/Epistemos/.claude/worktrees/quirky-pascal-135a98](/Users/jojo/Downloads/Epistemos/.claude/worktrees/quirky-pascal-135a98) | `claude/quirky-pascal-135a98` | Prior active worktree; packet mirror target for that session |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/simulation](/Users/jojo/Downloads/Epistemos/.claude/worktrees/simulation) | `worktree-simulation` | Simulation Theater (frozen — donor only, do not merge raw) |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/vigorous-goldberg-3a2d35](/Users/jojo/Downloads/Epistemos/.claude/worktrees/vigorous-goldberg-3a2d35) | `claude/vigorous-goldberg-3a2d35` | Quick Capture phases 8–12 hardening — has Intent/Effect/Receipt donor pattern |
 
