@@ -264,6 +264,16 @@ closed:
   tests passed 13/13. This does not edit `SovereignGate.swift`, duplicate
   `LocalAuthentication`, migrate note chat, alter chat persistence semantics, or
   touch Rust/generated/graph/editor/Omega/ChatCoordinator surfaces.
+- Sovereign Gate Version Delete PR7 is now closed for the existing DiffSheet
+  "Delete This Version" destructive menu surface. The menu action now routes
+  through the shared `AppBootstrap` `SovereignGate` with
+  `.deviceOwnerAuthentication`, captures the exact `SDPageVersion` before async
+  auth so selection changes cannot redirect the delete, and preserves the
+  existing delete/save/reinsert rollback semantics. Focused Swift tests passed
+  15/15. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, migrate other note/editor dialogs, alter version
+  persistence semantics, or touch Rust/generated/graph/Omega/ChatCoordinator
+  surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -674,8 +684,10 @@ before building.
    is closed for the existing agent approval sheet, and Rust Matrix PR4 is
    closed for the additive Rust action-class seed only. Notes Delete PR5 is
    closed for the existing Notes Sidebar permanent page/folder delete surface,
-   and Chat Delete PR6 is closed for the existing Chat Sidebar context-menu
-   destructive chat delete surface. Future Sovereign slices must start from
+   Chat Delete PR6 is closed for the existing Chat Sidebar context-menu
+   destructive chat delete surface, and Version Delete PR7 is closed for the
+   existing DiffSheet version-delete menu surface. Future Sovereign slices must
+   start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
    and may only add generated requirement transport, lifecycle follow-up,
    Secure Enclave sealing, or additional existing confirmation migrations
@@ -747,11 +759,11 @@ are:
   closed as PR3H. Do not assign Card 2 sidecar mirror work unless a new gate
   first introduces an actual Rust note-sidecar mirror target.
 - Sovereign Gate follow-up only for exact gated slices after Core PR1, Lifecycle
-  PR2, Approval Surface PR3, Rust Matrix PR4, Notes Delete PR5, and Chat Delete
-  PR6: generated requirement transport, lifecycle follow-up beyond PR2's
-  app/session/sleep grace clearing, additional existing confirmation surfaces
-  migrated to `SovereignGate`, or Pro/Research Secure Enclave/Sovereign-class
-  routes.
+  PR2, Approval Surface PR3, Rust Matrix PR4, Notes Delete PR5, Chat Delete PR6,
+  and Version Delete PR7: generated requirement transport, lifecycle follow-up
+  beyond PR2's app/session/sleep grace clearing, additional existing
+  confirmation surfaces migrated to `SovereignGate`, or Pro/Research Secure
+  Enclave/Sovereign-class routes.
 
 Agents should not start:
 

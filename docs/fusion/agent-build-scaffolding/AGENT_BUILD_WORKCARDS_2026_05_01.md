@@ -1260,6 +1260,15 @@ through the shared `AppBootstrap` `SovereignGate` with
 is denied, the existing `SDChat` deletion/error handling remains unchanged, and
 the slice does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`,
 migrate note chat, or touch Rust/generated/graph/editor/Omega/ChatCoordinator.
+Version Delete PR7 is also closed. `Epistemos/Views/Notes/DiffSheetView.swift`
+now routes the existing "Delete This Version" destructive menu action through
+the shared `AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication`
+before delete execution. The exact `SDPageVersion` is captured before async
+auth so selection changes cannot redirect the delete, denied/unavailable auth
+performs no delete, and the existing delete/save/reinsert rollback semantics
+remain unchanged. The slice does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, migrate other note/editor dialogs, or touch
+Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1290,6 +1299,9 @@ Authority to read first:
 - `docs/fusion/deliberation/sovereign_gate_chat_delete_pr6_deliberation_2026_05_02.md`
 - `/tmp/epistemos-sovereign-gate-chat-delete-pr6-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-chat-delete-pr6-green-20260502.log`
+- `docs/fusion/deliberation/sovereign_gate_version_delete_pr7_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-version-delete-pr7-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
@@ -1300,6 +1312,8 @@ Allowed write set:
   already closed.
 - PR6 Chat Sidebar context-menu destructive chat delete migration and focused
   tests: already closed.
+- PR7 DiffSheet version-delete menu migration and focused tests: already
+  closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1307,7 +1321,8 @@ Allowed write set:
 - Future confirmation-surface migration PRs only after a gate names each exact
   existing surface and its focused tests; Notes Sidebar page/folder permanent
   deletes are already covered by PR5, and Chat Sidebar context-menu chat
-  deletes are already covered by PR6.
+  deletes are already covered by PR6, and DiffSheet version deletes are already
+  covered by PR7.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1365,6 +1380,12 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-chat-delete-pr6-red-20260502.log`.
 - PR6 focused green log:
   `/tmp/epistemos-sovereign-gate-chat-delete-pr6-green-20260502.log`.
+- PR7 red log:
+  `/tmp/epistemos-sovereign-gate-version-delete-pr7-red-20260502.log`.
+- PR7 focused green log:
+  `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-20260502.log`.
+- PR7 final focused green log:
+  `/tmp/epistemos-sovereign-gate-version-delete-pr7-green-final-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1417,6 +1438,16 @@ Acceptance:
   duplicate `LocalAuthentication`, chat persistence semantics, generated
   transport, Rust, graph/editor files, Omega, ChatCoordinator, subprocesses,
   solver hot paths, tensor copies, and memory hot paths.
+- PR7 wired/reachable/visible: the existing DiffSheet "Delete This Version"
+  menu action requests shared `SovereignGate` device-owner authentication before
+  deletion, focused tests prove the delete surface maps to Destructive auth with
+  an explicit reason string, source guards prove the menu calls the gate path
+  instead of direct deletion, the authorized delete uses the captured
+  `SDPageVersion` only after `.allowed`, denied/unavailable auth performs no
+  delete, and the slice stays out of `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, version persistence semantics, generated transport,
+  Rust, graph files, Omega, ChatCoordinator, subprocesses, solver hot paths,
+  tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

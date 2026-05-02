@@ -262,6 +262,56 @@ struct SovereignGateTests {
         #expect(reason.localizedCaseInsensitiveContains("permanently delete"))
     }
 
+    @Test("Diff sheet version deletes map to destructive Sovereign Gate requirements")
+    func diffSheetVersionDeletesMapToSovereignGateRequirements() {
+        #expect(
+            DiffSheetVersionDeletionSovereignGate.requirement(for: .version(label: "May 2, 2026 at 12:00 PM"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = DiffSheetVersionDeletionSovereignGate.reason(for: .version(label: "May 2, 2026 at 12:00 PM"))
+
+        #expect(reason.contains("May 2, 2026 at 12:00 PM"))
+        #expect(reason.localizedCaseInsensitiveContains("permanently delete"))
+    }
+
+    @Test("Diff sheet version delete menu routes through captured Sovereign Gate target")
+    func diffSheetVersionDeleteMenuRoutesThroughCapturedSovereignGateTarget() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/DiffSheetView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let menuAction = try section(
+            from: "Button(role: .destructive) {",
+            to: "Label(\"Delete This Version\", systemImage: \"trash\")"
+        )
+        #expect(menuAction.contains("requestSelectedVersionDeleteAuthorization()"))
+        #expect(!menuAction.contains("deleteSelectedVersion()"))
+
+        let request = try section(
+            from: "private func requestSelectedVersionDeleteAuthorization()",
+            to: "private func deleteSelectedVersion()"
+        )
+        #expect(request.contains("guard let version = selectedVersion else { return }"))
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("deleteSelectedVersion(version)"))
+
+        let capture = try #require(request.range(of: "guard let version = selectedVersion else { return }"))
+        let confirm = try #require(request.range(of: "AppBootstrap.shared?.sovereignGate.confirm("))
+        let allowed = try #require(request.range(of: "guard outcome == .allowed else { return }"))
+        let delete = try #require(request.range(of: "deleteSelectedVersion(version)"))
+        #expect(capture.lowerBound < confirm.lowerBound)
+        #expect(confirm.lowerBound < allowed.lowerBound)
+        #expect(allowed.lowerBound < delete.lowerBound)
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])
