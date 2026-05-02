@@ -366,14 +366,20 @@ PR1 V0 Shadow backend route is closed. The production-mounted Contextual
 Shadows V0 surface now prefers `ShadowSearchService` when AppBootstrap has a
 current per-vault Shadow backend, preserves `InstantRecallService` fallback,
 shows source provenance, and guards vault switches against stale backend or
-page-reindex writes. PR2 V1 protected editor mount is closed behind
+page-reindex writes. PR1 V1 protected editor mount is closed behind
 `docs/fusion/deliberation/halo_v1_editor_mount_pr1_deliberation_2026_05_02.md`:
 `ProseEditorRepresentable2.Coordinator2` installs the Halo only when ambient
 recall is enabled and a Shadow backend is configured, feeds `HaloController`
 through the existing `textDidChange` path, hosts the glyph in the editor
 scroll view, and opens `ShadowPanelController` anchored to the editor rect.
 Production still does not instantiate `HaloEditorBridge`, because that bridge
-claims `NSTextView.delegate` and is scaffold/test-only for this route.
+claims `NSTextView.delegate` and is scaffold/test-only for this route. PR2 live
+domain re-query is closed behind
+`docs/fusion/deliberation/halo_v1_domain_requery_pr2_deliberation_2026_05_02.md`:
+`ShadowPanelContent` now routes the Notes/Chats segmented picker to
+`HaloController.selectDomain(_:)`, and the controller reuses the latest
+meaningful editor query so an open panel stays open while refreshing results
+for the selected domain.
 
 Goal:
 Prove the minimal Halo/Contextual Shadows recall loop is wired to real current
@@ -419,8 +425,9 @@ Acceptance:
 - Reachable: documented user gesture reaches it.
 - Visible: panel/card/log proves the recall happened.
 - PR1 satisfied this for the V0 Shadow backend route. PR2 satisfies the
-  protected V1 editor mount in code and focused tests. Future work should target
-  manual runtime verification, richer panel actions, or live domain re-query.
+  protected V1 editor mount in code and focused tests. PR2 live domain re-query
+  is also closed in code and focused tests. Future work should target manual
+  runtime verification or richer panel actions.
 
 Stop triggers:
 - Protected editor edit needed.

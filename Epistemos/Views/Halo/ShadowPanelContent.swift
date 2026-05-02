@@ -87,14 +87,7 @@ public struct ShadowPanelContent: View {
             selection: Binding(
                 get: { controller.domain },
                 set: { newValue in
-                    // Domain swap is a tap, not a typing event — re-emit the
-                    // controller's current matches by retriggering on the
-                    // already-active query. The controller exposes
-                    // editorTextDidChange + our caller wires it up; here we
-                    // just bias future searches by setting `domain`.
-                    // (When the controller is wired to a live editor the
-                    //  next keystroke will re-query under the new domain.)
-                    _ = newValue
+                    controller.selectDomain(newValue)
                 }
             )
         ) {
