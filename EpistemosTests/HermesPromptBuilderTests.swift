@@ -112,6 +112,14 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("Return external evidence as structured artifacts and provenance, not graph or Rex authority"))
     }
 
+    @Test("system prompt separates Core local prompting from Pro external gateway")
+    func systemPromptSeparatesCoreLocalPromptingFromProExternalGateway() {
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
+
+        #expect(prompt.contains("Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only"))
+        #expect(prompt.contains("Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context"))
+    }
+
     @Test("system prompt keeps explicit file paths stable for local tool loops")
     func systemPromptKeepsExplicitFilePathsStable() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool(), writeTool(), readTool()])
