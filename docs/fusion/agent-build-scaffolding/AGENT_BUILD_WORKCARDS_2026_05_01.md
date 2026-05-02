@@ -815,6 +815,20 @@ editor state, and graph state. This preserves async recall behavior, hydration,
 MainActor metrics, UI, approval, routing, graph, Rust, generated bindings, and
 EventStore schema.
 
+PR18 ShadowSearch backend provenance is also closed.
+`ShadowSearchService.search(text:domain:limit:)` now records requested, started,
+and completed/failed AgentEvents for valid ambient ShadowSearch calls with
+`shadow-search-...` run ids, `shadow-search-service` actor metadata,
+per-instance `shadow-search:N` ids, `surface=shadow_search`,
+domain/limit/query-count metadata, hit counts, elapsed milliseconds, zero-hit
+completed rows, cancellation failed rows, and closed ShadowFFI failure classes.
+Persisted provenance excludes query text, hit ids, titles, snippets, scores,
+source labels, document bodies, vault paths, raw FFI payloads, localized
+descriptions, and arbitrary error text. This preserves ShadowSearch hit
+behavior, catch-to-empty behavior, `searchOrThrow`, `stats`, Halo,
+ContextualShadowsState, UI, graph, Rust, generated bindings, and EventStore
+schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1164,6 +1178,17 @@ Acceptance:
   AgentEvent arguments/results/errors. Source and behavior stay away from sync
   search metrics, ShadowSearch, Halo, editor, graph, UI, approvals, provider
   routing, ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega,
+  Rust, generated bindings, and EventStore schema.
+- PR18 wired/reachable/visible: ShadowSearch backend search emits requested,
+  started, and completed/failed AgentEvents for valid
+  `search(text:domain:limit:)` calls with non-empty run id, per-instance tool
+  call id, actor, source/surface metadata, domain/limit/query-count metadata, hit
+  count, elapsed milliseconds, zero-hit completed events, cancellation terminal
+  events, and bounded ShadowFFI failure classes. Tests prove query text, hit ids,
+  titles, snippets, scores, source labels, document bodies, vault paths, raw FFI
+  payloads, invalid inputs, localized descriptions, and arbitrary error text are
+  not persisted in AgentEvent arguments/results/errors. Source and behavior stay
+  away from `searchOrThrow`, `stats`, Halo, ContextualShadowsState, UI, graph,
   Rust, generated bindings, and EventStore schema.
 
 Stop triggers:

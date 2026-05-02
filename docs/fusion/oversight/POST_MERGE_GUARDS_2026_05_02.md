@@ -47,6 +47,18 @@
 - log: `✔ Test "Cancelled async search records terminal AgentEvent" passed`
 - test: `InstantRecall — Service`
 
+## shadow-search-agent-event-pr18
+
+- grep: `toolName: "shadow_search.search"`
+- grep: `surface: "shadow_search"`
+- grep: `shadow-search:`
+- forbidden grep: `(argumentsJSON|resultJSON|errorMessage|metadata).*(query_text|queryText|snippet|score|doc_id|docId|title|body|vault|path|localizedDescription|String\(describing:.*error)`
+- staged guard: `git diff --cached --name-only -- agent_core graph-engine epistemos-shadow Epistemos/Views Epistemos/Graph Epistemos/State/EventStore.swift Epistemos/Models/AgentProvenanceEvent.swift Epistemos/Engine/RustShadowFFIClient.swift Epistemos/Engine/ShadowFFIClient.swift Epistemos.xcodeproj`
+- log: `✔ Test "ShadowSearchService.search records sanitized AgentEvents" passed`
+- log: `✔ Test "ShadowSearchService.search records completed AgentEvents for valid zero-hit results" passed`
+- log: `✔ Test "Cancelled ShadowSearchService.search records terminal failed AgentEvent" passed`
+- test: `Shadow service actors (Wave 8.3)`
+
 ## oplog-replay-bundle-export-pr5
 
 - grep: `MutationOpLogReplayBundle`
