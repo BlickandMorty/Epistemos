@@ -18,10 +18,7 @@ pub fn fingerprint(path_bytes: &[u8], content_bytes: &[u8]) -> u64 {
     // into the other's space.
     let path_h = xxh3_64(path_bytes);
     let content_h = xxh3_64(content_bytes);
-    xxh3_64(&[
-        path_h.to_le_bytes(),
-        content_h.to_le_bytes(),
-    ].concat())
+    xxh3_64(&[path_h.to_le_bytes(), content_h.to_le_bytes()].concat())
 }
 
 #[cfg(test)]
