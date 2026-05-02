@@ -1054,6 +1054,13 @@ without graph renderer, retrieval, Theater, OpLog, Rust, generated-binding,
 EventStore schema, mutation, repair, polling, timer, or projection-worker side
 effects.
 
+PR8 read-only Settings audit projection visibility is also closed. The existing
+`GraphEventVisibilityRow` refreshes a bounded
+`GraphEventAuditProjectionService` report on appear/refresh and displays
+event/node/edge/latest-event counts without changing `SettingsView`, graph
+renderer, retrieval, Halo, Theater, OpLog, Rust, generated-binding, EventStore
+schema, mutation, repair, polling, timer, or projection-worker behavior.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -1096,6 +1103,9 @@ Allowed write set:
 - PR7 read-only Halo projection ribbon: already closed for exactly
   `HaloController` panel-open refresh plus `ShadowPanelContent` read-only
   counts display.
+- PR8 read-only Settings audit projection visibility: already closed for
+  exactly `GraphEventVisibilityRow` appear/refresh display of the PR6 audit
+  report.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -1162,6 +1172,19 @@ Tests and logs:
   `/tmp/epistemos-graph-event-halo-projection-pr7-green-20260502.log`.
   The focused HaloController/HaloUI Swift Testing suites passed 40 tests; Xcode
   still printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR8 red guard:
+  `grep -q 'GraphEventAuditProjectionService' Epistemos/Views/Settings/GraphEventVisibilityRow.swift`
+  exited 1 before implementation.
+- PR8 source guard:
+  `/tmp/epistemos-graph-event-audit-visibility-pr8-source-guard-r2-20260502.log`.
+- PR8 build log:
+  `/tmp/epistemos-graph-event-audit-visibility-pr8-build-20260502.log`.
+  The build exited 0 with `** BUILD SUCCEEDED **`; Xcode still printed known
+  SwiftLint package-plugin noise after success.
+- PR8 test-bundle compile log:
+  `/tmp/epistemos-graph-event-audit-visibility-pr8-build-for-testing-20260502.log`.
+  The command exited 0 with `** TEST BUILD SUCCEEDED **`; Xcode still printed
+  known SwiftLint package-plugin noise after success.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -1204,6 +1227,12 @@ Acceptance:
   staying out of graph renderer, retrieval, Theater, OpLog, Rust, generated
   bindings, EventStore schema, mutation, repair, polling, timer, and
   projection-worker paths.
+- PR8 wired/reachable/visible: the existing Settings `GraphEventVisibilityRow`
+  refreshes a bounded read-only GraphEvent audit projection report through
+  `GraphEventAuditProjectionService` and displays event/node/edge/latest-event
+  counts while staying out of `SettingsView`, graph renderer, retrieval, Halo,
+  Theater, OpLog, Rust, generated bindings, EventStore schema, mutation, repair,
+  polling, timer, and projection-worker paths.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named

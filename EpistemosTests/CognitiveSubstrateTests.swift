@@ -2644,20 +2644,32 @@ struct OpLogFFIBoundaryGuardTests {
     func graphEventVisibilityRowIsReadOnlyAndMountedInSettings() throws {
         let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
         let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/GraphEventVisibilityRow.swift")
+        let service = try loadMirroredSourceTextFile("Epistemos/Engine/GraphEventAuditProjectionService.swift")
 
         #expect(settings.contains("GraphEventVisibilityRow()"))
         #expect(row.contains("graphEventDiagnostics()"))
         #expect(row.contains("graphEventProjectionSnapshot(limit:"))
+        #expect(row.contains("GraphEventAuditProjectionService"))
+        #expect(row.contains("auditReport(limit: 100)"))
+        #expect(row.contains("Audit projection"))
+        #expect(service.contains("graphEventProjectionSnapshot(limit:"))
         #expect(row.contains("Projection snapshot"))
         #expect(row.contains("nodes"))
         #expect(row.contains("edges"))
         #expect(!row.contains("saveGraphEvent"))
         #expect(!row.contains("saveMutationEnvelope"))
         #expect(!row.contains("graphEvents("))
+        #expect(!service.contains("saveGraphEvent"))
+        #expect(!service.contains("saveMutationEnvelope"))
+        #expect(!service.contains("graphEvents("))
         #expect(!row.contains("Timer"))
         #expect(!row.contains("DispatchSourceTimer"))
+        #expect(!service.contains("Timer"))
+        #expect(!service.contains("DispatchSourceTimer"))
         #expect(!row.contains(".task {"))
+        #expect(!service.contains(".task {"))
         #expect(!row.contains("while !Task.isCancelled"))
+        #expect(!service.contains("while !Task.isCancelled"))
     }
 }
 
