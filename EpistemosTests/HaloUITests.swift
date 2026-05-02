@@ -118,6 +118,19 @@ struct HaloUITests {
         #expect(summariseCount == 1)
     }
 
+    @Test("Shadow rows expose source provenance and visible primary actions")
+    func shadowRowsExposeSourceAndVisibleActions() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Halo/ShadowPanelContent.swift")
+
+        #expect(source.contains("private var sourceAndActions"))
+        #expect(source.contains("Text(provenanceLabel)"))
+        #expect(source.contains("actionButton(title: \"Open\""))
+        #expect(source.contains("actionButton(title: \"Edit\""))
+        #expect(source.contains("actionButton(title: \"Summarise\""))
+        #expect(source.contains("if hit.domain == .notes"))
+        #expect(source.contains("if hit.domain == .chats"))
+    }
+
     // MARK: - HaloButton
 
     @Test("HaloButton initializes with the controller passed through")

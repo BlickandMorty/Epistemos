@@ -12,9 +12,8 @@ import SwiftUI
 //   - Lazy results list with hover preview
 //   - Esc dismisses (via `.onExitCommand`)
 //
-// Hover preview / inline edit / context-menu summarise hooks are
-// scaffolded out as W8.6 follow-up callbacks so this file stays
-// pure-presentation today.
+// Hover preview plus row actions stay pure-presentation: the panel only
+// exposes intent through handlers and never performs retrieval or mutation.
 
 /// Closure surface the panel content uses to communicate user
 /// intentions back to the application. Each handler runs on the
@@ -108,7 +107,8 @@ public struct ShadowPanelContent: View {
                             hoveredID = hovering ? hit.id : nil
                         },
                         onOpen: { handlers.onOpenHit(hit) },
-                        onEdit: { handlers.onBeginEditNote(hit) }
+                        onEdit: { handlers.onBeginEditNote(hit) },
+                        onSummarize: { handlers.onSummarizeChat(hit) }
                     )
                     .contextMenu {
                         if hit.domain == .chats {
@@ -144,9 +144,10 @@ public struct ShadowRow: View {
     let onHover: (Bool) -> Void
     let onOpen: () -> Void
     let onEdit: () -> Void
+    let onSummarize: () -> Void
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(hit.title)
                     .font(.system(size: 13, weight: .medium))
@@ -158,6 +159,7 @@ public struct ShadowRow: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
+            sourceAndActions
         }
         .padding(8)
         .background(.regularMaterial.opacity(0.001))   // wide hit area without visible chrome
@@ -167,6 +169,39 @@ public struct ShadowRow: View {
         .swipeActions { Button("Edit", action: onEdit) }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(hit.title), score \(Int(hit.score * 100)) percent")
+    }
+
+    private var sourceAndActions: some View {
+        HStack(spacing: 6) {
+            Text(provenanceLabel)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(Capsule().fill(.thinMaterial))
+                .accessibilityLabel("Source \(provenanceLabel)")
+
+            Spacer(minLength: 4)
+            actionButton(title: "Open", action: onOpen)
+            if hit.domain == .notes {
+                actionButton(title: "Edit", action: onEdit)
+            }
+            if hit.domain == .chats {
+                actionButton(title: "Summarise", action: onSummarize)
+            }
+        }
+    }
+
+    private var provenanceLabel: String {
+        hit.source.isEmpty ? hit.domain.rawValue : hit.source
+    }
+
+    private func actionButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.borderless)
+            .controlSize(.mini)
+            .font(.system(size: 10, weight: .semibold))
     }
 }
 
