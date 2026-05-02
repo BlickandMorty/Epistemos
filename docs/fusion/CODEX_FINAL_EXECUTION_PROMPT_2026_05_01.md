@@ -142,6 +142,13 @@ rg -n 'Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command' \
 
 Any hit in a Core-classified patch is P0. Any hit in a Pro/Research patch must be orchestration-only (Hermes / CLI / MCP / browser / Docker) — never invoke a model or run inference.
 
+For Pro/Research cloud/tool surfaces, Hermes/gateway is the control surface.
+Claude Code / Codex / Kimi / Gemini CLIs, MCP, browser/computer-use, and Docker
+are tools behind that control surface, not separate app architectures. Concrete
+adapters may be gated in-process Rex/provider paths or Hermes subprocess
+orchestration. Hermes is not Rex, not the graph, and not the deterministic
+substrate.
+
 **5-tier verification ladder.** Hot path runs T0–T2 only. Z3, Lean, Kani, Kissat, fuzzing must run in a background thread or off-path worker.
 
 ```bash
@@ -323,6 +330,8 @@ Do not let Kimi:
 - make Markdown projection canonical
 - spawn user-installed coding CLIs from MAS target
 - put Hermes/Docker/browser-use in Core
+- treat Hermes as graph/Rex authority, or bypass the Hermes/gateway control
+  surface with a new Pro/Research cloud/CLI/tool route without an explicit gate
 - use private Apple **entitlements** (`com.apple.private.*`) anywhere
 - implement neural-kernel/private ANE ideas in Core
 - raw-merge any worktree
