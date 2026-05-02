@@ -157,6 +157,13 @@ closed:
   surface as `hermesGateway` class without changing provider routing, schema
   request construction, prompt fallback behavior, Hermes subprocesses, MCP,
   CLI, approval, UI, graph, Rust, generated bindings, or EventStore schema.
+- LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
+  ends without a detected tool call, `LocalAgentLoop` drains the detector's
+  safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
+  `<` is not silently dropped from note-ask/chat output. The detector still
+  suppresses unclosed hidden scratchpad and malformed tool-call opens, and the
+  slice does not change model routing, tool parsing, tool execution, repair
+  semantics, UI, provider calls, Rust, generated bindings, or EventStore schema.
 - Sovereign Gate Core PR1 now has the single Swift authorization executor:
   `Epistemos/Sovereign/SovereignGate.swift` is the only production source that
   imports `LocalAuthentication` or instantiates `LAContext`. It executes
