@@ -3,7 +3,7 @@
 // Provides <3ms vault-wide semantic search for note recall as you type.
 //
 // Data flow:
-//   App startup / vault rebuild / note save → indexNote() or rebuildIndex() → Rust binary index
+//   App startup / vault rebuild / note save → indexNote() or rebuildIndexAsync() → Rust binary index
 //   Note chat query → search() → top relevant notes
 //
 // The service manages a single index handle ("vault") backed by
@@ -245,39 +245,14 @@ final class InstantRecallService {
         return results
     }
 
-    /// Index all notes from a vault scan. Call during app startup.
+    /// Unavailable sync vault-scan entrypoint retained for compile-time diagnostics.
+    @available(*, unavailable, message: "Use rebuildIndexAsync(notes:) so vault-wide indexing runs off the MainActor.")
     func indexBatch(notes: [(id: String, text: String)]) {
-        ensureInitialized()
-        guard isReady else { return }
-        hasHydratedInitialSnapshot = true
-
-        let start = CFAbsoluteTimeGetCurrent()
-
-        for note in notes {
-            guard let indexableText = Self.normalizedIndexableText(note.text) else { continue }
-            let _ = instantRecallInsert(handle: handle, docId: note.id, text: indexableText)
-        }
-
-        let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
-        documentCount = Int(instantRecallCount(handle: handle))
-        lastResults = []
-        lastSearchLatencyMs = 0
-
-        log.info("InstantRecall: indexed \(self.documentCount) notes from \(notes.count) candidates in \(String(format: "%.1f", elapsed))ms")
     }
 
-    /// Replace the entire index with a fresh note snapshot.
+    /// Unavailable sync full-index rebuild retained for compile-time diagnostics.
+    @available(*, unavailable, message: "Use rebuildIndexAsync(notes:) so vault-wide indexing runs off the MainActor.")
     func rebuildIndex(notes: [(id: String, text: String)]) {
-        #if DEBUG
-        let caller = Thread.callStackSymbols.dropFirst().first ?? "unknown"
-        log.warning("InstantRecall: sync rebuildIndex called — prefer rebuildIndexAsync. Caller: \(caller, privacy: .public)")
-        #endif
-        ensureInitialized()
-        guard isReady else { return }
-        hasHydratedInitialSnapshot = true
-
-        let summary = Self.rebuildSnapshot(handle: handle, notes: notes)
-        finishRebuild(summary, candidateCount: notes.count)
     }
 
     func rebuildIndexAsync(notes: [(id: String, text: String)]) async {
@@ -309,6 +284,7 @@ final class InstantRecallService {
         guard isReady else { return [] }
         let normalizedQueryText = normalizedQuery(query)
         guard !normalizedQueryText.isEmpty, topK > 0 else { return [] }
+        hydrateInitialSnapshotIfNeeded()
 
         let handle = self.handle
         return await Task.detached(priority: .utility) {
