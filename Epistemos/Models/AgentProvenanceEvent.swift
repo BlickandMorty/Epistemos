@@ -10,6 +10,9 @@ nonisolated public enum AgentProvenanceEventKind: String, Codable, Sendable, Has
     case toolCallStarted = "tool_call_started"
     case toolCallCompleted = "tool_call_completed"
     case toolCallFailed = "tool_call_failed"
+    case hookRegistered = "hook_registered"
+    case hookFired = "hook_fired"
+    case hookCompleted = "hook_completed"
 }
 
 nonisolated public enum AgentProvenanceActor: Codable, Sendable, Hashable {

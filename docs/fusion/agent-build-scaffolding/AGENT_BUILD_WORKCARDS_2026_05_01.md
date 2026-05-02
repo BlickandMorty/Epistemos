@@ -549,6 +549,14 @@ execution, UI, streaming, routing, Rust bindings, OpLog, GraphEvent, Omega,
 hooks, or generated files. Do not assign another agent to rebuild this same
 ChatCoordinator Rust-stream instrumentation.
 
+PR4 HookRegistry lifecycle provenance is also closed at the API level.
+Registering and firing existing hooks now persists tool-less `hook_registered`,
+`hook_fired`, and `hook_completed` rows with source, hook id, hook point, run id,
+sequence, and completion outcome metadata while preserving hook order and
+cancellation semantics. Do not assign another agent to rebuild HookRegistry
+instrumentation. Production hook call-site mounting still requires a separate
+runtime gate.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -567,13 +575,15 @@ Authority to read first:
 - `EpistemosTests/CognitiveSubstrateTests.swift`
 - `Epistemos/App/ChatCoordinator.swift` only for PR3 evidence or a future
   regression fix gate.
-- `Epistemos/Engine/HookRegistry.swift` only for a future hook-emission gate.
+- `Epistemos/Engine/HookRegistry.swift` only for PR4 evidence or a future
+  production hook call-site mounting gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
 - PR2 PipelineService observed tool instrumentation: already closed.
 - PR3 ChatCoordinator/Rust-stream instrumentation: already closed.
-- Future Omega, hook, or broader runtime
+- PR4 HookRegistry API-level lifecycle instrumentation: already closed.
+- Future Omega, production hook call-site, or broader runtime
   instrumentation only after a new deliberation gate names exact runtime files
   and focused tests.
 - Docs under `docs/fusion/**`.
@@ -613,6 +623,12 @@ Tests and logs:
 - PR3 Kimi audit attempt:
   `/tmp/epistemos-agent-event-pr3-kimi-audit-20260501-r1.log` produced no
   output after several minutes and was terminated.
+- PR4 red log:
+  `/tmp/epistemos-agent-event-hook-pr4-red-20260501.log`.
+- PR4 EventStore green log:
+  `/tmp/epistemos-agent-event-hook-pr4-green-eventstore-20260501.log`.
+- PR4 runtime source-guard green log:
+  `/tmp/epistemos-agent-event-hook-pr4-green-runtime-20260501.log`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -632,6 +648,11 @@ Acceptance:
   Rust stream loops emit typed events for exposed permission and tool lifecycle
   events without changing behavior. Trace id remains nil because these paths do
   not expose a canonical trace id today.
+- PR4 wired/reachable/visible: HookRegistry lifecycle APIs emit typed,
+  tool-less registered/fired/completed rows for existing hook invocations,
+  preserve cancellation behavior, and are source-guarded away from
+  PipelineService, ChatCoordinator, Omega, OpLog, GraphEvent, editor, graph,
+  Rust, and generated bindings.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
