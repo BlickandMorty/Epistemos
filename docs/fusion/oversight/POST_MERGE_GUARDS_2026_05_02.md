@@ -92,3 +92,15 @@
 - log: `✔ Test "Mutation OpLog incremental replay matches full replay" passed`
 - log: `✔ Test "Mutation OpLog incremental ReplayBundle remains privacy safe" passed`
 - test: `OpLog Swift Bridge`
+
+## hermes-gateway-evidence-return-policy-pr7
+
+- grep: `HermesGatewayEvidenceReturn`
+- grep: `requiresStructuredEvidenceReturn`
+- grep: `evidenceReturn: .structuredEvidenceProvenance`
+- forbidden grep: `Process\.|URLSession|MCPBridge|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy`
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core Epistemos.xcodeproj`
+- log: `✔ Test "external gateway surfaces require structured evidence provenance" passed`
+- log: `✔ Test "evidence return follows the gateway route" passed`
+- log: `✔ Test run with 11 tests in 1 suite passed`
+- test: `Hermes Gateway Policy`

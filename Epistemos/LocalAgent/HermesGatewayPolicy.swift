@@ -11,6 +11,12 @@ nonisolated enum HermesGatewayRoute: String, Equatable, Sendable {
     case hermesGateway
 }
 
+nonisolated enum HermesGatewayEvidenceReturn: String, Equatable, Sendable {
+    case none
+    case inProcessPromptContext
+    case structuredEvidenceProvenance
+}
+
 nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     case deterministicLocalSubstrate
     case localPromptFormatting
@@ -39,6 +45,7 @@ nonisolated struct HermesGatewayDecision: Equatable, Sendable {
     let requiresNetwork: Bool
     let requiresSubprocess: Bool
     let preservesDirectSubstratePath: Bool
+    let evidenceReturn: HermesGatewayEvidenceReturn
     let reason: String
 }
 
@@ -46,6 +53,7 @@ nonisolated enum HermesGatewayPolicy {
     typealias Surface = HermesGatewaySurface
     typealias Tier = HermesGatewayTier
     typealias Route = HermesGatewayRoute
+    typealias EvidenceReturn = HermesGatewayEvidenceReturn
     typealias Decision = HermesGatewayDecision
 
     static let externalTierBoundaryLine =
@@ -69,6 +77,14 @@ nonisolated enum HermesGatewayPolicy {
         route(for: surface) == .hermesGateway
     }
 
+    static func evidenceReturn(for surface: Surface) -> EvidenceReturn {
+        decision(for: surface).evidenceReturn
+    }
+
+    static func requiresStructuredEvidenceReturn(_ surface: Surface) -> Bool {
+        evidenceReturn(for: surface) == .structuredEvidenceProvenance
+    }
+
     static func decision(for surface: Surface) -> Decision {
         switch surface {
         case .deterministicLocalSubstrate:
@@ -78,6 +94,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: true,
+                evidenceReturn: .none,
                 reason: "Already-local deterministic substrate answers stay on the direct path."
             )
         case .localPromptFormatting:
@@ -87,6 +104,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: true,
+                evidenceReturn: .inProcessPromptContext,
                 reason: "Hermes-family prompt grammar is Core-safe only when it stays in-process over local context."
             )
         case .cloudProvider:
@@ -96,6 +114,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: true,
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Cloud providers are external intelligence and must stay behind the Pro/Research gateway."
             )
         case .cliDelegation:
@@ -105,6 +124,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "CLI delegation may run offline, but it is still external subprocess orchestration."
             )
         case .mcpWebTool:
@@ -114,6 +134,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "MCP and web tools cross the local substrate boundary and return evidence, not authority."
             )
         case .hermesSubprocess:
@@ -123,6 +144,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "A Hermes subprocess is orchestration, not the Core in-process prompt path."
             )
         case .browserComputerUse:
@@ -132,6 +154,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: true,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Browser and computer-use actions are external side-effect surfaces."
             )
         case .dockerDevcontainer:
@@ -141,6 +164,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Docker and devcontainer work is external runtime orchestration."
             )
         case .explicitExternalSideEffect:
@@ -150,6 +174,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresNetwork: false,
                 requiresSubprocess: true,
                 preservesDirectSubstratePath: false,
+                evidenceReturn: .structuredEvidenceProvenance,
                 reason: "Explicit external side effects must be gated outside the deterministic substrate."
             )
         }

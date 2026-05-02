@@ -694,6 +694,17 @@ Proven or actively wired:
   touched. Red/green evidence:
   `/tmp/epistemos-hermes-gateway-route-pr6-red-20260502.log` and
   `/tmp/epistemos-hermes-gateway-route-pr6-green-20260502.log`.
+- Hermes Gateway Evidence Return PR7 is now code-closed as a pure policy helper:
+  `HermesGatewayPolicy.evidenceReturn(for:)` and
+  `requiresStructuredEvidenceReturn(_:)` declare that direct substrate work
+  returns no external evidence, in-process local prompt formatting returns local
+  prompt context only, and every unified Hermes gateway route must return
+  structured evidence/provenance rather than graph, Rex, or substrate authority.
+  No runtime adapter, provider, subprocess launcher, MCP bridge, graph, Rust,
+  generated transport, entitlement, project file, or protected editor path was
+  touched. Red/green evidence:
+  `/tmp/epistemos-hermes-gateway-evidence-return-pr7-red-20260502.log` and
+  `/tmp/epistemos-hermes-gateway-evidence-return-pr7-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -825,7 +836,7 @@ before building.
    into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
-   authorities. Hermes Gateway Directness PR1 through Route Policy PR6 are
+   authorities. Hermes Gateway Directness PR1 through Evidence Return PR7 are
    closed for prompt/policy invariants only; future runtime/provider routing
    still requires a new exact gate.
 
@@ -997,7 +1008,7 @@ backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
 Policy PR4, Hermes Gateway App Store Guard PR5, Hermes Gateway Route Policy
-PR6, R16
+PR6, Hermes Gateway Evidence Return PR7, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
