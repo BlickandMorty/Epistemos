@@ -1066,6 +1066,10 @@ Tier-boundary PR3 is closed. The prompt now separates local Hermes-family prompt
 formatting, which may remain Core-safe only when it runs in-process over local
 context, from cloud/provider/CLI/MCP/Hermes subprocess orchestration, which is
 Pro/Research only.
+Policy PR4 is closed. `HermesGatewayPolicy` is now the tiny pure-Swift source of
+truth for deciding whether a Hermes-shaped surface is Core-safe, needs network,
+needs subprocess orchestration, or belongs behind the Pro/Research gateway. It
+also distinguishes cloud/network need from offline CLI subprocess policy.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1077,6 +1081,8 @@ envelopes, provenance events, and gates rather than ad hoc graph authority.
 Allowed Future Write Set:
 - Prompt-only follow-up: `Epistemos/LocalAgent/HermesPromptBuilder.swift`.
 - Prompt-only tests: `EpistemosTests/HermesPromptBuilderTests.swift`.
+- Pure policy follow-up: `Epistemos/LocalAgent/HermesGatewayPolicy.swift`.
+- Pure policy tests: `EpistemosTests/HermesGatewayPolicyTests.swift`.
 - Runtime/provider slices only after a new gate names exact provider, MCP,
   subprocess, entitlement, auth, event, and projection files.
 - Documentation: this card, current state, and a dedicated deliberation note.
@@ -1110,11 +1116,18 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-red-20260502.log`.
 - PR3 Green log:
   `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-green-20260502.log`.
+- PR4 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_policy_pr4_deliberation_2026_05_02.md`.
+- PR4 Red log:
+  `/tmp/epistemos-hermes-gateway-policy-pr4-red-20260502.log`.
+- PR4 Green log:
+  `/tmp/epistemos-hermes-gateway-policy-pr4-green-20260502.log`.
 - Focused command:
-  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
+  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
-  10-test suite; PR3 passed the expanded 11-test suite. Xcode still printed
-  known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+  10-test suite; PR3 passed the expanded 11-test suite; PR4 passed 15 focused
+  tests across the policy and prompt suites. Xcode still printed known
+  SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
@@ -1135,6 +1148,15 @@ Acceptance:
   present.
 - PR3 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
   transport, entitlement, protected graph, or protected editor path was touched.
+- PR4 wired: `HermesGatewayPolicy` classifies Core-safe local prompt formatting
+  separately from cloud, CLI, MCP/web, Hermes subprocess, browser/computer-use,
+  Docker/devcontainer, and explicit external side-effect surfaces.
+- PR4 reachable: focused policy tests prove network need and subprocess policy
+  remain separate, so Hermes can be unified without implying every path needs
+  Wi-Fi.
+- PR4 boundary: no provider adapter, subprocess launcher, MCP bridge, cloud
+  runtime, graph, Rust, generated transport, entitlement, project, protected
+  graph, or protected editor path was touched.
 
 Stop Triggers:
 - A future slice wants to execute a provider request, shell command, MCP call,
