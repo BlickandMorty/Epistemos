@@ -927,6 +927,14 @@ ids, and generation time for audit consumers without graph renderer, retrieval,
 Halo, Theater, OpLog, Rust, generated-binding, EventStore schema, mutation,
 repair, polling, timer, or UI side effects.
 
+PR7 read-only Halo projection ribbon is also closed. `HaloController` refreshes
+a bounded `GraphEventAuditProjectionReport` through
+`GraphEventAuditProjectionService` when the Halo panel opens, and
+`ShadowPanelContent` exposes event/node/edge counts in a read-only ribbon
+without graph renderer, retrieval, Theater, OpLog, Rust, generated-binding,
+EventStore schema, mutation, repair, polling, timer, or projection-worker side
+effects.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -943,6 +951,7 @@ Authority to read first:
 - `docs/fusion/deliberation/graph_event_projection_snapshot_pr3_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/graph_event_projection_visibility_pr5_deliberation_2026_05_02.md`
 - `docs/fusion/deliberation/graph_event_audit_projection_pr6_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/graph_event_halo_projection_pr7_deliberation_2026_05_02.md`
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 - `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`
 - `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`
@@ -952,6 +961,10 @@ Authority to read first:
 - `EpistemosTests/CognitiveSubstrateTests.swift`
 - `Epistemos/Views/Settings/GraphEventVisibilityRow.swift`
 - `Epistemos/Engine/GraphEventAuditProjectionService.swift`
+- `Epistemos/Engine/HaloController.swift` only for PR7 evidence and future
+  Halo projection-ribbon regression checks.
+- `Epistemos/Views/Halo/ShadowPanelContent.swift` only for PR7 evidence and
+  future Halo projection-ribbon regression checks.
 - `Epistemos/Engine/EventDrain.swift` only for the naming collision context.
 
 Allowed write set:
@@ -961,6 +974,9 @@ Allowed write set:
 - PR4 read-only EventStore projection consumer: already closed.
 - PR5 read-only Settings projection visibility: already closed.
 - PR6 read-only audit projection consumer: already closed.
+- PR7 read-only Halo projection ribbon: already closed for exactly
+  `HaloController` panel-open refresh plus `ShadowPanelContent` read-only
+  counts display.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -1021,6 +1037,12 @@ Tests and logs:
   `/tmp/epistemos-graph-event-audit-projection-pr6-green-20260502.log`.
   The focused Swift Testing suite passed 2 tests; Xcode still printed known
   SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- PR7 red log:
+  `/tmp/epistemos-graph-event-halo-projection-pr7-red-20260502.log`.
+- PR7 green log:
+  `/tmp/epistemos-graph-event-halo-projection-pr7-green-20260502.log`.
+  The focused HaloController/HaloUI Swift Testing suites passed 40 tests; Xcode
+  still printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -1057,6 +1079,12 @@ Acceptance:
   generation time while staying out of graph renderer, retrieval, Halo,
   Theater, OpLog, Rust, generated bindings, EventStore schema, mutation, repair,
   polling, timer, and UI paths.
+- PR7 wired/reachable/visible: opening the Halo panel refreshes a bounded
+  read-only GraphEvent projection report through `GraphEventAuditProjectionService`,
+  and the panel displays event/node/edge counts in a read-only ribbon while
+  staying out of graph renderer, retrieval, Theater, OpLog, Rust, generated
+  bindings, EventStore schema, mutation, repair, polling, timer, and
+  projection-worker paths.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named

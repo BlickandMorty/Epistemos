@@ -63,6 +63,7 @@ public struct ShadowPanelContent: View {
     public var body: some View {
         VStack(spacing: 0) {
             domainPicker
+            graphProjectionRibbon
             Divider()
             resultsList
             if hoveredID != nil {
@@ -95,6 +96,24 @@ public struct ShadowPanelContent: View {
         }
         .pickerStyle(.segmented)
         .padding(8)
+    }
+
+    private var graphProjectionRibbon: some View {
+        let report = controller.graphProjectionReport
+        return HStack(spacing: 6) {
+            Image(systemName: "point.3.connected.trianglepath.dotted")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text(graphProjectionLabel(for: report))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(.regularMaterial.opacity(0.35))
+        .accessibilityLabel(graphProjectionAccessibilityLabel(for: report))
     }
 
     private var resultsList: some View {
@@ -132,6 +151,16 @@ public struct ShadowPanelContent: View {
            let hit = controller.matches.first(where: { $0.id == id }) {
             HoverPreview(hit: hit).frame(height: 180)
         }
+    }
+
+    private func graphProjectionLabel(for report: GraphEventAuditProjectionReport) -> String {
+        guard !report.isEmpty else { return "Graph projection idle" }
+        return "Graph projection: \(report.eventCount) events / \(report.nodeCount) nodes / \(report.edgeCount) edges"
+    }
+
+    private func graphProjectionAccessibilityLabel(for report: GraphEventAuditProjectionReport) -> String {
+        guard !report.isEmpty else { return "Graph projection has no durable events yet" }
+        return "Graph projection has \(report.eventCount) events, \(report.nodeCount) nodes, and \(report.edgeCount) edges"
     }
 }
 
