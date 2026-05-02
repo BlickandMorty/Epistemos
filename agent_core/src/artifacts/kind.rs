@@ -118,9 +118,8 @@ mod tests {
     fn id_round_trips() {
         for variant in ArtifactKind::ALL {
             let id = variant.id();
-            let recovered = ArtifactKind::from_id(id).unwrap_or_else(|| {
-                panic!("from_id({id}) returned None for variant {variant:?}")
-            });
+            let recovered = ArtifactKind::from_id(id)
+                .unwrap_or_else(|| panic!("from_id({id}) returned None for variant {variant:?}"));
             assert_eq!(*variant, recovered, "id round-trip must be identity");
         }
     }

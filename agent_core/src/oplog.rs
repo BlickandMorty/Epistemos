@@ -33,6 +33,16 @@ use std::sync::{Arc, Mutex, MutexGuard};
 /// starts here, and the first op's `prev_hash` equals this value.
 const GENESIS_HASH: [u8; 32] = [0u8; 32];
 
+fn hash_to_hex(hash: &[u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(64);
+    for byte in hash {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out
+}
+
 /// D1 — BLAKE3 Merkle chain serde adapter. Encodes a 32-byte hash as
 /// a 64-character lowercase hex string in JSON wire format. Matches
 /// the convention `epistemos-trace` will use when validating bundles
@@ -69,12 +79,32 @@ mod hex_hash {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(tag = "op_type", rename_all = "snake_case")]
 pub enum OpPayload {
-    NodeAdd { id: String, kind: String, title: String },
-    NodeUpdate { id: String, title: Option<String> },
-    NodeRemove { id: String },
-    EdgeAdd { from: String, to: String, label: Option<String> },
-    EdgeRemove { from: String, to: String },
-    PropSet { node_id: String, key: String, value: serde_json::Value },
+    NodeAdd {
+        id: String,
+        kind: String,
+        title: String,
+    },
+    NodeUpdate {
+        id: String,
+        title: Option<String>,
+    },
+    NodeRemove {
+        id: String,
+    },
+    EdgeAdd {
+        from: String,
+        to: String,
+        label: Option<String>,
+    },
+    EdgeRemove {
+        from: String,
+        to: String,
+    },
+    PropSet {
+        node_id: String,
+        key: String,
+        value: serde_json::Value,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +133,17 @@ pub enum OpLogError {
     Serde(#[from] serde_json::Error),
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct OpLogChainVerificationReport {
+    pub valid: bool,
+    pub checked_count: usize,
+    pub computed_chain_tip_hex: String,
+    pub stored_chain_tip_hex: String,
+    pub expected_chain_tip_hex: Option<String>,
+    pub first_bad_seq: Option<u64>,
+    pub failure_reason: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -333,10 +374,7 @@ impl OpLog {
         hasher.finalize().into()
     }
 
-    fn load_existing(
-        conn: &Connection,
-        inner: &mut OpLogInner,
-    ) -> Result<(), OpLogError> {
+    fn load_existing(conn: &Connection, inner: &mut OpLogInner) -> Result<(), OpLogError> {
         let mut stmt = conn.prepare(
             "SELECT seq, lamport, actor_id, ts_unix_ms, payload, prev_hash
              FROM epistemos_oplog
@@ -494,6 +532,148 @@ impl OpLog {
         self.lock().chain_tip
     }
 
+    /// PR4B — read-only cryptographic chain verification.
+    ///
+    /// Validates that seq numbers are contiguous from zero, each op's
+    /// persisted `prev_hash` equals the previously-computed BLAKE3
+    /// chain link, the recomputed tip matches the in-memory stored
+    /// tip, and an optional externally-recorded expected tip matches.
+    /// This never mutates rows or attempts repair.
+    pub fn verify_chain(&self, expected_tip_hex: Option<&str>) -> OpLogChainVerificationReport {
+        let inner = self.lock();
+        let stored_chain_tip_hex = hash_to_hex(&inner.chain_tip);
+        let expected_chain_tip_hex = match Self::normalize_expected_tip_hex(expected_tip_hex) {
+            Ok(value) => value,
+            Err(reason) => {
+                return OpLogChainVerificationReport {
+                    valid: false,
+                    checked_count: 0,
+                    computed_chain_tip_hex: hash_to_hex(&GENESIS_HASH),
+                    stored_chain_tip_hex,
+                    expected_chain_tip_hex: expected_tip_hex.map(|value| value.trim().to_string()),
+                    first_bad_seq: None,
+                    failure_reason: Some(reason),
+                };
+            }
+        };
+
+        let mut expected_prev_hash = GENESIS_HASH;
+        let mut expected_seq = 0u64;
+        let mut checked_count = 0usize;
+
+        for op in &inner.ops {
+            checked_count += 1;
+
+            if op.seq != expected_seq {
+                return Self::chain_verification_failure(
+                    checked_count,
+                    &expected_prev_hash,
+                    &stored_chain_tip_hex,
+                    expected_chain_tip_hex,
+                    Some(op.seq),
+                    "seq_gap",
+                );
+            }
+
+            if op.prev_hash != expected_prev_hash {
+                return Self::chain_verification_failure(
+                    checked_count,
+                    &expected_prev_hash,
+                    &stored_chain_tip_hex,
+                    expected_chain_tip_hex,
+                    Some(op.seq),
+                    "prev_hash_mismatch",
+                );
+            }
+
+            expected_prev_hash = Self::compute_chain_link(
+                &expected_prev_hash,
+                op.seq,
+                op.lamport,
+                &op.actor_id,
+                op.ts_unix_ms,
+                &op.payload,
+            );
+            expected_seq = expected_seq.saturating_add(1);
+        }
+
+        let computed_chain_tip_hex = hash_to_hex(&expected_prev_hash);
+        if computed_chain_tip_hex != stored_chain_tip_hex {
+            return OpLogChainVerificationReport {
+                valid: false,
+                checked_count,
+                computed_chain_tip_hex,
+                stored_chain_tip_hex,
+                expected_chain_tip_hex,
+                first_bad_seq: None,
+                failure_reason: Some("stored_chain_tip_mismatch".to_string()),
+            };
+        }
+
+        if let Some(expected_tip) = expected_chain_tip_hex.as_ref() {
+            if expected_tip != &computed_chain_tip_hex {
+                return OpLogChainVerificationReport {
+                    valid: false,
+                    checked_count,
+                    computed_chain_tip_hex,
+                    stored_chain_tip_hex,
+                    expected_chain_tip_hex,
+                    first_bad_seq: None,
+                    failure_reason: Some("expected_chain_tip_mismatch".to_string()),
+                };
+            }
+        }
+
+        OpLogChainVerificationReport {
+            valid: true,
+            checked_count,
+            computed_chain_tip_hex,
+            stored_chain_tip_hex,
+            expected_chain_tip_hex,
+            first_bad_seq: None,
+            failure_reason: None,
+        }
+    }
+
+    fn normalize_expected_tip_hex(
+        expected_tip_hex: Option<&str>,
+    ) -> Result<Option<String>, String> {
+        let Some(raw) = expected_tip_hex else {
+            return Ok(None);
+        };
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            return Ok(None);
+        }
+        let lowered = trimmed.to_ascii_lowercase();
+        let is_hex = lowered
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'));
+        if lowered.len() != 64 || !is_hex {
+            return Err("expected_chain_tip_invalid".to_string());
+        }
+        Ok(Some(lowered))
+    }
+
+    fn chain_verification_failure(
+        checked_count: usize,
+        computed_tip: &[u8; 32],
+        stored_chain_tip_hex: &str,
+        expected_chain_tip_hex: Option<String>,
+        first_bad_seq: Option<u64>,
+        failure_reason: &str,
+    ) -> OpLogChainVerificationReport {
+        OpLogChainVerificationReport {
+            valid: false,
+            checked_count,
+            computed_chain_tip_hex: hash_to_hex(computed_tip),
+            stored_chain_tip_hex: stored_chain_tip_hex.to_string(),
+            expected_chain_tip_hex,
+            first_bad_seq,
+            failure_reason: Some(failure_reason.to_string()),
+        }
+    }
+
     /// Returns the ops with seq > `after_seq` in append order.
     /// Used by the Swift mirror (VaultIndexActor) to catch up from
     /// last-seen seq.
@@ -505,6 +685,14 @@ impl OpLog {
             .filter(|op| op.seq > after_seq)
             .cloned()
             .collect()
+    }
+
+    /// Returns the full log in append order. This is intentionally
+    /// separate from `iter_after`: Swift recovery code must be able to
+    /// see seq=0 when reconciling "append succeeded, mark failed"
+    /// projection crashes.
+    pub fn iter_all(&self) -> Vec<Op> {
+        self.lock().ops.clone()
     }
 
     /// Total op count — useful for snapshot-cadence policies.
@@ -537,7 +725,7 @@ impl OpLog {
 //
 // Mirrors the W9.21 honest-FFI pattern + W9.26 rope_handle.rs lifecycle:
 //   - `Arc::into_raw` / `Arc::decrement_strong_count` for refcount
-//   - JSON wire format (serde_json::to_string of `Vec<Op>`) — keeps the
+//   - JSON wire format (`OpPayload` in, serde_json::to_string of `Vec<Op>`)
 //     Swift side decoder-agnostic and reuses the existing Codable mirror
 //   - Out-param error code: 0 = success, 1 = null handle,
 //     2 = serialization failure
@@ -551,6 +739,16 @@ impl OpLog {
 // resistance, mirrors the existing OpPayload tagged-union encoding,
 // and keeps the Swift side a `JSONDecoder().decode([Op].self, …)`
 // one-liner.
+
+fn ops_json_cstring(ops: &[Op]) -> Result<CString, ()> {
+    let json = serde_json::to_string(ops).map_err(|_| ())?;
+    CString::new(json).map_err(|_| ())
+}
+
+fn chain_report_json_cstring(report: &OpLogChainVerificationReport) -> Result<CString, ()> {
+    let json = serde_json::to_string(report).map_err(|_| ())?;
+    CString::new(json).map_err(|_| ())
+}
 
 /// Open or create a SQLite-backed `OpLog` at `path` and return an
 /// `Arc::into_raw` handle. Returns null on any failure (path invalid,
@@ -619,14 +817,218 @@ pub unsafe extern "C" fn oplog_iter_after_json(
         // SAFETY: caller contract — handle is a live OpLog pointer.
         let log = unsafe { &*handle };
         let ops = log.iter_after(after_seq);
-        let json = match serde_json::to_string(&ops) {
-            Ok(s) => s,
+        match ops_json_cstring(&ops) {
+            Ok(c) => {
+                set_err(0);
+                c.into_raw()
+            }
             Err(_) => {
                 set_err(2);
-                return std::ptr::null_mut();
+                std::ptr::null_mut()
+            }
+        }
+    });
+    result.unwrap_or_else(|_| {
+        set_err(2);
+        std::ptr::null_mut()
+    })
+}
+
+/// Iterate all ops, including seq=0, serialize as a JSON array of
+/// `Op`, and return a heap-allocated null-terminated UTF-8 C string.
+/// Caller must free via `oplog_free_string`.
+///
+/// On any failure the return is null and `*out_error` is set
+/// (1 = null handle, 2 = serialization failure). On success
+/// `*out_error` is 0 and the return is non-null. An empty log returns
+/// a non-null `"[]"` string with `*out_error = 0`.
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer or null. `out_error` must
+/// be a valid `*mut i32` (typically the address of a Swift `Int32`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_iter_all_json(
+    handle: *const OpLog,
+    out_error: *mut i32,
+) -> *mut c_char {
+    let set_err = |code: i32| {
+        if !out_error.is_null() {
+            // SAFETY: caller contract — out_error is writable.
+            unsafe { *out_error = code };
+        }
+    };
+    let result = std::panic::catch_unwind(|| {
+        if handle.is_null() {
+            set_err(1);
+            return std::ptr::null_mut();
+        }
+        // SAFETY: caller contract — handle is a live OpLog pointer.
+        let log = unsafe { &*handle };
+        let ops = log.iter_all();
+        match ops_json_cstring(&ops) {
+            Ok(c) => {
+                set_err(0);
+                c.into_raw()
+            }
+            Err(_) => {
+                set_err(2);
+                std::ptr::null_mut()
+            }
+        }
+    });
+    result.unwrap_or_else(|_| {
+        set_err(2);
+        std::ptr::null_mut()
+    })
+}
+
+/// Append one tagged `OpPayload` JSON object and return the assigned
+/// sequence via `out_seq`.
+///
+/// On failure returns a non-zero code and mirrors that code to
+/// `*out_error` when provided:
+///   1 = null handle / payload / out_seq
+///   2 = invalid UTF-8, invalid JSON, or panic boundary failure
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer. `payload_json` must be a
+/// valid null-terminated UTF-8 C string containing the serde-tagged
+/// `OpPayload` object. `out_seq` must be writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_append_payload_json(
+    handle: *const OpLog,
+    payload_json: *const c_char,
+    out_seq: *mut u64,
+    out_error: *mut i32,
+) -> i32 {
+    let set_err = |code: i32| {
+        if !out_error.is_null() {
+            // SAFETY: caller contract — out_error is writable.
+            unsafe { *out_error = code };
+        }
+    };
+    let result = std::panic::catch_unwind(|| {
+        if handle.is_null() || payload_json.is_null() || out_seq.is_null() {
+            set_err(1);
+            return 1;
+        }
+        // SAFETY: caller contract — payload_json is null-terminated UTF-8.
+        let payload_cstr = unsafe { CStr::from_ptr(payload_json) };
+        let Ok(payload_str) = payload_cstr.to_str() else {
+            set_err(2);
+            return 2;
+        };
+        let payload = match serde_json::from_str::<OpPayload>(payload_str) {
+            Ok(payload) => payload,
+            Err(_) => {
+                set_err(2);
+                return 2;
             }
         };
-        match CString::new(json) {
+
+        // SAFETY: caller contract — handle is a live OpLog pointer.
+        let log = unsafe { &*handle };
+        let seq = log.append(payload);
+        // SAFETY: caller contract — out_seq is writable.
+        unsafe { *out_seq = seq };
+        set_err(0);
+        0
+    });
+    result.unwrap_or_else(|_| {
+        set_err(2);
+        2
+    })
+}
+
+/// Return the current BLAKE3 chain tip as a 64-character lowercase hex
+/// string. Empty logs return the genesis all-zero hash.
+///
+/// Caller must free the returned string via `oplog_free_string`.
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer or null. `out_error` may be
+/// null or a writable `*mut i32`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_chain_tip_hex(
+    handle: *const OpLog,
+    out_error: *mut i32,
+) -> *mut c_char {
+    let set_err = |code: i32| {
+        if !out_error.is_null() {
+            // SAFETY: caller contract — out_error is writable.
+            unsafe { *out_error = code };
+        }
+    };
+    let result = std::panic::catch_unwind(|| {
+        if handle.is_null() {
+            set_err(1);
+            return std::ptr::null_mut();
+        }
+        // SAFETY: caller contract — handle is a live OpLog pointer.
+        let log = unsafe { &*handle };
+        match CString::new(hash_to_hex(&log.chain_tip())) {
+            Ok(c) => {
+                set_err(0);
+                c.into_raw()
+            }
+            Err(_) => {
+                set_err(2);
+                std::ptr::null_mut()
+            }
+        }
+    });
+    result.unwrap_or_else(|_| {
+        set_err(2);
+        std::ptr::null_mut()
+    })
+}
+
+/// Verify the current OpLog BLAKE3 chain and return a JSON
+/// `OpLogChainVerificationReport`.
+///
+/// If `expected_tip_hex` is non-null, it must be a null-terminated UTF-8
+/// string containing a 64-character hex chain tip; mismatches are reported in
+/// JSON, not by mutating or repairing the log. Caller must free the returned
+/// string via `oplog_free_string`.
+///
+/// # Safety
+/// `handle` must be a live `OpLog` pointer or null. `expected_tip_hex` may be
+/// null or a valid null-terminated UTF-8 string. `out_error` may be null or a
+/// writable `*mut i32`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn oplog_verify_chain_json(
+    handle: *const OpLog,
+    expected_tip_hex: *const c_char,
+    out_error: *mut i32,
+) -> *mut c_char {
+    let set_err = |code: i32| {
+        if !out_error.is_null() {
+            // SAFETY: caller contract — out_error is writable.
+            unsafe { *out_error = code };
+        }
+    };
+    let result = std::panic::catch_unwind(|| {
+        if handle.is_null() {
+            set_err(1);
+            return std::ptr::null_mut();
+        }
+
+        let expected_tip = if expected_tip_hex.is_null() {
+            None
+        } else {
+            // SAFETY: caller contract — expected_tip_hex is null-terminated UTF-8.
+            let expected_cstr = unsafe { CStr::from_ptr(expected_tip_hex) };
+            let Ok(expected_str) = expected_cstr.to_str() else {
+                set_err(2);
+                return std::ptr::null_mut();
+            };
+            Some(expected_str)
+        };
+
+        // SAFETY: caller contract — handle is a live OpLog pointer.
+        let log = unsafe { &*handle };
+        let report = log.verify_chain(expected_tip);
+        match chain_report_json_cstring(&report) {
             Ok(c) => {
                 set_err(0);
                 c.into_raw()
@@ -659,12 +1061,14 @@ pub unsafe extern "C" fn oplog_release(handle: *const OpLog) {
     }
 }
 
-/// Free a string previously returned by `oplog_iter_after_json`.
+/// Free a string previously returned by `oplog_iter_after_json`,
+/// `oplog_iter_all_json`, `oplog_chain_tip_hex`, or
+/// `oplog_verify_chain_json`.
 /// Idempotent on null.
 ///
 /// # Safety
-/// `s` must be a pointer returned by `oplog_iter_after_json` and not
-/// yet freed.
+/// `s` must be a pointer returned by an OpLog FFI string function and
+/// not yet freed.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn oplog_free_string(s: *mut c_char) {
     if !s.is_null() {
@@ -746,7 +1150,10 @@ mod tests {
 
     fn temp_db_path(name: &str) -> std::path::PathBuf {
         let mut p = std::env::temp_dir();
-        p.push(format!("epistemos-oplog-{name}-{}.sqlite", uuid::Uuid::new_v4()));
+        p.push(format!(
+            "epistemos-oplog-{name}-{}.sqlite",
+            uuid::Uuid::new_v4()
+        ));
         p
     }
 
@@ -889,7 +1296,11 @@ mod tests {
             .pop()
             .expect("expected one op after first append");
         assert_eq!(only_op.prev_hash, GENESIS_HASH);
-        assert_ne!(log.chain_tip(), GENESIS_HASH, "chain tip must advance after first append");
+        assert_ne!(
+            log.chain_tip(),
+            GENESIS_HASH,
+            "chain tip must advance after first append"
+        );
     }
 
     #[test]
@@ -953,13 +1364,123 @@ mod tests {
             id: "n2".into(),
             title: Some("Renamed".into()),
         });
-        let appended = reopened
-            .iter_after(2)
-            .pop()
-            .expect("seq=3 op should exist");
+        let appended = reopened.iter_after(2).pop().expect("seq=3 op should exist");
         assert_eq!(appended.prev_hash, final_tip);
         assert_ne!(reopened.chain_tip(), final_tip);
 
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn verify_chain_accepts_valid_log_and_expected_tip() {
+        let log = OpLog::new("actor-A");
+        log.append(OpPayload::NodeAdd {
+            id: "n1".into(),
+            kind: "page".into(),
+            title: "A".into(),
+        });
+        log.append(OpPayload::NodeUpdate {
+            id: "n1".into(),
+            title: Some("Renamed".into()),
+        });
+
+        let expected_tip = hash_to_hex(&log.chain_tip());
+        let report = log.verify_chain(Some(&expected_tip));
+
+        assert!(report.valid);
+        assert_eq!(report.checked_count, 2);
+        assert_eq!(report.computed_chain_tip_hex, expected_tip);
+        assert_eq!(report.stored_chain_tip_hex, expected_tip);
+        assert_eq!(
+            report.expected_chain_tip_hex.as_deref(),
+            Some(expected_tip.as_str())
+        );
+        assert_eq!(report.first_bad_seq, None);
+        assert_eq!(report.failure_reason, None);
+    }
+
+    #[test]
+    fn verify_chain_detects_tampered_prev_hash_on_reopen() {
+        let path = temp_db_path("d1-chain-tamper");
+        {
+            let log = OpLog::open_persistent("actor-A", &path).unwrap();
+            log.append(OpPayload::NodeAdd {
+                id: "n1".into(),
+                kind: "page".into(),
+                title: "A".into(),
+            });
+            log.append(OpPayload::NodeUpdate {
+                id: "n1".into(),
+                title: Some("Renamed".into()),
+            });
+        }
+
+        let conn = Connection::open(&path).unwrap();
+        conn.execute(
+            "UPDATE epistemos_oplog
+             SET prev_hash = ?
+             WHERE seq = 1",
+            params![vec![7u8; 32]],
+        )
+        .unwrap();
+        drop(conn);
+
+        let reopened = OpLog::open_persistent("actor-A", &path).unwrap();
+        let report = reopened.verify_chain(None);
+
+        assert!(!report.valid);
+        assert_eq!(report.checked_count, 2);
+        assert_eq!(report.first_bad_seq, Some(1));
+        assert_eq!(report.failure_reason.as_deref(), Some("prev_hash_mismatch"));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn ffi_verify_chain_json_reports_expected_tip_mismatch() {
+        let path = temp_db_path("ffi-verify-chain");
+        let path_c = CString::new(path.to_string_lossy().as_bytes()).unwrap();
+        let actor_c = CString::new("ffi-actor").unwrap();
+        // SAFETY: C strings are valid for the call and the handle is released below.
+        let handle = unsafe { oplog_open_at(path_c.as_ptr(), actor_c.as_ptr()) };
+        assert!(!handle.is_null());
+
+        let payload =
+            CString::new(r#"{"op_type":"node_add","id":"n1","kind":"page","title":"First"}"#)
+                .unwrap();
+        let mut seq = u64::MAX;
+        let mut error = -1;
+        // SAFETY: handle and payload C string are valid; seq/error are writable.
+        let append_code =
+            unsafe { oplog_append_payload_json(handle, payload.as_ptr(), &mut seq, &mut error) };
+        assert_eq!(append_code, 0);
+        assert_eq!(error, 0);
+
+        let expected_c = CString::new(hash_to_hex(&GENESIS_HASH)).unwrap();
+        // SAFETY: handle and expected tip C string are valid; out_error is writable.
+        let report_raw =
+            unsafe { oplog_verify_chain_json(handle, expected_c.as_ptr(), &mut error) };
+        assert_eq!(error, 0);
+        assert!(!report_raw.is_null());
+        // SAFETY: report_raw was returned by oplog_verify_chain_json and is freed below.
+        let report_json = unsafe { CStr::from_ptr(report_raw) }.to_str().unwrap();
+        let report: OpLogChainVerificationReport = serde_json::from_str(report_json).unwrap();
+
+        assert!(!report.valid);
+        assert_eq!(report.checked_count, 1);
+        assert_eq!(
+            report.failure_reason.as_deref(),
+            Some("expected_chain_tip_mismatch")
+        );
+        assert_eq!(
+            report.expected_chain_tip_hex.as_deref(),
+            Some(hash_to_hex(&GENESIS_HASH).as_str())
+        );
+
+        // SAFETY: report_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(report_raw) };
+        // SAFETY: handle came from oplog_open_at and has not been released.
+        unsafe { oplog_release(handle) };
         let _ = std::fs::remove_file(&path);
     }
 
@@ -975,11 +1496,119 @@ mod tests {
             kind: "page".into(),
             title: "Title".into(),
         };
-        let h1 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_000, &payload);
-        let h2 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_000, &payload);
+        let h1 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1_700_000_000_000, &payload);
+        let h2 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1_700_000_000_000, &payload);
         assert_eq!(h1, h2);
         // Changing any input changes the hash.
-        let h3 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1700_000_000_001, &payload);
+        let h3 = OpLog::compute_chain_link(&prev, 7, 9, "actor-X", 1_700_000_000_001, &payload);
         assert_ne!(h1, h3);
+    }
+
+    #[test]
+    fn legacy_wire_op_without_prev_hash_defaults_to_genesis() {
+        let json = r#"{"seq":7,"lamport":9,"actor_id":"legacy","ts_unix_ms":1700000000000,"payload":{"op_type":"node_add","id":"n1","kind":"page","title":"Legacy"}}"#;
+        let op: Op = serde_json::from_str(json).unwrap();
+        assert_eq!(op.prev_hash, GENESIS_HASH);
+    }
+
+    #[test]
+    fn ffi_append_payload_json_iterates_and_reports_chain_tip() {
+        let path = temp_db_path("ffi-append-tip");
+        let path_c = CString::new(path.to_string_lossy().as_bytes()).unwrap();
+        let actor_c = CString::new("ffi-actor").unwrap();
+        // SAFETY: C strings are valid for the call and the handle is released below.
+        let handle = unsafe { oplog_open_at(path_c.as_ptr(), actor_c.as_ptr()) };
+        assert!(!handle.is_null());
+
+        let mut error = -1;
+        // SAFETY: handle is live and out_error is writable.
+        let genesis_raw = unsafe { oplog_chain_tip_hex(handle, &mut error) };
+        assert_eq!(error, 0);
+        assert!(!genesis_raw.is_null());
+        // SAFETY: genesis_raw was returned by oplog_chain_tip_hex and is freed below.
+        let genesis = unsafe { CStr::from_ptr(genesis_raw) }
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert_eq!(genesis, hash_to_hex(&GENESIS_HASH));
+        // SAFETY: genesis_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(genesis_raw) };
+
+        // SAFETY: handle is live and out_error is writable.
+        let empty_all_raw = unsafe { oplog_iter_all_json(handle, &mut error) };
+        assert_eq!(error, 0);
+        assert!(!empty_all_raw.is_null());
+        // SAFETY: empty_all_raw was returned by oplog_iter_all_json and is freed below.
+        let empty_all_json = unsafe { CStr::from_ptr(empty_all_raw) }.to_str().unwrap();
+        let empty_all_ops: Vec<Op> = serde_json::from_str(empty_all_json).unwrap();
+        assert!(empty_all_ops.is_empty());
+        // SAFETY: empty_all_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(empty_all_raw) };
+
+        let first =
+            CString::new(r#"{"op_type":"node_add","id":"n1","kind":"page","title":"First"}"#)
+                .unwrap();
+        let mut first_seq = u64::MAX;
+        // SAFETY: handle and payload C string are valid; first_seq/error are writable.
+        let append_code = unsafe {
+            oplog_append_payload_json(handle, first.as_ptr(), &mut first_seq, &mut error)
+        };
+        assert_eq!(append_code, 0);
+        assert_eq!(error, 0);
+        assert_eq!(first_seq, 0);
+
+        // SAFETY: handle is live and out_error is writable.
+        let all_raw = unsafe { oplog_iter_all_json(handle, &mut error) };
+        assert_eq!(error, 0);
+        assert!(!all_raw.is_null());
+        // SAFETY: all_raw was returned by oplog_iter_all_json and is freed below.
+        let all_json = unsafe { CStr::from_ptr(all_raw) }.to_str().unwrap();
+        let all_ops: Vec<Op> = serde_json::from_str(all_json).unwrap();
+        assert_eq!(all_ops.len(), 1);
+        assert_eq!(all_ops[0].seq, 0);
+        // SAFETY: all_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(all_raw) };
+
+        // SAFETY: handle is live and out_error is writable.
+        let first_tip_raw = unsafe { oplog_chain_tip_hex(handle, &mut error) };
+        assert_eq!(error, 0);
+        assert!(!first_tip_raw.is_null());
+        // SAFETY: first_tip_raw was returned by oplog_chain_tip_hex and is freed below.
+        let first_tip = unsafe { CStr::from_ptr(first_tip_raw) }
+            .to_str()
+            .unwrap()
+            .to_owned();
+        assert_eq!(first_tip.len(), 64);
+        assert_ne!(first_tip, genesis);
+        // SAFETY: first_tip_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(first_tip_raw) };
+
+        let second =
+            CString::new(r#"{"op_type":"node_update","id":"n1","title":"Renamed"}"#).unwrap();
+        let mut second_seq = u64::MAX;
+        // SAFETY: handle and payload C string are valid; second_seq/error are writable.
+        let append_code = unsafe {
+            oplog_append_payload_json(handle, second.as_ptr(), &mut second_seq, &mut error)
+        };
+        assert_eq!(append_code, 0);
+        assert_eq!(error, 0);
+        assert_eq!(second_seq, 1);
+
+        // SAFETY: handle is live and out_error is writable.
+        let tail_raw = unsafe { oplog_iter_after_json(handle, 0, &mut error) };
+        assert_eq!(error, 0);
+        assert!(!tail_raw.is_null());
+        // SAFETY: tail_raw was returned by oplog_iter_after_json and is freed below.
+        let tail_json = unsafe { CStr::from_ptr(tail_raw) }.to_str().unwrap();
+        let tail: Vec<Op> = serde_json::from_str(tail_json).unwrap();
+        assert_eq!(tail.len(), 1);
+        assert_eq!(tail[0].seq, 1);
+        assert_eq!(hash_to_hex(&tail[0].prev_hash), first_tip);
+        // SAFETY: tail_raw was allocated by CString::into_raw.
+        unsafe { oplog_free_string(tail_raw) };
+
+        // SAFETY: handle came from oplog_open_at and has not been released.
+        unsafe { oplog_release(handle) };
+        let _ = std::fs::remove_file(&path);
     }
 }

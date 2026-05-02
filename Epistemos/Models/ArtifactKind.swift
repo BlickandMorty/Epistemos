@@ -76,6 +76,42 @@ nonisolated public enum ArtifactKind: UInt8, Codable, Sendable, CaseIterable, Ha
         ArtifactKind(rawValue: id)
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if let value = try? container.decode(String.self),
+           let kind = ArtifactKind(snakeCaseString: value) {
+            self = kind
+            return
+        }
+        if let value = try? container.decode(UInt8.self),
+           let kind = ArtifactKind.from(id: value) {
+            self = kind
+            return
+        }
+        throw DecodingError.dataCorruptedError(
+            in: container,
+            debugDescription: "Unknown artifact kind"
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(snakeCaseString)
+    }
+
+    private init?(snakeCaseString: String) {
+        switch snakeCaseString {
+        case "prose_note": self = .proseNote
+        case "document": self = .document
+        case "raw_thought": self = .rawThought
+        case "source": self = .source
+        case "code": self = .code
+        case "run": self = .run
+        case "output": self = .output
+        default: return nil
+        }
+    }
+
     /// Human-readable display name for the inspector UI.
     public var displayName: String {
         switch self {

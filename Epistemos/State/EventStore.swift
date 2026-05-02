@@ -158,6 +158,98 @@ final class EventStore: Sendable {
         execute("ALTER TABLE session_metrics ADD COLUMN cache_read_input_tokens INTEGER NOT NULL DEFAULT 0;")
         execute("ALTER TABLE session_metrics ADD COLUMN cache_creation_input_tokens INTEGER NOT NULL DEFAULT 0;")
 
+        execute("""
+            CREATE TABLE IF NOT EXISTS mutation_envelopes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mutation_id TEXT NOT NULL UNIQUE,
+                recorded_at REAL NOT NULL,
+                trace_id TEXT,
+                status TEXT NOT NULL,
+                artifact_id TEXT,
+                artifact_kind TEXT,
+                integrity_hash TEXT NOT NULL,
+                json TEXT NOT NULL
+            );
+        """)
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_envelopes_trace ON mutation_envelopes(trace_id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_envelopes_artifact ON mutation_envelopes(artifact_id);")
+
+        execute("""
+            CREATE TABLE IF NOT EXISTS mutation_projection_outbox (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                mutation_id TEXT NOT NULL UNIQUE,
+                recorded_at REAL NOT NULL,
+                trace_id TEXT,
+                event_kind TEXT NOT NULL,
+                status TEXT NOT NULL,
+                artifact_id TEXT,
+                artifact_kind TEXT,
+                integrity_hash TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                oplog_seq INTEGER,
+                projected_at REAL,
+                lease_owner TEXT,
+                lease_until REAL,
+                attempt_count INTEGER NOT NULL DEFAULT 0,
+                last_error TEXT,
+                dead_lettered_at REAL,
+                dead_letter_reason TEXT
+            );
+        """)
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN oplog_seq INTEGER;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN projected_at REAL;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN lease_owner TEXT;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN lease_until REAL;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN last_error TEXT;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN dead_lettered_at REAL;")
+        execute("ALTER TABLE mutation_projection_outbox ADD COLUMN dead_letter_reason TEXT;")
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_projection_outbox_trace ON mutation_projection_outbox(trace_id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_projection_outbox_kind ON mutation_projection_outbox(event_kind);")
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_projection_outbox_pending ON mutation_projection_outbox(oplog_seq, id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_mutation_projection_outbox_claim ON mutation_projection_outbox(oplog_seq, lease_until, id);")
+        execute("""
+            CREATE INDEX IF NOT EXISTS idx_mutation_projection_outbox_claimable
+            ON mutation_projection_outbox(oplog_seq, dead_lettered_at, lease_until, id);
+        """)
+
+        execute("""
+            CREATE TABLE IF NOT EXISTS agent_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL UNIQUE,
+                run_id TEXT NOT NULL,
+                trace_id TEXT,
+                sequence INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                tool_name TEXT,
+                occurred_at REAL NOT NULL,
+                json TEXT NOT NULL
+            );
+        """)
+        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_run ON agent_events(run_id, sequence, occurred_at, id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_trace ON agent_events(trace_id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_agent_events_tool ON agent_events(tool_name);")
+
+        execute("""
+            CREATE TABLE IF NOT EXISTS graph_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL UNIQUE,
+                mutation_id TEXT NOT NULL,
+                run_id TEXT,
+                trace_id TEXT,
+                sequence INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                entity_id TEXT,
+                entity_kind TEXT,
+                occurred_at REAL NOT NULL,
+                json TEXT NOT NULL
+            );
+        """)
+        execute("CREATE INDEX IF NOT EXISTS idx_graph_events_mutation ON graph_events(mutation_id, sequence, occurred_at, id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_graph_events_trace ON graph_events(trace_id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_graph_events_entity ON graph_events(entity_id);")
+        execute("CREATE INDEX IF NOT EXISTS idx_graph_events_kind ON graph_events(kind);")
+
         // Cognitive substrate tables (Phase 0)
         execute("""
             CREATE TABLE IF NOT EXISTS captured_artifacts (
@@ -407,6 +499,691 @@ final class EventStore: Sendable {
                 cacheCreationInputTokens: Int(sqlite3_column_int(stmt, 12))
             )
         }
+    }
+
+    // MARK: - Mutation Envelope Storage
+
+    nonisolated static let mutationEnvelopeCommittedEventKind = "mutation_envelope_committed"
+    nonisolated private static let mutationProjectionOutboxLastErrorMaximum = 512
+    nonisolated private static let mutationProjectionOutboxReadLimitMaximum = 500
+    nonisolated private static let agentEventReadLimitMaximum = 500
+    nonisolated private static let graphEventReadLimitMaximum = 500
+    nonisolated private static let mutationProjectionOutboxSelectColumns = """
+        mutation_id, recorded_at, trace_id, event_kind, status,
+        artifact_id, artifact_kind, integrity_hash, payload,
+        oplog_seq, projected_at, lease_owner, lease_until, attempt_count,
+        last_error, dead_lettered_at, dead_letter_reason
+    """
+
+    @discardableResult
+    nonisolated func saveMutationEnvelope(_ envelope: MutationEnvelope, traceId: String? = nil) -> Bool {
+        let json: String
+        do {
+            let data = try Self.payloadEncoder.encode(envelope)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode mutation envelope as UTF-8 text")
+                return false
+            }
+            json = encoded
+        } catch {
+            Self.log.error(
+                "EventStore: failed to encode mutation envelope \(envelope.mutationID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+
+        let artifact = Self.mutationArtifactProjection(envelope.op)
+        return withDatabaseRead { db in
+            guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to begin mutation envelope transaction: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+
+            var didCommit = false
+            defer {
+                if !didCommit {
+                    sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                }
+            }
+
+            var stmt: OpaquePointer?
+            let sql = """
+                INSERT INTO mutation_envelopes (
+                    mutation_id, recorded_at, trace_id, status, artifact_id,
+                    artifact_kind, integrity_hash, json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(mutation_id) DO UPDATE SET
+                    recorded_at = excluded.recorded_at,
+                    trace_id = excluded.trace_id,
+                    status = excluded.status,
+                    artifact_id = excluded.artifact_id,
+                    artifact_kind = excluded.artifact_kind,
+                    integrity_hash = excluded.integrity_hash,
+                    json = excluded.json;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to prepare mutation envelope save: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+            defer {
+                if let stmt {
+                    sqlite3_finalize(stmt)
+                }
+            }
+
+            sqlite3_bind_text(stmt, 1, (envelope.mutationID as NSString).utf8String, -1, nil)
+            sqlite3_bind_double(stmt, 2, Date().timeIntervalSince1970)
+            Self.bindNullableText(traceId, to: stmt, index: 3)
+            sqlite3_bind_text(stmt, 4, (envelope.status.rawValue as NSString).utf8String, -1, nil)
+            Self.bindNullableText(artifact.id, to: stmt, index: 5)
+            Self.bindNullableText(artifact.kind, to: stmt, index: 6)
+            sqlite3_bind_text(stmt, 7, (envelope.integrityHash as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 8, (json as NSString).utf8String, -1, nil)
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                Self.log.error(
+                    "EventStore: failed to save mutation envelope \(envelope.mutationID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+            sqlite3_finalize(stmt)
+            stmt = nil
+
+            if envelope.status == .committed {
+                guard Self.insertMutationProjectionOutbox(
+                    envelope,
+                    traceId: traceId,
+                    artifact: artifact,
+                    db: db
+                ) else {
+                    return false
+                }
+                guard Self.insertGraphEvents(
+                    for: envelope,
+                    traceId: traceId,
+                    db: db
+                ) else {
+                    return false
+                }
+            }
+
+            guard sqlite3_exec(db, "COMMIT;", nil, nil, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to commit mutation envelope transaction \(envelope.mutationID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+            didCommit = true
+            return true
+        } ?? false
+    }
+
+    nonisolated func loadMutationEnvelope(mutationID: String) -> MutationEnvelope? {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM mutation_envelopes WHERE mutation_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (mutationID as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW, let text = sqlite3_column_text(stmt, 0) else {
+                return nil
+            }
+
+            let json = String(cString: text)
+            do {
+                return try JSONDecoder().decode(MutationEnvelope.self, from: Data(json.utf8))
+            } catch {
+                Self.log.error(
+                    "EventStore: failed to decode mutation envelope \(mutationID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                return nil
+            }
+        }
+    }
+
+    @discardableResult
+    nonisolated func saveAgentEvent(_ event: AgentProvenanceEvent) -> Bool {
+        let eventID = event.eventID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let runID = event.runID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !eventID.isEmpty,
+              !runID.isEmpty,
+              event.sequence <= UInt64(Int64.max) else {
+            return false
+        }
+        let occurredAt = Double(event.occurredAtMs) / 1_000
+        guard occurredAt.isFinite else { return false }
+
+        let json: String
+        do {
+            let data = try Self.payloadEncoder.encode(event)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode AgentProvenanceEvent as UTF-8 text")
+                return false
+            }
+            json = encoded
+        } catch {
+            Self.log.error(
+                "EventStore: failed to encode AgentProvenanceEvent \(event.eventID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                INSERT INTO agent_events (
+                    event_id, run_id, trace_id, sequence, kind,
+                    tool_name, occurred_at, json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(event_id) DO UPDATE SET
+                    run_id = excluded.run_id,
+                    trace_id = excluded.trace_id,
+                    sequence = excluded.sequence,
+                    kind = excluded.kind,
+                    tool_name = excluded.tool_name,
+                    occurred_at = excluded.occurred_at,
+                    json = excluded.json;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                Self.log.error(
+                    "EventStore: failed to prepare AgentProvenanceEvent save: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+            defer { sqlite3_finalize(stmt) }
+
+            sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
+            sqlite3_bind_text(stmt, 2, (runID as NSString).utf8String, -1, nil)
+            Self.bindNullableText(event.traceID, to: stmt, index: 3)
+            sqlite3_bind_int64(stmt, 4, Int64(event.sequence))
+            sqlite3_bind_text(stmt, 5, (event.kind.rawValue as NSString).utf8String, -1, nil)
+            Self.bindNullableText(event.tool?.toolName, to: stmt, index: 6)
+            sqlite3_bind_double(stmt, 7, occurredAt)
+            sqlite3_bind_text(stmt, 8, (json as NSString).utf8String, -1, nil)
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else {
+                Self.log.error(
+                    "EventStore: failed to save AgentProvenanceEvent \(event.eventID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+                )
+                return false
+            }
+            return true
+        } ?? false
+    }
+
+    nonisolated func loadAgentEvent(eventID: String) -> AgentProvenanceEvent? {
+        let eventID = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !eventID.isEmpty else { return nil }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM agent_events WHERE event_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW,
+                  let json = Self.columnText(stmt, 0) else {
+                return nil
+            }
+            return Self.decodeAgentEventJSON(json, context: eventID)
+        }
+    }
+
+    nonisolated func agentEvents(runID: String, limit: Int = 100) -> [AgentProvenanceEvent] {
+        let runID = runID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let boundedLimit = min(max(limit, 0), Self.agentEventReadLimitMaximum)
+        guard !runID.isEmpty, boundedLimit > 0 else { return [] }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT json
+                FROM agent_events
+                WHERE run_id = ?
+                ORDER BY sequence ASC, occurred_at ASC, id ASC
+                LIMIT ?;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (runID as NSString).utf8String, -1, nil)
+            sqlite3_bind_int(stmt, 2, Int32(boundedLimit))
+
+            var events: [AgentProvenanceEvent] = []
+            events.reserveCapacity(boundedLimit)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let json = Self.columnText(stmt, 0),
+                      let event = Self.decodeAgentEventJSON(json, context: runID) else {
+                    continue
+                }
+                events.append(event)
+            }
+            return events
+        } ?? []
+    }
+
+    @discardableResult
+    nonisolated func saveGraphEvent(_ event: DurableGraphEvent) -> Bool {
+        withDatabaseRead { db in
+            Self.insertGraphEvent(event, db: db)
+        } ?? false
+    }
+
+    nonisolated func loadGraphEvent(eventID: String) -> DurableGraphEvent? {
+        let eventID = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !eventID.isEmpty else { return nil }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = "SELECT json FROM graph_events WHERE event_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
+            guard sqlite3_step(stmt) == SQLITE_ROW,
+                  let json = Self.columnText(stmt, 0) else {
+                return nil
+            }
+            return Self.decodeGraphEventJSON(json, context: eventID)
+        }
+    }
+
+    nonisolated func graphEvents(mutationID: String, limit: Int = 100) -> [DurableGraphEvent] {
+        let mutationID = mutationID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let boundedLimit = min(max(limit, 0), Self.graphEventReadLimitMaximum)
+        guard !mutationID.isEmpty, boundedLimit > 0 else { return [] }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT json
+                FROM graph_events
+                WHERE mutation_id = ?
+                ORDER BY sequence ASC, occurred_at ASC, id ASC
+                LIMIT ?;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (mutationID as NSString).utf8String, -1, nil)
+            sqlite3_bind_int(stmt, 2, Int32(boundedLimit))
+
+            var events: [DurableGraphEvent] = []
+            events.reserveCapacity(boundedLimit)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                guard let json = Self.columnText(stmt, 0),
+                      let event = Self.decodeGraphEventJSON(json, context: mutationID) else {
+                    continue
+                }
+                events.append(event)
+            }
+            return events
+        } ?? []
+    }
+
+    nonisolated struct MutationProjectionOutboxRow: Equatable, Sendable {
+        let mutationID: String
+        let recordedAt: Date
+        let traceID: String?
+        let eventKind: String
+        let status: String
+        let artifactID: String?
+        let artifactKind: String?
+        let integrityHash: String
+        let payload: String
+        let opLogSeq: UInt64?
+        let projectedAt: Date?
+        let leaseOwner: String?
+        let leaseUntil: Date?
+        let attemptCount: Int
+        let lastError: String?
+        let deadLetteredAt: Date?
+        let deadLetterReason: String?
+    }
+
+    nonisolated struct MutationProjectionOutboxDiagnostics: Equatable, Sendable {
+        let totalRows: Int
+        let pendingRows: Int
+        let leasedRows: Int
+        let projectedRows: Int
+        let deadLetteredRows: Int
+        let latestDeadLetter: MutationProjectionOutboxRow?
+
+        nonisolated static let empty = MutationProjectionOutboxDiagnostics(
+            totalRows: 0,
+            pendingRows: 0,
+            leasedRows: 0,
+            projectedRows: 0,
+            deadLetteredRows: 0,
+            latestDeadLetter: nil
+        )
+    }
+
+    nonisolated func mutationProjectionOutboxRows(mutationID: String) -> [MutationProjectionOutboxRow] {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT \(Self.mutationProjectionOutboxSelectColumns)
+                FROM mutation_projection_outbox
+                WHERE mutation_id = ?
+                ORDER BY recorded_at ASC;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_text(stmt, 1, (mutationID as NSString).utf8String, -1, nil)
+
+            var rows: [MutationProjectionOutboxRow] = []
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                rows.append(Self.mutationProjectionOutboxRow(from: stmt))
+            }
+            return rows
+        } ?? []
+    }
+
+    nonisolated func mutationProjectionOutboxDiagnostics(
+        now: Date = Date()
+    ) -> MutationProjectionOutboxDiagnostics {
+        let nowTimestamp = now.timeIntervalSince1970
+        guard nowTimestamp.isFinite else { return .empty }
+
+        return withDatabaseRead { db in
+            let counts: (
+                totalRows: Int,
+                pendingRows: Int,
+                leasedRows: Int,
+                projectedRows: Int,
+                deadLetteredRows: Int
+            )
+
+            do {
+                var stmt: OpaquePointer?
+                let sql = """
+                    SELECT
+                        COUNT(*),
+                        SUM(CASE WHEN oplog_seq IS NULL
+                                  AND dead_lettered_at IS NULL
+                                  AND (lease_until IS NULL OR lease_until <= ?)
+                                 THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN oplog_seq IS NULL
+                                  AND dead_lettered_at IS NULL
+                                  AND lease_until > ?
+                                 THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN oplog_seq IS NOT NULL THEN 1 ELSE 0 END),
+                        SUM(CASE WHEN dead_lettered_at IS NOT NULL THEN 1 ELSE 0 END)
+                    FROM mutation_projection_outbox;
+                """
+                guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                    return .empty
+                }
+                defer { sqlite3_finalize(stmt) }
+                sqlite3_bind_double(stmt, 1, nowTimestamp)
+                sqlite3_bind_double(stmt, 2, nowTimestamp)
+
+                guard sqlite3_step(stmt) == SQLITE_ROW else {
+                    return .empty
+                }
+
+                counts = (
+                    totalRows: Self.columnInt(stmt, 0),
+                    pendingRows: Self.columnInt(stmt, 1),
+                    leasedRows: Self.columnInt(stmt, 2),
+                    projectedRows: Self.columnInt(stmt, 3),
+                    deadLetteredRows: Self.columnInt(stmt, 4)
+                )
+            }
+
+            return MutationProjectionOutboxDiagnostics(
+                totalRows: counts.totalRows,
+                pendingRows: counts.pendingRows,
+                leasedRows: counts.leasedRows,
+                projectedRows: counts.projectedRows,
+                deadLetteredRows: counts.deadLetteredRows,
+                latestDeadLetter: Self.latestDeadLetteredMutationProjectionOutboxRow(db: db)
+            )
+        } ?? .empty
+    }
+
+    /// Bounded view of rows that are unprojected and not actively leased.
+    /// RunEventLog/AgentEvent emission remains deferred to later gates.
+    nonisolated func pendingMutationProjectionOutboxRows(
+        limit: Int = 100,
+        now: Date = Date()
+    ) -> [MutationProjectionOutboxRow] {
+        let boundedLimit = min(max(limit, 0), Self.mutationProjectionOutboxReadLimitMaximum)
+        guard boundedLimit > 0 else { return [] }
+        let nowTimestamp = now.timeIntervalSince1970
+        guard nowTimestamp.isFinite else { return [] }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT \(Self.mutationProjectionOutboxSelectColumns)
+                FROM mutation_projection_outbox
+                WHERE oplog_seq IS NULL
+                  AND dead_lettered_at IS NULL
+                  AND (lease_until IS NULL OR lease_until <= ?)
+                ORDER BY id ASC
+                LIMIT ?;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_double(stmt, 1, nowTimestamp)
+            sqlite3_bind_int(stmt, 2, Int32(boundedLimit))
+
+            var rows: [MutationProjectionOutboxRow] = []
+            rows.reserveCapacity(boundedLimit)
+            while sqlite3_step(stmt) == SQLITE_ROW {
+                rows.append(Self.mutationProjectionOutboxRow(from: stmt))
+            }
+            return rows
+        } ?? []
+    }
+
+    nonisolated func claimMutationProjectionOutboxRows(
+        limit: Int = 100,
+        ownerID: String,
+        leaseDuration: TimeInterval,
+        now: Date = Date()
+    ) -> [MutationProjectionOutboxRow] {
+        let boundedLimit = min(max(limit, 0), Self.mutationProjectionOutboxReadLimitMaximum)
+        let owner = ownerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nowTimestamp = now.timeIntervalSince1970
+        let leaseUntilTimestamp = now.addingTimeInterval(leaseDuration).timeIntervalSince1970
+        guard boundedLimit > 0,
+              !owner.isEmpty,
+              leaseDuration.isFinite,
+              leaseDuration > 0,
+              nowTimestamp.isFinite,
+              leaseUntilTimestamp.isFinite else {
+            return []
+        }
+
+        return withDatabaseRead { db in
+            guard sqlite3_exec(db, "BEGIN IMMEDIATE TRANSACTION;", nil, nil, nil) == SQLITE_OK else {
+                return []
+            }
+
+            var didCommit = false
+            defer {
+                if !didCommit {
+                    sqlite3_exec(db, "ROLLBACK;", nil, nil, nil)
+                }
+            }
+
+            let mutationIDs = Self.claimableMutationProjectionIDs(
+                db: db,
+                limit: boundedLimit,
+                nowTimestamp: nowTimestamp
+            )
+            guard !mutationIDs.isEmpty else {
+                sqlite3_exec(db, "COMMIT;", nil, nil, nil)
+                didCommit = true
+                return []
+            }
+
+            var claimedIDs: [String] = []
+            claimedIDs.reserveCapacity(mutationIDs.count)
+            for mutationID in mutationIDs where Self.claimMutationProjectionOutboxRow(
+                db: db,
+                mutationID: mutationID,
+                ownerID: owner,
+                nowTimestamp: nowTimestamp,
+                leaseUntilTimestamp: leaseUntilTimestamp
+            ) {
+                claimedIDs.append(mutationID)
+            }
+
+            var rows: [MutationProjectionOutboxRow] = []
+            rows.reserveCapacity(claimedIDs.count)
+            for mutationID in claimedIDs {
+                guard let row = Self.mutationProjectionOutboxRow(db: db, mutationID: mutationID),
+                      row.leaseOwner == owner else {
+                    continue
+                }
+                rows.append(row)
+            }
+
+            guard sqlite3_exec(db, "COMMIT;", nil, nil, nil) == SQLITE_OK else {
+                return []
+            }
+            didCommit = true
+            return rows
+        } ?? []
+    }
+
+    @discardableResult
+    nonisolated func recordMutationProjectionOutboxFailure(
+        mutationID: String,
+        ownerID: String,
+        error: String,
+        retryAfter: TimeInterval,
+        now: Date = Date(),
+        maxAttempts: Int? = nil
+    ) -> Bool {
+        let owner = ownerID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let nowTimestamp = now.timeIntervalSince1970
+        let retryTimestamp = now.addingTimeInterval(retryAfter).timeIntervalSince1970
+        guard !mutationID.isEmpty,
+              !owner.isEmpty,
+              retryAfter.isFinite,
+              retryAfter >= 0,
+              nowTimestamp.isFinite,
+              retryTimestamp.isFinite else {
+            return false
+        }
+        if let maxAttempts, maxAttempts <= 0 || maxAttempts > Int(Int32.max) {
+            return false
+        }
+
+        let boundedError = String(error.prefix(Self.mutationProjectionOutboxLastErrorMaximum))
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql: String
+            if maxAttempts == nil {
+                sql = """
+                    UPDATE mutation_projection_outbox
+                    SET lease_owner = NULL,
+                        lease_until = ?,
+                        last_error = ?,
+                        dead_lettered_at = NULL,
+                        dead_letter_reason = NULL
+                    WHERE mutation_id = ?
+                      AND oplog_seq IS NULL
+                      AND lease_owner = ?;
+                """
+            } else {
+                sql = """
+                    UPDATE mutation_projection_outbox
+                    SET lease_owner = NULL,
+                        lease_until = CASE WHEN attempt_count >= ? THEN NULL ELSE ? END,
+                        last_error = ?,
+                        dead_lettered_at = CASE WHEN attempt_count >= ? THEN ? ELSE NULL END,
+                        dead_letter_reason = CASE WHEN attempt_count >= ? THEN ? ELSE NULL END
+                    WHERE mutation_id = ?
+                      AND oplog_seq IS NULL
+                      AND lease_owner = ?;
+                """
+            }
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+            defer { sqlite3_finalize(stmt) }
+            if let maxAttempts {
+                sqlite3_bind_int(stmt, 1, Int32(maxAttempts))
+                sqlite3_bind_double(stmt, 2, retryTimestamp)
+                sqlite3_bind_text(stmt, 3, (boundedError as NSString).utf8String, -1, nil)
+                sqlite3_bind_int(stmt, 4, Int32(maxAttempts))
+                sqlite3_bind_double(stmt, 5, nowTimestamp)
+                sqlite3_bind_int(stmt, 6, Int32(maxAttempts))
+                sqlite3_bind_text(stmt, 7, ("max_attempts_exceeded" as NSString).utf8String, -1, nil)
+                sqlite3_bind_text(stmt, 8, (mutationID as NSString).utf8String, -1, nil)
+                sqlite3_bind_text(stmt, 9, (owner as NSString).utf8String, -1, nil)
+            } else {
+                sqlite3_bind_double(stmt, 1, retryTimestamp)
+                sqlite3_bind_text(stmt, 2, (boundedError as NSString).utf8String, -1, nil)
+                sqlite3_bind_text(stmt, 3, (mutationID as NSString).utf8String, -1, nil)
+                sqlite3_bind_text(stmt, 4, (owner as NSString).utf8String, -1, nil)
+            }
+            return sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
+        } ?? false
+    }
+
+    @discardableResult
+    nonisolated func markMutationProjectionOutboxProjected(
+        mutationID: String,
+        opLogSeq: UInt64,
+        projectedAt: Date = Date(),
+        ownerID: String? = nil
+    ) -> Bool {
+        guard opLogSeq <= UInt64(Int64.max) else { return false }
+        let seq = Int64(opLogSeq)
+        let projectedTimestamp = projectedAt.timeIntervalSince1970
+        guard projectedTimestamp.isFinite else { return false }
+        let owner = ownerID?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let owner, owner.isEmpty { return false }
+
+        return withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let ownerPredicate = owner == nil ? "" : " AND lease_owner = ?"
+            let sql = """
+                UPDATE mutation_projection_outbox
+                SET oplog_seq = ?,
+                    projected_at = COALESCE(projected_at, ?),
+                    lease_owner = NULL,
+                    lease_until = NULL,
+                    last_error = NULL,
+                    dead_lettered_at = NULL,
+                    dead_letter_reason = NULL
+                WHERE mutation_id = ?
+                  AND (oplog_seq IS NULL OR oplog_seq = ?)\(ownerPredicate);
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+            defer { sqlite3_finalize(stmt) }
+            sqlite3_bind_int64(stmt, 1, seq)
+            sqlite3_bind_double(stmt, 2, projectedTimestamp)
+            sqlite3_bind_text(stmt, 3, (mutationID as NSString).utf8String, -1, nil)
+            sqlite3_bind_int64(stmt, 4, seq)
+            if let owner {
+                sqlite3_bind_text(stmt, 5, (owner as NSString).utf8String, -1, nil)
+            }
+
+            guard sqlite3_step(stmt) == SQLITE_DONE else { return false }
+            if sqlite3_changes(db) > 0 {
+                return true
+            }
+
+            var existing: OpaquePointer?
+            let selectSQL = "SELECT oplog_seq FROM mutation_projection_outbox WHERE mutation_id = ? LIMIT 1;"
+            guard sqlite3_prepare_v2(db, selectSQL, -1, &existing, nil) == SQLITE_OK else { return false }
+            defer { sqlite3_finalize(existing) }
+            sqlite3_bind_text(existing, 1, (mutationID as NSString).utf8String, -1, nil)
+            guard sqlite3_step(existing) == SQLITE_ROW,
+                  sqlite3_column_type(existing, 0) != SQLITE_NULL else {
+                return false
+            }
+            let existingSeq = sqlite3_column_int64(existing, 0)
+            guard existingSeq >= 0 else { return false }
+            return UInt64(existingSeq) == opLogSeq
+        } ?? false
     }
 
     // MARK: - W10.9 / AR3 — Structured SessionTelemetry persistence
@@ -1117,6 +1894,531 @@ final class EventStore: Sendable {
             Self.log.error("EventStore: failed to encode note_edited payload: \(error.localizedDescription, privacy: .public)")
             return "{}"
         }
+    }
+
+    nonisolated private static func bindNullableText(_ value: String?, to stmt: OpaquePointer?, index: Int32) {
+        if let value {
+            sqlite3_bind_text(stmt, index, (value as NSString).utf8String, -1, nil)
+        } else {
+            sqlite3_bind_null(stmt, index)
+        }
+    }
+
+    nonisolated private static func columnText(_ stmt: OpaquePointer?, _ index: Int32) -> String? {
+        guard sqlite3_column_type(stmt, index) != SQLITE_NULL,
+              let text = sqlite3_column_text(stmt, index) else {
+            return nil
+        }
+        return String(cString: text)
+    }
+
+    nonisolated private static func columnUInt64(_ stmt: OpaquePointer?, _ index: Int32) -> UInt64? {
+        guard sqlite3_column_type(stmt, index) != SQLITE_NULL else { return nil }
+        let value = sqlite3_column_int64(stmt, index)
+        guard value >= 0 else { return nil }
+        return UInt64(value)
+    }
+
+    nonisolated private static func columnInt(_ stmt: OpaquePointer?, _ index: Int32) -> Int {
+        let value = sqlite3_column_int64(stmt, index)
+        guard value > 0 else { return 0 }
+        return value > Int64(Int.max) ? Int.max : Int(value)
+    }
+
+    nonisolated private static func columnDate(_ stmt: OpaquePointer?, _ index: Int32) -> Date? {
+        guard sqlite3_column_type(stmt, index) != SQLITE_NULL else { return nil }
+        let timestamp = sqlite3_column_double(stmt, index)
+        guard timestamp.isFinite else { return nil }
+        return Date(timeIntervalSince1970: timestamp)
+    }
+
+    nonisolated private static func decodeAgentEventJSON(
+        _ json: String,
+        context: String
+    ) -> AgentProvenanceEvent? {
+        do {
+            return try JSONDecoder().decode(AgentProvenanceEvent.self, from: Data(json.utf8))
+        } catch {
+            Self.log.error(
+                "EventStore: failed to decode AgentProvenanceEvent \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    nonisolated private static func decodeGraphEventJSON(
+        _ json: String,
+        context: String
+    ) -> DurableGraphEvent? {
+        do {
+            return try JSONDecoder().decode(DurableGraphEvent.self, from: Data(json.utf8))
+        } catch {
+            Self.log.error(
+                "EventStore: failed to decode DurableGraphEvent \(context, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return nil
+        }
+    }
+
+    nonisolated private static func claimableMutationProjectionIDs(
+        db: OpaquePointer,
+        limit: Int,
+        nowTimestamp: TimeInterval
+    ) -> [String] {
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT mutation_id
+            FROM mutation_projection_outbox
+            WHERE oplog_seq IS NULL
+              AND dead_lettered_at IS NULL
+              AND (lease_until IS NULL OR lease_until <= ?)
+            ORDER BY id ASC
+            LIMIT ?;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return [] }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_double(stmt, 1, nowTimestamp)
+        sqlite3_bind_int(stmt, 2, Int32(limit))
+
+        var ids: [String] = []
+        ids.reserveCapacity(limit)
+        while sqlite3_step(stmt) == SQLITE_ROW {
+            if let mutationID = columnText(stmt, 0), !mutationID.isEmpty {
+                ids.append(mutationID)
+            }
+        }
+        return ids
+    }
+
+    nonisolated private static func claimMutationProjectionOutboxRow(
+        db: OpaquePointer,
+        mutationID: String,
+        ownerID: String,
+        nowTimestamp: TimeInterval,
+        leaseUntilTimestamp: TimeInterval
+    ) -> Bool {
+        var stmt: OpaquePointer?
+        let sql = """
+            UPDATE mutation_projection_outbox
+            SET lease_owner = ?,
+                lease_until = ?,
+                attempt_count = attempt_count + 1,
+                last_error = NULL
+            WHERE mutation_id = ?
+              AND oplog_seq IS NULL
+              AND dead_lettered_at IS NULL
+              AND (lease_until IS NULL OR lease_until <= ?);
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return false }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (ownerID as NSString).utf8String, -1, nil)
+        sqlite3_bind_double(stmt, 2, leaseUntilTimestamp)
+        sqlite3_bind_text(stmt, 3, (mutationID as NSString).utf8String, -1, nil)
+        sqlite3_bind_double(stmt, 4, nowTimestamp)
+        return sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0
+    }
+
+    nonisolated private static func mutationProjectionOutboxRow(
+        db: OpaquePointer,
+        mutationID: String
+    ) -> MutationProjectionOutboxRow? {
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT \(mutationProjectionOutboxSelectColumns)
+            FROM mutation_projection_outbox
+            WHERE mutation_id = ?
+            LIMIT 1;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        sqlite3_bind_text(stmt, 1, (mutationID as NSString).utf8String, -1, nil)
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        return mutationProjectionOutboxRow(from: stmt)
+    }
+
+    nonisolated private static func latestDeadLetteredMutationProjectionOutboxRow(
+        db: OpaquePointer
+    ) -> MutationProjectionOutboxRow? {
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT \(mutationProjectionOutboxSelectColumns)
+            FROM mutation_projection_outbox
+            WHERE dead_lettered_at IS NOT NULL
+            ORDER BY dead_lettered_at DESC, id DESC
+            LIMIT 1;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
+        return mutationProjectionOutboxRow(from: stmt)
+    }
+
+    nonisolated private static func mutationProjectionOutboxRow(
+        from stmt: OpaquePointer?
+    ) -> MutationProjectionOutboxRow {
+        MutationProjectionOutboxRow(
+            mutationID: columnText(stmt, 0) ?? "",
+            recordedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
+            traceID: columnText(stmt, 2),
+            eventKind: columnText(stmt, 3) ?? "",
+            status: columnText(stmt, 4) ?? "",
+            artifactID: columnText(stmt, 5),
+            artifactKind: columnText(stmt, 6),
+            integrityHash: columnText(stmt, 7) ?? "",
+            payload: columnText(stmt, 8) ?? "{}",
+            opLogSeq: columnUInt64(stmt, 9),
+            projectedAt: columnDate(stmt, 10),
+            leaseOwner: columnText(stmt, 11),
+            leaseUntil: columnDate(stmt, 12),
+            attemptCount: Int(sqlite3_column_int(stmt, 13)),
+            lastError: columnText(stmt, 14),
+            deadLetteredAt: columnDate(stmt, 15),
+            deadLetterReason: columnText(stmt, 16)
+        )
+    }
+
+    nonisolated private static func mutationArtifactProjection(_ op: SourceOp) -> (id: String?, kind: String?) {
+        switch op {
+        case .artifactCreate(let id, let kind):
+            return (id, kind)
+        case .artifactUpdate(let id), .artifactDelete(let id):
+            return (id, nil)
+        case .graphMutation, .other:
+            return (nil, nil)
+        }
+    }
+
+    nonisolated private static func insertGraphEvent(
+        _ event: DurableGraphEvent,
+        db: OpaquePointer
+    ) -> Bool {
+        let eventID = event.eventID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let mutationID = event.mutationID.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !eventID.isEmpty,
+              !mutationID.isEmpty,
+              event.sequence <= UInt64(Int64.max) else {
+            return false
+        }
+        let occurredAt = Double(event.occurredAtMs) / 1_000
+        guard occurredAt.isFinite else { return false }
+
+        let json: String
+        do {
+            let data = try payloadEncoder.encode(event)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                Self.log.error("EventStore: failed to encode DurableGraphEvent as UTF-8 text")
+                return false
+            }
+            json = encoded
+        } catch {
+            Self.log.error(
+                "EventStore: failed to encode DurableGraphEvent \(event.eventID, privacy: .public): \(error.localizedDescription, privacy: .public)"
+            )
+            return false
+        }
+
+        var stmt: OpaquePointer?
+        let sql = """
+            INSERT INTO graph_events (
+                event_id, mutation_id, run_id, trace_id, sequence,
+                kind, entity_id, entity_kind, occurred_at, json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id) DO UPDATE SET
+                mutation_id = excluded.mutation_id,
+                run_id = excluded.run_id,
+                trace_id = excluded.trace_id,
+                sequence = excluded.sequence,
+                kind = excluded.kind,
+                entity_id = excluded.entity_id,
+                entity_kind = excluded.entity_kind,
+                occurred_at = excluded.occurred_at,
+                json = excluded.json;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            Self.log.error(
+                "EventStore: failed to prepare DurableGraphEvent save: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        sqlite3_bind_text(stmt, 1, (eventID as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 2, (mutationID as NSString).utf8String, -1, nil)
+        bindNullableText(event.runID, to: stmt, index: 3)
+        bindNullableText(event.traceID, to: stmt, index: 4)
+        sqlite3_bind_int64(stmt, 5, Int64(event.sequence))
+        sqlite3_bind_text(stmt, 6, (event.kind.rawValue as NSString).utf8String, -1, nil)
+        bindNullableText(event.entityID, to: stmt, index: 7)
+        bindNullableText(event.entityKind, to: stmt, index: 8)
+        sqlite3_bind_double(stmt, 9, occurredAt)
+        sqlite3_bind_text(stmt, 10, (json as NSString).utf8String, -1, nil)
+
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            Self.log.error(
+                "EventStore: failed to save DurableGraphEvent \(event.eventID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return false
+        }
+        return true
+    }
+
+    nonisolated private static func insertGraphEvents(
+        for envelope: MutationEnvelope,
+        traceId: String?,
+        db: OpaquePointer
+    ) -> Bool {
+        guard let events = durableGraphEvents(for: envelope, traceId: traceId) else {
+            return false
+        }
+        for event in events where !insertGraphEvent(event, db: db) {
+            return false
+        }
+        return true
+    }
+
+    nonisolated private static func durableGraphEvents(
+        for envelope: MutationEnvelope,
+        traceId: String?
+    ) -> [DurableGraphEvent]? {
+        guard envelope.status == .committed else { return [] }
+        let graphMutation = isGraphMutation(envelope.op)
+        guard envelope.affectsGraph || !envelope.relationChanges.isEmpty || graphMutation else {
+            return []
+        }
+
+        var events: [DurableGraphEvent] = []
+        events.reserveCapacity((envelope.affectsGraph || graphMutation ? 1 : 0) + envelope.relationChanges.count)
+
+        var index = 0
+        if envelope.affectsGraph || graphMutation {
+            guard let event = durableGraphEvent(for: envelope, traceId: traceId, index: index) else {
+                return nil
+            }
+            events.append(event)
+            index += 1
+        }
+
+        for relationChange in envelope.relationChanges {
+            guard let event = durableGraphEvent(
+                for: relationChange,
+                envelope: envelope,
+                traceId: traceId,
+                index: index
+            ) else {
+                return nil
+            }
+            events.append(event)
+            index += 1
+        }
+
+        return events
+    }
+
+    nonisolated private static func durableGraphEvent(
+        for envelope: MutationEnvelope,
+        traceId: String?,
+        index: Int
+    ) -> DurableGraphEvent? {
+        guard let sequence = graphEventSequence(base: envelope.sequence, offset: index) else {
+            return nil
+        }
+        let kind: DurableGraphEventKind
+        let entityID: String?
+        let entityKind: String?
+
+        switch envelope.op {
+        case .artifactCreate(let id, let artifactKind):
+            kind = .nodeCreated
+            entityID = id
+            entityKind = artifactKind
+        case .artifactUpdate(let id):
+            kind = .nodeUpdated
+            entityID = id
+            entityKind = artifactKind(for: id, in: envelope)
+        case .artifactDelete(let id):
+            kind = .nodeDeleted
+            entityID = id
+            entityKind = artifactKind(for: id, in: envelope)
+        case .graphMutation, .other:
+            kind = .graphMutation
+            entityID = nil
+            entityKind = "graph"
+        }
+
+        return DurableGraphEvent(
+            eventID: graphEventID(mutationID: envelope.mutationID, index: index),
+            mutationID: envelope.mutationID,
+            runID: envelope.runID,
+            traceID: traceId,
+            sequence: sequence,
+            kind: kind,
+            entityID: entityID,
+            entityKind: entityKind,
+            occurredAtMs: envelope.committedAtMs ?? envelope.createdAtMs,
+            metadata: graphEventMetadata(envelope: envelope)
+        )
+    }
+
+    nonisolated private static func durableGraphEvent(
+        for relationChange: RelationChange,
+        envelope: MutationEnvelope,
+        traceId: String?,
+        index: Int
+    ) -> DurableGraphEvent? {
+        guard let sequence = graphEventSequence(base: envelope.sequence, offset: index) else {
+            return nil
+        }
+        let kind: DurableGraphEventKind
+        let relation: DurableGraphEventRelation
+        let relationOp: String
+
+        switch relationChange {
+        case .added(let fromID, let toID, let label):
+            kind = .edgeCreated
+            relationOp = "added"
+            relation = DurableGraphEventRelation(fromID: fromID, toID: toID, label: label)
+        case .removed(let fromID, let toID, let label):
+            kind = .edgeDeleted
+            relationOp = "removed"
+            relation = DurableGraphEventRelation(fromID: fromID, toID: toID, label: label)
+        case .updated(let fromID, let toID, let oldLabel, let newLabel):
+            kind = .edgeUpdated
+            relationOp = "updated"
+            relation = DurableGraphEventRelation(
+                fromID: fromID,
+                toID: toID,
+                label: newLabel,
+                oldLabel: oldLabel,
+                newLabel: newLabel
+            )
+        }
+
+        var metadata = graphEventMetadata(envelope: envelope)
+        metadata["relation_op"] = relationOp
+        return DurableGraphEvent(
+            eventID: graphEventID(mutationID: envelope.mutationID, index: index),
+            mutationID: envelope.mutationID,
+            runID: envelope.runID,
+            traceID: traceId,
+            sequence: sequence,
+            kind: kind,
+            entityID: graphEdgeEntityID(relation),
+            entityKind: "edge",
+            occurredAtMs: envelope.committedAtMs ?? envelope.createdAtMs,
+            relation: relation,
+            metadata: metadata
+        )
+    }
+
+    nonisolated private static func graphEventSequence(base: UInt64, offset: Int) -> UInt64? {
+        guard offset >= 0 else { return nil }
+        let offset = UInt64(offset)
+        guard UInt64.max - base >= offset else { return nil }
+        return base + offset
+    }
+
+    nonisolated private static func graphEventID(mutationID: String, index: Int) -> String {
+        "graph-event:\(mutationID):\(index)"
+    }
+
+    nonisolated private static func graphEdgeEntityID(_ relation: DurableGraphEventRelation) -> String {
+        "\(relation.fromID)->\(relation.toID):\(relation.label)"
+    }
+
+    nonisolated private static func graphEventMetadata(envelope: MutationEnvelope) -> [String: String] {
+        [
+            "affects_graph": envelope.affectsGraph ? "true" : "false",
+            "integrity_hash": envelope.integrityHash,
+            "source": "mutation_envelope",
+            "source_op": sourceOpLabel(envelope.op),
+        ]
+    }
+
+    nonisolated private static func artifactKind(for artifactID: String, in envelope: MutationEnvelope) -> String? {
+        if case .artifactCreate(let id, let kind) = envelope.op, id == artifactID {
+            return kind
+        }
+        return envelope.touchedArtifacts.first { $0.id == artifactID }?.kind?.snakeCaseString
+    }
+
+    nonisolated private static func isGraphMutation(_ op: SourceOp) -> Bool {
+        if case .graphMutation = op {
+            return true
+        }
+        return false
+    }
+
+    nonisolated private static func sourceOpLabel(_ op: SourceOp) -> String {
+        switch op {
+        case .graphMutation:
+            return "graph_mutation"
+        case .artifactCreate:
+            return "artifact_create"
+        case .artifactUpdate:
+            return "artifact_update"
+        case .artifactDelete:
+            return "artifact_delete"
+        case .other(let label):
+            return "other:\(label)"
+        }
+    }
+
+    nonisolated private static func insertMutationProjectionOutbox(
+        _ envelope: MutationEnvelope,
+        traceId: String?,
+        artifact: (id: String?, kind: String?),
+        db: OpaquePointer
+    ) -> Bool {
+        var payloadFields = [
+            "event_kind": mutationEnvelopeCommittedEventKind,
+            "integrity_hash": envelope.integrityHash,
+            "mutation_id": envelope.mutationID,
+            "status": envelope.status.rawValue,
+        ]
+        if let traceId {
+            payloadFields["trace_id"] = traceId
+        }
+        if let artifactID = artifact.id {
+            payloadFields["artifact_id"] = artifactID
+        }
+        if let artifactKind = artifact.kind {
+            payloadFields["artifact_kind"] = artifactKind
+        }
+
+        let payload = encodePayload(payloadFields)
+        var stmt: OpaquePointer?
+        let sql = """
+            INSERT INTO mutation_projection_outbox (
+                mutation_id, recorded_at, trace_id, event_kind, status,
+                artifact_id, artifact_kind, integrity_hash, payload
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(mutation_id) DO NOTHING;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+            Self.log.error(
+                "EventStore: failed to prepare mutation projection outbox insert: \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return false
+        }
+        defer { sqlite3_finalize(stmt) }
+
+        sqlite3_bind_text(stmt, 1, (envelope.mutationID as NSString).utf8String, -1, nil)
+        sqlite3_bind_double(stmt, 2, Date().timeIntervalSince1970)
+        bindNullableText(traceId, to: stmt, index: 3)
+        sqlite3_bind_text(stmt, 4, (mutationEnvelopeCommittedEventKind as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 5, (envelope.status.rawValue as NSString).utf8String, -1, nil)
+        bindNullableText(artifact.id, to: stmt, index: 6)
+        bindNullableText(artifact.kind, to: stmt, index: 7)
+        sqlite3_bind_text(stmt, 8, (envelope.integrityHash as NSString).utf8String, -1, nil)
+        sqlite3_bind_text(stmt, 9, (payload as NSString).utf8String, -1, nil)
+
+        guard sqlite3_step(stmt) == SQLITE_DONE else {
+            Self.log.error(
+                "EventStore: failed to enqueue mutation projection \(envelope.mutationID, privacy: .public): \(String(cString: sqlite3_errmsg(db)), privacy: .public)"
+            )
+            return false
+        }
+        return true
     }
 
     private static var databaseURL: URL {
