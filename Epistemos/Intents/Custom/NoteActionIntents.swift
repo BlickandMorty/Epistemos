@@ -43,6 +43,9 @@ struct QuickCaptureIntent: AppIntent {
         guard let noteId = result.createdNoteID else {
             throw IntentError.creationFailed
         }
+        guard result.mutationEnvelopePersisted else {
+            throw TextCaptureError.persistenceFailed("mutation envelope was not persisted")
+        }
         NoteWindowManager.shared.open(pageId: noteId)
 
         let entityInfo = result.entities.isEmpty ? "" : " · \(result.entities.count) entities"

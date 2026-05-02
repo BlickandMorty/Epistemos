@@ -506,6 +506,9 @@ struct QuickCaptureView: View {
                     result.graphWriteSummary.skippedReason ?? "note was not persisted"
                 )
             }
+            guard result.mutationEnvelopePersisted else {
+                throw TextCaptureError.persistenceFailed("mutation envelope was not persisted")
+            }
             withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                 captureResult = result
             }
@@ -531,6 +534,9 @@ struct QuickCaptureView: View {
                     throw TextCaptureError.persistenceFailed(
                         result.graphWriteSummary.skippedReason ?? "note was not persisted"
                     )
+                }
+                guard result.mutationEnvelopePersisted else {
+                    throw TextCaptureError.persistenceFailed("mutation envelope was not persisted")
                 }
                 withAnimation(reduceMotion ? nil : .spring(duration: 0.4)) {
                     captureResult = result
