@@ -27,13 +27,22 @@ final class ContextualShadowsState {
         let snippet: String
         let kind: RecallContextKind
         let similarity: Float
+        let source: String
 
-        init(id: String, title: String, snippet: String, kind: RecallContextKind, similarity: Float) {
+        init(
+            id: String,
+            title: String,
+            snippet: String,
+            kind: RecallContextKind,
+            similarity: Float,
+            source: String = "instant-recall"
+        ) {
             self.id = id
             self.title = title
             self.snippet = snippet
             self.kind = kind
             self.similarity = similarity
+            self.source = source
         }
     }
 
@@ -61,17 +70,33 @@ final class ContextualShadowsState {
     /// True only when the V0 flag is set on the running process. UI surfaces
     /// must hide themselves entirely when false.
     var isEnabled: Bool {
-        ProcessInfo.processInfo.environment["EPISTEMOS_AMBIENT_RECALL_V0"] == "1"
+        if let isEnabledOverride {
+            return isEnabledOverride
+        }
+        return ProcessInfo.processInfo.environment["EPISTEMOS_AMBIENT_RECALL_V0"] == "1"
     }
 
     // MARK: - Internals
+
+    private let isEnabledOverride: Bool?
+    private var shadowSearch: (any ShadowSearchServicing)?
 
     nonisolated private static let log = Logger(
         subsystem: "com.epistemos",
         category: "ContextualShadowsState"
     )
 
-    init() {}
+    init(isEnabledOverride: Bool? = nil) {
+        self.isEnabledOverride = isEnabledOverride
+    }
+
+    /// Configure the newer Shadow backend as the preferred V0 recall route.
+    /// Existing callers still pass `InstantRecallService`; this optional
+    /// service lets AppBootstrap switch the backend once the per-vault Shadow
+    /// handle is ready, without touching editor hot paths.
+    func configureShadowSearch(_ search: (any ShadowSearchServicing)?) {
+        shadowSearch = search
+    }
 
     // MARK: - Recall request
 
@@ -79,31 +104,52 @@ final class ContextualShadowsState {
     /// Cancels any in-flight task before launching a new one (backpressure
     /// per plan §7 — never queue, always supersede).
     ///
-    /// The encoder + HNSW search executes on `Task.detached(priority: .utility)`
-    /// via `InstantRecallService.searchAsync`. Only the final assignment to
+    /// Prefers the configured Shadow backend when available; otherwise falls
+    /// back to `InstantRecallService.searchAsync`. Only the final assignment to
     /// `currentResults` runs on @MainActor.
     func requestRecall(
         snapshot: RecallContextSnapshot,
         instantRecall: InstantRecallService
     ) {
-        // Flag-gated: when V0 is OFF, do nothing — no work scheduled, no
-        // results mutated. UI guards on `isEnabled` separately so this is a
+        pendingTask?.cancel()
+        pendingTask = nil
+
+        // Flag-gated: when V0 is OFF, clear any visible stale snapshot and
+        // schedule no work. UI guards on `isEnabled` separately so this is a
         // belt-and-braces guarantee.
-        guard isEnabled else { return }
+        guard isEnabled else {
+            clearResults()
+            return
+        }
 
         // Minimum query length keeps the chat composer quiet during quick
         // acks; the note composer also benefits from skipping very short
         // partial words.
-        guard snapshot.text.count >= Self.minimumQueryLength else { return }
-
-        // Cancel the previous in-flight task before launching a new one.
-        // The detached task checks `Task.isCancelled` inside the MainActor
-        // hop so a superseded query never publishes stale results.
-        pendingTask?.cancel()
+        let queryText = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard queryText.count >= Self.minimumQueryLength else {
+            clearResults()
+            return
+        }
 
         let originId = snapshot.originId
-        let kind = snapshot.kind
-        let queryText = snapshot.text
+
+        if let shadowSearch {
+            let domain = Self.shadowDomain(for: snapshot.kind)
+            pendingTask = Task { [weak self, shadowSearch] in
+                let raw = await shadowSearch.search(
+                    text: queryText,
+                    domain: domain,
+                    limit: Self.defaultTopK
+                )
+
+                await MainActor.run {
+                    guard let self else { return }
+                    guard !Task.isCancelled else { return }
+                    self.currentResults = Self.convert(raw: raw, originId: originId)
+                }
+            }
+            return
+        }
 
         pendingTask = Task { [weak self, weak instantRecall] in
             guard let instantRecall else { return }
@@ -124,7 +170,7 @@ final class ContextualShadowsState {
                 guard !Task.isCancelled else { return }
                 let hits = Self.convert(
                     raw: raw,
-                    kind: kind,
+                    resultKind: .note,
                     originId: originId
                 )
                 self.currentResults = hits
@@ -148,6 +194,11 @@ final class ContextualShadowsState {
         currentResults = []
     }
 
+    private func clearResults() {
+        isPanelVisible = false
+        currentResults = []
+    }
+
     // MARK: - Conversion
 
     /// Convert raw `InstantRecallResult` values to `RecallHit`. Kept as a
@@ -156,7 +207,7 @@ final class ContextualShadowsState {
     /// suggesting the very note the user is composing into.
     nonisolated static func convert(
         raw: [InstantRecallResult],
-        kind: RecallContextKind,
+        resultKind: RecallContextKind,
         originId: UUID
     ) -> [RecallHit] {
         let originString = originId.uuidString
@@ -168,10 +219,37 @@ final class ContextualShadowsState {
                 id: result.id,
                 title: title,
                 snippet: snippet,
-                kind: kind,
-                similarity: Float(result.score)
+                kind: resultKind,
+                similarity: Float(result.score),
+                source: "instant-recall"
             )
         }
+    }
+
+    nonisolated static func convert(
+        raw: [ShadowHit],
+        originId: UUID
+    ) -> [RecallHit] {
+        let originString = originId.uuidString
+        return raw.compactMap { hit -> RecallHit? in
+            guard hit.id != originString else { return nil }
+            return RecallHit(
+                id: hit.id,
+                title: hit.title,
+                snippet: hit.snippet,
+                kind: recallKind(for: hit.domain),
+                similarity: hit.score,
+                source: hit.source.isEmpty ? "shadow" : hit.source
+            )
+        }
+    }
+
+    nonisolated static func convert(
+        raw: [InstantRecallResult],
+        kind: RecallContextKind,
+        originId: UUID
+    ) -> [RecallHit] {
+        convert(raw: raw, resultKind: kind, originId: originId)
     }
 
     /// Best-effort title extraction — prefer the first markdown heading,
@@ -197,5 +275,23 @@ final class ContextualShadowsState {
             .replacingOccurrences(of: "  ", with: " ")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         return String(collapsed.prefix(160))
+    }
+
+    nonisolated private static func shadowDomain(for kind: RecallContextKind) -> ShadowDomain {
+        switch kind {
+        case .note:
+            return .notes
+        case .chat:
+            return .chats
+        }
+    }
+
+    nonisolated private static func recallKind(for domain: ShadowDomain) -> RecallContextKind {
+        switch domain {
+        case .notes:
+            return .note
+        case .chats:
+            return .chat
+        }
     }
 }

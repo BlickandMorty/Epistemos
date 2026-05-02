@@ -88,7 +88,10 @@ PR3F closes MAS/security-scoped bookmark enforcement for vault restore,
 bookmark fallback, and sandbox-required watch starts. Do not assign agents to
 rebuild PR3D, PR3E, or PR3F. PR3G closes model-derived sidecar badge
 visibility in the note workspace footer without touching the protected
-ProseEditor bridge. Remaining R16 work is ETL worker execution.
+ProseEditor bridge. PR3H closes honest ETL worker execution: queued jobs reach
+`done` only after Rust validates file existence, readability, byte length,
+input kind, and fingerprint. Remaining R16 work is runtime/manual verification
+or a separately gated throughput/backfill/productization slice.
 
 Authority to read first:
 - `docs/fusion/deliberation/r16_etl_pr3_background_indexing_status_shell_deliberation_2026_05_01.md`
@@ -147,9 +150,10 @@ Acceptance:
   must explicitly remain diagnostics-only and say so in visible copy.
 - Diagnostics show running/paused/stopped plus file counts from the canonical
   state source.
-- Full R16 WRV is not claimed until ETL worker execution is reachable. MAS
-  bookmark enforcement is already closed as PR3F, and sidecar badge visibility
-  is closed as PR3G.
+- Full R16 product readiness is not claimed until a separate runtime/manual gate
+  verifies the user flow against a real vault. MAS bookmark enforcement is
+  already closed as PR3F, sidecar badge visibility is closed as PR3G, and ETL
+  worker execution is closed as PR3H.
 
 Stop triggers:
 - The implementation needs new Rust FFI not approved by the PR3D gate.

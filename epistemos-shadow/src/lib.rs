@@ -100,13 +100,15 @@ pub struct ShadowStats {
 // wiring; for the base, the in-memory stub backend is enough to test
 // the surface end-to-end without UniFFI codegen.
 
-use std::ffi::{c_char, CStr, CString};
+use std::ffi::{CStr, CString, c_char};
 use std::ptr;
 
 /// Insert one document into the index. JSON-encoded `ShadowDocument`.
 /// Returns 0 on success, negative ShadowError discriminant on failure.
 ///
-/// SAFETY: `doc_json` must be a valid NUL-terminated UTF-8 string.
+/// # Safety
+///
+/// `doc_json` must be a valid NUL-terminated UTF-8 string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -120,17 +122,21 @@ pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
         let cstr = unsafe { CStr::from_ptr(doc_json) };
         let json = match cstr.to_str() {
             Ok(s) => s,
-            Err(_) => return ShadowError::InvalidInput {
-                detail: "doc_json was not valid UTF-8".into(),
+            Err(_) => {
+                return ShadowError::InvalidInput {
+                    detail: "doc_json was not valid UTF-8".into(),
+                }
+                .as_code();
             }
-            .as_code(),
         };
         let doc: ShadowDocument = match serde_json::from_str(json) {
             Ok(d) => d,
-            Err(error) => return ShadowError::InvalidInput {
-                detail: format!("doc_json failed JSON parse: {error}"),
+            Err(error) => {
+                return ShadowError::InvalidInput {
+                    detail: format!("doc_json failed JSON parse: {error}"),
+                }
+                .as_code();
             }
-            .as_code(),
         };
         match state::shadow_backend().insert_document(doc) {
             Ok(()) => 0,
@@ -141,7 +147,10 @@ pub unsafe extern "C" fn shadow_insert_json(doc_json: *const c_char) -> i32 {
 }
 
 /// Remove one document by id. Returns 0 on success.
-/// SAFETY: `doc_id` must be a valid NUL-terminated UTF-8 string.
+///
+/// # Safety
+///
+/// `doc_id` must be a valid NUL-terminated UTF-8 string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -154,10 +163,12 @@ pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
         let cstr = unsafe { CStr::from_ptr(doc_id) };
         let id = match cstr.to_str() {
             Ok(s) => s,
-            Err(_) => return ShadowError::InvalidInput {
-                detail: "doc_id was not valid UTF-8".into(),
+            Err(_) => {
+                return ShadowError::InvalidInput {
+                    detail: "doc_id was not valid UTF-8".into(),
+                }
+                .as_code();
             }
-            .as_code(),
         };
         match state::shadow_backend().remove_document(id) {
             Ok(()) => 0,
@@ -170,9 +181,11 @@ pub unsafe extern "C" fn shadow_remove_json(doc_id: *const c_char) -> i32 {
 /// Search the index. Returns a JSON-encoded `Vec<ShadowHit>` as a
 /// caller-owned C string. Returns null on error.
 ///
-/// SAFETY: `query` and `domain` must be valid NUL-terminated UTF-8.
-/// Caller MUST pass the returned pointer to `shadow_free_string` to
-/// release the allocation.
+/// # Safety
+///
+/// `query` and `domain` must be valid NUL-terminated UTF-8. Caller
+/// MUST pass the returned pointer to `shadow_free_string` to release
+/// the allocation.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_search_json(
     query: *const c_char,
@@ -221,7 +234,12 @@ pub extern "C" fn shadow_stats_json() -> *mut c_char {
 }
 
 /// Free a C string returned by the FFI. Idempotent on null.
-/// SAFETY: pointer must come from a `*_json` function above.
+///
+/// # Safety
+///
+/// `ptr` must come from a `*_json` function above (e.g.
+/// `shadow_search_json` or `shadow_stats_json`). Calling this on any
+/// other pointer is undefined behavior.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
     if ptr.is_null() {
@@ -243,7 +261,9 @@ pub unsafe extern "C" fn shadow_free_string(ptr: *mut c_char) {
 /// `ShadowError` discriminant (e.g. -4 Backend on HF download
 /// failure) otherwise.
 ///
-/// SAFETY: `path` must be a valid NUL-terminated UTF-8 C string.
+/// # Safety
+///
+/// `path` must be a valid NUL-terminated UTF-8 C string.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn shadow_open_at(path: *const c_char) -> i32 {
     let result = std::panic::catch_unwind(|| {
@@ -268,6 +288,29 @@ pub unsafe extern "C" fn shadow_open_at(path: *const c_char) -> i32 {
             Ok(()) => 0,
             Err(error) => error.as_code(),
         }
+    });
+    result.unwrap_or(ShadowError::Panic.as_code())
+}
+
+/// W8.4.b — Warm the global Model2Vec singleton off the search hot
+/// path. Triggers `Embedder::global()` so the HuggingFace download
+/// (~30 MB, ~2s on cold cache) happens before the first
+/// `shadow_search_json`. Idempotent — subsequent calls are
+/// atomic-fast no-ops. Safe to call from a background dispatch queue.
+///
+/// The Swift bootstrap fires this once at app start (per the doc note
+/// in `backend::embedder`'s "Auto-download trap" §). Skipping the warm
+/// step is functionally fine — `shadow_search_json` still works on
+/// cold cache, just blocks the first call ~2s. The `catch_unwind`
+/// wrapper here keeps any failure from tearing down the Swift host.
+///
+/// Returns 0 on success, the `ShadowError` discriminant (e.g. -4
+/// Backend on HF download failure) otherwise.
+#[unsafe(no_mangle)]
+pub extern "C" fn shadow_warm() -> i32 {
+    let result = std::panic::catch_unwind(|| match crate::backend::embedder::Embedder::warm() {
+        Ok(()) => 0,
+        Err(error) => error.as_code(),
     });
     result.unwrap_or(ShadowError::Panic.as_code())
 }

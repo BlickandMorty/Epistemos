@@ -888,6 +888,7 @@ final class AppBootstrap {
     /// the user re-opens the same vault.
     private var shadowIndexer: ShadowIndexingService?
     private var lastShadowIndexedVaultPath: String?
+    private var shadowIndexingInFlightVaultPath: String?
 
     private nonisolated static let primaryLaunchInitializationWaitTimeout: Duration = .seconds(6)
     private nonisolated static let primaryLaunchInitializationPollInterval: Duration = .milliseconds(50)
@@ -897,6 +898,16 @@ final class AppBootstrap {
         let id: String
         let inlineBody: String
         let liveBody: String?
+    }
+
+    private struct ShadowPageIndexStage: Sendable {
+        let pageId: String
+        let docId: String
+        let title: String
+        let filePath: String?
+        let inlineBody: String
+        let vaultPath: String
+        let shadowPath: String
     }
 
     private func routeMainChatDraft(
@@ -2724,7 +2735,7 @@ final class AppBootstrap {
     /// backend and re-crawls.
     ///
     /// Runs off-main via `Task.detached` because:
-    ///   - `shadow_open_at` synchronously opens tantivy + usearch
+    ///   - `shadow_handle_open_at` synchronously opens tantivy + usearch
     ///     handles + may trigger a Model2Vec download on first launch
     ///     (HF network round-trip).
     ///   - `ShadowVaultBootstrapper.bootstrap()` walks the vault
@@ -2736,48 +2747,265 @@ final class AppBootstrap {
     private func initializeShadowBackendIfReady() {
         guard let vaultURL = vaultSync.vaultURL else {
             Log.app.info("W8.7 shadow: skipping init — no active vault URL yet")
+            contextualShadowsState.configureShadowSearch(nil)
+            BackgroundIndexingHealthRow.recordUnavailable(reason: "No active vault selected")
             return
         }
         let vaultPath = vaultURL.path
         if vaultPath == lastShadowIndexedVaultPath, shadowIndexer != nil {
             return
         }
+        if vaultPath == shadowIndexingInFlightVaultPath {
+            return
+        }
+        if vaultPath != lastShadowIndexedVaultPath {
+            shadowIndexer = nil
+            contextualShadowsState.configureShadowSearch(nil)
+        }
         lastShadowIndexedVaultPath = vaultPath
+        shadowIndexingInFlightVaultPath = vaultPath
 
-        let shadowRoot = vaultURL
-            .appendingPathComponent(".epcache", isDirectory: true)
-            .appendingPathComponent("shadow", isDirectory: true)
+        let shadowRoot = Self.shadowRootURL(for: vaultURL)
+        let etlQueuePath = Self.etlQueueURL(for: vaultURL).path
+        BackgroundIndexingHealthRow.recordStarted(
+            vaultPath: vaultPath,
+            shadowPath: shadowRoot.path
+        )
 
         Task.detached(priority: .utility) { [weak self] in
+            let client: RustShadowFFIClient
             do {
                 try FileManager.default.createDirectory(
                     at: shadowRoot,
                     withIntermediateDirectories: true
                 )
-                try RustShadowFFIClient.openAt(path: shadowRoot.path)
+                client = try RustShadowFFIClient(path: shadowRoot.path)
             } catch {
                 Log.app.error(
-                    "W8.7 shadow: open_at failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
+                    "W8.7 shadow: handle open failed at \(shadowRoot.path, privacy: .public) — \(error.localizedDescription, privacy: .public)"
                 )
-                await MainActor.run { self?.lastShadowIndexedVaultPath = nil }
+                await MainActor.run {
+                    guard self?.shadowIndexingInFlightVaultPath == vaultPath else { return }
+                    BackgroundIndexingHealthRow.recordFailed(
+                        vaultPath: vaultPath,
+                        shadowPath: shadowRoot.path,
+                        error: error.localizedDescription
+                    )
+                    self?.lastShadowIndexedVaultPath = nil
+                    self?.shadowIndexingInFlightVaultPath = nil
+                    self?.contextualShadowsState.configureShadowSearch(nil)
+                }
                 return
             }
 
-            let client = RustShadowFFIClient()
             let indexer = ShadowIndexingService(client: client)
             let bootstrapper = ShadowVaultBootstrapper(
                 vaultRoot: vaultURL,
                 indexer: indexer
             )
-            await MainActor.run { self?.shadowIndexer = indexer }
+            let initialEtlStats = RustEtlQueueStatsClient.stats(path: etlQueuePath)
+            let installed = await MainActor.run { () -> Bool in
+                guard let self else { return false }
+                guard self.vaultSync.vaultURL?.path == vaultPath,
+                      self.lastShadowIndexedVaultPath == vaultPath,
+                      self.shadowIndexingInFlightVaultPath == vaultPath else {
+                    return false
+                }
+                let search = ShadowSearchService(client: client)
+                self.shadowIndexer = indexer
+                self.contextualShadowsState.configureShadowSearch(search)
+                BackgroundIndexingHealthRow.recordEtlQueueStats(
+                    initialEtlStats,
+                    queuePath: etlQueuePath
+                )
+                return true
+            }
+            guard installed else {
+                Log.app.info(
+                    "W8.7 shadow: ignoring stale bootstrap at \(shadowRoot.path, privacy: .public)"
+                )
+                return
+            }
+            let progressStream = await bootstrapper.progress
+            let progressTask = Task {
+                for await progress in progressStream {
+                    await MainActor.run {
+                        BackgroundIndexingHealthRow.recordProgress(
+                            progress,
+                            vaultPath: vaultPath,
+                            shadowPath: shadowRoot.path
+                        )
+                    }
+                }
+            }
             await bootstrapper.bootstrap()
+            await progressTask.value
             await indexer.flushNow()
+            let powerSnapshot = await MainActor.run {
+                PowerGate.deferSnapshot()
+            }
+            let dispatchSnapshot: EtlQueueDispatchSnapshot? = powerSnapshot.shouldDefer
+                ? nil
+                : RustEtlQueueDispatchClient.enqueueVaultWalk(
+                    vaultPath: vaultPath,
+                    queuePath: etlQueuePath
+                )
+            let postDispatchEtlStats = RustEtlQueueStatsClient.stats(path: etlQueuePath)
+            let workerSnapshot: EtlQueueWorkerSnapshot?
+            if !powerSnapshot.shouldDefer,
+               dispatchSnapshot?.available != false,
+               postDispatchEtlStats.available,
+               postDispatchEtlStats.pending > 0 {
+                workerSnapshot = RustEtlQueueWorkerClient.run(
+                    queuePath: etlQueuePath,
+                    maxJobs: postDispatchEtlStats.pending
+                )
+            } else {
+                workerSnapshot = nil
+            }
+            let finalEtlStats = RustEtlQueueStatsClient.stats(path: etlQueuePath)
             await MainActor.run {
+                guard self?.vaultSync.vaultURL?.path == vaultPath,
+                      self?.lastShadowIndexedVaultPath == vaultPath else {
+                    return
+                }
                 EditorBundleHealthRow.recordHaloOpened(at: shadowRoot.path)
+                if powerSnapshot.shouldDefer {
+                    BackgroundIndexingHealthRow.recordPaused(
+                        vaultPath: vaultPath,
+                        shadowPath: shadowRoot.path,
+                        reason: Self.backgroundIndexingPauseReason(for: powerSnapshot.reason)
+                    )
+                } else {
+                    BackgroundIndexingHealthRow.recordComplete(
+                        vaultPath: vaultPath,
+                        shadowPath: shadowRoot.path
+                    )
+                }
+                let reportedEtlStats: EtlQueueStatsSnapshot
+                if dispatchSnapshot?.available == false {
+                    reportedEtlStats = .unavailable(dispatchSnapshot?.error ?? "ETL dispatch failed")
+                } else if workerSnapshot?.available == false {
+                    reportedEtlStats = .unavailable(workerSnapshot?.error ?? "ETL worker failed")
+                } else {
+                    reportedEtlStats = finalEtlStats
+                }
+                BackgroundIndexingHealthRow.recordEtlQueueStats(
+                    reportedEtlStats,
+                    queuePath: etlQueuePath
+                )
+                if self?.shadowIndexingInFlightVaultPath == vaultPath {
+                    self?.shadowIndexingInFlightVaultPath = nil
+                }
             }
             Log.app.info(
                 "W8.7 shadow: bootstrap complete at \(shadowRoot.path, privacy: .public)"
             )
+        }
+    }
+
+    private func enqueueShadowPageReindexIfReady(pageId: String) {
+        guard let vaultURL = vaultSync.vaultURL else { return }
+        let vaultPath = vaultURL.path
+        guard lastShadowIndexedVaultPath == vaultPath else { return }
+        guard let indexer = shadowIndexer else { return }
+        guard let stage = shadowPageIndexStage(pageId: pageId, vaultURL: vaultURL) else { return }
+
+        BackgroundIndexingHealthRow.recordProgress(
+            .init(domain: .notes, enqueued: 0, total: 1, isComplete: false),
+            vaultPath: stage.vaultPath,
+            shadowPath: stage.shadowPath
+        )
+
+        Task.detached(priority: .utility) { [weak self] in
+            let body = await SDPage.loadBodyAsyncFromPrimitives(
+                pageId: stage.pageId,
+                filePath: stage.filePath,
+                inlineBody: stage.inlineBody,
+                mapped: true
+            )
+            let isCurrentVault = await MainActor.run { () -> Bool in
+                guard let self else { return false }
+                return self.vaultSync.vaultURL?.path == stage.vaultPath
+                    && self.lastShadowIndexedVaultPath == stage.vaultPath
+            }
+            guard isCurrentVault else { return }
+            await indexer.enqueueInsert(
+                ShadowDocumentDTO(
+                    docId: stage.docId,
+                    title: stage.title,
+                    body: body,
+                    domain: .notes
+                )
+            )
+            await indexer.flushNow()
+            await MainActor.run {
+                guard self?.vaultSync.vaultURL?.path == stage.vaultPath,
+                      self?.lastShadowIndexedVaultPath == stage.vaultPath else {
+                    return
+                }
+                BackgroundIndexingHealthRow.recordProgress(
+                    .init(domain: .notes, enqueued: 1, total: 1, isComplete: true),
+                    vaultPath: stage.vaultPath,
+                    shadowPath: stage.shadowPath
+                )
+                BackgroundIndexingHealthRow.recordComplete(
+                    vaultPath: stage.vaultPath,
+                    shadowPath: stage.shadowPath
+                )
+            }
+        }
+    }
+
+    private func shadowPageIndexStage(pageId: String, vaultURL: URL) -> ShadowPageIndexStage? {
+        let descriptor = FetchDescriptor<SDPage>(predicate: #Predicate { $0.id == pageId })
+        guard let page = try? modelContainer.mainContext.fetch(descriptor).first else {
+            return nil
+        }
+
+        let fileURL = page.filePath.map { URL(fileURLWithPath: $0) }
+        let docId = fileURL
+            .flatMap { ShadowVaultBootstrapper.vaultRelativeDocId(for: $0, vaultRoot: vaultURL) }
+            ?? page.id
+        let shadowRoot = Self.shadowRootURL(for: vaultURL)
+        return ShadowPageIndexStage(
+            pageId: page.id,
+            docId: docId,
+            title: page.title,
+            filePath: page.filePath,
+            inlineBody: page.body,
+            vaultPath: vaultURL.path,
+            shadowPath: shadowRoot.path
+        )
+    }
+
+    nonisolated private static func shadowRootURL(for vaultURL: URL) -> URL {
+        vaultURL
+            .appendingPathComponent(".epcache", isDirectory: true)
+            .appendingPathComponent("shadow", isDirectory: true)
+    }
+
+    nonisolated private static func etlQueueURL(for vaultURL: URL) -> URL {
+        vaultURL
+            .appendingPathComponent(".epcache", isDirectory: true)
+            .appendingPathComponent("etl", isDirectory: true)
+            .appendingPathComponent("queue.sqlite", isDirectory: false)
+    }
+
+    private static func backgroundIndexingPauseReason(
+        for reason: PowerGate.DeferReason?
+    ) -> BackgroundIndexingPauseReason {
+        switch reason {
+        case .lowPower:
+            return .lowPower
+        case .thermal:
+            return .thermal
+        case .battery:
+            return .battery
+        case .memoryPressure:
+            return .memoryPressure
+        case nil:
+            return .backgroundPolicy
         }
     }
 
@@ -2873,6 +3101,8 @@ final class AppBootstrap {
             case .vaultChanged:
                 self.initializeRustResourceServiceIfReady()
                 self.initializeShadowBackendIfReady()
+            case .vaultPageChanged(let pageId):
+                self.enqueueShadowPageReindexIfReady(pageId: pageId)
             default:
                 break
             }

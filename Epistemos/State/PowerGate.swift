@@ -24,35 +24,84 @@ import OSLog
 public enum PowerGate {
 
     private static let log = Logger(subsystem: "com.epistemos", category: "PowerGate")
+    private static let memoryPressureLock = NSLock()
+    nonisolated(unsafe) private static var memoryPressureActive = false
+
+    public enum DeferReason: String, Sendable, Equatable {
+        case lowPower = "low power mode"
+        case thermal = "thermal pressure"
+        case battery = "on battery"
+        case memoryPressure = "memory pressure"
+    }
+
+    public struct DeferSnapshot: Sendable, Equatable {
+        public let shouldDefer: Bool
+        public let reason: DeferReason?
+    }
 
     /// Returns `true` if the caller should defer expensive background
-    /// work right now. Combines battery state + thermal state.
+    /// work right now. Combines battery, thermal, low-power mode, and
+    /// the process-wide memory-pressure signal.
     ///
     /// Thresholds match the compass artifact's recommended Phase-5
     /// concurrency policy:
     ///   - On battery + < 50 % capacity → defer
     ///   - Thermal ≥ serious            → defer
     ///   - Low-power-mode enabled       → defer
+    ///   - Memory pressure warning/crit. → defer
     public static func shouldDefer() -> Bool {
-        let pi = ProcessInfo.processInfo
-        if pi.isLowPowerModeEnabled {
-            log.debug("defer: low-power mode enabled")
-            return true
+        let snapshot = deferSnapshot()
+        if let reason = snapshot.reason {
+            log.debug("defer: \(reason.rawValue, privacy: .public)")
         }
-        if pi.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue {
-            log.debug("defer: thermal state \(pi.thermalState.rawValue)")
-            return true
-        }
-        let snap = batteryState()
-        if snap.onBattery, snap.percent < 50 {
-            log.debug("defer: on battery at \(snap.percent)%")
-            return true
-        }
-        return false
+        return snapshot.shouldDefer
     }
 
     /// Convenience: returns `true` if the caller can proceed.
     public static func canRunNow() -> Bool { !shouldDefer() }
+
+    public static var isMemoryPressureActive: Bool {
+        memoryPressureLock.lock()
+        defer { memoryPressureLock.unlock() }
+        return memoryPressureActive
+    }
+
+    public static func recordMemoryPressureActive(_ active: Bool) {
+        memoryPressureLock.lock()
+        memoryPressureActive = active
+        memoryPressureLock.unlock()
+    }
+
+    public static func deferSnapshot() -> DeferSnapshot {
+        let processInfo = ProcessInfo.processInfo
+        return deferSnapshot(
+            lowPowerModeEnabled: processInfo.isLowPowerModeEnabled,
+            thermalState: processInfo.thermalState,
+            battery: batteryState(),
+            memoryPressureActive: isMemoryPressureActive
+        )
+    }
+
+    public static func deferSnapshot(
+        lowPowerModeEnabled: Bool,
+        thermalState: ProcessInfo.ThermalState,
+        battery: BatterySnapshot,
+        memoryPressureActive: Bool
+    ) -> DeferSnapshot {
+        if lowPowerModeEnabled {
+            return DeferSnapshot(shouldDefer: true, reason: .lowPower)
+        }
+        if thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue {
+            return DeferSnapshot(shouldDefer: true, reason: .thermal)
+        }
+        if battery.onBattery, battery.percent < 50 {
+            return DeferSnapshot(shouldDefer: true, reason: .battery)
+        }
+        if memoryPressureActive {
+            return DeferSnapshot(shouldDefer: true, reason: .memoryPressure)
+        }
+        return DeferSnapshot(shouldDefer: false, reason: nil)
+    }
 
     // MARK: - Battery snapshot
 

@@ -206,10 +206,11 @@ Proven or actively wired:
   parser FFI, with three deterministic JSON reports under
   `benchmarks/results/`.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
-  AFM sidecar generation, memory-pressure-aware dispatch pause semantics, and
-  MAS/security-scoped bookmark enforcement through the approved PR3 slices.
-  Model-derived sidecars are now also visible in the note workspace footer via
-  the existing `com.epistemos.modelDerived` xattr marker.
+  AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
+  MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
+  honest ETL worker execution through the approved PR3 slices. ETL jobs now
+  reach `done` only after the Rust worker re-validates file existence,
+  readability, byte length, input kind, and fingerprint.
 - V0 Contextual Shadows is production-mounted and now prefers the configured
   per-vault `ShadowSearchService` backend when the Shadow backend is ready,
   while preserving the `InstantRecallService` fallback. Recall cards carry
@@ -251,10 +252,12 @@ Still open:
    new fixture gate that writes real JSON results and promotes `try?` recorder
    calls only when the benchmark becomes authoritative.
 
-3. **R16 remaining closure.**
-   Finish ETL worker execution behind its own gate. Memory-pressure dispatch
-   pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F, and
-   model-derived badge visibility is closed as PR3G.
+3. **R16 runtime/manual closure.**
+   ETL worker execution is closed as PR3H. Memory-pressure dispatch pause is
+   closed as PR3E, MAS bookmark enforcement is closed as PR3F, and
+   model-derived badge visibility is closed as PR3G. Do not claim full R16
+   product readiness until a separate runtime/manual gate verifies the user
+   flow against a real vault and records logs.
 
 4. **OpLog provenance hardening.**
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
@@ -296,10 +299,11 @@ are:
   payload construction, markdown parser FFI, and code-token parser FFI.
   Remaining R15 baseline work stays benchmark/test-only until a fixture gate
   explicitly names any production path.
-- R16 remaining ETL worker execution only if the exact allowed write set is
-  named in a gate. Memory-pressure dispatch pause is already closed as PR3E,
-  MAS bookmark enforcement is closed as PR3F, and model-derived badge
-  visibility is closed as PR3G.
+- R16 follow-up only for runtime/manual verification, throughput/backfill, or
+  sidecar-generation expansion behind a new exact gate. Memory-pressure
+  dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
+  model-derived badge visibility is closed as PR3G, and ETL worker execution is
+  closed as PR3H.
 
 Agents should not start:
 
@@ -364,9 +368,10 @@ PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
 PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, durable GraphEvent mutation mapping PR1, the
 Halo V0 Shadow backend route, R16 memory-pressure dispatch pause PR3E, and R16
-MAS bookmark enforcement PR3F are good to build on. The next best build card is
+MAS bookmark enforcement PR3F, R16 model-derived badge visibility PR3G, and R16
+ETL worker execution PR3H are good to build on. The next best build card is
 either live GraphEvent projection, Omega/hook/broader runtime AgentEvent
-coverage, remaining R15 specialized baselines, R16 worker/badge closure, or a
+coverage, remaining R15 specialized baselines, R16 runtime/manual closure, or a
 protected V1 Halo editor gate, depending on whether the immediate priority is
 provenance projection, performance-safe graph/FFI work, background retrieval, or
 richer recall UX.
