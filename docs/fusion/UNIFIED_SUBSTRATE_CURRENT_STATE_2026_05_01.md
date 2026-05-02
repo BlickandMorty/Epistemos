@@ -109,6 +109,12 @@ closed:
   `hook_completed` rows with non-empty run ids, hook ids, hook points, source
   metadata, and completion outcome metadata. This preserves hook ordering and
   cancellation semantics and does not claim production hook call-site mounting.
+- AgentEvent PR5 now has read-only Settings visibility. EventStore exposes
+  bounded `agentEventDiagnostics()` for total rows, distinct runs, distinct
+  tools, latest event, and last kind, and Settings mounts
+  `AgentEventVisibilityRow` as a diagnostic-only surface without repair,
+  emission, routing, OpLog, GraphEvent, graph renderer, retrieval, Halo,
+  Theater, Rust, or generated-binding side effects.
 - Durable GraphEvent mutation mapping PR1 is now closed. EventStore has a
   `graph_events` table and bounded `saveGraphEvent(_:)`,
   `loadGraphEvent(eventID:)`, and `graphEvents(mutationID:limit:)` APIs.
@@ -179,15 +185,16 @@ the committed source of truth; OpLog is now a deterministic projection target fo
 mutation provenance with read-only replay snapshots and cryptographic chain
 verification, and `agent_events` is now the durable Swift source for agent/tool
 provenance with the first PipelineService and ChatCoordinator Rust-stream live
-emission paths closed plus HookRegistry API-level lifecycle emission. It is not
-yet production hook call-site mounting. `graph_events` is now the durable Swift
-source for mutation-derived graph provenance with a read-only projection
-snapshot fold. The next provenance gates are
-Omega/broader runtime AgentEvent coverage, production hook call-site mounting,
-GraphEvent projection into live graph/retrieval/Halo/Theater surfaces, incremental
-replay/export, and deeper audit/repair surfaces beyond the current read-only
-Settings diagnostics, projection snapshot replay, chain verification, and
-GraphEvent visibility/projection diagnostics.
+emission paths closed plus HookRegistry API-level lifecycle emission and
+read-only Settings visibility. It is not yet production hook call-site mounting.
+`graph_events` is now the durable Swift source for mutation-derived graph
+provenance with a read-only projection snapshot fold. The next provenance gates
+are Omega/broader runtime AgentEvent coverage, production hook call-site
+mounting, GraphEvent projection into live graph/retrieval/Halo/Theater surfaces,
+incremental replay/export, and deeper audit/repair surfaces beyond the current
+read-only Settings diagnostics, projection snapshot replay, chain verification,
+AgentEvent visibility diagnostics, and GraphEvent visibility/projection
+diagnostics.
 
 ## Current Substrate Spine Status
 
@@ -222,6 +229,9 @@ Proven or actively wired:
   consumers now emit the same lifecycle rows for Command Center and managed chat
   Rust agent sessions. HookRegistry lifecycle APIs now emit tool-less
   registered/fired/completed rows for existing hook calls.
+- Settings diagnostics now expose read-only durable AgentEvent visibility from
+  EventStore, including total row count, distinct run count, distinct tool
+  count, latest event metadata, and last event kind.
 - EventStore now persists mutation-derived durable graph provenance in
   `graph_events` through `DurableGraphEvent` and bounded GraphEvent read APIs;
   committed graph-affecting mutation envelopes emit deterministic rows
@@ -415,9 +425,9 @@ EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
 PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
-ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4, durable
-GraphEvent mutation mapping PR1, durable GraphEvent Settings visibility PR2,
-durable GraphEvent projection snapshot PR3,
+ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
+AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
+durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 the Halo V0 Shadow backend route, R16 memory-pressure dispatch pause PR3E, and
 R16 MAS bookmark enforcement PR3F, R16 model-derived badge visibility PR3G, and
 R16 ETL worker execution PR3H are good to build on. The next best build card is

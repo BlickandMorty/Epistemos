@@ -557,6 +557,12 @@ cancellation semantics. Do not assign another agent to rebuild HookRegistry
 instrumentation. Production hook call-site mounting still requires a separate
 runtime gate.
 
+PR5 read-only Settings visibility is also closed. EventStore exposes bounded
+`agentEventDiagnostics()` for total rows, distinct runs, distinct tools, latest
+event metadata, and last kind, and Settings mounts `AgentEventVisibilityRow`
+as a diagnostic-only surface. Do not assign another agent to rebuild this
+same AgentEvent visibility row.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -583,6 +589,7 @@ Allowed write set:
 - PR2 PipelineService observed tool instrumentation: already closed.
 - PR3 ChatCoordinator/Rust-stream instrumentation: already closed.
 - PR4 HookRegistry API-level lifecycle instrumentation: already closed.
+- PR5 read-only Settings visibility: already closed.
 - Future Omega, production hook call-site, or broader runtime
   instrumentation only after a new deliberation gate names exact runtime files
   and focused tests.
@@ -629,6 +636,12 @@ Tests and logs:
   `/tmp/epistemos-agent-event-hook-pr4-green-eventstore-20260501.log`.
 - PR4 runtime source-guard green log:
   `/tmp/epistemos-agent-event-hook-pr4-green-runtime-20260501.log`.
+- PR5 red log:
+  `/tmp/epistemos-agent-event-visibility-pr5-red-20260502.log`.
+- PR5 green log:
+  `/tmp/epistemos-agent-event-visibility-pr5-green-20260502.log`.
+- PR5 EventStore regression green log:
+  `/tmp/epistemos-agent-event-visibility-pr5-eventstore-regression-20260502.log`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -653,6 +666,10 @@ Acceptance:
   preserve cancellation behavior, and are source-guarded away from
   PipelineService, ChatCoordinator, Omega, OpLog, GraphEvent, editor, graph,
   Rust, and generated bindings.
+- PR5 wired/reachable/visible: EventStore returns bounded read-only AgentEvent
+  diagnostics, and Settings mounts `AgentEventVisibilityRow` beside the sibling
+  provenance diagnostics without schema, emission, routing, OpLog, GraphEvent,
+  editor, graph, Rust, or generated-binding changes.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

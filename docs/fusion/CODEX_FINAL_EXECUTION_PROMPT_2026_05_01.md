@@ -94,7 +94,7 @@ For any slice that touches the Resonance Gate, Sovereign Gate, Freeform Pulse, o
 - Doctrine §4 sub-section verbatim (so we know which feature this is).
 - Tier classification (which components ship in this slice).
 - Specific Kimi research files referenced (donor only, not authority).
-- Whether the slice depends on a not-yet-closed Core item (Halo V1, GraphEvent live projection, MAS/Core symbol separation). If yes, **defer** unless the dependency is explicitly waived by the user.
+- Whether the slice depends on a not-yet-closed Core item (Halo V1, GraphEvent live consumer projection, MAS/Core symbol separation). If yes, **defer** unless the dependency is explicitly waived by the user.
 
 ### 3.4 Report-before-code
 

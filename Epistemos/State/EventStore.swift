@@ -765,6 +765,48 @@ final class EventStore: Sendable {
         } ?? []
     }
 
+    nonisolated struct AgentEventDiagnostics: Equatable, Sendable {
+        let totalRows: Int
+        let distinctRuns: Int
+        let distinctTools: Int
+        let latestEvent: AgentProvenanceEvent?
+
+        var lastKind: AgentProvenanceEventKind? {
+            latestEvent?.kind
+        }
+
+        nonisolated static let empty = AgentEventDiagnostics(
+            totalRows: 0,
+            distinctRuns: 0,
+            distinctTools: 0,
+            latestEvent: nil
+        )
+    }
+
+    nonisolated func agentEventDiagnostics() -> AgentEventDiagnostics {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT COUNT(*), COUNT(DISTINCT run_id), COUNT(DISTINCT tool_name)
+                FROM agent_events;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                return .empty
+            }
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else {
+                return .empty
+            }
+
+            return AgentEventDiagnostics(
+                totalRows: Self.columnInt(stmt, 0),
+                distinctRuns: Self.columnInt(stmt, 1),
+                distinctTools: Self.columnInt(stmt, 2),
+                latestEvent: Self.latestAgentEvent(db: db)
+            )
+        } ?? .empty
+    }
+
     @discardableResult
     nonisolated func saveGraphEvent(_ event: DurableGraphEvent) -> Bool {
         withDatabaseRead { db in
@@ -2138,6 +2180,25 @@ final class EventStore: Sendable {
             return nil
         }
         return decodeGraphEventJSON(json, context: "latest")
+    }
+
+    nonisolated private static func latestAgentEvent(
+        db: OpaquePointer
+    ) -> AgentProvenanceEvent? {
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT json
+            FROM agent_events
+            ORDER BY occurred_at DESC, sequence DESC, id DESC
+            LIMIT 1;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW,
+              let json = columnText(stmt, 0) else {
+            return nil
+        }
+        return decodeAgentEventJSON(json, context: "latest")
     }
 
     nonisolated private static func mutationProjectionOutboxRow(
