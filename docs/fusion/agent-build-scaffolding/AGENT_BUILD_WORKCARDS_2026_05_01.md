@@ -1070,6 +1070,9 @@ Policy PR4 is closed. `HermesGatewayPolicy` is now the tiny pure-Swift source of
 truth for deciding whether a Hermes-shaped surface is Core-safe, needs network,
 needs subprocess orchestration, or belongs behind the Pro/Research gateway. It
 also distinguishes cloud/network need from offline CLI subprocess policy.
+App Store Guard PR5 is closed. `HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(_:)`
+now allows only direct, no-network, no-subprocess Core surfaces, preserving the
+fast substrate path while keeping external gateway surfaces out of Core/App Store.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1122,12 +1125,19 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-policy-pr4-red-20260502.log`.
 - PR4 Green log:
   `/tmp/epistemos-hermes-gateway-policy-pr4-green-20260502.log`.
+- PR5 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_app_store_guard_pr5_deliberation_2026_05_02.md`.
+- PR5 Red log:
+  `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-red-20260502.log`.
+- PR5 Green log:
+  `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-green-20260502.log`.
 - Focused command:
-  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
+  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
   10-test suite; PR3 passed the expanded 11-test suite; PR4 passed 15 focused
-  tests across the policy and prompt suites. Xcode still printed known
-  SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+  tests across the policy and prompt suites; PR5 passed the expanded 6-test
+  policy suite. Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
@@ -1157,6 +1167,13 @@ Acceptance:
 - PR4 boundary: no provider adapter, subprocess launcher, MCP bridge, cloud
   runtime, graph, Rust, generated transport, entitlement, project, protected
   graph, or protected editor path was touched.
+- PR5 wired: `isAllowedInCoreAppStoreBuild(_:)` mechanically rejects every
+  external Hermes gateway surface from the Core/App Store lane.
+- PR5 reachable: focused tests prove allowed Core/App Store surfaces require no
+  network, no subprocess, and preserve the direct substrate path.
+- PR5 boundary: no runtime adapter, provider, subprocess, MCP, graph, Rust,
+  generated transport, entitlement, project, protected graph, or protected
+  editor path was touched.
 
 Stop Triggers:
 - A future slice wants to execute a provider request, shell command, MCP call,

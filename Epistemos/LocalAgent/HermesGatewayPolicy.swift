@@ -45,6 +45,14 @@ nonisolated enum HermesGatewayPolicy {
     static let localCoreBoundaryLine =
         "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
 
+    static func isAllowedInCoreAppStoreBuild(_ surface: Surface) -> Bool {
+        let decision = decision(for: surface)
+        return decision.tier == .core
+            && !decision.requiresNetwork
+            && !decision.requiresSubprocess
+            && decision.preservesDirectSubstratePath
+    }
+
     static func decision(for surface: Surface) -> Decision {
         switch surface {
         case .deterministicLocalSubstrate:

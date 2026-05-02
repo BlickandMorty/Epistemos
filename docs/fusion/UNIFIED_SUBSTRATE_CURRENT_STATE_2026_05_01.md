@@ -379,6 +379,17 @@ Proven or actively wired:
   entitlement, project file, or protected editor path was touched. Red/green
   evidence: `/tmp/epistemos-hermes-gateway-policy-pr4-red-20260502.log` and
   `/tmp/epistemos-hermes-gateway-policy-pr4-green-20260502.log`.
+- Hermes Gateway App Store Guard PR5 is now code-closed as a pure policy helper:
+  `HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(_:)` allows only
+  no-network, no-subprocess Core surfaces that preserve the direct substrate
+  path. In practice that means deterministic local substrate answers and
+  in-process local prompt formatting stay Core/App Store-safe, while cloud,
+  CLI, MCP/web, Hermes subprocess, browser/computer-use, Docker/devcontainer,
+  and explicit external side effects remain Pro/Research. No runtime adapter,
+  provider, subprocess launcher, MCP bridge, graph, Rust, generated transport,
+  entitlement, project file, or protected editor path was touched. Red/green
+  evidence: `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-red-20260502.log`
+  and `/tmp/epistemos-hermes-gateway-app-store-guard-pr5-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -605,7 +616,7 @@ Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
-Policy PR4, R16
+Policy PR4, Hermes Gateway App Store Guard PR5, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge

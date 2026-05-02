@@ -46,4 +46,28 @@ nonisolated struct HermesGatewayPolicyTests {
                 == "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
         )
     }
+
+    @Test("Core App Store lane allows only direct local Hermes surfaces")
+    func coreAppStoreLaneAllowsOnlyDirectLocalHermesSurfaces() {
+        #expect(HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(.deterministicLocalSubstrate))
+        #expect(HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(.localPromptFormatting))
+
+        for surface in HermesGatewayPolicy.Surface.externalGatewaySurfaces {
+            #expect(!HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface))
+        }
+    }
+
+    @Test("Core App Store allowed surfaces need no external runtime")
+    func coreAppStoreAllowedSurfacesNeedNoExternalRuntime() {
+        for surface in HermesGatewayPolicy.Surface.allCases {
+            let decision = HermesGatewayPolicy.decision(for: surface)
+
+            if HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface) {
+                #expect(decision.tier == .core)
+                #expect(!decision.requiresNetwork)
+                #expect(!decision.requiresSubprocess)
+                #expect(decision.preservesDirectSubstratePath)
+            }
+        }
+    }
 }
