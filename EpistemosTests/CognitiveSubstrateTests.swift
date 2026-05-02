@@ -2631,11 +2631,22 @@ struct OpLogFFIBoundaryGuardTests {
 
         #expect(settings.contains("OpLogProjectionHealthRow()"))
         #expect(row.contains("mutationProjectionOutboxDiagnostics()"))
+        #expect(row.contains("MutationOpLogReplayBundleVisibilityReport"))
+        #expect(row.contains("ReplayBundle"))
+        #expect(row.contains("replayedEntryCount"))
+        #expect(row.contains("recordCount"))
+        #expect(row.contains("duplicateCount"))
+        #expect(row.contains("ignoredNonProjectionCount"))
         #expect(!row.contains("oplog_open_at"))
         #expect(!row.contains("oplog_append_payload_json"))
+        #expect(!row.contains("oplog_iter_all_json"))
+        #expect(!row.contains("exportMutationReplayBundle("))
         #expect(!row.contains("claimMutationProjectionOutboxRows("))
         #expect(!row.contains("recordMutationProjectionOutboxFailure("))
         #expect(!row.contains("markMutationProjectionOutboxProjected("))
+        #expect(!row.contains("Button("))
+        #expect(!row.contains("Timer"))
+        #expect(!row.contains("DispatchSourceTimer"))
         #expect(!row.contains(".task {"))
         #expect(!row.contains("while !Task.isCancelled"))
     }
@@ -3002,6 +3013,83 @@ struct OpLogSwiftBridgeTests {
         #expect(!json.contains("PRIVATE_NOTE_BODY"))
         #expect(!json.contains("/Users/jojo/Vault"))
         #expect(!json.contains("system prompt"))
+    }
+
+    @Test("Mutation OpLog ReplayBundle visibility report summarizes counts")
+    func mutationOpLogReplayBundleVisibilityReportSummarizesCounts() throws {
+        let snapshot = MutationOpLogReplay.replay([
+            projectionEntry(seq: 0, mutationID: "mutation-first", traceID: "trace-first"),
+            nonProjectionEntry(seq: 1),
+            projectionEntry(
+                seq: 2,
+                mutationID: "mutation-private",
+                traceID: "trace-private",
+                sourcePayloadJSON: """
+                {"body":"PRIVATE_NOTE_BODY","cwd":"/Users/jojo/Vault","system_prompt":"system prompt"}
+                """
+            ),
+            projectionEntry(seq: 3, mutationID: "mutation-first", traceID: "trace-duplicate"),
+        ])
+        let report = MutationOpLogReplayBundleVisibilityReport(
+            bundle: MutationOpLogReplayBundle(snapshot: snapshot, source: "unit-test-visibility")
+        )
+
+        #expect(report.status == .available)
+        #expect(report.source == "unit-test-visibility")
+        #expect(report.highestReplayedSeq == 3)
+        #expect(report.replayedEntryCount == 4)
+        #expect(report.recordCount == 2)
+        #expect(report.duplicateCount == 1)
+        #expect(report.ignoredNonProjectionCount == 1)
+        #expect(report.latestMutationID == "mutation-private")
+        #expect(!String(describing: report).contains("PRIVATE_NOTE_BODY"))
+        #expect(!String(describing: report).contains("/Users/jojo/Vault"))
+        #expect(!String(describing: report).contains("system prompt"))
+    }
+
+    @Test("Mutation OpLog ReplayBundle visibility report loads read-only")
+    func mutationOpLogReplayBundleVisibilityReportLoadsReadOnly() throws {
+        let absentURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-visibility-absent-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        let absent = MutationOpLogReplayBundleVisibilityReport.load(databaseURL: absentURL)
+        #expect(absent.status == .empty)
+        #expect(!FileManager.default.fileExists(atPath: absentURL.path))
+
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-visibility-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        do {
+            let client = try RustOpLogFFIClient(databaseURL: url, actorID: "visibility-writer")
+            _ = try client.append(.nodeAdd(id: "note-ignored", kind: "prose_note", title: "Ignored"))
+            _ = try client.append(.propSet(
+                nodeID: "mutation-visible",
+                key: MutationOpLogProjector.projectionKey,
+                value: .object([
+                    "event_kind": .string("mutation_envelope"),
+                    "integrity_hash": .string("sha256:mutation-visible"),
+                    "mutation_id": .string("mutation-visible"),
+                    "source_payload_json": .string("{\"body\":\"PRIVATE_NOTE_BODY\"}"),
+                    "status": .string("committed"),
+                    "trace_id": .string("trace-visible"),
+                ])
+            ))
+        }
+
+        let report = MutationOpLogReplayBundleVisibilityReport.load(
+            databaseURL: url,
+            actorID: "visibility-reader"
+        )
+        #expect(report.status == .available)
+        #expect(report.source == "settings-visibility")
+        #expect(report.replayedEntryCount == 2)
+        #expect(report.recordCount == 1)
+        #expect(report.duplicateCount == 0)
+        #expect(report.ignoredNonProjectionCount == 1)
+        #expect(report.latestMutationID == "mutation-visible")
+        #expect(!String(describing: report).contains("PRIVATE_NOTE_BODY"))
     }
 
     @Test("Swift bridge replays mutation projections from real OpLog")

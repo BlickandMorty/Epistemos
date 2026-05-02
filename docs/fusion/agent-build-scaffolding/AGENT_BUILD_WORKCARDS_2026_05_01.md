@@ -484,7 +484,8 @@ health and dead letters. PR4A closes Swift-only read-only projection replay
 snapshots and logical cutoff rollback inspection. PR4B closes read-only
 cryptographic OpLog chain verification and expected-tip anchoring. PR5 closes
 deterministic read-only ReplayBundle JSON export over replay snapshots. PR6
-closes Swift-only read-only incremental replay over replay snapshots. See:
+closes Swift-only read-only incremental replay over replay snapshots. PR7
+closes read-only production ReplayBundle visibility in Settings. See:
 
 - `docs/fusion/deliberation/eventstore_oplog_projection_pr2_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/eventstore_oplog_projection_lease_retry_pr3a_deliberation_2026_05_01.md`
@@ -495,6 +496,7 @@ closes Swift-only read-only incremental replay over replay snapshots. See:
 - `docs/fusion/deliberation/oplog_chain_verification_pr4b_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/oplog_replay_bundle_export_pr5_deliberation_2026_05_02.md`
 - `docs/fusion/deliberation/oplog_incremental_replay_pr6_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/oplog_replay_bundle_production_visibility_pr7_deliberation_2026_05_02.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_038_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_041_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_042_2026_05_01.md`
@@ -504,14 +506,14 @@ closes Swift-only read-only incremental replay over replay snapshots. See:
 
 Do not assign agents to rebuild the basic projection scaffold. Future
 provenance work should open new gates for live AgentEvent emission, GraphEvent
-projection, production ReplayBundle visibility, or deeper audit/repair
-surfaces. Background projection worker scheduling is already
+projection, or deeper audit/repair surfaces. Background projection worker scheduling is already
 closed as PR3C.
 Basic read-only dead-letter/projection visibility is already closed as PR3D.
 Read-only projection replay snapshots are already closed as PR4A. Read-only
 cryptographic chain verification is already closed as PR4B. Read-only
 ReplayBundle export is already closed as PR5. Read-only incremental replay is
-already closed as PR6.
+already closed as PR6. Read-only production ReplayBundle visibility is already
+closed as PR7.
 
 Goal:
 Mirror committed `MutationEnvelope` provenance into the append-only Rust OpLog
@@ -591,6 +593,11 @@ Implementation contract:
   uses the existing `iterateAll()` / `iterate(after:)` bridge surface. Do not
   add rollback execution, repair, UI, production scheduling, or new raw ABI in
   future incremental-replay gates.
+- PR7 already supplies read-only production ReplayBundle visibility:
+  `MutationOpLogReplayBundleVisibilityReport` summarizes bounded counts/latest
+  id for `OpLogProjectionHealthRow`. Do not add raw OpLog ABI calls, repair or
+  export buttons, polling loops, timers, or private payload details in future
+  visibility gates.
 - If new Rust payload variants are needed, add serde parity tests before Swift
   wiring.
 
@@ -621,6 +628,10 @@ Tests and logs:
   `/tmp/epistemos-oplog-incremental-replay-pr6-red-20260502.log`.
 - PR6 incremental replay green evidence is
   `/tmp/epistemos-oplog-incremental-replay-pr6-green-20260502.log`.
+- PR7 production ReplayBundle visibility red evidence is
+  `/tmp/epistemos-oplog-replay-bundle-visibility-pr7-red-20260502.log`.
+- PR7 production ReplayBundle visibility green evidence is
+  `/tmp/epistemos-oplog-replay-bundle-visibility-pr7-green-20260502.log`.
 - Existing OpLog bridge/boundary tests.
 - `git diff --check -- <allowed files> docs/fusion`
 - Production raw-symbol grep excluding `RustOpLogFFIClient`.
@@ -646,6 +657,9 @@ Acceptance:
 - Incremental replay: replay snapshots can be extended from tail OpLog entries
   with overlap rows dropped before counting, duplicate detection seeded from
   prior records, and ReplayBundle privacy preserved.
+- Production ReplayBundle visibility: Settings can show bounded
+  ReplayBundle counts/latest-id status from a sanitized report without raw ABI,
+  repair/export UI, timers, polling, or private payload leakage.
 
 Stop triggers:
 - Projection requires protected editor or graph files.

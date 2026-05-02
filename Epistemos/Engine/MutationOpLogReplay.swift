@@ -118,6 +118,103 @@ nonisolated struct MutationOpLogReplayBundle: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated struct MutationOpLogReplayBundleVisibilityReport: Equatable, Sendable {
+    nonisolated enum Status: String, Equatable, Sendable {
+        case unavailable
+        case empty
+        case available
+    }
+
+    let status: Status
+    let source: String
+    let highestReplayedSeq: UInt64?
+    let replayedEntryCount: Int
+    let recordCount: Int
+    let duplicateCount: Int
+    let ignoredNonProjectionCount: Int
+    let latestMutationID: String?
+
+    var isEmpty: Bool {
+        status == .empty || replayedEntryCount == 0
+    }
+
+    static let empty = MutationOpLogReplayBundleVisibilityReport(
+        status: .empty,
+        source: "settings-visibility",
+        highestReplayedSeq: nil,
+        replayedEntryCount: 0,
+        recordCount: 0,
+        duplicateCount: 0,
+        ignoredNonProjectionCount: 0,
+        latestMutationID: nil
+    )
+
+    static let unavailable = MutationOpLogReplayBundleVisibilityReport(
+        status: .unavailable,
+        source: "settings-visibility",
+        highestReplayedSeq: nil,
+        replayedEntryCount: 0,
+        recordCount: 0,
+        duplicateCount: 0,
+        ignoredNonProjectionCount: 0,
+        latestMutationID: nil
+    )
+
+    init(bundle: MutationOpLogReplayBundle) {
+        let latestRecord = bundle.records.max { lhs, rhs in
+            lhs.opLogSeq < rhs.opLogSeq
+        }
+        status = bundle.replayedEntryCount == 0 ? .empty : .available
+        source = bundle.source
+        highestReplayedSeq = bundle.highestReplayedSeq
+        replayedEntryCount = bundle.replayedEntryCount
+        recordCount = bundle.recordCount
+        duplicateCount = bundle.duplicateCount
+        ignoredNonProjectionCount = bundle.ignoredNonProjectionCount
+        latestMutationID = latestRecord?.mutationID
+    }
+
+    private init(
+        status: Status,
+        source: String,
+        highestReplayedSeq: UInt64?,
+        replayedEntryCount: Int,
+        recordCount: Int,
+        duplicateCount: Int,
+        ignoredNonProjectionCount: Int,
+        latestMutationID: String?
+    ) {
+        self.status = status
+        self.source = source
+        self.highestReplayedSeq = highestReplayedSeq
+        self.replayedEntryCount = replayedEntryCount
+        self.recordCount = recordCount
+        self.duplicateCount = duplicateCount
+        self.ignoredNonProjectionCount = ignoredNonProjectionCount
+        self.latestMutationID = latestMutationID
+    }
+
+    static func load(
+        databaseURL: URL = MutationOpLogProjectionWorker.databaseURL(
+            applicationSupportDirectory: FoundationSafety.userApplicationSupportDirectory()
+        ),
+        actorID: String = "oplog-replay-bundle-visibility"
+    ) -> MutationOpLogReplayBundleVisibilityReport {
+        guard FileManager.default.fileExists(atPath: databaseURL.path) else {
+            return .empty
+        }
+
+        do {
+            let client = try RustOpLogFFIClient(databaseURL: databaseURL, actorID: actorID)
+            return try MutationOpLogReplayBundleVisibilityReport(
+                bundle: client.exportMutationReplayBundle(source: "settings-visibility")
+            )
+        } catch {
+            return .unavailable
+        }
+    }
+}
+
 nonisolated enum MutationOpLogReplay {
     static func replay(
         _ entries: [OpLogEntry],

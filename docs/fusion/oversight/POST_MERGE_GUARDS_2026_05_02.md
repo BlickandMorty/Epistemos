@@ -93,6 +93,18 @@
 - log: `✔ Test "Mutation OpLog incremental ReplayBundle remains privacy safe" passed`
 - test: `OpLog Swift Bridge`
 
+## oplog-replay-bundle-production-visibility-pr7
+
+- grep: `MutationOpLogReplayBundleVisibilityReport`
+- grep: `ReplayBundle`
+- forbidden grep: `oplog_open_at|oplog_append_payload_json|oplog_iter_all_json|exportMutationReplayBundle\(|claimMutationProjectionOutboxRows\(|recordMutationProjectionOutboxFailure\(|markMutationProjectionOutboxProjected\(|Button\(|Timer|DispatchSourceTimer|\.task \{|while !Task\.isCancelled`
+- staged guard: `git diff --cached --name-only -- Epistemos/Views/Notes Epistemos/Views/Graph Epistemos/Graph graph-engine agent_core epistemos-shadow Epistemos.xcodeproj`
+- log: `✔ Test "OpLog projection diagnostics row is read-only and mounted in Settings" passed`
+- log: `✔ Test "Mutation OpLog ReplayBundle visibility report summarizes counts" passed`
+- log: `✔ Test "Mutation OpLog ReplayBundle visibility report loads read-only" passed`
+- log: `✔ Test run with 17 tests in 2 suites passed`
+- test: `OpLogFFIBoundaryGuardTests + OpLogSwiftBridgeTests`
+
 ## hermes-gateway-evidence-return-policy-pr7
 
 - grep: `HermesGatewayEvidenceReturn`
