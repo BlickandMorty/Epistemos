@@ -1,6 +1,6 @@
 # Epistemos Final Doctrine — 2026-05-01
 
-> **NEW DOC — created 2026-05-02.** Filename: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. If a Codex/Kimi/Claude session, agent index, MEMORY.md pointer, or older auto-generated doc list does not show this file, **search for it by name** — it is real and in the canon. Sister docs from the same session: `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` (the new Codex overseer prompt) and `ALL_DOCS_INDEX_2026_05_02.md` (the live index of every load-bearing doc). All three live at `/Users/jojo/Downloads/Epistemos/docs/fusion/` and are mirrored into the active worktree at `/Users/jojo/Downloads/Epistemos/.claude/worktrees/<worktree>/docs/fusion/` for in-session clickability. Recent research/plan docs this may resolve to: any *Kimi*, *no-compromise*, *resonance gate*, *sovereign gate*, *tier matrix*, *SCOPE-Rex*, *ACS*, *zero-copy*, *single-binary*, or *killer feature* doc dated 2026-04-30 or 2026-05-01.
+> **NEW DOC — created 2026-05-02.** Filename: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`. If a Codex/Kimi/Claude session, agent index, MEMORY.md pointer, or older auto-generated doc list does not show this file, **search for it by name** — it is real and in the canon. Sister packet docs from the same session: `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` (the new Codex overseer prompt), `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md` (cross-worktree salvage map), `ALL_DOCS_INDEX_2026_05_02.md` (the live index of every load-bearing doc), and `CODEX_DELIBERATION_PROMPT_2026_05_02.md` (non-interrupting deliberation prompt). The packet lives at `/Users/jojo/Downloads/Epistemos/docs/fusion/` and is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Recent research/plan docs this may resolve to: any *Kimi*, *no-compromise*, *resonance gate*, *sovereign gate*, *tier matrix*, *SCOPE-Rex*, *ACS*, *zero-copy*, *single-binary*, or *killer feature* doc dated 2026-04-30 or 2026-05-01.
 
 > **One sentence.** Epistemos is a native macOS verifiable cognition substrate where every meaningful action becomes a typed, provenance-linked event before it becomes a UI effect — and every research feature ships, but tier-gated.
 
@@ -155,7 +155,7 @@ Target: `<100µs` per token on Apple Silicon (CPU does graph ops, ANE does neura
 - **Pro:** adds Sovereign class with Secure Enclave key sealing via `kSecAttrTokenIDSecureEnclave` + `.biometryCurrentSet`. Re-enrolling a fingerprint invalidates sealed keys (intended).
 - **Research:** every executive action (load implant, patch weights, enable steering, modify KV cache, load private ANE, execute untrusted) is Sovereign-class. Biometric session has 15-min grace inside the Executive Console only.
 
-**Status.** Not started. No `LAContext` / `LocalAuthentication` / `Sovereign` symbol exists in the repo today (verified via grep, 2026-05-01). Spec depth in Kimi research at `EPISTEMOS_RESEARCH_LANDSLIDE.md` Part I §1.1.
+**Status.** Core seed work is started and code-closed for the first agent-tool approval path: `Epistemos/Sovereign/SovereignGate.swift` is now the single Swift `LocalAuthentication` entrypoint, `AppBootstrap` owns its lifecycle observer, and `ApprovalModalView` routes the existing agent-tool approval surface through `ChatApprovalSovereignGate`. Rust action-class emission, broader popup migration, transport outcome wiring, and Pro/Research Secure Enclave sealing remain open. Spec depth in Kimi research at `EPISTEMOS_RESEARCH_LANDSLIDE.md` Part I §1.1.
 
 **Canonical code anchors when starting.** Single Swift entrypoint `Epistemos/Sovereign/SovereignGate.swift` (new file); new Rust module `agent_core/src/sovereign/` declares the action-class matrix and emits `GateRequirement` to Swift; outcomes flow back via UniFFI as `GateOutcome`. Every existing popup/dialog code path is migrated one-by-one through gated PRs (no big bang). MutationEnvelope already has a `sensitivity` field — extend it to drive the gate decision rather than building a parallel matrix.
 
@@ -176,7 +176,7 @@ Target: `<100µs` per token on Apple Silicon (CPU does graph ops, ANE does neura
 - **Pro:** Pulse can route to cloud providers under explicit policy; Rail extends to L4 (compressed Engram) + L5 (cold storage).
 - **Research:** Pulse can read activation steering vectors live; Rail extends to L6 (Forbidden tier opt-in) + L7 (Quarantine with audit trail).
 
-**Status.** Not started. Pulse depends on Halo V1 editor mount being closed first (Halo V1 is currently behind a protected-path gate per the current state doc). Rail depends on the Residency Governor module existing — currently only conceptual in Kimi research at `scope_rex_final_architecture.md`.
+**Status.** Pulse and Rail are not started. Halo V1 seed work is now code-closed for protected editor mount, live domain re-query, and visible panel actions, but manual/runtime verification remains open before Pulse should mount. Rail still depends on the Residency Governor module existing — currently only conceptual in Kimi research at `scope_rex_final_architecture.md`.
 
 **Canonical code anchors when starting.** Pulse uses existing `Epistemos/Engine/HaloController.swift` debounce machinery. Rail mounts as a non-blocking inspector view next to (not inside) `ProseEditorView` — protected-path rule applies, never edit `ProseEditor*.swift` for this.
 
@@ -260,23 +260,23 @@ What unblocks what. Read top-down — earlier rows must close before later rows 
 Core substrate (DONE / mostly DONE)
   ├─ Substrate spine (TypedArtifact → … → projections)            ✅ done
   ├─ OpLog projection family PR1–PR4B                              ✅ done
-  ├─ AgentEvent PR1–PR3                                            ✅ done
-  ├─ GraphEvent PR1–PR3                                            ✅ done
-  ├─ R15 benchmark fixtures PR2–PR4                                ✅ done
+  ├─ AgentEvent PR1–PR9                                            ✅ done
+  ├─ GraphEvent PR1–PR6                                            ✅ done
+  ├─ R15 benchmark fixtures / evidence PR2–PR9                     ✅ done
   ├─ R16 ETL through PR3H                                          ✅ done
   └─ Contextual Shadows V0 + Shadow backend route                  ✅ done
 
 Core open
-  ├─ Halo V1 editor mount (protected-path gate required)           open
+  ├─ Halo V1 manual/runtime verification                           open
   ├─ Live GraphEvent consumer projection (graph / retrieval / Halo / Theater) open
-  ├─ Omega/hook/broader-runtime AgentEvent coverage                open
+  ├─ Broader-runtime AgentEvent coverage beyond PR1–PR9            open
   ├─ R15 remaining specialized baselines                           open
   ├─ R16 runtime/manual closure                                    open
   └─ MAS/Core vs Pro capability symbol separation                  open
 
 Core killer-feature seed work (gate before coding)
   ├─ Resonance Gate τ + π + λ daemon                               not started
-  ├─ Sovereign Gate Core classes (Trivial/Reversible/Sensitive/Destructive) not started
+  ├─ Sovereign Gate broader Core classes + Rust/transport follow-through open
   └─ Freeform Pulse + Residency Rail (depends on Halo V1)          not started
 
 Pro track (after Core/MAS symbol separation)
