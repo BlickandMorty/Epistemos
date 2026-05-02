@@ -247,6 +247,15 @@ closed:
   Focused Rust tests passed 6/6. This does not add generated UniFFI transport,
   Swift policy, popup migration, Secure Enclave sealing, or tool behavior
   changes.
+- Sovereign Gate Notes Delete PR5 is now closed for the existing Notes Sidebar
+  permanent page/folder delete confirmation surface. The existing SwiftUI
+  destructive alert buttons now ask the shared `AppBootstrap` `SovereignGate`
+  for `.deviceOwnerAuthentication` before delete execution, capture the pending
+  target before async auth so alert dismissal cannot lose the authorized item,
+  and clear pending state without deleting on denial/unavailable auth. Focused
+  Swift tests passed 12/12. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, change delete planner semantics, migrate any other
+  popup, or touch Rust/generated/graph/editor/Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -575,10 +584,11 @@ Still open:
   EventStore projection-consumer API, read-only Settings projection counts, and
   the read-only audit projection report plus Halo panel read-only projection
   ribbon, such as graph renderer, retrieval, or Theater surfaces.
-- Sovereign Gate follow-through beyond the Core Swift executor and the agent
-  approval sheet migration: Rust-side action-class matrix, generated
-  transport, additional existing confirmation-surface migrations, and any
-  Pro/Research Secure Enclave or Sovereign-class routes.
+- Sovereign Gate follow-through beyond the Core Swift executor, lifecycle
+  observer, agent approval sheet migration, Rust action-class seed, and Notes
+  Sidebar page/folder delete migration: generated transport, additional
+  existing confirmation-surface migrations, and any Pro/Research Secure Enclave
+  or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
 - Halo V1 manual runtime verification remains open. The protected editor
   mount/glyph/panel route, domain re-query path, and visible row actions are
@@ -654,8 +664,9 @@ before building.
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
    PR2 is closed for app/session/sleep grace clearing, Approval Surface PR3
    is closed for the existing agent approval sheet, and Rust Matrix PR4 is
-   closed for the additive Rust action-class seed only. Future Sovereign slices
-   must start from
+   closed for the additive Rust action-class seed only. Notes Delete PR5 is
+   closed for the existing Notes Sidebar permanent page/folder delete surface.
+   Future Sovereign slices must start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
    and may only add generated requirement transport, lifecycle follow-up,
    Secure Enclave sealing, or additional existing confirmation migrations
@@ -727,10 +738,10 @@ are:
   closed as PR3H. Do not assign Card 2 sidecar mirror work unless a new gate
   first introduces an actual Rust note-sidecar mirror target.
 - Sovereign Gate follow-up only for exact gated slices after Core PR1, Lifecycle
-  PR2, and Approval Surface PR3: Rust action classification, generated
+  PR2, Approval Surface PR3, Rust Matrix PR4, and Notes Delete PR5: generated
   requirement transport, lifecycle follow-up beyond PR2's app/session/sleep
-  grace clearing, or additional existing confirmation surfaces migrated to
-  `SovereignGate`.
+  grace clearing, additional existing confirmation surfaces migrated to
+  `SovereignGate`, or Pro/Research Secure Enclave/Sovereign-class routes.
 
 Agents should not start:
 

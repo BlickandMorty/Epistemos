@@ -229,6 +229,26 @@ struct SovereignGateTests {
         )
     }
 
+    @Test("Notes sidebar permanent deletes map to destructive Sovereign Gate requirements")
+    func notesSidebarDeletesMapToSovereignGateRequirements() {
+        #expect(
+            NotesSidebarDeletionSovereignGate.requirement(for: .page(title: "Research Notes"))
+                == .deviceOwnerAuthentication
+        )
+        #expect(
+            NotesSidebarDeletionSovereignGate.requirement(for: .folder(name: "Archive"))
+                == .deviceOwnerAuthentication
+        )
+
+        let pageReason = NotesSidebarDeletionSovereignGate.reason(for: .page(title: "Research Notes"))
+        let folderReason = NotesSidebarDeletionSovereignGate.reason(for: .folder(name: "Archive"))
+
+        #expect(pageReason.contains("Research Notes"))
+        #expect(folderReason.contains("Archive"))
+        #expect(pageReason.localizedCaseInsensitiveContains("permanently delete"))
+        #expect(folderReason.localizedCaseInsensitiveContains("permanently delete"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])

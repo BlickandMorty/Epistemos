@@ -1245,6 +1245,14 @@ key-release requirement for Sovereign-class Pro/Research work. It is additive
 and does not wire generated transport, Swift policy, popup migration, Secure
 Enclave sealing, tool behavior, UI, Omega, ChatCoordinator, or approval
 semantics.
+Notes Delete PR5 is also closed. `Epistemos/Views/Notes/NotesSidebar.swift`
+now routes the existing permanent page/folder delete destructive alert buttons
+through the shared `AppBootstrap` `SovereignGate` with
+`.deviceOwnerAuthentication` before delete execution. The pending delete target
+is captured before async auth, denied/unavailable auth clears pending state and
+does not delete, and the slice does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, change planner/delete semantics, migrate any other
+confirmation popup, or touch Rust/generated/graph/editor/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1269,18 +1277,24 @@ Authority to read first:
 - `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502.log`
 - `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502-r2.log`
+- `docs/fusion/deliberation/sovereign_gate_notes_delete_pr5_deliberation_2026_05_02.md`
+- `/tmp/epistemos-sovereign-gate-notes-delete-pr5-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-notes-delete-pr5-green-20260502.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
 - PR2 app-owned lifecycle observer and focused tests: already closed.
 - PR3 agent approval sheet migration and focused tests: already closed.
 - PR4 Rust action-class matrix seed and focused tests: already closed.
+- PR5 Notes Sidebar permanent page/folder delete migration and focused tests:
+  already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
   not already covered by PR2 and proves no unrelated authorization migration.
 - Future confirmation-surface migration PRs only after a gate names each exact
-  existing surface and its focused tests.
+  existing surface and its focused tests; Notes Sidebar page/folder permanent
+  deletes are already covered by PR5.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1330,6 +1344,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502.log`.
 - PR4 post-rustfmt green log:
   `/tmp/epistemos-sovereign-gate-rust-matrix-pr4-green-20260502-r2.log`.
+- PR5 red log:
+  `/tmp/epistemos-sovereign-gate-notes-delete-pr5-red-20260502.log`.
+- PR5 focused green log:
+  `/tmp/epistemos-sovereign-gate-notes-delete-pr5-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1366,6 +1384,14 @@ Acceptance:
   slice stays out of Swift policy, generated transport, popup migration, UI,
   approval semantics, Secure Enclave sealing, graph/editor files, subprocesses,
   solver hot paths, tensor copies, and memory hot paths.
+- PR5 wired/reachable/visible: the existing Notes Sidebar permanent page/folder
+  delete buttons request shared `SovereignGate` device-owner authentication
+  before deletion, focused tests prove both delete surfaces map to Destructive
+  auth with explicit reason strings, denied/unavailable auth performs no delete,
+  and the slice stays out of `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, delete planner semantics, generated transport, Rust,
+  graph/editor files, Omega, ChatCoordinator, subprocesses, solver hot paths,
+  tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave
