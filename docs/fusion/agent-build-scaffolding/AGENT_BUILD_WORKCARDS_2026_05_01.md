@@ -777,6 +777,12 @@ bounded recent-row read with `DurableGraphEventProjection.snapshot(from:)`.
 This is a read-only consumer API only: no renderer, retrieval, Halo, Theater,
 Rust, OpLog, mutation, repair, polling, or UI side effects.
 
+PR5 read-only Settings projection visibility is also closed. The existing
+`GraphEventVisibilityRow` now reads the PR4 consumer API once on appear/refresh
+and displays bounded event/node/edge counts without adding timers, `.task`
+loops, repair actions, Rust, OpLog, graph renderer, retrieval, Halo, or Theater
+side effects.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -791,6 +797,7 @@ Authority to read first:
 - `docs/fusion/deliberation/graph_event_durable_mapping_pr1_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/graph_event_visibility_pr2_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/graph_event_projection_snapshot_pr3_deliberation_2026_05_01.md`
+- `docs/fusion/deliberation/graph_event_projection_visibility_pr5_deliberation_2026_05_02.md`
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 - `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`
 - `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`
@@ -806,6 +813,7 @@ Allowed write set:
 - PR2 read-only Settings visibility: already closed.
 - PR3 read-only projection snapshots: already closed.
 - PR4 read-only EventStore projection consumer: already closed.
+- PR5 read-only Settings projection visibility: already closed.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -856,6 +864,10 @@ Tests and logs:
   `/tmp/epistemos-graph-event-projection-consumer-pr4-green-r2-20260502.log`.
   The first PR4 green command targeted the filename and selected 0 tests, so it
   is not acceptance evidence.
+- PR5 red log:
+  `/tmp/epistemos-graph-event-projection-visibility-pr5-red-20260502.log`.
+- PR5 green log:
+  `/tmp/epistemos-graph-event-projection-visibility-pr5-green-20260502.log`.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -881,6 +893,11 @@ Acceptance:
   projection snapshot through `graphEventProjectionSnapshot(limit:)`; the
   focused `EventStoreSchemaTests` suite executed 34 tests including the new
   consumer test.
+- PR5 wired/reachable/visible: Settings reads the existing bounded projection
+  snapshot consumer and displays read-only event/node/edge counts while the
+  focused `OpLogFFIBoundaryGuardTests` source guard proves no mutation, timer,
+  repair, Rust, OpLog, graph renderer, retrieval, Halo, or Theater path was
+  introduced.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named

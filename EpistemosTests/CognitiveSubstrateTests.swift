@@ -2647,6 +2647,10 @@ struct OpLogFFIBoundaryGuardTests {
 
         #expect(settings.contains("GraphEventVisibilityRow()"))
         #expect(row.contains("graphEventDiagnostics()"))
+        #expect(row.contains("graphEventProjectionSnapshot(limit:"))
+        #expect(row.contains("Projection snapshot"))
+        #expect(row.contains("nodes"))
+        #expect(row.contains("edges"))
         #expect(!row.contains("saveGraphEvent"))
         #expect(!row.contains("saveMutationEnvelope"))
         #expect(!row.contains("graphEvents("))
