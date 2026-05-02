@@ -860,6 +860,45 @@ final class EventStore: Sendable {
         )
     }
 
+    nonisolated struct GraphEventDiagnostics: Equatable, Sendable {
+        let totalRows: Int
+        let distinctMutations: Int
+        let latestEvent: DurableGraphEvent?
+
+        var lastKind: DurableGraphEventKind? {
+            latestEvent?.kind
+        }
+
+        nonisolated static let empty = GraphEventDiagnostics(
+            totalRows: 0,
+            distinctMutations: 0,
+            latestEvent: nil
+        )
+    }
+
+    nonisolated func graphEventDiagnostics() -> GraphEventDiagnostics {
+        withDatabaseRead { db in
+            var stmt: OpaquePointer?
+            let sql = """
+                SELECT COUNT(*), COUNT(DISTINCT mutation_id)
+                FROM graph_events;
+            """
+            guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+                return .empty
+            }
+            defer { sqlite3_finalize(stmt) }
+            guard sqlite3_step(stmt) == SQLITE_ROW else {
+                return .empty
+            }
+
+            return GraphEventDiagnostics(
+                totalRows: Self.columnInt(stmt, 0),
+                distinctMutations: Self.columnInt(stmt, 1),
+                latestEvent: Self.latestGraphEvent(db: db)
+            )
+        } ?? .empty
+    }
+
     nonisolated func mutationProjectionOutboxRows(mutationID: String) -> [MutationProjectionOutboxRow] {
         withDatabaseRead { db in
             var stmt: OpaquePointer?
@@ -2051,6 +2090,25 @@ final class EventStore: Sendable {
         defer { sqlite3_finalize(stmt) }
         guard sqlite3_step(stmt) == SQLITE_ROW else { return nil }
         return mutationProjectionOutboxRow(from: stmt)
+    }
+
+    nonisolated private static func latestGraphEvent(
+        db: OpaquePointer
+    ) -> DurableGraphEvent? {
+        var stmt: OpaquePointer?
+        let sql = """
+            SELECT json
+            FROM graph_events
+            ORDER BY occurred_at DESC, id DESC
+            LIMIT 1;
+        """
+        guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else { return nil }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW,
+              let json = columnText(stmt, 0) else {
+            return nil
+        }
+        return decodeGraphEventJSON(json, context: "latest")
     }
 
     nonisolated private static func mutationProjectionOutboxRow(

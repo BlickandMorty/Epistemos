@@ -658,6 +658,14 @@ private struct GeneralDetailView: View {
                 }
             }
 
+            Section("Diagnostics") {
+                SettingsDescriptionText(
+                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Graph Events reports durable graph-event persistence visibility."
+                )
+                EditorBundleHealthRow()
+                GraphEventVisibilityRow()
+            }
+
             Section("Reset") {
                 Text("Clear all saved data, conversations, local model state, and settings. Vault files on disk are preserved.")
                     .font(.caption)
