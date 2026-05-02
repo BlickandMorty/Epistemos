@@ -349,16 +349,162 @@ struct InstantRecallServiceTests {
         #expect(sink.events.last?.tool?.resultJSON?.contains("hit_count") == true)
         #expect(sink.events.last?.tool?.resultJSON?.contains("document_count") == true)
 
-        for event in sink.events {
-            let tool = try #require(event.tool)
-            #expect(!tool.argumentsJSON.contains("secret Bayesian prompt"))
-            #expect(!tool.argumentsJSON.contains("Bayesian"))
-            #expect(!tool.argumentsJSON.contains("secret-doc-id"))
-            #expect(!tool.argumentsJSON.contains("Secret recall body"))
-            #expect(!(tool.resultJSON ?? "").contains("secret Bayesian prompt"))
-            #expect(!(tool.resultJSON ?? "").contains("secret-doc-id"))
-            #expect(!(tool.resultJSON ?? "").contains("Secret recall body"))
+        try assertNoInstantRecallSecretLeak(
+            in: sink.events,
+            queryText: "secret Bayesian prompt",
+            queryTerm: "Bayesian",
+            noteID: "secret-doc-id",
+            noteBody: "Secret recall body"
+        )
+    }
+
+    @Test("Async search records sanitized AgentEvents")
+    @MainActor func asyncSearchRecordsSanitizedAgentEvents() async throws {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 1_818 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        service.indexNote(
+            noteId: "secret-doc-id",
+            text: "Secret recall body with Bayesian posterior evidence"
+        )
+
+        let results = await service.searchAsync(query: "secret Bayesian prompt", topK: 5)
+
+        #expect(!results.isEmpty)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("instant-recall-async-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "instant_recall.search" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "instant-recall-search-async:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "instant_recall_service" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "instant_recall_async" })
+        #expect(sink.events.allSatisfy { $0.metadata["top_k"] == "5" })
+        #expect(sink.events.last?.tool?.durationMs != nil)
+
+        let resultPayload = try instantRecallResultPayload(from: sink.events.last)
+        #expect(Set(resultPayload.keys) == ["hit_count", "document_count", "elapsed_ms"])
+        #expect((resultPayload["hit_count"] as? Int) ?? 0 >= 1)
+        #expect(resultPayload["document_count"] as? Int == 1)
+        #expect(sink.events.last?.metadata["failure_class"] == nil)
+        #expect(sink.events.last?.tool?.errorMessage == nil)
+
+        #expect(service.searchCount == 0)
+        #expect(service.lastResults.isEmpty)
+        #expect(service.lastSearchLatencyMs == 0)
+
+        try assertNoInstantRecallSecretLeak(
+            in: sink.events,
+            queryText: "secret Bayesian prompt",
+            queryTerm: "Bayesian",
+            noteID: "secret-doc-id",
+            noteBody: "Secret recall body"
+        )
+    }
+
+    @Test("Async search records completed AgentEvents for valid zero-hit results")
+    @MainActor func asyncSearchRecordsCompletedAgentEventsForZeroHitResults() async throws {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 1_919 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        let results = await service.searchAsync(query: "Bayesian evidence", topK: 5)
+
+        #expect(results.isEmpty)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(sink.events.last?.metadata["failure_class"] == nil)
+
+        let resultPayload = try instantRecallResultPayload(from: sink.events.last)
+        #expect(Set(resultPayload.keys) == ["hit_count", "document_count", "elapsed_ms"])
+        #expect(resultPayload["hit_count"] as? Int == 0)
+        #expect(resultPayload["document_count"] as? Int == 0)
+    }
+
+    @Test("Sync and async recall tool ids use independent counters")
+    @MainActor func syncAndAsyncRecallToolIDsUseIndependentCounters() async {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 2_020 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        service.indexNote(noteId: "doc-1", text: "Bayesian evidence and posterior updates")
+
+        _ = await service.searchAsync(query: "Bayesian evidence", topK: 5)
+        _ = service.search(queryText: "Bayesian evidence", topK: 5)
+
+        let asyncIDs = sink.events
+            .filter { $0.metadata["surface"] == "instant_recall_async" }
+            .compactMap { $0.tool?.toolCallID }
+        let syncIDs = sink.events
+            .filter { $0.metadata["surface"] == "instant_recall" }
+            .compactMap { $0.tool?.toolCallID }
+
+        #expect(Set(asyncIDs) == ["instant-recall-search-async:1"])
+        #expect(Set(syncIDs) == ["instant-recall-search:1"])
+    }
+
+    @Test("Cancelled async search records terminal AgentEvent")
+    @MainActor func cancelledAsyncSearchRecordsTerminalAgentEvent() async throws {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 2_121 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        service.indexNote(noteId: "secret-doc-id", text: "Secret recall body")
+
+        let task = Task { @MainActor in
+            await Task.yield()
+            return await service.searchAsync(query: "secret Bayesian prompt", topK: 5)
         }
+        task.cancel()
+        _ = await task.value
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.metadata["failure_class"] == "cancelled")
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage == "cancelled")
+
+        try assertNoInstantRecallSecretLeak(
+            in: sink.events,
+            queryText: "secret Bayesian prompt",
+            queryTerm: "Bayesian",
+            noteID: "secret-doc-id",
+            noteBody: "Secret recall body"
+        )
     }
 
     @Test("Invalid search inputs do not record AgentEvents")
@@ -377,6 +523,56 @@ struct InstantRecallServiceTests {
         _ = service.search(queryText: "Bayesian evidence", topK: 0)
 
         #expect(sink.events.isEmpty)
+    }
+
+    @Test("Invalid async search inputs do not record AgentEvents")
+    @MainActor func invalidAsyncSearchInputsDoNotRecordAgentEvents() async {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 2_222 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        _ = await service.searchAsync(query: "   \n   ", topK: 5)
+        _ = await service.searchAsync(query: "Bayesian evidence", topK: 0)
+
+        #expect(sink.events.isEmpty)
+    }
+
+    private func instantRecallResultPayload(from event: AgentProvenanceEvent?) throws -> [String: Any] {
+        let resultJSON = try #require(event?.tool?.resultJSON)
+        let data = try #require(resultJSON.data(using: .utf8))
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    private func assertNoInstantRecallSecretLeak(
+        in events: [AgentProvenanceEvent],
+        queryText: String,
+        queryTerm: String,
+        noteID: String,
+        noteBody: String
+    ) throws {
+        for event in events {
+            let tool = try #require(event.tool)
+            let payloads = [
+                tool.argumentsJSON,
+                tool.resultJSON ?? "",
+                tool.errorMessage ?? ""
+            ]
+            for payload in payloads {
+                #expect(!payload.contains(queryText))
+                #expect(!payload.contains(queryTerm))
+                #expect(!payload.contains(noteID))
+                #expect(!payload.contains(noteBody))
+                #expect(!payload.contains("snippet"))
+                #expect(!payload.contains("embedding"))
+                #expect(!payload.contains("score"))
+            }
+        }
     }
 }
 

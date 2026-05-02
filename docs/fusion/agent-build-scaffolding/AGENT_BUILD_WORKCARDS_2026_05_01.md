@@ -801,6 +801,20 @@ editor state, and graph state. This preserves recall behavior, hydration,
 metrics, async recall, Halo, ShadowSearch, UI, approval, routing, graph, Rust,
 generated bindings, and EventStore schema.
 
+PR17 InstantRecall async recall provenance is also closed.
+`InstantRecallService.searchAsync(query:topK:)` now records requested, started,
+and completed/failed AgentEvents for valid async recall searches with
+`instant-recall-async-...` run ids, `instant-recall-service` actor metadata,
+independent `instant-recall-search-async:N` ids,
+`surface=instant_recall_async`, query-count/topK metadata, hit/document counts,
+FFI-only elapsed milliseconds, typed async failure classes, zero-hit completed
+rows, and cancellation terminal rows. Persisted provenance excludes query text,
+note ids, note bodies, result text, snippets, vault paths, source text, scores,
+embeddings, raw FFI JSON, localized error descriptions, Halo, ShadowSearch,
+editor state, and graph state. This preserves async recall behavior, hydration,
+MainActor metrics, UI, approval, routing, graph, Rust, generated bindings, and
+EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -849,9 +863,10 @@ Authority to read first:
   AgentQueryEngine backend-stream evidence or a future AgentQueryEngine
   provenance regression fix gate.
 - `docs/fusion/deliberation/instant_recall_agent_event_pr16_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/instant_recall_async_agent_event_pr17_deliberation_2026_05_02.md`
 - `Epistemos/KnowledgeFusion/InstantRecallService.swift` only for PR16
-  InstantRecall sync recall evidence or a future InstantRecall provenance
-  regression fix gate.
+  InstantRecall sync recall evidence, PR17 InstantRecall async recall evidence,
+  or a future InstantRecall provenance regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -882,12 +897,14 @@ Allowed write set:
   only.
 - PR16 InstantRecall sync recall provenance: already closed for
   `InstantRecallService.search(queryText:topK:)` only.
+- PR17 InstantRecall async recall provenance: already closed for
+  `InstantRecallService.searchAsync(query:topK:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
   HTTP client, AgentQueryEngine paths beyond backend tool stream events,
-  InstantRecall paths beyond sync search including `searchAsync(query:topK:)`,
-  Omega paths beyond ReasoningLoop internal search, or broader runtime
+  InstantRecall paths beyond sync/async recall search, Omega paths beyond
+  ReasoningLoop internal search, or broader runtime
   instrumentation only after a new deliberation gate names exact runtime files
   and focused tests.
 - Docs under `docs/fusion/**`.
@@ -1010,6 +1027,13 @@ Tests and logs:
   The focused `InstantRecall - Service` Swift Testing suite passed 20 tests;
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
+- PR17 red log:
+  `/tmp/epistemos-instant-recall-async-agent-event-pr17-red-20260502.log`.
+- PR17 green log:
+  `/tmp/epistemos-instant-recall-async-agent-event-pr17-green-20260502.log`.
+  The focused `InstantRecall - Service` Swift Testing suite passed 25 tests;
+  Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -1129,6 +1153,18 @@ Acceptance:
   ShadowSearch, Halo, editor, graph, UI, approvals, provider routing,
   ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, Rust,
   generated bindings, and EventStore schema.
+- PR17 wired/reachable/visible: InstantRecall async search emits requested,
+  started, and completed/failed AgentEvents for valid
+  `searchAsync(query:topK:)` calls with non-empty async run id, independent async
+  tool call id, actor, source/surface metadata, query-count metadata,
+  hit/document counts, FFI-only elapsed milliseconds, cancellation terminal
+  events, zero-hit completed events, and bounded failure classes. Tests prove
+  query text, note ids, note bodies, result text, snippets, scores, embeddings,
+  invalid inputs, and localized error descriptions are not persisted in
+  AgentEvent arguments/results/errors. Source and behavior stay away from sync
+  search metrics, ShadowSearch, Halo, editor, graph, UI, approvals, provider
+  routing, ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega,
+  Rust, generated bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

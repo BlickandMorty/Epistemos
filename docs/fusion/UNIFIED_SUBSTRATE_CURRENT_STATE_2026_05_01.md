@@ -253,6 +253,17 @@ closed:
   does not change recall behavior, hydration, metrics, async recall, Halo,
   ShadowSearch, UI, approval, routing, graph, Rust, generated bindings, or
   EventStore schema.
+- AgentEvent PR17 now instruments `InstantRecallService.searchAsync(query:topK:)`
+  async recall search. Valid async searches persist requested, started, and
+  completed/failed AgentEvents with `instant-recall-async-...` run ids,
+  independent `instant-recall-search-async:N` tool ids,
+  `surface=instant_recall_async`, typed async failure classes, cancellation
+  terminal rows, zero-hit completed rows, and FFI-only elapsed milliseconds.
+  Query text, note ids, note bodies, result text, snippets, vault paths, source
+  text, scores, embeddings, raw FFI JSON, Halo, ShadowSearch, editor state, and
+  graph state are intentionally excluded. This does not change async recall
+  behavior, hydration, MainActor metrics, UI, approval, routing, graph, Rust,
+  generated bindings, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -670,7 +681,8 @@ Still open:
   CloudLLM direct stream, CloudLLM structured generation, LocalAgentLoop
   tool execution, DriverChannelToolExecutor channel wrapper paths, remote relay
   channel HTTP client paths, AgentGrep search, AgentQueryEngine backend tool
-  streams, and InstantRecall sync recall search.
+  streams, InstantRecall sync recall search, and InstantRecall async recall
+  search.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
@@ -746,7 +758,8 @@ before building.
   DriverChannelToolExecutor provenance PR12, AgentEvent remote relay channel
   provenance PR13, AgentEvent AgentGrep search provenance PR14, AgentEvent
   AgentQueryEngine backend-stream provenance PR15, AgentEvent InstantRecall sync
-  recall provenance PR16, durable
+  recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
+  durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
@@ -801,7 +814,7 @@ are:
   already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR7, AgentEvent PR8, AgentEvent PR9, AgentEvent PR10, AgentEvent
-  PR11, AgentEvent PR12, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
+  PR11, AgentEvent PR12, AgentEvent PR17, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
