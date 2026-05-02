@@ -139,4 +139,18 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
         #expect(!source.contains("@Suite(\"Graph FFI Benchmarks\", .disabled"))
     }
+
+    @Test("R15 PR8 live MLX token throughput baseline uses the real local runtime honestly")
+    @MainActor
+    func r15PR8LiveMLXTokenThroughputBaselineUsesRealLocalRuntimeHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/MLXThermalBenchTests.swift")
+
+        #expect(source.contains("MLXLiveTokenThroughputBaselineRunner"))
+        #expect(source.contains("MLXInferenceService(snapshot:"))
+        #expect(source.contains("LocalMLXClient("))
+        #expect(source.contains("live_mlx_token_throughput_fixture"))
+        #expect(source.contains("EPISTEMOS_RUN_LIVE_MLX_TOKEN_BENCHMARK"))
+        #expect(source.contains("not_five_min_thermal_soak"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+    }
 }
