@@ -26,3 +26,10 @@ Current status on 2026-05-02: round 5 RootView destructive controls PR8 is code/
 | 7 | 2026-05-02T18:05Z | aggregator | slice=graph-event-audit-visibility-pr8 | codex/local | n/a | done | docs/fusion/fleet/graph-event-audit-visibility-pr8/aggregator.md | +1 |
 | 7 | 2026-05-02T18:05Z | pipeline-builder | slice=graph-event-audit-visibility-pr8 | codex/local | n/a | done | docs/fusion/deliberation/graph_event_audit_visibility_pr8_deliberation_2026_05_02.md | +1 |
 | 7 | 2026-05-02T18:05Z | claude-red-team | brief=graph-event-audit-visibility-pr8 | codex/explorer-agent | agent:019de9dd-fe7b-7873-91de-e3ab8051dc8b | done | docs/fusion/fleet/graph-event-audit-visibility-pr8/claude-red-team/attacks.md | +1 |
+| 8 | 2026-05-02T18:19Z | explorer | scope=agent-event-next-slice-scout | codex/explorer-agent | agent:019de9ea-54a4-7253-b005-baaed784f573 | done | transcript | +1 |
+| 8 | 2026-05-02T18:19Z | explorer | scope=graph-event-next-slice-scout | codex/explorer-agent | agent:019de9ea-5508-73a2-af55-11ce1d3028f0 | done | transcript | +1 |
+| 9 | 2026-05-02T18:29Z | detective | concept=AgentEvent provenance hardening | codex/local | n/a | done | docs/fusion/fleet/agent-grep-agent-event-pr14/detectives/agent-event-provenance.md | +1 |
+| 9 | 2026-05-02T18:29Z | detective | concept=AgentGrep search lifecycle | codex/local | n/a | done | docs/fusion/fleet/agent-grep-agent-event-pr14/detectives/agent-grep-search.md | +1 |
+| 9 | 2026-05-02T18:29Z | aggregator | slice=agent-grep-agent-event-pr14 | codex/local | n/a | done | docs/fusion/fleet/agent-grep-agent-event-pr14/aggregator.md | +1 |
+| 9 | 2026-05-02T18:29Z | pipeline-builder | slice=agent-grep-agent-event-pr14 | codex/local | n/a | done | docs/fusion/deliberation/agent_grep_agent_event_pr14_deliberation_2026_05_02.md | +1 |
+| 9 | 2026-05-02T18:31Z | claude-red-team | brief=agent-grep-agent-event-pr14 | codex/explorer-agent | agent:019de9f5-8e27-7ce2-8299-2803e40cc73c | done | docs/fusion/fleet/agent-grep-agent-event-pr14/claude-red-team/attacks.md | +1 |
