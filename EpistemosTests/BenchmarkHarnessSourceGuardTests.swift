@@ -98,4 +98,17 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.contains("Task.sleep"))
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
     }
+
+    @Test("R15 PR5 UniFFI callback fixture baseline uses generated callback handles honestly")
+    @MainActor
+    func r15PR5UniFFICallbackFixtureBaselineUsesGeneratedCallbackHandlesHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/UniFFICallbackThroughputTests.swift")
+
+        #expect(source.contains("UniFFICallbackFixtureBaselineRunner"))
+        #expect(source.contains("generated_uniffi_callback_handle"))
+        #expect(source.contains("not_true_rust_to_swift_loop"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+        #expect(!source.contains("@Suite(\"UniFFI callback throughput\", .disabled"))
+    }
 }

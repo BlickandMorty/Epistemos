@@ -1,0 +1,34 @@
+{
+  "generated_at" : "2026-05-02T00:00:00.000Z",
+  "max" : 359.3083,
+  "measurement" : "uniffi_callback_handle_roundtrip_10000",
+  "metadata" : {
+    "baseline_kind" : "uniffi_callback_pr5_handle_fixture",
+    "callback_method" : "AgentEventDelegate.onTextDelta",
+    "checksum" : "2240000",
+    "fixture_status" : "generated_uniffi_callback_handle",
+    "future_gate" : "true Rust callback-loop export requires generated UniFFI transport gate",
+    "handle_count" : "1",
+    "iterations_per_sample" : "10000",
+    "rust_loop_status" : "not_true_rust_to_swift_loop",
+    "sample_count_target" : "7",
+    "sample_source" : "focused_xcode_test"
+  },
+  "min" : 322.875,
+  "p50" : 332.35,
+  "p95" : 354.97204,
+  "p99" : 358.44104799999997,
+  "sample_count" : 7,
+  "samples" : [
+    322.875,
+    323.5125,
+    325.9,
+    332.35,
+    344.6292,
+    344.8541,
+    359.3083
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 UniFFI Callback Baseline",
+  "unit" : "nanoseconds_per_call"
+}
