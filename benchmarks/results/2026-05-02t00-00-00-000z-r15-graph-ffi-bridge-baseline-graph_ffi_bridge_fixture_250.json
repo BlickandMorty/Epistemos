@@ -1,0 +1,32 @@
+{
+  "generated_at" : "2026-05-02T00:00:00.000Z",
+  "max" : 102601875,
+  "measurement" : "graph_ffi_bridge_fixture_250",
+  "metadata" : {
+    "baseline_kind" : "r15_pr7_graph_ffi_bridge",
+    "checksum" : "19320",
+    "edge_count" : "280",
+    "fixture_status" : "live_graph_engine_ffi_fixture",
+    "graph_engine_authority" : "GraphEngine(device:layer:)",
+    "node_count" : "250",
+    "render_status" : "not_live_render_frame_rate",
+    "sample_count_target" : "5",
+    "sample_source" : "focused_xcode_test",
+    "surface_set" : "create_add_commit_search_position_visibility_force"
+  },
+  "min" : 63209500,
+  "p50" : 68846708,
+  "p95" : 100320625,
+  "p99" : 102145625,
+  "sample_count" : 5,
+  "samples" : [
+    63209500,
+    66315957.99999999,
+    68846708,
+    91195625,
+    102601875
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Graph FFI Bridge Baseline",
+  "unit" : "nanoseconds_per_fixture_roundtrip"
+}

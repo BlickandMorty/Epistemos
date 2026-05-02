@@ -1,188 +1,305 @@
 import Foundation
-import os
+import Metal
+import QuartzCore
 import Testing
+@testable import Epistemos
 
-// MARK: - Graph FFI Benchmark Tests
-//
-// os_signpost-based timing harness for the five boltffi_priority FFI surfaces.
-// These tests exercise the real C FFI boundary (graph_engine_*) and emit
-// signpost intervals visible in Instruments → os_signpost.
-//
-// Disabled by default so CI skips them. Run manually:
-//   xcodebuild test -scheme Epistemos -only-testing:EpistemosTests/GraphFFIBenchmarkTests
+@MainActor
+enum GraphFFIBaselineError: Error {
+    case invalidSampleCount(Int)
+    case invalidNodeCount(Int)
+    case missingMetalDevice
+    case engineCreationFailed
+    case missingRawHandle
+    case emptySearchResults
+    case missingNodeScreenPosition(String)
+}
 
-private let benchLog = OSSignposter(subsystem: "com.epistemos.bench", category: "graph-ffi")
-private let benchLogger = Logger(subsystem: "com.epistemos.bench", category: "graph-ffi")
+@MainActor
+struct GraphFFIBaselineRunner {
+    static let stableGeneratedAt = Date(timeIntervalSince1970: 1_777_680_000)
+    static let expectedReportFilename =
+        "2026-05-02t00-00-00-000z-r15-graph-ffi-bridge-baseline-graph_ffi_bridge_fixture_250.json"
 
-@Suite("Graph FFI Benchmarks", .disabled("Manual benchmark suite — run via Instruments"))
-struct GraphFFIBenchmarkTests {
-
-    // MARK: - Helpers
-
-    /// Measure wall-clock time of a closure, emitting an os_signpost interval.
-    private func measure(
-        _ label: StaticString,
-        resultName: String,
-        iterations: Int = 10,
-        body: () -> Void
-    ) -> Double {
-        var elapsed: [Double] = []
-        elapsed.reserveCapacity(iterations)
-
-        for _ in 0..<iterations {
-            let start = ContinuousClock.now
-            let interval = benchLog.beginInterval(label)
-            body()
-            benchLog.endInterval(label, interval)
-            let duration = ContinuousClock.now - start
-            elapsed.append(Double(duration.components.attoseconds) / 1e18)
+    static func run(
+        resultsDirectory: URL,
+        generatedAt: Date = stableGeneratedAt,
+        sampleCount: Int = 5,
+        nodeCount: Int = 250
+    ) throws -> URL {
+        guard sampleCount > 0 else {
+            throw GraphFFIBaselineError.invalidSampleCount(sampleCount)
+        }
+        guard nodeCount > 1 else {
+            throw GraphFFIBaselineError.invalidNodeCount(nodeCount)
         }
 
-        let median = elapsed.sorted()[elapsed.count / 2]
-        benchLogger.info("\(label, privacy: .public): median=\(median * 1000, privacy: .public)ms over \(iterations, privacy: .public) iterations")
-        _ = try? BenchmarkRunRecorder.record(
-            suite: "Graph FFI Benchmarks",
-            measurement: resultName,
-            unit: "seconds",
-            samples: elapsed,
+        let samples = try measure(sampleCount: sampleCount, nodeCount: nodeCount)
+
+        return try BenchmarkRunRecorder.record(
+            suite: "R15 Graph FFI Bridge Baseline",
+            measurement: "graph_ffi_bridge_fixture_250",
+            unit: "nanoseconds_per_fixture_roundtrip",
+            samples: samples.values,
             metadata: [
-                "iterations": "\(iterations)",
-                "status": "manual benchmark; Swift-side proxy until real graph FFI fixture gate",
-            ]
+                "baseline_kind": "r15_pr7_graph_ffi_bridge",
+                "fixture_status": "live_graph_engine_ffi_fixture",
+                "graph_engine_authority": "GraphEngine(device:layer:)",
+                "surface_set": "create_add_commit_search_position_visibility_force",
+                "render_status": "not_live_render_frame_rate",
+                "sample_source": "focused_xcode_test",
+                "node_count": "\(nodeCount)",
+                "edge_count": "\(edgeCount(for: nodeCount))",
+                "sample_count_target": "\(sampleCount)",
+                "checksum": "\(samples.checksum)",
+            ],
+            generatedAt: generatedAt,
+            resultsDirectory: resultsDirectory
         )
-        return median
     }
 
-    // MARK: - 1. Graph Data Loading
+    static func singleFixtureRoundTrip(nodeCount: Int = 40) throws -> Int {
+        guard nodeCount > 1 else {
+            throw GraphFFIBaselineError.invalidNodeCount(nodeCount)
+        }
 
-    @Test func graphDataLoading() {
-        let n: UInt32 = 500
-        let median = measure("graph_data_loading_500", resultName: "graph_data_loading_500") {
-            let device = MTLCreateSystemDefaultDevice()
-            guard let device else { return }
-            let desc = MTLTextureDescriptor()
-            desc.pixelFormat = .bgra8Unorm_srgb
-            desc.width = 1
-            desc.height = 1
-            _ = device
-            // Graph loading without a real CAMetalLayer: test the Swift-side
-            // batch payload construction which is the bulk of the work.
-            var ids: [String] = []
-            var xs: [Float] = []
-            var ys: [Float] = []
-            var types: [UInt8] = []
-            var linkCounts: [UInt32] = []
-            var labels: [String] = []
-            ids.reserveCapacity(Int(n))
-            xs.reserveCapacity(Int(n))
-            ys.reserveCapacity(Int(n))
-            types.reserveCapacity(Int(n))
-            linkCounts.reserveCapacity(Int(n))
-            labels.reserveCapacity(Int(n))
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw GraphFFIBaselineError.missingMetalDevice
+        }
 
-            for i in 0..<Int(n) {
-                ids.append("node-\(String(format: "%06d", i))")
-                xs.append(Float(i) * 0.1)
-                ys.append(Float(i) * 0.2)
-                types.append(UInt8(i % 8))
-                linkCounts.append(UInt32(i % 10))
-                labels.append("Label \(i)")
+        let layer = CAMetalLayer()
+        layer.device = device
+        layer.pixelFormat = .bgra8Unorm
+        layer.frame = CGRect(x: 0, y: 0, width: 512, height: 512)
+        layer.drawableSize = CGSize(width: 512, height: 512)
+
+        guard let engine = GraphEngine(device: device, layer: layer) else {
+            throw GraphFFIBaselineError.engineCreationFailed
+        }
+        guard let handle = engine.rawHandle else {
+            throw GraphFFIBaselineError.missingRawHandle
+        }
+
+        engine.clear()
+        let ids = makeNodeIDs(count: nodeCount)
+        for index in ids.indices {
+            engine.addNode(
+                uuid: ids[index],
+                x: Float(index % 25) * 5.0,
+                y: Float(index / 25) * 5.0,
+                nodeType: .note,
+                linkCount: linkCount(for: index, nodeCount: nodeCount),
+                label: "R15 Graph FFI Node \(index)"
+            )
+        }
+
+        for index in 0..<(nodeCount - 1) {
+            engine.addEdge(
+                sourceUUID: ids[index],
+                targetUUID: ids[index + 1],
+                weight: 1.0,
+                edgeType: UInt8(index % 12)
+            )
+        }
+
+        for index in stride(from: 0, to: max(0, nodeCount - 8), by: 8) {
+            engine.addEdge(
+                sourceUUID: ids[index],
+                targetUUID: ids[index + 8],
+                weight: 0.35,
+                edgeType: 4
+            )
+        }
+
+        engine.commit(entrance: false)
+        engine.setForceParams(
+            linkDistance: 120,
+            chargeStrength: -420,
+            chargeRange: 420,
+            linkStrength: 0.7
+        )
+
+        let targetIndex = min(42, nodeCount - 1)
+        let searchResults = engine.search(query: "Graph FFI Node \(targetIndex)", limit: 8)
+        guard !searchResults.isEmpty else {
+            throw GraphFFIBaselineError.emptySearchResults
+        }
+
+        let targetID = ids[targetIndex]
+        var screenPosition = [Float](repeating: 0, count: 2)
+        let foundPosition = screenPosition.withUnsafeMutableBufferPointer { buffer -> UInt8 in
+            targetID.withCString { uuidPointer in
+                graph_engine_node_screen_pos(handle, uuidPointer, buffer.baseAddress)
             }
         }
-        #expect(median < 1.0, "Graph data loading for 500 nodes should complete in < 1s")
+        guard foundPosition != 0 else {
+            throw GraphFFIBaselineError.missingNodeScreenPosition(targetID)
+        }
+
+        for index in stride(from: 0, to: nodeCount, by: 17) {
+            engine.setNodeVisible(uuid: ids[index], visible: false)
+        }
+        engine.refreshVisibility()
+        for index in stride(from: 0, to: nodeCount, by: 17) {
+            engine.setNodeVisible(uuid: ids[index], visible: true)
+        }
+        engine.refreshVisibility()
+
+        let world = engine.screenToWorld(screenX: screenPosition[0], screenY: screenPosition[1])
+        engine.pause()
+
+        return searchResults.count
+            &+ Int(foundPosition)
+            &+ Int(screenPosition[0].rounded())
+            &+ Int(screenPosition[1].rounded())
+            &+ Int(world.x.rounded())
+            &+ Int(world.y.rounded())
+            &+ ids.reduce(0) { $0 &+ $1.utf8.count }
     }
 
-    // MARK: - 2. Search Query
+    @inline(never)
+    private static func measure(sampleCount: Int, nodeCount: Int) throws -> (values: [Double], checksum: Int) {
+        var values: [Double] = []
+        values.reserveCapacity(sampleCount)
+        var checksum = 0
 
-    @Test func searchQuery() {
-        let median = measure("search_query_swift_side", resultName: "search_query_swift_side") {
-            // Simulate the Swift-side search dispatch: C string conversion + result mapping.
-            let query = "Label 42"
-            _ = query.cString(using: .utf8)
-            var results: [(uuid: String, score: Float)] = []
-            results.reserveCapacity(20)
-            for i in 0..<20 {
-                results.append((uuid: "node-\(String(format: "%06d", i))", score: Float(20 - i) / 20.0))
-            }
+        for _ in 0..<sampleCount {
+            let start = ContinuousClock.now
+            checksum &+= try singleFixtureRoundTrip(nodeCount: nodeCount)
+            let duration = ContinuousClock.now - start
+            values.append(duration.secondsAsDouble * 1_000_000_000)
         }
-        #expect(median < 0.1, "Search query Swift-side overhead should be < 100ms")
+
+        return (values, checksum)
     }
 
-    // MARK: - 3. Node Position Query Batch
-
-    @Test func nodePositionBatch() {
-        let n = 200
-        let median = measure("node_position_batch_200", resultName: "node_position_batch_200") {
-            // Simulate the batch position query that MetalGraphView does each frame
-            // for selected node screen-space tracking.
-            var positions: [(Float, Float)] = []
-            positions.reserveCapacity(n)
-            for i in 0..<n {
-                let x = Float(i) * 1.5
-                let y = Float(i) * 2.3
-                positions.append((x, y))
-            }
-            // Simulate coordinate transform (backing scale factor)
-            let scale: CGFloat = 2.0
-            for (x, y) in positions {
-                let _ = CGPoint(
-                    x: CGFloat(x) / scale,
-                    y: 800.0 - CGFloat(y) / scale
-                )
-            }
+    private static func makeNodeIDs(count: Int) -> [String] {
+        var ids: [String] = []
+        ids.reserveCapacity(count)
+        for index in 0..<count {
+            ids.append("r15-pr7-node-\(index)")
         }
-        #expect(median < 0.01, "Position batch for 200 nodes should complete in < 10ms")
+        return ids
     }
 
-    // MARK: - 4. Markdown Parse (Structure)
-
-    @Test func markdownParse() {
-        let markdown = (0..<100).map { i in
-            "## Section \(i)\n\nParagraph with **bold** and *italic* text.\n\n- Item A\n- Item B\n\n"
-        }.joined()
-
-        let median = measure(
-            "markdown_parse_structure_100_sections",
-            resultName: "markdown_parse_structure_100_sections"
-        ) {
-            guard let cStr = markdown.cString(using: .utf8) else { return }
-            var spansPtr: UnsafeMutablePointer<StyleSpan>?
-            var count: UInt32 = 0
-            let result = markdown_parse(cStr, UInt32(cStr.count - 1), &spansPtr, &count)
-            if result == 0, let spans = spansPtr {
-                markdown_free_spans(spans, count)
-            }
+    private static func linkCount(for index: Int, nodeCount: Int) -> UInt32 {
+        if index == 0 || index == nodeCount - 1 {
+            return 1
         }
-        #expect(median < 0.5, "Markdown parse for ~10KB should complete in < 500ms")
+        return index.isMultiple(of: 8) ? 3 : 2
     }
 
-    // MARK: - 5. SDF Label Rendering Data Prep
+    private static func edgeCount(for nodeCount: Int) -> Int {
+        var skipEdgeCount = 0
+        for _ in stride(from: 0, to: max(0, nodeCount - 8), by: 8) {
+            skipEdgeCount += 1
+        }
+        return max(0, nodeCount - 1) + skipEdgeCount
+    }
+}
 
-    @Test func sdfLabelDataPrep() {
-        let n = 300
-        let median = measure("sdf_label_data_prep_300", resultName: "sdf_label_data_prep_300") {
-            // Simulate the glyph metric array construction that happens at atlas load.
-            struct GlyphMetric {
-                var codepoint: UInt32
-                var uvX: Float; var uvY: Float; var uvW: Float; var uvH: Float
-                var halfWEm: Float; var halfHEm: Float
-                var bearingXEm: Float; var bearingYEm: Float
-                var advanceEm: Float
-            }
-            var metrics: [GlyphMetric] = []
-            metrics.reserveCapacity(n)
-            for i in 0..<n {
-                let cp = UInt32(32 + (i % 95))
-                metrics.append(GlyphMetric(
-                    codepoint: cp,
-                    uvX: Float(i) * 0.003, uvY: Float(i) * 0.003,
-                    uvW: 0.01, uvH: 0.01,
-                    halfWEm: 0.5, halfHEm: 0.5,
-                    bearingXEm: 0.0, bearingYEm: 0.8,
-                    advanceEm: 0.6
-                ))
+@Suite("R15 Graph FFI bridge baseline")
+@MainActor
+struct GraphFFIBenchmarkTests {
+    @Test("Graph FFI bridge baseline writes finite decodable report")
+    func graphFFIBridgeBaselineWritesFiniteDecodableReport() throws {
+        let configuration = configuredResultsDirectory()
+        let resultsDirectory = configuration.url
+        let shouldCleanUp = configuration.removeAfterRun
+        defer {
+            if shouldCleanUp {
+                try? FileManager.default.removeItem(at: resultsDirectory)
             }
         }
-        #expect(median < 0.01, "SDF label data prep for 300 glyphs should complete in < 10ms")
+
+        let outputURL = try GraphFFIBaselineRunner.run(resultsDirectory: resultsDirectory)
+
+        #expect(outputURL.lastPathComponent == GraphFFIBaselineRunner.expectedReportFilename)
+
+        let data = try Data(contentsOf: outputURL)
+        let report = try JSONDecoder().decode(BenchmarkRunReport.self, from: data)
+        #expect(report.schema_version == 1)
+        #expect(report.generated_at == "2026-05-02T00:00:00.000Z")
+        #expect(report.suite == "R15 Graph FFI Bridge Baseline")
+        #expect(report.measurement == "graph_ffi_bridge_fixture_250")
+        #expect(report.unit == "nanoseconds_per_fixture_roundtrip")
+        #expect(report.sample_count == 5)
+        #expect(report.samples.count == report.sample_count)
+        for sample in report.samples {
+            #expect(sample.isFinite)
+            #expect(sample >= 0)
+        }
+        #expect(report.max >= report.min)
+        #expect(report.metadata["baseline_kind"] == "r15_pr7_graph_ffi_bridge")
+        #expect(report.metadata["fixture_status"] == "live_graph_engine_ffi_fixture")
+        #expect(report.metadata["graph_engine_authority"] == "GraphEngine(device:layer:)")
+        #expect(report.metadata["surface_set"] == "create_add_commit_search_position_visibility_force")
+        #expect(report.metadata["render_status"] == "not_live_render_frame_rate")
+        #expect(report.metadata["node_count"] == "250")
+        #expect(report.metadata["sample_count_target"] == "5")
+        #expect(report.metadata["checksum"]?.isEmpty == false)
+    }
+
+    @Test("Graph FFI bridge fixture reaches live search and node position surfaces")
+    func graphFFIBridgeFixtureReachesLiveSearchAndNodePositionSurfaces() throws {
+        let checksum = try GraphFFIBaselineRunner.singleFixtureRoundTrip(nodeCount: 32)
+
+        #expect(checksum != 0)
+    }
+
+    @Test("Graph FFI bridge baseline rejects invalid counts")
+    func graphFFIBridgeBaselineRejectsInvalidCounts() throws {
+        do {
+            _ = try GraphFFIBaselineRunner.run(
+                resultsDirectory: FileManager.default.temporaryDirectory,
+                sampleCount: 0
+            )
+            Issue.record("Expected invalidSampleCount for zero samples")
+        } catch GraphFFIBaselineError.invalidSampleCount(let count) {
+            #expect(count == 0)
+        } catch {
+            Issue.record("Expected invalidSampleCount, got \(error)")
+        }
+
+        do {
+            _ = try GraphFFIBaselineRunner.run(
+                resultsDirectory: FileManager.default.temporaryDirectory,
+                nodeCount: 1
+            )
+            Issue.record("Expected invalidNodeCount for one node")
+        } catch GraphFFIBaselineError.invalidNodeCount(let count) {
+            #expect(count == 1)
+        } catch {
+            Issue.record("Expected invalidNodeCount, got \(error)")
+        }
+    }
+
+    private func configuredResultsDirectory() -> (url: URL, removeAfterRun: Bool) {
+        if let override = ProcessInfo.processInfo.environment["EPISTEMOS_BENCHMARK_RESULTS_DIR"] {
+            return (URL(fileURLWithPath: override, isDirectory: true), false)
+        }
+
+        let repoResultsDirectory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("benchmarks", isDirectory: true)
+            .appendingPathComponent("results", isDirectory: true)
+        if FileManager.default.fileExists(atPath: repoResultsDirectory.path) {
+            return (repoResultsDirectory, false)
+        }
+
+        return (
+            FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true),
+            true
+        )
+    }
+}
+
+private extension Duration {
+    nonisolated var secondsAsDouble: Double {
+        let components = self.components
+        return Double(components.seconds) + Double(components.attoseconds) / 1e18
     }
 }
