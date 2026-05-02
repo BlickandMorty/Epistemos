@@ -16,12 +16,17 @@
 - RESEARCH-FIRST FOR EVERY TASK. Before code, docs, refactors, reroutes,
   reductions, or "simple" edits, search
   `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`, read the canonical local
-  source it names, then verify current code/logs. If local canon has no
-  structured answer or current API/OS/model/package/App Store/security facts
-  matter, run targeted web validation with primary/official sources. Use
-  semantic expansion: "zero-copy" means UMA, shared buffers, IOSurface,
-  in-process, single-binary, deterministic provenance, no hot-path subprocess,
-  no tensor copies, and the direct/bare-metal Epistemos philosophy.
+  source it names, then verify current code/logs. Use a quick local pass for
+  simple edits and a deeper pass for architecture/high-risk work; do not waste
+  tokens reading unrelated docs. If local canon has no structured answer or
+  current API/OS/model/package/App Store/security facts matter, run targeted web
+  validation with primary/official sources. Web validates the local plan; it
+  does not replace the user's research corpus. Apply the same rule to Claude,
+  Codex, Kimi, and every delegated agent handoff. Use semantic expansion:
+  "zero-copy" means UMA, shared buffers, IOSurface, in-process, single-binary,
+  deterministic provenance, no hot-path subprocess, no tensor copies,
+  direct/bare-metal path, and "as complex as a brain, as simple as an app, as
+  fast as a jet."
 - Zero test regressions against the 2,679-test suite.
 - PRESERVE THINKING BLOCKS. When stop_reason is "tool_use", pass the ENTIRE content array back including thinking blocks + signatures. Dropping them kills the agent.
 - STREAM EVERYTHING. Forward every token to the delegate immediately. No buffering.
