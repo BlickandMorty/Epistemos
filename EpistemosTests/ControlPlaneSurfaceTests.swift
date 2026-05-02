@@ -228,6 +228,165 @@ struct ControlPlaneSurfaceTests {
         #expect(adapter.deliveryMetadata["display_target"] == "Ops Alerts")
     }
 
+    @MainActor
+    @Test("remote relay adapter records successful tool provenance")
+    func remoteRelayAdapterRecordsSuccessfulToolProvenance() async throws {
+        let session = makeRelayChannelAgentEventURLSession { request in
+            let url = try #require(request.url)
+            #expect(url.path == "/v1/channels/telegram/messages")
+            #expect(request.httpMethod == "POST")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer relay-secret")
+            #expect(request.value(forHTTPHeaderField: "X-Epistemos-Sender") == "Mac mini")
+
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: nil)
+            )
+            return (response, #"{"delivered":true}"#.data(using: .utf8) ?? Data())
+        }
+        let sink = DriverChannelAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 779 },
+            persist: { event in sink.append(event) }
+        )
+        let relay = try #require(ChannelRelayConfiguration(metadata: ChannelPairingMetadata(
+            relayEndpoint: "https://relay.example.com",
+            relayCredential: "relay-secret",
+            senderIdentity: "Mac mini",
+            enableNativeFallback: false,
+            keepAliveOnLaunch: false
+        )))
+        let adapter = RemoteRelayChannelAdapter(
+            channelID: "telegram",
+            displayName: "Telegram",
+            relay: relay,
+            deliveryMetadata: [:],
+            urlSession: session,
+            agentProvenanceRecorder: recorder
+        )
+
+        try await adapter.send(
+            message: "hello from relay",
+            to: "123456",
+            vaultPath: "/tmp/epistemos-channel-vault"
+        )
+
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("relay-channel-telegram-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "relay-channel-tool:1" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "driver_channel.remote_relay" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "relay_channel_client" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "driver_channel_remote_relay" })
+        #expect(sink.events.allSatisfy { $0.metadata["channel"] == "telegram" })
+        #expect(sink.events.allSatisfy { $0.metadata["route"] == "send" })
+        #expect(sink.events.last?.tool?.resultJSON?.contains("status_code") == true)
+
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("hello from relay"))
+            #expect(!tool.argumentsJSON.contains("relay-secret"))
+            #expect(!tool.argumentsJSON.contains("relay.example.com"))
+            #expect(!(tool.resultJSON ?? "").contains("delivered"))
+        }
+    }
+
+    @MainActor
+    @Test("remote relay adapter records failed tool provenance")
+    func remoteRelayAdapterRecordsFailedToolProvenance() async throws {
+        let session = makeRelayChannelAgentEventURLSession { _ in
+            throw URLError(.notConnectedToInternet)
+        }
+        let sink = DriverChannelAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 780 },
+            persist: { event in sink.append(event) }
+        )
+        let relay = try #require(ChannelRelayConfiguration(metadata: ChannelPairingMetadata(
+            relayEndpoint: "https://relay.example.com",
+            relayCredential: "relay-secret",
+            senderIdentity: "Mac mini",
+            enableNativeFallback: false,
+            keepAliveOnLaunch: false
+        )))
+        let adapter = RemoteRelayChannelAdapter(
+            channelID: "telegram",
+            displayName: "Telegram",
+            relay: relay,
+            deliveryMetadata: [:],
+            urlSession: session,
+            agentProvenanceRecorder: recorder
+        )
+
+        await #expect(throws: DriverChannelError.self) {
+            try await adapter.send(
+                message: "hello from relay",
+                to: "123456",
+                vaultPath: "/tmp/epistemos-channel-vault"
+            )
+        }
+
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage?.contains("relay request failed") == true)
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("hello from relay"))
+            #expect(!tool.argumentsJSON.contains("relay-secret"))
+            #expect(!tool.argumentsJSON.contains("relay.example.com"))
+        }
+    }
+
+    @MainActor
+    @Test("remote relay adapter redacts HTTP error bodies from provenance")
+    func remoteRelayAdapterRedactsHTTPErrorBodiesFromProvenance() async throws {
+        let session = makeRelayChannelAgentEventURLSession { request in
+            let url = try #require(request.url)
+            let response = try #require(
+                HTTPURLResponse(url: url, statusCode: 502, httpVersion: nil, headerFields: nil)
+            )
+            return (
+                response,
+                "upstream secret body with relay-token-123".data(using: .utf8) ?? Data()
+            )
+        }
+        let sink = DriverChannelAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 781 },
+            persist: { event in sink.append(event) }
+        )
+        let relay = try #require(ChannelRelayConfiguration(metadata: ChannelPairingMetadata(
+            relayEndpoint: "https://relay.example.com",
+            relayCredential: "relay-secret",
+            senderIdentity: "Mac mini",
+            enableNativeFallback: false,
+            keepAliveOnLaunch: false
+        )))
+        let adapter = RemoteRelayChannelAdapter(
+            channelID: "telegram",
+            displayName: "Telegram",
+            relay: relay,
+            deliveryMetadata: [:],
+            urlSession: session,
+            agentProvenanceRecorder: recorder
+        )
+
+        await #expect(throws: DriverChannelError.self) {
+            try await adapter.send(
+                message: "hello from relay",
+                to: "123456",
+                vaultPath: "/tmp/epistemos-channel-vault"
+            )
+        }
+
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        let errorMessage = try #require(sink.events.last?.tool?.errorMessage)
+        #expect(errorMessage.contains("relay HTTP 502"))
+        #expect(!errorMessage.contains("upstream secret body"))
+        #expect(!errorMessage.contains("relay-token-123"))
+        #expect(!errorMessage.contains("relay-secret"))
+        #expect(!errorMessage.contains("relay.example.com"))
+    }
+
     @Test("session browser extracts summary sections and a searchable corpus")
     func sessionBrowserExtractsSummarySectionsAndSearchableCorpus() {
         let markdown = """
@@ -688,6 +847,46 @@ struct ControlPlaneSurfaceTests {
         #expect(entries.first?.tags == ["research", "synthesis"])
         #expect(entries.first?.description == "Merge notes into one research memo.")
     }
+}
+
+private func makeRelayChannelAgentEventURLSession(
+    handler: @escaping @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)
+) -> URLSession {
+    RelayChannelAgentEventURLProtocol.handler = handler
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.protocolClasses = [RelayChannelAgentEventURLProtocol.self]
+    return URLSession(configuration: configuration)
+}
+
+private nonisolated final class RelayChannelAgentEventURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var handler: (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        _ = request
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.handler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
 }
 
 private func jsonObject(from jsonString: String) -> [String: Any]? {
