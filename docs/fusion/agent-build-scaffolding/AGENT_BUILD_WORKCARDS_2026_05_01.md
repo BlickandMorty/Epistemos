@@ -651,6 +651,15 @@ metadata, without changing approval, routing, UI, HookRegistry,
 ChatCoordinator, PipelineService, graph, Rust, generated bindings, or
 EventStore schema.
 
+PR8 CloudLLM non-streaming cloud generation provenance is also closed.
+`CloudLLMClient.generate(...)` now records requested, started, and
+completed/failed AgentEvents for direct cloud-provider generation with
+`cloud-llm-...` run ids, `cloud-llm-client` actor metadata, and sanitized
+provider/model/mode/route payloads. Prompt bodies, system prompts, credentials,
+request bodies, URLs, and generated answer text are intentionally excluded.
+This records the cloud-provider surface as `hermesGateway` class without adding
+a Hermes subprocess adapter or changing provider routing.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -674,6 +683,9 @@ Authority to read first:
 - `docs/fusion/deliberation/reasoning_loop_agent_event_pr7_deliberation_2026_05_02.md`
 - `Epistemos/Omega/Inference/ReasoningLoopService.swift` only for PR7 evidence
   or a future ReasoningLoop regression fix gate.
+- `docs/fusion/deliberation/cloud_llm_agent_event_pr8_deliberation_2026_05_02.md`
+- `Epistemos/Engine/LLMService.swift` only for PR8 CloudLLM generate evidence
+  or a future CloudLLM provenance regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -685,9 +697,12 @@ Allowed write set:
   local tool-loop only.
 - PR7 Omega ReasoningLoop internal tool-call provenance: already closed for
   existing reasoning-loop internal search calls only.
-- Future provider-native, direct-stream, ChatCoordinator, Omega paths beyond
-  ReasoningLoop internal search, or broader runtime instrumentation only after
-  a new deliberation gate names exact runtime files and focused tests.
+- PR8 CloudLLM non-streaming cloud generation provenance: already closed for
+  `CloudLLMClient.generate(...)` only.
+- Future provider-native structured output paths, direct-stream paths,
+  ChatCoordinator paths beyond PR3, Omega paths beyond ReasoningLoop internal
+  search, or broader runtime instrumentation only after a new deliberation gate
+  names exact runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -749,6 +764,12 @@ Tests and logs:
   `/tmp/epistemos-reasoning-loop-agent-event-pr7-green-20260502.log`.
   The focused behavior test passed; Xcode still printed known SwiftLint
   package-plugin noise after `TEST SUCCEEDED`.
+- PR8 red log:
+  `/tmp/epistemos-cloud-llm-agent-event-pr8-red-20260502.log`.
+- PR8 green log:
+  `/tmp/epistemos-cloud-llm-agent-event-pr8-green-20260502.log`.
+  The focused behavior tests passed; Xcode still printed known SwiftLint
+  package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -789,6 +810,14 @@ Acceptance:
   run id, tool call id, actor, metadata, and bounded JSON result payload.
   Source and behavior stay away from HookRegistry, approvals, ChatCoordinator,
   PipelineService, graph, Rust, generated bindings, UI, and EventStore schema.
+- PR8 wired/reachable/visible: CloudLLM non-streaming `generate(...)` emits
+  requested, started, and completed/failed AgentEvents with non-empty run id,
+  tool call id, actor, Hermes route metadata, and sanitized JSON payloads that
+  exclude prompts, system prompts, credentials, request bodies, URLs, and model
+  output text. Source and behavior stay away from provider routing, streaming,
+  structured-output native paths, Hermes subprocesses, MCP, CLI, approvals,
+  ChatCoordinator, PipelineService, Omega, graph, Rust, generated bindings, UI,
+  and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

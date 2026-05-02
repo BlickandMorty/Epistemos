@@ -642,6 +642,7 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     private let inference: InferenceState
     private let urlSession: URLSession
     private let knowledgeProfileStore: KnowledgeProfileStore
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
 
     /// Active sink for reasoning deltas extracted from direct-cloud
     /// streams (DeepSeek-R1 `reasoning_content`, OpenAI Responses
@@ -663,11 +664,13 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
     init(
         inference: InferenceState,
         urlSession: URLSession = .shared,
-        knowledgeProfileStore: KnowledgeProfileStore = KnowledgeProfileStore()
+        knowledgeProfileStore: KnowledgeProfileStore = KnowledgeProfileStore(),
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
     ) {
         self.inference = inference
         self.urlSession = urlSession
         self.knowledgeProfileStore = knowledgeProfileStore
+        self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
     func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -687,56 +690,120 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
         model: CloudTextModelID,
         operatingMode: EpistemosOperatingMode
     ) async throws -> String {
-        let credential = try await resolvedCredential(for: model.provider)
-        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
-            from: systemPrompt,
+        let runID = "cloud-llm-\(UUID().uuidString)"
+        let toolCallID = "cloud-llm-generate:1"
+        let actor = AgentProvenanceActor.agent(
+            id: "cloud-llm-client",
             modelID: model.vendorModelID
         )
+        let argumentsJSON = cloudLLMGenerateArgumentsJSON(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            maxTokens: maxTokens,
+            model: model,
+            operatingMode: operatingMode
+        )
+        let metadata = cloudLLMGenerateMetadata(
+            model: model,
+            operatingMode: operatingMode
+        )
+        recordCloudLLMGenerateEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: metadata
+        )
+        recordCloudLLMGenerateEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: metadata
+        )
+        let startedAt = Date()
 
-        switch model.provider {
-        case .openAI:
-            return try await generateOpenAI(
-                model: model,
-                credential: credential,
-                prompt: prompt,
-                systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens,
-                operatingMode: operatingMode
+        do {
+            let credential = try await resolvedCredential(for: model.provider)
+            let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(
+                from: systemPrompt,
+                modelID: model.vendorModelID
             )
-        case .anthropic:
-            return try await generateAnthropic(
-                model: model,
-                credential: credential,
-                prompt: prompt,
-                systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens
+            let output: String
+            switch model.provider {
+            case .openAI:
+                output = try await generateOpenAI(
+                    model: model,
+                    credential: credential,
+                    prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens,
+                    operatingMode: operatingMode
+                )
+            case .anthropic:
+                output = try await generateAnthropic(
+                    model: model,
+                    credential: credential,
+                    prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens
+                )
+            case .google:
+                output = try await generateGoogle(
+                    model: model,
+                    credential: credential,
+                    prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens
+                )
+            case .zai, .kimi, .deepseek:
+                output = try await generateOpenAICompatible(
+                    provider: model.provider,
+                    model: model,
+                    credential: credential,
+                    prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens
+                )
+            case .minimax:
+                output = try await generateAnthropicCompatible(
+                    provider: .minimax,
+                    model: model,
+                    credential: credential,
+                    prompt: prompt,
+                    systemPrompt: resolvedSystemPrompt,
+                    maxTokens: maxTokens
+                )
+            }
+            recordCloudLLMGenerateEvent(
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: cloudLLMGenerateResultJSON(output: output),
+                durationMs: cloudLLMDurationMilliseconds(since: startedAt),
+                status: .completed,
+                metadata: metadata
             )
-        case .google:
-            return try await generateGoogle(
-                model: model,
-                credential: credential,
-                prompt: prompt,
-                systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens
+            return output
+        } catch {
+            recordCloudLLMGenerateEvent(
+                runID: runID,
+                kind: .toolCallFailed,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: cloudLLMDurationMilliseconds(since: startedAt),
+                status: .failed,
+                errorMessage: error.localizedDescription,
+                metadata: metadata
             )
-        case .zai, .kimi, .deepseek:
-            return try await generateOpenAICompatible(
-                provider: model.provider,
-                model: model,
-                credential: credential,
-                prompt: prompt,
-                systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens
-            )
-        case .minimax:
-            return try await generateAnthropicCompatible(
-                provider: .minimax,
-                model: model,
-                credential: credential,
-                prompt: prompt,
-                systemPrompt: resolvedSystemPrompt,
-                maxTokens: maxTokens
-            )
+            throw error
         }
     }
 
@@ -963,6 +1030,89 @@ final class CloudLLMClient: CloudConfigurableLLMClient {
             throw CloudLLMError.modelRequired
         }
         return model
+    }
+
+    private func cloudLLMGenerateArgumentsJSON(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) -> String {
+        cloudLLMJSONPayload([
+            "provider": model.provider.rawValue,
+            "model": model.vendorModelID,
+            "operating_mode": operatingMode.rawValue,
+            "max_tokens": String(maxTokens),
+            "prompt_utf8_bytes": String(prompt.utf8.count),
+            "has_system_prompt": String(systemPrompt?.isEmpty == false),
+            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+        ])
+    }
+
+    private func cloudLLMGenerateResultJSON(output: String) -> String {
+        cloudLLMJSONPayload([
+            "output_utf8_bytes": String(output.utf8.count),
+            "output_length": String(output.count),
+        ])
+    }
+
+    private func cloudLLMGenerateMetadata(
+        model: CloudTextModelID,
+        operatingMode: EpistemosOperatingMode
+    ) -> [String: String] {
+        [
+            "source": "cloud_llm_client",
+            "provider": model.provider.rawValue,
+            "model": model.vendorModelID,
+            "operating_mode": operatingMode.rawValue,
+            "surface": "cloud_provider",
+            "route": HermesGatewayPolicy.route(for: .cloudProvider).rawValue,
+        ]
+    }
+
+    private func recordCloudLLMGenerateEvent(
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        agentProvenanceRecorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "cloud_model.generate",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private func cloudLLMDurationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else { return 0 }
+        guard milliseconds < Double(UInt64.max) else { return UInt64.max }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private func cloudLLMJSONPayload(_ values: [String: String]) -> String {
+        guard JSONSerialization.isValidJSONObject(values),
+              let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
     }
 
     private func resolvedCredential(for provider: CloudModelProvider) async throws -> CloudProviderResolvedCredential {
