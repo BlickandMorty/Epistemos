@@ -102,6 +102,16 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("Do not route already-available local substrate answers through tools"))
     }
 
+    @Test("system prompt preserves fast unified gateway semantics")
+    func systemPromptPreservesFastUnifiedGatewaySemantics() {
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
+
+        #expect(prompt.contains("single fast gateway for cloud models, CLI delegation, MCP/web tools, and explicit external side effects"))
+        #expect(prompt.contains("Keep deterministic local substrate answers on the direct path"))
+        #expect(prompt.contains("must not add a gateway hop when no external context is needed"))
+        #expect(prompt.contains("Return external evidence as structured artifacts and provenance, not graph or Rex authority"))
+    }
+
     @Test("system prompt keeps explicit file paths stable for local tool loops")
     func systemPromptKeepsExplicitFilePathsStable() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool(), writeTool(), readTool()])

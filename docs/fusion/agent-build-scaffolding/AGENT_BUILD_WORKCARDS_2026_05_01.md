@@ -1056,6 +1056,12 @@ that Hermes is the tool-call and external-intelligence membrane, not the graph,
 Rex, or deterministic substrate authority. It also preserves the direct local
 answer path when context is already available, so Hermes stays unified without
 becoming a slow wrapper around deterministic substrate work.
+Fast-path PR2 is closed. The prompt now names Hermes as the single fast gateway
+for cloud models, CLI delegation, MCP/web tools, and explicit external side
+effects while saying deterministic local substrate answers must stay on the
+direct path and must not pay a gateway hop when no external context is needed.
+External evidence returns as structured artifacts and provenance, not graph or
+Rex authority.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -1088,10 +1094,17 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-directness-pr1-red-20260502.log`.
 - Green log:
   `/tmp/epistemos-hermes-gateway-directness-pr1-green-20260502.log`.
+- PR2 Deliberation:
+  `docs/fusion/deliberation/hermes_gateway_fast_path_pr2_deliberation_2026_05_02.md`.
+- PR2 Red log:
+  `/tmp/epistemos-hermes-gateway-fast-path-pr2-red-20260502.log`.
+- PR2 Green log:
+  `/tmp/epistemos-hermes-gateway-fast-path-pr2-green-20260502.log`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesPromptBuilderTests test`.
-- Note: the focused Swift Testing suite passed 9 tests. Xcode still printed
-  known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+- Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
+  10-test suite. Xcode still printed known SwiftLint package-plugin noise
+  after `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
@@ -1100,6 +1113,11 @@ Acceptance:
 - PR1 visible: docs now tell future builders that direct local substrate answers
   should not be routed through tools.
 - PR1 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
+  transport, entitlement, protected graph, or protected editor path was touched.
+- PR2 wired: Hermes prompt carries the single fast gateway, no gateway tax, and
+  structured external evidence invariants.
+- PR2 reachable: focused prompt tests prove the fast-path wording stays present.
+- PR2 boundary: no provider, subprocess, MCP, cloud, graph, Rust, generated
   transport, entitlement, protected graph, or protected editor path was touched.
 
 Stop Triggers:
