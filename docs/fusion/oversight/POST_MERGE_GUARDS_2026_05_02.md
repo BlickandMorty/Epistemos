@@ -35,6 +35,18 @@
 - log: `✔ Test "Search records sanitized AgentEvents" passed`
 - test: `InstantRecall — Service`
 
+## instant-recall-async-agent-event-pr17
+
+- grep: `instant-recall-async-`
+- grep: `instant-recall-search-async`
+- grep: `surface: "instant_recall_async"`
+- forbidden grep: `(argumentsJSON|resultJSON|errorMessage).*(query_text|queryText|note_id|noteId|note_body|noteBody|snippet|embedding|score|raw_json|localizedDescription)`
+- staged guard: `git diff --cached --name-only -- agent_core graph-engine Epistemos/Views Epistemos/Omega Epistemos.xcodeproj Epistemos/State/EventStore.swift Epistemos/App/ChatCoordinator.swift Epistemos/Engine/PipelineService.swift Epistemos/LocalAgent/LocalAgentLoop.swift Epistemos/Engine/LLMService.swift Epistemos/Engine/ShadowSearchService.swift Epistemos/Engine/HaloController.swift Epistemos/Engine/HaloEditorBridge.swift`
+- log: `✔ Test "Async search records sanitized AgentEvents" passed`
+- log: `✔ Test "Async search records completed AgentEvents for valid zero-hit results" passed`
+- log: `✔ Test "Cancelled async search records terminal AgentEvent" passed`
+- test: `InstantRecall — Service`
+
 ## oplog-replay-bundle-export-pr5
 
 - grep: `MutationOpLogReplayBundle`

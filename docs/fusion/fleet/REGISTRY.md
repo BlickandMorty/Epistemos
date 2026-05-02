@@ -61,3 +61,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 14 | 2026-05-02T20:14Z | implementation | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | Epistemos/Engine/MutationOpLogReplay.swift | +1 |
 | 14 | 2026-05-02T20:14Z | test | suite=OpLogSwiftBridgeTests | xcodebuild | session:15383 | done | /tmp/epistemos-oplog-incremental-replay-pr6-green-20260502.log | +1 |
 | 14 | 2026-05-02T20:14Z | guard | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 15 | 2026-05-02T20:17Z | claude-side-fleet | scope=next-provenance-slice-selection | claude/print-readonly | session:70972 | done | docs/fusion/fleet/round-15-next-provenance-slice-selection/claude-side-fleet/aggregator.md | +1 |
+| 16 | 2026-05-02T20:22Z | detective | concept=AgentEvent provenance hardening | codex/local | n/a | done | docs/fusion/fleet/instant-recall-async-agent-event-pr17/detectives/agent-event-provenance.md | +1 |
+| 16 | 2026-05-02T20:22Z | detective | concept=InstantRecall async recall search | codex/local | n/a | done | docs/fusion/fleet/instant-recall-async-agent-event-pr17/detectives/instant-recall-async.md | +1 |
+| 16 | 2026-05-02T20:22Z | aggregator | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | docs/fusion/fleet/instant-recall-async-agent-event-pr17/aggregator.md | +1 |
+| 16 | 2026-05-02T20:22Z | pipeline-builder | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | docs/fusion/deliberation/instant_recall_async_agent_event_pr17_deliberation_2026_05_02.md | +1 |
+| 16 | 2026-05-02T20:24Z | claude-red-team | brief=instant-recall-async-agent-event-pr17 | claude/print-readonly | session:86409 | done | docs/fusion/fleet/instant-recall-async-agent-event-pr17/claude-red-team/attacks.md | +1 |
+| 16 | 2026-05-02T20:36Z | implementation | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | Epistemos/KnowledgeFusion/InstantRecallService.swift | +1 |
+| 16 | 2026-05-02T20:36Z | test | suite=InstantRecallServiceTests | xcodebuild | session:44506 | done | /tmp/epistemos-instant-recall-async-agent-event-pr17-green-20260502.log | +1 |
+| 16 | 2026-05-02T20:36Z | guard | slice=instant-recall-async-agent-event-pr17 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

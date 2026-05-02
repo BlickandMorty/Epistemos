@@ -20,6 +20,19 @@ private struct InstantRecallRebuildSummary: Sendable {
     let elapsedMs: Double
 }
 
+private enum InstantRecallAsyncFailureClass: String, Sendable {
+    case nonUTF8JSON = "non_utf8_json"
+    case unexpectedJSONShape = "unexpected_json_shape"
+    case jsonDecodeFailure = "json_decode_failure"
+    case cancelled
+}
+
+private struct InstantRecallAsyncSearchOutcome: Sendable {
+    let results: [InstantRecallResult]
+    let elapsedMs: Double
+    let failureClass: InstantRecallAsyncFailureClass?
+}
+
 /// Result from an instant recall search.
 struct InstantRecallResult: Identifiable, Sendable {
     let id: String  // doc_id
@@ -59,6 +72,7 @@ final class InstantRecallService {
     private var initialSnapshotProvider: (() -> [(id: String, text: String)])?
     private var hasHydratedInitialSnapshot = false
     private var searchSequence: UInt64 = 0
+    private var asyncSearchSequence: UInt64 = 0
 
     init(agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()) {
         self.agentProvenanceRecorder = agentProvenanceRecorder
@@ -216,7 +230,8 @@ final class InstantRecallService {
         let baseMetadata = instantRecallSearchMetadata(
             queryCharacterCount: queryCharacterCount,
             queryTermCount: queryTermCount,
-            topK: topK
+            topK: topK,
+            surface: "instant_recall"
         )
         recordInstantRecallSearchEvent(
             runID: runID,
@@ -386,6 +401,11 @@ final class InstantRecallService {
         return "instant-recall-search:\(searchSequence)"
     }
 
+    private func nextInstantRecallAsyncToolCallID() -> String {
+        asyncSearchSequence = asyncSearchSequence == UInt64.max ? 1 : asyncSearchSequence + 1
+        return "instant-recall-search-async:\(asyncSearchSequence)"
+    }
+
     private func recordInstantRecallSearchEvent(
         runID: String,
         kind: AgentProvenanceEventKind,
@@ -437,11 +457,12 @@ final class InstantRecallService {
     private func instantRecallSearchMetadata(
         queryCharacterCount: Int,
         queryTermCount: Int,
-        topK: Int
+        topK: Int,
+        surface: String
     ) -> [String: String] {
         [
             "source": "instant_recall_service",
-            "surface": "instant_recall",
+            "surface": surface,
             "top_k": String(topK),
             "query_char_count": String(queryCharacterCount),
             "query_term_count": String(queryTermCount)
@@ -481,10 +502,121 @@ final class InstantRecallService {
         guard !normalizedQueryText.isEmpty, topK > 0 else { return [] }
         hydrateInitialSnapshotIfNeeded()
 
+        let runID = "instant-recall-async-\(UUID().uuidString)"
+        let toolCallID = nextInstantRecallAsyncToolCallID()
+        let actor = AgentProvenanceActor.agent(id: "instant-recall-service", modelID: nil)
+        let queryCharacterCount = normalizedQueryText.count
+        let queryTermCount = instantRecallQueryTermCount(normalizedQueryText)
+        let argumentsJSON = instantRecallSearchArgumentsJSON(
+            queryCharacterCount: queryCharacterCount,
+            queryTermCount: queryTermCount,
+            topK: topK
+        )
+        let baseMetadata = instantRecallSearchMetadata(
+            queryCharacterCount: queryCharacterCount,
+            queryTermCount: queryTermCount,
+            topK: topK,
+            surface: "instant_recall_async"
+        )
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        let startedAt = Date()
+        if Task.isCancelled {
+            recordInstantRecallAsyncFailure(
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: instantRecallSearchResultJSON(
+                    hitCount: 0,
+                    documentCount: documentCount,
+                    elapsedMs: 0
+                ),
+                durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                metadata: baseMetadata,
+                failureClass: .cancelled
+            )
+            return []
+        }
+
         let handle = self.handle
-        return await Task.detached(priority: .utility) {
+        let outcome = await Task.detached(priority: .utility) {
             Self.runSearch(handle: handle, query: normalizedQueryText, topK: topK)
         }.value
+
+        if Task.isCancelled {
+            recordInstantRecallAsyncFailure(
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: instantRecallSearchResultJSON(
+                    hitCount: 0,
+                    documentCount: documentCount,
+                    elapsedMs: outcome.elapsedMs
+                ),
+                durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                metadata: baseMetadata,
+                failureClass: .cancelled
+            )
+            return []
+        }
+
+        if let failureClass = outcome.failureClass {
+            recordInstantRecallAsyncFailure(
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: instantRecallSearchResultJSON(
+                    hitCount: 0,
+                    documentCount: documentCount,
+                    elapsedMs: outcome.elapsedMs
+                ),
+                durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                metadata: baseMetadata,
+                failureClass: failureClass
+            )
+            return []
+        }
+
+        var completedMetadata = baseMetadata
+        completedMetadata["hit_count"] = String(outcome.results.count)
+        completedMetadata["document_count"] = String(documentCount)
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallCompleted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: instantRecallSearchResultJSON(
+                hitCount: outcome.results.count,
+                documentCount: documentCount,
+                elapsedMs: outcome.elapsedMs
+            ),
+            durationMs: instantRecallDurationMilliseconds(since: startedAt),
+            status: .completed,
+            metadata: completedMetadata
+        )
+
+        return outcome.results
     }
 
     nonisolated private static let asyncLog = Logger(subsystem: "com.epistemos.app", category: "InstantRecall")
@@ -493,31 +625,77 @@ final class InstantRecallService {
         handle: String,
         query: String,
         topK: Int
-    ) -> [InstantRecallResult] {
+    ) -> InstantRecallAsyncSearchOutcome {
+        let start = CFAbsoluteTimeGetCurrent()
         let json = instantRecallSearch(handle: handle, queryText: query, topK: UInt32(topK))
+        let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
+
         guard let data = json.data(using: .utf8) else {
             asyncLog.error("InstantRecall: searchAsync returned non-UTF8 JSON payload")
-            return []
+            return InstantRecallAsyncSearchOutcome(
+                results: [],
+                elapsedMs: elapsed,
+                failureClass: .nonUTF8JSON
+            )
         }
         let array: [[String: Any]]
         do {
             guard let parsed = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
                 asyncLog.error("InstantRecall: searchAsync returned unexpected JSON shape")
-                return []
+                return InstantRecallAsyncSearchOutcome(
+                    results: [],
+                    elapsedMs: elapsed,
+                    failureClass: .unexpectedJSONShape
+                )
             }
             array = parsed
         } catch {
             asyncLog.error(
                 "InstantRecall: failed to decode searchAsync payload: \(error.localizedDescription, privacy: .public)"
             )
-            return []
+            return InstantRecallAsyncSearchOutcome(
+                results: [],
+                elapsedMs: elapsed,
+                failureClass: .jsonDecodeFailure
+            )
         }
-        return array.compactMap { dict -> InstantRecallResult? in
+        let results = array.compactMap { dict -> InstantRecallResult? in
             guard let docId = dict["doc_id"] as? String,
                   let text = dict["text"] as? String,
                   let score = dict["score"] as? Double else { return nil }
             return InstantRecallResult(id: docId, text: text, score: score)
         }
+        return InstantRecallAsyncSearchOutcome(
+            results: results,
+            elapsedMs: elapsed,
+            failureClass: nil
+        )
+    }
+
+    private func recordInstantRecallAsyncFailure(
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String,
+        durationMs: UInt64,
+        metadata: [String: String],
+        failureClass: InstantRecallAsyncFailureClass
+    ) {
+        var failureMetadata = metadata
+        failureMetadata["failure_class"] = failureClass.rawValue
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failureMetadata
+        )
     }
 
     /// Clear the entire index.
