@@ -1,0 +1,36 @@
+{
+  "generated_at" : "2026-05-02T00:00:00.000Z",
+  "max" : 236.833,
+  "measurement" : "mlx_thermal_policy_snapshot_1000",
+  "metadata" : {
+    "baseline_kind" : "r15_pr6_mlx_thermal_policy",
+    "checksum" : "4915500",
+    "decisions_per_sample" : "1000",
+    "fixture_status" : "mlx_thermal_policy_fixture",
+    "future_gate" : "live_mlx_token_throughput_thermal_soak",
+    "live_inference_status" : "not_live_mlx_inference_tok_s",
+    "product_surface" : "mlx_dispatch_backpressure",
+    "sample_source" : "focused_xcode_test",
+    "scenario_count" : "9",
+    "thermal_authority" : "PowerGate.deferSnapshot"
+  },
+  "min" : 198.875,
+  "p50" : 206.375,
+  "p95" : 229.9998,
+  "p99" : 235.46635999999998,
+  "sample_count" : 9,
+  "samples" : [
+    198.875,
+    199.459,
+    200.083,
+    204.334,
+    206.375,
+    206.75,
+    208.625,
+    219.75,
+    236.833
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 MLX Thermal Policy Baseline",
+  "unit" : "nanoseconds_per_decision"
+}

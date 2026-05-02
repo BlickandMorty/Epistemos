@@ -279,7 +279,10 @@ Proven or actively wired:
   R15 PR5 adds a generated UniFFI `AgentEventDelegate` callback-handle
   lowering/lifting baseline with p50 332.35 ns/call, p95 354.97204 ns/call,
   and metadata explicitly marking it as not the future true Rust-to-Swift
-  callback-loop export.
+  callback-loop export. R15 PR6 adds an MLX dispatch backpressure policy
+  fixture over `PowerGate.deferSnapshot`, with p50 206.375 ns/decision, p95
+  229.9998 ns/decision, p99 235.46635999999998 ns/decision, and metadata
+  explicitly marking it as `not_live_mlx_inference_tok_s`.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
   AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
   MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
@@ -314,9 +317,9 @@ Still open:
 - Full V1 Halo editor mount, trailing-edge editor glyph, and inline editor
   integration remain separate protected-path decisions.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
-  MLX thermal, full graph FFI, and the true Rust callback-loop export. Any
-  production GRDB/768-dimensional KNN claim still needs its own later fixture
-  gate.
+  live MLX token throughput under thermal soak, full graph FFI, and the true
+  Rust callback-loop export. Any production GRDB/768-dimensional KNN claim still
+  needs its own later fixture gate.
 - MAS/Core versus Pro capability symbol separation.
 - Manual runtime verification for user-facing ship claims.
 
@@ -333,12 +336,14 @@ Still open:
    PR2 real fixtures are closed for Swift graph payload construction, markdown
    parser FFI, and code-token parser FFI. PR3 is closed for editor-shell
    AppKit/TextKit fixture work. PR4 is closed for sqlite-vec 100k x 32d KNN.
-   PR5 is closed for generated UniFFI callback-handle lowering/lifting only;
-   the true Rust callback-loop export remains a later generated-transport
-   gate. Before modifying graph-engine, graph rendering, BoltFFI, MLX,
-   production KNN, or any hot path beyond those surfaces, run a new fixture
-   gate that writes real JSON results and promotes `try?` recorder calls only
-   when the benchmark becomes authoritative.
+   PR5 is closed for generated UniFFI callback-handle lowering/lifting only.
+   PR6 is closed for `PowerGate.deferSnapshot` MLX thermal policy/backpressure
+   decisions only. Live MLX token throughput under thermal soak and the true
+   Rust callback-loop export remain later runtime/generated-transport gates.
+   Before modifying graph-engine, graph rendering, BoltFFI, live MLX inference,
+   production KNN, or any hot path beyond those surfaces, run a new fixture gate
+   that writes real JSON results and promotes `try?` recorder calls only when the
+   benchmark becomes authoritative.
 
 3. **R16 runtime/manual closure.**
    ETL worker execution is closed as PR3H. Memory-pressure dispatch pause is
@@ -397,11 +402,12 @@ are:
   closed as PR4, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots are closed as PR3.
-- R15 Benchmark Harness PR2/PR3/PR4/PR5 real fixture baselines are closed for Swift
-  graph payload construction, markdown parser FFI, code-token parser FFI,
-  editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, and generated
-  UniFFI callback-handle lowering/lifting. Remaining R15 baseline work stays
-  benchmark/test-only until a fixture gate explicitly names any production path.
+- R15 Benchmark Harness PR2/PR3/PR4/PR5/PR6 real fixture baselines are closed
+  for Swift graph payload construction, markdown parser FFI, code-token parser
+  FFI, editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, generated
+  UniFFI callback-handle lowering/lifting, and MLX thermal policy/backpressure
+  decisions. Remaining R15 baseline work stays benchmark/test-only until a
+  fixture gate explicitly names any production path.
 - R16 follow-up only for runtime/manual verification, throughput/backfill, or
   sidecar-generation expansion behind a new exact gate. Memory-pressure
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
@@ -469,8 +475,8 @@ tests, record raw logs, and stop at the next gate.
 You can resume building now, and the substrate spine is stronger than the April
 30 plan text: Quick Capture's minimal typed-artifact path, the
 EventStore-to-OpLog projection foundation, the R15 JSON benchmark-recorder
-foundation, R15 PR2/PR3/PR4/PR5 real fixture baselines, EventStore OpLog lease/retry PR3A,
-EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
+foundation, R15 PR2/PR3/PR4/PR5/PR6 real fixture baselines, EventStore OpLog
+lease/retry PR3A, EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
 PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
