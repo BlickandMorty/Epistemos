@@ -419,6 +419,51 @@ struct EventStoreSchemaTests {
         #expect(store.graphEvents(mutationID: mutationID, limit: 0).isEmpty)
     }
 
+    @Test("GraphEvent diagnostics summarize durable visibility")
+    func graphEventDiagnosticsSummarizeDurableVisibility() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let empty = store.graphEventDiagnostics()
+        #expect(empty.totalRows == 0)
+        #expect(empty.distinctMutations == 0)
+        #expect(empty.latestEvent == nil)
+        #expect(empty.lastKind == nil)
+
+        let mutationA = "mutation-graph-diagnostics-a-\(UUID().uuidString)"
+        let mutationB = "mutation-graph-diagnostics-b-\(UUID().uuidString)"
+        let first = makeGraphEvent(
+            eventID: "graph-event-diagnostics-first-\(UUID().uuidString)",
+            mutationID: mutationA,
+            sequence: 0,
+            kind: .nodeCreated
+        )
+        let middle = makeGraphEvent(
+            eventID: "graph-event-diagnostics-middle-\(UUID().uuidString)",
+            mutationID: mutationA,
+            sequence: 1,
+            kind: .nodeUpdated
+        )
+        let latest = makeGraphEvent(
+            eventID: "graph-event-diagnostics-latest-\(UUID().uuidString)",
+            mutationID: mutationB,
+            sequence: 3,
+            kind: .edgeCreated
+        )
+
+        #expect(store.saveGraphEvent(first))
+        #expect(store.saveGraphEvent(latest))
+        #expect(store.saveGraphEvent(middle))
+
+        let diagnostics = store.graphEventDiagnostics()
+        #expect(diagnostics.totalRows == 3)
+        #expect(diagnostics.distinctMutations == 2)
+        #expect(diagnostics.latestEvent == latest)
+        #expect(diagnostics.lastKind == .edgeCreated)
+    }
+
     @Test("Committed graph-affecting mutation envelopes create idempotent GraphEvents")
     func committedGraphAffectingMutationEnvelopesCreateIdempotentGraphEvents() throws {
         guard let store = makeTestStore() else {
@@ -2315,6 +2360,22 @@ struct OpLogFFIBoundaryGuardTests {
         #expect(!row.contains("claimMutationProjectionOutboxRows("))
         #expect(!row.contains("recordMutationProjectionOutboxFailure("))
         #expect(!row.contains("markMutationProjectionOutboxProjected("))
+        #expect(!row.contains(".task {"))
+        #expect(!row.contains("while !Task.isCancelled"))
+    }
+
+    @Test("GraphEvent visibility row is read-only and mounted in Settings")
+    func graphEventVisibilityRowIsReadOnlyAndMountedInSettings() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/GraphEventVisibilityRow.swift")
+
+        #expect(settings.contains("GraphEventVisibilityRow()"))
+        #expect(row.contains("graphEventDiagnostics()"))
+        #expect(!row.contains("saveGraphEvent"))
+        #expect(!row.contains("saveMutationEnvelope"))
+        #expect(!row.contains("graphEvents("))
+        #expect(!row.contains("Timer"))
+        #expect(!row.contains("DispatchSourceTimer"))
         #expect(!row.contains(".task {"))
         #expect(!row.contains("while !Task.isCancelled"))
     }
