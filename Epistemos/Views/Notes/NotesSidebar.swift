@@ -246,6 +246,31 @@ enum NotesSidebarDeletePlanner {
     }
 }
 
+enum NotesSidebarDeletionSovereignGate {
+    enum Target: Equatable {
+        case page(title: String)
+        case folder(name: String)
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        .deviceOwnerAuthentication
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case let .page(title):
+            return "Permanently delete page \"\(safeName(title))\"."
+        case let .folder(name):
+            return "Permanently delete folder \"\(safeName(name))\" and its contents."
+        }
+    }
+
+    private static func safeName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
 enum NotesSidebarVisibleTreeEntry: Equatable, Hashable {
     case folder(id: String, indent: Int)
     case page(id: String, indent: Int)
@@ -748,13 +773,13 @@ struct NotesSidebar: View {
             scheduleDeferredRebuild(after: .milliseconds(200), source: "vault folder repair")
         }
         .alert(pageDeleteAlertTitle, isPresented: showPageDeleteAlert) {
-            Button("Delete", role: .destructive) { performPageDelete() }
+            Button("Delete", role: .destructive) { requestPageDeleteAuthorization() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This page will be permanently deleted.")
         }
         .alert(folderDeleteAlertTitle, isPresented: showFolderDeleteAlert) {
-            Button("Delete", role: .destructive) { performFolderDelete() }
+            Button("Delete", role: .destructive) { requestFolderDeleteAuthorization() }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text(folderDeleteAlertMessage)
@@ -1757,9 +1782,51 @@ struct NotesSidebar: View {
         }
     }
 
-    private func performPageDelete() {
-        defer { pendingDeletePage = nil }
+    private func requestPageDeleteAuthorization() {
         guard let item = pendingDeletePage else { return }
+        let target = NotesSidebarDeletionSovereignGate.Target.page(title: item.title)
+
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                NotesSidebarDeletionSovereignGate.requirement(for: target),
+                reason: NotesSidebarDeletionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else {
+                pendingDeletePage = nil
+                return
+            }
+
+            performPageDelete(item)
+        }
+    }
+
+    private func requestFolderDeleteAuthorization() {
+        guard let item = pendingDeleteFolder else { return }
+        let target = NotesSidebarDeletionSovereignGate.Target.folder(name: item.name)
+
+        Task { @MainActor in
+            let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+                NotesSidebarDeletionSovereignGate.requirement(for: target),
+                reason: NotesSidebarDeletionSovereignGate.reason(for: target)
+            ) ?? .denied(.authenticationFailed)
+
+            guard outcome == .allowed else {
+                pendingDeleteFolder = nil
+                return
+            }
+
+            performFolderDelete(item)
+        }
+    }
+
+    private func performPageDelete() {
+        guard let item = pendingDeletePage else { return }
+        performPageDelete(item)
+    }
+
+    private func performPageDelete(_ item: SidebarPageItem) {
+        defer { pendingDeletePage = nil }
         let deletePlan = NotesSidebarDeletePlanner.pageDeletion(pageId: item.id)
         guard let page = fetchPage(item.id) else { return }
         let pageDeletion = preparePageDeletion(page)
@@ -1772,12 +1839,13 @@ struct NotesSidebar: View {
     }
 
     private func performFolderDelete() {
+        guard let item = pendingDeleteFolder else { return }
+        performFolderDelete(item)
+    }
+
+    private func performFolderDelete(_ item: SidebarFolderItem) {
         defer { pendingDeleteFolder = nil }
-        guard let item = pendingDeleteFolder,
-            let folder = fetchFolder(item.id)
-        else {
-            return
-        }
+        guard let folder = fetchFolder(item.id) else { return }
         let deletePlan = NotesSidebarDeletePlanner.folderTreeDeletion(
             rootId: item.id,
             childFolderIdsById: cachedChildFolderIdsById,
