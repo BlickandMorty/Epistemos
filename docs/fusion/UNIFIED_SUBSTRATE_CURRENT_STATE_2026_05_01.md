@@ -115,6 +115,15 @@ closed:
   `AgentEventVisibilityRow` as a diagnostic-only surface without repair,
   emission, routing, OpLog, GraphEvent, graph renderer, retrieval, Halo,
   Theater, Rust, or generated-binding side effects.
+- Sovereign Gate Core PR1 now has the single Swift authorization executor:
+  `Epistemos/Sovereign/SovereignGate.swift` is the only production source that
+  imports `LocalAuthentication` or instantiates `LAContext`. It executes
+  externally supplied `.none`, `.biometric(category:graceDuration:)`, and
+  `.deviceOwnerAuthentication` requirements with category-scoped Sensitive
+  grace, explicit grace clearing, empty-reason denial, failed-auth denial, and
+  clock-rollback / invalid-duration hardening. It does not implement the Rust
+  action-class matrix, generated UniFFI transport, Secure Enclave sealing,
+  Pro/Research Sovereign class, or existing popup migrations.
 - Durable GraphEvent mutation mapping PR1 is now closed. EventStore has a
   `graph_events` table and bounded `saveGraphEvent(_:)`,
   `loadGraphEvent(eventID:)`, and `graphEvents(mutationID:limit:)` APIs.
@@ -276,6 +285,10 @@ Still open:
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, and the read-only projection snapshot, such
   as graph, retrieval, Halo, Theater, or audit surfaces.
+- Sovereign Gate follow-through beyond the Core Swift executor: Rust-side
+  action-class matrix, generated transport, app lifecycle grace clearing,
+  existing confirmation-surface migration, and any Pro/Research Secure Enclave
+  or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
 - Full V1 Halo editor mount, trailing-edge editor glyph, and inline editor
   integration remain separate protected-path decisions.
@@ -324,7 +337,12 @@ Still open:
    OpLog, worker, runtime, and visibility files.
 
 5. **Core/MAS release split audit.**
-   Ensure Pro tunnels, Hermes, CLI passthrough, browser/computer-use, Docker,
+   Sovereign Gate Core PR1 is closed for the single Swift executor. Future
+   Sovereign slices must start from
+   `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
+   and may only add Rust action classification, generated transport, lifecycle
+   clearing, or existing confirmation migrations behind new exact gates. Also
+   ensure Pro tunnels, Hermes, CLI passthrough, browser/computer-use, Docker,
    and external subprocess surfaces cannot leak into the Core/App Store build.
 
 6. **V1.5 typed artifacts and Pro tunnels.**
@@ -363,6 +381,10 @@ are:
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
   model-derived badge visibility is closed as PR3G, and ETL worker execution is
   closed as PR3H.
+- Sovereign Gate follow-up only for exact gated slices after Core PR1: Rust
+  action classification, generated requirement transport, lifecycle clearing
+  on lock/sleep/background/policy change, or migration of existing confirmation
+  surfaces to `SovereignGate`.
 
 Agents should not start:
 
@@ -428,11 +450,13 @@ PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
-the Halo V0 Shadow backend route, R16 memory-pressure dispatch pause PR3E, and
-R16 MAS bookmark enforcement PR3F, R16 model-derived badge visibility PR3G, and
-R16 ETL worker execution PR3H are good to build on. The next best build card is
-either live GraphEvent consumer projection, Omega/broader runtime AgentEvent coverage,
-production hook call-site mounting, remaining R15 specialized baselines, R16
-runtime/manual closure, or a protected V1 Halo editor gate, depending on
-whether the immediate priority is provenance projection, performance-safe
-graph/FFI work, background retrieval, or richer recall UX.
+Sovereign Gate Core PR1, the Halo V0 Shadow backend route, R16 memory-pressure
+dispatch pause PR3E, and R16 MAS bookmark enforcement PR3F, R16 model-derived
+badge visibility PR3G, and R16 ETL worker execution PR3H are good to build on.
+The next best build card is either live GraphEvent consumer projection,
+Omega/broader runtime AgentEvent coverage,
+production hook call-site mounting, Sovereign Gate follow-through, remaining
+R15 specialized baselines, R16 runtime/manual closure, or a protected V1 Halo
+editor gate, depending on whether the immediate priority is provenance
+projection, security/policy gating, performance-safe graph/FFI work,
+background retrieval, or richer recall UX.
