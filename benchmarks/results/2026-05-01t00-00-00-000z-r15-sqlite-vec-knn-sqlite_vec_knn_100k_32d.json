@@ -1,0 +1,40 @@
+{
+  "generated_at": "2026-05-01T00:00:00.000Z",
+  "max": 0.012410084,
+  "measurement": "sqlite_vec_knn_100k_32d",
+  "metadata": {
+    "dimensions": "32",
+    "k": "10",
+    "query_count": "16",
+    "query_shape": "embedding MATCH ? AND k = ? ORDER BY distance",
+    "sqlite_vec_load": "direct per-connection sqlite3_vec_init",
+    "status": "real sqlite-vec vec0 KNN fixture",
+    "target_vector_count": "100000"
+  },
+  "min": 0.012067625,
+  "p50": 0.012303229499999999,
+  "p95": 0.01238895875,
+  "p99": 0.012405858950000001,
+  "sample_count": 16,
+  "samples": [
+    0.012067625,
+    0.0121345,
+    0.012136583,
+    0.012215917,
+    0.012239542,
+    0.012244125,
+    0.012251917,
+    0.012293584,
+    0.012312875,
+    0.0123205,
+    0.012332167,
+    0.012335667,
+    0.01234825,
+    0.012368125,
+    0.012381917,
+    0.012410084
+  ],
+  "schema_version": 1,
+  "suite": "sqlite-vec KNN",
+  "unit": "seconds"
+}
