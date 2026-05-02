@@ -221,6 +221,7 @@ final class PipelineService {
                         // Tool-enabled local path: LocalAgentLoop handles
                         // multi-turn tool execution via the Rust FFI.
                         let toolLoopOutput = try await runToolLoop(
+                            runID: runID,
                             query: query,
                             notesContext: notesContext,
                             conversationHistory: conversationHistory,
@@ -361,6 +362,7 @@ final class PipelineService {
     /// via the Rust FFI, then drives a LocalAgentLoop with the incoming
     /// query. Tokens are forwarded to the caller via `onToken`.
     private func runToolLoop(
+        runID: UUID,
         query: String,
         notesContext: String?,
         conversationHistory: String?,
@@ -444,7 +446,9 @@ final class PipelineService {
                 executorBridge.toolExecutor(),
                 toolMetadataByName: toolMetadataByName,
                 toolEventHandler: toolEventHandler,
-                toolApprovalHandler: toolApprovalHandler
+                toolApprovalHandler: toolApprovalHandler,
+                runID: runID.uuidString,
+                actor: .agent(id: "pipeline-service", modelID: modelID)
             ),
             modelID: modelID,
             steeringHintsJSON: executionPlan?.steeringHintsJSON,
@@ -484,9 +488,16 @@ final class PipelineService {
         _ baseExecutor: @escaping LocalAgentToolExecutor,
         toolMetadataByName: [String: OmegaToolDefinition] = [:],
         toolEventHandler: (@MainActor @Sendable (PipelineToolEvent) -> Void)?,
-        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil
+        toolApprovalHandler: (@MainActor @Sendable (AgentPermissionRequest) async -> Bool)? = nil,
+        runID: String? = nil,
+        traceID: String? = nil,
+        actor: AgentProvenanceActor = .system,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
     ) -> LocalAgentToolExecutor {
-        { name, argumentsJson in
+        let toolProvenanceRecorder = agentProvenanceRecorder ?? AgentToolProvenanceRecorder()
+        let normalizedRunID = runID?.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return { name, argumentsJson in
             let callID = UUID().uuidString
             let startedAt = Date()
             let metadata = toolMetadataByName[name]
@@ -496,6 +507,41 @@ final class PipelineService {
                 inputJson: argumentsJson,
                 riskLevel: Self.pipelineToolRiskLevel(for: metadata),
                 description: "Local tool execution requested \(name)."
+            )
+
+            func recordAgentToolEvent(
+                kind: AgentProvenanceEventKind,
+                status: AgentToolEventStatus,
+                resultJson: String? = nil,
+                durationMs: UInt64? = nil,
+                approvalID: String? = nil,
+                errorMessage: String? = nil,
+                metadata: [String: String] = [:]
+            ) async {
+                guard let normalizedRunID, !normalizedRunID.isEmpty else { return }
+                await MainActor.run {
+                    _ = toolProvenanceRecorder.recordToolEvent(
+                        runID: normalizedRunID,
+                        traceID: traceID,
+                        kind: kind,
+                        actor: actor,
+                        toolCallID: callID,
+                        toolName: name,
+                        argumentsJSON: argumentsJson,
+                        resultJSON: resultJson,
+                        durationMs: durationMs,
+                        approvalID: approvalID,
+                        status: status,
+                        errorMessage: errorMessage,
+                        metadata: metadata
+                    )
+                }
+            }
+
+            await recordAgentToolEvent(
+                kind: .toolCallRequested,
+                status: .requested,
+                approvalID: permissionRequest.id
             )
 
             await MainActor.run {
@@ -512,6 +558,14 @@ final class PipelineService {
                     )
                     let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
                     let durationMs = UInt64(elapsedSeconds * 1000)
+                    await recordAgentToolEvent(
+                        kind: .toolCallDenied,
+                        status: .denied,
+                        resultJson: deniedResult.resultJson,
+                        durationMs: durationMs,
+                        approvalID: permissionRequest.id,
+                        errorMessage: "Tool '\(name)' was denied by the user."
+                    )
 
                     await MainActor.run {
                         toolEventHandler?(
@@ -530,9 +584,29 @@ final class PipelineService {
                 }
             }
 
+            await recordAgentToolEvent(
+                kind: .toolCallApproved,
+                status: .approved,
+                approvalID: permissionRequest.id,
+                metadata: [
+                    "approval_required": permissionRequest.requiresHumanApproval ? "true" : "false",
+                ]
+            )
+            await recordAgentToolEvent(
+                kind: .toolCallStarted,
+                status: .started
+            )
+
             let result = await baseExecutor(name, argumentsJson)
             let elapsedSeconds = max(0, Date().timeIntervalSince(startedAt))
             let durationMs = UInt64(elapsedSeconds * 1000)
+            await recordAgentToolEvent(
+                kind: result.isError ? .toolCallFailed : .toolCallCompleted,
+                status: result.isError ? .failed : .completed,
+                resultJson: result.resultJson,
+                durationMs: durationMs,
+                errorMessage: result.isError ? String(result.resultJson.prefix(500)) : nil
+            )
 
             await MainActor.run {
                 toolEventHandler?(

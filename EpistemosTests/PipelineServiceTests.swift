@@ -14,6 +14,28 @@ private final class PipelineToolEventRecorder {
     }
 }
 
+@MainActor
+private func makePipelineServiceForToolProvenanceTests() -> PipelineService {
+    let mock = MockLLMClient()
+    let pipelineState = PipelineState()
+    let inference = InferenceState()
+    let triage = TriageService(inference: inference, localLLMService: mock)
+    let eventBus = EventBus()
+    return PipelineService(
+        pipelineState: pipelineState,
+        llmService: mock,
+        triageService: triage,
+        inference: inference,
+        eventBus: eventBus
+    )
+}
+
+private func makeAgentEventTestStore() -> EventStore? {
+    let tempDir = FileManager.default.temporaryDirectory
+    let dbURL = tempDir.appendingPathComponent("pipeline-agent-events-\(UUID().uuidString).sqlite")
+    return EventStore(databaseURL: dbURL)
+}
+
 // MARK: - MockLLMClient
 
 /// Test double for LLMClientProtocol. Records calls and returns canned responses.
@@ -1349,6 +1371,126 @@ struct PipelineServiceTests {
         }
         #expect(isError)
         #expect(resultJson.contains("denied by the user"))
+    }
+
+    @Test("observed local tool executor persists successful AgentEvent provenance")
+    @MainActor func observedLocalToolExecutorPersistsSuccessfulAgentEventProvenance() async throws {
+        let pipeline = makePipelineServiceForToolProvenanceTests()
+        let store = try #require(makeAgentEventTestStore())
+        let priorStore = EventStore.shared
+        EventStore.shared = store
+        defer { EventStore.shared = priorStore }
+
+        let runID = "pipeline-run-success-\(UUID().uuidString)"
+        let executor = pipeline.observedToolExecutor(
+            { name, argumentsJson in
+                #expect(name == "tool_ping")
+                #expect(argumentsJson.contains("provenance"))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"success":true}"#,
+                    isError: false
+                )
+            },
+            toolEventHandler: nil,
+            runID: runID,
+            actor: .agent(id: "pipeline-service", modelID: "qwen-local")
+        )
+
+        let result = await executor("tool_ping", #"{"query":"provenance"}"#)
+        #expect(!result.isError)
+
+        let events = store.agentEvents(runID: runID, limit: 10)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallApproved,
+            .toolCallStarted,
+            .toolCallCompleted,
+        ])
+        #expect(events.map(\.sequence) == [0, 1, 2, 3])
+        #expect(events.allSatisfy { $0.tool?.toolCallID == events.first?.tool?.toolCallID })
+        #expect(events.last?.tool?.resultJSON == #"{"success":true}"#)
+    }
+
+    @Test("observed local tool executor persists denial without executing tool")
+    @MainActor func observedLocalToolExecutorPersistsDeniedAgentEventProvenance() async throws {
+        let pipeline = makePipelineServiceForToolProvenanceTests()
+        let store = try #require(makeAgentEventTestStore())
+        let priorStore = EventStore.shared
+        EventStore.shared = store
+        defer { EventStore.shared = priorStore }
+
+        let runID = "pipeline-run-denied-\(UUID().uuidString)"
+        let executor = pipeline.observedToolExecutor(
+            { _, _ in
+                preconditionFailure("Denied tool must not execute.")
+            },
+            toolMetadataByName: [
+                "read_file": OmegaToolDefinition(
+                    name: "read_file",
+                    agent: "rust",
+                    description: "Read a local file",
+                    argumentsExample: "{}",
+                    schemaJson: #"{"type":"object","properties":{"path":{"type":"string"}}}"#,
+                    destructive: false,
+                    requiresConfirmation: false
+                )
+            ],
+            toolEventHandler: nil,
+            toolApprovalHandler: { request in
+                #expect(request.requiresHumanApproval)
+                return false
+            },
+            runID: runID,
+            actor: .agent(id: "pipeline-service", modelID: "qwen-local")
+        )
+
+        let result = await executor("read_file", #"{"path":"/tmp/denied.txt"}"#)
+        #expect(result.isError)
+
+        let events = store.agentEvents(runID: runID, limit: 10)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallDenied,
+        ])
+        #expect(events.last?.tool?.status == .denied)
+        #expect(events.last?.tool?.errorMessage?.contains("denied by the user") == true)
+    }
+
+    @Test("observed local tool executor persists failed AgentEvent provenance")
+    @MainActor func observedLocalToolExecutorPersistsFailedAgentEventProvenance() async throws {
+        let pipeline = makePipelineServiceForToolProvenanceTests()
+        let store = try #require(makeAgentEventTestStore())
+        let priorStore = EventStore.shared
+        EventStore.shared = store
+        defer { EventStore.shared = priorStore }
+
+        let runID = "pipeline-run-failed-\(UUID().uuidString)"
+        let executor = pipeline.observedToolExecutor(
+            { name, _ in
+                LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"error":"boom","success":false}"#,
+                    isError: true
+                )
+            },
+            toolEventHandler: nil,
+            runID: runID,
+            actor: .agent(id: "pipeline-service", modelID: "qwen-local")
+        )
+
+        let result = await executor("tool_ping", #"{"query":"fail"}"#)
+        #expect(result.isError)
+
+        let events = store.agentEvents(runID: runID, limit: 10)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallApproved,
+            .toolCallStarted,
+            .toolCallFailed,
+        ])
+        #expect(events.last?.tool?.status == .failed)
+        #expect(events.last?.tool?.resultJSON == #"{"error":"boom","success":false}"#)
     }
 }
 
