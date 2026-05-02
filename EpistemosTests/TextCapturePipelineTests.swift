@@ -20,6 +20,10 @@ struct TextCapturePipelineTests {
 
     // MARK: - Test Helpers
 
+    private enum TestError: Error {
+        case eventStoreOpenFailed
+    }
+
     /// Creates a minimal in-memory SwiftData container for testing.
     private func makeTestContainer() throws -> ModelContainer {
         let schema = Schema([SDPage.self, SDGraphNode.self, SDGraphEdge.self, SDBlock.self])
@@ -35,6 +39,16 @@ struct TextCapturePipelineTests {
             traceCollector: collector,
             sessionId: "test-session-\(UUID().uuidString)"
         )
+    }
+
+    private func makeTestEventStore() throws -> EventStore {
+        let dbURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-test-event-store-\(UUID().uuidString)")
+            .appendingPathComponent("event-store.sqlite")
+        guard let store = EventStore(databaseURL: dbURL) else {
+            throw TestError.eventStoreOpenFailed
+        }
+        return store
     }
 
     private struct TracedPipelineFixture {
@@ -84,6 +98,23 @@ struct TextCapturePipelineTests {
             }
     }
 
+    private func traceEvents(traceDir: URL, sessionId: String) throws -> [[String: Any]] {
+        let fileURL = traceFileURL(traceDir: traceDir, sessionId: sessionId)
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        let contents = try String(contentsOf: fileURL, encoding: .utf8)
+        return contents
+            .split(separator: "\n")
+            .compactMap { line -> [String: Any]? in
+                guard
+                    let data = line.data(using: .utf8),
+                    let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+                else {
+                    return nil
+                }
+                return object
+            }
+    }
+
     private func waitForTraceEventTypes(
         traceDir: URL,
         sessionId: String,
@@ -92,6 +123,20 @@ struct TextCapturePipelineTests {
         var last: [String] = []
         for _ in 0..<20 {
             last = try traceEventTypes(traceDir: traceDir, sessionId: sessionId)
+            if last.count >= minimumCount { return last }
+            try await Task.sleep(nanoseconds: 50_000_000)
+        }
+        return last
+    }
+
+    private func waitForTraceEvents(
+        traceDir: URL,
+        sessionId: String,
+        minimumCount: Int
+    ) async throws -> [[String: Any]] {
+        var last: [[String: Any]] = []
+        for _ in 0..<20 {
+            last = try traceEvents(traceDir: traceDir, sessionId: sessionId)
             if last.count >= minimumCount { return last }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
@@ -156,6 +201,86 @@ struct TextCapturePipelineTests {
         let blocks = try context.fetch(FetchDescriptor<SDBlock>())
         #expect(!blocks.isEmpty)
         #expect(blocks.allSatisfy { $0.pageId == pages.first?.id })
+    }
+
+    @Test("Persisted capture returns committed mutation envelope for the note artifact")
+    func persistedCaptureReturnsCommittedMutationEnvelope() async throws {
+        let pipeline = makePipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let result = try await pipeline.run(
+            rawText: "Meeting notes from today",
+            modelContext: context
+        )
+
+        let noteId = try #require(result.createdNoteID)
+        let envelope = try #require(result.mutationEnvelope)
+
+        #expect(envelope.status == .committed)
+        #expect(envelope.actor == .user)
+        #expect(envelope.sequence == 1)
+        #expect(envelope.createdAtMs > 0)
+        #expect(envelope.committedAtMs != nil)
+        #expect(envelope.op == .artifactCreate(
+            artifactID: noteId,
+            artifactKind: ArtifactKind.proseNote.snakeCaseString
+        ))
+        #expect(envelope.touchedArtifacts == [
+            EpdocArtifactRef(id: noteId, kind: .proseNote, title: result.title)
+        ])
+        #expect(envelope.affectsBody)
+        #expect(envelope.affectsSearchProjection)
+        #expect(envelope.affectsGraph == result.graphWriteSummary.noteNodeCreated)
+        #expect(envelope.affectsAnything)
+        #expect(envelope.integrityHash.hasPrefix("sha256:"))
+    }
+
+    @Test("Persisted capture writes mutation envelope to injected EventStore")
+    func persistedCaptureWritesMutationEnvelopeToEventStore() async throws {
+        let eventStore = try makeTestEventStore()
+        let pipeline = TextCapturePipeline(
+            traceCollector: TraceCollector(
+                baseDir: FileManager.default.temporaryDirectory
+                    .appendingPathComponent("epistemos-test-traces-\(UUID().uuidString)")
+            ),
+            sessionId: "event-store-session-\(UUID().uuidString)",
+            eventStoreProvider: { eventStore }
+        )
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let result = try await pipeline.run(
+            rawText: "Quick capture durable envelope",
+            modelContext: context
+        )
+
+        let envelope = try #require(result.mutationEnvelope)
+        #expect(result.mutationEnvelopePersisted)
+        let loaded = try #require(eventStore.loadMutationEnvelope(mutationID: envelope.mutationID))
+        #expect(loaded == envelope)
+
+        guard case let .artifactCreate(artifactID, artifactKind) = envelope.op else {
+            Issue.record("Expected capture envelope to describe a prose note artifact create")
+            return
+        }
+
+        let outboxRows = eventStore.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        #expect(outboxRows.count == 1)
+        let row = try #require(outboxRows.first)
+        #expect(row.mutationID == envelope.mutationID)
+        #expect(row.traceID == result.traceID)
+        #expect(row.eventKind == EventStore.mutationEnvelopeCommittedEventKind)
+        #expect(row.status == MutationStatus.committed.rawValue)
+        #expect(row.artifactID == artifactID)
+        #expect(row.artifactKind == artifactKind)
+        #expect(row.integrityHash == envelope.integrityHash)
+        #expect(row.payload.contains("\"mutation_id\":\"\(envelope.mutationID)\""))
+        #expect(row.payload.contains("\"trace_id\":\"\(result.traceID)\""))
+        #expect(row.payload.contains("\"artifact_kind\":\"\(ArtifactKind.proseNote.snakeCaseString)\""))
+
+        #expect(eventStore.saveMutationEnvelope(envelope, traceId: result.traceID))
+        #expect(eventStore.mutationProjectionOutboxRows(mutationID: envelope.mutationID).count == 1)
     }
 
     // MARK: - Unicode Preservation
@@ -620,6 +745,34 @@ struct TextCapturePipelineTests {
         #expect(eventTypes.contains(TraceEvent.TraceEventType.notePersisted.rawValue))
         #expect(eventTypes.contains(TraceEvent.TraceEventType.graphWriteAttempted.rawValue))
         #expect(eventTypes.contains(TraceEvent.TraceEventType.evidenceLinked.rawValue))
+    }
+
+    @Test("Pipeline trace records committed mutation envelope JSON")
+    func traceRecordsCommittedMutationEnvelope() async throws {
+        let fixture = makeTracedPipeline()
+        let container = try makeTestContainer()
+        let context = ModelContext(container)
+
+        let result = try await fixture.pipeline.run(
+            rawText: "Quick capture provenance note",
+            modelContext: context
+        )
+        let noteId = try #require(result.createdNoteID)
+
+        let events = try await waitForTraceEvents(
+            traceDir: fixture.traceDir,
+            sessionId: fixture.sessionId,
+            minimumCount: 6
+        )
+        await fixture.collector.closeSession(fixture.sessionId)
+
+        let mutationEvent = events.first {
+            $0["type"] as? String == TraceEvent.TraceEventType.mutationEnvelopeCommitted.rawValue
+        }
+        let content = try #require(mutationEvent?["content"] as? String)
+        #expect(content.contains("\"status\":\"committed\""))
+        #expect(content.contains("\"artifact_id\":\"\(noteId)\""))
+        #expect(content.contains("\"artifact_kind\":\"prose_note\""))
     }
 
     // MARK: - Quick Capture Wiring
