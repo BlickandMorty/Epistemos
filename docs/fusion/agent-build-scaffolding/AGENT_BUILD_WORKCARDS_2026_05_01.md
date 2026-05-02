@@ -163,6 +163,15 @@ Stop triggers:
 
 ## Card 2 - R16 Sidecar Schema Mirror Gate
 
+Status on 2026-05-02:
+Closed as a docs-only audit/no-op for code. The May 2 refresh found no active
+Rust reader or writer for note `<stem>.epistemos.json` sidecars, so the Card 2
+stop trigger applies: do not invent a Rust mirror in this card. Swift remains
+the active source of truth through `EpistemosSidecarStore` and AFM writes
+optional generated payload fields through that store. Future Rust mirror work
+requires a separate gate naming exact Rust files plus parity fixtures for v2/v3
+payloads and additive fields.
+
 Goal:
 Ensure any Rust-side sidecar reader/writer accepts the current Swift sidecar
 contract, including generated payload fields.
@@ -195,10 +204,17 @@ Tests and logs:
 - Swift sidecar focused tests.
 - Rust JSON decode tests if a Rust mirror exists.
 - `rg` audit proving no strict stale decoder remains.
+- Closed-audit evidence:
+  `/tmp/epistemos-r16-sidecar-schema-rust-mirror-audit-20260502.log`,
+  `/tmp/epistemos-r16-sidecar-schema-swift-surfaces-20260502.log`,
+  `/tmp/epistemos-r16-sidecar-schema-strict-decoder-audit-20260502.log`, and
+  `/tmp/epistemos-r16-sidecar-schema-swift-green-20260502.log`.
 
 Acceptance:
 - The sidecar contract is documented and tested on every active read/write
   surface.
+- Closed result: Swift active surfaces are documented/tested; Rust has no active
+  note-sidecar surface to test or patch in this card.
 
 Stop triggers:
 - No actual Rust sidecar mirror exists. In that case write an audit note only;
