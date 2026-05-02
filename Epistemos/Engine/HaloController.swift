@@ -78,6 +78,7 @@ public final class HaloController {
     // MARK: - In-flight task
 
     private var pendingSearch: Task<Void, Never>?
+    private var lastQueryContext: String = ""
 
     public init(
         search: any ShadowSearchServicing,
@@ -101,19 +102,53 @@ public final class HaloController {
     /// Always returns instantly — the heavy work runs in a detached Task.
     public func editorTextDidChange(_ text: String, domain: ShadowDomain = .notes) {
         let queryContext = Self.extractQueryContext(from: text)
+        lastQueryContext = queryContext
         self.domain = domain
 
         guard isMeaningful(queryContext) else {
-            pendingSearch?.cancel()
-            pendingSearch = nil
-            matches = []
-            transition(to: .dormant)
+            clearSearch()
             return
         }
 
+        scheduleSearch(
+            queryContext: queryContext,
+            domain: domain,
+            keepPanelOpen: state.isPanelOpen
+        )
+    }
+
+    /// Called from the Halo panel's segmented domain picker. Reuses the latest
+    /// meaningful editor query so switching Notes/Chats is a real search, not
+    /// a visual-only control.
+    public func selectDomain(_ domain: ShadowDomain) {
+        guard self.domain != domain else { return }
+        self.domain = domain
+        guard isMeaningful(lastQueryContext) else {
+            clearSearch()
+            return
+        }
+        scheduleSearch(
+            queryContext: lastQueryContext,
+            domain: domain,
+            keepPanelOpen: state.isPanelOpen
+        )
+    }
+
+    private func clearSearch() {
+        pendingSearch?.cancel()
+        pendingSearch = nil
+        matches = []
+        transition(to: .dormant)
+    }
+
+    private func scheduleSearch(
+        queryContext: String,
+        domain: ShadowDomain,
+        keepPanelOpen: Bool
+    ) {
         // Cancel any in-flight search (cooperative cancellation).
         pendingSearch?.cancel()
-        if state == .dormant {
+        if state == .dormant, !keepPanelOpen {
             transition(to: .sensing)
         }
 
@@ -135,7 +170,9 @@ public final class HaloController {
             let above = hits.filter { $0.score >= capturedThreshold }
             self.matches = above
             if above.isEmpty {
-                self.transition(to: .dormant)
+                self.transition(to: keepPanelOpen ? .open(domain: capturedDomain) : .dormant)
+            } else if keepPanelOpen {
+                self.transition(to: .open(domain: capturedDomain))
             } else {
                 self.transition(to: .available(count: above.count))
             }
@@ -147,6 +184,7 @@ public final class HaloController {
     public func editorDidLoseFocus() {
         pendingSearch?.cancel()
         pendingSearch = nil
+        lastQueryContext = ""
         matches = []
         transition(to: .dormant)
     }

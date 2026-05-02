@@ -77,6 +77,17 @@ struct HaloControllerTests {
         )
     }
 
+    private func sampleHit(_ id: String, score: Float = 0.8, domain: ShadowDomain) -> ShadowHit {
+        ShadowHit(
+            id: id,
+            title: "title \(id)",
+            snippet: "snippet \(id)",
+            score: score,
+            domain: domain,
+            source: "stub"
+        )
+    }
+
     // MARK: - Initial state
 
     @Test("controller starts in .dormant with no matches")
@@ -219,6 +230,26 @@ struct HaloControllerTests {
         // The dormant transition collapses any further closePanel.
         ctrl.closePanel()
         #expect(ctrl.state == .dormant)
+    }
+
+    @Test("selectDomain re-runs the current query and keeps an open panel open")
+    func selectDomainRerunsCurrentQueryWhileOpen() async {
+        let (ctrl, mock) = mockController(results: [sampleHit("n1")])
+        ctrl.editorTextDidChange("hello kant", domain: .notes)
+        await Self.waitForState(ctrl, until: { state in
+            if case .available = state { return true }
+            return false
+        })
+        ctrl.openPanel()
+
+        mock.nextResults = [sampleHit("c1", domain: .chats)]
+        ctrl.selectDomain(.chats)
+
+        await Self.waitForState(ctrl, until: { $0 == .open(domain: .chats) })
+        #expect(mock.callCount == 2)
+        #expect(mock.lastQuery == "hello kant")
+        #expect(mock.lastDomain == .chats)
+        #expect(ctrl.matches == [sampleHit("c1", domain: .chats)])
     }
 
     // MARK: - Nested action transitions
