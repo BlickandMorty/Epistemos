@@ -71,6 +71,8 @@ actor LocalAgentLoop {
     private let streamingGenerator: LocalAgentStreamingGeneratorFactory?
     private let structuredGenerator: LocalAgentStructuredGenerationHandler?
     private let toolExecutor: LocalAgentToolExecutor
+    private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
+    private var toolCallSequenceByRunID: [String: Int] = [:]
     private let modelID: String?
     private let maxTokenBudget: Int
     private let maxResponseTokens: Int
@@ -82,6 +84,7 @@ actor LocalAgentLoop {
         streamingGenerator: LocalAgentStreamingGeneratorFactory? = nil,
         structuredGenerator: LocalAgentStructuredGenerationHandler? = nil,
         toolExecutor: @escaping LocalAgentToolExecutor,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         modelID: String? = nil,
         maxTokenBudget: Int = 6_144,
         maxResponseTokens: Int = 2_048,
@@ -92,6 +95,7 @@ actor LocalAgentLoop {
         self.streamingGenerator = streamingGenerator
         self.structuredGenerator = structuredGenerator
         self.toolExecutor = toolExecutor
+        self.agentProvenanceRecorder = agentProvenanceRecorder
         self.modelID = modelID
         self.maxTokenBudget = maxTokenBudget
         self.maxResponseTokens = maxResponseTokens
@@ -261,6 +265,11 @@ actor LocalAgentLoop {
             throw LocalAgentLoopError.unsupportedModel(modelID)
         }
 
+        let runID = Self.makeLocalAgentRunID()
+        defer {
+            toolCallSequenceByRunID[runID] = nil
+        }
+
         let systemPrompt = HermesPromptBuilder.systemPrompt(
             tools: tools,
             additionalInstructions: additionalSystemPrompt
@@ -316,6 +325,7 @@ actor LocalAgentLoop {
             // ── Reflex path: incremental tool call detection ──
             if useReflex {
                 let output = try await runReflexTurn(
+                    runID: runID,
                     objective: objective,
                     promptText: promptText,
                     tools: tools,
@@ -485,7 +495,7 @@ actor LocalAgentLoop {
             }
 
             history.append(LocalMessage(role: .assistant, content: output))
-            let toolResults = await executeToolCalls(toolCalls)
+            let toolResults = await executeToolCalls(toolCalls, runID: runID)
             completedToolNames.formUnion(toolCalls.map { $0.name.lowercased() })
             history.append(Self.toolResponseMessage(for: toolResults))
             if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
@@ -507,6 +517,7 @@ actor LocalAgentLoop {
     /// Returns `nil` if a tool was executed and the loop should continue,
     /// or the final stripped response if no tool call was found.
     private func runReflexTurn(
+        runID: String,
         objective: String,
         promptText: String,
         tools: [OmegaToolDefinition],
@@ -618,7 +629,7 @@ actor LocalAgentLoop {
             }
             consecutiveInvisibleTurns = 0
             history.append(LocalMessage(role: .assistant, content: output))
-            let result = await toolExecutor(toolCall.name, toolCall.argumentsJson)
+            let result = await executeToolCall(toolCall, runID: runID)
             completedToolNames.insert(toolCall.name.lowercased())
 
             // Check for AX tree mutation (new window, popup, etc.)
@@ -694,6 +705,7 @@ actor LocalAgentLoop {
                 ) {
                     return await executeSyntheticExplicitFileToolCall(
                         syntheticToolCall,
+                        runID: runID,
                         objective: objective,
                         requiredToolSequence: requiredFileToolSequence,
                         completedToolNames: &completedToolNames,
@@ -742,7 +754,7 @@ actor LocalAgentLoop {
                 history.append(LocalMessage(role: .user, content: repairPrompt))
                 return nil
             }
-            let toolResults = await executeToolCalls(repairedToolCalls)
+            let toolResults = await executeToolCalls(repairedToolCalls, runID: runID)
             completedToolNames.formUnion(repairedToolCalls.map { $0.name.lowercased() })
             history.append(Self.toolResponseMessage(for: toolResults))
             if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
@@ -848,7 +860,7 @@ actor LocalAgentLoop {
             history.append(LocalMessage(role: .user, content: repairPrompt))
             return nil
         }
-        let toolResults = await executeToolCalls(toolCalls)
+        let toolResults = await executeToolCalls(toolCalls, runID: runID)
         completedToolNames.formUnion(toolCalls.map { $0.name.lowercased() })
         history.append(Self.toolResponseMessage(for: toolResults))
         if let explicitFileAnswer = Self.explicitFileAnswerFromReadResults(
@@ -864,6 +876,7 @@ actor LocalAgentLoop {
 
     private func executeSyntheticExplicitFileToolCall(
         _ toolCall: ParsedToolCall,
+        runID: String,
         objective: String,
         requiredToolSequence: [String],
         completedToolNames: inout Set<String>,
@@ -880,7 +893,7 @@ actor LocalAgentLoop {
             role: .assistant,
             content: Self.renderedToolCallMessage(for: toolCall)
         ))
-        let toolResults = await executeToolCalls([toolCall])
+        let toolResults = await executeToolCalls([toolCall], runID: runID)
         completedToolNames.insert(toolCall.name.lowercased())
         history.append(Self.toolResponseMessage(for: toolResults))
         return Self.explicitFileAnswerFromReadResults(
@@ -1005,16 +1018,122 @@ actor LocalAgentLoop {
         )
     }
 
-    private func executeToolCalls(_ toolCalls: [ParsedToolCall]) async -> [LocalToolResult] {
+    private func executeToolCalls(_ toolCalls: [ParsedToolCall], runID: String) async -> [LocalToolResult] {
         var results: [LocalToolResult] = []
         results.reserveCapacity(toolCalls.count)
 
         for call in toolCalls {
-            let result = await toolExecutor(call.name, call.argumentsJson)
-            results.append(result)
+            results.append(await executeToolCall(call, runID: runID))
         }
 
         return results
+    }
+
+    private func executeToolCall(_ call: ParsedToolCall, runID: String) async -> LocalToolResult {
+        let toolCallID = nextLocalAgentToolCallID(runID: runID)
+        await recordLocalAgentToolEvent(
+            runID: runID,
+            toolCallID: toolCallID,
+            call: call,
+            kind: .toolCallRequested,
+            status: .requested
+        )
+        await recordLocalAgentToolEvent(
+            runID: runID,
+            toolCallID: toolCallID,
+            call: call,
+            kind: .toolCallStarted,
+            status: .started
+        )
+
+        let startedAt = Date()
+        let result = await toolExecutor(call.name, call.argumentsJson)
+        await recordLocalAgentToolEvent(
+            runID: runID,
+            toolCallID: toolCallID,
+            call: call,
+            kind: result.isError ? .toolCallFailed : .toolCallCompleted,
+            status: result.isError ? .failed : .completed,
+            resultJSON: result.resultJson,
+            durationMs: Self.durationMilliseconds(since: startedAt),
+            errorMessage: result.isError ? String(result.resultJson.prefix(500)) : nil
+        )
+        return result
+    }
+
+    private func nextLocalAgentToolCallID(runID: String) -> String {
+        let nextSequence = (toolCallSequenceByRunID[runID] ?? 0) + 1
+        toolCallSequenceByRunID[runID] = nextSequence
+        return "local-agent-tool:\(nextSequence)"
+    }
+
+    private func recordLocalAgentToolEvent(
+        runID: String,
+        toolCallID: String,
+        call: ParsedToolCall,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        errorMessage: String? = nil
+    ) async {
+        let recorder = await resolvedAgentProvenanceRecorder()
+        let metadata = localAgentToolMetadata()
+        let actor = AgentProvenanceActor.agent(id: "local-agent-loop", modelID: modelID)
+        await MainActor.run {
+            _ = recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: kind,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: call.name,
+                argumentsJSON: call.argumentsJson,
+                resultJSON: resultJSON,
+                durationMs: durationMs,
+                approvalID: nil,
+                status: status,
+                errorMessage: errorMessage,
+                metadata: metadata
+            )
+        }
+    }
+
+    private func resolvedAgentProvenanceRecorder() async -> AgentToolProvenanceRecorder {
+        if let agentProvenanceRecorder {
+            return agentProvenanceRecorder
+        }
+        let recorder = await MainActor.run {
+            AgentToolProvenanceRecorder()
+        }
+        agentProvenanceRecorder = recorder
+        return recorder
+    }
+
+    private func localAgentToolMetadata() -> [String: String] {
+        var metadata = [
+            "source": "local_agent_loop",
+            "surface": "local_agent",
+        ]
+        if let modelID {
+            metadata["model"] = modelID
+        }
+        return metadata
+    }
+
+    private nonisolated static func makeLocalAgentRunID() -> String {
+        let milliseconds = Date().timeIntervalSince1970 * 1_000
+        let safeMilliseconds = milliseconds.isFinite ? Int64(milliseconds.rounded()) : 0
+        let suffix = String(UUID().uuidString.prefix(8))
+        return "local-agent-\(safeMilliseconds)-\(suffix)"
+    }
+
+    private nonisolated static func durationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else {
+            return 0
+        }
+        return UInt64(milliseconds.rounded())
     }
 
     nonisolated static func parseToolCalls(from output: String) -> [ParsedToolCall] {
