@@ -348,6 +348,16 @@ Proven or actively wired:
   graph, Rust, or generated transport path was touched. Red/green evidence:
   `/tmp/epistemos-hermes-gateway-directness-pr1-red-20260502.log` and
   `/tmp/epistemos-hermes-gateway-directness-pr1-green-20260502.log`.
+- Hermes Gateway Fast Path PR2 is now code-closed at the prompt boundary:
+  the same prompt names Hermes as the single fast gateway for cloud models, CLI
+  delegation, MCP/web tools, and explicit external side effects while preserving
+  direct deterministic substrate answers with no gateway hop when no external
+  context is needed. External evidence is framed as structured artifacts and
+  provenance, not graph or Rex authority. No runtime adapter, provider,
+  subprocess, MCP, graph, Rust, generated transport, entitlement, or protected
+  editor path was touched. Red/green evidence:
+  `/tmp/epistemos-hermes-gateway-fast-path-pr2-red-20260502.log` and
+  `/tmp/epistemos-hermes-gateway-fast-path-pr2-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -572,7 +582,8 @@ durable GraphEvent projection consumer PR4, durable GraphEvent Settings
 projection visibility PR5,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
-PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1, R16
+PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
+Hermes Gateway Fast Path PR2, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
