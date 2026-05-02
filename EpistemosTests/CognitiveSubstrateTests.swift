@@ -103,6 +103,30 @@ struct EventStoreSchemaTests {
         )
     }
 
+    private func makeGraphRelationEvent(
+        eventID: String,
+        mutationID: String,
+        sequence: UInt64,
+        kind: DurableGraphEventKind,
+        relation: DurableGraphEventRelation
+    ) -> DurableGraphEvent {
+        DurableGraphEvent(
+            eventID: eventID,
+            mutationID: mutationID,
+            runID: "run-\(mutationID)",
+            traceID: "trace-\(mutationID)",
+            sequence: sequence,
+            kind: kind,
+            entityID: "\(relation.fromID)->\(relation.toID):\(relation.label)",
+            entityKind: "edge",
+            occurredAtMs: Int64(sequence + 1) * 1_000,
+            relation: relation,
+            metadata: [
+                "surface": "test",
+            ]
+        )
+    }
+
     nonisolated private final class AgentEventCapture: @unchecked Sendable {
         private let lock = NSLock()
         private var storage: [AgentProvenanceEvent] = []
@@ -495,6 +519,120 @@ struct EventStoreSchemaTests {
         #expect(diagnostics.distinctMutations == 2)
         #expect(diagnostics.latestEvent == latest)
         #expect(diagnostics.lastKind == .edgeCreated)
+    }
+
+    @Test("EventStore returns recent GraphEvents in chronological projection order")
+    func eventStoreReturnsRecentGraphEventsInChronologicalProjectionOrder() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let mutationID = "mutation-recent-graph-\(UUID().uuidString)"
+        let first = makeGraphEvent(eventID: "graph-event-recent-first-\(UUID().uuidString)", mutationID: mutationID, sequence: 0)
+        let middle = makeGraphEvent(eventID: "graph-event-recent-middle-\(UUID().uuidString)", mutationID: mutationID, sequence: 1)
+        let latest = makeGraphEvent(eventID: "graph-event-recent-latest-\(UUID().uuidString)", mutationID: mutationID, sequence: 2)
+
+        #expect(store.saveGraphEvent(latest))
+        #expect(store.saveGraphEvent(first))
+        #expect(store.saveGraphEvent(middle))
+
+        let rows = store.recentGraphEvents(limit: 2)
+        #expect(rows.map(\.eventID) == [middle.eventID, latest.eventID])
+        #expect(store.recentGraphEvents(limit: 0).isEmpty)
+    }
+
+    @Test("Durable GraphEvent projection folds nodes and edges deterministically")
+    func durableGraphEventProjectionFoldsNodesAndEdgesDeterministically() throws {
+        let nodeID = "note-projection-\(UUID().uuidString)"
+        let targetID = "note-target-\(UUID().uuidString)"
+        let createNode = DurableGraphEvent(
+            eventID: "graph-event-projection-node-create-\(UUID().uuidString)",
+            mutationID: "mutation-projection-node-create",
+            runID: "run-projection",
+            traceID: "trace-projection",
+            sequence: 0,
+            kind: .nodeCreated,
+            entityID: nodeID,
+            entityKind: ArtifactKind.proseNote.snakeCaseString,
+            occurredAtMs: 1_000
+        )
+        let updateNode = DurableGraphEvent(
+            eventID: "graph-event-projection-node-update-\(UUID().uuidString)",
+            mutationID: "mutation-projection-node-update",
+            runID: "run-projection",
+            traceID: "trace-projection",
+            sequence: 1,
+            kind: .nodeUpdated,
+            entityID: nodeID,
+            entityKind: ArtifactKind.proseNote.snakeCaseString,
+            occurredAtMs: 2_000
+        )
+        let oldRelation = DurableGraphEventRelation(fromID: nodeID, toID: targetID, label: "mentions")
+        let newRelation = DurableGraphEventRelation(
+            fromID: nodeID,
+            toID: targetID,
+            label: "supports",
+            oldLabel: "mentions",
+            newLabel: "supports"
+        )
+        let createEdge = makeGraphRelationEvent(
+            eventID: "graph-event-projection-edge-create-\(UUID().uuidString)",
+            mutationID: "mutation-projection-edge-create",
+            sequence: 2,
+            kind: .edgeCreated,
+            relation: oldRelation
+        )
+        let updateEdge = makeGraphRelationEvent(
+            eventID: "graph-event-projection-edge-update-\(UUID().uuidString)",
+            mutationID: "mutation-projection-edge-update",
+            sequence: 3,
+            kind: .edgeUpdated,
+            relation: newRelation
+        )
+        let invalidEdge = makeGraphRelationEvent(
+            eventID: "graph-event-projection-edge-invalid-\(UUID().uuidString)",
+            mutationID: "mutation-projection-edge-invalid",
+            sequence: 4,
+            kind: .edgeCreated,
+            relation: DurableGraphEventRelation(fromID: "  ", toID: targetID, label: "mentions")
+        )
+        let genericGraphMutation = DurableGraphEvent(
+            eventID: "graph-event-projection-generic-\(UUID().uuidString)",
+            mutationID: "mutation-projection-generic",
+            sequence: 6,
+            kind: .graphMutation,
+            occurredAtMs: 6_000
+        )
+        let snapshot = DurableGraphEventProjection.snapshot(from: [
+            createNode,
+            updateNode,
+            createEdge,
+            updateEdge,
+            invalidEdge,
+            genericGraphMutation,
+        ])
+
+        #expect(snapshot.eventCount == 6)
+        #expect(snapshot.latestEventID == genericGraphMutation.eventID)
+        #expect(snapshot.nodes.map(\.id) == [nodeID])
+        #expect(snapshot.nodes.first?.lastEventKind == .nodeUpdated)
+        #expect(snapshot.edges.map(\.id) == ["\(nodeID)->\(targetID):supports"])
+        #expect(snapshot.edges.first?.label == "supports")
+        #expect(!snapshot.edges.contains { $0.id == "\(nodeID)->\(targetID):mentions" })
+
+        let deleted = DurableGraphEvent(
+            eventID: "graph-event-projection-node-delete-\(UUID().uuidString)",
+            mutationID: "mutation-projection-node-delete",
+            sequence: 5,
+            kind: .nodeDeleted,
+            entityID: nodeID,
+            entityKind: ArtifactKind.proseNote.snakeCaseString,
+            occurredAtMs: 7_000
+        )
+        let afterDelete = DurableGraphEventProjection.snapshot(from: [updateNode, updateEdge, deleted])
+        #expect(afterDelete.nodes.isEmpty)
+        #expect(afterDelete.edges.isEmpty)
     }
 
     @Test("Committed graph-affecting mutation envelopes create idempotent GraphEvents")
