@@ -4,10 +4,12 @@ import SwiftUI
 
 @MainActor
 struct GraphEventVisibilityRow: View {
-    @State private var snapshot: EventStore.GraphEventDiagnostics
+    @State private var diagnostics: EventStore.GraphEventDiagnostics
+    @State private var projectionSnapshot: DurableGraphProjectionSnapshot
 
     init() {
-        _snapshot = State(initialValue: Self.snapshot())
+        _diagnostics = State(initialValue: Self.diagnosticsSnapshot())
+        _projectionSnapshot = State(initialValue: Self.projectionSnapshot())
     }
 
     var body: some View {
@@ -20,36 +22,54 @@ struct GraphEventVisibilityRow: View {
             )
             row(
                 label: "Latest graph event",
-                symbol: snapshot.latestEvent == nil ? "circle.dotted" : "clock.badge.checkmark",
+                symbol: diagnostics.latestEvent == nil ? "circle.dotted" : "clock.badge.checkmark",
                 ok: true,
                 detail: latestEventDetail
+            )
+            row(
+                label: "Projection snapshot",
+                symbol: projectionSnapshot.eventCount == 0 ? "circle.dotted" : "point.3.filled.connected.trianglepath.dotted",
+                ok: true,
+                detail: projectionDetail
             )
         }
         .onAppear { refresh() }
     }
 
     func refresh() {
-        snapshot = Self.snapshot()
+        diagnostics = Self.diagnosticsSnapshot()
+        projectionSnapshot = Self.projectionSnapshot()
     }
 
-    private static func snapshot() -> EventStore.GraphEventDiagnostics {
+    private static func diagnosticsSnapshot() -> EventStore.GraphEventDiagnostics {
         EventStore.shared?.graphEventDiagnostics() ?? .empty
     }
 
+    private static func projectionSnapshot() -> DurableGraphProjectionSnapshot {
+        EventStore.shared?.graphEventProjectionSnapshot(limit: 100) ?? DurableGraphEventProjection.snapshot(from: [])
+    }
+
     private var graphEventDetail: String {
-        guard snapshot.totalRows > 0 else {
+        guard diagnostics.totalRows > 0 else {
             return "No durable graph events yet"
         }
-        return "\(snapshot.totalRows) events across \(snapshot.distinctMutations) mutation(s)"
+        return "\(diagnostics.totalRows) events across \(diagnostics.distinctMutations) mutation(s)"
     }
 
     private var latestEventDetail: String {
-        guard let event = snapshot.latestEvent else {
+        guard let event = diagnostics.latestEvent else {
             return "Waiting for committed graph-affecting mutations"
         }
         let eventID = event.eventID.isEmpty ? "unknown" : String(event.eventID.prefix(12))
         let mutationID = event.mutationID.isEmpty ? "unknown" : String(event.mutationID.prefix(12))
         return "\(event.kind.rawValue) | \(eventID) | \(mutationID)"
+    }
+
+    private var projectionDetail: String {
+        guard projectionSnapshot.eventCount > 0 else {
+            return "No projection snapshot yet"
+        }
+        return "\(projectionSnapshot.eventCount) events | \(projectionSnapshot.nodes.count) nodes | \(projectionSnapshot.edges.count) edges"
     }
 
     @ViewBuilder

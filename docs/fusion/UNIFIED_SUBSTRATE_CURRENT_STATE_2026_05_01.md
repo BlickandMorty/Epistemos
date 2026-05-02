@@ -158,6 +158,11 @@ closed:
   durable GraphEvent read with the deterministic read-only projection fold
   without renderer, retrieval, Halo, Theater, Rust, OpLog, mutation, repair,
   polling, or UI side effects.
+- Durable GraphEvent projection visibility PR5 is now closed. Settings'
+  existing `GraphEventVisibilityRow` reads the PR4 consumer once on
+  appear/refresh and displays bounded event/node/edge counts without renderer,
+  retrieval, Halo, Theater, Rust, OpLog, mutation, repair, polling, timer, or
+  `.task` side effects.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,
@@ -275,6 +280,9 @@ Proven or actively wired:
 - EventStore now exposes the direct read-only GraphEvent projection consumer
   `graphEventProjectionSnapshot(limit:)` so future consumers can request a
   bounded snapshot without hand-composing row reads and projection folding.
+- Settings now exposes the read-only GraphEvent projection snapshot counts from
+  that consumer, keeping projection visibility tied to the same bounded
+  EventStore API rather than a second UI-owned fold.
 - R15 benchmark JSON recorder foundation is now present for the existing manual
   benchmark suites, with a tested schema and non-shipping
   `benchmarks/results/` output path. R15 PR2 also adds real fixture baselines
@@ -343,9 +351,9 @@ Still open:
   `AgentEvent` emission beyond the PipelineService observed-tool,
   ChatCoordinator Rust-stream, and HookRegistry API-level paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
-  read-only Settings visibility, the read-only projection snapshot, and the
-  EventStore projection-consumer API, such as graph, retrieval, Halo, Theater,
-  or audit surfaces.
+  read-only Settings visibility, the read-only projection snapshot, the
+  EventStore projection-consumer API, and read-only Settings projection counts,
+  such as graph, retrieval, Halo, Theater, or audit surfaces.
 - Sovereign Gate follow-through beyond the Core Swift executor: Rust-side
   action-class matrix, generated transport, existing confirmation-surface
   migration, and any Pro/Research Secure Enclave or Sovereign-class routes.
@@ -400,8 +408,9 @@ Still open:
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
    HookRegistry lifecycle PR4, durable GraphEvent mutation mapping PR1,
    durable GraphEvent Settings visibility PR2, and durable GraphEvent
-   projection snapshot PR3, and durable GraphEvent projection consumer PR4 are
-   closed. Add Omega/broader
+   projection snapshot PR3, durable GraphEvent projection consumer PR4, and
+   durable GraphEvent Settings projection visibility PR5 are closed. Add
+   Omega/broader
    runtime AgentEvent coverage, production hook call-site mounting,
    incremental replay/export, live GraphEvent consumer projections, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
@@ -541,7 +550,8 @@ PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
-durable GraphEvent projection consumer PR4,
+durable GraphEvent projection consumer PR4, durable GraphEvent Settings
+projection visibility PR5,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, R16 memory-pressure dispatch pause PR3E,
