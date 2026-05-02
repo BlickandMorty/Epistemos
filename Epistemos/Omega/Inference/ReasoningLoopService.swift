@@ -61,8 +61,15 @@ final class ReasoningLoopService {
     @ObservationIgnored
     private let traceLogger = ReasoningTraceLogger()
 
-    init(triageService: TriageService) {
+    @ObservationIgnored
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+
+    init(
+        triageService: TriageService,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
+    ) {
         self.triageService = triageService
+        self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
     // MARK: - Public API
@@ -109,6 +116,7 @@ final class ReasoningLoopService {
                     }
 
                     let startTime = ContinuousClock.now
+                    let reasoningRunID = "reasoning-loop-\(UUID().uuidString)"
 
                     // Run internal reasoning rounds (non-streaming)
                     let (bestAnswer, rounds) = try await self.runInternalRounds(
@@ -116,7 +124,8 @@ final class ReasoningLoopService {
                         systemPrompt: systemPrompt,
                         operation: operation,
                         contentLength: contentLength,
-                        operatingMode: operatingMode
+                        operatingMode: operatingMode,
+                        runID: reasoningRunID
                     )
 
                     self.totalRoundsLastQuery = rounds.count
@@ -192,7 +201,8 @@ final class ReasoningLoopService {
         systemPrompt: String?,
         operation: NotesOperation,
         contentLength: Int,
-        operatingMode: EpistemosOperatingMode
+        operatingMode: EpistemosOperatingMode,
+        runID: String
     ) async throws -> (answer: String, rounds: [ReasoningRound]) {
         var rounds: [ReasoningRound] = []
         var bestAnswer = ""
@@ -244,9 +254,40 @@ final class ReasoningLoopService {
             if config.enableToolUse {
                 let parsedCalls = ToolCallParser.parse(critiqueOutput)
                 for call in parsedCalls {
+                    let toolSequence = toolCallRecords.count + 1
+                    recordReasoningToolEvent(
+                        runID: runID,
+                        roundIdx: roundIdx,
+                        toolSequence: toolSequence,
+                        call: call,
+                        kind: .toolCallRequested,
+                        status: .requested
+                    )
+                    recordReasoningToolEvent(
+                        runID: runID,
+                        roundIdx: roundIdx,
+                        toolSequence: toolSequence,
+                        call: call,
+                        kind: .toolCallStarted,
+                        status: .started
+                    )
+
                     let toolStart = ContinuousClock.now
                     let result = await executeReasoningToolCall(call)
                     let toolMs = UInt64(toolStart.duration(to: .now).components.attoseconds / 1_000_000_000_000)
+                    let toolFailed = !isAvailableReasoningTool(call.name)
+                    recordReasoningToolEvent(
+                        runID: runID,
+                        roundIdx: roundIdx,
+                        toolSequence: toolSequence,
+                        call: call,
+                        kind: toolFailed ? .toolCallFailed : .toolCallCompleted,
+                        status: toolFailed ? .failed : .completed,
+                        resultJSON: reasoningToolResultPayload(result),
+                        durationMs: toolMs,
+                        errorMessage: toolFailed ? result : nil
+                    )
+
                     toolCallRecords.append(ToolCallRecord(
                         toolName: call.name,
                         query: call.argumentsJson,
@@ -323,6 +364,57 @@ final class ReasoningLoopService {
             log.debug("Reasoning: unknown tool '\(call.name)', skipping")
             return "Tool '\(call.name)' not available in reasoning context."
         }
+    }
+
+    @discardableResult
+    private func recordReasoningToolEvent(
+        runID: String,
+        roundIdx: Int,
+        toolSequence: Int,
+        call: ToolCallParser.ParsedToolCall,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        errorMessage: String? = nil
+    ) -> Bool {
+        agentProvenanceRecorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "omega-reasoning-loop", modelID: nil),
+            toolCallID: "reasoning-tool:\(roundIdx):\(toolSequence)",
+            toolName: call.name,
+            argumentsJSON: call.argumentsJson,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            approvalID: nil,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: [
+                "source": "omega_reasoning_loop",
+                "round_index": "\(roundIdx)",
+                "tool_sequence": "\(toolSequence)"
+            ]
+        )
+    }
+
+    private func isAvailableReasoningTool(_ name: String) -> Bool {
+        switch name {
+        case "vault_search", "search_vault", "search", "graph_search", "search_graph":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func reasoningToolResultPayload(_ result: String) -> String {
+        let payload = ["text": String(result.prefix(4000))]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload),
+              let json = String(data: data, encoding: .utf8) else {
+            return #"{"text":""}"#
+        }
+        return json.replacingOccurrences(of: "\\/", with: "/")
     }
 
     private func executeVaultSearch(query: String) async -> String {

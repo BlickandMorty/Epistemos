@@ -121,7 +121,13 @@ closed:
   and tool results can be post-processed after execution without changing the
   no-hook behavior, approval policy, provider routing, UI, ChatCoordinator,
   Omega, graph, Rust, generated bindings, or EventStore schema.
-  Theater, Rust, or generated-binding side effects.
+- AgentEvent PR7 now instruments Omega ReasoningLoop internal tool calls.
+  Existing internal `vault_search` / `graph_search` calls persist requested,
+  started, and completed/failed AgentEvents with `reasoning-loop-...` run ids,
+  `omega-reasoning-loop` actor metadata, round/tool sequence metadata, and
+  bounded JSON result payloads. This does not change approval, routing, UI,
+  HookRegistry, ChatCoordinator, PipelineService, graph, Rust, generated
+  bindings, or EventStore schema.
 - Sovereign Gate Core PR1 now has the single Swift authorization executor:
   `Epistemos/Sovereign/SovereignGate.swift` is the only production source that
   imports `LocalAuthentication` or instantiates `LAContext`. It executes
@@ -201,6 +207,8 @@ closed:
   and
   `/tmp/epistemos-agent-event-hook-pr4-green-runtime-20260501.log`,
   and
+  `/tmp/epistemos-reasoning-loop-agent-event-pr7-green-20260502.log`,
+  and
   `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`,
   and
   `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`,
@@ -232,12 +240,13 @@ mutation provenance with read-only replay snapshots and cryptographic chain
 verification, and `agent_events` is now the durable Swift source for agent/tool
 provenance with the first PipelineService and ChatCoordinator Rust-stream live
 emission paths closed, HookRegistry API-level lifecycle emission, read-only
-Settings visibility, and the first PipelineService HookRegistry production
-mount.
+Settings visibility, the first PipelineService HookRegistry production mount,
+and Omega ReasoningLoop internal tool-call emission.
 `graph_events` is now the durable Swift source for mutation-derived graph
 provenance with a read-only projection snapshot fold. The next provenance gates
-are Omega/broader runtime AgentEvent coverage, GraphEvent projection into live
-graph/retrieval/Halo/Theater surfaces,
+are AgentEvent coverage beyond PipelineService, ChatCoordinator, HookRegistry,
+and Omega ReasoningLoop, GraphEvent projection into live graph, retrieval, Halo,
+and Theater surfaces,
 incremental replay/export, and deeper audit/repair surfaces beyond the current
 read-only Settings diagnostics, projection snapshot replay, chain verification,
 AgentEvent visibility diagnostics, and GraphEvent visibility/projection
@@ -275,7 +284,9 @@ Proven or actively wired:
   and completed/failed lifecycle rows, and ChatCoordinator's Rust stream
   consumers now emit the same lifecycle rows for Command Center and managed chat
   Rust agent sessions. HookRegistry lifecycle APIs now emit tool-less
-  registered/fired/completed rows for existing hook calls.
+  registered/fired/completed rows for existing hook calls, PipelineService's
+  local tool-loop path now mounts HookRegistry, and Omega ReasoningLoop internal
+  search calls now emit requested/started/completed-or-failed AgentEvents.
 - Settings diagnostics now expose read-only durable AgentEvent visibility from
   EventStore, including total row count, distinct run count, distinct tool
   count, latest event metadata, and last event kind.
@@ -412,9 +423,9 @@ Still open:
 - Incremental replay, ReplayBundle export, and mutating rollback/repair
   semantics beyond read-only projection snapshots and read-only chain
   verification.
-- Omega and broader agent runtime `AgentEvent` emission beyond the
-  PipelineService observed-tool, ChatCoordinator Rust-stream, HookRegistry
-  API-level, and PipelineService HookRegistry mount paths.
+- AgentEvent emission beyond PipelineService observed-tool, ChatCoordinator
+  Rust-stream, HookRegistry API-level, PipelineService HookRegistry mount, and
+  Omega ReasoningLoop internal search paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, and read-only Settings projection counts,
@@ -472,13 +483,14 @@ Still open:
    visibility PR3D, replay snapshot PR4A, AgentEvent persistence PR1,
    OpLog chain verification PR4B, AgentEvent PipelineService live tool
    provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
-   HookRegistry lifecycle PR4, durable GraphEvent mutation mapping PR1,
-   durable GraphEvent Settings visibility PR2, and durable GraphEvent
-   projection snapshot PR3, durable GraphEvent projection consumer PR4, and
-   durable GraphEvent Settings projection visibility PR5 are closed. Add
-   Omega/broader
-   runtime AgentEvent coverage, incremental replay/export, live GraphEvent
-   consumer projections, or mutating
+   HookRegistry lifecycle PR4, AgentEvent Settings visibility PR5, AgentEvent
+   Pipeline HookRegistry mount PR6, AgentEvent Omega ReasoningLoop internal
+   tool provenance PR7, durable GraphEvent mutation mapping PR1, durable
+   GraphEvent Settings visibility PR2, and durable GraphEvent projection
+   snapshot PR3, durable GraphEvent projection consumer PR4, and durable
+   GraphEvent Settings projection visibility PR5 are closed. Add remaining
+   broader runtime AgentEvent coverage, incremental replay/export, live
+   GraphEvent consumer projections, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
 
@@ -518,9 +530,9 @@ are:
   mount PR1, V1 live domain re-query PR2, and visible panel actions PR3 are
   already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
-  AgentEvent PR4, GraphEvent PR1, GraphEvent visibility PR2, and GraphEvent
+  AgentEvent PR7, GraphEvent PR1, GraphEvent visibility PR2, and GraphEvent
   projection snapshot PR3 with
-  Omega/broader runtime AgentEvent coverage, live GraphEvent consumer
+  remaining broader runtime AgentEvent coverage, live GraphEvent consumer
   projections, incremental replay/export, deeper repair/audit
   visibility, and trace/audit projection semantics.
   Background worker scheduling is closed as PR3C, basic read-only Settings
@@ -529,7 +541,10 @@ are:
   AgentEvent persistence is closed as PR1, PipelineService observed tool
   lifecycle emission is closed as PR2, ChatCoordinator Rust-stream lifecycle
   emission is closed as PR3, HookRegistry API-level lifecycle emission is
-  closed as PR4, durable GraphEvent mutation mapping is closed as PR1,
+  closed as PR4, AgentEvent Settings visibility is closed as PR5, Pipeline
+  HookRegistry mount is closed as PR6, Omega ReasoningLoop internal tool
+  provenance is closed as PR7, durable GraphEvent mutation mapping is closed as
+  PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4.
@@ -623,6 +638,7 @@ PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
 PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
 ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4,
 AgentEvent Settings visibility PR5, AgentEvent Pipeline HookRegistry mount PR6,
+AgentEvent Omega ReasoningLoop internal tool provenance PR7,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -639,7 +655,7 @@ PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either live GraphEvent consumer projection,
-Omega/broader runtime AgentEvent coverage,
+remaining broader runtime AgentEvent coverage,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
