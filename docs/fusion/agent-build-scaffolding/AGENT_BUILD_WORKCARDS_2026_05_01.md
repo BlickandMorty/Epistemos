@@ -679,6 +679,15 @@ the structured-output surface as `hermesGateway` class without changing
 provider routing, schema request construction, fallback prompt behavior, or
 adding a Hermes subprocess adapter.
 
+PR11 LocalAgentLoop tool execution provenance is also closed.
+`LocalAgentLoop` now records requested, started, and completed/failed
+AgentEvents for parsed local tool calls with `local-agent-...` run ids,
+`local-agent-loop` actor metadata, `local-agent-tool:N` sequence ids,
+source/surface metadata, and bounded result/error payloads. This preserves
+model routing, tool parsing, tool execution, repair semantics, approvals, UI,
+provider calls, HookRegistry, PipelineService, ChatCoordinator, Omega, graph,
+Rust, generated bindings, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -708,6 +717,9 @@ Authority to read first:
   or a future CloudLLM provenance regression fix gate.
 - `docs/fusion/deliberation/cloud_llm_stream_agent_event_pr9_deliberation_2026_05_02.md`
 - `docs/fusion/deliberation/cloud_llm_structured_agent_event_pr10_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/local_agent_loop_agent_event_pr11_deliberation_2026_05_02.md`
+- `Epistemos/LocalAgent/LocalAgentLoop.swift` only for PR11 LocalAgentLoop
+  evidence or a future LocalAgentLoop provenance regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -725,10 +737,13 @@ Allowed write set:
   `CloudLLMClient.stream(...)` only.
 - PR10 CloudLLM provider-native structured-output provenance: already closed
   for `CloudLLMClient.generateStructured(...)` only.
+- PR11 LocalAgentLoop tool execution provenance: already closed for parsed
+  `LocalAgentLoop` tool calls only.
 - Future CloudLLM paths beyond generate/stream/structured output,
-  ChatCoordinator paths beyond PR3, Omega paths beyond ReasoningLoop internal
-  search, or broader runtime instrumentation only after a new deliberation gate
-  names exact runtime files and focused tests.
+  ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
+  execution, Omega paths beyond ReasoningLoop internal search, or broader
+  runtime instrumentation only after a new deliberation gate names exact
+  runtime files and focused tests.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -808,6 +823,12 @@ Tests and logs:
   `/tmp/epistemos-cloud-llm-structured-agent-event-pr10-green-20260502.log`.
   The focused behavior tests passed; Xcode still printed known SwiftLint
   package-plugin noise after `TEST SUCCEEDED`.
+- PR11 red log:
+  `/tmp/epistemos-local-agent-agent-event-pr11-red-20260502.log`.
+- PR11 green log:
+  `/tmp/epistemos-local-agent-agent-event-pr11-green-20260502.log`.
+  The focused `LocalAgentLoopTests` suite passed 36 tests; Xcode still printed
+  known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -873,6 +894,13 @@ Acceptance:
   routing, schema request construction, fallback prompt behavior, Hermes
   subprocesses, MCP, CLI, approvals, ChatCoordinator, PipelineService, Omega,
   graph, Rust, generated bindings, UI, and EventStore schema.
+- PR11 wired/reachable/visible: LocalAgentLoop parsed tool calls emit
+  requested, started, and completed/failed AgentEvents with non-empty run id,
+  tool call id, actor, source/surface metadata, bounded result payloads, and
+  bounded failure payloads. Source and behavior stay away from model routing,
+  tool parsing, tool execution semantics, repair semantics, approvals, UI,
+  provider calls, HookRegistry, PipelineService, ChatCoordinator, Omega, graph,
+  Rust, generated bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

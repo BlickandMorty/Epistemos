@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+@MainActor
+private final class LocalAgentEventSink {
+    private(set) var events: [AgentProvenanceEvent] = []
+
+    func append(_ event: AgentProvenanceEvent) -> Bool {
+        events.append(event)
+        return true
+    }
+}
+
 @Suite("Local Agent Loop")
 struct LocalAgentLoopTests {
     @Test("tool call parsing reuses the shared Hermes tag format")
@@ -93,6 +103,101 @@ struct LocalAgentLoopTests {
         #expect(prompts[0].contains("Find my transformer architecture notes and summarize them."))
         #expect(prompts[1].contains("<tool_response>"))
         #expect(answer == "Transformer notes found: self-attention, multi-head attention, residual connections.")
+    }
+
+    @Test("local loop records successful tool provenance")
+    @MainActor
+    func localLoopRecordsSuccessfulToolProvenance() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"vault_search","arguments":{"query":"transformer architecture"}}
+            </tool_call>
+            """,
+            "Transformer notes found.",
+        ])
+        let sink = LocalAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 321 },
+            persist: { event in sink.append(event) }
+        )
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await responseQueue.nextOutput()
+            },
+            toolExecutor: { name, argumentsJson in
+                #expect(name == "vault_search")
+                #expect(argumentsJson.contains("\"query\":\"transformer architecture\""))
+                return LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"content":[{"path":"ml/transformers.md"}]}"#,
+                    isError: false
+                )
+            },
+            agentProvenanceRecorder: recorder
+        )
+
+        let answer = try await loop.run(
+            objective: "Find transformer notes.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "Transformer notes found.")
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("local-agent-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-agent-tool:1" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "vault_search" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "local_agent_loop" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "local_agent" })
+        #expect(sink.events.last?.tool?.status == .completed)
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("transformers.md") == true)
+    }
+
+    @Test("local loop records failed tool provenance")
+    @MainActor
+    func localLoopRecordsFailedToolProvenance() async throws {
+        let responseQueue = ResponseQueue(outputs: [
+            """
+            <tool_call>
+            {"name":"vault_search","arguments":{"query":"missing"}}
+            </tool_call>
+            """,
+            "Nothing found.",
+        ])
+        let sink = LocalAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 654 },
+            persist: { event in sink.append(event) }
+        )
+        let loop = LocalAgentLoop(
+            generator: { _, _, _, _, _, _ in
+                await responseQueue.nextOutput()
+            },
+            toolExecutor: { name, _ in
+                LocalToolResult(
+                    toolName: name,
+                    resultJson: #"{"error":"missing"}"#,
+                    isError: true
+                )
+            },
+            agentProvenanceRecorder: recorder
+        )
+
+        let answer = try await loop.run(
+            objective: "Find missing notes.",
+            tools: [sampleTool()],
+            maxTurns: 3,
+            onToken: { _ in }
+        )
+
+        #expect(answer == "Nothing found.")
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage?.contains("missing") == true)
     }
 
     @Test("local loop executes legacy Qwen XML tool calls before returning the final answer")
