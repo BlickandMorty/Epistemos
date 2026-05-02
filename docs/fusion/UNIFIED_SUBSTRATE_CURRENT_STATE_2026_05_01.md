@@ -230,6 +230,17 @@ closed:
   streaming, prompt construction, approval, UI, provider routing,
   ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, graph,
   Rust, generated bindings, or EventStore schema.
+- AgentEvent PR16 now instruments `InstantRecallService.search(queryText:topK:)`
+  sync recall search. Valid sync searches persist requested, started, and
+  completed/failed AgentEvents with `instant-recall-...` run ids,
+  `instant-recall-service` actor metadata, `instant-recall-search:N` tool ids,
+  source/surface/topK/query-count metadata, hit/document counts, elapsed
+  milliseconds, and bounded failure classes. Query text, note ids, note bodies,
+  result text, snippets, vault paths, source text, async recall events, Halo,
+  ShadowSearch, editor state, and graph state are intentionally excluded. This
+  does not change recall behavior, hydration, metrics, async recall, Halo,
+  ShadowSearch, UI, approval, routing, graph, Rust, generated bindings, or
+  EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -642,8 +653,8 @@ Still open:
   Omega ReasoningLoop internal search, CloudLLM non-streaming generate,
   CloudLLM direct stream, CloudLLM structured generation, LocalAgentLoop
   tool execution, DriverChannelToolExecutor channel wrapper paths, remote relay
-  channel HTTP client paths, AgentGrep search, and AgentQueryEngine backend tool
-  streams.
+  channel HTTP client paths, AgentGrep search, AgentQueryEngine backend tool
+  streams, and InstantRecall sync recall search.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
@@ -716,7 +727,8 @@ before building.
   PR10, AgentEvent LocalAgentLoop tool provenance PR11, AgentEvent
   DriverChannelToolExecutor provenance PR12, AgentEvent remote relay channel
   provenance PR13, AgentEvent AgentGrep search provenance PR14, AgentEvent
-  AgentQueryEngine backend-stream provenance PR15, durable
+  AgentQueryEngine backend-stream provenance PR15, AgentEvent InstantRecall sync
+  recall provenance PR16, durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
@@ -790,7 +802,8 @@ are:
   provenance is closed as PR11, DriverChannelToolExecutor channel provenance is
   closed as PR12, remote relay channel provenance is closed as PR13, AgentGrep
   search provenance is closed as PR14, AgentQueryEngine backend-stream
-  provenance is closed as PR15, durable GraphEvent mutation mapping is closed as PR1,
+  provenance is closed as PR15, InstantRecall sync recall provenance is closed
+  as PR16, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
@@ -897,6 +910,7 @@ AgentEvent DriverChannelToolExecutor channel provenance PR12,
 AgentEvent remote relay channel provenance PR13,
 AgentEvent AgentGrep search provenance PR14,
 AgentEvent AgentQueryEngine backend-stream provenance PR15,
+AgentEvent InstantRecall sync recall provenance PR16,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -921,8 +935,9 @@ The next best build card is either remaining live GraphEvent consumer projection
 beyond Halo's read-only ribbon,
 remaining broader runtime AgentEvent coverage beyond the already closed
 CloudLLM generate/stream/structured, LocalAgentLoop tool execution,
-DriverChannelToolExecutor channel wrapper, and remote relay channel HTTP client
-paths,
+DriverChannelToolExecutor channel wrapper, remote relay channel HTTP client
+paths, AgentGrep search, AgentQueryEngine backend streams, and InstantRecall
+sync recall search,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

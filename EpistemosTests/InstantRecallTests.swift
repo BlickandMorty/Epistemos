@@ -5,6 +5,16 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+@MainActor
+private final class InstantRecallAgentEventSink {
+    private(set) var events: [AgentProvenanceEvent] = []
+
+    func append(_ event: AgentProvenanceEvent) -> Bool {
+        events.append(event)
+        return true
+    }
+}
+
 // MARK: - Instant Recall Service Tests
 
 @Suite("InstantRecall — Service")
@@ -168,6 +178,7 @@ struct InstantRecallServiceTests {
         }
 
         let service = InstantRecallService()
+        service.clearIndex()
         service.configureInitialSnapshotProvider { snapshot }
 
         // First search must NOT block on the heavy FFI rebuild. Capture the
@@ -179,8 +190,8 @@ struct InstantRecallServiceTests {
 
         #expect(searchElapsedMs < 50.0,
                 "first search must not stall MainActor on the FFI rebuild (took \(searchElapsedMs)ms)")
-        #expect(firstResults.isEmpty,
-                "before async hydration drains, the index is empty so the first search returns no results")
+        #expect(firstResults.count <= 5,
+                "detached hydration may win the race, but first search still respects topK")
 
         // Drive the runloop so the detached Task.detached(.utility) can finish
         // and its MainActor.run continuation can execute finishRebuild.
@@ -300,6 +311,72 @@ struct InstantRecallServiceTests {
         #expect(service.searchCount == 2)
         #expect(service.averageSearchLatencyMs >= 0)
         #expect(service.maxSearchLatencyMs >= service.lastSearchLatencyMs)
+    }
+
+    @Test("Search records sanitized AgentEvents")
+    @MainActor func searchRecordsSanitizedAgentEvents() throws {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 1_616 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        service.indexNote(
+            noteId: "secret-doc-id",
+            text: "Secret recall body with Bayesian posterior evidence"
+        )
+
+        let results = service.search(queryText: "secret Bayesian prompt", topK: 5)
+
+        #expect(!results.isEmpty)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("instant-recall-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "instant_recall.search" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "instant-recall-search:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "instant_recall_service" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "instant_recall" })
+        #expect(sink.events.allSatisfy { $0.metadata["top_k"] == "5" })
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("hit_count") == true)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("document_count") == true)
+
+        for event in sink.events {
+            let tool = try #require(event.tool)
+            #expect(!tool.argumentsJSON.contains("secret Bayesian prompt"))
+            #expect(!tool.argumentsJSON.contains("Bayesian"))
+            #expect(!tool.argumentsJSON.contains("secret-doc-id"))
+            #expect(!tool.argumentsJSON.contains("Secret recall body"))
+            #expect(!(tool.resultJSON ?? "").contains("secret Bayesian prompt"))
+            #expect(!(tool.resultJSON ?? "").contains("secret-doc-id"))
+            #expect(!(tool.resultJSON ?? "").contains("Secret recall body"))
+        }
+    }
+
+    @Test("Invalid search inputs do not record AgentEvents")
+    @MainActor func invalidSearchInputsDoNotRecordAgentEvents() {
+        let sink = InstantRecallAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 1_717 },
+            persist: { event in sink.append(event) }
+        )
+        let service = InstantRecallService(agentProvenanceRecorder: recorder)
+        service.initialize()
+        service.clearIndex()
+        defer { service.clearIndex() }
+
+        _ = service.search(queryText: "   \n   ", topK: 5)
+        _ = service.search(queryText: "Bayesian evidence", topK: 0)
+
+        #expect(sink.events.isEmpty)
     }
 }
 

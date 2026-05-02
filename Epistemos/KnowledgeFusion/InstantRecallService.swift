@@ -55,8 +55,14 @@ final class InstantRecallService {
     private(set) var maxSearchLatencyMs: Double = 0
 
     private let handle = "vault"
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
     private var initialSnapshotProvider: (() -> [(id: String, text: String)])?
     private var hasHydratedInitialSnapshot = false
+    private var searchSequence: UInt64 = 0
+
+    init(agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()) {
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+    }
 
     private func ensureInitialized() {
         guard !isReady else { return }
@@ -197,6 +203,40 @@ final class InstantRecallService {
 
         hydrateInitialSnapshotIfNeeded()
 
+        let runID = "instant-recall-\(UUID().uuidString)"
+        let toolCallID = nextInstantRecallToolCallID()
+        let actor = AgentProvenanceActor.agent(id: "instant-recall-service", modelID: nil)
+        let queryCharacterCount = normalizedQueryText.count
+        let queryTermCount = instantRecallQueryTermCount(normalizedQueryText)
+        let argumentsJSON = instantRecallSearchArgumentsJSON(
+            queryCharacterCount: queryCharacterCount,
+            queryTermCount: queryTermCount,
+            topK: topK
+        )
+        let baseMetadata = instantRecallSearchMetadata(
+            queryCharacterCount: queryCharacterCount,
+            queryTermCount: queryTermCount,
+            topK: topK
+        )
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+        let startedAt = Date()
         let start = CFAbsoluteTimeGetCurrent()
         let json = instantRecallSearch(handle: handle, queryText: normalizedQueryText, topK: UInt32(topK))
         let elapsed = (CFAbsoluteTimeGetCurrent() - start) * 1000.0
@@ -204,24 +244,78 @@ final class InstantRecallService {
         lastSearchLatencyMs = elapsed
 
         guard let data = json.data(using: .utf8) else {
+            var metadata = baseMetadata
+            metadata["failure_class"] = "non_utf8_json"
             log.error("InstantRecall: search returned non-UTF8 JSON payload")
             lastResults = []
+            recordInstantRecallSearchEvent(
+                runID: runID,
+                kind: .toolCallFailed,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: instantRecallSearchResultJSON(
+                    hitCount: 0,
+                    documentCount: documentCount,
+                    elapsedMs: elapsed
+                ),
+                durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                status: .failed,
+                errorMessage: "non_utf8_json",
+                metadata: metadata
+            )
             return []
         }
 
         let array: [[String: Any]]
         do {
             guard let parsed = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                var metadata = baseMetadata
+                metadata["failure_class"] = "unexpected_json_shape"
                 log.error("InstantRecall: search returned unexpected JSON shape")
                 lastResults = []
+                recordInstantRecallSearchEvent(
+                    runID: runID,
+                    kind: .toolCallFailed,
+                    actor: actor,
+                    toolCallID: toolCallID,
+                    argumentsJSON: argumentsJSON,
+                    resultJSON: instantRecallSearchResultJSON(
+                        hitCount: 0,
+                        documentCount: documentCount,
+                        elapsedMs: elapsed
+                    ),
+                    durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                    status: .failed,
+                    errorMessage: "unexpected_json_shape",
+                    metadata: metadata
+                )
                 return []
             }
             array = parsed
         } catch {
+            var metadata = baseMetadata
+            metadata["failure_class"] = "json_decode_failure"
             log.error(
                 "InstantRecall: failed to decode search payload: \(error.localizedDescription, privacy: .public)"
             )
             lastResults = []
+            recordInstantRecallSearchEvent(
+                runID: runID,
+                kind: .toolCallFailed,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: instantRecallSearchResultJSON(
+                    hitCount: 0,
+                    documentCount: documentCount,
+                    elapsedMs: elapsed
+                ),
+                durationMs: instantRecallDurationMilliseconds(since: startedAt),
+                status: .failed,
+                errorMessage: "json_decode_failure",
+                metadata: metadata
+            )
             return []
         }
 
@@ -237,6 +331,25 @@ final class InstantRecallService {
         searchCount += 1
         averageSearchLatencyMs += (elapsed - averageSearchLatencyMs) / Double(searchCount)
         maxSearchLatencyMs = max(maxSearchLatencyMs, elapsed)
+
+        var completedMetadata = baseMetadata
+        completedMetadata["hit_count"] = String(results.count)
+        completedMetadata["document_count"] = String(documentCount)
+        recordInstantRecallSearchEvent(
+            runID: runID,
+            kind: .toolCallCompleted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: instantRecallSearchResultJSON(
+                hitCount: results.count,
+                documentCount: documentCount,
+                elapsedMs: elapsed
+            ),
+            durationMs: instantRecallDurationMilliseconds(since: startedAt),
+            status: .completed,
+            metadata: completedMetadata
+        )
 
         if elapsed > 10.0 {
             log.warning("InstantRecall: search took \(String(format: "%.1f", elapsed))ms (target <3ms)")
@@ -266,6 +379,88 @@ final class InstantRecallService {
         }.value
 
         finishRebuild(summary, candidateCount: notes.count)
+    }
+
+    private func nextInstantRecallToolCallID() -> String {
+        searchSequence = searchSequence == UInt64.max ? 1 : searchSequence + 1
+        return "instant-recall-search:\(searchSequence)"
+    }
+
+    private func recordInstantRecallSearchEvent(
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        agentProvenanceRecorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "instant_recall.search",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private func instantRecallSearchArgumentsJSON(
+        queryCharacterCount: Int,
+        queryTermCount: Int,
+        topK: Int
+    ) -> String {
+        """
+        {"query_char_count":\(queryCharacterCount),"query_term_count":\(queryTermCount),"top_k":\(topK)}
+        """
+    }
+
+    private func instantRecallSearchResultJSON(
+        hitCount: Int,
+        documentCount: Int,
+        elapsedMs: Double
+    ) -> String {
+        """
+        {"hit_count":\(hitCount),"document_count":\(documentCount),"elapsed_ms":\(instantRecallJSONPayload(elapsedMs))}
+        """
+    }
+
+    private func instantRecallSearchMetadata(
+        queryCharacterCount: Int,
+        queryTermCount: Int,
+        topK: Int
+    ) -> [String: String] {
+        [
+            "source": "instant_recall_service",
+            "surface": "instant_recall",
+            "top_k": String(topK),
+            "query_char_count": String(queryCharacterCount),
+            "query_term_count": String(queryTermCount)
+        ]
+    }
+
+    private func instantRecallDurationMilliseconds(since startedAt: Date) -> UInt64 {
+        let elapsed = Date().timeIntervalSince(startedAt) * 1_000
+        guard elapsed.isFinite, elapsed >= 0 else { return 0 }
+        return UInt64(elapsed.rounded())
+    }
+
+    private func instantRecallJSONPayload(_ value: Double) -> String {
+        guard value.isFinite else { return "0" }
+        return String(format: "%.3f", value)
+    }
+
+    private func instantRecallQueryTermCount(_ value: String) -> Int {
+        value.split(whereSeparator: { $0.isWhitespace }).count
     }
 
     // MARK: - Async search (Patch 7 / AMBIENT_RECALL_WIRING_PLAN §5)
