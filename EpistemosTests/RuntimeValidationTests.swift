@@ -4233,6 +4233,31 @@ struct RuntimeValidationTests {
         #expect(!coordinator.contains("HookRegistry"))
     }
 
+    @Test("HookRegistry persists AgentEvent hook lifecycle without crossing forbidden boundaries")
+    func hookRegistryPersistsAgentEventHookLifecycleWithoutCrossingForbiddenBoundaries() throws {
+        let source = try loadRepoTextFileWithRetry(
+            relativePath: "Epistemos/Engine/HookRegistry.swift",
+            testsFilePath: #filePath
+        )
+
+        #expect(source.contains("persistAgentEvent"))
+        #expect(source.contains("kind: .hookRegistered"))
+        #expect(source.contains("kind: .hookFired"))
+        #expect(source.contains("kind: .hookCompleted"))
+        #expect(source.contains(#""source": "hook_registry""#))
+        #expect(source.contains(#""hook_point": hookPoint"#))
+        #expect(!source.contains("MutationOpLog"))
+        #expect(!source.contains("RustOpLogFFIClient"))
+        #expect(!source.contains("GraphEvent"))
+        #expect(!source.contains("ReplayBundle"))
+        #expect(!source.contains("ProseEditor"))
+        #expect(!source.contains("MetalGraphView"))
+        #expect(!source.contains("HologramController"))
+        #expect(!source.contains("ChatCoordinator"))
+        #expect(!source.contains("PipelineService"))
+        #expect(!source.contains("Omega"))
+    }
+
     @Test("note chat always treats the current note body as primary context")
     func noteChatAlwaysTreatsTheCurrentNoteBodyAsPrimaryContext() throws {
         let source = try loadRepoTextFile("Epistemos/State/NoteChatState.swift")

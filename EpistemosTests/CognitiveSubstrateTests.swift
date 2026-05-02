@@ -103,6 +103,39 @@ struct EventStoreSchemaTests {
         )
     }
 
+    nonisolated private final class AgentEventCapture: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [AgentProvenanceEvent] = []
+
+        func append(_ event: AgentProvenanceEvent) {
+            lock.lock()
+            storage.append(event)
+            lock.unlock()
+        }
+
+        var events: [AgentProvenanceEvent] {
+            lock.lock()
+            defer { lock.unlock() }
+            return storage
+        }
+    }
+
+    private struct RenamingHook: AgentHook {
+        let hookId: String
+
+        func beforeToolCall(call: HookToolCall) async -> HookToolCall? {
+            HookToolCall(id: call.id, name: "\(call.name).hooked", argsJson: call.argsJson)
+        }
+    }
+
+    private struct CancellingHook: AgentHook {
+        let hookId: String
+
+        func beforeToolCall(call: HookToolCall) async -> HookToolCall? {
+            nil
+        }
+    }
+
     private func insertCompletedNightBrainRun(databaseURL: URL, jobsJSON: String) throws {
         var db: OpaquePointer?
         guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
@@ -650,6 +683,72 @@ struct EventStoreSchemaTests {
             status: .started
         ))
         #expect(captured.isEmpty)
+    }
+
+    @Test("HookRegistry persists hook lifecycle AgentEvents")
+    func hookRegistryPersistsHookLifecycleAgentEvents() async {
+        let capture = AgentEventCapture()
+        let registry = HookRegistry(
+            nowMilliseconds: { 42_000 },
+            persistAgentEvent: { event in
+                capture.append(event)
+                return true
+            }
+        )
+        let runID = "run-hook-\(UUID().uuidString)"
+
+        await registry.register(RenamingHook(hookId: "rename-hook"))
+        let result = await registry.fireBeforeToolCall(
+            call: HookToolCall(
+                id: "tool-call-1",
+                name: "vault_search",
+                argsJson: "{\"query\":\"hooks\"}"
+            ),
+            runID: runID
+        )
+
+        let events = capture.events
+        #expect(result?.name == "vault_search.hooked")
+        #expect(events.map(\.kind) == [.hookRegistered, .hookFired, .hookCompleted])
+        #expect(events.map(\.sequence) == [0, 0, 1])
+        #expect(events[0].runID == "hook-registry:registration")
+        #expect(events[1].runID == runID)
+        #expect(events[2].runID == runID)
+        #expect(events.allSatisfy { $0.tool == nil })
+        #expect(events.allSatisfy { $0.metadata["source"] == "hook_registry" })
+        #expect(events.allSatisfy { $0.metadata["hook_id"] == "rename-hook" })
+        #expect(events[1].metadata["hook_point"] == "before_tool_call")
+        #expect(events[2].metadata["outcome"] == "completed")
+    }
+
+    @Test("HookRegistry records cancelled hook completion without changing cancellation")
+    func hookRegistryRecordsCancelledHookCompletionWithoutChangingCancellation() async {
+        let capture = AgentEventCapture()
+        let registry = HookRegistry(
+            nowMilliseconds: { 43_000 },
+            persistAgentEvent: { event in
+                capture.append(event)
+                return true
+            }
+        )
+        let runID = "run-hook-cancel-\(UUID().uuidString)"
+
+        await registry.register(CancellingHook(hookId: "cancel-hook"))
+        let result = await registry.fireBeforeToolCall(
+            call: HookToolCall(
+                id: "tool-call-cancel",
+                name: "vault_search",
+                argsJson: "{\"query\":\"cancel\"}"
+            ),
+            runID: runID
+        )
+
+        let runEvents = capture.events.filter { $0.runID == runID }
+        #expect(result == nil)
+        #expect(runEvents.map(\.kind) == [.hookFired, .hookCompleted])
+        #expect(runEvents.map(\.sequence) == [0, 1])
+        #expect(runEvents[0].metadata["hook_id"] == "cancel-hook")
+        #expect(runEvents[1].metadata["outcome"] == "cancelled")
     }
 
     @Test("Pending mutation projection outbox rows are bounded and insertion ordered")

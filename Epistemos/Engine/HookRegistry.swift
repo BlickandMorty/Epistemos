@@ -61,14 +61,39 @@ extension AgentHook {
 
 /// Central registry that manages and fires hooks.
 actor HookRegistry {
+    typealias PersistAgentEvent = @Sendable (AgentProvenanceEvent) -> Bool
+    typealias NowMilliseconds = @Sendable () -> Int64
+
     nonisolated private static let log = Logger(subsystem: "com.epistemos", category: "Hooks")
     static let shared = HookRegistry()
 
     private var hooks: [any AgentHook] = []
+    private var sequenceByRunID: [String: UInt64] = [:]
+    private let nowMilliseconds: NowMilliseconds
+    private let persistAgentEvent: PersistAgentEvent
+
+    init(
+        nowMilliseconds: @escaping NowMilliseconds = {
+            let milliseconds = Date().timeIntervalSince1970 * 1_000
+            guard milliseconds.isFinite else { return 0 }
+            return Int64(milliseconds.rounded())
+        },
+        persistAgentEvent: @escaping PersistAgentEvent = { event in
+            EventStore.shared?.saveAgentEvent(event) ?? false
+        }
+    ) {
+        self.nowMilliseconds = nowMilliseconds
+        self.persistAgentEvent = persistAgentEvent
+    }
 
     /// Register a hook. Later registrations fire after earlier ones (pipeline order).
     func register(_ hook: any AgentHook) {
         hooks.append(hook)
+        recordHookEvent(
+            kind: .hookRegistered,
+            hookID: hook.hookId,
+            hookPoint: "registration"
+        )
         Self.log.info("HookRegistry: registered hook '\(hook.hookId)'")
     }
 
@@ -79,40 +104,183 @@ actor HookRegistry {
     }
 
     /// Fire beforePromptBuild — chains through all hooks.
-    func fireBeforePromptBuild(context: PromptContext) async -> PromptContext {
+    func fireBeforePromptBuild(context: PromptContext, runID: String? = nil) async -> PromptContext {
         var ctx = context
         for hook in hooks {
+            recordHookEvent(
+                kind: .hookFired,
+                hookID: hook.hookId,
+                hookPoint: "before_prompt_build",
+                runID: runID
+            )
             ctx = await hook.beforePromptBuild(context: ctx)
+            recordHookEvent(
+                kind: .hookCompleted,
+                hookID: hook.hookId,
+                hookPoint: "before_prompt_build",
+                runID: runID,
+                outcome: "completed"
+            )
         }
         return ctx
     }
 
     /// Fire beforeToolCall — any hook returning nil cancels the call.
-    func fireBeforeToolCall(call: HookToolCall) async -> HookToolCall? {
+    func fireBeforeToolCall(call: HookToolCall, runID: String? = nil) async -> HookToolCall? {
         var current: HookToolCall? = call
         for hook in hooks {
             guard let c = current else { return nil }
+            recordHookEvent(
+                kind: .hookFired,
+                hookID: hook.hookId,
+                hookPoint: "before_tool_call",
+                runID: runID,
+                metadata: [
+                    "tool_call_id": c.id,
+                    "tool_name": c.name,
+                ]
+            )
             current = await hook.beforeToolCall(call: c)
+            recordHookEvent(
+                kind: .hookCompleted,
+                hookID: hook.hookId,
+                hookPoint: "before_tool_call",
+                runID: runID,
+                outcome: current == nil ? "cancelled" : "completed",
+                metadata: [
+                    "tool_call_id": c.id,
+                    "tool_name": c.name,
+                ]
+            )
         }
         return current
     }
 
     /// Fire afterToolCall — chains through all hooks.
-    func fireAfterToolCall(call: HookToolCall, result: HookToolResult) async -> HookToolResult {
+    func fireAfterToolCall(
+        call: HookToolCall,
+        result: HookToolResult,
+        runID: String? = nil
+    ) async -> HookToolResult {
         var r = result
         for hook in hooks {
+            recordHookEvent(
+                kind: .hookFired,
+                hookID: hook.hookId,
+                hookPoint: "after_tool_call",
+                runID: runID,
+                metadata: [
+                    "tool_call_id": call.id,
+                    "tool_name": call.name,
+                    "is_error": String(r.isError),
+                ]
+            )
             r = await hook.afterToolCall(call: call, result: r)
+            recordHookEvent(
+                kind: .hookCompleted,
+                hookID: hook.hookId,
+                hookPoint: "after_tool_call",
+                runID: runID,
+                outcome: "completed",
+                metadata: [
+                    "tool_call_id": call.id,
+                    "tool_name": call.name,
+                    "is_error": String(r.isError),
+                ]
+            )
         }
         return r
     }
 
     /// Fire afterSessionEnd — all hooks fire (no chaining).
-    func fireAfterSessionEnd(sessionId: String, turns: Int, success: Bool) async {
+    func fireAfterSessionEnd(
+        sessionId: String,
+        turns: Int,
+        success: Bool,
+        runID: String? = nil
+    ) async {
+        let resolvedRunID = normalizedRunID(runID) ?? normalizedRunID(sessionId)
         for hook in hooks {
+            recordHookEvent(
+                kind: .hookFired,
+                hookID: hook.hookId,
+                hookPoint: "after_session_end",
+                runID: resolvedRunID,
+                metadata: [
+                    "session_id": sessionId,
+                    "turns": String(turns),
+                    "success": String(success),
+                ]
+            )
             await hook.afterSessionEnd(sessionId: sessionId, turns: turns, success: success)
+            recordHookEvent(
+                kind: .hookCompleted,
+                hookID: hook.hookId,
+                hookPoint: "after_session_end",
+                runID: resolvedRunID,
+                outcome: success ? "completed" : "failed",
+                metadata: [
+                    "session_id": sessionId,
+                    "turns": String(turns),
+                    "success": String(success),
+                ]
+            )
         }
     }
 
     /// Current hook count (for diagnostics).
     var count: Int { hooks.count }
+
+    @discardableResult
+    private func recordHookEvent(
+        kind: AgentProvenanceEventKind,
+        hookID: String,
+        hookPoint rawHookPoint: String,
+        runID: String? = nil,
+        outcome: String? = nil,
+        metadata extraMetadata: [String: String] = [:]
+    ) -> Bool {
+        let hookID = hookID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hookPoint = rawHookPoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !hookID.isEmpty, !hookPoint.isEmpty else { return false }
+
+        let resolvedRunID = normalizedRunID(runID) ?? "hook-registry:\(hookPoint)"
+        let sequence = sequenceByRunID[resolvedRunID] ?? 0
+        guard sequence < UInt64.max else { return false }
+        sequenceByRunID[resolvedRunID] = sequence + 1
+
+        var metadata = [
+            "source": "hook_registry",
+            "hook_id": hookID,
+            "hook_point": hookPoint,
+        ]
+        if let outcome = normalizedRunID(outcome) {
+            metadata["outcome"] = outcome
+        }
+        for (key, value) in extraMetadata {
+            let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
+            let value = value.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty, !value.isEmpty else { continue }
+            metadata[key] = value
+        }
+
+        let event = AgentProvenanceEvent(
+            eventID: "agent-event:\(resolvedRunID):hook:\(kind.rawValue):\(hookID):\(hookPoint):\(sequence)",
+            runID: resolvedRunID,
+            traceID: nil,
+            sequence: sequence,
+            kind: kind,
+            actor: .system,
+            occurredAtMs: nowMilliseconds(),
+            tool: nil,
+            metadata: metadata
+        )
+        return persistAgentEvent(event)
+    }
+
+    private func normalizedRunID(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }

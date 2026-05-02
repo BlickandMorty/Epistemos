@@ -104,6 +104,11 @@ closed:
   started/completed/failed rows without changing approval, execution, UI,
   streaming, routing, Rust bindings, OpLog, GraphEvent, Omega, hooks, or
   generated files.
+- AgentEvent PR4 now has HookRegistry API-level lifecycle emission. Registering
+  and firing hooks persists tool-less `hook_registered`, `hook_fired`, and
+  `hook_completed` rows with non-empty run ids, hook ids, hook points, source
+  metadata, and completion outcome metadata. This preserves hook ordering and
+  cancellation semantics and does not claim production hook call-site mounting.
 - Durable GraphEvent mutation mapping PR1 is now closed. EventStore has a
   `graph_events` table and bounded `saveGraphEvent(_:)`,
   `loadGraphEvent(eventID:)`, and `graphEvents(mutationID:limit:)` APIs.
@@ -139,6 +144,10 @@ closed:
   and
   `/tmp/epistemos-agent-event-pr3-green-20260501-r1.log`,
   and
+  `/tmp/epistemos-agent-event-hook-pr4-green-eventstore-20260501.log`,
+  and
+  `/tmp/epistemos-agent-event-hook-pr4-green-runtime-20260501.log`,
+  and
   `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`,
   and
   `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`.
@@ -163,12 +172,14 @@ the committed source of truth; OpLog is now a deterministic projection target fo
 mutation provenance with read-only replay snapshots and cryptographic chain
 verification, and `agent_events` is now the durable Swift source for agent/tool
 provenance with the first PipelineService and ChatCoordinator Rust-stream live
-emission paths closed. `graph_events` is now the durable Swift source for
-mutation-derived graph provenance. The next provenance gates are
-Omega/hook/broader runtime AgentEvent coverage, GraphEvent projection into live
-graph/retrieval surfaces, incremental replay/export, and deeper audit/repair
-surfaces beyond the current read-only Settings diagnostics, projection snapshot
-replay, chain verification, and GraphEvent visibility diagnostics.
+emission paths closed plus HookRegistry API-level lifecycle emission. It is not
+yet production hook call-site mounting. `graph_events` is now the durable Swift
+source for mutation-derived graph provenance. The next provenance gates are
+Omega/broader runtime AgentEvent coverage, production hook call-site mounting,
+GraphEvent projection into live graph/retrieval surfaces, incremental
+replay/export, and deeper audit/repair surfaces beyond the current read-only
+Settings diagnostics, projection snapshot replay, chain verification, and
+GraphEvent visibility diagnostics.
 
 ## Current Substrate Spine Status
 
@@ -201,7 +212,8 @@ Proven or actively wired:
   local observed tool executor now emits requested, approved/denied, started,
   and completed/failed lifecycle rows, and ChatCoordinator's Rust stream
   consumers now emit the same lifecycle rows for Command Center and managed chat
-  Rust agent sessions.
+  Rust agent sessions. HookRegistry lifecycle APIs now emit tool-less
+  registered/fired/completed rows for existing hook calls.
 - EventStore now persists mutation-derived durable graph provenance in
   `graph_events` through `DurableGraphEvent` and bounded GraphEvent read APIs;
   committed graph-affecting mutation envelopes emit deterministic rows
@@ -236,8 +248,9 @@ Still open:
 - Incremental replay, ReplayBundle export, and mutating rollback/repair
   semantics beyond read-only projection snapshots and read-only chain
   verification.
-- Omega, hook, and broader agent runtime `AgentEvent` emission beyond the
-  PipelineService observed-tool and ChatCoordinator Rust-stream paths.
+- Omega, production hook call-site mounting, and broader agent runtime
+  `AgentEvent` emission beyond the PipelineService observed-tool,
+  ChatCoordinator Rust-stream, and HookRegistry API-level paths.
 - GraphEvent projection beyond durable mutation mapping and read-only Settings
   visibility, such as live graph, retrieval, Halo, Theater, or audit
   projections.
@@ -279,9 +292,10 @@ Still open:
    Lease/retry PR3A, dead-letter PR3B, worker scheduling PR3C, read-only
    visibility PR3D, replay snapshot PR4A, AgentEvent persistence PR1,
    OpLog chain verification PR4B, AgentEvent PipelineService live tool
-   provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, durable
-   GraphEvent mutation mapping PR1, and durable GraphEvent Settings visibility
-   PR2 are closed. Add Omega/hook/broader runtime AgentEvent coverage,
+   provenance PR2, AgentEvent ChatCoordinator Rust-stream PR3, AgentEvent
+   HookRegistry lifecycle PR4, durable GraphEvent mutation mapping PR1, and
+   durable GraphEvent Settings visibility PR2 are closed. Add Omega/broader
+   runtime AgentEvent coverage, production hook call-site mounting,
    incremental replay/export, live GraphEvent projections, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
@@ -302,17 +316,18 @@ are:
   mount work behind a protected-path gate. The V0 Shadow backend route PR1 is
   already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
-  AgentEvent PR3, GraphEvent PR1, and GraphEvent visibility PR2 with
-  Omega/hook/broader runtime AgentEvent coverage, live GraphEvent projections,
-  incremental replay/export, deeper repair/audit visibility, and trace/audit
-  projection semantics.
+  AgentEvent PR4, GraphEvent PR1, and GraphEvent visibility PR2 with
+  Omega/broader runtime AgentEvent coverage, production hook call-site mounting,
+  live GraphEvent projections, incremental replay/export, deeper repair/audit
+  visibility, and trace/audit projection semantics.
   Background worker scheduling is closed as PR3C, basic read-only Settings
   visibility is closed as PR3D, read-only projection replay snapshots are
   closed as PR4A, read-only OpLog chain verification is closed as PR4B, durable
   AgentEvent persistence is closed as PR1, PipelineService observed tool
   lifecycle emission is closed as PR2, ChatCoordinator Rust-stream lifecycle
-  emission is closed as PR3, durable GraphEvent mutation mapping is closed as
-  PR1, and read-only GraphEvent Settings visibility is closed as PR2.
+  emission is closed as PR3, HookRegistry API-level lifecycle emission is
+  closed as PR4, durable GraphEvent mutation mapping is closed as PR1, and
+  read-only GraphEvent Settings visibility is closed as PR2.
 - R15 Benchmark Harness PR2/PR3/PR4 real fixture baselines are closed for Swift
   graph payload construction, markdown parser FFI, code-token parser FFI,
   editor-shell AppKit/TextKit work, and sqlite-vec 100k x 32d KNN. Remaining
@@ -385,12 +400,13 @@ EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
 PR1, AgentEvent PipelineService live tool provenance PR2, AgentEvent
-ChatCoordinator Rust-stream PR3, durable GraphEvent mutation mapping PR1,
-durable GraphEvent Settings visibility PR2, the Halo V0 Shadow backend route,
-R16 memory-pressure dispatch pause PR3E, and R16 MAS bookmark enforcement PR3F,
-R16 model-derived badge visibility PR3G, and R16 ETL worker execution PR3H are
-good to build on. The next best build card is either live GraphEvent projection,
-Omega/hook/broader runtime AgentEvent coverage, remaining R15 specialized
-baselines, R16 runtime/manual closure, or a protected V1 Halo editor gate,
-depending on whether the immediate priority is provenance projection,
-performance-safe graph/FFI work, background retrieval, or richer recall UX.
+ChatCoordinator Rust-stream PR3, AgentEvent HookRegistry lifecycle PR4, durable
+GraphEvent mutation mapping PR1, durable GraphEvent Settings visibility PR2,
+the Halo V0 Shadow backend route, R16 memory-pressure dispatch pause PR3E, and
+R16 MAS bookmark enforcement PR3F, R16 model-derived badge visibility PR3G, and
+R16 ETL worker execution PR3H are good to build on. The next best build card is
+either live GraphEvent projection, Omega/broader runtime AgentEvent coverage,
+production hook call-site mounting, remaining R15 specialized baselines, R16
+runtime/manual closure, or a protected V1 Halo editor gate, depending on
+whether the immediate priority is provenance projection, performance-safe
+graph/FFI work, background retrieval, or richer recall UX.
