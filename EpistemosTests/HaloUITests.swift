@@ -128,6 +128,121 @@ struct HaloUITests {
         // + the underlying controller is reachable for rendering.
         #expect(button.controller === mock)
     }
+
+    // MARK: - ShadowPanelController.panelOrigin (T+5 trailing-edge anchor)
+    //
+    // Pure-function tests for the V1 doctrine canonical positioning
+    // logic per `ambient_V1_DECISION.md` section UI ("anchored to the
+    // editor's trailing edge"). These test the positioning rules in
+    // isolation; the actual NSPanel show/hide is covered by the
+    // ShadowPanelController tests above.
+
+    @Test("panelOrigin places panel just right of anchor with horizontal gap")
+    func panelOriginPrefersTrailingEdge() {
+        let screen = NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        let anchor = NSRect(x: 200, y: 400, width: 600, height: 300)
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 480),
+            in: screen
+        )
+        // Trailing-edge x = anchor.maxX + 8 = 808
+        #expect(origin.x == 808,
+                "panel x must be anchor.maxX + horizontalGap (8) by default - got \(origin.x)")
+        // y top-aligned: panel.maxY = anchor.maxY -> y = anchor.maxY - panelHeight = 700 - 480 = 220
+        #expect(origin.y == 220,
+                "panel y must top-align with anchor (anchor.maxY - panelHeight) - got \(origin.y)")
+    }
+
+    @Test("panelOrigin flips to leading edge when trailing overflows screen")
+    func panelOriginFlipsLeftWhenRightOverflows() {
+        let screen = NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let anchor = NSRect(x: 1000, y: 200, width: 250, height: 100)
+        // anchor.maxX = 1250, panel 360 wide -> 1250+8+360 = 1618 > 1280, so flip.
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 480),
+            in: screen,
+            horizontalGap: 8
+        )
+        // Flipped: x = anchor.minX - panelWidth - gap = 1000 - 360 - 8 = 632
+        #expect(origin.x == 632,
+                "panel must flip to leading edge when right overflows - got \(origin.x)")
+    }
+
+    @Test("panelOrigin clamps left when neither side fits")
+    func panelOriginClampsWhenNeitherSideFits() {
+        // Tiny screen + anchor near left + huge panel: neither side has room.
+        let screen = NSRect(x: 0, y: 0, width: 400, height: 400)
+        let anchor = NSRect(x: 50, y: 100, width: 100, height: 50)
+        // panel 360 wide. anchor.maxX=150, +8=158, +360=518 > 400 -> flip.
+        // anchor.minX-360-8 = 50-360-8 = -318 (off left).
+        // Then horizontal clamp: x < screen.minX (0), so x = 0.
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 200),
+            in: screen
+        )
+        #expect(origin.x == 0,
+                "neither-side-fits clamps to screen.minX - got \(origin.x)")
+    }
+
+    @Test("panelOrigin clamps top when panel overflows screen.maxY")
+    func panelOriginClampsTopWhenAboveScreen() {
+        let screen = NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let anchor = NSRect(x: 100, y: 750, width: 600, height: 100)
+        // anchor.maxY = 850. y = 850 - 480 = 370. + 480 = 850 > 800 -> clamp.
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 480),
+            in: screen
+        )
+        // After top-clamp: y = screen.maxY - panelHeight = 800 - 480 = 320
+        #expect(origin.y == 320,
+                "panel must clamp inside screen.maxY when top would overflow - got \(origin.y)")
+    }
+
+    @Test("panelOrigin clamps bottom when panel overflows screen.minY")
+    func panelOriginClampsBottomWhenBelowScreen() {
+        let screen = NSRect(x: 0, y: 0, width: 1280, height: 800)
+        let anchor = NSRect(x: 100, y: 0, width: 600, height: 100)
+        // anchor.maxY = 100. y = 100 - 480 = -380 -> clamp to 0.
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 480),
+            in: screen
+        )
+        #expect(origin.y == 0,
+                "panel must clamp at screen.minY when below would underflow - got \(origin.y)")
+    }
+
+    @Test("panelOrigin respects custom horizontalGap")
+    func panelOriginCustomGap() {
+        let screen = NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        let anchor = NSRect(x: 200, y: 400, width: 300, height: 100)
+        let origin = ShadowPanelController.panelOrigin(
+            forAnchorRect: anchor,
+            panelSize: NSSize(width: 360, height: 240),
+            in: screen,
+            horizontalGap: 20
+        )
+        #expect(origin.x == 520,
+                "horizontalGap=20 must yield x = anchor.maxX + 20 - got \(origin.x)")
+    }
+
+    // MARK: - Production mount dependencies
+
+    @Test("ContextualShadowsState exposes configured Shadow search for the Halo mount")
+    func contextualShadowsExposesHaloSearchService() {
+        let state = ContextualShadowsState(isEnabledOverride: true)
+        #expect(state.haloSearchService == nil)
+
+        let search = HaloUIMockSearch()
+        state.configureShadowSearch(search)
+
+        #expect(state.haloSearchService != nil,
+                "The editor Halo mount needs a read-only route to the already-configured Shadow backend")
+    }
 }
 
 // MARK: - Test support

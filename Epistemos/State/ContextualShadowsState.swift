@@ -80,6 +80,12 @@ final class ContextualShadowsState {
 
     private let isEnabledOverride: Bool?
     private var shadowSearch: (any ShadowSearchServicing)?
+    private(set) var haloSearchRevision: Int = 0
+
+    var haloSearchService: (any ShadowSearchServicing)? {
+        guard isEnabled else { return nil }
+        return shadowSearch
+    }
 
     nonisolated private static let log = Logger(
         subsystem: "com.epistemos",
@@ -96,6 +102,7 @@ final class ContextualShadowsState {
     /// handle is ready, without touching editor hot paths.
     func configureShadowSearch(_ search: (any ShadowSearchServicing)?) {
         shadowSearch = search
+        haloSearchRevision &+= 1
     }
 
     // MARK: - Recall request

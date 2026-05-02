@@ -361,13 +361,19 @@ Stop triggers:
 
 ## Card 5 - Halo Live Loop Proof
 
-Status update 2026-05-01:
+Status update 2026-05-02:
 PR1 V0 Shadow backend route is closed. The production-mounted Contextual
 Shadows V0 surface now prefers `ShadowSearchService` when AppBootstrap has a
 current per-vault Shadow backend, preserves `InstantRecallService` fallback,
 shows source provenance, and guards vault switches against stale backend or
-page-reindex writes. Full V1 Halo editor mounting remains open and requires a
-separate protected `ProseEditor*` gate.
+page-reindex writes. PR2 V1 protected editor mount is closed behind
+`docs/fusion/deliberation/halo_v1_editor_mount_pr1_deliberation_2026_05_02.md`:
+`ProseEditorRepresentable2.Coordinator2` installs the Halo only when ambient
+recall is enabled and a Shadow backend is configured, feeds `HaloController`
+through the existing `textDidChange` path, hosts the glyph in the editor
+scroll view, and opens `ShadowPanelController` anchored to the editor rect.
+Production still does not instantiate `HaloEditorBridge`, because that bridge
+claims `NSTextView.delegate` and is scaffold/test-only for this route.
 
 Goal:
 Prove the minimal Halo/Contextual Shadows recall loop is wired to real current
@@ -388,6 +394,8 @@ Allowed write set:
 - Halo/search/panel files named by the gate.
 - Tests named by the gate.
 - Docs under `docs/fusion/**`
+- Protected editor files named by a dedicated gate. PR2 used
+  `ProseEditorRepresentable2.swift` only.
 
 Forbidden write set:
 - `Epistemos/Views/Notes/ProseEditor*.swift` without a protected editor gate.
@@ -410,8 +418,9 @@ Acceptance:
 - Wired: production caller exists.
 - Reachable: documented user gesture reaches it.
 - Visible: panel/card/log proves the recall happened.
-- PR1 satisfied this for the V0 Shadow backend route; future work should target
-  either manual runtime verification or the protected V1 editor route.
+- PR1 satisfied this for the V0 Shadow backend route. PR2 satisfies the
+  protected V1 editor mount in code and focused tests. Future work should target
+  manual runtime verification, richer panel actions, or live domain re-query.
 
 Stop triggers:
 - Protected editor edit needed.

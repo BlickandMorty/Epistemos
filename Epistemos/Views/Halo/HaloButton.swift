@@ -20,9 +20,11 @@ import SwiftUI
 public struct HaloButton: View {
 
     let controller: HaloController
+    private let onOpenPanel: (@MainActor () -> Void)?
 
-    public init(controller: HaloController) {
+    public init(controller: HaloController, onOpenPanel: (@MainActor () -> Void)? = nil) {
         self.controller = controller
+        self.onOpenPanel = onOpenPanel
     }
 
     /// AR4 (Wave 14 Focus filters) — when the active Focus has the
@@ -36,7 +38,10 @@ public struct HaloButton: View {
 
     public var body: some View {
         let visible = controller.state.isVisible && !isMutedByFocus
-        Button(action: { controller.openPanel() }) {
+        Button(action: {
+            controller.openPanel()
+            onOpenPanel?()
+        }) {
             Image(systemName: "sparkle.magnifyingglass")
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(.tint)
@@ -46,6 +51,7 @@ public struct HaloButton: View {
         .buttonStyle(.plain)
         .opacity(visible ? 1 : 0)
         .scaleEffect(visible ? 1 : 0.85)
+        .allowsHitTesting(visible)
         .animation(.spring(duration: 0.18, bounce: 0.2), value: visible)
         .help("Show related notes & chats")
         .accessibilityLabel("Show contextual recall")
