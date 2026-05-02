@@ -92,6 +92,16 @@ struct HermesPromptBuilderTests {
         #expect(prompt.contains("Never repeat the same tool call"))
     }
 
+    @Test("system prompt keeps Hermes as a direct gateway membrane")
+    func systemPromptKeepsHermesAsDirectGatewayMembrane() {
+        let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool()])
+
+        #expect(prompt.contains("Hermes is the tool-call and external-intelligence membrane"))
+        #expect(prompt.contains("not the graph, Rex, or the deterministic substrate authority"))
+        #expect(prompt.contains("Use tools only for missing context or explicit external side effects"))
+        #expect(prompt.contains("Do not route already-available local substrate answers through tools"))
+    }
+
     @Test("system prompt keeps explicit file paths stable for local tool loops")
     func systemPromptKeepsExplicitFilePathsStable() {
         let prompt = HermesPromptBuilder.systemPrompt(tools: [sampleTool(), writeTool(), readTool()])
