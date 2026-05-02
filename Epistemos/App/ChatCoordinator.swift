@@ -2165,6 +2165,50 @@ final class ChatCoordinator {
     }
   }
 
+  // MARK: - ConversationState Dispatch Helpers (AR2/W10.16)
+
+  /// Derive the stable conversation-state key used for EventStore
+  /// load/save and in-memory classifier state.
+  ///
+  /// - chatId: The active chat/thread identifier (most stable).
+  /// - parentSessionID: The lineage parent session id when chatId is absent.
+  /// - sessionId: The per-run session id (fallback only).
+  static func deriveConversationStateId(
+    chatId: String?,
+    parentSessionID: String?,
+    sessionId: String
+  ) -> String {
+    if let chatId = chatId?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !chatId.isEmpty {
+      return chatId
+    }
+    if let parentSessionID = parentSessionID?.trimmingCharacters(in: .whitespacesAndNewlines),
+       !parentSessionID.isEmpty {
+      return parentSessionID
+    }
+    return sessionId
+  }
+
+  /// Return the conversation history that should be fed into the prompt
+  /// envelope. When a prior structured state exists, compact the raw
+  /// history to a bounded recent-turn tail to save tokens.
+  @MainActor
+  static func effectiveConversationHistory(
+    fullHistory: String?,
+    chatState: ChatState,
+    hasPriorState: Bool
+  ) -> String? {
+    guard hasPriorState else {
+      return fullHistory
+    }
+    // Compacted tail: last 4 messages, ~4k chars. Preserves the
+    // current request because that lives in `query`, not history.
+    return chatState.serializedConversationHistory(
+      maxCharacters: 4_000,
+      maxMessages: 4
+    )
+  }
+
   // MARK: - Rust Agent Core Path (Goose-Style Autonomous Loop)
 
   /// Routes cloud queries through the Rust agent_core for full autonomous tool execution.
@@ -2192,6 +2236,20 @@ final class ChatCoordinator {
   ) async throws {
     let sessionId = UUID().uuidString
     let parentSessionID = AgentSessionLineageStore.shared.parentSessionID(forChatThread: chatId)
+    let conversationStateId = Self.deriveConversationStateId(
+      chatId: chatId,
+      parentSessionID: parentSessionID,
+      sessionId: sessionId
+    )
+    let priorStateJSON = EventStore.shared?
+      .loadConversationStateJSON(conversationId: conversationStateId)
+    let hasPriorState = priorStateJSON?.isEmpty == false
+    let effectiveConversationHistory = Self.effectiveConversationHistory(
+      fullHistory: conversationHistory,
+      chatState: chatState,
+      hasPriorState: hasPriorState
+    )
+
     var receivedAgentContent = false
     var terminalAgentError: AgentRuntimeError?
     var finalizedAssistantMessage = false
@@ -2205,7 +2263,7 @@ final class ChatCoordinator {
     let objective = PipelineService.buildPromptEnvelope(
       query: query,
       notesContext: notesContext,
-      conversationHistory: conversationHistory
+      conversationHistory: effectiveConversationHistory
     )
 
     // Keep the managed-agent system prompt lean. Retrieved note context,
@@ -2297,12 +2355,11 @@ final class ChatCoordinator {
     // shipped in commit 16396df2 (saveConversationState +
     // loadConversationStateJSON in EventStore); this is the read
     // site that closes the AR2 loop end-to-end.
-    if let stateJSON = EventStore.shared?.loadConversationStateJSON(conversationId: sessionId),
-       !stateJSON.isEmpty {
+    if let priorStateJSON, !priorStateJSON.isEmpty {
       baseSystemPromptParts.append(
         """
         Conversation state (structured projection — read this INSTEAD of the raw transcript when reasoning about prior turns; the structured fields supersede any older summary):
-        \(stateJSON)
+        \(priorStateJSON)
         """
       )
     }
@@ -2465,7 +2522,7 @@ final class ChatCoordinator {
           // 50-turn conversations. Best-effort + opportunistic.
           if #available(macOS 26.0, *) {
             let priorJSON = EventStore.shared?
-              .loadConversationStateJSON(conversationId: sessionId)
+              .loadConversationStateJSON(conversationId: conversationStateId)
             let prior: ConversationState? = priorJSON.flatMap { json in
               guard let data = json.data(using: .utf8) else { return nil }
               return try? JSONDecoder().decode(ConversationState.self, from: data)
@@ -2481,12 +2538,12 @@ final class ChatCoordinator {
               if let data = try? encoder.encode(updated),
                  let json = String(data: data, encoding: .utf8) {
                 EventStore.shared?.saveConversationState(
-                  conversationId: sessionId,
+                  conversationId: conversationStateId,
                   stateJSON: json
                 )
                 await MainActor.run {
                   ConversationStateClassifier.shared.setState(
-                    updated, for: sessionId
+                    updated, for: conversationStateId
                   )
                 }
               }
