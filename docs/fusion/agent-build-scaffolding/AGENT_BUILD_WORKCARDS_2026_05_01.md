@@ -755,6 +755,18 @@ ids. This preserves backend streaming, prompt construction, approval, UI,
 provider routing, ChatCoordinator, PipelineService, LocalAgentLoop, LLMService,
 Omega, graph, Rust, generated bindings, and EventStore schema.
 
+PR16 InstantRecall sync recall provenance is also closed.
+`InstantRecallService.search(queryText:topK:)` now records requested, started,
+and completed/failed AgentEvents for valid sync recall searches with
+`instant-recall-...` run ids, `instant-recall-service` actor metadata,
+`instant-recall-search:N` ids, source/surface/topK/query-count metadata,
+hit/document counts, elapsed milliseconds, and bounded failure classes.
+Persisted provenance excludes query text, note ids, note bodies, result text,
+snippets, vault paths, source text, async recall events, Halo, ShadowSearch,
+editor state, and graph state. This preserves recall behavior, hydration,
+metrics, async recall, Halo, ShadowSearch, UI, approval, routing, graph, Rust,
+generated bindings, and EventStore schema.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -802,6 +814,10 @@ Authority to read first:
 - `Epistemos/Engine/AgentHarness/AgentQueryEngine.swift` only for PR15
   AgentQueryEngine backend-stream evidence or a future AgentQueryEngine
   provenance regression fix gate.
+- `docs/fusion/deliberation/instant_recall_agent_event_pr16_deliberation_2026_05_02.md`
+- `Epistemos/KnowledgeFusion/InstantRecallService.swift` only for PR16
+  InstantRecall sync recall evidence or a future InstantRecall provenance
+  regression fix gate.
 
 Allowed write set:
 - PR1 persistence-only: already closed.
@@ -830,11 +846,14 @@ Allowed write set:
 - PR15 AgentQueryEngine backend-stream provenance: already closed for backend
   `.toolUse` / `.toolResult` events emitted by `AgentQueryEngine.runTurn(...)`
   only.
+- PR16 InstantRecall sync recall provenance: already closed for
+  `InstantRecallService.search(queryText:topK:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
-  HTTP client, AgentQueryEngine paths beyond backend tool stream events, Omega
-  paths beyond ReasoningLoop internal search, or broader runtime
+  HTTP client, AgentQueryEngine paths beyond backend tool stream events,
+  InstantRecall paths beyond sync search including `searchAsync(query:topK:)`,
+  Omega paths beyond ReasoningLoop internal search, or broader runtime
   instrumentation only after a new deliberation gate names exact runtime files
   and focused tests.
 - Docs under `docs/fusion/**`.
@@ -950,6 +969,13 @@ Tests and logs:
   The focused `AgentQueryEngine AgentEvent provenance` Swift Testing suite
   passed 2 tests; Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
+- PR16 red log:
+  `/tmp/epistemos-instant-recall-agent-event-pr16-red-20260502.log`.
+- PR16 green log:
+  `/tmp/epistemos-instant-recall-agent-event-pr16-green-20260502.log`.
+  The focused `InstantRecall - Service` Swift Testing suite passed 20 tests;
+  Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 - Future live-emission PRs must write a failing test first for the selected
   path, then a focused green Swift Testing log.
 - Guardrails: `git diff --check`, source grep for forbidden production paths,
@@ -1059,6 +1085,16 @@ Acceptance:
   semantics, prompt construction, UI, approvals, provider routing,
   ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, graph,
   Rust, generated bindings, and EventStore schema.
+- PR16 wired/reachable/visible: InstantRecall sync search emits requested,
+  started, and completed/failed AgentEvents for valid
+  `search(queryText:topK:)` calls with non-empty run id, tool call id, actor,
+  source/surface metadata, query-count metadata, hit/document counts, elapsed
+  milliseconds, and bounded failure classes. Tests prove query text, note ids,
+  note bodies, result text, and invalid inputs are not persisted in AgentEvent
+  arguments/results. Source and behavior stay away from async recall,
+  ShadowSearch, Halo, editor, graph, UI, approvals, provider routing,
+  ChatCoordinator, PipelineService, LocalAgentLoop, LLMService, Omega, Rust,
+  generated bindings, and EventStore schema.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
