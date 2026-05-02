@@ -679,4 +679,26 @@ struct TextCapturePipelineTests {
         #expect(source.contains("guard let noteId = result.createdNoteID else"))
         #expect(source.contains("throw IntentError.creationFailed"))
     }
+
+    @Test("Brain Dump intent with no body opens Quick Capture for dictation")
+    func blankBrainDumpIntentOpensQuickCaptureForDictation() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Intents/Schemas/CognitiveIntents.swift")
+        let emptyPath = try #require(source.range(of: "guard !trimmed.isEmpty else"))
+        let showCapture = try #require(source.range(of: "NotificationCenter.default.post(name: .showQuickCapture"))
+
+        #expect(emptyPath.lowerBound < showCapture.lowerBound)
+        #expect(source.contains("Opening Quick Capture so you can dictate your brain dump."))
+    }
+
+    @Test("Brain Dump intent anchors raw thoughts to the active note or chat")
+    func brainDumpIntentAnchorsRawThoughtsToActiveContext() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Intents/Schemas/CognitiveIntents.swift")
+        let anchorHelper = try #require(source.range(of: "private static func activeContextAnchor() -> QuarantineAnchor?"))
+        let captureCall = try #require(source.range(of: "QuarantineArchive.shared.capture("))
+
+        #expect(anchorHelper.lowerBound < captureCall.lowerBound)
+        #expect(source.contains("bootstrap.notesUI.activePageId"))
+        #expect(source.contains("bootstrap.chatState.activeChatId"))
+        #expect(source.contains("anchor: Self.activeContextAnchor()"))
+    }
 }
