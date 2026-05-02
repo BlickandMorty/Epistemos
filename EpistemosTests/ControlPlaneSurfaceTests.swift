@@ -2,6 +2,16 @@ import Foundation
 import Testing
 @testable import Epistemos
 
+@MainActor
+private final class DriverChannelAgentEventSink {
+    private(set) var events: [AgentProvenanceEvent] = []
+
+    func append(_ event: AgentProvenanceEvent) -> Bool {
+        events.append(event)
+        return true
+    }
+}
+
 @Suite("Control Plane Surfaces")
 struct ControlPlaneSurfaceTests {
     @MainActor
@@ -46,6 +56,95 @@ struct ControlPlaneSurfaceTests {
         #expect(emailPayload["platform"] as? String == "email")
         #expect(emailPayload["to"] as? String == "ops@example.com")
         #expect(emailPayload["subject"] as? String == "Operator Digest")
+    }
+
+    @MainActor
+    @Test("driver channel executor records successful tool provenance")
+    func driverChannelExecutorRecordsSuccessfulToolProvenance() async throws {
+        let sink = DriverChannelAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 777 },
+            persist: { event in sink.append(event) }
+        )
+        let toolCall = try DriverChannelToolCall(
+            toolName: "send_message",
+            payload: [
+                "platform": "telegram",
+                "target": "123456",
+                "message": "hello",
+            ]
+        )
+
+        let output = try await DriverChannelToolExecutor.execute(
+            toolCall,
+            vaultPath: "/tmp/epistemos-channel-vault",
+            tier: "agent",
+            channelID: "telegram",
+            toolRunner: { vaultPath, tier, toolName, inputJson in
+                #expect(vaultPath == "/tmp/epistemos-channel-vault")
+                #expect(tier == "agent")
+                #expect(toolName == "send_message")
+                #expect(inputJson.contains("\"platform\":\"telegram\""))
+                return DriverChannelToolExecutionResult(
+                    success: true,
+                    outputJson: #"{"delivered":true}"#,
+                    error: nil
+                )
+            },
+            agentProvenanceRecorder: recorder
+        )
+
+        #expect(output == #"{"delivered":true}"#)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("driver-channel-telegram-") == true)
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "driver-channel-tool:1" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "send_message" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "driver_channel_tool_executor" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "driver_channel" })
+        #expect(sink.events.allSatisfy { $0.metadata["channel"] == "telegram" })
+        #expect(sink.events.last?.tool?.status == .completed)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("delivered") == true)
+    }
+
+    @MainActor
+    @Test("driver channel executor records failed tool provenance")
+    func driverChannelExecutorRecordsFailedToolProvenance() async throws {
+        let sink = DriverChannelAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 778 },
+            persist: { event in sink.append(event) }
+        )
+        let toolCall = try DriverChannelToolCall(
+            toolName: "send_message",
+            payload: [
+                "platform": "telegram",
+                "target": "123456",
+                "message": "hello",
+            ]
+        )
+
+        await #expect(throws: DriverChannelError.self) {
+            try await DriverChannelToolExecutor.execute(
+                toolCall,
+                vaultPath: "/tmp/epistemos-channel-vault",
+                tier: "agent",
+                channelID: "telegram",
+                toolRunner: { _, _, _, _ in
+                    DriverChannelToolExecutionResult(
+                        success: false,
+                        outputJson: #"{"delivered":false}"#,
+                        error: "relay offline"
+                    )
+                },
+                agentProvenanceRecorder: recorder
+            )
+        }
+
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage?.contains("relay offline") == true)
+        #expect(sink.events.last?.tool?.resultJSON?.contains("delivered") == true)
     }
 
     @MainActor
