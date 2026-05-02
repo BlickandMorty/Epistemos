@@ -332,6 +332,13 @@ closed:
   ribbon. This is the first live Halo consumer of the durable projection spine,
   but it adds no timers, polling, graph renderer, retrieval, Theater, OpLog,
   Rust, generated bindings, EventStore schema, mutation, or repair behavior.
+- Durable GraphEvent audit visibility PR8 is now closed. Settings'
+  `GraphEventVisibilityRow` refreshes a bounded read-only
+  `GraphEventAuditProjectionService` report on appear/refresh and displays
+  event/node/edge/latest-event counts without `SettingsView` mount changes,
+  renderer, retrieval, Halo, Theater, OpLog, Rust, generated bindings,
+  EventStore schema, mutation, repair, polling, timer, or projection-worker
+  behavior.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,
@@ -475,6 +482,10 @@ Proven or actively wired:
   projection snapshot and exposes event/node/edge counts plus deterministic
   node and edge ids without renderer, retrieval, Halo, Theater, Rust, OpLog, UI,
   or schema side effects.
+- Settings now exposes that audit projection report in the existing
+  `GraphEventVisibilityRow`, keeping audit visibility tied to the same bounded
+  PR6 service and PR4 EventStore consumer instead of adding another UI-owned
+  fold or Settings mount.
 - R15 benchmark JSON recorder foundation is now present for the existing manual
   benchmark suites, with a tested schema and non-shipping
   `benchmarks/results/` output path. R15 PR2 also adds real fixture baselines
@@ -683,9 +694,10 @@ before building.
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
    Settings projection visibility PR5, durable GraphEvent audit projection PR6,
-   and durable GraphEvent Halo projection PR7 are closed. Add remaining broader
-   runtime AgentEvent coverage, incremental replay/export, live GraphEvent
-   consumer projections beyond Halo's read-only ribbon, or mutating
+   durable GraphEvent Halo projection PR7, and durable GraphEvent audit
+   visibility PR8 are closed. Add remaining broader runtime AgentEvent coverage,
+   incremental replay/export, live GraphEvent consumer projections beyond the
+   closed read-only Settings/Halo consumers, or mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
 
@@ -753,8 +765,9 @@ are:
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
-  closed as PR5, the audit projection report consumer is closed as PR6, and
-  the Halo panel read-only projection ribbon is closed as PR7.
+  closed as PR5, the audit projection report consumer is closed as PR6, the
+  Halo panel read-only projection ribbon is closed as PR7, and Settings audit
+  projection report visibility is closed as PR8.
 - R15 Benchmark Harness PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines are closed
   for Swift graph payload construction, markdown parser FFI, code-token parser
   FFI, editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, generated

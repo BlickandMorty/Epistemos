@@ -6,10 +6,12 @@ import SwiftUI
 struct GraphEventVisibilityRow: View {
     @State private var diagnostics: EventStore.GraphEventDiagnostics
     @State private var projectionSnapshot: DurableGraphProjectionSnapshot
+    @State private var auditProjectionReport: GraphEventAuditProjectionReport
 
     init() {
         _diagnostics = State(initialValue: Self.diagnosticsSnapshot())
         _projectionSnapshot = State(initialValue: Self.projectionSnapshot())
+        _auditProjectionReport = State(initialValue: Self.auditReport())
     }
 
     var body: some View {
@@ -32,6 +34,12 @@ struct GraphEventVisibilityRow: View {
                 ok: true,
                 detail: projectionDetail
             )
+            row(
+                label: "Audit projection",
+                symbol: auditProjectionReport.isEmpty ? "circle.dotted" : "checkmark.seal",
+                ok: true,
+                detail: auditProjectionDetail
+            )
         }
         .onAppear { refresh() }
     }
@@ -39,6 +47,7 @@ struct GraphEventVisibilityRow: View {
     func refresh() {
         diagnostics = Self.diagnosticsSnapshot()
         projectionSnapshot = Self.projectionSnapshot()
+        auditProjectionReport = Self.auditReport()
     }
 
     private static func diagnosticsSnapshot() -> EventStore.GraphEventDiagnostics {
@@ -47,6 +56,10 @@ struct GraphEventVisibilityRow: View {
 
     private static func projectionSnapshot() -> DurableGraphProjectionSnapshot {
         EventStore.shared?.graphEventProjectionSnapshot(limit: 100) ?? DurableGraphEventProjection.snapshot(from: [])
+    }
+
+    private static func auditReport() -> GraphEventAuditProjectionReport {
+        GraphEventAuditProjectionService().auditReport(limit: 100)
     }
 
     private var graphEventDetail: String {
@@ -70,6 +83,14 @@ struct GraphEventVisibilityRow: View {
             return "No projection snapshot yet"
         }
         return "\(projectionSnapshot.eventCount) events | \(projectionSnapshot.nodes.count) nodes | \(projectionSnapshot.edges.count) edges"
+    }
+
+    private var auditProjectionDetail: String {
+        guard !auditProjectionReport.isEmpty else {
+            return "No audit projection report yet"
+        }
+        let latestEventID = auditProjectionReport.latestEventID.map { String($0.prefix(12)) } ?? "none"
+        return "\(auditProjectionReport.eventCount) events | \(auditProjectionReport.nodeCount) nodes | \(auditProjectionReport.edgeCount) edges | latest \(latestEventID)"
     }
 
     @ViewBuilder
