@@ -204,7 +204,10 @@ Proven or actively wired:
   `benchmarks/results/` output path. R15 PR2 also adds real fixture baselines
   for Swift graph payload construction, markdown parser FFI, and code-token
   parser FFI, with three deterministic JSON reports under
-  `benchmarks/results/`.
+  `benchmarks/results/`. R15 PR3 adds a real AppKit/TextKit editor-shell
+  fixture baseline without touching production editor files. R15 PR4 adds a
+  real sqlite-vec `vec0` KNN baseline at 100k deterministic 32-dimensional
+  vectors, with p50/p95/p99 JSON output and no production GRDB/search claim.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
   AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
   MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
@@ -231,8 +234,8 @@ Still open:
 - Full V1 Halo editor mount, trailing-edge editor glyph, and inline editor
   integration remain separate protected-path decisions.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
-  MLX thermal, sqlite-vec 100k KNN, full graph FFI, editor shell, and UniFFI
-  callback throughput.
+  MLX thermal, full graph FFI, and UniFFI callback throughput. Any production
+  GRDB/768-dimensional KNN claim still needs its own later fixture gate.
 - MAS/Core versus Pro capability symbol separation.
 - Manual runtime verification for user-facing ship claims.
 
@@ -247,10 +250,12 @@ Still open:
 
 2. **R15 remaining specialized baselines.**
    PR2 real fixtures are closed for Swift graph payload construction, markdown
-   parser FFI, and code-token parser FFI. Before modifying graph-engine, graph
-   rendering, BoltFFI, MLX, KNN, or any hot path beyond those surfaces, run a
-   new fixture gate that writes real JSON results and promotes `try?` recorder
-   calls only when the benchmark becomes authoritative.
+   parser FFI, and code-token parser FFI. PR3 is closed for editor-shell
+   AppKit/TextKit fixture work. PR4 is closed for sqlite-vec 100k x 32d KNN.
+   Before modifying graph-engine, graph rendering, BoltFFI, MLX, production
+   KNN, or any hot path beyond those surfaces, run a new fixture gate that
+   writes real JSON results and promotes `try?` recorder calls only when the
+   benchmark becomes authoritative.
 
 3. **R16 runtime/manual closure.**
    ETL worker execution is closed as PR3H. Memory-pressure dispatch pause is
@@ -295,10 +300,11 @@ are:
   lifecycle emission is closed as PR2, ChatCoordinator Rust-stream lifecycle
   emission is closed as PR3, and durable GraphEvent mutation mapping is closed
   as PR1.
-- R15 Benchmark Harness PR2 real fixture baselines are closed for Swift graph
-  payload construction, markdown parser FFI, and code-token parser FFI.
-  Remaining R15 baseline work stays benchmark/test-only until a fixture gate
-  explicitly names any production path.
+- R15 Benchmark Harness PR2/PR3/PR4 real fixture baselines are closed for Swift
+  graph payload construction, markdown parser FFI, code-token parser FFI,
+  editor-shell AppKit/TextKit work, and sqlite-vec 100k x 32d KNN. Remaining
+  R15 baseline work stays benchmark/test-only until a fixture gate explicitly
+  names any production path.
 - R16 follow-up only for runtime/manual verification, throughput/backfill, or
   sidecar-generation expansion behind a new exact gate. Memory-pressure
   dispatch pause is closed as PR3E, MAS bookmark enforcement is closed as PR3F,
@@ -361,7 +367,7 @@ tests, record raw logs, and stop at the next gate.
 You can resume building now, and the substrate spine is stronger than the April
 30 plan text: Quick Capture's minimal typed-artifact path, the
 EventStore-to-OpLog projection foundation, the R15 JSON benchmark-recorder
-foundation, R15 PR2 real fixture baselines, EventStore OpLog lease/retry PR3A,
+foundation, R15 PR2/PR3/PR4 real fixture baselines, EventStore OpLog lease/retry PR3A,
 EventStore OpLog dead-letter PR3B, EventStore OpLog worker scheduling PR3C,
 EventStore OpLog read-only visibility PR3D, EventStore OpLog replay snapshot
 PR4A, EventStore OpLog chain verification PR4B, AgentEvent durable persistence
