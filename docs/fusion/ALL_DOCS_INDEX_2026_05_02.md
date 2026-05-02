@@ -1,6 +1,6 @@
 # All Docs Index — 2026-05-02
 
-> **NEW DOC — created 2026-05-02.** Filename: `ALL_DOCS_INDEX_2026_05_02.md`. If your session can't find it, search by name. Sister packet docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, and `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. The packet is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Open this file first when you join a session — it lists every load-bearing doc with absolute paths, so links work regardless of which worktree your shell is in.
+> **NEW DOC — created 2026-05-02.** Filename: `ALL_DOCS_INDEX_2026_05_02.md`. If your session can't find it, search by name. Sister packet docs: `MASTER_RESEARCH_INDEX_2026_05_02.md`, `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, and `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. The packet is mirrored into active worktree `docs/fusion/` folders when a session needs clickability. Open `MASTER_RESEARCH_INDEX_2026_05_02.md` first for concept/source lookup; use this file when you need absolute clickable paths.
 
 This index is **flat and link-clickable from anywhere on the machine**. Every path is absolute. Every entry has a one-line role. Use this when:
 
@@ -14,10 +14,12 @@ This index is **flat and link-clickable from anywhere on the machine**. Every pa
 
 | Doc | Role |
 |---|---|
+| [MASTER_RESEARCH_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md) | **First-stop concept -> canonical source map and full backlog index.** Compiled from 8 parallel deep-scans of all 7 worktrees + 5 unindexed Downloads research roots + Quick Capture standalone canon (~470 KB) + ~60 external research files. §0 contains 10 honest discoveries that correct older canon; §22 is the operating rule for Codex |
 | [EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md) | Truth-router. Three-tier ship model, three killer features, architectural invariants, ACS recursion, full Annex |
 | [CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md) | Codex overseer prompt — supersedes Apr 30 active prompt for tier-aware / killer-feature / biometric work |
 | [WORKTREE_INSIGHT_SALVAGE_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md) | **Cross-worktree + cross-branch insight salvage map.** Stay-stellar checklist of 10 highest-stakes insights, per-worktree salvage state, doctrine ↔ worktree dependency map, 10 deliberation-brief targets to protect substrate as doctrine ships |
 | [CODEX_DELIBERATION_PROMPT_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_DELIBERATION_PROMPT_2026_05_02.md) | **Non-interrupting deliberation prompt for Codex.** Asks Codex to read the new packet between slices and surface anything missing. Output goes to `docs/fusion/oversight/CODEX_DELIBERATION_RESPONSE_2026_05_02.md` |
+| [CANON_GAPS_AND_ADDENDA_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md) | **Staged addenda — NOT MERGED.** 15 gaps + 3 bonus findings reconciled against original master plan. Pre-drafted text ready for one-pass merge once Codex deliberation lands and user authorizes. Held to avoid breaking Codex's in-flight reading |
 | [ALL_DOCS_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/ALL_DOCS_INDEX_2026_05_02.md) | This file. Links to everything else |
 
 ## 2. CURRENT CODE TRUTH (always-on context)
@@ -130,7 +132,7 @@ These are the files new work attaches to. All paths absolute.
 ### UI patterns
 - [Epistemos/Engine/HaloController.swift](/Users/jojo/Downloads/Epistemos/Epistemos/Engine/HaloController.swift) — Halo V0 controller, debounce machinery for Pulse
 - [Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift](/Users/jojo/Downloads/Epistemos/Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift) — canonical `@Observable` shape
-- [Epistemos/LocalAgent/HermesPromptBuilder.swift](/Users/jojo/Downloads/Epistemos/Epistemos/LocalAgent/HermesPromptBuilder.swift) — NousResearch ChatML XML format
+- [Epistemos/LocalAgent/HermesPromptBuilder.swift](/Users/jojo/Downloads/Epistemos/Epistemos/LocalAgent/HermesPromptBuilder.swift) — local-agent Hermes ChatML/XML helper. Note: `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H2 says the hermes-parity donor `agent_core/src/prompts.rs` currently uses plain markdown prompts; treat NousResearch ChatML as the future/local-agent format unless the active code path proves otherwise.
 
 ### Crate roots (folders)
 - [omega-mcp/](/Users/jojo/Downloads/Epistemos/omega-mcp/) — MCP protocol crate (131 tests, Pro tunnel target)
@@ -156,7 +158,7 @@ The active worktrees, with branches and roles:
 | Worktree | Branch | Role |
 |---|---|---|
 | [/Users/jojo/Downloads/Epistemos](/Users/jojo/Downloads/Epistemos) | `feature/landing-liquid-wave` | **Main** — landing wave, current substrate work, Quick Capture vertical slice closed |
-| [/Users/jojo/Downloads/Epistemos-laneA](/Users/jojo/Downloads/Epistemos-laneA) | `lane-A` | Control plane / driver channel; mostly merged |
+| [/Users/jojo/Downloads/Epistemos-laneA](/Users/jojo/Downloads/Epistemos-laneA) | `lane-A` | **N1 Prompt Tree donor: 601 unmerged commits per MASTER_RESEARCH_INDEX §0 H1.** Do not treat as mostly merged; inspect `docs/PROMPT_AS_DATA_SPEC.md` and `docs/plan/prompts/N1_prompt_tree.md` before any Phase R/N1 work |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/agent-a0550f9c](/Users/jojo/Downloads/Epistemos/.claude/worktrees/agent-a0550f9c) | locked | Audit pass #3 — OpLog/BLAKE3 Merkle chain hardening |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/hermes-parity](/Users/jojo/Downloads/Epistemos/.claude/worktrees/hermes-parity) | `worktree-hermes-parity` | Hermes 22-tool parity, provider routing, session persistence |
 | [/Users/jojo/Downloads/Epistemos/.claude/worktrees/inspiring-heisenberg-ea9dc3](/Users/jojo/Downloads/Epistemos/.claude/worktrees/inspiring-heisenberg-ea9dc3) | `claude/inspiring-heisenberg-ea9dc3` | Streaming instrumentation, FFI benchmarking, syntax-core scaffolding |
@@ -188,7 +190,7 @@ If a session looks for any of these keywords, they almost always resolve to the 
 - **Sherry**, **BitNet**, **1.25-bit**, **ternary** → Annex A.5 + Kimi research
 - **KV implantation**, **MTLBuffer.contents()**, **raw memory** → Annex A.10
 - **ANE direct path**, **`_ANEClient`**, **MIL**, **E5**, **disable-library-validation** → Annex A.11
-- **Hermes prompt**, **NousResearch**, **ChatML XML** → Annex A.12
+- **Hermes prompt**, **NousResearch**, **ChatML XML** → `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H2 + doctrine Annex A.12. Current hermes-parity donor uses plain markdown; ChatML is future/local-agent unless the active path verifies otherwise.
 - **Knowledge Sieve**, **Gap Winner Rule** → Annex A.13
 - **VRM**, **Verified Research Mode** → Annex A.14
 - **NeMoCLAW**, **OpenCLAW**, **REP mesh**, **CRDT** → Annex A.8

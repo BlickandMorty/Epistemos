@@ -1,6 +1,6 @@
 # Codex Deliberation Prompt — 2026-05-02
 
-> **NEW DOC — created 2026-05-02.** Filename: `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree's `docs/fusion/`.
+> **NEW DOC — created 2026-05-02.** Filename: `CODEX_DELIBERATION_PROMPT_2026_05_02.md`. If your session can't find it, search by name. Sister docs: `MASTER_RESEARCH_INDEX_2026_05_02.md`, `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `WORKTREE_INSIGHT_SALVAGE_2026_05_02.md`, `CANON_GAPS_AND_ADDENDA_2026_05_02.md`, `ALL_DOCS_INDEX_2026_05_02.md`. Mirrored into the active worktree's `docs/fusion/`.
 
 > **NON-INTERRUPTING.** This is a deliberation prompt, not a build order. Do not stop your current slice. Do not change your in-flight deliberation brief. Do not edit code. Do not commit. Read this when you next have idle time between slices, or when Kimi pauses for audit. Treat the work below as background reading + a one-time response, then return to your queue.
 
@@ -13,6 +13,8 @@ A new fusion-canon packet was assembled on 2026-05-01 and 2026-05-02. It does no
 1. **A three-tier ship model** (Core / Pro / Research) running in parallel via different distribution channels, not sequentially.
 2. **Three killer features** (Resonance Gate, Sovereign Gate, Freeform Pulse + Residency Rail) with action-class matrix, biometric routing, and architectural invariants spelled out.
 3. **A worktree-insight salvage map** consolidating what every worktree's own internal plan/progress docs were planning, so substrate insight that has been mid-flight for weeks does not die silently.
+4. **A master research index** that maps concepts to canonical sources and
+   records ten honest discoveries that correct stale packet claims.
 
 Your existing `CODEX_ACTIVE_OVERSEER_KIMI_PROMPT_2026_04_30.md` workflow is still valid for routine substrate-spine slices. The new `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` supersedes it only for tier-aware / killer-feature / biometric work.
 
@@ -24,11 +26,13 @@ This prompt asks for **deliberation, not execution.** The user's words: *"a remi
 
 All paths are absolute and verified to resolve. Each doc has a freshness header naming itself so any session can grep for it.
 
-1. **[ALL_DOCS_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/ALL_DOCS_INDEX_2026_05_02.md)** — start here. 91 absolute-path links to every load-bearing doc + worktree layout + search-by-keyword cheat sheet. If you encounter an unfamiliar filename in any of the docs below, this index resolves it.
+1. **[MASTER_RESEARCH_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md)** — start here for concepts. §0 Honest Discoveries correct stale canon; §22 gives the operating rule; §20/§21 route worktree and external-research lookups.
 
-2. **[UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md)** — current code truth. Substrate spine status, what's closed, safe next build order. **Read first** so the rest is grounded.
+2. **[ALL_DOCS_INDEX_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/ALL_DOCS_INDEX_2026_05_02.md)** — absolute-path links to every load-bearing doc + worktree layout + search-by-keyword cheat sheet. If you encounter an unfamiliar filename in any of the docs below, this index resolves it.
 
-3. **[EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md)** — the truth-router. 11 numbered sections + Annex A (architectural nuance) + Annex B (per-tier feature ledger). Critical reads:
+3. **[UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md)** — current code truth. Substrate spine status, what's closed, safe next build order. **Read before build planning** so the rest is grounded.
+
+4. **[EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md)** — the truth-router. 11 numbered sections + Annex A (architectural nuance) + Annex B (per-tier feature ledger). Critical reads:
    - §2.2 architectural invariants (zero-copy / single-binary / Markov blanket / tiered determinism)
    - §3 tier matrix
    - §4.1–§4.3 the three killer features
@@ -37,7 +41,7 @@ All paths are absolute and verified to resolve. Each doc has a freshness header 
    - §9 canonical code anchors with **path convention** (bare paths = main; `worktree:<name>/...` = worktree-only donor)
    - Annex A.1 naming (Epistemos / Rex / SCOPE-Rex), A.2 T0–T4 ladder, A.3 L0–L7 residency, A.4 ACS recursion, A.5 continual learning honest stance (QOFT/QDoRA/QPiSSA replace OSFT/PSOFT/coSO for production), A.7 Sovereign Gate auth routes, A.10 KV implantation, A.11 ANE direct path, A.12 Hermes prompt format
 
-4. **[CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md)** — your overseer prompt for tier-aware / killer-feature / biometric work. Adds:
+5. **[CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md](/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md)** — your overseer prompt for tier-aware / killer-feature / biometric work. Adds:
    - §3.1 mandatory tier classification per order
    - §3.2 Sovereign Gate touchpoint check (forward-looking grep gate)
    - §3.6 architectural-invariant audits (zero-copy / single-binary / verification ladder / Markov blanket greps)
@@ -45,14 +49,14 @@ All paths are absolute and verified to resolve. Each doc has a freshness header 
    - §3.8 residency promotion gate (L4+ requires T2+ verification + measurable runtime gain)
    - §6 expanded P0 list
 
-5. **[WORKTREE_INSIGHT_SALVAGE_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md)** — the answer to "did any worktree leave behind insight that died?". 9 sections + a TL;DR with the 10 stay-stellar items + 10 deliberation-brief targets. Critical reads:
+6. **[WORKTREE_INSIGHT_SALVAGE_2026_05_02.md](/Users/jojo/Downloads/Epistemos/docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md)** — the answer to "did any worktree leave behind insight that died?". 9 sections + a TL;DR with the 10 stay-stellar items + 10 deliberation-brief targets. Critical reads:
    - §1 TL;DR table (10 highest-stakes insights with file refs)
    - §5 vigorous-goldberg-3a2d35 (densest substrate donor — Capability::BiometricSession, GBNF classifier, 30-case heal eval)
    - §6 codex/* branches not in any worktree (4 branches with stranded work — `codex/runtime-input-audit` and `codex/runtime-memory-hardening` are most at risk)
    - §7 doctrine ↔ worktree dependency map (per killer-feature canonical sources)
    - §8 the 10 deliberation-brief targets (doc-only deliverables, no code)
 
-6. **[README_START_HERE_2026_04_30.md](/Users/jojo/Downloads/Epistemos/docs/fusion/README_START_HERE_2026_04_30.md)** — already updated to point at the new packet. No re-read needed unless you've never opened it.
+7. **[README_START_HERE_2026_04_30.md](/Users/jojo/Downloads/Epistemos/docs/fusion/README_START_HERE_2026_04_30.md)** — startup pointer for fresh sessions. No re-read needed unless you've never opened it.
 
 Optional donor depth (read only if a slice touches the topic): `/Users/jojo/Downloads/Kimi_Agent_Deterministic AI Deep Dive/` — research-tier reference, not authority.
 

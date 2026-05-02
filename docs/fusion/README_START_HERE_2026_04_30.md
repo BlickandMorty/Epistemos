@@ -2,24 +2,36 @@
 
 ## Verdict
 
-This folder is the current startup packet for new builder, auditor, and Kimi sessions.
+This folder is the current startup packet for new builder, auditor, Kimi, and
+Codex sessions.
 
-The April 30 docs in `~/Downloads` supersede the older scattered research as direct execution authority. Older research remains valuable, but only as donor material routed through this packet and the source map.
+The April 30 docs in `~/Downloads` superseded the older scattered research as
+direct execution authority. The May 2 fusion packet now sits on top of that
+layer. `MASTER_RESEARCH_INDEX_2026_05_02.md` is the first lookup for any
+feature/concept/research question, and its §0 Honest Discoveries correct stale
+claims in older packet docs unless current code and fresh logs prove the item
+has since landed.
 
 Use this packet to prevent drift:
 
 1. Read the repo authority docs first.
-2. Read the April 30 fusion docs by their real paths.
-3. Inventory all worktrees and dirty files before coding.
-4. Extract useful ideas from older research and worktrees into a queued implementation plan.
-5. Build only the next approved, low-conflict slice.
+2. Open `MASTER_RESEARCH_INDEX_2026_05_02.md` for the active concept or slice.
+3. Read the May 2 doctrine/current-state docs by their real paths.
+4. Read the April 30 fusion docs only where the master index/source map points.
+5. Inventory all worktrees and dirty files before coding.
+6. Extract useful ideas from older research and worktrees into a queued implementation plan.
+7. Build only the next approved, low-conflict slice.
 
 ## Canonical Files That Matter Now
 
 Repo-local packet:
 
+- `/Users/jojo/Downloads/Epistemos/docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` ← **first-stop concept-to-source map, full backlog index, and §0 honest-discovery correction layer**
 - `/Users/jojo/Downloads/Epistemos/docs/fusion/EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md` ← **truth-router, read after current state**
 - `/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md` ← **Codex overseer prompt for tier-aware / killer-feature / biometric work**
+- `/Users/jojo/Downloads/Epistemos/docs/fusion/WORKTREE_INSIGHT_SALVAGE_2026_05_02.md` ← **cross-worktree salvage map**
+- `/Users/jojo/Downloads/Epistemos/docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` ← **staged gaps/addenda, not automatically merged**
+- `/Users/jojo/Downloads/Epistemos/docs/fusion/CODEX_DELIBERATION_PROMPT_2026_05_02.md` ← **non-interrupting missing-context deliberation prompt**
 - `/Users/jojo/Downloads/Epistemos/docs/fusion/ALL_DOCS_INDEX_2026_05_02.md` ← **absolute-path index for every load-bearing doc**
 - `/Users/jojo/Downloads/Epistemos/docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md` ← **current code truth**
 - `/Users/jojo/Downloads/Epistemos/docs/fusion/README_START_HERE_2026_04_30.md`
@@ -69,11 +81,16 @@ Replacement rule:
 When sources disagree:
 
 1. Current code and passing logs win over documents.
-2. `AGENTS.md` and current repo canonical docs win over external research.
-3. April 30 fusion docs win over older advice packs.
-4. Core/Mac App Store safety wins over Pro ambition.
-5. Bounded typed substrate wins over feature-specific one-off systems.
-6. Worktree code is donor evidence, not authority.
+2. `MASTER_RESEARCH_INDEX_2026_05_02.md` is the discovery/source-map layer:
+   use §0 Honest Discoveries to correct older packet claims, then verify the
+   exact item against current code/logs.
+3. `AGENTS.md` and current repo canonical docs win over external research.
+4. May 2 doctrine/current-state docs win over April 30 packet text where they
+   explicitly supersede it.
+5. April 30 fusion docs win over older advice packs.
+6. Core/Mac App Store safety wins over Pro ambition.
+7. Bounded typed substrate wins over feature-specific one-off systems.
+8. Worktree code is donor evidence, not authority.
 
 ## Product Spine
 
