@@ -818,6 +818,12 @@ does not cross categories, rejects empty reasons before prompting, does not
 cache failed authentication, rejects non-finite / non-positive grace durations,
 and does not survive clock rollback.
 
+Lifecycle PR2 is also closed. `AppBootstrap` owns one shared `SovereignGate`,
+starts/stops `SovereignGateLifecycleObserver`, and clears Sensitive grace on
+app resign-active, app hide, workspace sleep, session resign-active, and screen
+sleep. PR2 did not migrate existing dialogs, decide the action-class matrix in
+Swift, touch Rust, touch generated transport, or add Pro/Research routes.
+
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
 without parallel Touch ID prompts or Swift-owned policy matrices.
@@ -831,13 +837,16 @@ Authority to read first:
 - `/tmp/epistemos-sovereign-gate-pr1-red-20260502.log`
 - `/tmp/epistemos-sovereign-gate-pr1-green-20260502.log`
 - `/tmp/epistemos-sovereign-gate-pr1-green-20260502-r2.log`
+- `/tmp/epistemos-sovereign-gate-pr2-red-20260502.log`
+- `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`
 
 Allowed write set:
 - PR1 Swift executor and focused tests: already closed.
-- Future PR2 Rust action-class matrix only after a gate names exact Rust files
+- PR2 app-owned lifecycle observer and focused tests: already closed.
+- Future Rust action-class matrix only after a gate names exact Rust files
   and generated transport boundaries.
-- Future lifecycle-clearing PR only after a gate names exact app lifecycle
-  files and proves no unrelated authorization migration.
+- Future lifecycle follow-up only after a gate names exact app lifecycle files
+  not already covered by PR2 and proves no unrelated authorization migration.
 - Future confirmation-surface migration PRs only after a gate names each exact
   existing surface and its focused tests.
 - Docs under `docs/fusion/**`.
@@ -865,6 +874,8 @@ Implementation contract:
   invalidated by clock rollback.
 - Destructive requirements use device-owner authentication every time and never
   receive grace.
+- Lifecycle observers clear Sensitive grace on app/session/sleep boundaries and
+  must be removable by `stop()`.
 - Tests must use the injectable authenticator seam and never trigger real Touch
   ID.
 
@@ -874,6 +885,9 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-pr1-green-20260502.log`.
 - PR1 hardened green log:
   `/tmp/epistemos-sovereign-gate-pr1-green-20260502-r2.log`.
+- PR2 red log: `/tmp/epistemos-sovereign-gate-pr2-red-20260502.log`.
+- PR2 focused green log:
+  `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -890,9 +904,16 @@ Acceptance:
 - PR1 boundary: no existing dialogs, Rust kernels, generated bindings,
   entitlements, protected graph/editor files, subprocesses, solver hot paths,
   tensor copies, or memory hot paths are touched.
+- PR2 wired/reachable/visible: AppBootstrap owns and starts the lifecycle
+  observer, focused tests prove app/system boundary clearing and `stop()`
+  removal, and shell audit proves exact `start(gate: sovereignGate)` /
+  `stop()` wiring.
+- PR2 boundary: no existing dialogs, Rust kernels, generated bindings,
+  entitlements, protected graph/editor files, subprocesses, solver hot paths,
+  tensor copies, or memory hot paths are touched.
 
 Stop triggers:
-- A future slice needs generated UniFFI, Rust matrix, lifecycle hooks, or
+- A future slice needs generated UniFFI, Rust matrix, new lifecycle hooks, or
   existing dialog migration without naming exact files in a new gate.
 - `LocalAuthentication`, `LAContext`, `canEvaluatePolicy`, `evaluatePolicy`,
   Touch ID, or biometric prompting appears outside

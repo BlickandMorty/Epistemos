@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import Epistemos
@@ -196,5 +197,93 @@ struct SovereignGateTests {
             ) == .denied(.missingReason)
         )
         #expect(authenticator.requests.isEmpty)
+    }
+
+    @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
+    func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
+        let authenticator = FakeAuthenticator(results: [true, true, true])
+        let gate = SovereignGate(authenticator: authenticator)
+        let observer = SovereignGateLifecycleObserver()
+        let applicationCenter = NotificationCenter()
+        let workspaceCenter = NotificationCenter()
+        let category = SovereignGateCategory(rawValue: "vault-export")
+        let start = Date(timeIntervalSince1970: 7_000)
+
+        observer.start(
+            gate: gate,
+            applicationCenter: applicationCenter,
+            workspaceCenter: workspaceCenter
+        )
+
+        #expect(await gate.confirm(.biometric(category: category), reason: "Export vault", now: start) == .allowed)
+        #expect(
+            await gate.confirm(
+                .biometric(category: category),
+                reason: "Export within grace",
+                now: start.addingTimeInterval(10)
+            ) == .allowed
+        )
+        #expect(authenticator.requests.count == 1)
+
+        applicationCenter.post(name: NSApplication.didResignActiveNotification, object: nil)
+        try await Task.sleep(for: .milliseconds(10))
+        #expect(
+            await gate.confirm(
+                .biometric(category: category),
+                reason: "Export after app resign",
+                now: start.addingTimeInterval(20)
+            ) == .allowed
+        )
+        #expect(authenticator.requests.count == 2)
+
+        workspaceCenter.post(name: NSWorkspace.willSleepNotification, object: nil)
+        try await Task.sleep(for: .milliseconds(10))
+        #expect(
+            await gate.confirm(
+                .biometric(category: category),
+                reason: "Export after sleep",
+                now: start.addingTimeInterval(30)
+            ) == .allowed
+        )
+        #expect(authenticator.requests.count == 3)
+    }
+
+    @Test("Lifecycle observer stop removes security boundary notifications")
+    func lifecycleObserverStopRemovesNotifications() async throws {
+        let authenticator = FakeAuthenticator(results: [true])
+        let gate = SovereignGate(authenticator: authenticator)
+        let observer = SovereignGateLifecycleObserver()
+        let applicationCenter = NotificationCenter()
+        let workspaceCenter = NotificationCenter()
+        let category = SovereignGateCategory(rawValue: "oauth")
+        let start = Date(timeIntervalSince1970: 8_000)
+
+        observer.start(
+            gate: gate,
+            applicationCenter: applicationCenter,
+            workspaceCenter: workspaceCenter
+        )
+        #expect(await gate.confirm(.biometric(category: category), reason: "Grant OAuth", now: start) == .allowed)
+
+        observer.stop()
+        applicationCenter.post(name: NSApplication.didResignActiveNotification, object: nil)
+        workspaceCenter.post(name: NSWorkspace.willSleepNotification, object: nil)
+        try await Task.sleep(for: .milliseconds(10))
+
+        #expect(
+            await gate.confirm(
+                .biometric(category: category),
+                reason: "Grant OAuth within uncleared grace",
+                now: start.addingTimeInterval(10)
+            ) == .allowed
+        )
+        #expect(authenticator.requests.count == 1)
+    }
+
+    @Test("App bootstrap owns the shared Sovereign Gate lifecycle")
+    func appBootstrapOwnsSharedSovereignGateLifecycle() throws {
+        let bootstrap = try #require(AppBootstrap.shared)
+
+        #expect(bootstrap.isSovereignGateLifecycleObserverStarted)
     }
 }
