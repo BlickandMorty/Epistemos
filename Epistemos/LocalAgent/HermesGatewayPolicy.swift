@@ -1,0 +1,124 @@
+import Foundation
+
+nonisolated enum HermesGatewayTier: String, Equatable, Sendable {
+    case core
+    case proResearch
+}
+
+nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
+    case deterministicLocalSubstrate
+    case localPromptFormatting
+    case cloudProvider
+    case cliDelegation
+    case mcpWebTool
+    case hermesSubprocess
+    case browserComputerUse
+    case dockerDevcontainer
+    case explicitExternalSideEffect
+
+    static let externalGatewaySurfaces: [Self] = [
+        .cloudProvider,
+        .cliDelegation,
+        .mcpWebTool,
+        .hermesSubprocess,
+        .browserComputerUse,
+        .dockerDevcontainer,
+        .explicitExternalSideEffect,
+    ]
+}
+
+nonisolated struct HermesGatewayDecision: Equatable, Sendable {
+    let tier: HermesGatewayTier
+    let requiresNetwork: Bool
+    let requiresSubprocess: Bool
+    let preservesDirectSubstratePath: Bool
+    let reason: String
+}
+
+nonisolated enum HermesGatewayPolicy {
+    typealias Surface = HermesGatewaySurface
+    typealias Tier = HermesGatewayTier
+    typealias Decision = HermesGatewayDecision
+
+    static let externalTierBoundaryLine =
+        "Cloud/provider/CLI/MCP/Hermes subprocess orchestration is Pro/Research only."
+    static let localCoreBoundaryLine =
+        "Local Hermes-family prompt formatting may stay Core-safe only when it runs in-process over local context."
+
+    static func decision(for surface: Surface) -> Decision {
+        switch surface {
+        case .deterministicLocalSubstrate:
+            Decision(
+                tier: .core,
+                requiresNetwork: false,
+                requiresSubprocess: false,
+                preservesDirectSubstratePath: true,
+                reason: "Already-local deterministic substrate answers stay on the direct path."
+            )
+        case .localPromptFormatting:
+            Decision(
+                tier: .core,
+                requiresNetwork: false,
+                requiresSubprocess: false,
+                preservesDirectSubstratePath: true,
+                reason: "Hermes-family prompt grammar is Core-safe only when it stays in-process over local context."
+            )
+        case .cloudProvider:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: true,
+                requiresSubprocess: false,
+                preservesDirectSubstratePath: false,
+                reason: "Cloud providers are external intelligence and must stay behind the Pro/Research gateway."
+            )
+        case .cliDelegation:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: false,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "CLI delegation may run offline, but it is still external subprocess orchestration."
+            )
+        case .mcpWebTool:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: true,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "MCP and web tools cross the local substrate boundary and return evidence, not authority."
+            )
+        case .hermesSubprocess:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: false,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "A Hermes subprocess is orchestration, not the Core in-process prompt path."
+            )
+        case .browserComputerUse:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: true,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "Browser and computer-use actions are external side-effect surfaces."
+            )
+        case .dockerDevcontainer:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: false,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "Docker and devcontainer work is external runtime orchestration."
+            )
+        case .explicitExternalSideEffect:
+            Decision(
+                tier: .proResearch,
+                requiresNetwork: false,
+                requiresSubprocess: true,
+                preservesDirectSubstratePath: false,
+                reason: "Explicit external side effects must be gated outside the deterministic substrate."
+            )
+        }
+    }
+}

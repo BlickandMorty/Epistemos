@@ -367,6 +367,18 @@ Proven or actively wired:
   Red/green evidence:
   `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-red-20260502.log` and
   `/tmp/epistemos-hermes-gateway-tier-boundary-pr3-green-20260502.log`.
+- Hermes Gateway Policy PR4 is now code-closed as a pure Swift classification
+  surface: `HermesGatewayPolicy` distinguishes Core-safe local in-process prompt
+  formatting from Pro/Research cloud providers, CLI delegation, MCP/web tools,
+  Hermes subprocesses, browser/computer-use, Docker/devcontainer work, and
+  explicit external side effects. It also separates Wi-Fi/network need from
+  subprocess policy, so offline CLI delegation is still Pro/Research while
+  local prompt formatting stays Core-safe. `HermesPromptBuilder` now pulls the
+  PR3 boundary wording from the policy. No runtime adapter, provider,
+  subprocess launcher, MCP bridge, graph, Rust, generated transport,
+  entitlement, project file, or protected editor path was touched. Red/green
+  evidence: `/tmp/epistemos-hermes-gateway-policy-pr4-red-20260502.log` and
+  `/tmp/epistemos-hermes-gateway-policy-pr4-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -592,7 +604,8 @@ projection visibility PR5,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
-Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, R16
+Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
+Policy PR4, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
