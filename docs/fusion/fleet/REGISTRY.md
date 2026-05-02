@@ -5,7 +5,7 @@ Claude side-fleet, Claude red-team, Kimi, and other long-running agent/process
 dispatches. Update it before and after every spawn. Never delete rows; archive
 old rows monthly to `docs/fusion/fleet/REGISTRY_ARCHIVE_<YYYY-MM>.md`.
 
-Current status on 2026-05-02: round 13 OpLog ReplayBundle export PR5 completed as a Swift-only/read-only provenance slice; next safe slice selection pending.
+Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as a Swift-only/read-only provenance slice; next safe slice selection pending.
 
 | round | spawned_at | role | scope | tool_surface | terminal_or_pid | status | artifact | usefulness |
 |---|---|---|---|---|---|---|---|---|
@@ -51,3 +51,13 @@ Current status on 2026-05-02: round 13 OpLog ReplayBundle export PR5 completed a
 | 13 | 2026-05-02T19:33Z | aggregator | slice=oplog-replay-bundle-export-pr5 | codex/local | n/a | done | docs/fusion/fleet/oplog-replay-bundle-export-pr5/aggregator.md | +1 |
 | 13 | 2026-05-02T19:33Z | pipeline-builder | slice=oplog-replay-bundle-export-pr5 | codex/local | n/a | done | docs/fusion/deliberation/oplog_replay_bundle_export_pr5_deliberation_2026_05_02.md | +1 |
 | 13 | 2026-05-02T19:34Z | claude-red-team | brief=oplog-replay-bundle-export-pr5 | codex/worker-agent | agent:019dea30-d5e1-7c10-a3f8-82364dee3f3e | done | docs/fusion/fleet/oplog-replay-bundle-export-pr5/claude-red-team/attacks.md | +1 |
+| 14 | 2026-05-02T19:55Z | claude-side-fleet | scope=oplog-incremental-replay-pr6 | claude/print-readonly | session:65510 | failed | docs/fusion/fleet/oplog-incremental-replay-pr6/claude-side-fleet/aggregator.md | -1 |
+| 14 | 2026-05-02T20:00Z | claude-side-fleet | scope=oplog-incremental-replay-pr6 | claude/print-readonly | pid:56732 | done | docs/fusion/fleet/oplog-incremental-replay-pr6/claude-side-fleet/aggregator.md | +1 |
+| 14 | 2026-05-02T20:04Z | detective | concept=OpLog incremental replay | codex/local | n/a | done | docs/fusion/fleet/oplog-incremental-replay-pr6/detectives/oplog-incremental-replay.md | +1 |
+| 14 | 2026-05-02T20:04Z | detective | concept=Replay boundary and privacy | codex/local | n/a | done | docs/fusion/fleet/oplog-incremental-replay-pr6/detectives/replay-boundary.md | +1 |
+| 14 | 2026-05-02T20:04Z | aggregator | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | docs/fusion/fleet/oplog-incremental-replay-pr6/aggregator.md | +1 |
+| 14 | 2026-05-02T20:04Z | pipeline-builder | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | docs/fusion/deliberation/oplog_incremental_replay_pr6_deliberation_2026_05_02.md | +1 |
+| 14 | 2026-05-02T20:05Z | claude-red-team | brief=oplog-incremental-replay-pr6 | claude/print-readonly | pid:58283 | done | docs/fusion/fleet/oplog-incremental-replay-pr6/claude-red-team/attacks.md | +1 |
+| 14 | 2026-05-02T20:14Z | implementation | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | Epistemos/Engine/MutationOpLogReplay.swift | +1 |
+| 14 | 2026-05-02T20:14Z | test | suite=OpLogSwiftBridgeTests | xcodebuild | session:15383 | done | /tmp/epistemos-oplog-incremental-replay-pr6-green-20260502.log | +1 |
+| 14 | 2026-05-02T20:14Z | guard | slice=oplog-incremental-replay-pr6 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

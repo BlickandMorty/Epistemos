@@ -43,3 +43,13 @@
 - staged guard: `git diff --cached --name-only -- Epistemos/State/EventStore.swift Epistemos/Engine/RustOpLogFFIClient.swift Epistemos/Engine/MutationOpLogProjector.swift Epistemos/Engine/MutationOpLogProjectionWorker.swift Epistemos/Views graph-engine epistemos-shadow agent_core Epistemos.xcodeproj`
 - log: `✔ Test "Mutation OpLog replay exports deterministic ReplayBundle JSON" passed`
 - test: `OpLog Swift Bridge`
+
+## oplog-incremental-replay-pr6
+
+- grep: `MutationOpLogReplay.applyIncremental`
+- grep: `incrementalReplayMutationProjections`
+- forbidden grep: `oplog_append_payload_json|markMutationProjectionOutboxProjected|recordMutationProjectionOutboxFailure|claimMutationProjectionOutboxRows`
+- staged guard: `git diff --cached --name-only -- Epistemos/State/EventStore.swift Epistemos/Engine/RustOpLogFFIClient.swift Epistemos/Engine/MutationOpLogProjector.swift Epistemos/Engine/MutationOpLogProjectionWorker.swift Epistemos/Views graph-engine epistemos-shadow agent_core Epistemos.xcodeproj`
+- log: `✔ Test "Mutation OpLog incremental replay matches full replay" passed`
+- log: `✔ Test "Mutation OpLog incremental ReplayBundle remains privacy safe" passed`
+- test: `OpLog Swift Bridge`

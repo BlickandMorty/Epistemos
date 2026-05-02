@@ -483,7 +483,8 @@ worker shell. PR3D closes basic read-only Settings visibility for projection
 health and dead letters. PR4A closes Swift-only read-only projection replay
 snapshots and logical cutoff rollback inspection. PR4B closes read-only
 cryptographic OpLog chain verification and expected-tip anchoring. PR5 closes
-deterministic read-only ReplayBundle JSON export over replay snapshots. See:
+deterministic read-only ReplayBundle JSON export over replay snapshots. PR6
+closes Swift-only read-only incremental replay over replay snapshots. See:
 
 - `docs/fusion/deliberation/eventstore_oplog_projection_pr2_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/eventstore_oplog_projection_lease_retry_pr3a_deliberation_2026_05_01.md`
@@ -493,6 +494,7 @@ deterministic read-only ReplayBundle JSON export over replay snapshots. See:
 - `docs/fusion/deliberation/eventstore_oplog_replay_snapshot_pr4a_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/oplog_chain_verification_pr4b_deliberation_2026_05_01.md`
 - `docs/fusion/deliberation/oplog_replay_bundle_export_pr5_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/oplog_incremental_replay_pr6_deliberation_2026_05_02.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_038_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_041_2026_05_01.md`
 - `docs/fusion/oversight/CODEX_KIMI_OVERSIGHT_ROUND_042_2026_05_01.md`
@@ -501,14 +503,15 @@ deterministic read-only ReplayBundle JSON export over replay snapshots. See:
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 
 Do not assign agents to rebuild the basic projection scaffold. Future
-provenance work should open new gates for incremental replay, live AgentEvent
-emission, GraphEvent projection, production ReplayBundle visibility, or deeper
-audit/repair surfaces. Background projection worker scheduling is already
+provenance work should open new gates for live AgentEvent emission, GraphEvent
+projection, production ReplayBundle visibility, or deeper audit/repair
+surfaces. Background projection worker scheduling is already
 closed as PR3C.
 Basic read-only dead-letter/projection visibility is already closed as PR3D.
 Read-only projection replay snapshots are already closed as PR4A. Read-only
 cryptographic chain verification is already closed as PR4B. Read-only
-ReplayBundle export is already closed as PR5.
+ReplayBundle export is already closed as PR5. Read-only incremental replay is
+already closed as PR6.
 
 Goal:
 Mirror committed `MutationEnvelope` provenance into the append-only Rust OpLog
@@ -580,6 +583,14 @@ Implementation contract:
   `RustOpLogFFIClient.exportMutationReplayBundle(...)`. Do not export raw
   `sourcePayloadJSON`, add a new raw ABI, execute rollback/repair, add UI, or
   wire production scheduling in future bundle gates.
+- PR6 already supplies Swift-only read-only incremental replay:
+  `MutationOpLogReplay.applyIncremental(...)` folds tail entries onto prior
+  snapshots, drops overlap rows before counting, seeds duplicate detection from
+  prior records, and
+  `RustOpLogFFIClient.incrementalReplayMutationProjections(from:upToSeq:)`
+  uses the existing `iterateAll()` / `iterate(after:)` bridge surface. Do not
+  add rollback execution, repair, UI, production scheduling, or new raw ABI in
+  future incremental-replay gates.
 - If new Rust payload variants are needed, add serde parity tests before Swift
   wiring.
 
@@ -606,6 +617,10 @@ Tests and logs:
   `/tmp/epistemos-oplog-replay-bundle-pr5-red-20260502.log`.
 - PR5 ReplayBundle green evidence is
   `/tmp/epistemos-oplog-replay-bundle-pr5-green-final-20260502.log`.
+- PR6 incremental replay red evidence is
+  `/tmp/epistemos-oplog-incremental-replay-pr6-red-20260502.log`.
+- PR6 incremental replay green evidence is
+  `/tmp/epistemos-oplog-incremental-replay-pr6-green-20260502.log`.
 - Existing OpLog bridge/boundary tests.
 - `git diff --check -- <allowed files> docs/fusion`
 - Production raw-symbol grep excluding `RustOpLogFFIClient`.
@@ -628,6 +643,9 @@ Acceptance:
 - ReplayBundle export: replay snapshots can be encoded as deterministic
   Codable JSON with records/duplicates/counts while omitting raw source payload
   JSON and without adding new raw ABI or mutation/repair behavior.
+- Incremental replay: replay snapshots can be extended from tail OpLog entries
+  with overlap rows dropped before counting, duplicate detection seeded from
+  prior records, and ReplayBundle privacy preserved.
 
 Stop triggers:
 - Projection requires protected editor or graph files.
