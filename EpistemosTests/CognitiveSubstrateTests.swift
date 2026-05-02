@@ -542,6 +542,45 @@ struct EventStoreSchemaTests {
         #expect(store.recentGraphEvents(limit: 0).isEmpty)
     }
 
+    @Test("EventStore folds recent GraphEvents into read-only projection snapshot")
+    func eventStoreFoldsRecentGraphEventsIntoReadOnlyProjectionSnapshot() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let nodeID = "note-store-projection-\(UUID().uuidString)"
+        let targetID = "note-store-target-\(UUID().uuidString)"
+        let createNode = DurableGraphEvent(
+            eventID: "graph-event-store-projection-node-\(UUID().uuidString)",
+            mutationID: "mutation-store-projection-node",
+            runID: "run-store-projection",
+            traceID: "trace-store-projection",
+            sequence: 0,
+            kind: .nodeCreated,
+            entityID: nodeID,
+            entityKind: ArtifactKind.proseNote.snakeCaseString,
+            occurredAtMs: 1_000
+        )
+        let createEdge = makeGraphRelationEvent(
+            eventID: "graph-event-store-projection-edge-\(UUID().uuidString)",
+            mutationID: "mutation-store-projection-edge",
+            sequence: 1,
+            kind: .edgeCreated,
+            relation: DurableGraphEventRelation(fromID: nodeID, toID: targetID, label: "mentions")
+        )
+
+        #expect(store.saveGraphEvent(createEdge))
+        #expect(store.saveGraphEvent(createNode))
+
+        let snapshot = store.graphEventProjectionSnapshot(limit: 10)
+        #expect(snapshot.eventCount == 2)
+        #expect(snapshot.latestEventID == createEdge.eventID)
+        #expect(snapshot.nodes.map(\.id) == [nodeID])
+        #expect(snapshot.edges.map(\.id) == ["\(nodeID)->\(targetID):mentions"])
+        #expect(store.graphEventProjectionSnapshot(limit: 0).eventCount == 0)
+    }
+
     @Test("Durable GraphEvent projection folds nodes and edges deterministically")
     func durableGraphEventProjectionFoldsNodesAndEdgesDeterministically() throws {
         let nodeID = "note-projection-\(UUID().uuidString)"

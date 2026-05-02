@@ -893,6 +893,10 @@ final class EventStore: Sendable {
         } ?? []
     }
 
+    nonisolated func graphEventProjectionSnapshot(limit: Int = 100) -> DurableGraphProjectionSnapshot {
+        DurableGraphEventProjection.snapshot(from: recentGraphEvents(limit: limit))
+    }
+
     nonisolated struct MutationProjectionOutboxRow: Equatable, Sendable {
         let mutationID: String
         let recordedAt: Date
