@@ -1,12 +1,12 @@
 # SearchIndexService Fused Sync AgentEvent PR20 Deliberation - 2026-05-02
 
 ## Tier
-Core. This is local retrieval provenance over the existing RRF fused sync search path, but the current implementation is blocked before code because the method is synchronous and `nonisolated`.
+Core. This is local retrieval provenance over the existing RRF fused sync search path. PR0 has closed the previous sync recorder blocker by adding `AgentToolProvenanceSyncRecorder`.
 
 Gate: SovereignGate touchpoint? none.
 
 ## Slice
-Evaluate whether `SearchIndexService.fusedSearch(query:weights:now:)` can safely record bounded AgentEvent lifecycle rows after PR19.
+Implement bounded AgentEvent lifecycle rows for `SearchIndexService.fusedSearch(query:weights:now:)` after PR19 and PR0.
 
 ## Canon Anchors
 
@@ -19,14 +19,15 @@ Evaluate whether `SearchIndexService.fusedSearch(query:weights:now:)` can safely
 
 - `Epistemos/Sync/SearchIndexService.swift:563` is `nonisolated public func fusedSearch(...)`.
 - `Epistemos/Sync/SearchIndexService.swift:597` is the async PR19-instrumented `fusedSearchAsync(...)`.
-- `Epistemos/Engine/AgentToolProvenanceRecorder.swift:3` marks the recorder `@MainActor`.
+- `Epistemos/Engine/AgentToolProvenanceRecorder.swift` now exposes `AgentToolProvenanceSyncRecorder` for synchronous nonisolated call sites.
 - `Epistemos/State/EventStore.swift:649` exposes nonisolated durable `saveAgentEvent(_:)`, but the recorder owns run-local event sequencing and normalization.
-- `EpistemosTests/SearchIndexServiceFusionTests.swift:582` currently proves sync `fusedSearch` remains uninstrumented.
+- `EpistemosTests/CognitiveSubstrateTests.swift` proves the sync recorder preserves payload semantics and forbidden-bridge boundaries.
 
 ## Allowed Files/Subsystems
 
+- `Epistemos/Sync/SearchIndexService.swift`
+- `EpistemosTests/SearchIndexServiceFusionTests.swift`
 - Deliberation/fleet docs under `docs/fusion/**`.
-- No production code is approved by this brief yet.
 
 ## Forbidden Files/Subsystems
 
@@ -42,32 +43,34 @@ Evaluate whether `SearchIndexService.fusedSearch(query:weights:now:)` can safely
 
 ## Implementation Contract
 
-- Do **not** issue a code order that calls `AgentToolProvenanceRecorder.recordToolEvent(...)` from `fusedSearch` with fire-and-forget `Task`, `Task.detached`, `DispatchQueue.main.sync`, or `MainActor.assumeIsolated`.
+- Do **not** call `AgentToolProvenanceRecorder.recordToolEvent(...)` from `fusedSearch`; use `AgentToolProvenanceSyncRecorder`.
 - Do **not** change `fusedSearch` from synchronous `nonisolated` to actor-isolated/async in this slice; production callers depend on the direct search API.
 - Do **not** duplicate the recorder's event sequencing and privacy logic inside `SearchIndexService`.
-- Acceptable next paths are:
-  - Open an enabling slice that makes recorder/event construction sync-safe with focused regression tests across existing AgentEvent emitters.
-  - Keep sync `fusedSearch` intentionally direct and designate `fusedSearchAsync` as the provenance-bearing RRF fused search rail.
-- Any later implementation must preserve query behavior, `SearchFusionMetrics`, signposts, empty-query early return, RRF SQL, VaultSyncService, QueryRuntime, UI, graph, Rust, generated bindings, and EventStore schema.
+- Record requested, started, and completed/failed rows only after query normalization accepts non-empty terms.
+- Persist bounded metadata only: surface, query character count, term count, weights profile, now timestamp, hit count, elapsed milliseconds, and closed failure class.
+- Preserve query behavior, `SearchFusionMetrics`, signposts, empty-query early return, RRF SQL, VaultSyncService, QueryRuntime, UI, graph, Rust, generated bindings, and EventStore schema.
 
 ## Acceptance
 
-- Red Team attacks this blocker brief before any Kimi/code order.
-- If Red Team finds a safe narrow implementation path, Codex revises the brief and re-runs the red-team gate.
-- If Red Team agrees the current direct PR20 patch is unsafe, close PR20 as blocked and select the next safe master-plan slice.
+- Sync fused search records sanitized requested, started, and completed/failed AgentEvents for valid non-empty queries.
+- Invalid or unsanitizable sync inputs do not record AgentEvents.
+- Query text, sanitized FTS query, hit ids, titles, snippets, scores, source labels, document bodies, vault paths, SQL, GRDB error strings, localized descriptions, scalar weight values, and arbitrary error text are not persisted.
+- Source guards prove no `Task`, `Task.detached`, `DispatchQueue.main.sync`, or `MainActor.assumeIsolated` bridge patterns enter the sync provenance path.
 
 ## Workcard Match
 
 - `AGENT_BUILD_WORKCARDS_2026_05_01.md` card: Card 7 - AgentEvent Tool Provenance.
-- Deviation: This deliberation does not authorize code yet because the sync API/recorder isolation boundary is materially different from PR19.
+- Deviation: This PR20 depends on the separate PR0 sync recorder enabler and must not re-open PR0's shared-event factory.
 
 ## Failure-Proof Guardrails (Post-Merge)
 
 - grep: `nonisolated public func fusedSearch(`
-- grep: `@MainActor\nfinal class AgentToolProvenanceRecorder`
+- grep: `AgentToolProvenanceSyncRecorder`
+- grep: `toolName: "search_index.fused_search"`
+- grep: `"surface": "fused_search"`
 - forbidden grep: `Task\\s*(\\.detached)?\\s*\\{[^\\n]*(recordToolEvent|AgentToolProvenanceRecorder)`
 - forbidden grep: `DispatchQueue\\.main\\.sync|MainActor\\.assumeIsolated`
-- log: `CLAUDE-RETURN: role=RED-TEAM`
+- log: `fusedSearch sync records sanitized AgentEvents`
 - test: `SearchIndexServiceAgentEventSourceGuardTests`
 
 ## Fleet Evidence Packet
@@ -76,9 +79,11 @@ Evaluate whether `SearchIndexService.fusedSearch(query:weights:now:)` can safely
 - `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/detectives/agent-event-provenance.md`
 - `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/detectives/search-index-fused-sync.md`
 - `docs/fusion/fleet/round-21-next-master-plan-slice-selection/claude-side-fleet/aggregator.md`
-- `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/claude-red-team/attacks.md` (added after Red Team returns)
+- `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/claude-red-team/attacks.md`
+- `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/claude-red-team/attacks-after-pr0.md`
+- `docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/codex-red-team/attacks-after-pr0.md`
 
 ## Usefulness
 
 usefulness: +1
-usefulness_reason: Prevents a plausible but unsafe parity patch from violating Swift actor isolation or the no-fire-and-forget provenance rule.
+usefulness_reason: Authorizes the now-unblocked sync provenance patch while preserving the no-fire-and-forget provenance rule.

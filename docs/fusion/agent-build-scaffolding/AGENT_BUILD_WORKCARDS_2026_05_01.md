@@ -866,9 +866,26 @@ PR0 sync recorder enabler is also closed. `AgentToolProvenanceRecorder` now
 shares event construction with a nonisolated `AgentToolProvenanceSyncRecorder`
 that can persist ordered AgentEvents from synchronous callers without
 main-actor bridge patterns. The enabler intentionally does not instrument
-`SearchIndexService.fusedSearch(...)`; PR20 may consume
-`AgentToolProvenanceSyncRecorder` only under a separate deliberation gate with
-fresh tests for sync fused-search behavior and privacy bounds.
+`SearchIndexService.fusedSearch(...)`; PR20 consumed
+`AgentToolProvenanceSyncRecorder` under a separate deliberation gate with fresh
+tests for sync fused-search behavior and privacy bounds.
+
+PR20 SearchIndex fused sync provenance is also closed.
+`SearchIndexService.fusedSearch(query:weights:now:)` now records requested,
+started, and completed/failed AgentEvents for valid non-empty sync RRF
+fused-search calls with `search-index-fused-sync-...` run ids,
+`search-index-service` actor metadata, per-instance
+`search-index-fused-sync:N` ids, `surface=fused_search`, query character count,
+term count, `weights_profile=default|custom`, now timestamp, hit count, elapsed
+milliseconds, zero-hit completed events, and closed
+`cancelled|sql_error|unknown_error` failure classes. Persisted provenance
+excludes query text, sanitized FTS query, hit ids, titles, snippets, scores,
+source labels, document bodies, vault paths, SQL, GRDB error strings, localized
+descriptions, scalar weight values, and arbitrary error text. Source and
+behavior stay away from RRF SQL, VaultSyncService, QueryRuntime, UI, graph,
+Rust, generated bindings, and EventStore schema. Focused source-guard
+verification passes on this host; the focused runtime tests compile but remain
+skipped by the pre-existing FTS5 availability gate.
 
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
@@ -1249,6 +1266,16 @@ Acceptance:
   `SearchIndexService.fusedSearch(...)` remains direct until PR20.
   Source and behavior stay away from RRF SQL, VaultSyncService, UI, graph, Rust,
   generated bindings, and EventStore schema.
+- PR20 wired/reachable/visible: SearchIndex fused sync search emits requested,
+  started, and completed/failed AgentEvents for valid non-empty
+  `fusedSearch(query:weights:now:)` calls with non-empty run id, per-instance
+  tool call id, actor, source/surface metadata, query character count, term
+  count, `weights_profile`, now timestamp, hit count, elapsed milliseconds,
+  zero-hit completed events, and bounded `cancelled|sql_error|unknown_error`
+  failure classes. Tests prove the sync source surface uses the sync recorder
+  without `Task`, `Task.detached`, `DispatchQueue.main.sync`, or
+  `MainActor.assumeIsolated`; the FTS5-gated runtime assertions are present but
+  skipped on hosts where the suite's existing FTS5 probe is false.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

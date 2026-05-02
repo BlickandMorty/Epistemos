@@ -13,9 +13,9 @@ canon_gaps_opened: []
 conflicts:
   - id: C1
     sources: [round-21 claude-side-fleet, local code audit]
-    resolution: "Claude correctly identified PR20 as the next parity gap; local code audit adds that current recorder isolation blocks a safe one-file implementation."
+    resolution: "Claude correctly identified PR20 as the next parity gap; PR0 has now closed the recorder-isolation blocker."
 drift_signals:
-  - "PR19 intentionally left sync fusedSearch uninstrumented; PR20 must not simply invert that guard without solving recorder isolation."
+  - "PR19 intentionally left sync fusedSearch uninstrumented; PR20 may proceed only by using AgentToolProvenanceSyncRecorder from PR0."
 tier: Core
 sovereign_gate_touchpoint: none
 killer_feature_dependency:
@@ -31,25 +31,25 @@ input_usefulness_rollup:
   zero: 0
   minus_one: 0
 usefulness: +1
-usefulness_reason: Converts the PR20 candidate into a deliberation-ready blocker/enabling-slice decision instead of a risky code order.
+usefulness_reason: Converts the former PR20 blocker into an implementation-ready sync provenance gate after PR0.
 ---
 
 ## Reconciled Findings
 
 - `MASTER_RESEARCH_INDEX_2026_05_02.md §2` anchors AgentEvent as substrate-spine state; sync fused search is a legitimate provenance gap after PR19.
 - `MASTER_RESEARCH_INDEX_2026_05_02.md §5` anchors recall/search rails; `SearchIndexService.fusedSearch` is user-reachable through `VaultSyncService` and `QueryRuntime`.
-- The current sync method is `nonisolated public` and synchronous. The existing recorder is `@MainActor`. A direct one-file patch cannot safely emit awaited lifecycle rows from that method.
-- Forbidden implementation shapes: fire-and-forget recorder `Task`, `Task.detached`, `DispatchQueue.main.sync`, `MainActor.assumeIsolated`, changing `fusedSearch` to actor-isolated/async, or touching `VaultSyncService` / `QueryRuntime` just to adapt to a signature break.
+- The current sync method is `nonisolated public` and synchronous. PR0 adds `AgentToolProvenanceSyncRecorder`, so PR20 can emit lifecycle rows without actor hops or fire-and-forget work.
+- Forbidden implementation shapes remain: `Task`, `Task.detached`, `DispatchQueue.main.sync`, `MainActor.assumeIsolated`, changing `fusedSearch` to actor-isolated/async, or touching `VaultSyncService` / `QueryRuntime` just to adapt to a signature break.
 
 ## Recommended Slice Shape
 
-Approve a **blocked PR20 deliberation** first: red-team the blocker, then either open a separate enabling slice for a sync-safe shared provenance recorder/event-builder, or mark sync fused search intentionally direct and move to the next master-plan slice. Do not issue Kimi/code orders for sync fused-search instrumentation until that decision is closed.
+Approve a narrow PR20 implementation: inject a sync recorder into `SearchIndexService`, record requested/started/completed-or-failed AgentEvents inside `fusedSearch(...)`, keep the sync API direct, and preserve RRF SQL, metrics, signposts, and caller behavior.
 
 ## Failure-Proof Guardrails
 
 - grep: `nonisolated public func fusedSearch(`
-- grep: `@MainActor\nfinal class AgentToolProvenanceRecorder`
+- grep: `AgentToolProvenanceSyncRecorder`
 - forbidden grep: `Task\\s*(\\.detached)?\\s*\\{[^\\n]*(recordToolEvent|AgentToolProvenanceRecorder)`
 - forbidden grep: `DispatchQueue\\.main\\.sync|MainActor\\.assumeIsolated`
-- log: `CLAUDE-RETURN: role=RED-TEAM`
+- log: `fusedSearch sync records sanitized AgentEvents`
 - test: `SearchIndexServiceAgentEventSourceGuardTests`

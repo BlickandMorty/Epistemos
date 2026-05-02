@@ -132,3 +132,17 @@
 - log: `✔ Test run with 38 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-sync-recorder-enabler-pr0-green-20260502.log`; Xcode printed `** TEST SUCCEEDED **` followed by the known SwiftLint plugin footer noise.
 - test: `EventStoreSchemaTests`
+
+## search-index-service-fused-sync-agent-event-pr20
+
+- grep: `search-index-fused-sync-`
+- grep: `toolName: "search_index.fused_search"`
+- grep: `"surface": "fused_search"`
+- grep: `AgentToolProvenanceSyncRecorder`
+- forbidden grep: `(argumentsJSON|resultJSON|errorMessage|metadata).*(query_text|queryText|snippet|score|doc_id|docId|title|body|vault|path|localizedDescription|String\(describing:.*error|sanitized|pageWeight|blockWeight)`
+- forbidden sync grep: `git grep -n -A 45 "nonisolated public func fusedSearch(" Epistemos/Sync/SearchIndexService.swift | rg "Task|DispatchQueue\.main\.sync|MainActor\.assumeIsolated"` returns empty
+- staged guard: `git diff --cached --name-only -- agent_core graph-engine epistemos-shadow Epistemos/Views Epistemos/Graph Epistemos/State/EventStore.swift Epistemos/Models/AgentProvenanceEvent.swift Epistemos/Sync/RRFFusionQuery.swift Epistemos/Sync/VaultSyncService.swift Epistemos/Engine/QueryRuntime.swift Epistemos.xcodeproj`
+- log: `✔ Test "fusedSearch provenance surfaces stay bounded" passed`
+- log: `✔ Test run with 19 tests in 2 suites passed`
+- note: focused verification log `/tmp/epistemos-search-index-fused-sync-agent-event-pr20-green-20260502.log`; `SearchIndexService — RRF Fusion (Phase 5)` runtime tests compile but are skipped on this host by the pre-existing FTS5 availability gate, so the non-gated source guard is the live verification floor for PR20 here.
+- test: `SearchIndexServiceFusionTests + SearchIndexServiceAgentEventSourceGuardTests`

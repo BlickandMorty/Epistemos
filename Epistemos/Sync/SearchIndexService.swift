@@ -133,12 +133,15 @@ actor SearchIndexService {
     nonisolated private let queryQueue: DispatchQueue
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
+    nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder
+    nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)
     private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private var fusedAsyncSearchToolSequence: UInt64 = 0
 
     init(
         databaseURL providedDatabaseURL: URL? = nil,
-        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
+        agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder = AgentToolProvenanceSyncRecorder()
     ) throws {
         let resolvedDatabaseURL: URL
         let dbPool: DatabasePool
@@ -177,6 +180,7 @@ actor SearchIndexService {
         supportsPageFTS5 = features.pageFTS5
         supportsBlockFTS5 = features.blockFTS5
         self.agentProvenanceRecorder = agentProvenanceRecorder
+        self.agentProvenanceSyncRecorder = agentProvenanceSyncRecorder
 
         log.info(
             "SearchIndexService initialized at \(resolvedDatabaseURL.path, privacy: .public) fts5_pages=\(features.pageFTS5) fts5_blocks=\(features.blockFTS5)"
@@ -572,6 +576,48 @@ actor SearchIndexService {
         let terms = Self.normalizedSearchTerms(query)
         guard !terms.isEmpty else { return [] }
         let sanitized = Self.sanitizeFTS5Query(terms)
+        let recorder = agentProvenanceSyncRecorder
+        let runID = "search-index-fused-sync-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextFusedSyncSearchToolCallID()
+        let weightsProfile = weights == .default ? "default" : "custom"
+        let queryCharacterCount = min(query.count, 500)
+        let nowMs = Self.millisecondsSinceEpoch(now)
+        let argumentsJSON = Self.searchIndexAgentJSON([
+            "now_ms": nowMs,
+            "query_char_count": queryCharacterCount,
+            "query_term_count": terms.count,
+            "weights_profile": weightsProfile
+        ])
+        let baseMetadata = [
+            "source": "search_index_service",
+            "surface": "fused_search",
+            "query_char_count": "\(queryCharacterCount)",
+            "query_term_count": "\(terms.count)",
+            "weights_profile": weightsProfile
+        ]
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
+
+        recordFusedSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordFusedSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
         let startTime = DispatchTime.now()
 
         do {
@@ -585,9 +631,40 @@ actor SearchIndexService {
             }
             let elapsedMs = Double(DispatchTime.now().uptimeNanoseconds &- startTime.uptimeNanoseconds) / 1_000_000.0
             SearchFusionMetrics.shared.record(latencyMs: elapsedMs, results: results)
+            let lifecycleElapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": lifecycleElapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            recordFusedSyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: lifecycleElapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
             return results
         } catch {
             SearchFusionMetrics.shared.recordError(error)
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.fusedSearchFailureClass(for: error)
+            recordFusedSyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
             throw error
         }
     }
@@ -710,7 +787,7 @@ actor SearchIndexService {
             return results
         } catch {
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.fusedAsyncFailureClass(for: error)
+            let failureClass = Self.fusedSearchFailureClass(for: error)
             await recordFusedAsyncFailure(
                 recorder: recorder,
                 runID: runID,
@@ -725,7 +802,7 @@ actor SearchIndexService {
         }
     }
 
-    private enum FusedAsyncFailureClass: String, Sendable {
+    private enum FusedSearchFailureClass: String, Sendable {
         case cancelled
         case sqlError = "sql_error"
         case unknownError = "unknown_error"
@@ -747,6 +824,14 @@ actor SearchIndexService {
         return "search-index-fused-async:\(fusedAsyncSearchToolSequence)"
     }
 
+    private nonisolated func nextFusedSyncSearchToolCallID() -> String {
+        let sequence = fusedSyncSearchToolSequence.withLock { value -> UInt64 in
+            value += 1
+            return value
+        }
+        return "search-index-fused-sync:\(sequence)"
+    }
+
     private func recordFusedAsyncFailure(
         recorder: AgentToolProvenanceRecorder,
         runID: String,
@@ -754,7 +839,7 @@ actor SearchIndexService {
         toolCallID: String,
         argumentsJSON: String,
         durationMs: UInt64,
-        failureClass: FusedAsyncFailureClass,
+        failureClass: FusedSearchFailureClass,
         metadata: [String: String]
     ) async {
         let resultJSON = Self.searchIndexAgentJSON([
@@ -764,6 +849,37 @@ actor SearchIndexService {
         var failedMetadata = metadata
         failedMetadata["failure_class"] = failureClass.rawValue
         await recordFusedAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
+    }
+
+    private nonisolated func recordFusedSyncFailure(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: FusedSearchFailureClass,
+        metadata: [String: String]
+    ) {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        recordFusedSyncAgentEvent(
             recorder: recorder,
             runID: runID,
             kind: .toolCallFailed,
@@ -807,7 +923,36 @@ actor SearchIndexService {
         )
     }
 
-    private nonisolated static func fusedAsyncFailureClass(for error: Error) -> FusedAsyncFailureClass {
+    private nonisolated func recordFusedSyncAgentEvent(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.fused_search",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private nonisolated static func fusedSearchFailureClass(for error: Error) -> FusedSearchFailureClass {
         if error is CancellationError {
             return .cancelled
         }
