@@ -181,6 +181,13 @@ closed:
   appear/refresh and displays bounded event/node/edge counts without renderer,
   retrieval, Halo, Theater, Rust, OpLog, mutation, repair, polling, timer, or
   `.task` side effects.
+- Durable GraphEvent audit projection PR6 is now closed.
+  `GraphEventAuditProjectionService` consumes the existing
+  `EventStore.graphEventProjectionSnapshot(limit:)` API and returns bounded
+  event/node/edge counts, latest event id, node ids, edge ids, and generation
+  time for audit consumers without renderer, retrieval, Halo, Theater, Rust,
+  OpLog, mutation, repair, polling, timer, EventStore schema, generated-binding,
+  or UI side effects.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,
@@ -214,6 +221,8 @@ closed:
   `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`,
   and
   `/tmp/epistemos-graph-event-projection-pr3-green-20260501.log`,
+  and
+  `/tmp/epistemos-graph-event-audit-projection-pr6-green-20260502.log`,
   and
   `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`,
   and
@@ -307,6 +316,11 @@ Proven or actively wired:
 - Settings now exposes the read-only GraphEvent projection snapshot counts from
   that consumer, keeping projection visibility tied to the same bounded
   EventStore API rather than a second UI-owned fold.
+- GraphEvent audit consumers can now read a bounded report from
+  `GraphEventAuditProjectionService`, which consumes the existing EventStore
+  projection snapshot and exposes event/node/edge counts plus deterministic
+  node and edge ids without renderer, retrieval, Halo, Theater, Rust, OpLog, UI,
+  or schema side effects.
 - R15 benchmark JSON recorder foundation is now present for the existing manual
   benchmark suites, with a tested schema and non-shipping
   `benchmarks/results/` output path. R15 PR2 also adds real fixture baselines
@@ -428,8 +442,9 @@ Still open:
   Omega ReasoningLoop internal search paths.
 - Live GraphEvent consumer projection beyond durable mutation mapping,
   read-only Settings visibility, the read-only projection snapshot, the
-  EventStore projection-consumer API, and read-only Settings projection counts,
-  such as graph, retrieval, Halo, Theater, or audit surfaces.
+  EventStore projection-consumer API, read-only Settings projection counts, and
+  the read-only audit projection report, such as graph, retrieval, Halo, or
+  Theater surfaces.
 - Sovereign Gate follow-through beyond the Core Swift executor and the agent
   approval sheet migration: Rust-side action-class matrix, generated
   transport, additional existing confirmation-surface migrations, and any
@@ -488,9 +503,10 @@ Still open:
    tool provenance PR7, durable GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
    snapshot PR3, durable GraphEvent projection consumer PR4, and durable
-   GraphEvent Settings projection visibility PR5 are closed. Add remaining
-   broader runtime AgentEvent coverage, incremental replay/export, live
-   GraphEvent consumer projections, or mutating
+   GraphEvent Settings projection visibility PR5, and durable GraphEvent audit
+   projection PR6 are closed. Add remaining broader runtime AgentEvent
+   coverage, incremental replay/export, live GraphEvent consumer projections, or
+   mutating
    repair/audit surfaces only after a new gate names the exact EventStore,
    OpLog, worker, runtime, and visibility files.
 
@@ -547,7 +563,8 @@ are:
   PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
-  are closed as PR3/PR4.
+  are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
+  closed as PR5, and the audit projection report consumer is closed as PR6.
 - R15 Benchmark Harness PR2/PR3/PR4/PR5/PR6/PR7 real fixture baselines are closed
   for Swift graph payload construction, markdown parser FFI, code-token parser
   FFI, editor-shell AppKit/TextKit work, sqlite-vec 100k x 32d KNN, generated
@@ -643,6 +660,7 @@ durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
 projection visibility PR5,
+durable GraphEvent audit projection PR6,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
 Surface PR3, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
@@ -654,7 +672,7 @@ and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
-The next best build card is either live GraphEvent consumer projection,
+The next best build card is either remaining live GraphEvent consumer projection,
 remaining broader runtime AgentEvent coverage,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
