@@ -146,3 +146,16 @@
 - log: `✔ Test run with 19 tests in 2 suites passed`
 - note: focused verification log `/tmp/epistemos-search-index-fused-sync-agent-event-pr20-green-20260502.log`; `SearchIndexService — RRF Fusion (Phase 5)` runtime tests compile but are skipped on this host by the pre-existing FTS5 availability gate, so the non-gated source guard is the live verification floor for PR20 here.
 - test: `SearchIndexServiceFusionTests + SearchIndexServiceAgentEventSourceGuardTests`
+
+## sovereign-gate-model-vault-delete-pr9
+
+- grep: `ModelVaultDeletionSovereignGate`
+- grep: `requestDeleteAuthorization(target)`
+- grep: `AppBootstrap.shared?.sovereignGate.confirm(`
+- forbidden grep: `LocalAuthentication|LAContext|canEvaluatePolicy|evaluatePolicy` in `Epistemos/Views/Notes/ModelVaultsSidebarSection.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Sovereign/SovereignGate.swift Epistemos/Views/Notes/ProseEditorRepresentable2.swift Epistemos/Views/Notes/ProseTextView2.swift Epistemos/Views/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- log: `✔ Test "Model vault deletes map to destructive Sovereign Gate requirements" passed`
+- log: `✔ Test "Model vault delete alert routes through captured Sovereign Gate target" passed`
+- log: `✔ Test run with 19 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-r2-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
+- test: `SovereignGateTests`

@@ -406,6 +406,15 @@ closed:
   does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`, alter
   database reset or vault recovery semantics, or touch Rust/generated/graph/
   Omega/ChatCoordinator surfaces.
+- Sovereign Gate Model Vault Delete PR9 is now closed for the existing Model
+  Vaults sidebar file/folder destructive delete surface. File and folder
+  context-menu delete targets now carry typed `ModelVaultDeletionSovereignGate`
+  targets, the alert primary action routes through the shared `AppBootstrap`
+  `SovereignGate` with `.deviceOwnerAuthentication`, and delete execution only
+  runs after `.allowed`. Focused Swift tests passed 19/19. This does not edit
+  `SovereignGate.swift`, duplicate `LocalAuthentication`, alter model-vault
+  browser/delete semantics, or touch Rust/generated/graph/Omega/ChatCoordinator
+  surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -773,8 +782,10 @@ Still open:
   the read-only audit projection report plus Halo panel read-only projection
   ribbon, such as graph renderer, retrieval, or Theater surfaces.
 - Sovereign Gate follow-through beyond the Core Swift executor, lifecycle
-  observer, agent approval sheet migration, Rust action-class seed, and Notes
-  Sidebar page/folder delete migration: generated transport, additional
+  observer, agent approval sheet migration, Rust action-class seed, Notes
+  Sidebar page/folder delete migration, Chat Sidebar chat delete migration,
+  DiffSheet version delete migration, RootView destructive controls, and Model
+  Vaults sidebar file/folder delete migration: generated transport, additional
   existing confirmation-surface migrations, and any Pro/Research Secure Enclave
   or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
@@ -867,8 +878,10 @@ before building.
    closed for the existing Notes Sidebar permanent page/folder delete surface,
    Chat Delete PR6 is closed for the existing Chat Sidebar context-menu
    destructive chat delete surface, Version Delete PR7 is closed for the
-   existing DiffSheet version-delete menu surface, and RootView Destructive PR8
-   is closed for database reset and vault disconnect. Future Sovereign slices must
+   existing DiffSheet version-delete menu surface, RootView Destructive PR8 is
+   closed for database reset and vault disconnect, and Model Vault Delete PR9
+   is closed for the existing Model Vaults sidebar file/folder delete surface.
+   Future Sovereign slices must
    start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
    and may only add generated requirement transport, lifecycle follow-up,
