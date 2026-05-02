@@ -28,6 +28,81 @@ struct EventStoreSchemaTests {
         return (store, dbURL)
     }
 
+    private func makeCommittedEnvelope(
+        mutationID: String,
+        artifactID: String
+    ) -> MutationEnvelope {
+        MutationEnvelope(
+            mutationID: mutationID,
+            sequence: 1,
+            actor: .user,
+            status: .committed,
+            createdAtMs: 1,
+            committedAtMs: 2,
+            op: .artifactCreate(
+                artifactID: artifactID,
+                artifactKind: ArtifactKind.proseNote.snakeCaseString
+            ),
+            sensitivity: .internal,
+            reversibility: .reversible,
+            integrityHash: "sha256:\(mutationID)"
+        )
+    }
+
+    private func makeToolAgentEvent(
+        eventID: String,
+        runID: String,
+        sequence: UInt64,
+        status: AgentToolEventStatus = .completed,
+        resultJSON: String? = "{\"ok\":true}"
+    ) -> AgentProvenanceEvent {
+        AgentProvenanceEvent(
+            eventID: eventID,
+            runID: runID,
+            traceID: "trace-\(runID)",
+            sequence: sequence,
+            kind: .toolCallCompleted,
+            actor: .agent(id: "agent-\(runID)", modelID: "qwen-local"),
+            occurredAtMs: Int64(sequence + 1) * 1_000,
+            tool: AgentToolProvenance(
+                toolCallID: "tool-call-\(eventID)",
+                toolName: "vault_search",
+                argumentsJSON: "{\"query\":\"meaning\"}",
+                resultJSON: resultJSON,
+                durationMs: 42,
+                approvalID: "approval-\(eventID)",
+                status: status,
+                errorMessage: status == .failed ? "tool failed" : nil
+            ),
+            metadata: [
+                "surface": "test",
+            ]
+        )
+    }
+
+    private func makeGraphEvent(
+        eventID: String,
+        mutationID: String,
+        sequence: UInt64,
+        kind: DurableGraphEventKind = .nodeCreated
+    ) -> DurableGraphEvent {
+        DurableGraphEvent(
+            eventID: eventID,
+            mutationID: mutationID,
+            runID: "run-\(mutationID)",
+            traceID: "trace-\(mutationID)",
+            sequence: sequence,
+            kind: kind,
+            entityID: "note-\(mutationID)",
+            entityKind: ArtifactKind.proseNote.snakeCaseString,
+            occurredAtMs: Int64(sequence + 1) * 1_000,
+            relation: nil,
+            metadata: [
+                "surface": "test",
+            ]
+        )
+    }
+
     private func insertCompletedNightBrainRun(databaseURL: URL, jobsJSON: String) throws {
         var db: OpaquePointer?
         guard sqlite3_open_v2(databaseURL.path, &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX, nil) == SQLITE_OK,
@@ -67,6 +142,9 @@ struct EventStoreSchemaTests {
         #expect(store.tableExists("friction_windows"))
         #expect(store.tableExists("night_brain_runs"))
         #expect(store.tableExists("night_brain_checkpoints"))
+        #expect(store.tableExists("mutation_projection_outbox"))
+        #expect(store.tableExists("agent_events"))
+        #expect(store.tableExists("graph_events"))
     }
 
     @Test("Existing tables still present after migration")
@@ -160,6 +238,838 @@ struct EventStoreSchemaTests {
 
         let databaseURL = parentURL.appendingPathComponent("event-store.sqlite")
         #expect(EventStore(databaseURL: databaseURL) == nil)
+    }
+
+    @Test("Pending mutation envelopes do not enter projection outbox")
+    func pendingMutationEnvelopeDoesNotCreateProjectionOutboxRow() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let envelope = MutationEnvelope(
+            mutationID: "pending-\(UUID().uuidString)",
+            sequence: 0,
+            actor: .system,
+            status: .pending,
+            createdAtMs: 1,
+            op: .graphMutation,
+            sensitivity: .internal,
+            reversibility: .reversible,
+            integrityHash: "sha256:pending"
+        )
+
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-pending"))
+        #expect(store.loadMutationEnvelope(mutationID: envelope.mutationID) == envelope)
+        #expect(store.mutationProjectionOutboxRows(mutationID: envelope.mutationID).isEmpty)
+    }
+
+    @Test("AgentEvent JSON round trips tool provenance with snake case keys")
+    func agentEventJSONRoundTripsToolProvenance() throws {
+        let event = makeToolAgentEvent(
+            eventID: "agent-event-json",
+            runID: "run-json",
+            sequence: 7
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(event)
+        let json = try #require(String(data: data, encoding: .utf8))
+
+        #expect(json.contains("\"event_id\":\"agent-event-json\""))
+        #expect(json.contains("\"tool_name\":\"vault_search\""))
+        #expect(json.contains("\"arguments_json\":\"{\\\"query\\\":\\\"meaning\\\"}\""))
+        #expect(json.contains("\"occurred_at_ms\":8000"))
+
+        let decoded = try JSONDecoder().decode(AgentProvenanceEvent.self, from: data)
+        #expect(decoded == event)
+    }
+
+    @Test("EventStore creates and persists AgentEvents")
+    func eventStoreCreatesAndPersistsAgentEvents() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let event = makeToolAgentEvent(
+            eventID: "agent-event-\(UUID().uuidString)",
+            runID: "run-persist",
+            sequence: 1
+        )
+
+        #expect(store.tableExists("agent_events"))
+        #expect(store.saveAgentEvent(event))
+        #expect(store.loadAgentEvent(eventID: event.eventID) == event)
+    }
+
+    @Test("EventStore returns bounded AgentEvents ordered by sequence")
+    func eventStoreReturnsBoundedAgentEventsOrderedBySequence() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let runID = "run-ordered-\(UUID().uuidString)"
+        let second = makeToolAgentEvent(eventID: "agent-event-second-\(UUID().uuidString)", runID: runID, sequence: 2)
+        let first = makeToolAgentEvent(eventID: "agent-event-first-\(UUID().uuidString)", runID: runID, sequence: 0)
+        let middle = makeToolAgentEvent(eventID: "agent-event-middle-\(UUID().uuidString)", runID: runID, sequence: 1)
+
+        #expect(store.saveAgentEvent(second))
+        #expect(store.saveAgentEvent(first))
+        #expect(store.saveAgentEvent(middle))
+
+        let rows = store.agentEvents(runID: runID, limit: 2)
+        #expect(rows.map(\.sequence) == [0, 1])
+        #expect(rows.map(\.eventID) == [first.eventID, middle.eventID])
+        #expect(store.agentEvents(runID: runID, limit: 0).isEmpty)
+    }
+
+    @Test("EventStore AgentEvent save is idempotent by event id")
+    func eventStoreAgentEventSaveIsIdempotentByEventID() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let eventID = "agent-event-upsert-\(UUID().uuidString)"
+        let runID = "run-upsert"
+        let started = makeToolAgentEvent(
+            eventID: eventID,
+            runID: runID,
+            sequence: 3,
+            status: .started,
+            resultJSON: nil
+        )
+        let completed = makeToolAgentEvent(
+            eventID: eventID,
+            runID: runID,
+            sequence: 3,
+            status: .completed,
+            resultJSON: "{\"ok\":true,\"updated\":true}"
+        )
+
+        #expect(store.saveAgentEvent(started))
+        #expect(store.saveAgentEvent(completed))
+
+        #expect(store.loadAgentEvent(eventID: eventID) == completed)
+        #expect(store.agentEvents(runID: runID, limit: 10).map(\.eventID) == [eventID])
+    }
+
+    @Test("GraphEvent JSON round trips mutation mapping with snake case keys")
+    func graphEventJSONRoundTripsMutationMapping() throws {
+        let event = makeGraphEvent(
+            eventID: "graph-event-json",
+            mutationID: "mutation-json",
+            sequence: 7
+        )
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(event)
+        let json = try #require(String(data: data, encoding: .utf8))
+
+        #expect(json.contains("\"event_id\":\"graph-event-json\""))
+        #expect(json.contains("\"mutation_id\":\"mutation-json\""))
+        #expect(json.contains("\"entity_kind\":\"prose_note\""))
+        #expect(json.contains("\"occurred_at_ms\":8000"))
+
+        let decoded = try JSONDecoder().decode(DurableGraphEvent.self, from: data)
+        #expect(decoded == event)
+    }
+
+    @Test("EventStore creates and persists GraphEvents")
+    func eventStoreCreatesAndPersistsGraphEvents() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let event = makeGraphEvent(
+            eventID: "graph-event-\(UUID().uuidString)",
+            mutationID: "mutation-persist",
+            sequence: 1
+        )
+
+        #expect(store.tableExists("graph_events"))
+        #expect(store.saveGraphEvent(event))
+        #expect(store.loadGraphEvent(eventID: event.eventID) == event)
+    }
+
+    @Test("EventStore returns bounded GraphEvents ordered by sequence")
+    func eventStoreReturnsBoundedGraphEventsOrderedBySequence() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let mutationID = "mutation-ordered-\(UUID().uuidString)"
+        let second = makeGraphEvent(eventID: "graph-event-second-\(UUID().uuidString)", mutationID: mutationID, sequence: 2)
+        let first = makeGraphEvent(eventID: "graph-event-first-\(UUID().uuidString)", mutationID: mutationID, sequence: 0)
+        let middle = makeGraphEvent(eventID: "graph-event-middle-\(UUID().uuidString)", mutationID: mutationID, sequence: 1)
+
+        #expect(store.saveGraphEvent(second))
+        #expect(store.saveGraphEvent(first))
+        #expect(store.saveGraphEvent(middle))
+
+        let rows = store.graphEvents(mutationID: mutationID, limit: 2)
+        #expect(rows.map(\.sequence) == [0, 1])
+        #expect(rows.map(\.eventID) == [first.eventID, middle.eventID])
+        #expect(store.graphEvents(mutationID: mutationID, limit: 0).isEmpty)
+    }
+
+    @Test("Committed graph-affecting mutation envelopes create idempotent GraphEvents")
+    func committedGraphAffectingMutationEnvelopesCreateIdempotentGraphEvents() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let mutationID = "mutation-graph-\(UUID().uuidString)"
+        let envelope = MutationEnvelope(
+            mutationID: mutationID,
+            runID: "run-\(mutationID)",
+            sequence: 4,
+            actor: .user,
+            status: .committed,
+            createdAtMs: 1_000,
+            committedAtMs: 2_000,
+            op: .artifactCreate(
+                artifactID: "note-\(mutationID)",
+                artifactKind: ArtifactKind.proseNote.snakeCaseString
+            ),
+            sensitivity: .internal,
+            reversibility: .reversible,
+            integrityHash: "sha256:\(mutationID)",
+            touchedArtifacts: [
+                EpdocArtifactRef(id: "note-\(mutationID)", kind: .proseNote, title: "Graph note")
+            ],
+            affectsGraph: true
+        )
+
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-\(mutationID)"))
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-\(mutationID)"))
+
+        let events = store.graphEvents(mutationID: mutationID, limit: 10)
+        #expect(events.count == 1)
+        #expect(events.first?.kind == .nodeCreated)
+        #expect(events.first?.entityID == "note-\(mutationID)")
+        #expect(events.first?.entityKind == ArtifactKind.proseNote.snakeCaseString)
+        #expect(events.first?.runID == "run-\(mutationID)")
+        #expect(events.first?.traceID == "trace-\(mutationID)")
+    }
+
+    @Test("Pending graph-affecting mutation envelopes do not create GraphEvents")
+    func pendingGraphAffectingMutationEnvelopesDoNotCreateGraphEvents() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let mutationID = "mutation-pending-graph-\(UUID().uuidString)"
+        let envelope = MutationEnvelope(
+            mutationID: mutationID,
+            sequence: 1,
+            actor: .user,
+            status: .pending,
+            createdAtMs: 1_000,
+            op: .artifactCreate(
+                artifactID: "note-\(mutationID)",
+                artifactKind: ArtifactKind.proseNote.snakeCaseString
+            ),
+            sensitivity: .internal,
+            reversibility: .reversible,
+            integrityHash: "sha256:\(mutationID)",
+            affectsGraph: true
+        )
+
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-\(mutationID)"))
+        #expect(store.graphEvents(mutationID: mutationID, limit: 10).isEmpty)
+    }
+
+    @Test("Agent tool provenance recorder persists ordered lifecycle events")
+    @MainActor
+    func agentToolProvenanceRecorderPersistsOrderedLifecycleEvents() {
+        var captured: [AgentProvenanceEvent] = []
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 10_000 },
+            persist: { event in
+                captured.append(event)
+                return true
+            }
+        )
+        let actor = AgentProvenanceActor.agent(id: "chat-coordinator", modelID: "qwen-local")
+        let runID = "run-live-\(UUID().uuidString)"
+        let traceID = "trace-live"
+
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: traceID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{\"query\":\"agent events\"}",
+            approvalID: "tool-1",
+            status: .requested
+        ))
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: traceID,
+            kind: .toolCallApproved,
+            actor: actor,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{\"query\":\"agent events\"}",
+            approvalID: "tool-1",
+            status: .approved
+        ))
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: traceID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{\"query\":\"agent events\"}",
+            status: .started
+        ))
+        #expect(recorder.recordToolEvent(
+            runID: runID,
+            traceID: traceID,
+            kind: .toolCallCompleted,
+            actor: actor,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{\"query\":\"agent events\"}",
+            resultJSON: "{\"ok\":true}",
+            durationMs: 12,
+            status: .completed
+        ))
+
+        #expect(captured.map(\.sequence) == [0, 1, 2, 3])
+        #expect(captured.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallApproved,
+            .toolCallStarted,
+            .toolCallCompleted,
+        ])
+        #expect(captured.allSatisfy { $0.runID == runID })
+        #expect(captured.allSatisfy { $0.traceID == traceID })
+        #expect(captured[0].tool?.argumentsJSON == "{\"query\":\"agent events\"}")
+        #expect(captured[3].tool?.resultJSON == "{\"ok\":true}")
+        #expect(captured[3].tool?.durationMs == 12)
+    }
+
+    @Test("Agent tool provenance recorder refuses incomplete identities")
+    @MainActor
+    func agentToolProvenanceRecorderRefusesIncompleteIdentities() {
+        var captured: [AgentProvenanceEvent] = []
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 10_000 },
+            persist: { event in
+                captured.append(event)
+                return true
+            }
+        )
+
+        #expect(!recorder.recordToolEvent(
+            runID: " ",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "tool-1",
+            toolName: "vault_search",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(!recorder.recordToolEvent(
+            runID: "run-1",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "",
+            toolName: "vault_search",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(!recorder.recordToolEvent(
+            runID: "run-1",
+            traceID: nil,
+            kind: .toolCallStarted,
+            actor: .system,
+            toolCallID: "tool-1",
+            toolName: "\n",
+            argumentsJSON: "{}",
+            status: .started
+        ))
+        #expect(captured.isEmpty)
+    }
+
+    @Test("Pending mutation projection outbox rows are bounded and insertion ordered")
+    func pendingMutationProjectionOutboxRowsAreBoundedAndInsertionOrdered() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let first = makeCommittedEnvelope(
+            mutationID: "projection-first-\(UUID().uuidString)",
+            artifactID: "note-first"
+        )
+        let second = makeCommittedEnvelope(
+            mutationID: "projection-second-\(UUID().uuidString)",
+            artifactID: "note-second"
+        )
+
+        #expect(store.pendingMutationProjectionOutboxRows().isEmpty)
+        #expect(store.saveMutationEnvelope(first, traceId: "trace-first"))
+        #expect(store.saveMutationEnvelope(second, traceId: "trace-second"))
+
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 0).isEmpty)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: -5).isEmpty)
+
+        let firstOnly = store.pendingMutationProjectionOutboxRows(limit: 1)
+        #expect(firstOnly.map(\.mutationID) == [first.mutationID])
+
+        let rows = store.pendingMutationProjectionOutboxRows(limit: 10)
+        #expect(rows.map(\.mutationID) == [first.mutationID, second.mutationID])
+        #expect(rows.map(\.traceID) == ["trace-first", "trace-second"])
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10) == rows)
+
+        #expect(store.saveMutationEnvelope(first, traceId: "trace-first"))
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10).map(\.mutationID) == [
+            first.mutationID,
+            second.mutationID,
+        ])
+    }
+
+    @Test("Mutation projection outbox leases block competing claims until retry deadline")
+    func mutationProjectionOutboxLeasesBlockCompetingClaimsUntilRetryDeadline() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let first = makeCommittedEnvelope(
+            mutationID: "projection-lease-first-\(UUID().uuidString)",
+            artifactID: "note-lease-first"
+        )
+        let second = makeCommittedEnvelope(
+            mutationID: "projection-lease-second-\(UUID().uuidString)",
+            artifactID: "note-lease-second"
+        )
+
+        #expect(store.saveMutationEnvelope(first, traceId: "trace-lease-first"))
+        #expect(store.saveMutationEnvelope(second, traceId: "trace-lease-second"))
+
+        let firstClaim = store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-a",
+            leaseDuration: 60,
+            now: now
+        )
+        #expect(firstClaim.map(\.mutationID) == [first.mutationID])
+        let claimedFirst = try #require(firstClaim.first)
+        #expect(claimedFirst.leaseOwner == "worker-a")
+        #expect(claimedFirst.leaseUntil == now.addingTimeInterval(60))
+        #expect(claimedFirst.attemptCount == 1)
+        #expect(claimedFirst.lastError == nil)
+
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10, now: now).map(\.mutationID) == [
+            second.mutationID,
+        ])
+
+        let competingClaim = store.claimMutationProjectionOutboxRows(
+            limit: 10,
+            ownerID: "worker-b",
+            leaseDuration: 60,
+            now: now
+        )
+        #expect(competingClaim.map(\.mutationID) == [second.mutationID])
+
+        let longError = String(repeating: "x", count: 700)
+        #expect(store.recordMutationProjectionOutboxFailure(
+            mutationID: first.mutationID,
+            ownerID: "worker-a",
+            error: longError,
+            retryAfter: 30,
+            now: now.addingTimeInterval(5)
+        ))
+
+        let failedRows = store.mutationProjectionOutboxRows(mutationID: first.mutationID)
+        let failedRow = try #require(failedRows.first)
+        #expect(failedRow.leaseOwner == nil)
+        #expect(failedRow.leaseUntil == now.addingTimeInterval(35))
+        #expect(failedRow.attemptCount == 1)
+        #expect(failedRow.lastError?.count == 512)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10, now: now.addingTimeInterval(20)).isEmpty)
+
+        let retryClaim = store.claimMutationProjectionOutboxRows(
+            limit: 10,
+            ownerID: "worker-c",
+            leaseDuration: 45,
+            now: now.addingTimeInterval(36)
+        )
+        #expect(retryClaim.map(\.mutationID) == [first.mutationID])
+        let retriedRow = try #require(retryClaim.first)
+        #expect(retriedRow.leaseOwner == "worker-c")
+        #expect(retriedRow.leaseUntil == now.addingTimeInterval(81))
+        #expect(retriedRow.attemptCount == 2)
+        #expect(retriedRow.lastError == nil)
+    }
+
+    @Test("Mutation projection stale lease owners cannot mark newer claims")
+    func mutationProjectionOutboxStaleLeaseOwnerCannotMarkNewerClaim() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let now = Date(timeIntervalSince1970: 1_700_000_100)
+        let envelope = makeCommittedEnvelope(
+            mutationID: "projection-stale-owner-\(UUID().uuidString)",
+            artifactID: "note-stale-owner"
+        )
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-stale-owner"))
+
+        let firstClaim = store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-a",
+            leaseDuration: 1,
+            now: now
+        )
+        #expect(firstClaim.map(\.mutationID) == [envelope.mutationID])
+
+        let secondClaim = store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-b",
+            leaseDuration: 60,
+            now: now.addingTimeInterval(2)
+        )
+        #expect(secondClaim.map(\.mutationID) == [envelope.mutationID])
+
+        #expect(!store.markMutationProjectionOutboxProjected(
+            mutationID: envelope.mutationID,
+            opLogSeq: 7,
+            projectedAt: now.addingTimeInterval(3),
+            ownerID: "worker-a"
+        ))
+
+        let stillLeasedRows = store.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        let stillLeasedRow = try #require(stillLeasedRows.first)
+        #expect(stillLeasedRow.opLogSeq == nil)
+        #expect(stillLeasedRow.leaseOwner == "worker-b")
+        #expect(stillLeasedRow.attemptCount == 2)
+
+        #expect(store.markMutationProjectionOutboxProjected(
+            mutationID: envelope.mutationID,
+            opLogSeq: 7,
+            projectedAt: now.addingTimeInterval(4),
+            ownerID: "worker-b"
+        ))
+    }
+
+    @Test("Mutation projection outbox dead letters rows at max attempts")
+    func mutationProjectionOutboxDeadLettersRowsAtMaxAttempts() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let now = Date(timeIntervalSince1970: 1_700_000_200)
+        let envelope = makeCommittedEnvelope(
+            mutationID: "projection-dead-letter-\(UUID().uuidString)",
+            artifactID: "note-dead-letter"
+        )
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-dead-letter"))
+
+        let firstClaim = store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-dead-letter",
+            leaseDuration: 30,
+            now: now
+        )
+        #expect(firstClaim.map(\.mutationID) == [envelope.mutationID])
+
+        #expect(store.recordMutationProjectionOutboxFailure(
+            mutationID: envelope.mutationID,
+            ownerID: "worker-dead-letter",
+            error: "first failure",
+            retryAfter: 1,
+            now: now.addingTimeInterval(1),
+            maxAttempts: 2
+        ))
+
+        let retryClaim = store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-dead-letter",
+            leaseDuration: 30,
+            now: now.addingTimeInterval(3)
+        )
+        #expect(retryClaim.map(\.mutationID) == [envelope.mutationID])
+        let retryRow = try #require(retryClaim.first)
+        #expect(retryRow.attemptCount == 2)
+
+        let longError = String(repeating: "z", count: 700)
+        #expect(store.recordMutationProjectionOutboxFailure(
+            mutationID: envelope.mutationID,
+            ownerID: "worker-dead-letter",
+            error: longError,
+            retryAfter: 1,
+            now: now.addingTimeInterval(4),
+            maxAttempts: 2
+        ))
+
+        let rows = store.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        let row = try #require(rows.first)
+        #expect(row.leaseOwner == nil)
+        #expect(row.leaseUntil == nil)
+        #expect(row.deadLetteredAt == now.addingTimeInterval(4))
+        #expect(row.deadLetterReason == "max_attempts_exceeded")
+        #expect(row.lastError?.count == 512)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10, now: now.addingTimeInterval(60)).isEmpty)
+        #expect(store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "worker-after-dead-letter",
+            leaseDuration: 30,
+            now: now.addingTimeInterval(60)
+        ).isEmpty)
+
+        #expect(store.markMutationProjectionOutboxProjected(
+            mutationID: envelope.mutationID,
+            opLogSeq: 9,
+            projectedAt: now.addingTimeInterval(61)
+        ))
+        let repairedRows = store.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        let repairedRow = try #require(repairedRows.first)
+        #expect(repairedRow.deadLetteredAt == nil)
+        #expect(repairedRow.deadLetterReason == nil)
+        #expect(repairedRow.lastError == nil)
+    }
+
+    @Test("Mutation projection outbox diagnostics summarize projected pending leased and dead-letter rows")
+    func mutationProjectionOutboxDiagnosticsSummarizeProjectionHealth() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let now = Date(timeIntervalSince1970: 1_700_000_400)
+        let projected = makeCommittedEnvelope(
+            mutationID: "projection-diagnostics-projected-\(UUID().uuidString)",
+            artifactID: "note-diagnostics-projected"
+        )
+        let deadLettered = makeCommittedEnvelope(
+            mutationID: "projection-diagnostics-dead-\(UUID().uuidString)",
+            artifactID: "note-diagnostics-dead"
+        )
+        let leased = makeCommittedEnvelope(
+            mutationID: "projection-diagnostics-leased-\(UUID().uuidString)",
+            artifactID: "note-diagnostics-leased"
+        )
+        let pending = makeCommittedEnvelope(
+            mutationID: "projection-diagnostics-pending-\(UUID().uuidString)",
+            artifactID: "note-diagnostics-pending"
+        )
+
+        #expect(store.saveMutationEnvelope(projected, traceId: "trace-projection-diagnostics-projected"))
+        #expect(store.markMutationProjectionOutboxProjected(
+            mutationID: projected.mutationID,
+            opLogSeq: 41,
+            projectedAt: now
+        ))
+
+        #expect(store.saveMutationEnvelope(deadLettered, traceId: "trace-projection-diagnostics-dead"))
+        #expect(store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "diagnostics-dead-letter",
+            leaseDuration: 30,
+            now: now.addingTimeInterval(1)
+        ).map(\.mutationID) == [deadLettered.mutationID])
+        #expect(store.recordMutationProjectionOutboxFailure(
+            mutationID: deadLettered.mutationID,
+            ownerID: "diagnostics-dead-letter",
+            error: "diagnostic failure",
+            retryAfter: 1,
+            now: now.addingTimeInterval(2),
+            maxAttempts: 1
+        ))
+
+        #expect(store.saveMutationEnvelope(leased, traceId: "trace-projection-diagnostics-leased"))
+        #expect(store.claimMutationProjectionOutboxRows(
+            limit: 1,
+            ownerID: "diagnostics-leased",
+            leaseDuration: 60,
+            now: now.addingTimeInterval(3)
+        ).map(\.mutationID) == [leased.mutationID])
+
+        #expect(store.saveMutationEnvelope(pending, traceId: "trace-projection-diagnostics-pending"))
+
+        let diagnostics = store.mutationProjectionOutboxDiagnostics(now: now.addingTimeInterval(4))
+        #expect(diagnostics.totalRows == 4)
+        #expect(diagnostics.projectedRows == 1)
+        #expect(diagnostics.pendingRows == 1)
+        #expect(diagnostics.leasedRows == 1)
+        #expect(diagnostics.deadLetteredRows == 1)
+        #expect(diagnostics.latestDeadLetter?.mutationID == deadLettered.mutationID)
+        #expect(diagnostics.latestDeadLetter?.deadLetterReason == "max_attempts_exceeded")
+        #expect(diagnostics.latestDeadLetter?.lastError == "diagnostic failure")
+    }
+
+    @Test("Mutation OpLog projector appends pending envelopes and marks rows")
+    func mutationOpLogProjectorAppendsPendingEnvelopesAndMarksRows() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let opLogURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eventstore-oplog-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: opLogURL) }
+
+        let envelope = makeCommittedEnvelope(
+            mutationID: "projection-oplog-\(UUID().uuidString)",
+            artifactID: "note-oplog"
+        )
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-oplog"))
+
+        let client = try RustOpLogFFIClient(databaseURL: opLogURL, actorID: "projection-test")
+        let projector = MutationOpLogProjector(eventStore: store, opLog: client)
+        let result = try projector.projectPending(limit: 10)
+
+        #expect(result.scanned == 1)
+        #expect(result.appended == 1)
+        #expect(result.alreadyProjected == 0)
+        #expect(result.marked == 1)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10).isEmpty)
+
+        let rows = store.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        let row = try #require(rows.first)
+        #expect(row.opLogSeq == 0)
+        #expect(row.projectedAt != nil)
+        #expect(row.leaseOwner == nil)
+        #expect(row.leaseUntil == nil)
+        #expect(row.attemptCount == 1)
+        #expect(row.lastError == nil)
+
+        let entries = try client.iterateAll()
+        #expect(entries.count == 1)
+        #expect(entries.first?.seq == 0)
+        #expect(entries.first?.payload.projectionMutationID == envelope.mutationID)
+    }
+
+    @Test("Mutation OpLog projector marks append-before-mark recovery without duplicating")
+    func mutationOpLogProjectorMarksAppendBeforeMarkRecoveryWithoutDuplicating() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let opLogURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("eventstore-oplog-recovery-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: opLogURL) }
+
+        let envelope = makeCommittedEnvelope(
+            mutationID: "projection-recovery-\(UUID().uuidString)",
+            artifactID: "note-recovery"
+        )
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-recovery"))
+
+        let client = try RustOpLogFFIClient(databaseURL: opLogURL, actorID: "projection-test")
+        let existingSeq = try client.append(.propSet(
+            nodeID: envelope.mutationID,
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "mutation_id": .string(envelope.mutationID),
+                "trace_id": .string("trace-recovery"),
+            ])
+        ))
+        #expect(existingSeq == 0)
+
+        let projector = MutationOpLogProjector(eventStore: store, opLog: client)
+        let result = try projector.projectPending(limit: 10)
+
+        #expect(result.scanned == 1)
+        #expect(result.appended == 0)
+        #expect(result.alreadyProjected == 1)
+        #expect(result.marked == 1)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10).isEmpty)
+
+        let rows = store.mutationProjectionOutboxRows(mutationID: envelope.mutationID)
+        let row = try #require(rows.first)
+        #expect(row.opLogSeq == existingSeq)
+
+        let entries = try client.iterateAll()
+        #expect(entries.count == 1)
+        let entry = try #require(entries.first)
+        #expect(entry.payload.projectionMutationID == envelope.mutationID)
+        let projectedAt = try #require(row.projectedAt)
+        let expectedProjectedAt = Date(timeIntervalSince1970: TimeInterval(entry.tsUnixMs) / 1_000)
+        #expect(abs(projectedAt.timeIntervalSince(expectedProjectedAt)) < 0.001)
+    }
+
+    @Test("Mutation OpLog projection worker resolves app scoped database URL")
+    func mutationOpLogProjectionWorkerResolvesAppScopedDatabaseURL() {
+        let applicationSupportDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("oplog-worker-root-\(UUID().uuidString)", isDirectory: true)
+
+        let url = MutationOpLogProjectionWorker.databaseURL(
+            applicationSupportDirectory: applicationSupportDirectory
+        )
+
+        #expect(url == applicationSupportDirectory
+            .appendingPathComponent("Epistemos", isDirectory: true)
+            .appendingPathComponent("mutation-oplog.sqlite", isDirectory: false))
+    }
+
+    @Test("Mutation OpLog projection worker drains pending envelopes")
+    func mutationOpLogProjectionWorkerDrainsPendingEnvelopes() throws {
+        guard let store = makeTestStore() else {
+            Issue.record("Failed to create test EventStore")
+            return
+        }
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("oplog-worker-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let opLogURL = root.appendingPathComponent("worker-oplog.sqlite", isDirectory: false)
+
+        let envelope = makeCommittedEnvelope(
+            mutationID: "projection-worker-\(UUID().uuidString)",
+            artifactID: "note-worker"
+        )
+        #expect(store.saveMutationEnvelope(envelope, traceId: "trace-worker"))
+
+        let worker = MutationOpLogProjectionWorker(
+            eventStore: store,
+            databaseURL: opLogURL,
+            actorID: "projection-worker-test",
+            workerID: "projection-worker-test",
+            defaultBatchLimit: 10
+        )
+        let result = try worker.drainOnce(limit: 10)
+
+        #expect(result.scanned == 1)
+        #expect(result.appended == 1)
+        #expect(result.alreadyProjected == 0)
+        #expect(result.marked == 1)
+        #expect(store.pendingMutationProjectionOutboxRows(limit: 10).isEmpty)
+
+        let row = try #require(store.mutationProjectionOutboxRows(mutationID: envelope.mutationID).first)
+        #expect(row.opLogSeq == 0)
+        #expect(row.projectedAt != nil)
+        #expect(row.leaseOwner == nil)
+        #expect(row.leaseUntil == nil)
+
+        let client = try RustOpLogFFIClient(databaseURL: opLogURL, actorID: "projection-worker-reader")
+        let entry = try #require(client.iterateAll().first)
+        #expect(entry.seq == 0)
+        #expect(entry.payload.projectionMutationID == envelope.mutationID)
     }
 
     @Test("No interrupted runs returns nil")
@@ -1198,7 +2108,7 @@ struct ActivityTrackerTests {
 @Suite("Daily Brief State", .serialized)
 struct DailyBriefStateTests {
     @MainActor
-    @Test("dismiss cleanup is cancelled when a new daily brief starts") 
+    @Test("dismiss cleanup is cancelled when a new daily brief starts")
     func dismissCleanupIsCancelledWhenNewBriefStarts() async throws {
         let state = DailyBriefState()
         state.onDailyBriefGenerate = { _ in
@@ -1223,7 +2133,7 @@ struct DailyBriefStateTests {
 @Suite("Event Bus", .serialized)
 struct EventBusTests {
     @MainActor
-    @Test("async event streams keep only the newest buffered events") 
+    @Test("async event streams keep only the newest buffered events")
     func asyncEventStreamsKeepOnlyNewestBufferedEvents() async {
         let bus = EventBus()
         var iterator = bus.events().makeAsyncIterator()
@@ -1321,5 +2231,279 @@ struct Phase7BridgeTests {
     func vaultIntegrityCheckAliasIsRejected() {
         #expect(Phase7Bridge.supportedJobAliases["vault_integrity_check"] == nil)
         #expect(Phase7Bridge.supportedJobAliases["maintenance_log"] == .maintenanceLog)
+    }
+}
+
+@Suite("OpLog FFI Boundary Guards")
+struct OpLogFFIBoundaryGuardTests {
+    private let rawSymbols = [
+        "oplog_open_at",
+        "oplog_iter_after_json",
+        "oplog_iter_all_json",
+        "oplog_append_payload_json",
+        "oplog_chain_tip_hex",
+        "oplog_verify_chain_json",
+        "oplog_release",
+        "oplog_free_string",
+    ]
+
+    @Test("Rust OpLog raw C ABI exports stay explicit and bounded")
+    func rustOpLogExportsStayExplicitAndBounded() throws {
+        let libSource = try loadMirroredSourceTextFile("agent_core/src/lib.rs")
+        let oplogSource = try loadMirroredSourceTextFile("agent_core/src/oplog.rs")
+
+        #expect(libSource.contains("pub mod oplog;"))
+        #expect(oplogSource.contains("Arc::into_raw"))
+        #expect(oplogSource.contains("Arc::decrement_strong_count"))
+        #expect(oplogSource.contains("CString::new(json)"))
+        #expect(oplogSource.contains("CString::from_raw"))
+        #expect(oplogSource.contains("out_error"))
+
+        for symbol in rawSymbols {
+            #expect(oplogSource.contains("#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn \(symbol)"))
+        }
+
+        let rawExportCount = oplogSource
+            .components(separatedBy: "pub unsafe extern \"C\" fn oplog_")
+            .count - 1
+        #expect(rawExportCount == rawSymbols.count)
+    }
+
+    @Test("Swift OpLog bridge owns raw symbols and worker is the only production client")
+    func swiftOpLogBridgeOwnsRawSymbolsAndWorkerIsOnlyProductionClient() throws {
+        let bridge = try loadMirroredSourceTextFile("Epistemos/Engine/RustOpLogFFIClient.swift")
+        let worker = try loadMirroredSourceTextFile("Epistemos/Engine/MutationOpLogProjectionWorker.swift")
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+
+        for symbol in rawSymbols {
+            #expect(bridge.contains("@_silgen_name(\"\(symbol)\")"))
+        }
+        #expect(bridge.contains("private let handle: UnsafePointer<UInt8>"))
+        #expect(bridge.contains("deinit"))
+        #expect(bridge.contains("oplog_release(handle)"))
+        #expect(bridge.contains("defer { oplog_free_string(raw) }"))
+        #expect(worker.contains("RustOpLogFFIClient(databaseURL: databaseURL, actorID: actorID)"))
+        #expect(bootstrap.contains("MutationOpLogProjectionWorker("))
+        #expect(bootstrap.contains("scheduleDrain(reason: \"deferred_runtime_services\")"))
+
+        let swiftFiles = try mirroredSourceFileURLs(
+            under: "Epistemos",
+            includingExtensions: ["swift"]
+        )
+
+        for url in swiftFiles {
+            guard !url.path.hasSuffix("/Epistemos/Engine/RustOpLogFFIClient.swift"),
+                  !url.path.hasSuffix("/Epistemos/Engine/MutationOpLogProjectionWorker.swift") else {
+                continue
+            }
+            let source = try String(contentsOf: url, encoding: .utf8)
+            for symbol in rawSymbols {
+                #expect(!source.contains(symbol), "Unexpected raw \(symbol) usage in \(url.path)")
+            }
+        }
+    }
+
+    @Test("OpLog projection diagnostics row is read-only and mounted in Settings")
+    func opLogProjectionDiagnosticsRowIsReadOnlyAndMountedInSettings() throws {
+        let settings = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+        let row = try loadMirroredSourceTextFile("Epistemos/Views/Settings/OpLogProjectionHealthRow.swift")
+
+        #expect(settings.contains("OpLogProjectionHealthRow()"))
+        #expect(row.contains("mutationProjectionOutboxDiagnostics()"))
+        #expect(!row.contains("oplog_open_at"))
+        #expect(!row.contains("oplog_append_payload_json"))
+        #expect(!row.contains("claimMutationProjectionOutboxRows("))
+        #expect(!row.contains("recordMutationProjectionOutboxFailure("))
+        #expect(!row.contains("markMutationProjectionOutboxProjected("))
+        #expect(!row.contains(".task {"))
+        #expect(!row.contains("while !Task.isCancelled"))
+    }
+}
+
+@Suite("OpLog Swift Bridge")
+struct OpLogSwiftBridgeTests {
+    private let genesisHash = String(repeating: "0", count: 64)
+
+    private func projectionEntry(
+        seq: UInt64,
+        mutationID: String,
+        traceID: String? = nil,
+        artifactID: String? = nil,
+        recordedAtMs: Int = 1_000
+    ) -> OpLogEntry {
+        var fields: [String: OpLogJSONValue] = [
+            "event_kind": .string("mutation_envelope"),
+            "integrity_hash": .string("sha256:\(mutationID)"),
+            "mutation_id": .string(mutationID),
+            "recorded_at_ms": .int(recordedAtMs),
+            "source_payload_json": .string("{\"mutation_id\":\"\(mutationID)\"}"),
+            "status": .string("committed"),
+        ]
+        if let traceID {
+            fields["trace_id"] = .string(traceID)
+        }
+        if let artifactID {
+            fields["artifact_id"] = .string(artifactID)
+            fields["artifact_kind"] = .string("prose_note")
+        }
+
+        return OpLogEntry(
+            seq: seq,
+            lamport: seq,
+            actorID: "replay-test",
+            tsUnixMs: Int64(recordedAtMs + 500),
+            payload: .propSet(
+                nodeID: mutationID,
+                key: MutationOpLogProjector.projectionKey,
+                value: .object(fields)
+            ),
+            prevHash: genesisHash
+        )
+    }
+
+    private func nonProjectionEntry(seq: UInt64) -> OpLogEntry {
+        OpLogEntry(
+            seq: seq,
+            lamport: seq,
+            actorID: "replay-test",
+            tsUnixMs: 2_000,
+            payload: .nodeAdd(id: "note-\(seq)", kind: "prose_note", title: "Ignored"),
+            prevHash: genesisHash
+        )
+    }
+
+    @Test("Swift bridge appends, iterates, and preserves chain state across reopen")
+    func swiftBridgeAppendsIteratesAndReopens() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let genesis = String(repeating: "0", count: 64)
+        let firstClient = try RustOpLogFFIClient(databaseURL: url, actorID: "swift-test")
+        #expect(try firstClient.chainTipHex() == genesis)
+
+        let firstSeq = try firstClient.append(.nodeAdd(id: "note-1", kind: "prose_note", title: "First"))
+        #expect(firstSeq == 0)
+        let firstTip = try firstClient.chainTipHex()
+        #expect(firstTip.count == 64)
+        #expect(firstTip != genesis)
+
+        let reopened = try RustOpLogFFIClient(databaseURL: url, actorID: "swift-test")
+        #expect(try reopened.chainTipHex() == firstTip)
+
+        let secondSeq = try reopened.append(.nodeUpdate(id: "note-1", title: "Renamed"))
+        #expect(secondSeq == 1)
+
+        let tail = try reopened.iterate(after: 0)
+        #expect(tail.count == 1)
+        #expect(tail.first?.seq == 1)
+        #expect(tail.first?.prevHash == firstTip)
+        #expect(tail.first?.payload == .nodeUpdate(id: "note-1", title: "Renamed"))
+    }
+
+    @Test("Swift bridge verifies OpLog chain and expected tip")
+    func swiftBridgeVerifiesOpLogChainAndExpectedTip() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-verify-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let client = try RustOpLogFFIClient(databaseURL: url, actorID: "verify-test")
+        _ = try client.append(.nodeAdd(id: "note-1", kind: "prose_note", title: "First"))
+        _ = try client.append(.nodeUpdate(id: "note-1", title: "Renamed"))
+
+        let tip = try client.chainTipHex()
+        let valid = try client.verifyChain(expectedTipHex: tip)
+        #expect(valid.valid)
+        #expect(valid.checkedCount == 2)
+        #expect(valid.computedChainTipHex == tip)
+        #expect(valid.storedChainTipHex == tip)
+        #expect(valid.expectedChainTipHex == tip)
+        #expect(valid.firstBadSeq == nil)
+        #expect(valid.failureReason == nil)
+
+        let mismatch = try client.verifyChain(expectedTipHex: genesisHash)
+        #expect(!mismatch.valid)
+        #expect(mismatch.checkedCount == 2)
+        #expect(mismatch.computedChainTipHex == tip)
+        #expect(mismatch.expectedChainTipHex == genesisHash)
+        #expect(mismatch.failureReason == "expected_chain_tip_mismatch")
+    }
+
+    @Test("Mutation OpLog replay folds projections and supports rollback cutoff")
+    func mutationOpLogReplayFoldsProjectionsAndSupportsRollbackCutoff() throws {
+        let entries = [
+            projectionEntry(seq: 2, mutationID: "mutation-two", traceID: "trace-two"),
+            nonProjectionEntry(seq: 1),
+            projectionEntry(seq: 0, mutationID: "mutation-one", traceID: "trace-one"),
+        ]
+
+        let full = MutationOpLogReplay.replay(entries)
+        #expect(full.cutoffSeq == nil)
+        #expect(full.highestReplayedSeq == 2)
+        #expect(full.ignoredNonProjectionCount == 1)
+        #expect(full.records.map(\.mutationID) == ["mutation-one", "mutation-two"])
+        #expect(full.records.map(\.opLogSeq) == [0, 2])
+        #expect(full.records.first?.traceID == "trace-one")
+
+        let rollback = MutationOpLogReplay.replay(entries, upToSeq: 0)
+        #expect(rollback.cutoffSeq == 0)
+        #expect(rollback.highestReplayedSeq == 0)
+        #expect(rollback.ignoredNonProjectionCount == 0)
+        #expect(rollback.records.map(\.mutationID) == ["mutation-one"])
+        #expect(rollback.duplicates.isEmpty)
+    }
+
+    @Test("Mutation OpLog replay records duplicate projections")
+    func mutationOpLogReplayRecordsDuplicateProjections() throws {
+        let entries = [
+            projectionEntry(seq: 0, mutationID: "mutation-duplicate", traceID: "trace-first"),
+            projectionEntry(seq: 1, mutationID: "mutation-duplicate", traceID: "trace-second"),
+        ]
+
+        let snapshot = MutationOpLogReplay.replay(entries)
+        #expect(snapshot.records.count == 1)
+        #expect(snapshot.records.first?.opLogSeq == 0)
+        #expect(snapshot.records.first?.traceID == "trace-first")
+        #expect(snapshot.duplicates.count == 1)
+        #expect(snapshot.duplicates.first?.mutationID == "mutation-duplicate")
+        #expect(snapshot.duplicates.first?.firstSeq == 0)
+        #expect(snapshot.duplicates.first?.duplicateSeq == 1)
+    }
+
+    @Test("Swift bridge replays mutation projections from real OpLog")
+    func swiftBridgeReplaysMutationProjectionsFromRealOpLog() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("epistemos-oplog-replay-\(UUID().uuidString)")
+            .appendingPathExtension("sqlite")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let client = try RustOpLogFFIClient(databaseURL: url, actorID: "replay-bridge-test")
+        let ignoredSeq = try client.append(.nodeAdd(id: "note-ignored", kind: "prose_note", title: "Ignored"))
+        let projectionSeq = try client.append(.propSet(
+            nodeID: "mutation-bridge",
+            key: MutationOpLogProjector.projectionKey,
+            value: .object([
+                "event_kind": .string("mutation_envelope"),
+                "integrity_hash": .string("sha256:mutation-bridge"),
+                "mutation_id": .string("mutation-bridge"),
+                "recorded_at_ms": .int(1_234),
+                "source_payload_json": .string("{\"mutation_id\":\"mutation-bridge\"}"),
+                "status": .string("committed"),
+                "trace_id": .string("trace-bridge"),
+            ])
+        ))
+
+        let rollback = try client.replayMutationProjections(upToSeq: ignoredSeq)
+        #expect(rollback.records.isEmpty)
+        #expect(rollback.ignoredNonProjectionCount == 1)
+
+        let full = try client.replayMutationProjections()
+        #expect(full.records.count == 1)
+        #expect(full.records.first?.mutationID == "mutation-bridge")
+        #expect(full.records.first?.opLogSeq == projectionSeq)
+        #expect(full.records.first?.traceID == "trace-bridge")
+        #expect(full.ignoredNonProjectionCount == 1)
     }
 }
