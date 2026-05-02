@@ -1,0 +1,76 @@
+import Foundation
+import Testing
+
+@Suite("R15 Benchmark Harness Source Guards")
+nonisolated struct BenchmarkHarnessSourceGuardTests {
+    @Test("manual R15 Swift benchmarks write machine-readable JSON results")
+    func manualR15SwiftBenchmarksWriteMachineReadableResults() throws {
+        let resultsDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer {
+            try? FileManager.default.removeItem(at: resultsDirectory)
+        }
+
+        let outputURL = try BenchmarkRunRecorder.record(
+            suite: "R15 Source Guard",
+            measurement: "Recorder Contract",
+            unit: "ms",
+            samples: [3, 1, 2, 4],
+            metadata: ["status": "contract-test"],
+            generatedAt: Date(timeIntervalSince1970: 0),
+            resultsDirectory: resultsDirectory
+        )
+
+        let data = try Data(contentsOf: outputURL)
+        let report = try JSONDecoder().decode(BenchmarkRunReport.self, from: data)
+        #expect(report.schema_version == 1)
+        #expect(report.generated_at == "1970-01-01T00:00:00.000Z")
+        #expect(report.suite == "R15 Source Guard")
+        #expect(report.measurement == "Recorder Contract")
+        #expect(report.unit == "ms")
+        #expect(report.sample_count == 4)
+        #expect(report.min == 1)
+        #expect(report.max == 4)
+        #expect(report.p50 == 2.5)
+        #expect(report.p95 == 3.8499999999999996)
+        #expect(report.p99 == 3.9699999999999998)
+        #expect(report.samples == [1, 2, 3, 4])
+        #expect(report.metadata["status"] == "contract-test")
+    }
+
+    @Test("recorder rejects empty and non-finite samples")
+    func recorderRejectsInvalidSamples() throws {
+        #expect(throws: BenchmarkRunRecorderError.emptySamples) {
+            try BenchmarkRunRecorder.record(
+                suite: "R15 Source Guard",
+                measurement: "Empty",
+                unit: "ms",
+                samples: [],
+                resultsDirectory: FileManager.default.temporaryDirectory
+            )
+        }
+
+        #expect(throws: BenchmarkRunRecorderError.nonFiniteSample(.infinity)) {
+            try BenchmarkRunRecorder.record(
+                suite: "R15 Source Guard",
+                measurement: "Infinity",
+                unit: "ms",
+                samples: [.infinity],
+                resultsDirectory: FileManager.default.temporaryDirectory
+            )
+        }
+    }
+
+    @Test("R15 PR2 fixture baseline runner is real and not placeholder gated")
+    @MainActor
+    func r15PR2FixtureBaselineRunnerIsRealAndNotPlaceholderGated() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/BenchmarkFixtureBaselines.swift")
+
+        #expect(source.contains("BenchmarkFixtureBaselineRunner"))
+        #expect(source.contains("baseline_kind"))
+        #expect(source.contains("fixture_pr2_real"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+        #expect(!source.contains("@Suite(\"R15 Fixture Baselines\", .disabled"))
+    }
+}

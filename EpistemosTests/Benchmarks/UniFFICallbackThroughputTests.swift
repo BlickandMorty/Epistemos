@@ -34,6 +34,16 @@ struct UniFFICallbackThroughputTests {
         benchLog.endInterval("uniffi.callback", interval)
         let elapsed = ContinuousClock.now - start
         let perCallNanos = elapsed.seconds * 1e9 / Double(count)
+        _ = try? BenchmarkRunRecorder.record(
+            suite: "UniFFI callback throughput",
+            measurement: "tight_callback_loop",
+            unit: "nanoseconds_per_call",
+            samples: [perCallNanos],
+            metadata: [
+                "status": "Swift-only dispatch placeholder until Rust callback bench gate",
+                "iterations": "\(count)",
+            ]
+        )
         // Aim: < 5 microseconds per Rust → Swift callback.
         #expect(perCallNanos < 50_000)  // placeholder; real bar = 5_000
     }

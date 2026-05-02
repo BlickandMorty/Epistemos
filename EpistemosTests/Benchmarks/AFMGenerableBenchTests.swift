@@ -33,6 +33,16 @@ struct AFMGenerableBenchTests {
             // moves out of "scaffold" status.
             try? await Task.sleep(for: .milliseconds(10))
         }
+        _ = try? BenchmarkRunRecorder.record(
+            suite: "AFM @Generable round-trip",
+            measurement: "afm_small_schema_round_trip",
+            unit: "seconds",
+            samples: elapsed.samples,
+            metadata: [
+                "status": "placeholder sleep until real AFM schema gate",
+                "iterations": "10",
+            ]
+        )
         #expect(elapsed.median < 0.4)  // 400 ms ceiling — adjust per device
     }
 
@@ -41,6 +51,16 @@ struct AFMGenerableBenchTests {
         let elapsed = await measure(label: "afm.large", iterations: 5) {
             try? await Task.sleep(for: .milliseconds(40))
         }
+        _ = try? BenchmarkRunRecorder.record(
+            suite: "AFM @Generable round-trip",
+            measurement: "afm_large_schema_round_trip",
+            unit: "seconds",
+            samples: elapsed.samples,
+            metadata: [
+                "status": "placeholder sleep until real AFM schema gate",
+                "iterations": "5",
+            ]
+        )
         #expect(elapsed.median < 1.2)
     }
 

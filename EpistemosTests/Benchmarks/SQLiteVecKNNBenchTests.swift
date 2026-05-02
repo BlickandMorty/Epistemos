@@ -37,6 +37,17 @@ struct SQLiteVecKNNBenchTests {
         let sorted = samples.sorted()
         let p50 = sorted[sorted.count / 2]
         let p95 = sorted[Int(Double(sorted.count) * 0.95)]
+        _ = try? BenchmarkRunRecorder.record(
+            suite: "sqlite-vec KNN",
+            measurement: "knn_at_100k",
+            unit: "seconds",
+            samples: samples,
+            metadata: [
+                "status": "placeholder sleep until 100k vector fixture gate",
+                "target_vector_count": "100000",
+                "query_count": "\(queryCount)",
+            ]
+        )
         // Aim: p95 < 50 ms at 100k vectors. Adjust with real fixture.
         #expect(p50 < 0.05)
         #expect(p95 < 0.1)

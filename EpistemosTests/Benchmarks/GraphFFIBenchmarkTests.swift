@@ -20,7 +20,12 @@ struct GraphFFIBenchmarkTests {
     // MARK: - Helpers
 
     /// Measure wall-clock time of a closure, emitting an os_signpost interval.
-    private func measure(_ label: StaticString, iterations: Int = 10, body: () -> Void) -> Double {
+    private func measure(
+        _ label: StaticString,
+        resultName: String,
+        iterations: Int = 10,
+        body: () -> Void
+    ) -> Double {
         var elapsed: [Double] = []
         elapsed.reserveCapacity(iterations)
 
@@ -35,6 +40,16 @@ struct GraphFFIBenchmarkTests {
 
         let median = elapsed.sorted()[elapsed.count / 2]
         benchLogger.info("\(label, privacy: .public): median=\(median * 1000, privacy: .public)ms over \(iterations, privacy: .public) iterations")
+        _ = try? BenchmarkRunRecorder.record(
+            suite: "Graph FFI Benchmarks",
+            measurement: resultName,
+            unit: "seconds",
+            samples: elapsed,
+            metadata: [
+                "iterations": "\(iterations)",
+                "status": "manual benchmark; Swift-side proxy until real graph FFI fixture gate",
+            ]
+        )
         return median
     }
 
@@ -42,7 +57,7 @@ struct GraphFFIBenchmarkTests {
 
     @Test func graphDataLoading() {
         let n: UInt32 = 500
-        let median = measure("graph_data_loading_500") {
+        let median = measure("graph_data_loading_500", resultName: "graph_data_loading_500") {
             let device = MTLCreateSystemDefaultDevice()
             guard let device else { return }
             let desc = MTLTextureDescriptor()
@@ -80,7 +95,7 @@ struct GraphFFIBenchmarkTests {
     // MARK: - 2. Search Query
 
     @Test func searchQuery() {
-        let median = measure("search_query_swift_side") {
+        let median = measure("search_query_swift_side", resultName: "search_query_swift_side") {
             // Simulate the Swift-side search dispatch: C string conversion + result mapping.
             let query = "Label 42"
             _ = query.cString(using: .utf8)
@@ -97,7 +112,7 @@ struct GraphFFIBenchmarkTests {
 
     @Test func nodePositionBatch() {
         let n = 200
-        let median = measure("node_position_batch_200") {
+        let median = measure("node_position_batch_200", resultName: "node_position_batch_200") {
             // Simulate the batch position query that MetalGraphView does each frame
             // for selected node screen-space tracking.
             var positions: [(Float, Float)] = []
@@ -126,7 +141,10 @@ struct GraphFFIBenchmarkTests {
             "## Section \(i)\n\nParagraph with **bold** and *italic* text.\n\n- Item A\n- Item B\n\n"
         }.joined()
 
-        let median = measure("markdown_parse_structure_100_sections") {
+        let median = measure(
+            "markdown_parse_structure_100_sections",
+            resultName: "markdown_parse_structure_100_sections"
+        ) {
             guard let cStr = markdown.cString(using: .utf8) else { return }
             var spansPtr: UnsafeMutablePointer<StyleSpan>?
             var count: UInt32 = 0
@@ -142,7 +160,7 @@ struct GraphFFIBenchmarkTests {
 
     @Test func sdfLabelDataPrep() {
         let n = 300
-        let median = measure("sdf_label_data_prep_300") {
+        let median = measure("sdf_label_data_prep_300", resultName: "sdf_label_data_prep_300") {
             // Simulate the glyph metric array construction that happens at atlas load.
             struct GlyphMetric {
                 var codepoint: UInt32
