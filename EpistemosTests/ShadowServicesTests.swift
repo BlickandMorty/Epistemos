@@ -233,3 +233,72 @@ struct ShadowServicesTests {
         #expect(totalFlushes >= 1)
     }
 }
+
+/// W9.21 PR4 guard: the Rust honest-handle foundation is only useful
+/// once the Swift consumer stops using the legacy global `shadow_*`
+/// surface. Keep this as a source-level test so it fails before we
+/// accidentally regress back to orphan scaffolding.
+@Suite("Shadow honest-handle source guards")
+struct ShadowHonestHandleSourceGuardTests {
+
+    @Test("RustShadowFFIClient owns a shadow_handle pointer and AppBootstrap constructs it directly")
+    func swiftConsumerUsesOwnedShadowHandle() throws {
+        let client = try loadMirroredSourceTextFile("Epistemos/Engine/RustShadowFFIClient.swift")
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+
+        for symbol in [
+            "shadow_handle_open_at",
+            "shadow_handle_release",
+            "shadow_handle_search",
+            "shadow_handle_insert",
+            "shadow_handle_remove",
+            "shadow_handle_flush",
+            "shadow_handle_stats",
+            "shadow_handle_free_string"
+        ] {
+            #expect(client.contains("@_silgen_name(\"\(symbol)\")"))
+        }
+
+        #expect(client.contains("private let handle: UnsafePointer<UInt8>"))
+        #expect(client.contains("public init(path: String) throws"))
+        #expect(client.contains("deinit"))
+        #expect(!client.contains("public init() {}"))
+        #expect(!client.contains("public static func openAt"))
+        #expect(!client.contains("@_silgen_name(\"shadow_search_json\")"))
+
+        #expect(bootstrap.contains("RustShadowFFIClient(path: shadowRoot.path)"))
+        #expect(!bootstrap.contains("RustShadowFFIClient.openAt(path: shadowRoot.path)"))
+        #expect(!bootstrap.contains("let client = RustShadowFFIClient()"))
+    }
+
+    @Test("epistemos-shadow exports the complete panic-safe shadow_handle operation surface")
+    func rustHandleSurfaceIsCompleteAndPanicSafe() throws {
+        let rust = try loadMirroredSourceTextFile("epistemos-shadow/src/honest_handle.rs")
+
+        for symbol in [
+            "shadow_handle_open_at",
+            "shadow_handle_retain",
+            "shadow_handle_release",
+            "shadow_handle_search",
+            "shadow_handle_insert",
+            "shadow_handle_remove",
+            "shadow_handle_flush",
+            "shadow_handle_stats",
+            "shadow_handle_free_string"
+        ] {
+            let export = "#[unsafe(no_mangle)]\npub unsafe extern \"C\" fn \(symbol)"
+            #expect(rust.contains(export), "\(symbol) must remain an exported C ABI symbol")
+        }
+
+        #expect(Self.countOccurrences(of: "pub unsafe extern \"C\" fn shadow_handle_", in: rust) == 9)
+        #expect(rust.contains("panic::catch_unwind"))
+        #expect(rust.contains("AssertUnwindSafe"))
+        #expect(rust.contains("CString::from_raw"))
+        #expect(rust.contains("unsafe fn read_c_str"))
+        #expect(rust.contains("ShadowDocument"))
+    }
+
+    private static func countOccurrences(of needle: String, in haystack: String) -> Int {
+        haystack.components(separatedBy: needle).count - 1
+    }
+}

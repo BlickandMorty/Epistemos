@@ -2,10 +2,9 @@ import SwiftUI
 
 // MARK: - ContextualShadowsPanel
 // Patch 7 / AMBIENT_RECALL_WIRING_PLAN.md §5 — lightweight slide-in panel
-// surfaced when the user clicks `ContextualShadowsButton`. Two tabs:
-// Notes / Chats. Lists the top-K hits with title + snippet. Click invokes
-// the supplied open action so the host (note window or chat shell) stays in
-// charge of routing.
+// surfaced when the user clicks `ContextualShadowsButton`. V0 is notes-first:
+// Chats only appears when the result stream contains real chat hits. Click
+// invokes the supplied open action so the host stays in charge of routing.
 //
 // Constraints (plan §10 R4):
 // - NOT modal, NOT full-width — fixed compact width.
@@ -29,6 +28,16 @@ struct ContextualShadowsPanel: View {
 
     private var chatHits: [ContextualShadowsState.RecallHit] {
         state.currentResults.filter { $0.kind == .chat }
+    }
+
+    private var effectiveSelectedTab: RecallContextKind {
+        if selectedTab == .chat, !chatHits.isEmpty {
+            return .chat
+        }
+        if noteHits.isEmpty, !chatHits.isEmpty {
+            return .chat
+        }
+        return .note
     }
 
     var body: some View {
@@ -85,7 +94,9 @@ struct ContextualShadowsPanel: View {
     private var tabPicker: some View {
         HStack(spacing: 0) {
             tabButton(.note, label: "Notes", count: noteHits.count)
-            tabButton(.chat, label: "Chats", count: chatHits.count)
+            if !chatHits.isEmpty {
+                tabButton(.chat, label: "Chats", count: chatHits.count)
+            }
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
@@ -124,7 +135,7 @@ struct ContextualShadowsPanel: View {
 
     @ViewBuilder
     private var content: some View {
-        let hits = (selectedTab == .note) ? noteHits : chatHits
+        let hits = (effectiveSelectedTab == .note) ? noteHits : chatHits
         if hits.isEmpty {
             VStack {
                 Spacer()
@@ -165,6 +176,18 @@ private struct RecallHitRow: View {
                         .foregroundStyle(.primary)
                         .lineLimit(1)
                     Spacer(minLength: 0)
+                    if !hit.source.isEmpty {
+                        Text(hit.source)
+                            .font(.system(size: 9, weight: .medium))
+                            .lineLimit(1)
+                            .foregroundStyle(Color(nsColor: .tertiaryLabelColor))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color(nsColor: .quaternaryLabelColor).opacity(0.24))
+                            )
+                    }
                     Text(String(format: "%.0f%%", min(max(hit.similarity, 0), 1) * 100))
                         .font(.system(size: 9, weight: .semibold))
                         .monospacedDigit()
@@ -188,7 +211,7 @@ private struct RecallHitRow: View {
         }
         .buttonStyle(.plain)
         .help(hit.snippet.isEmpty ? hit.title : hit.snippet)
-        .accessibilityLabel("\(hit.title), \(hit.kind.rawValue) result")
+        .accessibilityLabel("\(hit.title), \(hit.kind.rawValue) result from \(hit.source)")
         .accessibilityHint("Open this \(hit.kind.rawValue)")
     }
 }

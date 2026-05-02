@@ -1,5 +1,73 @@
 # Build/Test Floor Results - 2026-04-30
 
+## 2026-05-01 Addendum - R16 ETL Worker Execution PR3H
+
+Gate status: **passed focused verification**.
+
+Deliberation gate:
+`docs/fusion/deliberation/r16_etl_worker_execution_pr3h_deliberation_2026_05_01.md`
+
+Change:
+
+- Added a Rust ETL validation worker that only reports success after re-reading
+  the queued file, checking it is still a regular file, matching the queued
+  byte length, matching the queued input kind, and recomputing the same
+  path-plus-content fingerprint used at enqueue time.
+- Added the bounded raw C ABI `etl_run_worker_json(queue_path, max_jobs)` with
+  JSON counts for requested, attempted, succeeded, failed, and post-run queue
+  stats.
+- Added Swift decoding and `RustEtlQueueWorkerClient.run(queuePath:maxJobs:)`.
+- Wired the existing off-main Shadow/ETL bootstrap path to run the worker after
+  ETL enqueue, only when `PowerGate.deferSnapshot()` does not request deferral.
+- Missing or stale queued files are counted as worker failures and do not
+  become fake `done` jobs.
+
+Verification:
+
+- Red Rust log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-red-cargo-20260501.log`.
+  Expected failure: missing `etl_run_worker_json`.
+- Red Swift log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-red-xcode-20260501.log`.
+  Expected failure: missing `RustEtlQueueWorkerClient`.
+- Red summary:
+  `/tmp/epistemos-r16-etl-worker-pr3h-red-summary-20260501.log`.
+- Green Rust FFI worker log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-green-cargo-20260501.log`.
+  Result: `2` ETL FFI worker tests passed.
+- Green Rust validation log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-green-cargo-worker-20260501.log`.
+  Result: `3` ETL validation tests passed.
+- Green Rust full ETL filter log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-green-cargo-etl-full-20260501.log`.
+  Result: `25` ETL tests passed.
+- Green Swift focused log:
+  `/tmp/epistemos-r16-etl-worker-pr3h-green-xcode-20260501.log`.
+  Result: `12` tests in `ShadowVaultBootstrapper (Wave 8.7)` passed.
+- Green summary:
+  `/tmp/epistemos-r16-etl-worker-pr3h-green-summary-20260501.log`.
+- Xcode reported `** TEST SUCCEEDED **` and exited `0`.
+
+Guardrails:
+
+- `cargo fmt --manifest-path agent_core/Cargo.toml -- --check` passed.
+- `nm -gU build-rust/libagent_core.dylib` showed `_etl_run_worker_json`.
+- AppBootstrap grep confirmed the worker call appears after
+  `RustEtlQueueDispatchClient.enqueueVaultWalk` and after
+  `PowerGate.deferSnapshot()`.
+- Xcode still reports inherited SwiftLint command failures for
+  `CodeEditSourceEditor` and `CodeEditTextView` after `** TEST SUCCEEDED **`;
+  this remains existing plugin/lint debt and not a PR3H blocker.
+
+Non-claims:
+
+- No Rust-to-Swift callback was added.
+- No AFM sidecar generation, sidecar schema, queue schema, MAS bookmark policy,
+  protected editor, protected graph, generated binding, project, or entitlement
+  behavior was changed.
+- This validates ETL worker completion semantics; it is not a full R16 manual
+  runtime ship claim.
+
 ## 2026-05-01 Addendum - GraphEvent Durable Mapping PR1
 
 Gate status: **closed**.
