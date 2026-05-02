@@ -98,6 +98,7 @@ nonisolated struct AgentQueryEngineConfig: Sendable {
     let cwd: String
     let model: String?
     let compactor: (any AgentQueryEngineCompactor)?
+    let agentProvenanceRecorder: AgentToolProvenanceRecorder?
 
     init(
         backendIdentifier: String,
@@ -106,7 +107,8 @@ nonisolated struct AgentQueryEngineConfig: Sendable {
         maxBudgetUSD: Double? = nil,
         cwd: String,
         model: String? = nil,
-        compactor: (any AgentQueryEngineCompactor)? = nil
+        compactor: (any AgentQueryEngineCompactor)? = nil,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
     ) {
         self.backendIdentifier = backendIdentifier
         self.systemPrompt = systemPrompt
@@ -115,6 +117,7 @@ nonisolated struct AgentQueryEngineConfig: Sendable {
         self.cwd = cwd
         self.model = model
         self.compactor = compactor
+        self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 }
 
@@ -209,6 +212,11 @@ actor AgentQueryEngine {
 
         var assistantBuffer = ""
         var stopReason: String?
+        var toolStartedAtByID: [String: Date] = [:]
+        var toolNameByID: [String: String] = [:]
+        let runID = "agent-query-engine-\(UUID().uuidString)"
+        let actor = AgentProvenanceActor.agent(id: "agent-query-engine", modelID: config.model)
+        let metadata = agentQueryEngineToolMetadata(turnIndex: turnCount)
 
         for try await event in stream {
             switch event {
@@ -220,9 +228,57 @@ actor AgentQueryEngine {
                 continuation.yield(.thinkingDelta(delta))
 
             case .toolUse(let id, let name, _):
+                toolNameByID[id] = name
+                let argumentsJSON = agentQueryEngineToolArgumentsJSON(
+                    toolName: name,
+                    turnIndex: turnCount
+                )
+                await recordAgentQueryEngineToolEvent(
+                    runID: runID,
+                    kind: .toolCallRequested,
+                    actor: actor,
+                    toolCallID: id,
+                    toolName: name,
+                    argumentsJSON: argumentsJSON,
+                    status: .requested,
+                    metadata: metadata
+                )
+                toolStartedAtByID[id] = Date()
+                await recordAgentQueryEngineToolEvent(
+                    runID: runID,
+                    kind: .toolCallStarted,
+                    actor: actor,
+                    toolCallID: id,
+                    toolName: name,
+                    argumentsJSON: argumentsJSON,
+                    status: .started,
+                    metadata: metadata
+                )
                 continuation.yield(.toolStarted(id: id, name: name))
 
             case .toolResult(let id, let output, let isError):
+                let startedAt = toolStartedAtByID[id] ?? Date()
+                let toolName = toolNameByID[id] ?? "backend_tool"
+                let sanitizedResultJSON = agentQueryEngineToolResultJSON(
+                    output: output,
+                    isError: isError
+                )
+                await recordAgentQueryEngineToolEvent(
+                    runID: runID,
+                    kind: isError ? .toolCallFailed : .toolCallCompleted,
+                    actor: actor,
+                    toolCallID: id,
+                    toolName: toolName,
+                    argumentsJSON: agentQueryEngineToolArgumentsJSON(
+                        toolName: toolName,
+                        turnIndex: turnCount
+                    ),
+                    resultJSON: sanitizedResultJSON,
+                    durationMs: agentQueryEngineDurationMilliseconds(since: startedAt),
+                    status: isError ? .failed : .completed,
+                    errorMessage: isError ? "tool_result_error" : nil,
+                    metadata: metadata
+                )
                 continuation.yield(.toolCompleted(id: id, output: output, isError: isError))
 
             case .usage(let model, let usageTokens):
@@ -273,4 +329,82 @@ actor AgentQueryEngine {
     func currentMessages() -> [QueryMessage] {
         mutableMessages
     }
+
+    private func recordAgentQueryEngineToolEvent(
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        toolName: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        guard let recorder = config.agentProvenanceRecorder else { return }
+        await MainActor.run {
+            recorder.recordToolEvent(
+                runID: runID,
+                traceID: nil,
+                kind: kind,
+                actor: actor,
+                toolCallID: toolCallID,
+                toolName: toolName,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: durationMs,
+                status: status,
+                errorMessage: errorMessage,
+                metadata: metadata
+            )
+        }
+    }
+
+    private func agentQueryEngineToolMetadata(turnIndex: Int) -> [String: String] {
+        [
+            "source": "agent_query_engine",
+            "surface": "agent_harness",
+            "backend": config.backendIdentifier,
+            "model": config.model ?? "unspecified",
+            "turn_index": String(turnIndex),
+        ]
+    }
+
+    private func agentQueryEngineToolArgumentsJSON(
+        toolName: String,
+        turnIndex: Int
+    ) -> String {
+        agentQueryEngineJSONPayload([
+            "backend": config.backendIdentifier,
+            "model": config.model ?? "unspecified",
+            "tool_name": toolName,
+            "turn_index": String(turnIndex),
+        ])
+    }
+
+    private func agentQueryEngineToolResultJSON(output: String, isError: Bool) -> String {
+        agentQueryEngineJSONPayload([
+            "is_error": String(isError),
+            "output_byte_count": String(Data(output.utf8).count),
+        ])
+    }
+
+    private func agentQueryEngineDurationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds > 0 else { return 0 }
+        guard milliseconds < Double(UInt64.max) else { return UInt64.max }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private func agentQueryEngineJSONPayload(_ values: [String: String]) -> String {
+        guard JSONSerialization.isValidJSONObject(values),
+              let data = try? JSONSerialization.data(withJSONObject: values, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
+    }
+
 }
