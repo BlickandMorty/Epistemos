@@ -233,10 +233,12 @@ through `BenchmarkRunRecorder`, and the recorder contract is tested. PR5 closes
 the generated UniFFI callback-handle baseline and explicitly does not claim the
 future true Rust-to-Swift callback-loop export. PR6 closes the MLX thermal
 policy/backpressure baseline over `PowerGate.deferSnapshot` and explicitly does
-not claim live MLX inference token throughput. Remaining specialized baselines
-for live MLX token throughput under thermal soak, full graph FFI, and the true
-Rust callback-loop export stay open for later fixture gates; production
-GRDB/768d KNN still needs its own future gate before any product claim.
+not claim live MLX inference token throughput. PR7 closes the live
+`GraphEngine`/C FFI bridge fixture baseline and explicitly does not claim live
+renderer FPS or graph optimization. Remaining specialized baselines for live MLX
+token throughput under thermal soak and the true Rust callback-loop export stay
+open for later fixture gates; production GRDB/768d KNN still needs its own
+future gate before any product claim.
 
 Goal:
 Create measurement scaffolding before touching graph renderer, FFI, or
@@ -284,6 +286,10 @@ Acceptance:
 - For PR6-closed surfaces, cite
   `2026-05-02t00-00-00-000z-r15-mlx-thermal-policy-baseline-mlx_thermal_policy_snapshot_1000.json`
   as an MLX thermal policy/backpressure baseline only, not live MLX tok/s.
+- For PR7-closed surfaces, cite
+  `2026-05-02t00-00-00-000z-r15-graph-ffi-bridge-baseline-graph_ffi_bridge_fixture_250.json`
+  as a live `GraphEngine`/C FFI bridge fixture baseline only, not live renderer
+  FPS or graph optimization.
 - For remaining specialized surfaces, the baseline must come from a later real
   fixture gate, not the PR1 placeholder bodies.
 

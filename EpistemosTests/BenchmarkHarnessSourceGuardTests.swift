@@ -125,4 +125,18 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
         #expect(!source.contains("@Suite(\"MLX thermal-pressure inference\", .disabled"))
     }
+
+    @Test("R15 PR7 graph FFI baseline uses live GraphEngine bridge honestly")
+    @MainActor
+    func r15PR7GraphFFIBaselineUsesLiveGraphEngineBridgeHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/GraphFFIBenchmarkTests.swift")
+
+        #expect(source.contains("GraphFFIBaselineRunner"))
+        #expect(source.contains("GraphEngine(device:"))
+        #expect(source.contains("graph_engine_node_screen_pos"))
+        #expect(source.contains("live_graph_engine_ffi_fixture"))
+        #expect(!source.contains("try? BenchmarkRunRecorder"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+        #expect(!source.contains("@Suite(\"Graph FFI Benchmarks\", .disabled"))
+    }
 }
