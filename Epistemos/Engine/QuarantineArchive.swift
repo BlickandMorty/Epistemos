@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import OSLog
 
 // MARK: - QuarantineArchive (Phase 15 / W10.15)
@@ -291,13 +292,36 @@ public final class AmbientRetrievalToggle {
     public static let shared = AmbientRetrievalToggle()
 
     /// Default for new conversations. Conservative: OFF.
-    public var defaultForNewConversations: Bool = false
+    public var defaultForNewConversations: Bool = false {
+        didSet {
+            guard !isLoadingFromDefaults else { return }
+            userDefaults.set(
+                defaultForNewConversations,
+                forKey: Self.defaultForNewConversationsKey
+            )
+        }
+    }
 
     /// Explicit per-conversation enable map. Keys are conversation
     /// IDs; absence means "use default".
     private var perConversation: [String: Bool] = [:]
 
-    private init() {}
+    @ObservationIgnored
+    private var userDefaults: UserDefaults
+
+    @ObservationIgnored
+    private var isLoadingFromDefaults = false
+
+    nonisolated private static let defaultForNewConversationsKey =
+        "com.epistemos.ambientRetrieval.defaultForNewConversations"
+
+    nonisolated private static let perConversationKey =
+        "com.epistemos.ambientRetrieval.perConversation"
+
+    private init(userDefaults: UserDefaults = .standard) {
+        self.userDefaults = userDefaults
+        loadFromUserDefaults()
+    }
 
     public func isEnabled(for conversationId: String) -> Bool {
         perConversation[conversationId] ?? defaultForNewConversations
@@ -305,11 +329,57 @@ public final class AmbientRetrievalToggle {
 
     public func setEnabled(_ enabled: Bool, for conversationId: String) {
         perConversation[conversationId] = enabled
+        persistPerConversation()
     }
 
     public func reset(_ conversationId: String) {
         perConversation.removeValue(forKey: conversationId)
+        persistPerConversation()
     }
+
+    private func loadFromUserDefaults() {
+        isLoadingFromDefaults = true
+        defer { isLoadingFromDefaults = false }
+
+        defaultForNewConversations =
+            userDefaults.object(forKey: Self.defaultForNewConversationsKey) as? Bool
+            ?? false
+
+        let storedMap = userDefaults.dictionary(forKey: Self.perConversationKey) ?? [:]
+        perConversation = storedMap.reduce(into: [String: Bool]()) { result, entry in
+            if let enabled = entry.value as? Bool {
+                result[entry.key] = enabled
+            }
+        }
+    }
+
+    private func persistPerConversation() {
+        if perConversation.isEmpty {
+            userDefaults.removeObject(forKey: Self.perConversationKey)
+        } else {
+            userDefaults.set(perConversation, forKey: Self.perConversationKey)
+        }
+    }
+
+    #if DEBUG
+    func setUserDefaultsForTesting(_ defaults: UserDefaults) {
+        userDefaults = defaults
+        loadFromUserDefaults()
+    }
+
+    func reloadFromUserDefaultsForTesting() {
+        loadFromUserDefaults()
+    }
+
+    func resetForTesting() {
+        isLoadingFromDefaults = true
+        defaultForNewConversations = false
+        perConversation.removeAll()
+        isLoadingFromDefaults = false
+        userDefaults = .standard
+        loadFromUserDefaults()
+    }
+    #endif
 
     /// Per the compass spec: when ambient retrieval is enabled, every
     /// quarantine-sourced tool result must carry a `raw:` prefix in
