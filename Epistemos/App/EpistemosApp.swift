@@ -126,6 +126,21 @@ private struct HomeSceneRootContent: View {
                         )
                     }
                 }
+                .sheet(item: Binding<ApprovalModalView.PendingApproval?>(
+                    get: { bootstrap.chatApprovalQueue.pendingApproval },
+                    set: { _ in }
+                )) { pendingApproval in
+                    ApprovalModalView(
+                        approval: pendingApproval,
+                        onResolve: { decision in
+                            bootstrap.chatApprovalQueue.resolve(
+                                pendingApproval,
+                                decision: decision
+                            )
+                        }
+                    )
+                    .interactiveDismissDisabled(true)
+                }
                 .sheet(isPresented: $showQuickCapture) {
                     QuickCaptureView()
                         .withAppEnvironment(bootstrap)
