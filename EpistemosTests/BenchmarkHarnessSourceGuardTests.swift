@@ -111,4 +111,18 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.localizedCaseInsensitiveContains("placeholder"))
         #expect(!source.contains("@Suite(\"UniFFI callback throughput\", .disabled"))
     }
+
+    @Test("R15 PR6 MLX thermal policy baseline uses PowerGate honestly")
+    @MainActor
+    func r15PR6MLXThermalPolicyBaselineUsesPowerGateHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/MLXThermalBenchTests.swift")
+
+        #expect(source.contains("MLXThermalPolicyBaselineRunner"))
+        #expect(source.contains("PowerGate.deferSnapshot"))
+        #expect(source.contains("mlx_thermal_policy_fixture"))
+        #expect(source.contains("not_live_mlx_inference_tok_s"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+        #expect(!source.contains("@Suite(\"MLX thermal-pressure inference\", .disabled"))
+    }
 }
