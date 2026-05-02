@@ -379,7 +379,11 @@ domain re-query is closed behind
 `ShadowPanelContent` now routes the Notes/Chats segmented picker to
 `HaloController.selectDomain(_:)`, and the controller reuses the latest
 meaningful editor query so an open panel stays open while refreshing results
-for the selected domain.
+for the selected domain. PR3 visible panel actions is closed behind
+`docs/fusion/deliberation/halo_v1_visible_panel_actions_pr3_deliberation_2026_05_02.md`:
+result rows now render source provenance inline plus visible `Open`, note-only
+`Edit`, and chat-only `Summarise` actions through the existing handler surface,
+with no retrieval, mutation, or editor hot-path changes.
 
 Goal:
 Prove the minimal Halo/Contextual Shadows recall loop is wired to real current
@@ -419,6 +423,9 @@ Tests and logs:
 - Focused Halo/controller/editor-bridge tests.
 - Manual app verification only when the user reopens manual runtime testing.
 - Source audit for hot-path `loadBody()` and unbounded timers.
+- PR3 red/green logs:
+  `/tmp/epistemos-halo-v1-visible-actions-pr3-red-20260502.log` and
+  `/tmp/epistemos-halo-v1-visible-actions-pr3-green-20260502.log`.
 
 Acceptance:
 - Wired: production caller exists.
@@ -426,8 +433,10 @@ Acceptance:
 - Visible: panel/card/log proves the recall happened.
 - PR1 satisfied this for the V0 Shadow backend route. PR2 satisfies the
   protected V1 editor mount in code and focused tests. PR2 live domain re-query
-  is also closed in code and focused tests. Future work should target manual
-  runtime verification or richer panel actions.
+  is also closed in code and focused tests. PR3 visible row provenance/actions
+  is closed in code and focused tests. Future Halo work should target manual
+  runtime verification or a newly gated UX slice beyond the now-visible
+  Open/Edit/Summarise row actions.
 
 Stop triggers:
 - Protected editor edit needed.

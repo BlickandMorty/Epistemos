@@ -321,6 +321,10 @@ Proven or actively wired:
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
   panel open under focused tests.
+- Halo V1 visible panel actions PR3 is now code-closed: each result row renders
+  source provenance plus visible `Open`, note-only `Edit`, and chat-only
+  `Summarise` controls through the existing handler surface, with no retrieval,
+  mutation, or editor hot-path changes.
 
 Still open:
 
@@ -337,8 +341,8 @@ Still open:
   action-class matrix, generated transport, existing confirmation-surface
   migration, and any Pro/Research Secure Enclave or Sovereign-class routes.
 - Deeper audit trail and repair UX beyond read-only projection diagnostics.
-- Halo V1 manual runtime verification and richer panel actions remain open. The
-  protected editor mount/glyph/panel route and domain re-query path are
+- Halo V1 manual runtime verification remains open. The protected editor
+  mount/glyph/panel route, domain re-query path, and visible row actions are
   closed in code, but it is not product-ready until manual runtime verification
   is reopened and passes against a real vault.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
@@ -351,10 +355,11 @@ Still open:
 ## Safe Next Build Order
 
 1. **R15 remaining specialized baselines.**
-   Halo V1 protected editor mount PR1 and domain re-query PR2 are now closed in
-   code and focused tests. Manual runtime verification for the recall UX is
-   still open, but the next autonomous code-safe build lane is the remaining
-   R15 baselines unless the user explicitly reopens manual app testing.
+   Halo V1 protected editor mount PR1, domain re-query PR2, and visible panel
+   actions PR3 are now closed in code and focused tests. Manual runtime
+   verification for the recall UX is still open, but the next autonomous
+   code-safe build lane is the remaining R15 baselines unless the user
+   explicitly reopens manual app testing.
    PR2 real fixtures are closed for Swift graph payload construction, markdown
    parser FFI, and code-token parser FFI. PR3 is closed for editor-shell
    AppKit/TextKit fixture work. PR4 is closed for sqlite-vec 100k x 32d KNN.
@@ -406,8 +411,9 @@ Still open:
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are
-   code-closed. Remaining Halo work is manual runtime verification against a
-   real vault and richer panel actions, both behind new exact gates.
+   code-closed, and visible row provenance/actions are code-closed as PR3.
+   Remaining Halo work is manual runtime verification against a real vault; any
+   UX beyond the visible Open/Edit/Summarise row actions needs a new exact gate.
 
 6. **V1.5 typed artifacts and Pro tunnels.**
    Only after the Core provenance/retrieval/diagnostics substrate is stable.
@@ -417,9 +423,10 @@ Still open:
 Agents are good to work on narrow, gated cards only. The safest immediate cards
 are:
 
-- Card 5 Halo follow-up only for manual runtime verification or richer panel
-  actions. V0 Shadow backend route PR1, V1 protected editor mount PR1, and V1
-  live domain re-query PR2 are already closed.
+- Card 5 Halo follow-up only for manual runtime verification or a new UX slice
+  beyond visible row actions. V0 Shadow backend route PR1, V1 protected editor
+  mount PR1, V1 live domain re-query PR2, and visible panel actions PR3 are
+  already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR4, GraphEvent PR1, GraphEvent visibility PR2, and GraphEvent
   projection snapshot PR3 with
@@ -491,9 +498,9 @@ Halo V1:
 - Reachable: flag-gated by `EPISTEMOS_AMBIENT_RECALL_V0=1` and requires a
   configured per-vault Shadow backend.
 - Visible: glyph, panel route, and Notes/Chats domain refresh are code-mounted
-  and covered by focused tests.
-- Gap: manual runtime verification against a real vault and richer panel
-  actions.
+  and covered by focused tests; rows also expose provenance plus visible
+  Open/Edit/Summarise actions.
+- Gap: manual runtime verification against a real vault.
 
 ## Operating Rule For New Sessions
 
@@ -525,7 +532,8 @@ AgentEvent Settings visibility PR5, durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
-PR2, R16 memory-pressure dispatch pause PR3E, and R16 MAS bookmark enforcement
+PR2, Halo V1 visible panel actions PR3, R16 memory-pressure dispatch pause PR3E,
+and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
@@ -536,4 +544,4 @@ follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
 verification, depending on whether the immediate priority is provenance
 projection, security/policy gating, performance-safe graph/FFI work,
-background retrieval, or richer recall UX.
+background retrieval, or real-vault recall proof.
