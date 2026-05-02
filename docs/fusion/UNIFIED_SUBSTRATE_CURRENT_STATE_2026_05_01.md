@@ -23,6 +23,30 @@ This is the optimization target: make models, tools, notes, files, graph
 updates, captures, and future agents operate through one deterministic,
 policy-gated, observable provenance spine.
 
+## Canon Authority Update - 2026-05-02
+
+`docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` is now the first lookup for
+any concept, feature, mini-task, worktree, or research-root question. It is the
+full concept-to-source map and backlog index for the May 2 canon packet.
+
+Operating rule:
+
+1. Ctrl-F `MASTER_RESEARCH_INDEX_2026_05_02.md` for the concept.
+2. Read the canonical source it names, not every adjacent research file.
+3. Trust §0 Honest Discoveries over older docs they correct.
+4. Verify against current code and fresh logs before shipping or downgrading a
+   claim, because later patches may have landed after the deep-scan.
+
+The most important §0 corrections are: Lane A is not "mostly merged" and must
+be treated as 601 unmerged Prompt Tree commits; Hermes-parity currently uses
+plain markdown prompts, while NousResearch ChatML is future/local-agent
+formatting unless the active code path proves otherwise; Apple Intelligence
+fallback is real; the agent error classifier is wired; Quick Capture has a
+larger standalone canon than earlier packet text implied; six v1.6 AgentEvent
+variants remain forward references; honest-handle and code-editor claims need
+WRV/code checks before being called shipped; and Quick Capture tool-v2 alias
+migration still has broad remaining work.
+
 ## What Changed Since The April 30 Master Plan
 
 The master plan's Quick Capture section is now partly ahead of the text.
@@ -545,6 +569,12 @@ Still open:
 - Manual runtime verification for user-facing ship claims.
 
 ## Safe Next Build Order
+
+Before using this order, resolve the active feature or concept through
+`MASTER_RESEARCH_INDEX_2026_05_02.md` §22. This section is execution sequencing,
+not the source-map authority. If the master index's §0 Honest Discoveries
+contradict older wording below, verify current code/logs and update the gate
+before building.
 
 1. **R15 remaining specialized baselines.**
    Halo V1 protected editor mount PR1, domain re-query PR2, and visible panel

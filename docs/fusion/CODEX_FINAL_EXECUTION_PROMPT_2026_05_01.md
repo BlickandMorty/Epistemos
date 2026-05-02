@@ -34,14 +34,21 @@ Optional donor depth (read if the slice touches the topic, never as authority):
 
 ## 2. Authority Order
 
+For discovery, source lookup, and backlog scope, open
+`MASTER_RESEARCH_INDEX_2026_05_02.md` first and follow §22. Its §0 Honest
+Discoveries correct stale packet claims such as "Lane A mostly merged" and
+"Hermes parity uses ChatML", but current code plus fresh logs still win for the
+exact implementation state.
+
 When sources disagree, follow §1 of the doctrine:
 
 1. Current code + passing logs.
 2. Repo authority docs (AGENTS, CLAUDE, PLAN_V2, BOLTFFI_AUDIT, _consolidated/00_canonical_authority).
-3. April 30 fusion canon.
-4. The doctrine (EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md).
+3. May 2 fusion packet: MASTER_RESEARCH_INDEX, doctrine, current state, worktree salvage, canon gaps/addenda, deliberation prompt, all-docs index.
+4. April 30 fusion canon.
 5. Kimi research depth.
-6. Worktree code (donor only, never raw-merge).
+6. External research roots named by MASTER_RESEARCH_INDEX §21.
+7. Worktree code (donor only, never raw-merge).
 
 Core/MAS safety wins over Pro ambition. A small proven patch wins over a broad rewrite.
 

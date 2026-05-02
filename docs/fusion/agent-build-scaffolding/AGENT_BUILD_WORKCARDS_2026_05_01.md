@@ -10,6 +10,18 @@ gets source-of-truth docs, a narrow allowed write set, forbidden surfaces,
 acceptance tests, evidence logs, and stop triggers. Codex then reviews the diff
 and integrates only verified work.
 
+## Master Research Index Rule
+
+`docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md` is the first read for any
+feature, concept, mini-task, worktree, or research-root question before a card
+is assigned or implemented. Use §22 for the lookup procedure, §20 for worktree
+material, §21 for external research roots, and §0 Honest Discoveries to correct
+older workcard or fusion-packet claims.
+
+If a card contradicts the master index, stop at the deliberation gate, verify
+against current code/logs, and update the card or canon before building. Do not
+resolve contradictions by guessing or by raw-merging donor worktrees.
+
 ## Non-Negotiable Rules
 
 - Every work card still requires a deliberation gate before code changes unless

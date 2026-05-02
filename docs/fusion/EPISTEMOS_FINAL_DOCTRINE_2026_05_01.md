@@ -342,7 +342,7 @@ Where the substrate already lives. New work attaches here.
 | Metal compute / Mamba-2 | `Epistemos/Engine/MetalRuntimeManager.swift` + `Epistemos/Shaders/Mamba2/*.metal` (`direct_conv`, `elementwise_ssm_helpers`, `inter_chunk_scan`, `segsum_stable`) | production-canonical |
 | Landing wave (FDTD GPU) | `Epistemos/Shaders/LandingWave.metal` | production-canonical |
 | `@Observable` view-model pattern | `Epistemos/KnowledgeFusion/UI/KnowledgeFusionViewModel.swift` | the canonical shape — never legacy `ObservableObject` |
-| Hermes prompt builder (local agent) | `Epistemos/LocalAgent/HermesPromptBuilder.swift` | targets NousResearch ChatML XML format |
+| Hermes prompt builder (local agent) | `Epistemos/LocalAgent/HermesPromptBuilder.swift` | targets the local-agent NousResearch ChatML/XML helper path. `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H2 corrects hermes-parity donor status: `agent_core/src/prompts.rs` currently uses plain markdown prompts, so ChatML is future/local-agent format unless the active runtime path verifies it. |
 | MCP protocol (Pro tier) | `omega-mcp/` crate | 131 tests, Pro-tunnel target |
 | Shadow search FFI | `epistemos-shadow/` crate | 45 tests, vault search |
 | FFI bench harness | `graph-engine/benches/graph_ffi_baselines.rs` | production-canonical on main; criterion + os_signpost baselines |
@@ -548,7 +548,7 @@ Cloud Hermes gateway and local Hermes-family model prompting are different
 things. Cloud providers require network. The local Hermes prompt format can be
 used offline when the corresponding local model is installed.
 
-When wiring local-agent tool-calling under Hermes-3 / Hermes-Function-Calling: use the NousResearch ChatML XML format (`<tools>…</tools>`, `<tool_call>…</tool_call>`, `<tool_response>…</tool_response>`). Reference repo: `https://github.com/NousResearch/Hermes-Function-Calling` (per user memory). This format is what the existing `Epistemos/LocalAgent/HermesPromptBuilder.swift` targets — do not invent a different one.
+When wiring local-agent tool-calling under Hermes-3 / Hermes-Function-Calling: use the NousResearch ChatML XML format (`<tools>…</tools>`, `<tool_call>…</tool_call>`, `<tool_response>…</tool_response>`) only for the path that actually targets that grammar. Reference repo: `https://github.com/NousResearch/Hermes-Function-Calling` (per user memory). `Epistemos/LocalAgent/HermesPromptBuilder.swift` targets this helper shape, but `MASTER_RESEARCH_INDEX_2026_05_02.md` §0 H2 verified that the hermes-parity donor `agent_core/src/prompts.rs` currently uses plain markdown prompts. Do not rewrite an active markdown prompt path to ChatML without a route-specific gate and tests.
 
 **Tier impact:** Pro/Research for the Hermes subprocess adapter
 (orchestration only). Rex / `agent_core` can own gated in-process provider
