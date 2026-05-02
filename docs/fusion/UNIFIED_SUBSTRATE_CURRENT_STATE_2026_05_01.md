@@ -313,7 +313,25 @@ closed:
   bridge patterns, and that sync `SearchIndexService.fusedSearch(...)` remains
   uninstrumented. This PR0 does not change SearchIndexService behavior, RRF SQL,
   VaultSyncService, UI, graph, Rust, generated bindings, or EventStore schema;
-  PR20 must open a separate gate before any sync consumer records AgentEvents.
+  PR20 closed that separate gate before any sync consumer recorded AgentEvents.
+- AgentEvent PR20 now instruments
+  `SearchIndexService.fusedSearch(query:weights:now:)` on the sync RRF
+  fused-search rail using `AgentToolProvenanceSyncRecorder`. Valid non-empty
+  sync fused searches persist requested, started, and completed/failed
+  AgentEvents with `search-index-fused-sync-...` run ids, per-instance
+  `search-index-fused-sync:N` tool ids, `search-index-service` actor metadata,
+  `surface=fused_search`, query character count, term count,
+  `weights_profile=default|custom`, now timestamp, hit count, elapsed
+  milliseconds, zero-hit completed rows, and closed failure classes
+  `cancelled|sql_error|unknown_error`. Query text, sanitized FTS query, hit ids,
+  titles, snippets, scores, source labels, document bodies, vault paths, SQL,
+  GRDB error strings, localized descriptions, scalar weight values, arbitrary
+  error text, and runtime bridge details are intentionally excluded from
+  persisted provenance. This does not change RRF SQL, `VaultSyncService`,
+  `QueryRuntime`, SearchFusionMetrics semantics, UI, graph, Rust, generated
+  bindings, or EventStore schema. Focused verification passed the non-gated
+  SearchIndex source guard; the runtime RRF Fusion tests compile but remain
+  skipped on this host behind the pre-existing FTS5 availability gate.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -828,6 +846,7 @@ before building.
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
   AgentEvent ShadowSearch backend provenance PR18, AgentEvent SearchIndex
   fused async provenance PR19, AgentEvent sync recorder enabler PR0,
+  AgentEvent SearchIndex fused sync provenance PR20,
   durable
   GraphEvent mutation mapping PR1, durable
    GraphEvent Settings visibility PR2, and durable GraphEvent projection
@@ -883,7 +902,8 @@ are:
   already closed.
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR7, AgentEvent PR8, AgentEvent PR9, AgentEvent PR10, AgentEvent
-  PR11, AgentEvent PR12, AgentEvent PR17, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
+  PR11, AgentEvent PR12, AgentEvent PR17, AgentEvent PR18, AgentEvent PR19,
+  AgentEvent PR20, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
@@ -906,7 +926,10 @@ are:
   closed as PR12, remote relay channel provenance is closed as PR13, AgentGrep
   search provenance is closed as PR14, AgentQueryEngine backend-stream
   provenance is closed as PR15, InstantRecall sync recall provenance is closed
-  as PR16, durable GraphEvent mutation mapping is closed as PR1,
+  as PR16, InstantRecall async recall provenance is closed as PR17,
+  ShadowSearch backend provenance is closed as PR18, SearchIndex fused async
+  provenance is closed as PR19, SearchIndex fused sync provenance is closed as
+  PR20, durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
@@ -1020,6 +1043,7 @@ AgentEvent InstantRecall async recall provenance PR17,
 AgentEvent ShadowSearch backend provenance PR18,
 AgentEvent SearchIndex fused async provenance PR19,
 AgentEvent sync recorder enabler PR0,
+AgentEvent SearchIndex fused sync provenance PR20,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1045,8 +1069,9 @@ beyond Halo's read-only ribbon,
 remaining broader runtime AgentEvent coverage beyond the already closed
 CloudLLM generate/stream/structured, LocalAgentLoop tool execution,
 DriverChannelToolExecutor channel wrapper, remote relay channel HTTP client
-paths, AgentGrep search, AgentQueryEngine backend streams, and InstantRecall
-sync recall search,
+paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
+sync/async recall search, ShadowSearch backend search, and SearchIndex fused
+async/sync RRF search,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

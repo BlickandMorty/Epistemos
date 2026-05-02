@@ -126,3 +126,10 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 28 | 2026-05-02T23:05Z | implementation | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | Epistemos/Engine/AgentToolProvenanceRecorder.swift | +1 |
 | 28 | 2026-05-02T23:05Z | test | suite=EventStoreSchemaTests | xcodebuild | session:69595 | done | /tmp/epistemos-agent-event-sync-recorder-enabler-pr0-green-20260502.log | +1 |
 | 28 | 2026-05-02T23:05Z | guard | slice=agent-event-sync-recorder-enabler-pr0 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 29 | 2026-05-02T23:08Z | aggregator | slice=search-index-service-fused-sync-agent-event-pr20-after-pr0 | codex/local | n/a | done | docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/aggregator.md | +1 |
+| 29 | 2026-05-02T23:08Z | pipeline-builder | slice=search-index-service-fused-sync-agent-event-pr20-after-pr0 | codex/local | n/a | done | docs/fusion/deliberation/search_index_fused_sync_agent_event_pr20_deliberation_2026_05_02.md | +1 |
+| 29 | 2026-05-02T23:08Z | codex-red-team | brief=search-index-service-fused-sync-agent-event-pr20-after-pr0 | codex/local | n/a | done | docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/codex-red-team/attacks-after-pr0.md | +1 |
+| 29 | 2026-05-02T23:09Z | claude-red-team | brief=search-index-service-fused-sync-agent-event-pr20-after-pr0 | claude/print-readonly | pid:273 | failed | docs/fusion/fleet/search-index-service-fused-sync-agent-event-pr20/claude-red-team/attacks-after-pr0.md | -1 |
+| 29 | 2026-05-02T23:22Z | implementation | slice=search-index-service-fused-sync-agent-event-pr20 | codex/local | n/a | done | Epistemos/Sync/SearchIndexService.swift | +1 |
+| 29 | 2026-05-02T23:22Z | test | suite=SearchIndexServiceFusionTests+SearchIndexServiceAgentEventSourceGuardTests | xcodebuild | session:8198 | done | /tmp/epistemos-search-index-fused-sync-agent-event-pr20-green-20260502.log | +1 |
+| 29 | 2026-05-02T23:22Z | guard | slice=search-index-service-fused-sync-agent-event-pr20 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

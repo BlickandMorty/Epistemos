@@ -27,6 +27,24 @@ private final class SearchIndexCancellationTrigger {
     }
 }
 
+nonisolated private final class SearchIndexAgentEventCapture: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [AgentProvenanceEvent] = []
+
+    func append(_ event: AgentProvenanceEvent) -> Bool {
+        lock.lock()
+        storage.append(event)
+        lock.unlock()
+        return true
+    }
+
+    var events: [AgentProvenanceEvent] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+}
+
 nonisolated func sqliteSupportsFTS5ForFusionTests() -> Bool {
     do {
         let queue = try DatabaseQueue(path: ":memory:")
@@ -87,6 +105,20 @@ struct SearchIndexServiceFusionTests {
             try SearchIndexService(
                 databaseURL: url,
                 agentProvenanceRecorder: Self.recorder(sink: sink)
+            ),
+            url
+        )
+    }
+
+    private func makeService(recordingSyncTo capture: SearchIndexAgentEventCapture) throws -> (service: SearchIndexService, databaseURL: URL) {
+        let url = makeDatabaseURL()
+        return (
+            try SearchIndexService(
+                databaseURL: url,
+                agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder(
+                    nowMilliseconds: { 4_242 },
+                    persist: { event in capture.append(event) }
+                )
             ),
             url
         )
@@ -580,23 +612,114 @@ struct SearchIndexServiceFusionTests {
     }
 
     @MainActor
-    @Test("fusedSearch sync method remains uninstrumented")
-    func fusedSearchSyncMethodRemainsUninstrumented() throws {
-        let sink = SearchIndexAgentEventSink()
-        let (service, _) = try makeService(recordingTo: sink)
+    @Test("fusedSearch sync records sanitized AgentEvents")
+    func fusedSearchSyncRecordsSanitizedAgentEvents() throws {
+        let capture = SearchIndexAgentEventCapture()
+        let (service, _) = try makeService(recordingSyncTo: capture)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        try seedDoc(
+            id: "sync-secret-search-doc",
+            title: "Hidden Sync Orpheus Title",
+            body: "private sync recall prompt context with kantian substrate notes",
+            updatedAt: now,
+            in: service
+        )
+
+        let results = try service.fusedSearch(
+            query: "private sync recall prompt",
+            weights: .default,
+            now: now
+        )
+
+        let events = capture.events
+        #expect(results.count == 1)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(events.map(\.runID)).count == 1)
+        #expect(matchesSearchIndexRunID(events.first?.runID, prefix: "search-index-fused-sync-"))
+        #expect(events.allSatisfy { $0.tool?.toolName == "search_index.fused_search" })
+        #expect(events.allSatisfy { $0.tool?.toolCallID == "search-index-fused-sync:1" })
+        #expect(events.allSatisfy { $0.metadata["source"] == "search_index_service" })
+        #expect(events.allSatisfy { $0.metadata["surface"] == "fused_search" })
+        #expect(events.allSatisfy { $0.metadata["query_term_count"] == "4" })
+        #expect(events.allSatisfy { $0.metadata["weights_profile"] == "default" })
+        if case let .agent(id, modelID)? = events.first?.actor {
+            #expect(id == "search-index-service")
+            #expect(modelID == nil)
+        } else {
+            #expect(Bool(false), "expected search-index-service agent actor")
+        }
+
+        let argumentsPayload = try searchIndexPayload(from: events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == ["now_ms", "query_char_count", "query_term_count", "weights_profile"])
+        #expect(argumentsPayload["query_term_count"] as? Int == 4)
+        #expect(argumentsPayload["weights_profile"] as? String == "default")
+
+        let resultPayload = try searchIndexPayload(from: events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "hit_count"])
+        #expect(resultPayload["hit_count"] as? Int == 1)
+        #expect(events.last?.tool?.durationMs != nil)
+        #expect(events.last?.metadata["failure_class"] == nil)
+        #expect(events.last?.tool?.errorMessage == nil)
+
+        try assertNoSearchIndexSecretLeak(
+            in: events,
+            forbidden: [
+                "private sync recall prompt",
+                "sync-secret-search-doc",
+                "Hidden Sync Orpheus Title",
+                "kantian substrate",
+                "sanitized",
+                "\"private\""
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("Invalid fusedSearch sync inputs do not record AgentEvents")
+    func invalidFusedSearchSyncInputsDoNotRecordAgentEvents() throws {
+        let capture = SearchIndexAgentEventCapture()
+        let (service, _) = try makeService(recordingSyncTo: capture)
+
+        _ = try service.fusedSearch(query: "", weights: .default, now: Date())
+        _ = try service.fusedSearch(query: "   \n\t  ", weights: .default, now: Date())
+        _ = try service.fusedSearch(query: "!!! ???", weights: .default, now: Date())
+
+        #expect(capture.events.isEmpty)
+    }
+
+    @MainActor
+    @Test("fusedSearch sync custom weights persist only profile metadata")
+    func fusedSearchSyncCustomWeightsPersistOnlyProfileMetadata() throws {
+        let capture = SearchIndexAgentEventCapture()
+        let (service, _) = try makeService(recordingSyncTo: capture)
         let now = Date()
         try seedDoc(
-            id: "sync-page",
+            id: "sync-custom-weight-page",
             title: "alpha",
             body: "alpha body",
             updatedAt: now,
             in: service
         )
 
-        let results = try service.fusedSearch(query: "alpha", weights: .default, now: now)
+        _ = try service.fusedSearch(
+            query: "alpha",
+            weights: FusionWeights(pageWeight: 2.5, blockWeight: 3.5),
+            now: now
+        )
 
-        #expect(results.count == 1)
-        #expect(sink.events.isEmpty)
+        #expect(capture.events.allSatisfy { $0.metadata["weights_profile"] == "custom" })
+        let persisted = capture.events
+            .compactMap(\.tool)
+            .map { [$0.argumentsJSON, $0.resultJSON ?? "", $0.errorMessage ?? ""].joined(separator: "\n") }
+            .joined(separator: "\n")
+        #expect(!persisted.contains("pageWeight"))
+        #expect(!persisted.contains("blockWeight"))
+        #expect(!persisted.contains("2.5"))
+        #expect(!persisted.contains("3.5"))
     }
 
     @MainActor
@@ -661,9 +784,12 @@ struct SearchIndexServiceFusionTests {
     // is skipped in CI and run locally before flag flip per
     // `docs/RRF_FUSION_PROMPT.md` Phase 6 acceptance gate.
 
-    private func matchesSearchIndexRunID(_ value: String?) -> Bool {
+    private func matchesSearchIndexRunID(
+        _ value: String?,
+        prefix: String = "search-index-fused-async-"
+    ) -> Bool {
         guard let value else { return false }
-        let pattern = #"^search-index-fused-async-[0-9A-F-]{36}$"#
+        let pattern = "^\(NSRegularExpression.escapedPattern(for: prefix))[0-9A-F-]{36}$"
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return false }
         let range = NSRange(value.startIndex..<value.endIndex, in: value)
         return regex.firstMatch(in: value, range: range)?.range == range
@@ -699,18 +825,24 @@ struct SearchIndexServiceFusionTests {
 @Suite("SearchIndexService AgentEvent source guards")
 struct SearchIndexServiceAgentEventSourceGuardTests {
 
-    @Test("fusedSearchAsync provenance surface stays bounded and sync fusedSearch remains direct")
+    @Test("fusedSearch provenance surfaces stay bounded")
     func fusedSearchAsyncProvenanceSurfaceStaysBounded() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Sync/SearchIndexService.swift")
 
-        #expect(source.contains("agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil"))
+        #expect(source.contains("agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,"))
+        #expect(source.contains("agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder = AgentToolProvenanceSyncRecorder()"))
         #expect(source.contains("private var agentProvenanceRecorder: AgentToolProvenanceRecorder?"))
+        #expect(source.contains("nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder"))
         #expect(source.contains("private var fusedAsyncSearchToolSequence: UInt64 = 0"))
+        #expect(source.contains("nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)"))
+        #expect(source.contains("toolName: \"search_index.fused_search\""))
         #expect(source.contains("toolName: \"search_index.fused_search_async\""))
+        #expect(source.contains("\"surface\": \"fused_search\""))
         #expect(source.contains("\"surface\": \"fused_search_async\""))
         #expect(source.contains("\"weights_profile\": weightsProfile"))
         #expect(source.contains("case sqlError = \"sql_error\""))
         #expect(source.contains("if error is DatabaseError"))
+        #expect(source.contains("recordFusedSyncAgentEvent("))
         #expect(source.contains("await recordFusedAsyncAgentEvent("))
         #expect(!source.contains("Task { @MainActor in\n            await recorder.recordToolEvent"))
         #expect(!source.contains("Task.detached"))
@@ -720,8 +852,13 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
             before: "public func fusedSearchAsync(",
             in: source
         ))
+        #expect(syncBody.contains("agentProvenanceSyncRecorder"))
+        #expect(syncBody.contains("recordFusedSyncAgentEvent("))
         #expect(!syncBody.contains("AgentToolProvenanceRecorder"))
-        #expect(!syncBody.contains("recordToolEvent"))
+        #expect(!syncBody.contains("Task {"))
+        #expect(!syncBody.contains("Task.detached"))
+        #expect(!syncBody.contains("DispatchQueue.main.sync"))
+        #expect(!syncBody.contains("MainActor.assumeIsolated"))
         #expect(!syncBody.contains("search_index.fused_search_async"))
     }
 
