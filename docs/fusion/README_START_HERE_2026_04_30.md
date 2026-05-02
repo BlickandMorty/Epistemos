@@ -22,6 +22,20 @@ Use this packet to prevent drift:
 6. Extract useful ideas from older research and worktrees into a queued implementation plan.
 7. Build only the next approved, low-conflict slice.
 
+Research protocol for Codex, Claude, Kimi, and future builders:
+
+1. Search the user's disk canon first for every concept, deliberation, coding
+   task, refactor, reroute, reduction, bug fix, or "simple" change.
+2. Use semantic keyword expansion. Example: "zero-copy" means UMA,
+   in-process, single-binary, deterministic, no tensor copies, no hot-path
+   subprocess, direct/bare-metal path, and the philosophy "as complex as a
+   brain, as simple as an app, as fast as a jet."
+3. If the local canon lacks a structured answer or the task depends on current
+   external API/framework/model/App Store/security facts, do targeted web
+   validation with primary/official sources where possible.
+4. Keep it useful: do not read everything; read the canonical local source,
+   verify current code/logs, then use web search only to validate or unblock.
+
 ## Canonical Files That Matter Now
 
 Repo-local packet:

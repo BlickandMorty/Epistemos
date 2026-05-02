@@ -40,6 +40,24 @@ Discoveries correct stale packet claims such as "Lane A mostly merged" and
 "Hermes parity uses ChatML", but current code plus fresh logs still win for the
 exact implementation state.
 
+Research-first rule: for every task, deliberation, refactor, bug fix,
+reroute/reduction, or simple code change, search the local canon before coding.
+Use `MASTER_RESEARCH_INDEX_2026_05_02.md` plus semantic keyword expansion. If
+the local corpus lacks a structured answer, or the slice depends on current API,
+OS, model, package, security, App Store, or framework behavior, validate with a
+targeted web search using primary/official sources where possible. The web pass
+validates the local plan; it does not replace the user's research corpus.
+
+Semantic expansion examples:
+
+- "zero-copy" implies UMA, shared Metal buffers, IOSurface, in-process,
+  single-binary, no hot-path subprocess, no tensor copies, deterministic
+  provenance, bare-metal directness, and "as complex as a brain, as simple as an
+  app, as fast as a jet."
+- "Hermes" can mean cloud gateway, local-agent prompt format, Pro tunnel,
+  subprocess bridge, MCP router, or model-family prompt grammar. Resolve the
+  route through the master index before patching.
+
 When sources disagree, follow §1 of the doctrine:
 
 1. Current code + passing logs.
