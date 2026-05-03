@@ -612,19 +612,23 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
     private let runtime: any LocalGGUFRuntime
     private let inference: InferenceState
     private let runtimeControlPlane: BackendRuntimeControlPlane
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private let prepareForRequest: @MainActor @Sendable () async -> Void
     private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
     private var onRunProfileUpdated: (@Sendable (LocalGGUFRunProfile) -> Void)?
+    private var generateToolSequence: UInt64 = 0
 
     init(
         runtime: any LocalGGUFRuntime,
         inference: InferenceState,
         runtimeControlPlane: BackendRuntimeControlPlane,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         prepareForRequest: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.runtime = runtime
         self.inference = inference
         self.runtimeControlPlane = runtimeControlPlane
+        self.agentProvenanceRecorder = agentProvenanceRecorder
         self.prepareForRequest = prepareForRequest
     }
 
@@ -685,31 +689,76 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             steeringHintsJSON: steeringHintsJSON
         )
         let contractRequest = backendGenerationRequest(for: request)
+        let provenance = makeGenerateProvenanceContext(for: request)
+        let lifecycleStart = DispatchTime.now()
 
-        await prepareForRequest()
-        let launch = try await runtimeControlPlane.generate(request: contractRequest)
-        guard launch.resolvedRuntimeKind == .gguf else {
-            throw LocalInferenceRoutingError.runtimeUnavailable
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallRequested,
+            status: .requested
+        )
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallStarted,
+            status: .started
+        )
+
+        do {
+            await prepareForRequest()
+            let launch = try await runtimeControlPlane.generate(request: contractRequest)
+            guard launch.resolvedRuntimeKind == .gguf else {
+                throw LocalInferenceRoutingError.runtimeUnavailable
+            }
+
+            try await runtimeControlPlane.appendStarted(streamHandle: launch.streamHandle)
+            try await runtimeControlPlane.appendStatus(
+                streamHandle: launch.streamHandle,
+                status: "loading_model"
+            )
+            let output = try await runtime.generate(request: request)
+            let summary = await backendSummary(
+                from: request,
+                launch: launch,
+                output: output,
+                cancelled: false,
+                errorClass: nil
+            )
+            try await runtimeControlPlane.finishCompleted(
+                streamHandle: launch.streamHandle,
+                summary: summary
+            )
+            let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallCompleted,
+                resultJSON: Self.localGGUFGenerateResultJSON(
+                    success: true,
+                    elapsedMs: elapsedMs,
+                    outputCharacterCount: output.count
+                ),
+                durationMs: elapsedMs,
+                status: .completed
+            )
+            return output
+        } catch {
+            let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
+            let failureClass = Self.mapBackendError(error)
+            var failedMetadata = provenance.metadata
+            failedMetadata["failure_class"] = failureClass.rawValue
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallFailed,
+                resultJSON: Self.localGGUFGenerateResultJSON(
+                    success: false,
+                    elapsedMs: elapsedMs
+                ),
+                durationMs: elapsedMs,
+                status: .failed,
+                errorMessage: failureClass.rawValue,
+                metadata: failedMetadata
+            )
+            throw error
         }
-
-        try await runtimeControlPlane.appendStarted(streamHandle: launch.streamHandle)
-        try await runtimeControlPlane.appendStatus(
-            streamHandle: launch.streamHandle,
-            status: "loading_model"
-        )
-        let output = try await runtime.generate(request: request)
-        let summary = await backendSummary(
-            from: request,
-            launch: launch,
-            output: output,
-            cancelled: false,
-            errorClass: nil
-        )
-        try await runtimeControlPlane.finishCompleted(
-            streamHandle: launch.streamHandle,
-            summary: summary
-        )
-        return output
     }
 
     func stream(prompt: String, systemPrompt: String?, maxTokens: Int) -> AsyncThrowingStream<String, Error> {
@@ -973,6 +1022,124 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             timeoutMS: BackendRuntimeTimeouts.localGenerationMS,
             streamOptions: BackendGenerationStreamOptions()
         )
+    }
+
+    private struct LocalGGUFGenerateProvenanceContext {
+        let runID: String
+        let toolCallID: String
+        let actor: AgentProvenanceActor
+        let argumentsJSON: String
+        let metadata: [String: String]
+    }
+
+    private func makeGenerateProvenanceContext(
+        for request: LocalGGUFRequest
+    ) -> LocalGGUFGenerateProvenanceContext {
+        LocalGGUFGenerateProvenanceContext(
+            runID: "local-gguf-generate-\(UUID().uuidString.uppercased())",
+            toolCallID: nextGenerateToolCallID(),
+            actor: .agent(id: "local-gguf-client", modelID: nil),
+            argumentsJSON: Self.localGGUFGenerateArgumentsJSON(for: request),
+            metadata: Self.localGGUFGenerateMetadata(for: request)
+        )
+    }
+
+    private func nextGenerateToolCallID() -> String {
+        generateToolSequence += 1
+        return "local-gguf-generate:\(generateToolSequence)"
+    }
+
+    private func recordGenerateAgentEvent(
+        _ context: LocalGGUFGenerateProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        agentProvenanceRecorder?.recordToolEvent(
+            runID: context.runID,
+            traceID: nil,
+            kind: kind,
+            actor: context.actor,
+            toolCallID: context.toolCallID,
+            toolName: "local_generate.gguf",
+            argumentsJSON: context.argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata ?? context.metadata
+        )
+    }
+
+    private nonisolated static func localGGUFGenerateArgumentsJSON(
+        for request: LocalGGUFRequest
+    ) -> String {
+        localGGUFGenerateJSON([
+            "max_tokens": request.maxTokens,
+            "prompt_char_count": request.prompt.count,
+            "provider": "local_gguf",
+            "reasoning_mode": request.reasoningMode.rawValue,
+            "requested_runtime": request.requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": request.resolvedRuntimeKind.rawValue,
+            "steering_hints_present": hasSteeringHints(request.steeringHintsJSON),
+            "system_prompt_char_count": request.systemPrompt?.count ?? 0,
+        ])
+    }
+
+    private nonisolated static func localGGUFGenerateMetadata(
+        for request: LocalGGUFRequest
+    ) -> [String: String] {
+        [
+            "max_tokens": "\(request.maxTokens)",
+            "prompt_char_count": "\(request.prompt.count)",
+            "provider": "local_gguf",
+            "reasoning_mode": request.reasoningMode.rawValue,
+            "requested_runtime": request.requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": request.resolvedRuntimeKind.rawValue,
+            "source": "local_gguf_client",
+            "steering_hints_present": "\(hasSteeringHints(request.steeringHintsJSON))",
+            "surface": "generate",
+            "system_prompt_char_count": "\(request.systemPrompt?.count ?? 0)",
+        ]
+    }
+
+    private nonisolated static func localGGUFGenerateResultJSON(
+        success: Bool,
+        elapsedMs: UInt64,
+        outputCharacterCount: Int? = nil
+    ) -> String {
+        var payload: [String: Any] = [
+            "elapsed_ms": elapsedMs,
+            "success": success,
+        ]
+        if let outputCharacterCount {
+            payload["output_char_count"] = outputCharacterCount
+        }
+        return localGGUFGenerateJSON(payload)
+    }
+
+    private nonisolated static func localGGUFGenerateJSON(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
+
+    private nonisolated static func hasSteeringHints(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private nonisolated static func localGGUFGenerateDurationMilliseconds(since start: DispatchTime) -> UInt64 {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now >= start.uptimeNanoseconds else { return 0 }
+        let elapsedNanoseconds = now - start.uptimeNanoseconds
+        return elapsedNanoseconds / 1_000_000
     }
 
     private func backendSummary(

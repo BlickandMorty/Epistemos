@@ -475,3 +475,22 @@
 - log: `✔ Test run with 2 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-mlx-image-generation-pr23-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`.
 - test: `MLXImageGenerationServiceTests`
+
+## agent-event-local-gguf-generate-pr24
+
+- grep: `toolName: "local_generate.gguf"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `runID: "local-gguf-generate-` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `AgentProvenanceActor.agent(id: "local-gguf-client", modelID: nil)` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"source": "local_gguf_client"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"provider": "local_gguf"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"prompt_char_count"` and `"system_prompt_char_count"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- forbidden source grep: `Hermes|MCP|stdio_subprocess|docker|cli_passthrough|computer_use|_ANEClient|MTLBuffer.*contents|disable-library-validation|LAContext|LocalAuthentication|URLSession|Process\.` in `Epistemos/Engine/LocalGGUFClient.swift` and `EpistemosTests/LocalGGUFClientTests.swift` returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in `Epistemos/Engine/LocalGGUFClient.swift` and `EpistemosTests/LocalGGUFClientTests.swift` returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, generated output, model id, artifact id, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/LocalGGUFClient.swift`, `EpistemosTests/LocalGGUFClientTests.swift`, Round 55 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "gguf client generate records sanitized AgentEvents" passed`
+- log: `✔ Test "gguf client generate records sanitized failed AgentEvent" passed`
+- log: `✔ Test run with 7 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-gguf-generate-pr24-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`.
+- test: `LocalGGUFClientTests`

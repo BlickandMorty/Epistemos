@@ -370,6 +370,33 @@ closed:
   EventStore schema. Focused verification passed the non-gated SearchIndex
   source guard under `pipefail`; the runtime RRF Fusion tests compile but remain
   skipped on this host behind the pre-existing FTS5 availability gate.
+- AgentEvent PR23 now instruments `MLXImageGenerationService.generate(prompt:
+  aspectRatio:)`. The current honest attempt-and-explicit-failure scaffold
+  persists requested, started, and completed/failed AgentEvents with
+  `mlx-image-generation-...` run ids, per-service `mlx-image-generation:N` tool
+  ids, `mlx-image-generation-service` actor metadata, `image_generate.mlx` tool
+  name, `source=mlx_image_generation_service`, `surface=image_generate`,
+  `provider=mlx`, aspect ratio, prompt character count, elapsed milliseconds,
+  success boolean, and bounded `flux_pipeline_unavailable|unknown_error`
+  failure classes. Prompt text, generated image paths, model ids, FAL hints,
+  localized descriptions, arbitrary error text, cloud routing, filesystem paths,
+  Hermes/MCP/subprocess surfaces, and ANE/private API details are intentionally
+  excluded from persisted provenance. This does not wire real Flux generation,
+  cloud fallback, UI, graph, Rust, generated bindings, or EventStore schema.
+- AgentEvent PR24 now instruments `LocalGGUFClient.generate(...)` without
+  touching streaming. Valid non-streaming GGUF generation requests persist
+  requested, started, and completed/failed AgentEvents with
+  `local-gguf-generate-...` run ids, per-client `local-gguf-generate:N` tool ids,
+  `local-gguf-client` actor metadata, `local_generate.gguf` tool name,
+  `source=local_gguf_client`, `surface=generate`, `provider=local_gguf`,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, output
+  character count, success boolean, and bounded `backend_failure` terminal
+  failure class. Prompt text, system prompts, steering hint JSON, generated
+  output, model ids, artifact ids, filesystem paths, localized descriptions, and
+  arbitrary error text are intentionally excluded from persisted provenance. This
+  does not change GGUF routing, streaming, model loading, runtime control-plane
+  state transitions, UI, graph, Rust, generated bindings, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1296,6 +1323,7 @@ AgentEvent SearchIndex fused sync provenance PR20,
 AgentEvent SearchIndex direct page sync/async provenance PR21,
 AgentEvent SearchIndex block search sync/async provenance PR22,
 AgentEvent MLX image generation provenance PR23,
+AgentEvent LocalGGUF non-streaming generate provenance PR24,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1328,7 +1356,7 @@ DriverChannelToolExecutor channel wrapper, remote relay channel HTTP client
 paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
-surfaces,
+and LocalGGUF non-streaming generate surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

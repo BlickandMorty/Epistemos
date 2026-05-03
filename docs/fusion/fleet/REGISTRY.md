@@ -362,3 +362,15 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 54 | 2026-05-03T08:23Z | test-green | scope=agent-event-mlx-image-generation-pr23 | xcodebuild | session:81005 | failed | /tmp/epistemos-agent-event-mlx-image-generation-pr23-green-20260503.log | +1 |
 | 54 | 2026-05-03T08:27Z | test-green | scope=agent-event-mlx-image-generation-pr23 | xcodebuild | session:31245 | done | /tmp/epistemos-agent-event-mlx-image-generation-pr23-green2-20260503.log | +1 |
 | 54 | 2026-05-03T08:33Z | guard | slice=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 55 | 2026-05-03T08:37Z | preflight | scope=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_55_2026_05_03.md | +1 |
+| 55 | 2026-05-03T08:38Z | claude-smoke | scope=cli-availability | claude/print-readonly | session:37062 | done | transcript: Claude returned ok | +1 |
+| 55 | 2026-05-03T08:39Z | detective | concept=Local GGUF generate AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-gguf-generate-pr24/detectives/local-gguf-generate-agent-event.md | +1 |
+| 55 | 2026-05-03T08:39Z | aggregator | slice=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-gguf-generate-pr24/aggregator.md | +1 |
+| 55 | 2026-05-03T08:39Z | pipeline-builder | slice=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_local_gguf_generate_pr24_deliberation_2026_05_03.md | +1 |
+| 55 | 2026-05-03T08:40Z | claude-red-team | brief=agent-event-local-gguf-generate-pr24 | claude/print-readonly | pid:60378/session:70872 | failed | docs/fusion/fleet/agent-event-local-gguf-generate-pr24/claude-red-team/attacks-stalled.md | -1 |
+| 55 | 2026-05-03T08:44Z | claude-red-team-fallback | brief=agent-event-local-gguf-generate-pr24 | claude/print-readonly-brief-only | pid:12677/session:96044 | failed | docs/fusion/fleet/agent-event-local-gguf-generate-pr24/claude-red-team/attacks-stalled-brief-only.md | -1 |
+| 55 | 2026-05-03T08:46Z | codex-red-team | brief=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-gguf-generate-pr24/claude-red-team/attacks.md | +1 |
+| 55 | 2026-05-03T08:47Z | test-red | scope=agent-event-local-gguf-generate-pr24 | xcodebuild | session:40662 | done | /tmp/epistemos-agent-event-local-gguf-generate-pr24-red-20260503.log | +1 |
+| 55 | 2026-05-03T08:50Z | implementation | slice=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | Epistemos/Engine/LocalGGUFClient.swift; EpistemosTests/LocalGGUFClientTests.swift | +1 |
+| 55 | 2026-05-03T08:53Z | test-green | scope=agent-event-local-gguf-generate-pr24 | xcodebuild | session:93707 | done | /tmp/epistemos-agent-event-local-gguf-generate-pr24-green-20260503.log | +1 |
+| 55 | 2026-05-03T08:54Z | guard | slice=agent-event-local-gguf-generate-pr24 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
