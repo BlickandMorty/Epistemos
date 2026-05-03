@@ -144,6 +144,32 @@ struct IncrementalToolCallDetectorTests {
         #expect(detector.pendingText == "Some reasoning text before the action.")
     }
 
+    @Test("Flushes trailing tag-prefix plaintext at stream end")
+    func flushesTrailingTagPrefixPlaintextAtStreamEnd() {
+        let detector = IncrementalToolCallDetector()
+        _ = detector.feed("Use A <")
+
+        #expect(detector.pendingText == "Use A ")
+        #expect(detector.flushOnStreamEnd() == "<")
+        #expect(detector.pendingText == "Use A <")
+        #expect(detector.flushOnStreamEnd().isEmpty)
+    }
+
+    @Test("Drops unterminated hidden and tool buffers at stream end")
+    func dropsUnterminatedHiddenAndToolBuffersAtStreamEnd() {
+        let hiddenDetector = IncrementalToolCallDetector()
+        _ = hiddenDetector.feed("<think>private reasoning")
+        #expect(hiddenDetector.pendingText.isEmpty)
+        #expect(hiddenDetector.flushOnStreamEnd().isEmpty)
+        #expect(hiddenDetector.pendingText.isEmpty)
+
+        let toolDetector = IncrementalToolCallDetector()
+        _ = toolDetector.feed("<tool_call>{\"name\":\"read_file\"")
+        #expect(toolDetector.pendingText.isEmpty)
+        #expect(toolDetector.flushOnStreamEnd().isEmpty)
+        #expect(toolDetector.pendingText.isEmpty)
+    }
+
     // MARK: - Reset
 
     @Test("Reset clears state for new generation")

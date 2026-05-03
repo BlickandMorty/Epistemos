@@ -617,3 +617,19 @@
 - log: no `Can't lift flat errors` in `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-green3-20260503.log`
 - note: focused verification log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-green3-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. Rust verification log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-cargo-20260503.log` passed `cargo test` for `epistemos-core`. The red log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-red-20260503.log` failed before implementation with the expected `.rustPanic("Can't lift flat errors")`.
 - test: `BackendRuntimeContractTests`
+
+## local-agent-reflex-detector-eof-flush-completion-pr31
+
+- grep: `flushOnStreamEnd` in `Epistemos/LocalAgent/IncrementalToolCallDetector.swift`
+- grep: `Flushes trailing tag-prefix plaintext at stream end` in `EpistemosTests/IncrementalToolCallDetectorTests.swift`
+- grep: `Drops unterminated hidden and tool buffers at stream end` in `EpistemosTests/IncrementalToolCallDetectorTests.swift`
+- grep: `reflex mode flushes trailing tag-prefix plaintext once at stream end` in `EpistemosTests/LocalAgentLoopTests.swift`
+- forbidden staged-path guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/LocalAgent/IncrementalToolCallDetector.swift`, `EpistemosTests/IncrementalToolCallDetectorTests.swift`, Round 63 fleet/deliberation/preflight docs, this guard file, current-state docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "Flushes trailing tag-prefix plaintext at stream end" passed`
+- log: `✔ Test "Drops unterminated hidden and tool buffers at stream end" passed`
+- log: `✔ Test "reflex mode flushes trailing tag-prefix plaintext once at stream end" passed`
+- log: `✔ Test run with 55 tests in 2 suites passed`
+- note: focused verification log `/tmp/epistemos-local-agent-reflex-detector-eof-flush-pr31-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. Claude red-team timed out with no usable output and was marked failed; Codex red-team approved the brief with no P0/P1 attacks.
+- test: `IncrementalToolCallDetectorTests`
+- test: `LocalAgentLoopTests`

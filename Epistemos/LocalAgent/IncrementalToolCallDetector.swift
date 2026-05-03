@@ -80,6 +80,51 @@ nonisolated final class IncrementalToolCallDetector: @unchecked Sendable {
         pendingText = ""
     }
 
+    /// Drain any text the detector was holding in its read-ahead buffer
+    /// when the upstream stream ends without a complete tool-call.
+    ///
+    /// Why this exists: `feed(_:)` deliberately holds back trailing
+    /// characters that COULD be the start of a known tag (e.g. a lone
+    /// `<`, or `<sc` mid-disambiguation of `<scratch_pad>`). Under
+    /// normal streaming this is correct: we wait for the next chunk
+    /// to disambiguate. But when the stream ends naturally (model
+    /// signals EOF, no tool call invoked), those held-back characters
+    /// were silently dropped, truncating summaries / chat answers at
+    /// a deterministic offset (anywhere a `<` appeared near the end
+    /// of the model's output).
+    ///
+    /// Privacy semantics:
+    /// - If the buffer starts with an OPENED hidden tag whose close
+    ///   never arrived (`<scratch_pad>...` / `<think>...`), drop the
+    ///   whole buffer: emitting the model's internal scratchpad would
+    ///   leak chain-of-thought into the visible UI.
+    /// - If the buffer starts with an unclosed `<tool_call>` open,
+    ///   drop it: that's a malformed tool invocation, not user-visible
+    ///   text.
+    /// - Otherwise the buffer is plaintext that happened to end
+    ///   on a tag-prefix-candidate; emit it.
+    ///
+    /// Returns the flushed visible text (also appended to `pendingText`
+    /// so the same `pendingText` delta-emit pattern in
+    /// `LocalAgentLoop` continues to work).
+    func flushOnStreamEnd() -> String {
+        guard !buffer.isEmpty else { return "" }
+        // Privacy: don't leak hidden-tag bodies.
+        for pair in Self.hiddenTagPairs where buffer.hasPrefix(pair.open) {
+            buffer = ""
+            return ""
+        }
+        // Don't surface a malformed tool invocation as user text.
+        if buffer.hasPrefix(Self.exactToolOpenTag) || buffer.hasPrefix(Self.malformedToolOpenTag) {
+            buffer = ""
+            return ""
+        }
+        let flushed = buffer
+        pendingText.append(flushed)
+        buffer = ""
+        return flushed
+    }
+
     private func consumeLeadingToolCall() -> Detection? {
         let bodyStartOffset: Int
 
