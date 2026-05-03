@@ -332,6 +332,25 @@ closed:
   bindings, or EventStore schema. Focused verification passed the non-gated
   SearchIndex source guard; the runtime RRF Fusion tests compile but remain
   skipped on this host behind the pre-existing FTS5 availability gate.
+- AgentEvent PR21 now instruments direct page search for both
+  `SearchIndexService.search(query:limit:)` and
+  `SearchIndexService.searchAsync(query:limit:)`. Valid non-empty direct page
+  searches persist requested, started, and completed/failed AgentEvents with
+  `search-index-page-sync-...` / `search-index-page-async-...` run ids,
+  per-instance `search-index-page-sync:N` /
+  `search-index-page-async:N` tool ids, `search-index-service` actor metadata,
+  `surface=search|search_async`, query character count, term count, limit, hit
+  count, elapsed milliseconds, zero-hit completed rows, and closed failure
+  classes `cancelled|sql_error|unknown_error`. Query text, sanitized FTS query,
+  hit ids, titles, snippets, scores, source labels, document bodies, vault
+  paths, SQL, GRDB error strings, localized descriptions, arbitrary error text,
+  and block-search surfaces are intentionally excluded from persisted
+  provenance. This does not change page-search SQL, block search, fused search,
+  `VaultSyncService`, `QueryRuntime`, SearchFusionMetrics semantics, UI, graph,
+  Rust, generated bindings, or EventStore schema. Focused verification passed
+  the non-gated SearchIndex source guard under `pipefail`; the runtime RRF
+  Fusion tests compile but remain skipped on this host behind the pre-existing
+  FTS5 availability gate.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1032,8 +1051,9 @@ before building.
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
   AgentEvent ShadowSearch backend provenance PR18, AgentEvent SearchIndex
   fused async provenance PR19, AgentEvent sync recorder enabler PR0,
-  AgentEvent SearchIndex fused sync provenance PR20, durable GraphEvent
-  mutation mapping PR1, durable GraphEvent Settings visibility PR2, durable
+  AgentEvent SearchIndex fused sync provenance PR20, AgentEvent SearchIndex
+  direct page sync/async provenance PR21, durable GraphEvent mutation mapping
+  PR1, durable GraphEvent Settings visibility PR2, durable
   GraphEvent projection snapshot PR3, durable GraphEvent projection consumer
   PR4, durable GraphEvent Settings projection visibility PR5, durable
   GraphEvent audit projection PR6, durable GraphEvent Halo projection PR7,
@@ -1101,8 +1121,8 @@ are:
 - Raw Thoughts / Provenance Spine Hardening, now starting after PR3B,
   AgentEvent PR7, AgentEvent PR8, AgentEvent PR9, AgentEvent PR10, AgentEvent
   PR11, AgentEvent PR12, AgentEvent PR17, AgentEvent PR18, AgentEvent PR19,
-  AgentEvent PR20, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
-  projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
+  AgentEvent PR20, AgentEvent PR21, GraphEvent PR1, GraphEvent visibility PR2,
+  GraphEvent projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
   visibility, and trace/audit projection semantics.
@@ -1127,7 +1147,8 @@ are:
   as PR16, InstantRecall async recall provenance is closed as PR17,
   ShadowSearch backend provenance is closed as PR18, SearchIndex fused async
   provenance is closed as PR19, SearchIndex fused sync provenance is closed as
-  PR20, durable GraphEvent mutation mapping is closed as PR1,
+  PR20, SearchIndex direct page sync/async provenance is closed as PR21,
+  durable GraphEvent mutation mapping is closed as PR1,
   read-only GraphEvent Settings visibility is closed as PR2, and read-only
   GraphEvent projection snapshots plus the EventStore read-only consumer API
   are closed as PR3/PR4. Read-only GraphEvent Settings projection visibility is
@@ -1249,6 +1270,7 @@ AgentEvent ShadowSearch backend provenance PR18,
 AgentEvent SearchIndex fused async provenance PR19,
 AgentEvent sync recorder enabler PR0,
 AgentEvent SearchIndex fused sync provenance PR20,
+AgentEvent SearchIndex direct page sync/async provenance PR21,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings

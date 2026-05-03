@@ -471,6 +471,193 @@ struct SearchIndexServiceFusionTests {
     }
 
     @MainActor
+    @Test("searchAsync direct page search records sanitized AgentEvents")
+    func directPageSearchAsyncRecordsSanitizedAgentEvents() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let (service, _) = try makeService(recordingTo: sink)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        try seedDoc(
+            id: "secret-page-search-doc",
+            title: "Hidden Page Orpheus Title",
+            body: "private page recall context with kantian substrate notes",
+            updatedAt: now,
+            in: service
+        )
+
+        let results = try await service.searchAsync(query: "private page recall", limit: 7)
+
+        #expect(results.count == 1)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(matchesSearchIndexRunID(sink.events.first?.runID, prefix: "search-index-page-async-"))
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "search_index.search_async" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "search-index-page-async:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "search_index_service" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "search_async" })
+        #expect(sink.events.allSatisfy { $0.metadata["query_term_count"] == "3" })
+        #expect(sink.events.allSatisfy { $0.metadata["limit"] == "7" })
+        if case let .agent(id, modelID)? = sink.events.first?.actor {
+            #expect(id == "search-index-service")
+            #expect(modelID == nil)
+        } else {
+            #expect(Bool(false), "expected search-index-service agent actor")
+        }
+
+        let argumentsPayload = try searchIndexPayload(from: sink.events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == ["limit", "query_char_count", "query_term_count"])
+        #expect(argumentsPayload["query_term_count"] as? Int == 3)
+        #expect(argumentsPayload["limit"] as? Int == 7)
+
+        let resultPayload = try searchIndexPayload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "hit_count"])
+        #expect(resultPayload["hit_count"] as? Int == 1)
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.metadata["failure_class"] == nil)
+        #expect(sink.events.last?.tool?.errorMessage == nil)
+
+        try assertNoSearchIndexSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "private page recall",
+                "secret-page-search-doc",
+                "Hidden Page Orpheus Title",
+                "kantian substrate",
+                "\"private\""
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("searchAsync direct page search records completed AgentEvents for valid zero-hit searches")
+    func directPageSearchAsyncRecordsCompletedAgentEventsForZeroHitSearches() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let (service, _) = try makeService(recordingTo: sink)
+
+        let results = try await service.searchAsync(query: "missing valid query", limit: 5)
+
+        #expect(results.isEmpty)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        let resultPayload = try searchIndexPayload(from: sink.events.last?.tool?.resultJSON)
+        #expect(resultPayload["hit_count"] as? Int == 0)
+        #expect(sink.events.last?.metadata["failure_class"] == nil)
+    }
+
+    @MainActor
+    @Test("search sync direct page search records sanitized AgentEvents")
+    func directPageSearchSyncRecordsSanitizedAgentEvents() throws {
+        let capture = SearchIndexAgentEventCapture()
+        let (service, _) = try makeService(recordingSyncTo: capture)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        try seedDoc(
+            id: "sync-secret-page-search-doc",
+            title: "Hidden Sync Page Orpheus Title",
+            body: "private sync page recall context with kantian substrate notes",
+            updatedAt: now,
+            in: service
+        )
+
+        let results = try service.search(query: "private sync page recall", limit: 11)
+
+        let events = capture.events
+        #expect(results.count == 1)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(events.map(\.runID)).count == 1)
+        #expect(matchesSearchIndexRunID(events.first?.runID, prefix: "search-index-page-sync-"))
+        #expect(events.allSatisfy { $0.tool?.toolName == "search_index.search" })
+        #expect(events.allSatisfy { $0.tool?.toolCallID == "search-index-page-sync:1" })
+        #expect(events.allSatisfy { $0.metadata["source"] == "search_index_service" })
+        #expect(events.allSatisfy { $0.metadata["surface"] == "search" })
+        #expect(events.allSatisfy { $0.metadata["query_term_count"] == "4" })
+        #expect(events.allSatisfy { $0.metadata["limit"] == "11" })
+        if case let .agent(id, modelID)? = events.first?.actor {
+            #expect(id == "search-index-service")
+            #expect(modelID == nil)
+        } else {
+            #expect(Bool(false), "expected search-index-service agent actor")
+        }
+
+        let argumentsPayload = try searchIndexPayload(from: events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == ["limit", "query_char_count", "query_term_count"])
+        #expect(argumentsPayload["query_term_count"] as? Int == 4)
+        #expect(argumentsPayload["limit"] as? Int == 11)
+
+        let resultPayload = try searchIndexPayload(from: events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "hit_count"])
+        #expect(resultPayload["hit_count"] as? Int == 1)
+        #expect(events.last?.tool?.durationMs != nil)
+        #expect(events.last?.metadata["failure_class"] == nil)
+        #expect(events.last?.tool?.errorMessage == nil)
+
+        try assertNoSearchIndexSecretLeak(
+            in: events,
+            forbidden: [
+                "private sync page recall",
+                "sync-secret-page-search-doc",
+                "Hidden Sync Page Orpheus Title",
+                "kantian substrate",
+                "\"private\""
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("Invalid direct page search inputs do not record AgentEvents")
+    func invalidDirectPageSearchInputsDoNotRecordAgentEvents() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let capture = SearchIndexAgentEventCapture()
+        let (asyncService, _) = try makeService(recordingTo: sink)
+        let (syncService, _) = try makeService(recordingSyncTo: capture)
+
+        _ = try await asyncService.searchAsync(query: "", limit: 50)
+        _ = try await asyncService.searchAsync(query: "   \n\t  ", limit: 50)
+        _ = try await asyncService.searchAsync(query: "!!! ???", limit: 50)
+        _ = try syncService.search(query: "", limit: 50)
+        _ = try syncService.search(query: "   \n\t  ", limit: 50)
+        _ = try syncService.search(query: "!!! ???", limit: 50)
+
+        #expect(sink.events.isEmpty)
+        #expect(capture.events.isEmpty)
+    }
+
+    @MainActor
+    @Test("searchAsync direct page search tool ids are monotonic per service instance")
+    func directPageSearchAsyncToolIDsAreMonotonicPerServiceInstance() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let (service, _) = try makeService(recordingTo: sink)
+        let now = Date()
+        try seedDoc(id: "page-1", title: "alpha", body: "alpha body", updatedAt: now, in: service)
+        try seedDoc(id: "page-2", title: "beta", body: "beta body", updatedAt: now, in: service)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    _ = try await service.searchAsync(query: "alpha", limit: 10)
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        let terminalToolIDs = sink.events
+            .filter { $0.kind == .toolCallCompleted }
+            .compactMap { $0.tool?.toolCallID }
+            .sorted()
+        #expect(terminalToolIDs == (1...8).map { "search-index-page-async:\($0)" })
+        #expect(Set(sink.events.map(\.runID)).count == 8)
+    }
+
+    @MainActor
     @Test("fusedSearchAsync records sanitized AgentEvents")
     func fusedSearchAsyncRecordsSanitizedAgentEvents() async throws {
         let sink = SearchIndexAgentEventSink()
@@ -835,17 +1022,41 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
         #expect(source.contains("nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder"))
         #expect(source.contains("private var fusedAsyncSearchToolSequence: UInt64 = 0"))
         #expect(source.contains("nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)"))
+        #expect(source.contains("private var directPageAsyncSearchToolSequence: UInt64 = 0"))
+        #expect(source.contains("nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)"))
+        #expect(source.contains("toolName: \"search_index.search\""))
+        #expect(source.contains("toolName: \"search_index.search_async\""))
         #expect(source.contains("toolName: \"search_index.fused_search\""))
         #expect(source.contains("toolName: \"search_index.fused_search_async\""))
+        #expect(source.contains("surface: \"search\""))
+        #expect(source.contains("surface: \"search_async\""))
         #expect(source.contains("\"surface\": \"fused_search\""))
         #expect(source.contains("\"surface\": \"fused_search_async\""))
         #expect(source.contains("\"weights_profile\": weightsProfile"))
         #expect(source.contains("case sqlError = \"sql_error\""))
         #expect(source.contains("if error is DatabaseError"))
+        #expect(source.contains("recordDirectPageSyncAgentEvent("))
+        #expect(source.contains("await recordDirectPageAsyncAgentEvent("))
         #expect(source.contains("recordFusedSyncAgentEvent("))
         #expect(source.contains("await recordFusedAsyncAgentEvent("))
+        #expect(!source.contains("search_index.search_blocks"))
+        #expect(!source.contains("search_index.search_blocks_async"))
         #expect(!source.contains("Task { @MainActor in\n            await recorder.recordToolEvent"))
         #expect(!source.contains("Task.detached"))
+
+        let directSyncBody = try #require(Self.functionBody(
+            named: "nonisolated func search(query: String",
+            before: "func searchAsync(query: String",
+            in: source
+        ))
+        #expect(directSyncBody.contains("agentProvenanceSyncRecorder"))
+        #expect(directSyncBody.contains("recordDirectPageSyncAgentEvent("))
+        #expect(!directSyncBody.contains("AgentToolProvenanceRecorder"))
+        #expect(!directSyncBody.contains("Task {"))
+        #expect(!directSyncBody.contains("Task.detached"))
+        #expect(!directSyncBody.contains("DispatchQueue.main.sync"))
+        #expect(!directSyncBody.contains("MainActor.assumeIsolated"))
+        #expect(!directSyncBody.contains("search_index.search_async"))
 
         let syncBody = try #require(Self.functionBody(
             named: "nonisolated public func fusedSearch(",
