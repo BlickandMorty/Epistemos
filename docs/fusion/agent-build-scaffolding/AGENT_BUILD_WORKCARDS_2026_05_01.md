@@ -1689,6 +1689,21 @@ shared gate is unavailable, leaves programmatic `OverseerAuditState.clear()`
 workspace hygiene untouched, and does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, alter audit-state semantics, or touch
 Rust/generated/graph/Omega/ChatCoordinator.
+Settings Reset Everything PR14 is also closed. `Epistemos/Views/Settings/SettingsView.swift`
+routes the existing General Settings "Reset Everything" alert through the
+shared `AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication` before
+calling `resetAllData()`. The slice preserves the existing first confirmation,
+denies safely when the shared gate is unavailable, and does not edit
+`SovereignGate.swift`, duplicate `LocalAuthentication`, alter reset semantics,
+or touch Rust/generated/graph/Omega/ChatCoordinator.
+Settings Workspace Delete PR15 is also closed. `Epistemos/Views/Settings/SettingsView.swift`
+routes the existing Saved Workspaces destructive trash button through the shared
+`AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication` before calling
+the original workspace delete path. The slice preserves the original
+`workspaceService.deleteWorkspace(workspace)` plus `refreshWorkspaces()`
+behavior after `.allowed`, denies safely when the shared gate is unavailable,
+and does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`, alter
+workspace service semantics, or touch Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1753,6 +1768,10 @@ Allowed write set:
   focused tests: already closed.
 - PR13 Overseer Settings reset-history footer migration and focused tests:
   already closed.
+- PR14 Settings reset-everything alert migration and focused tests: already
+  closed.
+- PR15 Settings saved-workspace delete migration and focused tests: already
+  closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1766,7 +1785,9 @@ Allowed write set:
   by PR9, Agent Control custom-tool deletes are already covered by PR10, and
   Notes Sidebar vault menu disconnect is already covered by PR11, and
   Authority Settings batch reset/preset actions are already covered by PR12,
-  and Overseer Settings reset-history is already covered by PR13.
+  Overseer Settings reset-history is already covered by PR13, Settings reset
+  everything is already covered by PR14, and Settings saved-workspace delete is
+  already covered by PR15.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1995,6 +2016,17 @@ Acceptance:
   helper instead of direct reset, denied or unavailable auth performs no reset,
   and the slice stays out of `SovereignGate.swift`, duplicate
   `LocalAuthentication`, unrelated Settings diagnostics edits, generated
+  transport, Rust, graph files, Omega, ChatCoordinator, subprocesses, solver
+  hot paths, tensor copies, and memory hot paths.
+- PR15 wired/reachable/visible: the existing General Settings saved-workspace
+  trash button requests shared `SovereignGate` device-owner authentication
+  before deleting the saved workspace, focused tests prove saved-workspace
+  delete maps to Destructive auth with an explicit reason string, source guards
+  prove the button closure calls the authorization helper instead of direct
+  delete, denied or unavailable auth performs no delete, and the authorized path
+  preserves the original `workspaceService.deleteWorkspace(workspace)` plus
+  `refreshWorkspaces()` behavior. The slice stays out of `SovereignGate.swift`,
+  duplicate `LocalAuthentication`, workspace service semantics, generated
   transport, Rust, graph files, Omega, ChatCoordinator, subprocesses, solver
   hot paths, tensor copies, and memory hot paths.
 

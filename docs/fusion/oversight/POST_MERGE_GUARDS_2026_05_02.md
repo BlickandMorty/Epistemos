@@ -1,5 +1,12 @@
 # Post-Merge Guards - 2026-05-02
 
+## sovereign-gate-settings-workspace-delete-pr15
+
+- grep: `rg -n "savedWorkspace\\(name:|requestSavedWorkspaceDeleteAuthorization\\(|deleteSavedWorkspace\\(" Epistemos/Views/Settings/SettingsView.swift EpistemosTests/SovereignGateTests.swift`
+- forbidden grep: `rg -n "LocalAuthentication|LAContext|canEvaluatePolicy|evaluatePolicy" Epistemos/Views/Settings/SettingsView.swift`
+- log: `/tmp/epistemos-sovereign-gate-settings-workspace-pr15-green-20260502.log`
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test`
+
 ## graph-event-trace-inspector-projection-pr9
 
 - grep: `graphProjectionReport|loadTask?.cancel()|GraphEventAuditProjectionService().auditReport(limit: 100)|Graph projection`

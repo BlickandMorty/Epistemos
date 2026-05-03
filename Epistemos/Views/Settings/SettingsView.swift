@@ -8,11 +8,14 @@ private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "Setti
 
 enum SettingsViewDestructiveActionSovereignGate {
     enum Target: Equatable {
+        case savedWorkspace(name: String)
         case resetEverything
     }
 
     static func requirement(for target: Target) -> SovereignGateRequirement {
         switch target {
+        case .savedWorkspace:
+            return .deviceOwnerAuthentication
         case .resetEverything:
             return .deviceOwnerAuthentication
         }
@@ -20,9 +23,16 @@ enum SettingsViewDestructiveActionSovereignGate {
 
     static func reason(for target: Target) -> String {
         switch target {
+        case .savedWorkspace(let name):
+            return "Delete saved workspace \"\(safeName(name))\"."
         case .resetEverything:
             return "Reset Everything and delete saved data."
         }
+    }
+
+    private static func safeName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled Workspace" : trimmed
     }
 }
 
@@ -643,8 +653,9 @@ private struct GeneralDetailView: View {
                             .buttonStyle(.borderless)
                             .controlSize(.small)
                             Button(role: .destructive) {
-                                AppBootstrap.shared?.workspaceService.deleteWorkspace(workspace)
-                                refreshWorkspaces()
+                                Task { @MainActor in
+                                    await requestSavedWorkspaceDeleteAuthorization(workspace)
+                                }
                             } label: {
                                 Image(systemName: "trash")
                             }
@@ -725,6 +736,23 @@ private struct GeneralDetailView: View {
         } message: {
             Text("This will delete all conversations, notes data, local model state, and preferences. Vault files on disk are preserved. This cannot be undone.")
         }
+    }
+
+    @MainActor
+    private func requestSavedWorkspaceDeleteAuthorization(_ workspace: SDWorkspace) async {
+        let target = SettingsViewDestructiveActionSovereignGate.Target.savedWorkspace(name: workspace.name)
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: target),
+            reason: SettingsViewDestructiveActionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        deleteSavedWorkspace(workspace)
+    }
+
+    private func deleteSavedWorkspace(_ workspace: SDWorkspace) {
+        AppBootstrap.shared?.workspaceService.deleteWorkspace(workspace)
+        refreshWorkspaces()
     }
 
     @MainActor
