@@ -619,6 +619,56 @@ struct SovereignGateTests {
         #expect(!source.contains("evaluatePolicy"))
     }
 
+    @Test("Overseer history reset maps to destructive Sovereign Gate requirements")
+    func overseerHistoryResetMapsToDestructiveSovereignGateRequirements() {
+        #expect(
+            OverseerSettingsSovereignGate.requirement(for: .historyReset)
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = OverseerSettingsSovereignGate.reason(for: .historyReset)
+
+        #expect(reason.localizedCaseInsensitiveContains("reset overseer"))
+        #expect(reason.localizedCaseInsensitiveContains("history"))
+    }
+
+    @Test("Overseer history reset routes through Sovereign Gate")
+    func overseerHistoryResetRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/OverseerSettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let footer = try section(
+            from: "private var footer: some View",
+            to: "private func requestHistoryResetAuthorization()"
+        )
+        #expect(footer.contains("requestHistoryResetAuthorization()"))
+        #expect(!footer.contains("audit.clear()"))
+
+        let request = try section(
+            from: "private func requestHistoryResetAuthorization()",
+            to: "private func resetHistory()"
+        )
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("?? .denied(.authenticationFailed)"))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("resetHistory()"))
+
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])

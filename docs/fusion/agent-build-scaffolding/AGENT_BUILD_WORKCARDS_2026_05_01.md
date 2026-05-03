@@ -1626,6 +1626,14 @@ slice denies safely when the shared gate is unavailable, keeps individual
 picker changes out of scope, and does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, alter authority persistence semantics, or touch
 Rust/generated/graph/Omega/ChatCoordinator.
+Overseer History Reset PR13 is also closed. `Epistemos/Views/Settings/OverseerSettingsView.swift`
+now routes the existing Overseer Settings "Reset history" footer through the
+shared `AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication` before
+clearing the read-only route/audit trail. The slice denies safely when the
+shared gate is unavailable, leaves programmatic `OverseerAuditState.clear()`
+workspace hygiene untouched, and does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, alter audit-state semantics, or touch
+Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1688,6 +1696,8 @@ Allowed write set:
   closed.
 - PR12 Authority Settings batch reset and Quick Setup preset migration and
   focused tests: already closed.
+- PR13 Overseer Settings reset-history footer migration and focused tests:
+  already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1700,7 +1710,8 @@ Allowed write set:
   covered by PR8, Model Vaults sidebar file/folder deletes are already covered
   by PR9, Agent Control custom-tool deletes are already covered by PR10, and
   Notes Sidebar vault menu disconnect is already covered by PR11, and
-  Authority Settings batch reset/preset actions are already covered by PR12.
+  Authority Settings batch reset/preset actions are already covered by PR12,
+  and Overseer Settings reset-history is already covered by PR13.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1788,6 +1799,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-authority-reset-pr12-red-20260502.log`.
 - PR12 focused green log:
   `/tmp/epistemos-sovereign-gate-authority-reset-pr12-green-20260502.log`.
+- PR13 red log:
+  `/tmp/epistemos-sovereign-gate-overseer-history-pr13-red-20260502.log`.
+- PR13 focused green log:
+  `/tmp/epistemos-sovereign-gate-overseer-history-pr13-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1903,6 +1918,16 @@ Acceptance:
   `SovereignGate.swift`, duplicate `LocalAuthentication`, authority persistence
   semantics, generated transport, Rust, graph files, Omega, ChatCoordinator,
   subprocesses, solver hot paths, tensor copies, and memory hot paths.
+- PR13 wired/reachable/visible: the existing Overseer Settings "Reset history"
+  footer requests shared `SovereignGate` device-owner authentication before
+  clearing the read-only route/audit trail, focused tests prove history reset
+  maps to Destructive auth with an explicit reason string, source guards prove
+  the button closure calls the authorization helper instead of direct
+  `audit.clear()`, denied or unavailable auth performs no audit clear, and the
+  slice stays out of `SovereignGate.swift`, duplicate `LocalAuthentication`,
+  programmatic workspace-switch audit clearing, generated transport, Rust,
+  graph files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor
+  copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

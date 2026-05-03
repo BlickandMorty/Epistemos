@@ -1,5 +1,25 @@
 import SwiftUI
 
+enum OverseerSettingsSovereignGate {
+    enum Target: Equatable {
+        case historyReset
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        switch target {
+        case .historyReset:
+            return .deviceOwnerAuthentication
+        }
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case .historyReset:
+            return "Reset Overseer history."
+        }
+    }
+}
+
 /// Transparency-only diagnostics panel for the Overseer routing layer.
 /// Shows what `OverseerComplexityRouter` has been deciding on recent
 /// main-chat turns so you can audit the auto-router without exposing
@@ -94,12 +114,30 @@ struct OverseerSettingsView: View {
 
             if !audit.recentPlans.isEmpty {
                 Button("Reset history") {
-                    audit.clear()
+                    Task { @MainActor in
+                        await requestHistoryResetAuthorization()
+                    }
                 }
                 .buttonStyle(.bordered)
             }
         }
         .padding(.top, 4)
+    }
+
+    @MainActor
+    private func requestHistoryResetAuthorization() async {
+        let target = OverseerSettingsSovereignGate.Target.historyReset
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            OverseerSettingsSovereignGate.requirement(for: target),
+            reason: OverseerSettingsSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        resetHistory()
+    }
+
+    private func resetHistory() {
+        audit.clear()
     }
 }
 
