@@ -312,7 +312,11 @@ impl AgentConfig {
             // an empty `mcp_servers` field.
             mcp_servers: {
                 let servers = crate::mcp::url_servers::discover_url_mcp_servers();
-                if servers.is_empty() { None } else { Some(servers) }
+                if servers.is_empty() {
+                    None
+                } else {
+                    Some(servers)
+                }
             },
             parallel_tool_execution: true,
             permissions: PermissionConfig {
@@ -756,6 +760,97 @@ pub fn run_r15_true_rust_callback_loop_benchmark(
             payload_bytes_emitted: 0,
         }
     )
+}
+
+/// Result of a `respond_to_memory_pressure` call. Lets the Swift caller
+/// log the gain (e.g. via OSLog) so the developer panel + signposters
+/// can attribute reclaimed memory to the pressure event.
+#[derive(uniffi::Record)]
+pub struct MemoryPressureReliefFFI {
+    pub segments_evicted: u32,
+    pub segment_bytes_freed: u64,
+    pub sessions_pruned: u32,
+}
+
+/// Single entry point the Swift `DispatchSourceMemoryPressure` handler
+/// calls when macOS signals memory pressure. Two levels:
+///
+/// - **1 (warning)**: drop ShmPool segments older than 60s, prune
+///   finished sessions older than 5 min. Conservative — keeps active
+///   work intact.
+/// - **2 (critical)**: cleanup_all on ShmPool, prune all finished
+///   sessions regardless of age. Aggressive — caller has signaled the
+///   system is about to thrash.
+///
+/// Any other value collapses to warning. Returns the gain so the
+/// caller can log "we reclaimed N MB after a memory-pressure event".
+#[uniffi::export]
+pub fn respond_to_memory_pressure(level: u8) -> MemoryPressureReliefFFI {
+    use crate::shared_memory::ShmPool;
+    use std::time::Duration;
+
+    ffi_guard_value!(
+        {
+            let critical = level == 2;
+            let (segments_evicted, bytes_freed) = if critical {
+                // Total bytes BEFORE cleanup_all so the caller can log
+                // the freed amount; cleanup_all drops the registry so
+                // we can't read it after.
+                let bytes_before = ShmPool::total_bytes();
+                let count = ShmPool::cleanup_all();
+                (count, bytes_before as u64)
+            } else {
+                let (count, bytes) = ShmPool::evict_stale(Duration::from_secs(60));
+                (count, bytes as u64)
+            };
+
+            let sessions_pruned = if critical {
+                GlobalSessions::prune_finished(Duration::from_secs(0))
+            } else {
+                GlobalSessions::prune_finished(Duration::from_secs(300))
+            };
+
+            MemoryPressureReliefFFI {
+                segments_evicted: segments_evicted as u32,
+                segment_bytes_freed: bytes_freed,
+                sessions_pruned: sessions_pruned as u32,
+            }
+        },
+        MemoryPressureReliefFFI {
+            segments_evicted: 0,
+            segment_bytes_freed: 0,
+            sessions_pruned: 0,
+        }
+    )
+}
+
+// MARK: - Resonance Gate τ + π + λ daemon (Core)
+//
+// Doctrine §4.1 Core entry: τ (Kleene K3 truth) + π (prime/composite/gap
+// classification over 9 typed claims) + λ (residency target L0–L3 + L7).
+// Pro tier extends with δ + ρ; Research tier extends with κ + η. Both
+// future tiers add separate FFI surfaces.
+//
+// JSON contract:
+//   in:  agent_core::resonance::Claim (serde-derived)
+//   out: agent_core::resonance::ResonanceSignatureCore (serde-derived)
+//
+// CPU-only, synchronous, < 100 µs/token target per doctrine §4.1. The
+// Swift side mirrors the same compute logic in `ResonanceService.swift`
+// for offline previews; this FFI is the authoritative path once wired.
+
+#[uniffi::export]
+pub fn compute_resonance_signature_core(claim_json: String) -> Result<String, AgentErrorFFI> {
+    ffi_guard_sync!({
+        let claim: crate::resonance::Claim = serde_json::from_str(&claim_json)
+            .map_err(|err| AgentErrorFFI::AgentError {
+                message: format!("Resonance Gate: invalid claim JSON: {err}"),
+            })?;
+        let signature = crate::resonance::compute_signature_core(&claim);
+        serde_json::to_string(&signature).map_err(|err| AgentErrorFFI::AgentError {
+            message: format!("Resonance Gate: signature serialization failed: {err}"),
+        })
+    })
 }
 
 // MARK: - Agent Command Center Request Compilation
@@ -1431,7 +1526,9 @@ pub fn build_vault_topology(vault_path: String) -> Result<String, AgentErrorFFI>
                     message: format!("Topology build failed: {e}"),
                 }
             })?;
-        serde_json::to_string_pretty(&topology).map_err(|e| AgentErrorFFI::AgentError {
+        // Compact JSON — Swift parses this immediately, no human reads
+        // the FFI return string. Pretty would burn CPU + waste bytes.
+        serde_json::to_string(&topology).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("Topology serialization failed: {e}"),
         })
     })
@@ -1619,7 +1716,7 @@ pub fn analyze_skill_traces(
             message: format!("Trace analysis failed: {e}"),
         })?;
 
-        serde_json::to_string_pretty(&pattern).map_err(|e| AgentErrorFFI::AgentError {
+        serde_json::to_string(&pattern).map_err(|e| AgentErrorFFI::AgentError {
             message: format!("Pattern serialization failed: {e}"),
         })
     })
@@ -1640,7 +1737,7 @@ pub fn propose_skill_mutation(
 
         match crate::evolution::mutation_proposer::propose_mutation(&skill_content, &pattern) {
             Some(mutation) => {
-                serde_json::to_string_pretty(&mutation).map_err(|e| AgentErrorFFI::AgentError {
+                serde_json::to_string(&mutation).map_err(|e| AgentErrorFFI::AgentError {
                     message: format!("Mutation serialization failed: {e}"),
                 })
             }
@@ -1941,8 +2038,7 @@ pub fn list_tools_for_tier_filtered(
     allowed_tool_names: Option<Vec<String>>,
 ) -> Result<Vec<ToolSchemaFFI>, AgentErrorFFI> {
     ffi_guard_sync!({
-        let registry =
-            build_registry_for_tool_tier(&vault_path, &tier, "", allowed_tool_names)?;
+        let registry = build_registry_for_tool_tier(&vault_path, &tier, "", allowed_tool_names)?;
         let out: Vec<ToolSchemaFFI> = registry
             .get_definitions()
             .into_iter()
@@ -2097,8 +2193,8 @@ mod tests {
     use super::execute_tool_call_filtered;
     use super::list_tools_for_tier;
     use super::resolve_provider_selection_preview;
-    use serde_json::json;
     use crate::storage::vault::VaultError;
+    use serde_json::json;
 
     #[test]
     fn explicit_provider_override_stays_forced() {

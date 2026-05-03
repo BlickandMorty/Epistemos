@@ -13,13 +13,14 @@
 //! invariant-respecting destination for "should never reach the user."
 
 use crate::resonance::{Claim, ClaimType};
+use serde::{Deserialize, Serialize};
 
 /// 8-level residency hierarchy per doctrine Annex A.3.
 ///
 /// `Ord` ordering is the natural hot→cold→Pro→Research→Quarantine sweep:
 /// L0Working < L1Recent < L2Warm < L3Cold < L4Engram < L5Adapter <
 /// L6Forbidden < L7Quarantine. Useful for promotion / demotion checks.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum ResidencyLevel {
     /// Hot working memory — current attention, most volatile.
     L0Working,
