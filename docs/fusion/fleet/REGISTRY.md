@@ -427,3 +427,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 60 | 2026-05-03T10:51Z | test-green | scope=agent-event-local-mlx-stream-pr28 | xcodebuild | session:51166 | failed | /tmp/epistemos-agent-event-local-mlx-stream-pr28-green-20260503.log | +1 |
 | 60 | 2026-05-03T10:54Z | test-green | scope=agent-event-local-mlx-stream-pr28 | xcodebuild | session:8689 | done | /tmp/epistemos-agent-event-local-mlx-stream-pr28-green2-20260503.log | +1 |
 | 60 | 2026-05-03T10:57Z | guard | slice=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 61 | 2026-05-03T10:59Z | preflight | scope=agent-event-local-backend-generate-pr29 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_61_2026_05_03.md | +1 |
+| 61 | 2026-05-03T10:59Z | detective | concept=LocalBackend direct generate AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-generate-pr29/detectives/local-backend-generate-agent-event.md | +1 |
+| 61 | 2026-05-03T10:59Z | aggregator | slice=agent-event-local-backend-generate-pr29 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-generate-pr29/aggregator.md | +1 |
+| 61 | 2026-05-03T10:59Z | pipeline-builder | slice=agent-event-local-backend-generate-pr29 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_local_backend_generate_pr29_deliberation_2026_05_03.md | +1 |
+| 61 | 2026-05-03T11:00Z | claude-red-team | brief=agent-event-local-backend-generate-pr29 | claude/print-readonly | pid:18333/session:46336 | failed | docs/fusion/fleet/agent-event-local-backend-generate-pr29/claude-red-team/attacks-claude.md | -1 |
+| 61 | 2026-05-03T11:02Z | codex-red-team | brief=agent-event-local-backend-generate-pr29-revised | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-generate-pr29/claude-red-team/attacks.md | +1 |
+| 61 | 2026-05-03T11:04Z | test-red | scope=agent-event-local-backend-generate-pr29 | xcodebuild | session:32791 | done | /tmp/epistemos-agent-event-local-backend-generate-pr29-red-20260503.log | +1 |
+| 61 | 2026-05-03T11:11Z | implementation | slice=agent-event-local-backend-generate-pr29 | codex/local | n/a | done | Epistemos/Engine/LocalBackendLLMClient.swift; EpistemosTests/LocalBackendLLMClientTests.swift | +1 |
+| 61 | 2026-05-03T11:12Z | test-green | scope=agent-event-local-backend-generate-pr29 | xcodebuild | session:40267 | failed | /tmp/epistemos-agent-event-local-backend-generate-pr29-green-20260503.log | +1 |
+| 61 | 2026-05-03T11:17Z | test-green-rerun | scope=agent-event-local-backend-generate-pr29 | xcodebuild | session:13067 | done | /tmp/epistemos-agent-event-local-backend-generate-pr29-green2-20260503.log | +1 |
+| 61 | 2026-05-03T11:21Z | guard | slice=agent-event-local-backend-generate-pr29 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

@@ -580,3 +580,24 @@
 - log: `✔ Test run with 13 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-mlx-stream-pr28-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The same log still contains the existing runtime-control-plane UniFFI cancellation cleanup message `Can't lift flat errors` after AgentEvent cancellation is recorded; that runtime-contract issue is outside PR28 and should be handled as a separate slice.
 - test: `LocalBackendLLMClientTests`
+
+## agent-event-local-backend-generate-pr29
+
+- grep: `local_backend.generate` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `local-backend-generate` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `"surface": surface.metadataValue` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `"output_char_count"` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `backendGenerateRecordsSanitizedAgentEvents` in `EpistemosTests/LocalBackendLLMClientTests.swift`
+- grep: `backendGenerateRecordsSanitizedRoutingFailureAgentEvent` in `EpistemosTests/LocalBackendLLMClientTests.swift`
+- grep: `backendGenerateRecordsSanitizedBackendFailureAgentEvent` in `EpistemosTests/LocalBackendLLMClientTests.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in PR29 staged source/test hunks returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in PR29 staged source/test hunks returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, generated output, model id, artifact id, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in router-level AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/LocalBackendLLMClient.swift`, `EpistemosTests/LocalBackendLLMClientTests.swift`, Round 61 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "backend generate records sanitized AgentEvents" passed`
+- log: `✔ Test "backend generate records sanitized routing failure AgentEvent" passed`
+- log: `✔ Test "backend generate records sanitized backend failure AgentEvent" passed`
+- log: `✔ Test run with 16 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-backend-generate-pr29-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The same log still contains the existing runtime-control-plane UniFFI cancellation cleanup message `Can't lift flat errors` from the older MLX stream cancellation test; that runtime-contract issue is outside PR29 and should be handled as a separate slice.
+- test: `LocalBackendLLMClientTests`

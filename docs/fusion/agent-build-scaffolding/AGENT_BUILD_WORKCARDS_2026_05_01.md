@@ -1052,6 +1052,28 @@ green log still records the existing runtime-control-plane UniFFI cancellation
 cleanup issue `Can't lift flat errors`, which remains outside the AgentEvent
 slice.
 
+PR29 LocalBackend direct generate provenance is also closed.
+`LocalBackendLLMClient.generate(...)` now records router-level requested,
+started, and completed/failed AgentEvents for local backend non-streaming
+generation with `local-backend-generate-...` run ids,
+`local-backend-llm-client` actor metadata, per-router
+`local-backend-generate:N` tool call ids, `local_backend.generate` tool name,
+`source=local_backend_llm_client`, `surface=generate`,
+`provider=local_backend`, requested/resolved runtime, reasoning mode, max token
+count, prompt/system prompt character counts, steering-hints presence, elapsed
+milliseconds, output character count, success boolean, and bounded
+`cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+failure classes. Persisted provenance excludes prompt text, system prompts,
+steering hint JSON, generated output, model id, artifact id, filesystem paths,
+localized descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+browser/computer-use surfaces, LocalAuthentication, and ANE/private API details.
+Source and behavior stay away from routing policy changes, lower GGUF/MLX
+runtime behavior, model loading, UI, graph, Rust, generated bindings, and
+EventStore schema. Focused runtime verification passes under `pipefail`; the
+green log still records the existing runtime-control-plane UniFFI cancellation
+cleanup issue `Can't lift flat errors` through the older MLX stream cancellation
+test, which remains outside this AgentEvent slice.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
