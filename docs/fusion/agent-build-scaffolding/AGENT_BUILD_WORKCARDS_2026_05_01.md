@@ -2050,6 +2050,16 @@ Research `tools/list` falls through to the Rust dispatcher when no filtering is
 needed. `ToolSurfacePolicy.resolvedDistribution(_:)` is now internal so Omega
 can use the same Core/App Store resolution instead of duplicating sandbox
 detection.
+Command Center Tool Surface Policy PR1 is closed. `AgentCommandCenterState`
+now accepts a distribution and applies `ToolSurfacePolicy.surfacedTools` at the
+single `rebuildToolCatalog` fan-in, so injected or default tool loaders cannot
+surface `run_command`, `get_ui_tree`, or `click` in Core/App Store. The same
+filtered list drives `availableTools`, `toolToggles`, and `mcpToolsByAgent`.
+Core/App Store context-provider suggestions hide Safari, Terminal, and
+Automation while keeping Notes, Files, vault, graph, and open-note context;
+manually typed `@Terminal` does not resolve because parsing consumes only the
+filtered provider list. Claude red-team found a real catalog-filtering P0 and
+then approved the hardened R3 patch with P0=0/P1=0.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2154,6 +2164,14 @@ Evidence:
   `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`.
 - Omega Dispatch Core Execution Gate PR1 Claude red-team:
   `docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/claude-red-team/attacks.md`.
+- Command Center Tool Surface Policy PR1 Deliberation:
+  `docs/fusion/deliberation/command_center_tool_surface_policy_pr1_deliberation_2026_05_02.md`.
+- Command Center Tool Surface Policy PR1 Red log:
+  `/tmp/epistemos-command-center-tool-surface-pr1-red-20260502.log`.
+- Command Center Tool Surface Policy PR1 Green log:
+  `/tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log`.
+- Command Center Tool Surface Policy PR1 Claude red-team:
+  `docs/fusion/fleet/command-center-tool-surface-policy-pr1/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2167,7 +2185,9 @@ Evidence:
   red-team P1 fixes and one non-blocking P2 cross-source invariant follow-up.
   Omega Dispatch Core Execution Gate PR1 passed 22 focused
   `ToolSchemaGrammarTests` plus the 7-test `ToolSurfacePolicyTests` suite after
-  a Claude red-team P1 call-deny coverage fix.
+  a Claude red-team P1 call-deny coverage fix. Command Center Tool Surface
+  Policy PR1 passed 42 focused `AgentCommandCenterStateTests` after Claude
+  red-team drove the catalog-filtering hardening.
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
 
@@ -2236,6 +2256,16 @@ Acceptance:
 - PR8 boundary: no runtime adapter, provider, subprocess, MCP, browser,
   Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
   protected graph, or protected editor path was touched.
+- Command Center PR1 wired: `AgentCommandCenterState` carries a distribution
+  and applies `ToolSurfacePolicy` to the loaded tool catalog at one fan-in.
+- Command Center PR1 reachable: focused tests prove Core/App Store filters
+  injected `run_command`, `get_ui_tree`, and `click` while Pro/Research keeps
+  them.
+- Command Center PR1 visible: focused tests prove Core/App Store hides Safari,
+  Terminal, and Automation context providers and rejects manual `@Terminal`
+  parsing while preserving Notes/Files context.
+- Command Center PR1 boundary: no Omega, Engine, view, Rust, generated,
+  entitlement, project, provider, graph, or execution-path files were touched.
 
 Stop Triggers:
 - A future slice wants to execute a provider request, shell command, MCP call,

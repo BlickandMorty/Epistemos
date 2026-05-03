@@ -244,7 +244,7 @@ struct AgentCommandCenterStateTests {
             Self.makeTool(name: "vault_search"),
             Self.makeTool(name: "send_message"),
         ]
-        let state = AgentCommandCenterState(toolCatalogLoader: { _, mode in
+        let state = AgentCommandCenterState(toolCatalogLoader: { _, mode, _ in
             switch mode {
             case .fast: return fastTools
             case .thinking: return fastTools
@@ -276,7 +276,7 @@ struct AgentCommandCenterStateTests {
         // preset from another test in the same suite overrides this test's
         // .fast → .agent sequence with the preset's defaultOperatingMode.
         let state = AgentCommandCenterState(
-            toolCatalogLoader: { _, mode in
+            toolCatalogLoader: { _, mode, _ in
                 switch mode {
                 case .fast: return fastTools
                 case .thinking: return fastTools
@@ -300,6 +300,57 @@ struct AgentCommandCenterStateTests {
         #expect(state.toolToggles["web_search"] == nil)
     }
 
+    @Test func coreAppStoreRefreshToolCatalogFiltersInjectedExternalTools() {
+        let state = AgentCommandCenterState(
+            toolCatalogLoader: { _, _, _ in
+                [
+                    Self.makeTool(name: "vault_search"),
+                    Self.makeTool(name: "run_command"),
+                    Self.makeTool(name: "get_ui_tree"),
+                    Self.makeTool(name: "click"),
+                ]
+            },
+            toolSurfaceDistribution: .coreAppStore,
+            userDefaults: Self.makeDefaults()
+        )
+
+        state.refreshToolCatalog(from: MCPBridge(), vaultPath: "/tmp/test-vault")
+
+        #expect(state.availableTools.map(\.name) == ["vault_search"])
+        #expect(state.enabledToolNames == Set(["vault_search"]))
+        #expect(state.mcpToolsByAgent["rust"]?.map(\.name) == ["vault_search"])
+    }
+
+    @Test func proResearchRefreshToolCatalogKeepsInjectedGatewayTools() {
+        let state = AgentCommandCenterState(
+            toolCatalogLoader: { _, _, _ in
+                [
+                    Self.makeTool(name: "vault_search"),
+                    Self.makeTool(name: "run_command"),
+                    Self.makeTool(name: "get_ui_tree"),
+                    Self.makeTool(name: "click"),
+                ]
+            },
+            toolSurfaceDistribution: .proResearch,
+            userDefaults: Self.makeDefaults()
+        )
+
+        state.refreshToolCatalog(from: MCPBridge(), vaultPath: "/tmp/test-vault")
+
+        #expect(state.availableTools.map(\.name) == [
+            "vault_search",
+            "run_command",
+            "get_ui_tree",
+            "click",
+        ])
+        #expect(state.enabledToolNames == Set([
+            "vault_search",
+            "run_command",
+            "get_ui_tree",
+            "click",
+        ]))
+    }
+
     @Test func applyingCodeSpecialistPrefersNextBestLocalBrainAndFocusedToolBundle() {
         let defaults = Self.makeDefaults()
         let fastTools = [
@@ -319,7 +370,7 @@ struct AgentCommandCenterStateTests {
             Self.makeTool(name: "web_search"),
         ]
         let state = AgentCommandCenterState(
-            toolCatalogLoader: { _, mode in
+            toolCatalogLoader: { _, mode, _ in
                 switch mode {
                 case .agent: return agentTools
                 case .fast, .thinking, .pro: return fastTools
@@ -432,6 +483,48 @@ struct AgentCommandCenterStateTests {
         #expect(state.contextProviders.contains { $0.token == "Safari" })
         #expect(state.contextProviders.contains { $0.token == "AllNotes" })
         #expect(state.contextProviders.contains { $0.token == "My Note" })
+    }
+
+    @Test func coreAppStoreContextProvidersHideExternalAgentMentions() {
+        let state = AgentCommandCenterState(toolSurfaceDistribution: .coreAppStore)
+
+        state.refreshContextProviders(vaultNoteCount: 10, openNoteTitles: ["My Note"])
+
+        let tokens = Set(state.contextProviders.map(\.token))
+        #expect(!tokens.contains("Safari"))
+        #expect(!tokens.contains("Terminal"))
+        #expect(!tokens.contains("Automation"))
+        #expect(tokens.contains("Notes"))
+        #expect(tokens.contains("Files"))
+        #expect(tokens.contains("AllNotes"))
+        #expect(tokens.contains("CurrentGraph"))
+        #expect(tokens.contains("My Note"))
+    }
+
+    @Test func coreAppStoreManualExternalMentionDoesNotResolve() {
+        let state = AgentCommandCenterState(toolSurfaceDistribution: .coreAppStore)
+        state.refreshContextProviders(vaultNoteCount: 10, openNoteTitles: [])
+
+        let result = CommandInputParser.parse(
+            "@Terminal summarize this",
+            contextProviders: state.contextProviders
+        )
+
+        #expect(result.mentions.isEmpty)
+        #expect(result.cleanedQuery.contains("@Terminal"))
+    }
+
+    @Test func proResearchContextProvidersKeepExternalAgentMentions() {
+        let state = AgentCommandCenterState(toolSurfaceDistribution: .proResearch)
+
+        state.refreshContextProviders(vaultNoteCount: 10, openNoteTitles: [])
+
+        let tokens = Set(state.contextProviders.map(\.token))
+        #expect(tokens.contains("Safari"))
+        #expect(tokens.contains("Terminal"))
+        #expect(tokens.contains("Automation"))
+        #expect(tokens.contains("Notes"))
+        #expect(tokens.contains("Files"))
     }
 
     @Test func legacyAgentWorkspaceViewsAreRemovedFromRepo() {

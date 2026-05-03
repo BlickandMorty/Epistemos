@@ -312,3 +312,18 @@
 - note: focused verification logs `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log` and `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after both runs, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `ToolSchemaGrammarTests`
 - test: `ToolSurfacePolicyTests`
+
+## command-center-tool-surface-policy-pr1
+
+- grep: `toolSurfaceDistribution`
+- grep: `isBuiltInAgentContextProviderVisible`
+- grep: `coreAppStoreRefreshToolCatalogFiltersInjectedExternalTools`
+- grep: `coreAppStoreManualExternalMentionDoesNotResolve`
+- forbidden staged grep: `MCPBridge|dispatch\\(|URLSession|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy|CloudLLMClient|CloudProviderAuthService|LLMService|TriageService|agent_core|graph-engine` in `Epistemos/State/AgentCommandCenterState.swift` and `EpistemosTests/AgentCommandCenterStateTests.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Omega Epistemos/Engine Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/State/AgentCommandCenterState.swift` and the Round 42 hunks in `EpistemosTests/AgentCommandCenterStateTests.swift` are allowed app/test files for this slice.
+- log: `✔ Test coreAppStoreRefreshToolCatalogFiltersInjectedExternalTools() passed`
+- log: `✔ Test coreAppStoreManualExternalMentionDoesNotResolve() passed`
+- log: `✔ Test run with 42 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `AgentCommandCenterStateTests`
