@@ -670,7 +670,6 @@ struct ReleasePackagingHardeningTests {
         for wrappedPath in [
             "Epistemos/Bridge/ComputerUseBridge.swift",
             "Epistemos/Bridge/Phase4Bridge.swift",
-            "Epistemos/Omega/Agents/GhostComputerAgent.swift",
             "Epistemos/Omega/Vision/AXMutationDetector.swift",
             "Epistemos/Omega/Vision/AXorcistBridge.swift",
             "Epistemos/Omega/Vision/Screen2AXFusion.swift",
@@ -680,6 +679,8 @@ struct ReleasePackagingHardeningTests {
             let source = try loadProductionHardeningRepoTextFile(wrappedPath)
             #expect(source.contains("#if !EPISTEMOS_APP_STORE"))
         }
+        let deletedGhostAgent = try sourceMirrorURL(for: "Epistemos/Omega/Agents/GhostComputerAgent.swift")
+        #expect(!FileManager.default.fileExists(atPath: deletedGhostAgent.path))
 
         let stubs = try loadProductionHardeningRepoTextFile("Epistemos/AppStore/AppStoreComputerUseStubs.swift")
         #expect(stubs.contains("#if EPISTEMOS_APP_STORE"))

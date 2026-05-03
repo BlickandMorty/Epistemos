@@ -872,13 +872,23 @@
 ## ghost-computer-agent-reachability-guard-pr45
 
 - grep: `GhostComputerAgentReachabilityGuardTests` in `EpistemosTests/GhostComputerAgentReachabilityGuardTests.swift`
-- forbidden route grep: production Swift must not instantiate `GhostComputerAgent(` outside `Epistemos/LocalAgent/GhostComputerAgent.swift`.
+- forbidden route grep: production Swift must not instantiate `GhostComputerAgent(`.
 - forbidden adapter grep: production Swift must not call `GhostComputerAgent.mcpSee`, `mcpClick`, `mcpType`, `mcpKeys`, `mcpScroll`, or `mcpScreenshot`.
 - shipping route grep: `Phase4Bridge.swift` and `StreamingDelegate.swift` keep computer-use dispatch on `ComputerUseBridge.shared.execute(actionJSON:)`, while `agent_core/src/agent_loop.rs` keeps `name == "computer"` delegated through the native computer callback.
 - LocalAgent reflex audit: `flushOnStreamEnd()` returns plaintext only, fallback parsing routes tool calls into `executeToolCall`, and Kimi found no requested-without-terminal event path.
 - staged allow: only the PR45 fleet detector, Kimi audit artifact, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this closure commit. Parallel-agent production/test work remains intentionally excluded.
 - log: `✔ Suite "GhostComputerAgent Reachability Guards" passed`
 - note: focused verification log `/tmp/epistemos-ghost-computer-agent-reachability-guard-pr45-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `GhostComputerAgentReachabilityGuardTests`
+
+## ghost-computer-agent-dead-code-delete-pr46
+
+- grep: `test ! -e Epistemos/Omega/Agents/GhostComputerAgent.swift`
+- forbidden route grep: `GhostComputerAgent(` returns no production matches under `Epistemos/`.
+- forbidden adapter grep: `GhostComputerAgent.mcpSee|GhostComputerAgent.mcpClick|GhostComputerAgent.mcpType|GhostComputerAgent.mcpKeys|GhostComputerAgent.mcpScroll|GhostComputerAgent.mcpScreenshot` returns no production matches under `Epistemos/`.
+- shipping route grep: `Phase4Bridge.swift` and `StreamingDelegate.swift` keep computer-use dispatch on `ComputerUseBridge.shared.execute(actionJSON:)`, while `agent_core/src/agent_loop.rs` keeps `name == "computer"` delegated through the native computer callback.
+- staged allow: only `Epistemos/Omega/Agents/GhostComputerAgent.swift`, `EpistemosTests/GhostComputerAgentReachabilityGuardTests.swift`, the GhostComputerAgent-specific hunk in `EpistemosTests/ProductionHardeningTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this cleanup commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "GhostComputerAgent Reachability Guards" passed`
 - test: `GhostComputerAgentReachabilityGuardTests`
 
 ## hermes-capability-registry-pr1

@@ -651,6 +651,16 @@ closed:
   production source, EventStore schema, Core/MAS policy, MCP/Hermes routing,
   Sovereign, graph, generated bindings, subprocess surfaces, or ANE/private API
   surfaces.
+- GhostComputerAgent dead-code deletion PR46 is now closed. Claude's detective
+  resolutions confirmed the source was an unrouted, superseded scaffold, so
+  `Epistemos/Omega/Agents/GhostComputerAgent.swift` was removed instead of
+  instrumented. `GhostComputerAgentReachabilityGuardTests` now asserts the file
+  stays absent, while preserving the shipping route checks for
+  `ComputerUseBridge` and the Rust `name == "computer"` native callback. The
+  App Store hardening suite also treats the old file as deleted rather than as
+  an App Store-excluded wrapper. This does not change production routing,
+  EventStore schema, Core/MAS policy, MCP/Hermes routing, Sovereign, graph,
+  generated bindings, subprocess surfaces, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
