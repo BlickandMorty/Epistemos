@@ -626,3 +626,6 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 88 | 2026-05-03T18:24Z | test-green | scope=ghost-computer-agent-reachability-guard-pr45 | xcodebuild | session:59603 | done | /tmp/epistemos-ghost-computer-agent-reachability-guard-pr45-20260503.log | +1 |
 | 89 | 2026-05-03T18:44Z | implementation | slice=hermes-capability-registry-pr1 | codex/local | n/a | done | Epistemos/LocalAgent/HermesCapabilityRegistry.swift; EpistemosTests/HermesCapabilityRegistryTests.swift | +1 |
 | 89 | 2026-05-03T18:44Z | test-green | scope=hermes-capability-registry-pr1 | xcodebuild | session:15189 | done | /tmp/epistemos-hermes-capability-registry-pr1-20260503.log | +1 |
+| 90 | 2026-05-03T18:58Z | implementation | slice=ghost-computer-agent-dead-code-delete-pr46 | codex/local | n/a | done | Epistemos/Omega/Agents/GhostComputerAgent.swift; EpistemosTests/GhostComputerAgentReachabilityGuardTests.swift | +1 |
+| 90 | 2026-05-03T18:58Z | test-green | scope=ghost-computer-agent-dead-code-delete-pr46 | xcodebuild | session:85417 | done | /tmp/epistemos-ghost-computer-agent-delete-pr46-20260503.log | +1 |
+| 90 | 2026-05-03T18:58Z | guard | slice=ghost-computer-agent-dead-code-delete-pr46 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

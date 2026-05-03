@@ -1281,6 +1281,15 @@ This does not change production source, EventStore schema, Core/MAS policy,
 MCP/Hermes routing, Sovereign, graph, generated bindings, subprocess surfaces,
 or ANE/private API surfaces.
 
+PR46 GhostComputerAgent dead-code deletion is also closed. Claude's detective
+resolutions found the source was superseded by `ComputerUseBridge` and had no
+production callers, so `Epistemos/Omega/Agents/GhostComputerAgent.swift` was
+deleted instead of instrumented. `GhostComputerAgentReachabilityGuardTests` now
+asserts the source remains absent and still proves the shipping computer-use
+route stays on `ComputerUseBridge`; `ProductionHardeningTests` no longer expects
+the deleted file to be present as an App Store-excluded wrapper. Reintroducing a
+GhostComputerAgent-style path requires a new provenance deliberation first.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.

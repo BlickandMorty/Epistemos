@@ -1,9 +1,9 @@
 import Foundation
 import Testing
 
-/// Source guards for the post-PR44 AgentEvent decision: `GhostComputerAgent`
-/// must stay explicitly unrouted unless a future slice instruments it with
-/// ComputerUseBridge-grade provenance first.
+/// Source guards for the post-PR45 AgentEvent decision: the obsolete
+/// `GhostComputerAgent` path stays deleted while shipping computer-use remains
+/// on the instrumented `ComputerUseBridge` route.
 @Suite("GhostComputerAgent Reachability Guards")
 struct GhostComputerAgentReachabilityGuardTests {
 
@@ -63,33 +63,12 @@ struct GhostComputerAgentReachabilityGuardTests {
                 "Rust agent loop must keep delegating computer-use as the canonical native tool marker")
     }
 
-    @Test("GhostComputerAgent still exposes high-risk actions that require provenance if routed")
-    func ghostComputerAgentHighRiskActionsRemainVisible() throws {
-        let source = try loadMirroredSourceTextFile("Epistemos/Omega/Agents/GhostComputerAgent.swift")
+    @Test("GhostComputerAgent source stays deleted")
+    func ghostComputerAgentSourceStaysDeleted() throws {
+        let deletedURL = try sourceMirrorURL(for: "Epistemos/Omega/Agents/GhostComputerAgent.swift")
 
-        for marker in [
-            "func execute(step: AgentStep)",
-            "private func executeSee",
-            "private func executeClick",
-            "private func executeType",
-            "private func executeScroll",
-            "private func executeKeys",
-            "private func executeScreenshot",
-            "static func mcpSee",
-            "static func mcpClick",
-            "static func mcpType",
-            "static func mcpKeys",
-            "static func mcpScroll",
-            "static func mcpScreenshot",
-        ] {
-            #expect(source.contains(marker),
-                    "GhostComputerAgent source marker disappeared: \(marker). Re-audit reachability and provenance.")
-        }
-
-        #expect(source.contains("#if !EPISTEMOS_APP_STORE"),
-                "GhostComputerAgent must remain outside the Core/App Store build")
-        #expect(!source.contains("AgentToolProvenanceRecorder("),
-                "If GhostComputerAgent becomes routed, add a dedicated provenance slice instead of silently half-instrumenting it")
+        #expect(!FileManager.default.fileExists(atPath: deletedURL.path),
+                "GhostComputerAgent was deleted because ComputerUseBridge is the canonical path; reintroducing it requires a fresh provenance deliberation")
     }
 
     private func relativeSourcePath(_ fileURL: URL) throws -> String {
