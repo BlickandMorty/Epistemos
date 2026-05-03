@@ -1309,6 +1309,16 @@ session counters, source/tag helper methods, and truncation helper stay absent
 while the live recall/source/context/distillation APIs remain. Reintroducing an
 agent graph write path requires a new provenance deliberation first.
 
+PR50 Credential UserDefaults absence guard is also closed.
+`CredentialUserDefaultsAbsenceGuardTests` source-scans production Swift for
+`UserDefaults` or `@AppStorage` lines carrying credential-shaped markers and
+keeps API keys, OAuth access/refresh tokens, client secrets, passwords,
+credentials, and bearer tokens out of defaults-backed storage. It also locks
+`Epistemos/Engine/Keychain.swift` to Security.framework primitives with no
+`UserDefaults` fallback. This is test-only; no credential flow, OAuth behavior,
+Sovereign route, Core/MAS policy, MCP/Hermes route, or production source
+changed.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
