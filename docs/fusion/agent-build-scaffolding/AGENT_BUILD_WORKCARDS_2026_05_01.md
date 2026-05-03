@@ -1819,6 +1819,12 @@ retrieval, graph renderer, Theater, OpLog, Rust, generated bindings, mutation,
 repair, polling, timer, or projection-worker behavior, and defaults off unless
 `EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1=1`.
 
+PR38 test-only consumer projection guard is also closed. The guard source-reads
+the existing EventStore, audit service, Settings, Halo, Trace Inspector, and
+QueryRuntime projection consumers and proves they remain bounded, read-only, and
+outside graph renderer, retrieval, OpLog, Rust, mutation, repair, polling, timer,
+project-file, and production-source changes.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -1850,6 +1856,8 @@ Authority to read first:
   future Trace Inspector projection-summary regression checks.
 - `Epistemos/Engine/QueryRuntime.swift` only for PR10 evidence and future
   retrieval projection-hint regression checks.
+- `EpistemosTests/GraphEventConsumerProjectionGuardTests.swift` only for PR38
+  source-guard evidence.
 - `Epistemos/Engine/HaloController.swift` only for PR7 evidence and future
   Halo projection-ribbon regression checks.
 - `Epistemos/Views/Halo/ShadowPanelContent.swift` only for PR7 evidence and
@@ -1875,6 +1883,9 @@ Allowed write set:
 - PR10 read-only QueryRuntime projection hint: already closed for exactly
   full-text retrieval stable tie-breaking of existing candidates through an
   injected or env-enabled bounded projection snapshot.
+- PR38 test-only consumer projection guard: already closed for exactly
+  source-guard coverage of the existing EventStore, audit service, Settings,
+  Halo, Trace Inspector, and QueryRuntime projection consumers.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -2032,6 +2043,10 @@ Acceptance:
   mutation writes, graph renderer, InstantRecall, MeaningAnchor, Theater,
   OpLog, Rust, generated bindings, repair, polling, timer, and
   projection-worker paths.
+- PR38 wired/reachable/visible: `GraphEventConsumerProjectionGuardTests`
+  source-read EventStore, `GraphEventAuditProjectionService`, Settings, Halo,
+  Trace Inspector, and QueryRuntime consumers and prove the existing projection
+  paths stay bounded and read-only without production edits.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named
