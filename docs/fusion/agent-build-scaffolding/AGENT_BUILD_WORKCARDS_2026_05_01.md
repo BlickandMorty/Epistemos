@@ -1147,6 +1147,23 @@ text are not persisted. This does not change Rust MCP dispatch, provider
 behavior, subprocess launchers, UI, graph, EventStore schema, Sovereign,
 generated bindings, or ANE/private API surfaces.
 
+PR36 AgentEvent Phase7 NightBrain trigger provenance is also closed.
+`Phase7Bridge.triggerNightbrainJob(jobType:priority:)` now records sanitized
+requested/started/completed/failed AgentEvents for supported, unsupported,
+bootstrap-unavailable, disabled-agent, and deferred-pipeline outcomes. Persisted
+metadata uses the `phase7-nightbrain-trigger` run id, synthetic
+`phase7-nightbrain-trigger:N` tool-call ids, `nightbrain_trigger` tool name,
+canonical supported job values, bounded priority classes,
+`requested_job_supported`, `success`, result, duration, and bounded failure
+classes. Focused tests prove unsupported jobs fail before bootstrap lookup,
+bootstrap-unavailable failures are generic, existing job aliases stay intact,
+and raw job strings, filesystem paths, priority text, bootstrap/internal errors,
+localized descriptions, Hermes/MCP/subprocess surfaces, browser/computer-use
+surfaces, LocalAuthentication, and ANE/private API details are not persisted.
+This does not change NightBrain scheduling semantics, AppBootstrap lifecycle,
+EventStore schema, UI, graph, Rust, generated bindings, Sovereign, Hermes/MCP,
+subprocess, browser/computer-use, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1266,6 +1283,8 @@ Allowed write set:
   persistence tests only.
 - PR35 MCPBridge Core `tools/call` denial provenance: already closed for
   requested/denied policy-gate audit rows only.
+- PR36 Phase7 NightBrain trigger provenance: already closed for
+  `Phase7Bridge.triggerNightbrainJob(jobType:priority:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay

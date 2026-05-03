@@ -539,3 +539,13 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 72 | 2026-05-03T14:50Z | test-green | scope=mcpbridge-tools-call-denial-provenance-pr35 | xcodebuild | session:65490 | done | /tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-green-20260503.log | +1 |
 | 72 | 2026-05-03T14:55Z | test-green-compat | scope=mcpbridge-tools-call-denial-provenance-pr35/tool-schema-grammar | xcodebuild | session:21418 | done | /tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-tool-schema-green-20260503.log | +1 |
 | 72 | 2026-05-03T14:51Z | guard | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 73 | 2026-05-03T15:00Z | parallel-work-manifest | scope=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md | +1 |
+| 73 | 2026-05-03T15:01Z | preflight | scope=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_73_2026_05_03.md | +1 |
+| 73 | 2026-05-03T15:01Z | detective | concept=Phase7 NightBrain trigger AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/phase7-nightbrain-trigger-provenance-pr36/detectives/phase7-nightbrain-trigger-provenance.md | +1 |
+| 73 | 2026-05-03T15:02Z | aggregator | slice=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/fleet/phase7-nightbrain-trigger-provenance-pr36/aggregator.md | +1 |
+| 73 | 2026-05-03T15:02Z | pipeline-builder | slice=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/deliberation/phase7_nightbrain_trigger_provenance_pr36_deliberation_2026_05_03.md | +1 |
+| 73 | 2026-05-03T15:02Z | codex-red-team | brief=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/fleet/phase7-nightbrain-trigger-provenance-pr36/claude-red-team/attacks.md | +1 |
+| 73 | 2026-05-03T15:04Z | implementation | slice=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | Epistemos/Bridge/Phase7Bridge.swift; EpistemosTests/Phase7BridgeAgentEventTests.swift | +1 |
+| 73 | 2026-05-03T15:08Z | test-red | scope=phase7-nightbrain-trigger-provenance-pr36 | xcodebuild | session:10708 | failed | /tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-redgreen-20260503.log | +1 |
+| 73 | 2026-05-03T15:12Z | test-green | scope=phase7-nightbrain-trigger-provenance-pr36 | xcodebuild | session:25883 | done | /tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-green-20260503.log | +1 |
+| 73 | 2026-05-03T15:13Z | guard | slice=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

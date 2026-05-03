@@ -746,3 +746,18 @@
 - note: compatibility verification log `/tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-tool-schema-green-20260503.log`; existing `ToolSchemaGrammarTests` ran 22 tests, preserving Core/Pro catalog and dispatch behavior.
 - test: `MCPBridgeAgentEventTests`
 - test: `ToolSchemaGrammarTests`
+
+## phase7-nightbrain-trigger-provenance-pr36
+
+- grep: `recordNightBrainTriggerEvent|phase7-nightbrain-trigger|nightbrain_trigger|bootstrapProvider|requested_job_supported|failure_class|priority_class` in `Epistemos/Bridge/Phase7Bridge.swift` and `EpistemosTests/Phase7BridgeAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: jobType|argumentsJSON: priority|resultJSON: response|errorMessage: message|params\[|raw|localizedDescription` returns no unsafe persistence matches in `Epistemos/Bridge/Phase7Bridge.swift`; expected hits are the safe `job.rawValue` canonical enum value and test comments.
+- tier-leakage grep: `Hermes|MCP|subprocess|browser|computer-use|LocalAuthentication|LAContext|AppleNeuralEngine|_ANEClient|storageModeManaged|storageModePrivate|memcpy|Z3|Kani|Lean|Kissat|cvc5` returns no matches in the touched source/test files.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Bridge/Phase7Bridge.swift`, `EpistemosTests/Phase7BridgeAgentEventTests.swift`, Round 73 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, parallel manifest, and the fleet registry are allowed for this commit.
+- log: `✘ Test "Unsupported NightBrain jobs record sanitized requested and failed events before bootstrap lookup" failed` in `/tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-redgreen-20260503.log` before the test expectation was tightened to require unknown priority for injected priority text.
+- log: `✔ Test "Unsupported NightBrain jobs record sanitized requested and failed events before bootstrap lookup" passed`
+- log: `✔ Test "Supported NightBrain job without AppBootstrap records bounded bootstrap failure" passed`
+- log: `✔ Test "Phase7Bridge provenance source does not persist raw NightBrain request strings" passed`
+- log: `✔ Test "Existing Phase7 job aliases stay intact" passed`
+- note: focused verification log `/tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `Phase7BridgeAgentEventTests`
