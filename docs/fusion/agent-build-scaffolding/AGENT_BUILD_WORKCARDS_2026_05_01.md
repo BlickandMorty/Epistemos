@@ -1180,6 +1180,21 @@ ownership, `SSMStateService` internals, generation, UI, graph, Rust, generated
 bindings, EventStore schema, Sovereign, Hermes/MCP, subprocess,
 browser/computer-use, or ANE/private API surfaces.
 
+PR39 AgentEvent ComputerUseBridge provenance is also closed.
+`ComputerUseBridge.execute(actionJSON:)` now records sanitized
+requested/started/completed/failed AgentEvents around existing computer-use
+actions. Persisted rows use the `computer-use-bridge` run id, synthetic
+`computer-use-bridge:N` tool-call ids, `computer.<action_class>` tool names,
+bounded action classes, coordinate buckets, text-length buckets,
+direction/key/app-scope classes, result classes, screenshot-included booleans,
+accessibility element counts, duration, success status, and bounded failure
+classes. Focused tests prove raw action JSON, screenshots/base64 payloads,
+accessibility tree text, typed text, app names, exact coordinates, raw results,
+localized descriptions, and arbitrary error strings are not persisted in
+AgentEvents. This does not change Computer Use execution, Core/MAS tool policy,
+MCP/Hermes routing, UI, graph, EventStore schema, Sovereign, generated bindings,
+subprocess surfaces, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.

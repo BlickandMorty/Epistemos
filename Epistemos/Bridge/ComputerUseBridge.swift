@@ -20,26 +20,103 @@ import os.log
 
 @MainActor
 final class ComputerUseBridge {
+    typealias AccessibilityPermissionProvider = @MainActor () -> Bool
+    typealias TrustedActionExecutor = @MainActor (String, [String: Any]) async -> String
+
     static let shared = ComputerUseBridge()
 
     private let logger = Logger(subsystem: "app.epistemos", category: "ComputerUse")
+    private let accessibilityPermissionProvider: AccessibilityPermissionProvider
+    private let trustedActionExecutor: TrustedActionExecutor?
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+    private var toolCallSequence: UInt64 = 0
+
+    init(
+        accessibilityPermissionProvider: @escaping AccessibilityPermissionProvider = {
+            AXIsProcessTrusted()
+        },
+        trustedActionExecutor: TrustedActionExecutor? = nil,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
+    ) {
+        self.accessibilityPermissionProvider = accessibilityPermissionProvider
+        self.trustedActionExecutor = trustedActionExecutor
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+    }
 
     // MARK: - Execute Computer Action
 
     /// Executes a computer use action and returns the result as a JSON string.
     /// Called by ChatCoordinator when Rust agent's "computer" tool fires.
     func execute(actionJSON: String) async -> String {
+        let parsedAction = parseComputerAction(actionJSON: actionJSON)
+        let toolCallID = nextToolCallID()
+        recordComputerActionEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallRequested,
+            status: .requested,
+            request: parsedAction.request
+        )
+
         guard let data = actionJSON.data(using: .utf8),
               let input = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            recordComputerActionEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedAction.request,
+                failureClass: "invalid_action_json",
+                errorMessage: "Computer action was not accepted."
+            )
             return errorResult("Invalid action JSON")
         }
 
         let action = (input["action"] as? String) ?? "screenshot"
 
         // Check TCC permissions before any action
-        guard AXIsProcessTrusted() else {
+        guard accessibilityPermissionProvider() else {
+            recordComputerActionEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedAction.request,
+                failureClass: "accessibility_permission_denied",
+                errorMessage: "Computer action requires Accessibility permission."
+            )
             return errorResult("Accessibility permission not granted. Open System Settings > Privacy & Security > Accessibility.")
         }
+
+        recordComputerActionEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallStarted,
+            status: .started,
+            request: parsedAction.request
+        )
+
+        let start = Date()
+        let result = if let trustedActionExecutor {
+            await trustedActionExecutor(action, input)
+        } else {
+            await executeTrustedAction(action: action, input: input)
+        }
+        let sanitizedResult = parseComputerActionResult(
+            result,
+            actionClass: parsedAction.request.actionClass
+        )
+        recordComputerActionEvent(
+            toolCallID: toolCallID,
+            kind: sanitizedResult.success ? .toolCallCompleted : .toolCallFailed,
+            status: sanitizedResult.success ? .completed : .failed,
+            request: parsedAction.request,
+            result: sanitizedResult.success ? sanitizedResult : nil,
+            durationMs: durationMilliseconds(since: start),
+            failureClass: sanitizedResult.success ? nil : sanitizedResult.failureClass,
+            errorMessage: sanitizedResult.success ? nil : "Computer action failed."
+        )
+        return result
+    }
+
+    private func executeTrustedAction(action: String, input: [String: Any]) async -> String {
+        let action = action.trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch action {
         case "screenshot":
@@ -71,6 +148,308 @@ final class ComputerUseBridge {
         default:
             return errorResult("Unknown action: \(action)")
         }
+    }
+
+    // MARK: - AgentEvent provenance
+
+    private struct ParsedComputerAction {
+        let request: ComputerActionRequest
+    }
+
+    private struct ComputerActionRequest {
+        let actionClass: String
+        let coordinateBucket: String?
+        let textLengthBucket: String?
+        let directionClass: String?
+        let keyClass: String?
+        let appScope: String?
+    }
+
+    private struct ComputerActionResult {
+        let success: Bool
+        let resultClass: String
+        let screenshotIncluded: Bool
+        let accessibilityElementCount: Int?
+        let failureClass: String?
+    }
+
+    private func nextToolCallID() -> String {
+        let sequence = toolCallSequence
+        if toolCallSequence < UInt64.max {
+            toolCallSequence += 1
+        }
+        return "computer-use-bridge-\(sequence)"
+    }
+
+    private func parseComputerAction(actionJSON: String) -> ParsedComputerAction {
+        guard let data = actionJSON.data(using: .utf8),
+              let input = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return ParsedComputerAction(
+                request: ComputerActionRequest(
+                    actionClass: "invalid_json",
+                    coordinateBucket: nil,
+                    textLengthBucket: nil,
+                    directionClass: nil,
+                    keyClass: nil,
+                    appScope: nil
+                )
+            )
+        }
+
+        return ParsedComputerAction(request: computerActionRequest(input: input))
+    }
+
+    private func computerActionRequest(input: [String: Any]) -> ComputerActionRequest {
+        let actionClass = computerActionClass(input["action"] as? String)
+        return ComputerActionRequest(
+            actionClass: actionClass,
+            coordinateBucket: coordinateBucket(x: input["x"] as? Int, y: input["y"] as? Int),
+            textLengthBucket: textLengthBucket(input["text"] as? String),
+            directionClass: directionClass(input["direction"] as? String),
+            keyClass: actionClass == "key" ? keyClass(input["text"] as? String) : nil,
+            appScope: appScope(input["app_name"] as? String)
+        )
+    }
+
+    private func computerActionClass(_ rawAction: String?) -> String {
+        switch rawAction?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case nil, "", "screenshot":
+            return "screenshot"
+        case "click":
+            return "click"
+        case "type_text":
+            return "type"
+        case "scroll":
+            return "scroll"
+        case "get_ax_tree":
+            return "ax_tree"
+        case "key_press":
+            return "key"
+        default:
+            return "unknown"
+        }
+    }
+
+    private func coordinateBucket(x: Int?, y: Int?) -> String? {
+        guard let x, let y else { return nil }
+        let bucketSize = 100
+        return "\(x / bucketSize * bucketSize)-\(y / bucketSize * bucketSize)"
+    }
+
+    private func textLengthBucket(_ text: String?) -> String? {
+        guard let text else { return nil }
+        switch text.count {
+        case 0:
+            return "0"
+        case 1...16:
+            return "1_16"
+        case 17...64:
+            return "17_64"
+        default:
+            return "65_plus"
+        }
+    }
+
+    private func directionClass(_ direction: String?) -> String? {
+        switch direction?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "up":
+            return "up"
+        case "down":
+            return "down"
+        case "left":
+            return "left"
+        case "right":
+            return "right"
+        case nil, "":
+            return nil
+        default:
+            return "unknown"
+        }
+    }
+
+    private func keyClass(_ key: String?) -> String {
+        switch key?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "return", "enter", "tab", "space", "delete", "escape", "esc":
+            return "editing"
+        case "up", "down", "left", "right":
+            return "navigation"
+        case nil, "":
+            return "empty"
+        default:
+            return "other"
+        }
+    }
+
+    private func appScope(_ appName: String?) -> String? {
+        guard let appName,
+              !appName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return nil
+        }
+        return "specific"
+    }
+
+    private func parseComputerActionResult(_ resultJSON: String, actionClass: String) -> ComputerActionResult {
+        guard let data = resultJSON.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return ComputerActionResult(
+                success: false,
+                resultClass: "invalid_result_json",
+                screenshotIncluded: false,
+                accessibilityElementCount: nil,
+                failureClass: "invalid_result_json"
+            )
+        }
+
+        let success = payload["success"] as? Bool == true
+        if success {
+            return ComputerActionResult(
+                success: true,
+                resultClass: resultClass(actionClass: actionClass, payload: payload),
+                screenshotIncluded: payload["screenshot_base64"] != nil,
+                accessibilityElementCount: accessibilityElementCount(payload),
+                failureClass: nil
+            )
+        }
+
+        return ComputerActionResult(
+            success: false,
+            resultClass: "failed",
+            screenshotIncluded: false,
+            accessibilityElementCount: nil,
+            failureClass: failureClass(error: payload["error"] as? String)
+        )
+    }
+
+    private func resultClass(actionClass: String, payload: [String: Any]) -> String {
+        if payload["screenshot_base64"] != nil {
+            return "screenshot_with_ax_tree"
+        }
+        if payload["elements"] != nil {
+            return "ax_tree"
+        }
+        switch actionClass {
+        case "click", "type", "scroll", "key":
+            return "input_action"
+        default:
+            return "completed"
+        }
+    }
+
+    private func accessibilityElementCount(_ payload: [String: Any]) -> Int? {
+        if let elements = payload["elements"] as? [[String: Any]] {
+            return elements.count
+        }
+        if let tree = payload["accessibility_tree"] as? [[String: Any]] {
+            return tree.count
+        }
+        return nil
+    }
+
+    private func failureClass(error: String?) -> String {
+        let error = error?.lowercased() ?? ""
+        if error.contains("accessibility permission") {
+            return "accessibility_permission_denied"
+        }
+        if error.contains("unknown action") {
+            return "unsupported_action"
+        }
+        if error.contains("no display") {
+            return "display_unavailable"
+        }
+        if error.contains("screenshot failed") {
+            return "screenshot_failed"
+        }
+        if error.contains("encode screenshot") {
+            return "screenshot_encoding_failed"
+        }
+        if error.contains("not found") {
+            return "app_unavailable"
+        }
+        return "computer_action_failed"
+    }
+
+    private func durationMilliseconds(since start: Date) -> UInt64? {
+        let elapsed = Int(Date().timeIntervalSince(start) * 1_000)
+        return elapsed >= 0 ? UInt64(elapsed) : nil
+    }
+
+    private func recordComputerActionEvent(
+        toolCallID: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        request: ComputerActionRequest,
+        result: ComputerActionResult? = nil,
+        durationMs: UInt64? = nil,
+        failureClass: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "computer-use-bridge",
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "computer-use-bridge", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "computer.\(request.actionClass)",
+            argumentsJSON: computerActionArgumentsJSON(request),
+            resultJSON: result.map(computerActionResultJSON),
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: computerActionMetadata(request: request, result: result, failureClass: failureClass)
+        )
+    }
+
+    private func computerActionArgumentsJSON(_ request: ComputerActionRequest) -> String {
+        var payload: [String: Any] = [
+            "action_class": request.actionClass,
+        ]
+        if let coordinateBucket = request.coordinateBucket {
+            payload["coordinate_bucket"] = coordinateBucket
+        }
+        if let textLengthBucket = request.textLengthBucket {
+            payload["text_length_bucket"] = textLengthBucket
+        }
+        if let directionClass = request.directionClass {
+            payload["direction_class"] = directionClass
+        }
+        if let keyClass = request.keyClass {
+            payload["key_class"] = keyClass
+        }
+        if let appScope = request.appScope {
+            payload["app_scope"] = appScope
+        }
+        return jsonString(payload)
+    }
+
+    private func computerActionResultJSON(_ result: ComputerActionResult) -> String {
+        var payload: [String: Any] = [
+            "success": result.success,
+            "result_class": result.resultClass,
+            "screenshot_included": result.screenshotIncluded,
+        ]
+        if let accessibilityElementCount = result.accessibilityElementCount {
+            payload["accessibility_element_count"] = accessibilityElementCount
+        }
+        return jsonString(payload)
+    }
+
+    private func computerActionMetadata(
+        request: ComputerActionRequest,
+        result: ComputerActionResult?,
+        failureClass: String?
+    ) -> [String: String] {
+        var metadata: [String: String] = [
+            "source": "computer_use_bridge",
+            "surface": "computer_use",
+            "action_class": request.actionClass,
+        ]
+        if let result {
+            metadata["result_class"] = result.resultClass
+        }
+        if let failureClass {
+            metadata["failure_class"] = failureClass
+        }
+        return metadata
     }
 
     // MARK: - Screenshot + AX Tree (the "deeper than screen capture" capability)
