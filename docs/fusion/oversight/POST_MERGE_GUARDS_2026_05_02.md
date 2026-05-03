@@ -845,3 +845,17 @@
 - log: `✔ Test "Phase4 screen watch source never stores raw watch JSON paths" passed`
 - note: focused verification log `/tmp/epistemos-phase4-screen-watch-agent-event-pr42-redgreen-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `Phase4BridgeScreenWatchAgentEventTests`
+
+## clarify-prompt-bridge-agent-event-pr43
+
+- grep: `recordClarifyPromptEvent|clarify\\.ask|input_mode|question_scope|response_length_bucket|choice_count_bucket` in `Epistemos/Bridge/ClarifyPromptBridge.swift` and `EpistemosTests/ClarifyPromptBridgeAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: questionJson|argumentsJSON: parsed\\.question|resultJSON: response|resultJSON: answer\\.response|errorMessage: error` returns no unsafe AgentEvent persistence matches in the new recorder path.
+- tier-leakage grep: no new Core/MAS tool allowlist, MCP/Hermes routing, subprocess launcher, LocalAuthentication, ANE/private API, graph, or hot-path Metal buffer changes are introduced by the staged source/test files.
+- staged allow: only `Epistemos/Bridge/ClarifyPromptBridge.swift`, `EpistemosTests/ClarifyPromptBridgeAgentEventTests.swift`, Round 83 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `ClarifyPromptAnswer` missing and `ClarifyPromptBridge` initializer private in `/tmp/epistemos-clarify-prompt-bridge-agent-event-pr43-red-20260503.log` before the presenter seam was added.
+- log: `✔ Test "Clarify free-form answer records sanitized requested started and completed events" passed`
+- log: `✔ Test "Clarify choice answer records selected index without raw choices" passed`
+- log: `✔ Test "Clarify invalid JSON and cancelled answer remain bounded" passed`
+- log: `✔ Test "Clarify source never stores raw question JSON answers or choices" passed`
+- note: focused verification log `/tmp/epistemos-clarify-prompt-bridge-agent-event-pr43-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `ClarifyPromptBridgeAgentEventTests`
