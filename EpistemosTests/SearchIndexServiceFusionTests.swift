@@ -27,6 +27,15 @@ private final class SearchIndexCancellationTrigger {
     }
 }
 
+@MainActor
+private final class SearchIndexBlockCancellationTrigger {
+    var task: Task<[BlockSearchResult], Error>?
+
+    func cancel() {
+        task?.cancel()
+    }
+}
+
 nonisolated private final class SearchIndexAgentEventCapture: @unchecked Sendable {
     private let lock = NSLock()
     private var storage: [AgentProvenanceEvent] = []
@@ -658,6 +667,189 @@ struct SearchIndexServiceFusionTests {
     }
 
     @MainActor
+    @Test("searchBlocksAsync records sanitized AgentEvents")
+    func blockSearchAsyncRecordsSanitizedAgentEvents() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let (service, _) = try makeService(recordingTo: sink)
+        try seedBlock(
+            blockId: "secret-block-search-id",
+            pageId: "secret-block-page-id",
+            content: "private block recall context with kantian substrate notes",
+            in: service
+        )
+
+        let results = try await service.searchBlocksAsync(query: "private block recall", limit: 6)
+
+        #expect(results.count == 1)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(matchesSearchIndexRunID(sink.events.first?.runID, prefix: "search-index-block-async-"))
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "search_index.search_blocks_async" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "search-index-block-async:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "search_index_service" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "search_blocks_async" })
+        #expect(sink.events.allSatisfy { $0.metadata["query_term_count"] == "3" })
+        #expect(sink.events.allSatisfy { $0.metadata["limit"] == "6" })
+
+        let argumentsPayload = try searchIndexPayload(from: sink.events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == ["limit", "query_char_count", "query_term_count"])
+        #expect(argumentsPayload["query_term_count"] as? Int == 3)
+        #expect(argumentsPayload["limit"] as? Int == 6)
+
+        let resultPayload = try searchIndexPayload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "hit_count"])
+        #expect(resultPayload["hit_count"] as? Int == 1)
+        #expect(sink.events.last?.tool?.durationMs != nil)
+        #expect(sink.events.last?.metadata["failure_class"] == nil)
+        #expect(sink.events.last?.tool?.errorMessage == nil)
+
+        try assertNoSearchIndexSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "private block recall",
+                "secret-block-search-id",
+                "secret-block-page-id",
+                "kantian substrate",
+                "\"private\""
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("search sync block search records sanitized AgentEvents")
+    func blockSearchSyncRecordsSanitizedAgentEvents() throws {
+        let capture = SearchIndexAgentEventCapture()
+        let (service, _) = try makeService(recordingSyncTo: capture)
+        try seedBlock(
+            blockId: "sync-secret-block-search-id",
+            pageId: "sync-secret-block-page-id",
+            content: "private sync block recall context with kantian substrate notes",
+            in: service
+        )
+
+        let results = try service.searchBlocks(query: "private sync block recall", limit: 9)
+
+        let events = capture.events
+        #expect(results.count == 1)
+        #expect(events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(events.map(\.runID)).count == 1)
+        #expect(matchesSearchIndexRunID(events.first?.runID, prefix: "search-index-block-sync-"))
+        #expect(events.allSatisfy { $0.tool?.toolName == "search_index.search_blocks" })
+        #expect(events.allSatisfy { $0.tool?.toolCallID == "search-index-block-sync:1" })
+        #expect(events.allSatisfy { $0.metadata["source"] == "search_index_service" })
+        #expect(events.allSatisfy { $0.metadata["surface"] == "search_blocks" })
+        #expect(events.allSatisfy { $0.metadata["query_term_count"] == "4" })
+        #expect(events.allSatisfy { $0.metadata["limit"] == "9" })
+
+        let argumentsPayload = try searchIndexPayload(from: events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == ["limit", "query_char_count", "query_term_count"])
+        #expect(argumentsPayload["query_term_count"] as? Int == 4)
+        #expect(argumentsPayload["limit"] as? Int == 9)
+
+        let resultPayload = try searchIndexPayload(from: events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "hit_count"])
+        #expect(resultPayload["hit_count"] as? Int == 1)
+        #expect(events.last?.tool?.durationMs != nil)
+        #expect(events.last?.metadata["failure_class"] == nil)
+        #expect(events.last?.tool?.errorMessage == nil)
+
+        try assertNoSearchIndexSecretLeak(
+            in: events,
+            forbidden: [
+                "private sync block recall",
+                "sync-secret-block-search-id",
+                "sync-secret-block-page-id",
+                "kantian substrate",
+                "\"private\""
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("Cancelled searchBlocksAsync records terminal failed AgentEvent")
+    func cancelledBlockSearchAsyncRecordsTerminalFailedAgentEvent() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let trigger = SearchIndexBlockCancellationTrigger()
+        sink.onStarted = { trigger.cancel() }
+        let (service, _) = try makeService(recordingTo: sink)
+        try seedBlock(blockId: "cancel-block", pageId: "cancel-page", content: "alpha block", in: service)
+
+        let task = Task {
+            try await service.searchBlocksAsync(query: "alpha", limit: 10)
+        }
+        trigger.task = task
+
+        do {
+            _ = try await task.value
+            #expect(Bool(false), "expected searchBlocksAsync cancellation")
+        } catch is CancellationError {
+        } catch {
+            #expect(Bool(false), "expected CancellationError, got \(error)")
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.metadata["failure_class"] == "cancelled")
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage == "cancelled")
+    }
+
+    @MainActor
+    @Test("Invalid block search inputs do not record AgentEvents")
+    func invalidBlockSearchInputsDoNotRecordAgentEvents() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let capture = SearchIndexAgentEventCapture()
+        let (asyncService, _) = try makeService(recordingTo: sink)
+        let (syncService, _) = try makeService(recordingSyncTo: capture)
+
+        _ = try await asyncService.searchBlocksAsync(query: "", limit: 50)
+        _ = try await asyncService.searchBlocksAsync(query: "   \n\t  ", limit: 50)
+        _ = try await asyncService.searchBlocksAsync(query: "!!! ???", limit: 50)
+        _ = try syncService.searchBlocks(query: "", limit: 50)
+        _ = try syncService.searchBlocks(query: "   \n\t  ", limit: 50)
+        _ = try syncService.searchBlocks(query: "!!! ???", limit: 50)
+
+        #expect(sink.events.isEmpty)
+        #expect(capture.events.isEmpty)
+    }
+
+    @MainActor
+    @Test("searchBlocksAsync tool ids are monotonic per service instance")
+    func blockSearchAsyncToolIDsAreMonotonicPerServiceInstance() async throws {
+        let sink = SearchIndexAgentEventSink()
+        let (service, _) = try makeService(recordingTo: sink)
+        try seedBlock(blockId: "block-1", pageId: "page-1", content: "alpha body", in: service)
+        try seedBlock(blockId: "block-2", pageId: "page-2", content: "beta body", in: service)
+
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            for _ in 0..<8 {
+                group.addTask {
+                    _ = try await service.searchBlocksAsync(query: "alpha", limit: 10)
+                }
+            }
+            try await group.waitForAll()
+        }
+
+        let terminalToolIDs = sink.events
+            .filter { $0.kind == .toolCallCompleted }
+            .compactMap { $0.tool?.toolCallID }
+            .sorted()
+        #expect(terminalToolIDs == (1...8).map { "search-index-block-async:\($0)" })
+        #expect(Set(sink.events.map(\.runID)).count == 8)
+    }
+
+    @MainActor
     @Test("fusedSearchAsync records sanitized AgentEvents")
     func fusedSearchAsyncRecordsSanitizedAgentEvents() async throws {
         let sink = SearchIndexAgentEventSink()
@@ -1024,12 +1216,18 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
         #expect(source.contains("nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)"))
         #expect(source.contains("private var directPageAsyncSearchToolSequence: UInt64 = 0"))
         #expect(source.contains("nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)"))
+        #expect(source.contains("private var blockAsyncSearchToolSequence: UInt64 = 0"))
+        #expect(source.contains("nonisolated private let blockSyncSearchToolSequence = Mutex<UInt64>(0)"))
         #expect(source.contains("toolName: \"search_index.search\""))
         #expect(source.contains("toolName: \"search_index.search_async\""))
+        #expect(source.contains("toolName: \"search_index.search_blocks\""))
+        #expect(source.contains("toolName: \"search_index.search_blocks_async\""))
         #expect(source.contains("toolName: \"search_index.fused_search\""))
         #expect(source.contains("toolName: \"search_index.fused_search_async\""))
         #expect(source.contains("surface: \"search\""))
         #expect(source.contains("surface: \"search_async\""))
+        #expect(source.contains("surface: \"search_blocks\""))
+        #expect(source.contains("surface: \"search_blocks_async\""))
         #expect(source.contains("\"surface\": \"fused_search\""))
         #expect(source.contains("\"surface\": \"fused_search_async\""))
         #expect(source.contains("\"weights_profile\": weightsProfile"))
@@ -1039,8 +1237,8 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
         #expect(source.contains("await recordDirectPageAsyncAgentEvent("))
         #expect(source.contains("recordFusedSyncAgentEvent("))
         #expect(source.contains("await recordFusedAsyncAgentEvent("))
-        #expect(!source.contains("search_index.search_blocks"))
-        #expect(!source.contains("search_index.search_blocks_async"))
+        #expect(source.contains("recordBlockSearchSyncAgentEvent("))
+        #expect(source.contains("await recordBlockSearchAsyncAgentEvent("))
         #expect(!source.contains("Task { @MainActor in\n            await recorder.recordToolEvent"))
         #expect(!source.contains("Task.detached"))
 
@@ -1057,6 +1255,32 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
         #expect(!directSyncBody.contains("DispatchQueue.main.sync"))
         #expect(!directSyncBody.contains("MainActor.assumeIsolated"))
         #expect(!directSyncBody.contains("search_index.search_async"))
+        #expect(!directSyncBody.contains("search_index.search_blocks"))
+        #expect(!directSyncBody.contains("search_index.search_blocks_async"))
+
+        let blockSyncBody = try #require(Self.functionBody(
+            named: "nonisolated func searchBlocks(query: String",
+            before: "func searchBlocksAsync(query: String",
+            in: source
+        ))
+        #expect(blockSyncBody.contains("agentProvenanceSyncRecorder"))
+        #expect(blockSyncBody.contains("recordBlockSearchSyncAgentEvent("))
+        #expect(!blockSyncBody.contains("AgentToolProvenanceRecorder"))
+        #expect(!blockSyncBody.contains("Task {"))
+        #expect(!blockSyncBody.contains("Task.detached"))
+        #expect(!blockSyncBody.contains("DispatchQueue.main.sync"))
+        #expect(!blockSyncBody.contains("MainActor.assumeIsolated"))
+        #expect(!blockSyncBody.contains("search_index.search_blocks_async"))
+
+        let blockAsyncBody = try #require(Self.functionBody(
+            named: "func searchBlocksAsync(query: String",
+            before: "// MARK: - RRF Cross-Index Fusion",
+            in: source
+        ))
+        #expect(blockAsyncBody.contains("resolvedAgentProvenanceRecorder()"))
+        #expect(blockAsyncBody.contains("await recordBlockSearchAsyncAgentEvent("))
+        #expect(!blockAsyncBody.contains("agentProvenanceSyncRecorder"))
+        #expect(!blockAsyncBody.contains("search_index.search_blocks\""))
 
         let syncBody = try #require(Self.functionBody(
             named: "nonisolated public func fusedSearch(",
@@ -1071,6 +1295,8 @@ struct SearchIndexServiceAgentEventSourceGuardTests {
         #expect(!syncBody.contains("DispatchQueue.main.sync"))
         #expect(!syncBody.contains("MainActor.assumeIsolated"))
         #expect(!syncBody.contains("search_index.fused_search_async"))
+        #expect(!syncBody.contains("search_index.search_blocks"))
+        #expect(!syncBody.contains("search_index.search_blocks_async"))
     }
 
     private static func functionBody(named marker: String, before endMarker: String, in source: String) -> String? {

@@ -427,8 +427,8 @@
 
 - grep: `toolName: "search_index.search"` in `Epistemos/Sync/SearchIndexService.swift`
 - grep: `toolName: "search_index.search_async"` in `Epistemos/Sync/SearchIndexService.swift`
-- grep: `directPageSearchMetadata(surface: "search"` in `Epistemos/Sync/SearchIndexService.swift`
-- grep: `directPageSearchMetadata(surface: "search_async"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `surface: "search"` in the direct page `limitedSearchMetadata` call in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `surface: "search_async"` in the direct page `limitedSearchMetadata` call in `Epistemos/Sync/SearchIndexService.swift`
 - grep: `nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)`
 - grep: `private var directPageAsyncSearchToolSequence: UInt64 = 0`
 - forbidden grep: `search_index.search_blocks|search_index.search_blocks_async` in `Epistemos/Sync/SearchIndexService.swift`
@@ -439,4 +439,22 @@
 - log: `✔ Suite "SearchIndexService AgentEvent source guards" passed`
 - log: `✔ Test run with 24 tests in 2 suites passed`
 - note: focused verification log `/tmp/epistemos-agent-event-search-index-page-pr21-green-pipefail-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The runtime RRF Fusion suite still compiles but remains skipped by the pre-existing FTS5 availability gate on this host.
+- test: `SearchIndexServiceAgentEventSourceGuardTests`
+
+## agent-event-search-index-block-search-pr22
+
+- grep: `toolName: "search_index.search_blocks"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `toolName: "search_index.search_blocks_async"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `surface: "search_blocks"` in the block `limitedSearchMetadata` call in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `surface: "search_blocks_async"` in the block `limitedSearchMetadata` call in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `nonisolated private let blockSyncSearchToolSequence = Mutex<UInt64>(0)`
+- grep: `private var blockAsyncSearchToolSequence: UInt64 = 0`
+- forbidden block-sync grep: `AgentToolProvenanceRecorder|Task \\{|Task\\.detached|DispatchQueue\\.main\\.sync|MainActor\\.assumeIsolated|search_index\\.search_blocks_async` inside the `searchBlocks(query:limit:)` body.
+- forbidden block metadata grep: query text, sanitized FTS query, block ids, page ids, titles, snippets, ranks, document bodies, vault paths, SQL, GRDB error strings, localized descriptions, arbitrary error text, direct-page tool names, and fused-search tool names are not persisted in block-search AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Sync/SearchIndexService.swift`, `EpistemosTests/SearchIndexServiceFusionTests.swift`, Round 53 fleet/deliberation/preflight docs, this guard file, current-state docs, and workcard docs are allowed for this commit.
+- log: `✔ Test "block search async records sanitized AgentEvents" passed` when the host FTS5 gate is available; on this host the runtime RRF Fusion suite compiled but was skipped behind the pre-existing FTS5 availability probe.
+- log: `✔ Suite "SearchIndexService AgentEvent source guards" passed`
+- log: `✔ Test run with 29 tests in 2 suites passed`
+- note: focused verification log `/tmp/epistemos-agent-event-search-index-block-pr22-green-pipefail-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The runtime RRF Fusion suite still compiles but remains skipped by the pre-existing FTS5 availability gate on this host.
 - test: `SearchIndexServiceAgentEventSourceGuardTests`
