@@ -601,3 +601,19 @@
 - log: `✔ Test run with 16 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-backend-generate-pr29-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The same log still contains the existing runtime-control-plane UniFFI cancellation cleanup message `Can't lift flat errors` from the older MLX stream cancellation test; that runtime-contract issue is outside PR29 and should be handled as a separate slice.
 - test: `LocalBackendLLMClientTests`
+
+## runtime-contract-error-class-bridge-pr30
+
+- grep: `string? error_class` appears for both `RuntimeGenerationSummary` and `RuntimeGenerationEvent` in `epistemos-core/uniffi/epistemos_core.udl`
+- grep: `string error_class` appears for `finish_failed` in `epistemos-core/uniffi/epistemos_core.udl`
+- grep: `pub error_class: Option<String>` appears for runtime generation summary/event payloads in `epistemos-core/src/runtime_contract.rs`
+- grep: `error_class: Some(error_class)` appears in `RuntimeControlPlane.finish_failed`
+- grep: `errorClass: errorClass.rawValue` appears in `Epistemos/Engine/BackendRuntimeContract.swift`
+- grep: `BackendRuntimeContractError.init(rawValue:)` appears for generated event/summary lifting in `Epistemos/Engine/BackendRuntimeContract.swift`
+- forbidden FFI payload grep: `RuntimeContractError? error_class` and `RuntimeContractError error_class` return no matches in `epistemos-core/uniffi/epistemos_core.udl`
+- log: `✔ Test "failed and cancelled runtime events carry error classes across FFI" passed`
+- log: `✔ Test run with 16 tests in 1 suite passed`
+- log: `test result: ok. 378 passed; 0 failed` in `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-cargo-20260503.log`
+- log: no `Can't lift flat errors` in `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-green3-20260503.log`
+- note: focused verification log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-green3-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. Rust verification log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-cargo-20260503.log` passed `cargo test` for `epistemos-core`. The red log `/tmp/epistemos-runtime-contract-error-class-bridge-pr30-red-20260503.log` failed before implementation with the expected `.rustPanic("Can't lift flat errors")`.
+- test: `BackendRuntimeContractTests`

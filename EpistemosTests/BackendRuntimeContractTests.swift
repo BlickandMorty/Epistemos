@@ -639,4 +639,119 @@ struct BackendRuntimeContractTests {
             )
         }
     }
+
+    @Test("failed and cancelled runtime events carry error classes across FFI")
+    func failedAndCancelledRuntimeEventsCarryErrorClassesAcrossFFI() async throws {
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+
+        let failedLaunch = try await controlPlane.generate(
+            request: Self.generationRequest(requestID: "req-failed-error-class")
+        )
+        try await controlPlane.appendStarted(streamHandle: failedLaunch.streamHandle)
+        try await controlPlane.finishFailed(
+            streamHandle: failedLaunch.streamHandle,
+            errorClass: .backendFailure,
+            message: "backend_failure",
+            summary: Self.generationSummary(
+                requestID: "req-failed-error-class",
+                errorClass: .backendFailure
+            )
+        )
+
+        let failedEvents = try await controlPlane.pollEvents(
+            streamHandle: failedLaunch.streamHandle,
+            maxEvents: 10
+        )
+        #expect(failedEvents.map(\.kind) == [.started, .failed])
+        #expect(failedEvents.last?.errorClass == .backendFailure)
+        #expect(failedEvents.last?.summary?.errorClass == .backendFailure)
+
+        let cancelledLaunch = try await controlPlane.generate(
+            request: Self.generationRequest(requestID: "req-cancelled-error-class")
+        )
+        try await controlPlane.appendStarted(streamHandle: cancelledLaunch.streamHandle)
+        try await controlPlane.finishCancelled(
+            streamHandle: cancelledLaunch.streamHandle,
+            summary: Self.generationSummary(
+                requestID: "req-cancelled-error-class",
+                cancelled: true,
+                errorClass: .cancelled
+            )
+        )
+
+        let cancelledEvents = try await controlPlane.pollEvents(
+            streamHandle: cancelledLaunch.streamHandle,
+            maxEvents: 10
+        )
+        #expect(cancelledEvents.map(\.kind) == [.started, .cancelled])
+        #expect(cancelledEvents.last?.errorClass == .cancelled)
+        #expect(cancelledEvents.last?.summary?.cancelled == true)
+        #expect(cancelledEvents.last?.summary?.errorClass == .cancelled)
+    }
+
+    private static func generationRequest(requestID: String) -> BackendGenerationRequest {
+        BackendGenerationRequest(
+            requestID: requestID,
+            requestedRuntimeKind: nil,
+            executionMode: .local,
+            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+            artifactID: "qwen35-35b-a3b-apexmini",
+            modelHandleID: nil,
+            prompt: "Hello",
+            systemPrompt: nil,
+            maxOutputTokens: 16,
+            temperature: 0.2,
+            stopSequences: [],
+            toolPolicyRef: nil,
+            contextRef: nil,
+            reasoningProfile: .standard,
+            executionPolicyRef: nil,
+            steeringHintsJSON: nil,
+            priority: 0,
+            timeoutMS: 10_000,
+            streamOptions: BackendGenerationStreamOptions()
+        )
+    }
+
+    private static func generationSummary(
+        requestID: String,
+        cancelled: Bool = false,
+        errorClass: BackendRuntimeContractError? = nil
+    ) -> BackendGenerationSummary {
+        BackendGenerationSummary(
+            requestID: requestID,
+            requestedRuntimeKind: nil,
+            resolvedRuntimeKind: .mlx,
+            requestedReasoningProfile: .standard,
+            resolvedReasoningProfile: .standard,
+            executionMode: .local,
+            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+            artifactID: "qwen35-35b-a3b-apexmini",
+            executionPolicyID: nil,
+            fallbackMode: "resident",
+            timeToFirstTokenMS: 15,
+            totalDurationMS: 40,
+            tokensPerSecond: 20,
+            outputTokenCount: 1,
+            outputCharacterCount: 5,
+            memoryPressureState: "normal",
+            executionPhase: "decode",
+            maskingState: "dense",
+            kvPolicyState: "baseline",
+            expertBudgetState: "default",
+            adaptationState: "disabled",
+            guardrailState: "clear",
+            sidecarState: "disabled",
+            budgetOutcome: "within_budget",
+            planTracePresent: true,
+            cancelled: cancelled,
+            errorClass: errorClass
+        )
+    }
 }

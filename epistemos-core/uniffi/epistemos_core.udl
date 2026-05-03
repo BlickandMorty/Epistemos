@@ -650,7 +650,7 @@ dictionary RuntimeGenerationSummary {
     string budget_outcome;
     boolean plan_trace_present;
     boolean cancelled;
-    RuntimeContractError? error_class;
+    string? error_class;
 };
 
 dictionary RuntimeGenerationEvent {
@@ -658,7 +658,7 @@ dictionary RuntimeGenerationEvent {
     string? text;
     string? status;
     RuntimeGenerationSummary? summary;
-    RuntimeContractError? error_class;
+    string? error_class;
     string? error_message;
 };
 
@@ -737,7 +737,7 @@ interface RuntimeControlPlane {
     [Throws=RuntimeContractError]
     void finish_failed(
         string stream_handle,
-        RuntimeContractError error_class,
+        string error_class,
         string error_message,
         RuntimeGenerationSummary? summary
     );
