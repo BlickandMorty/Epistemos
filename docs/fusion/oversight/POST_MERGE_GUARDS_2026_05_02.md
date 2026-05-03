@@ -792,3 +792,18 @@
 - note: focused verification log `/tmp/epistemos-graph-event-consumer-projection-guard-pr38-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - note: the focused verification also required a compile-order repair in the parallel-agent-created `EpistemosTests/GraphEventProjectionFixtureTests.swift`; that file remains outside this commit.
 - test: `GraphEventConsumerProjectionGuardTests`
+
+## computer-use-bridge-agent-event-pr39
+
+- grep: `recordComputerActionEvent|computer\\.type|coordinate_bucket|text_length_bucket` in `Epistemos/Bridge/ComputerUseBridge.swift` and `EpistemosTests/ComputerUseBridgeAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: actionJSON|argumentsJSON: input|resultJSON: result,|errorMessage: errorResult|localizedDescription` returns no unsafe AgentEvent persistence matches in `Epistemos/Bridge/ComputerUseBridge.swift`; the expected `localizedDescription` hit remains in the unchanged external screenshot error response, not in AgentEvent JSON.
+- tier-leakage grep: no new Core/MAS tool allowlist, MCP/Hermes routing, subprocess launcher, LocalAuthentication, ANE/private API, graph, or hot-path Metal buffer changes are introduced by the staged source/test files.
+- staged allow: only `Epistemos/Bridge/ComputerUseBridge.swift`, `EpistemosTests/ComputerUseBridgeAgentEventTests.swift`, Round 77 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files such as `EpistemosTests/HermesGatewayEvidenceContractTests.swift` are intentionally excluded.
+- log: `✘ Test "ComputerUseBridge provenance source never stores raw action payloads or raw results" failed` in `/tmp/epistemos-computer-use-bridge-agent-event-pr39-redgreen-20260503.log` before the source guard narrowed the unsafe raw-result pattern.
+- log: `✔ Test "Trusted computer actions record sanitized requested started and completed events" passed`
+- log: `✔ Test "Accessibility denial records sanitized requested and failed events before action execution" passed`
+- log: `✔ Test "Invalid computer action JSON records bounded failed events" passed`
+- log: `✔ Test "Unknown computer actions do not persist raw action names" passed`
+- log: `✔ Test "ComputerUseBridge provenance source never stores raw action payloads or raw results" passed`
+- note: focused verification log `/tmp/epistemos-computer-use-bridge-agent-event-pr39-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `ComputerUseBridgeAgentEventTests`
