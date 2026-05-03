@@ -588,3 +588,10 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 79 | 2026-05-03T16:44Z | codex-red-team | brief=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/fleet/phase4-perceive-agent-event-pr40/claude-red-team/attacks.md | +1 |
 | 79 | 2026-05-03T16:43Z | test-green | scope=phase4-perceive-agent-event-pr40 | xcodebuild | session:95880 | done | /tmp/epistemos-phase4-perceive-agent-event-pr40-redgreen-20260503.log | +1 |
 | 79 | 2026-05-03T16:44Z | guard | slice=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 80 | 2026-05-03T16:52Z | preflight | scope=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_80_2026_05_03.md | +1 |
+| 80 | 2026-05-03T16:52Z | detective | concept=Phase4 interact AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/phase4-interact-agent-event-pr41/detectives/phase4-interact-agent-event.md | +1 |
+| 80 | 2026-05-03T16:52Z | aggregator | slice=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/fleet/phase4-interact-agent-event-pr41/aggregator.md | +1 |
+| 80 | 2026-05-03T16:52Z | pipeline-builder | slice=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/deliberation/phase4_interact_agent_event_pr41_deliberation_2026_05_03.md | +1 |
+| 80 | 2026-05-03T16:52Z | codex-red-team | brief=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/fleet/phase4-interact-agent-event-pr41/claude-red-team/attacks.md | +1 |
+| 80 | 2026-05-03T16:52Z | test-green | scope=phase4-interact-agent-event-pr41 | xcodebuild | session:99563 | done | /tmp/epistemos-phase4-interact-agent-event-pr41-redgreen-20260503.log | +1 |
+| 80 | 2026-05-03T16:52Z | guard | slice=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

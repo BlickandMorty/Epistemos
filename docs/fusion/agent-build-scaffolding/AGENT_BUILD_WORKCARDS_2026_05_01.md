@@ -1210,6 +1210,22 @@ Core/MAS tool policy, MCP/Hermes routing, UI, graph, EventStore schema,
 Sovereign, generated bindings, subprocess surfaces, or ANE/private API
 surfaces.
 
+PR41 AgentEvent Phase4 interact provenance is also closed.
+`Phase4Bridge.interact(actionJson:)` now records sanitized
+requested/started/completed/failed AgentEvents around existing
+ComputerUseBridge/AXorcist dispatch. Persisted rows use the `phase4-interact`
+run id, synthetic `phase4-interact:N` tool-call ids,
+`phase4.interact.<action_class>` tool names, bounded action classes, route
+classes, app/target scopes, value-length buckets, coordinate buckets,
+direction/key classes, scalar duration, success status, result classes, and
+bounded failure classes. Focused tests prove raw action JSON, typed text, target
+labels, bundle ids, raw coordinates, raw returned payloads, user paths,
+localized descriptions, and arbitrary errors are not persisted in AgentEvents.
+This does not change returned interaction payloads, `perceive`, `screen_watch`,
+Computer Use execution, AXorcist behavior, Core/MAS tool policy, MCP/Hermes
+routing, UI, graph, EventStore schema, Sovereign, generated bindings,
+subprocess surfaces, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1337,6 +1353,8 @@ Allowed write set:
   `ComputerUseBridge.execute(actionJSON:)` only.
 - PR40 Phase4 perceive provenance: already closed for
   `Phase4Bridge.perceive(appName:depth:)` only.
+- PR41 Phase4 interact provenance: already closed for
+  `Phase4Bridge.interact(actionJson:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
