@@ -968,6 +968,23 @@ selection, UI, graph, Rust, generated bindings, EventStore schema, Hermes, MCP,
 subprocesses, and ANE/private API work. Focused runtime verification passes
 under `pipefail`.
 
+PR24 LocalGGUF non-streaming generate provenance is also closed.
+`LocalGGUFClient.generate(...)` now records requested, started, and
+completed/failed AgentEvents for the non-streaming GGUF generation path with
+`local-gguf-generate-...` run ids, `local-gguf-client` actor metadata,
+per-client `local-gguf-generate:N` tool call ids, `local_generate.gguf` tool
+name, `source=local_gguf_client`, `surface=generate`, `provider=local_gguf`,
+requested/resolved runtime, reasoning mode, max token count, prompt/system
+prompt character counts, steering-hints presence, elapsed milliseconds, output
+character count, success boolean, and bounded `backend_failure` terminal failure
+class. Persisted provenance excludes prompt text, system prompts, steering hint
+JSON, generated output, model id, artifact id, filesystem paths, localized
+descriptions, and arbitrary error text. Source and behavior stay away from GGUF
+streaming, routing semantics, model loading, runtime control-plane state
+semantics, UI, graph, Rust, generated bindings, EventStore schema, Hermes, MCP,
+subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private
+API work. Focused runtime verification passes under `pipefail`.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1388,6 +1405,16 @@ Acceptance:
   text, image path, model id, FAL hints, localized descriptions, arbitrary error
   text, cloud routing, and filesystem paths are not persisted in AgentEvent
   arguments/results/errors.
+- PR24 wired/reachable/visible: LocalGGUF non-streaming generation emits
+  requested, started, and completed/failed AgentEvents around
+  `LocalGGUFClient.generate(...)` with non-empty run id, per-client tool call id,
+  actor, source/surface/provider metadata, requested/resolved runtime, reasoning
+  mode, max token count, prompt/system prompt character counts, steering-hints
+  presence, elapsed milliseconds, output character count, success boolean, and
+  bounded `backend_failure` terminal failure class. Tests prove prompt text,
+  system prompts, steering hint JSON, generated output, model id, artifact id,
+  filesystem paths, localized descriptions, and arbitrary error text are not
+  persisted in AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
