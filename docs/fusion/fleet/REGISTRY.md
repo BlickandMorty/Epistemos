@@ -177,3 +177,11 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 35 | 2026-05-03T00:45Z | implementation | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | Epistemos/Views/Settings/OverseerSettingsView.swift | +1 |
 | 35 | 2026-05-03T00:46Z | test | suite=SovereignGateTests | xcodebuild | session:88942 | done | /tmp/epistemos-sovereign-gate-overseer-history-pr13-green-20260502.log | +1 |
 | 35 | 2026-05-03T00:46Z | guard | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 36 | 2026-05-03T00:50Z | preflight | scope=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_36_2026_05_02.md | +1 |
+| 36 | 2026-05-03T00:50Z | detective | concept=Sovereign Gate Settings reset-everything migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-reset-everything-pr14/detectives/sovereign-gate-settings-reset-everything.md | +1 |
+| 36 | 2026-05-03T00:50Z | aggregator | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-reset-everything-pr14/aggregator.md | +1 |
+| 36 | 2026-05-03T00:50Z | pipeline-builder | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_settings_reset_everything_pr14_deliberation_2026_05_02.md | +1 |
+| 36 | 2026-05-03T00:51Z | codex-red-team | brief=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-reset-everything-pr14/codex-red-team/attacks.md | +1 |
+| 36 | 2026-05-03T01:02Z | implementation | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | Epistemos/Views/Settings/SettingsView.swift | +1 |
+| 36 | 2026-05-03T01:02Z | test | suite=SovereignGateTests | xcodebuild | session:88205 | done | /tmp/epistemos-sovereign-gate-settings-reset-pr14-green-20260502.log | +1 |
+| 36 | 2026-05-03T01:03Z | guard | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

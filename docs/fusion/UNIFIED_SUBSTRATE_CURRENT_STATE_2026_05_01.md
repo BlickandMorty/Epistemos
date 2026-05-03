@@ -455,6 +455,17 @@ closed:
   passed 27/27. This does not edit `SovereignGate.swift`, duplicate
   `LocalAuthentication`, alter programmatic workspace-switch audit clearing, or
   touch Rust/generated/graph/Omega/ChatCoordinator surfaces.
+- Sovereign Gate Settings Reset Everything PR14 is now closed for the existing
+  General Settings "Reset Everything" alert. `SettingsView` maps the reset
+  target through typed `SettingsViewDestructiveActionSovereignGate`
+  requirements, preserves the existing first alert, routes the destructive
+  confirmation through the shared `AppBootstrap` `SovereignGate` with
+  `.deviceOwnerAuthentication`, denies safely when the gate is unavailable, and
+  only calls `resetAllData()` after `.allowed`. Focused Swift tests passed
+  29/29. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, alter reset semantics, stage unrelated Settings
+  diagnostics edits, or touch Rust/generated/graph/Omega/ChatCoordinator
+  surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -1110,7 +1121,9 @@ Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
 Surface PR3, Sovereign Gate Rust Matrix PR4, Sovereign Gate Notes Delete PR5,
 Sovereign Gate Chat Delete PR6, Sovereign Gate Version Delete PR7, Sovereign
 Gate RootView Destructive PR8, Sovereign Gate Model Vault Delete PR9, Sovereign
-Gate Custom Tool Delete PR10, Sovereign Gate Notes Vault Disconnect PR11, the Halo V0 Shadow
+Gate Custom Tool Delete PR10, Sovereign Gate Notes Vault Disconnect PR11,
+Sovereign Gate Authority Reset PR12, Sovereign Gate Overseer History Reset
+PR13, Sovereign Gate Settings Reset Everything PR14, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway

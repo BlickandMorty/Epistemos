@@ -214,3 +214,18 @@
 - log: `✔ Test run with 27 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-sovereign-gate-overseer-history-pr13-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
 - test: `SovereignGateTests`
+
+## sovereign-gate-settings-reset-everything-pr14
+
+- grep: `SettingsViewDestructiveActionSovereignGate`
+- grep: `requestResetEverythingAuthorization()`
+- grep: `resetEverything()`
+- grep: `?? .denied(.authenticationFailed)` in `Epistemos/Views/Settings/SettingsView.swift`
+- forbidden grep: `LocalAuthentication|LAContext|LAError|LABiometryType|LAPolicy|canEvaluatePolicy|evaluatePolicy` in `Epistemos/Views/Settings/SettingsView.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Sovereign/SovereignGate.swift Epistemos/Views/Notes/ProseEditorRepresentable2.swift Epistemos/Views/Notes/ProseTextView2.swift Epistemos/Views/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- staged guard: `git diff --cached -- Epistemos/Views/Settings/SettingsView.swift | rg -n 'BackgroundIndexingHealthRow|SearchFusionHealthRow|Read-only health probes.*Halo backend'` must return no matches.
+- log: `✔ Test "Settings reset everything maps to destructive Sovereign Gate requirements" passed`
+- log: `✔ Test "Settings reset everything alert routes through Sovereign Gate" passed`
+- log: `✔ Test run with 29 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-sovereign-gate-settings-reset-pr14-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
+- test: `SovereignGateTests`

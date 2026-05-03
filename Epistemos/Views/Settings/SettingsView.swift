@@ -6,6 +6,26 @@ import UniformTypeIdentifiers
 
 private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "SettingsView")
 
+enum SettingsViewDestructiveActionSovereignGate {
+    enum Target: Equatable {
+        case resetEverything
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        switch target {
+        case .resetEverything:
+            return .deviceOwnerAuthentication
+        }
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case .resetEverything:
+            return "Reset Everything and delete saved data."
+        }
+    }
+}
+
 // MARK: - Settings View
 // Mirrors macOS System Settings: NavigationSplitView sidebar → detail pane.
 // The window itself handles sizing; this view provides the split layout + chrome.
@@ -699,12 +719,29 @@ private struct GeneralDetailView: View {
             Button("Cancel", role: .cancel) {}
             Button("Reset", role: .destructive) {
                 Task { @MainActor in
-                    await AppBootstrap.shared?.resetAllData()
+                    await requestResetEverythingAuthorization()
                 }
             }
         } message: {
             Text("This will delete all conversations, notes data, local model state, and preferences. Vault files on disk are preserved. This cannot be undone.")
         }
+    }
+
+    @MainActor
+    private func requestResetEverythingAuthorization() async {
+        let target = SettingsViewDestructiveActionSovereignGate.Target.resetEverything
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: target),
+            reason: SettingsViewDestructiveActionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        await resetEverything()
+    }
+
+    @MainActor
+    private func resetEverything() async {
+        await AppBootstrap.shared?.resetAllData()
     }
 
     private func refreshWorkspaces() {

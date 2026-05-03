@@ -1803,6 +1803,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-overseer-history-pr13-red-20260502.log`.
 - PR13 focused green log:
   `/tmp/epistemos-sovereign-gate-overseer-history-pr13-green-20260502.log`.
+- PR14 red log:
+  `/tmp/epistemos-sovereign-gate-settings-reset-pr14-red-20260502.log`.
+- PR14 focused green log:
+  `/tmp/epistemos-sovereign-gate-settings-reset-pr14-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1928,6 +1932,16 @@ Acceptance:
   programmatic workspace-switch audit clearing, generated transport, Rust,
   graph files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor
   copies, and memory hot paths.
+- PR14 wired/reachable/visible: the existing General Settings "Reset
+  Everything" alert keeps its first confirmation but requests shared
+  `SovereignGate` device-owner authentication before calling `resetAllData()`,
+  focused tests prove reset-everything maps to Destructive auth with an
+  explicit reason string, source guards prove the alert calls the authorization
+  helper instead of direct reset, denied or unavailable auth performs no reset,
+  and the slice stays out of `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, unrelated Settings diagnostics edits, generated
+  transport, Rust, graph files, Omega, ChatCoordinator, subprocesses, solver
+  hot paths, tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

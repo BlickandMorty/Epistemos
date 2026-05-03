@@ -669,6 +669,63 @@ struct SovereignGateTests {
         #expect(!source.contains("evaluatePolicy"))
     }
 
+    @Test("Settings reset everything maps to destructive Sovereign Gate requirements")
+    func settingsResetEverythingMapsToDestructiveSovereignGateRequirements() {
+        #expect(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: .resetEverything)
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = SettingsViewDestructiveActionSovereignGate.reason(for: .resetEverything)
+
+        #expect(reason.localizedCaseInsensitiveContains("reset everything"))
+        #expect(reason.localizedCaseInsensitiveContains("delete saved data"))
+    }
+
+    @Test("Settings reset everything alert routes through Sovereign Gate")
+    func settingsResetEverythingAlertRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let resetSection = try section(
+            from: "Section(\"Reset\")",
+            to: ".alert(\"Rename Workspace\""
+        )
+        #expect(resetSection.contains("Button(\"Reset Everything\", role: .destructive)"))
+        #expect(resetSection.contains("showResetAlert = true"))
+
+        let alert = try section(
+            from: ".alert(\"Reset Everything?\"",
+            to: "} message:"
+        )
+        #expect(alert.contains("requestResetEverythingAuthorization()"))
+        #expect(!alert.contains("resetAllData()"))
+
+        let request = try section(
+            from: "private func requestResetEverythingAuthorization()",
+            to: "private func resetEverything()"
+        )
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("?? .denied(.authenticationFailed)"))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("await resetEverything()"))
+
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])
