@@ -647,3 +647,6 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 97 | 2026-05-03T19:45Z | implementation | slice=cloud-provider-setup-card-source-guard-pr51 | codex/local | n/a | done | EpistemosTests/CloudProviderSetupCardSourceGuardTests.swift | +1 |
 | 97 | 2026-05-03T19:45Z | test-green | scope=cloud-provider-setup-card-source-guard-pr51 | xcodebuild | session:76909 | done | /tmp/epistemos-cloud-provider-setup-card-source-guard-pr51-20260503.log | +1 |
 | 97 | 2026-05-03T19:45Z | guard | slice=cloud-provider-setup-card-source-guard-pr51 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 98 | 2026-05-03T19:57Z | implementation | slice=auth-credential-imported-agent-event | codex/local | n/a | done | Epistemos/App/AppBootstrap.swift; EpistemosTests/StartupAutoDiscoveryCredentialImportedAgentEventTests.swift | +1 |
+| 98 | 2026-05-03T19:57Z | test-green | scope=auth-credential-imported-agent-event-pr52 | xcodebuild | session:12857 | done | /tmp/epistemos-auth-credential-imported-agent-event-pr52-20260503.log | +1 |
+| 98 | 2026-05-03T19:57Z | guard | slice=auth-credential-imported-agent-event-pr52 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
