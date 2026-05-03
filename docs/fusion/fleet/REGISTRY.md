@@ -168,3 +168,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 34 | 2026-05-03T00:30Z | implementation | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | Epistemos/Views/Settings/AuthoritySettingsView.swift | +1 |
 | 34 | 2026-05-03T00:31Z | test | suite=SovereignGateTests | xcodebuild | session:48144 | done | /tmp/epistemos-sovereign-gate-authority-reset-pr12-green-20260502.log | +1 |
 | 34 | 2026-05-03T00:31Z | guard | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 35 | 2026-05-03T00:35Z | preflight | scope=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_35_2026_05_02.md | +1 |
+| 35 | 2026-05-03T00:35Z | detective | concept=Sovereign Gate Overseer audit history reset migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-overseer-history-reset-pr13/detectives/sovereign-gate-overseer-history-reset.md | +1 |
+| 35 | 2026-05-03T00:35Z | aggregator | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-overseer-history-reset-pr13/aggregator.md | +1 |
+| 35 | 2026-05-03T00:35Z | pipeline-builder | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_overseer_history_reset_pr13_deliberation_2026_05_02.md | +1 |
+| 35 | 2026-05-03T00:36Z | claude-red-team | brief=sovereign-gate-overseer-history-reset-pr13 | claude/print-readonly | session:49371/pid:5541 | failed | docs/fusion/fleet/sovereign-gate-overseer-history-reset-pr13/claude-red-team/attacks.md | -1 |
+| 35 | 2026-05-03T00:41Z | codex-red-team | brief=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-overseer-history-reset-pr13/codex-red-team/attacks.md | +1 |
+| 35 | 2026-05-03T00:45Z | implementation | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | Epistemos/Views/Settings/OverseerSettingsView.swift | +1 |
+| 35 | 2026-05-03T00:46Z | test | suite=SovereignGateTests | xcodebuild | session:88942 | done | /tmp/epistemos-sovereign-gate-overseer-history-pr13-green-20260502.log | +1 |
+| 35 | 2026-05-03T00:46Z | guard | slice=sovereign-gate-overseer-history-reset-pr13 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

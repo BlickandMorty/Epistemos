@@ -446,6 +446,15 @@ closed:
   Swift tests passed 25/25. This does not edit `SovereignGate.swift`, duplicate
   `LocalAuthentication`, alter authority persistence semantics, or touch
   Rust/generated/graph/Omega/ChatCoordinator surfaces.
+- Sovereign Gate Overseer History Reset PR13 is now closed for the existing
+  Overseer Settings reset-history footer. `OverseerSettingsView` maps history
+  reset through typed `OverseerSettingsSovereignGate` requirements, routes the
+  visible footer action through the shared `AppBootstrap` `SovereignGate` with
+  `.deviceOwnerAuthentication`, denies safely when the gate is unavailable, and
+  only calls `OverseerAuditState.clear()` after `.allowed`. Focused Swift tests
+  passed 27/27. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, alter programmatic workspace-switch audit clearing, or
+  touch Rust/generated/graph/Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
