@@ -374,6 +374,324 @@ struct LocalGGUFClientTests {
     }
 
     @MainActor
+    @Test("gguf client stream records sanitized AgentEvents")
+    func ggufClientStreamRecordsSanitizedAgentEvents() async throws {
+        let fixture = try makeGGUFFixture(named: [
+            "qwen35-35b-a3b-apexmini.gguf",
+        ])
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let runtime = makeRuntime(output: "Secret streamed local output")
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: false
+            )
+        )
+        let inference = makeLocalGGUFInference()
+        let sink = LocalGGUFAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 789 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalGGUFClient(
+            runtime: runtime,
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            agentProvenanceRecorder: recorder
+        )
+        client.configurePreparedGenerationRuntime(
+            PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: fixture.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        let output = try await collectStream(
+            client.stream(
+                prompt: "secret gguf stream prompt",
+                systemPrompt: "secret gguf stream system",
+                maxTokens: 24,
+                reasoningMode: .fast,
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                requestedRuntimeKind: .gguf,
+                steeringHintsJSON: "{\"secret\":\"hint\"}"
+            )
+        )
+
+        #expect(output == "Secret streamed local output")
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("local-gguf-stream-") == true)
+        #expect(sink.events.allSatisfy { event in
+            if case .agent(let id, let modelID) = event.actor {
+                return id == "local-gguf-client" && modelID == nil
+            }
+            return false
+        })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "local_stream.gguf" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-gguf-stream:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "local_gguf_client" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "stream" })
+        #expect(sink.events.allSatisfy { $0.metadata["provider"] == "local_gguf" })
+        #expect(sink.events.allSatisfy { $0.metadata["resolved_runtime"] == BackendRuntimeKind.gguf.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["requested_runtime"] == BackendRuntimeKind.gguf.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["reasoning_mode"] == LocalReasoningMode.fast.rawValue })
+        #expect(sink.events.allSatisfy { $0.metadata["max_tokens"] == "24" })
+        #expect(sink.events.allSatisfy { $0.metadata["prompt_char_count"] == "25" })
+        #expect(sink.events.allSatisfy { $0.metadata["system_prompt_char_count"] == "25" })
+        #expect(sink.events.allSatisfy { $0.metadata["steering_hints_present"] == "true" })
+
+        let argumentsPayload = try payload(from: sink.events.first?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == [
+            "max_tokens",
+            "prompt_char_count",
+            "provider",
+            "reasoning_mode",
+            "requested_runtime",
+            "resolved_runtime",
+            "steering_hints_present",
+            "system_prompt_char_count"
+        ])
+        #expect(argumentsPayload["prompt_char_count"] as? Int == 25)
+        #expect(argumentsPayload["system_prompt_char_count"] as? Int == 25)
+        #expect(argumentsPayload["provider"] as? String == "local_gguf")
+
+        let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["chunk_count", "elapsed_ms", "output_char_count", "success"])
+        #expect(resultPayload["success"] as? Bool == true)
+        #expect(resultPayload["chunk_count"] as? Int == 1)
+        #expect(resultPayload["output_char_count"] as? Int == 28)
+        #expect(sink.events.last?.tool?.status == .completed)
+        #expect(sink.events.last?.tool?.errorMessage == nil)
+
+        try assertNoLocalGGUFSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "secret gguf stream prompt",
+                "secret gguf stream system",
+                "Secret streamed local output",
+                "qwen35-35b-a3b-apexmini",
+                fixture.path,
+                "{\"secret\":\"hint\"}",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("gguf client stream records sanitized failed AgentEvent")
+    func ggufClientStreamRecordsSanitizedFailedAgentEvent() async throws {
+        let fixture = try makeGGUFFixture(named: [
+            "qwen35-35b-a3b-apexmini.gguf",
+        ])
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let runtime = makeRuntime(
+            output: "unused",
+            stream: { _, _, _ in
+                AsyncThrowingStream { continuation in
+                    continuation.finish(throwing: LocalGGUFClientAgentEventTestError.backendSecret)
+                }
+            }
+        )
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: false
+            )
+        )
+        let inference = makeLocalGGUFInference()
+        let sink = LocalGGUFAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 790 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalGGUFClient(
+            runtime: runtime,
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            agentProvenanceRecorder: recorder
+        )
+        client.configurePreparedGenerationRuntime(
+            PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: fixture.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        do {
+            _ = try await collectStream(
+                client.stream(
+                    prompt: "secret gguf stream prompt",
+                    systemPrompt: "secret gguf stream system",
+                    maxTokens: 24,
+                    reasoningMode: .fast,
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    requestedRuntimeKind: .gguf,
+                    steeringHintsJSON: "{\"secret\":\"hint\"}"
+                )
+            )
+            Issue.record("Expected local GGUF stream to fail.")
+        } catch LocalGGUFClientAgentEventTestError.backendSecret {
+        } catch {
+            Issue.record("Expected backendSecret failure, got \(error).")
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage == "backend_failure")
+        #expect(sink.events.last?.metadata["failure_class"] == "backend_failure")
+
+        let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["chunk_count", "elapsed_ms", "output_char_count", "success"])
+        #expect(resultPayload["success"] as? Bool == false)
+        #expect(resultPayload["chunk_count"] as? Int == 0)
+        #expect(resultPayload["output_char_count"] as? Int == 0)
+
+        try assertNoLocalGGUFSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "secret gguf stream prompt",
+                "secret gguf stream system",
+                "backendSecret",
+                "qwen35-35b-a3b-apexmini",
+                fixture.path,
+                "{\"secret\":\"hint\"}",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue
+            ]
+        )
+    }
+
+    @MainActor
+    @Test("gguf client stream records sanitized cancelled AgentEvent")
+    func ggufClientStreamRecordsSanitizedCancelledAgentEvent() async throws {
+        let fixture = try makeGGUFFixture(named: [
+            "qwen35-35b-a3b-apexmini.gguf",
+        ])
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let runtime = makeRuntime(
+            output: "unused",
+            stream: { _, _, _ in
+                AsyncThrowingStream { continuation in
+                    continuation.finish(throwing: CancellationError())
+                }
+            }
+        )
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: false
+            )
+        )
+        let inference = makeLocalGGUFInference()
+        let sink = LocalGGUFAgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 791 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalGGUFClient(
+            runtime: runtime,
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            agentProvenanceRecorder: recorder
+        )
+        client.configurePreparedGenerationRuntime(
+            PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: fixture.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            )
+        )
+
+        do {
+            _ = try await collectStream(
+                client.stream(
+                    prompt: "secret gguf stream prompt",
+                    systemPrompt: "secret gguf stream system",
+                    maxTokens: 24,
+                    reasoningMode: .fast,
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    requestedRuntimeKind: .gguf,
+                    steeringHintsJSON: "{\"secret\":\"hint\"}"
+                )
+            )
+            Issue.record("Expected local GGUF stream to cancel.")
+        } catch is CancellationError {
+        } catch {
+            Issue.record("Expected CancellationError, got \(error).")
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage == "cancelled")
+        #expect(sink.events.last?.metadata["failure_class"] == "cancelled")
+
+        let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["chunk_count", "elapsed_ms", "output_char_count", "success"])
+        #expect(resultPayload["success"] as? Bool == false)
+        #expect(resultPayload["chunk_count"] as? Int == 0)
+        #expect(resultPayload["output_char_count"] as? Int == 0)
+
+        try assertNoLocalGGUFSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "secret gguf stream prompt",
+                "secret gguf stream system",
+                "qwen35-35b-a3b-apexmini",
+                fixture.path,
+                "{\"secret\":\"hint\"}",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue
+            ]
+        )
+    }
+
+    @MainActor
     @Test("gguf client rejects fast mode for always-thinking families")
     func ggufClientRejectsFastModeForAlwaysThinkingFamilies() async throws {
         let fixture = try makeGGUFFixture(named: [
@@ -472,13 +790,14 @@ struct LocalGGUFClientTests {
 
     private func makeRuntime(
         output: String,
-        generate: (@Sendable (String, String?, Int) async throws -> String)? = nil
+        generate: (@Sendable (String, String?, Int) async throws -> String)? = nil,
+        stream: (@Sendable (String, String?, Int) -> AsyncThrowingStream<String, Error>)? = nil
     ) -> LocalGGUFInProcessRuntime {
         LocalGGUFInProcessRuntime(
             engineBuilder: { _, _, _ in
                 LocalGGUFEngine(
                     generate: generate ?? { _, _, _ in output },
-                    stream: { _, _, _ in
+                    stream: stream ?? { _, _, _ in
                         AsyncThrowingStream { continuation in
                             continuation.yield(output)
                             continuation.finish()
@@ -522,6 +841,14 @@ struct LocalGGUFClientTests {
         let data = try #require(json.data(using: .utf8))
         let object = try JSONSerialization.jsonObject(with: data)
         return try #require(object as? [String: Any])
+    }
+
+    private func collectStream(_ stream: AsyncThrowingStream<String, Error>) async throws -> String {
+        var output = ""
+        for try await chunk in stream {
+            output += chunk
+        }
+        return output
     }
 
     private func assertNoLocalGGUFSecretLeak(

@@ -478,6 +478,23 @@ closed:
   bindings, or EventStore schema. Focused tests pass; the runtime-control-plane
   UniFFI cleanup issue surfaced by the older MLX stream cancellation test is now
   closed by Runtime Contract PR30.
+- AgentEvent PR32 now instruments direct `LocalGGUFClient.stream(...)` calls
+  without changing stream routing or token delivery. Valid GGUF streaming
+  requests persist requested, started, and completed/failed AgentEvents with
+  `local-gguf-stream-...` run ids, per-client `local-gguf-stream:N` tool ids,
+  `local-gguf-client` actor metadata, `local_stream.gguf` tool name,
+  `source=local_gguf_client`, `surface=stream`, `provider=local_gguf`,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, chunk
+  count, output character count, success boolean, and bounded
+  `cancelled|runtime_unavailable|model_not_loaded|model_not_found|backend_failure`
+  failure classes. Prompt text, system prompts, steering hint JSON, streamed
+  output, model ids, artifact ids, filesystem paths, localized descriptions,
+  arbitrary error text, Hermes/MCP/subprocess surfaces, browser/computer-use
+  surfaces, LocalAuthentication, and ANE/private API details are intentionally
+  excluded from persisted provenance. This does not change GGUF generation,
+  model loading, runtime control-plane policy, UI, graph, Rust, generated
+  bindings, or EventStore schema.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1211,8 +1228,9 @@ before building.
   LocalBackend stream provenance PR25, AgentEvent local runtime recorder mount
   PR26, AgentEvent LocalMLX direct generate provenance PR27, AgentEvent
   LocalMLX direct stream provenance PR28, AgentEvent LocalBackend direct
-  generate provenance PR29, Runtime Contract error-class bridge PR30, durable
-  GraphEvent mutation mapping PR1, durable GraphEvent Settings
+  generate provenance PR29, Runtime Contract error-class bridge PR30,
+  LocalAgent reflex streaming EOF flush PR31, AgentEvent LocalGGUF direct stream
+  provenance PR32, durable GraphEvent mutation mapping PR1, durable GraphEvent Settings
   visibility PR2, durable GraphEvent projection snapshot PR3, durable GraphEvent
   projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -1444,6 +1462,8 @@ AgentEvent LocalMLX direct generate provenance PR27,
 AgentEvent LocalMLX direct stream provenance PR28,
 AgentEvent LocalBackend direct generate provenance PR29,
 Runtime Contract error-class bridge PR30,
+LocalAgent reflex streaming EOF flush PR31,
+AgentEvent LocalGGUF direct stream provenance PR32,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1477,8 +1497,8 @@ DriverChannelToolExecutor channel wrapper, remote relay channel HTTP client
 paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
-plus LocalGGUF non-streaming generate, LocalBackend stream, and direct LocalMLX
-generate and stream surfaces,
+plus LocalGGUF non-streaming generate and stream, LocalBackend generate and
+stream, and direct LocalMLX generate and stream surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

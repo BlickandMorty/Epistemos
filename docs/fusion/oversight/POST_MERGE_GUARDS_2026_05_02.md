@@ -633,3 +633,25 @@
 - note: focused verification log `/tmp/epistemos-local-agent-reflex-detector-eof-flush-pr31-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. Claude red-team timed out with no usable output and was marked failed; Codex red-team approved the brief with no P0/P1 attacks.
 - test: `IncrementalToolCallDetectorTests`
 - test: `LocalAgentLoopTests`
+
+## agent-event-local-gguf-stream-pr32
+
+- grep: `toolName: "local_stream.gguf"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `runID: "local-gguf-stream-` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `toolCallID: nextToolCallID(for: .stream)` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `AgentProvenanceActor.agent(id: "local-gguf-client", modelID: nil)` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"source": "local_gguf_client"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"surface": surface.metadataValue` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"provider": "local_gguf"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `"chunk_count"` in `Epistemos/Engine/LocalGGUFClient.swift`
+- grep: `ggufClientStreamRecordsSanitizedAgentEvents` in `EpistemosTests/LocalGGUFClientTests.swift`
+- grep: `ggufClientStreamRecordsSanitizedFailedAgentEvent` in `EpistemosTests/LocalGGUFClientTests.swift`
+- grep: `ggufClientStreamRecordsSanitizedCancelledAgentEvent` in `EpistemosTests/LocalGGUFClientTests.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in PR32 staged source/test hunks returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in PR32 staged source/test hunks returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, streamed output, model id, artifact id, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in direct GGUF stream AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/LocalGGUFClient.swift`, `EpistemosTests/LocalGGUFClientTests.swift`, Round 64 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✘ Test "gguf client stream records sanitized AgentEvents" failed` in `/tmp/epistemos-agent-event-local-gguf-stream-pr32-red2-20260503.log` before implementation because no direct stream AgentEvents were recorded.
+- log: focused verification log `/tmp/epistemos-agent-event-local-gguf-stream-pr32-green4-20260503.log`; Xcode exited `0` under `pipefail` with isolated DerivedData at `/tmp/epistemos-dd-pr32`. The earlier rerun logs exposed stale Xcode build database contention, not a code failure, and stale build processes were cleaned up before the isolated pass.
+- test: `LocalGGUFClientTests`
