@@ -638,6 +638,19 @@ closed:
   AgentEvent emission boundaries. This does not change production source,
   EventStore schema, Core/MAS policy, MCP/Hermes routing, Sovereign, graph,
   generated bindings, subprocess surfaces, or ANE/private API surfaces.
+- AgentEvent GhostComputerAgent reachability guard PR45 is now closed as an
+  explicit no-route guard. `GhostComputerAgentReachabilityGuardTests` proves no
+  production Swift instantiates `GhostComputerAgent`, no production Swift calls
+  its static MCP adapters, `Phase4Bridge` and `StreamingDelegate` keep shipping
+  computer-use dispatch on the already-instrumented `ComputerUseBridge`, and
+  the Rust agent loop still delegates `name == "computer"` to the native
+  computer callback. Kimi also closed the LocalAgent reflex/EOF completion
+  candidate as audit-only: EOF flush returns plaintext, fallback tool parsing
+  still routes through `executeToolCall`, and every requested LocalAgent tool
+  event reaches a completed or failed terminal event. This does not change
+  production source, EventStore schema, Core/MAS policy, MCP/Hermes routing,
+  Sovereign, graph, generated bindings, subprocess surfaces, or ANE/private API
+  surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1387,7 +1400,8 @@ before building.
   ComputerUseBridge provenance PR39, AgentEvent Phase4 perceive provenance PR40,
   AgentEvent Phase4 interact provenance PR41, AgentEvent Phase4 screen_watch
   provenance PR42, AgentEvent ClarifyPromptBridge provenance PR43, AgentEvent
-  Bridge no-double-count source guard PR44,
+  Bridge no-double-count source guard PR44, AgentEvent GhostComputerAgent
+  reachability guard PR45,
   durable GraphEvent mutation mapping PR1,
   durable GraphEvent Settings visibility PR2,
   durable GraphEvent projection snapshot PR3, durable GraphEvent projection
@@ -1462,7 +1476,7 @@ are:
   AgentEvent PR28, AgentEvent PR29, Runtime Contract PR30, AgentEvent PR32,
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
   AgentEvent PR39, AgentEvent PR40, AgentEvent PR41, AgentEvent PR42,
-  AgentEvent PR43, AgentEvent PR44,
+  AgentEvent PR43, AgentEvent PR44, AgentEvent PR45,
   GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
