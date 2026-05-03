@@ -539,3 +539,23 @@
 - log: `✔ Test run with 8 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-runtime-recorder-mount-pr26-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The red log `/tmp/epistemos-agent-event-local-runtime-recorder-mount-pr26-red-20260503.log` failed before implementation with the expected missing mount assertions.
 - test: `LocalBackendLLMClientTests`
+
+## agent-event-local-mlx-generate-pr27
+
+- grep: `toolName: "local_generate.mlx"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `runID: "local-mlx-generate-` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `AgentProvenanceActor.agent(id: "local-mlx-client", modelID: nil)` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"source": "local_mlx_client"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"provider": "local_mlx"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"prompt_char_count"` and `"system_prompt_char_count"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder` appears in the `LocalMLXClient` constructor argument block in `Epistemos/App/AppBootstrap.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in PR27 staged source/test hunks returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in PR27 staged source/test hunks returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, generated output, model id, artifact id, image URLs, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/MLXInferenceService.swift`, `Epistemos/App/AppBootstrap.swift`, `EpistemosTests/LocalBackendLLMClientTests.swift`, Round 59 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "local mlx generate records sanitized AgentEvents" passed`
+- log: `✔ Test "local mlx generate records sanitized failed AgentEvent" passed`
+- log: `✔ Test run with 10 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-mlx-generate-pr27-green-20260503.log`; Xcode exited `0` under `pipefail`, printed `** TEST SUCCEEDED **`, and contained no `panicked` or `Can't lift flat errors` text. The red log `/tmp/epistemos-agent-event-local-mlx-generate-pr27-red-20260503.log` failed before implementation because `LocalMLXClient` did not yet accept the provenance recorder.
+- test: `LocalBackendLLMClientTests`

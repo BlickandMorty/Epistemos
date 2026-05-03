@@ -503,8 +503,10 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
     private let inference: InferenceState
     private let paths: LocalModelPaths
     private let runtimeControlPlane: BackendRuntimeControlPlane
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private let prepareForRequest: @MainActor @Sendable () async -> Void
     private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
+    private var generateToolSequence: UInt64 = 0
 
     init(
         runtime: any LocalMLXRuntime,
@@ -513,12 +515,14 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         runtimeControlPlane: BackendRuntimeControlPlane = BackendRuntimeControlPlane(
             policy: BackendRuntimePolicy(availableRuntimeKinds: [.mlx])
         ),
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil,
         prepareForRequest: @escaping @MainActor @Sendable () async -> Void = {}
     ) {
         self.runtime = runtime
         self.inference = inference
         self.paths = paths
         self.runtimeControlPlane = runtimeControlPlane
+        self.agentProvenanceRecorder = agentProvenanceRecorder
         self.prepareForRequest = prepareForRequest
     }
 
@@ -576,71 +580,136 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
             for: request,
             requestedRuntimeKind: requestedRuntimeKind
         )
-        await prepareForRequest()
-        let launch = try await runtimeControlPlane.generate(request: contractRequest)
-        guard launch.resolvedRuntimeKind == .mlx else {
-            throw LocalInferenceRoutingError.runtimeUnavailable
-        }
-
-        try await runtimeControlPlane.appendStarted(streamHandle: launch.streamHandle)
-        try await runtimeControlPlane.appendStatus(
-            streamHandle: launch.streamHandle,
-            status: "loading_model"
+        let provenance = makeGenerateProvenanceContext(
+            for: request,
+            requestedRuntimeKind: requestedRuntimeKind
         )
+        let lifecycleStart = DispatchTime.now()
+        var launch: BackendGenerationLaunch?
+
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallRequested,
+            status: .requested
+        )
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallStarted,
+            status: .started
+        )
+
         do {
+            await prepareForRequest()
+            let preparedLaunch = try await runtimeControlPlane.generate(request: contractRequest)
+            launch = preparedLaunch
+            guard preparedLaunch.resolvedRuntimeKind == .mlx else {
+                throw LocalInferenceRoutingError.runtimeUnavailable
+            }
+
+            try await runtimeControlPlane.appendStarted(streamHandle: preparedLaunch.streamHandle)
+            try await runtimeControlPlane.appendStatus(
+                streamHandle: preparedLaunch.streamHandle,
+                status: "loading_model"
+            )
             let output = try await runtime.generate(request: request)
-            try await runtimeControlPlane.appendToken(streamHandle: launch.streamHandle, text: output)
+            try await runtimeControlPlane.appendToken(streamHandle: preparedLaunch.streamHandle, text: output)
             let summary = await backendSummary(
                 from: request,
-                launch: launch,
+                launch: preparedLaunch,
                 output: output,
                 cancelled: false,
                 errorClass: nil
             )
             try await runtimeControlPlane.finishCompleted(
-                streamHandle: launch.streamHandle,
+                streamHandle: preparedLaunch.streamHandle,
                 summary: summary
+            )
+            let elapsedMs = Self.localMLXGenerateDurationMilliseconds(since: lifecycleStart)
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallCompleted,
+                resultJSON: Self.localMLXGenerateResultJSON(
+                    success: true,
+                    elapsedMs: elapsedMs,
+                    outputCharacterCount: output.count
+                ),
+                durationMs: elapsedMs,
+                status: .completed
             )
             return output
         } catch is CancellationError {
-            let summary = await backendSummary(
-                from: request,
-                launch: launch,
-                output: nil,
-                cancelled: true,
-                errorClass: .cancelled
+            let elapsedMs = Self.localMLXGenerateDurationMilliseconds(since: lifecycleStart)
+            var failedMetadata = provenance.metadata
+            failedMetadata["failure_class"] = BackendRuntimeContractError.cancelled.rawValue
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallFailed,
+                resultJSON: Self.localMLXGenerateResultJSON(
+                    success: false,
+                    elapsedMs: elapsedMs
+                ),
+                durationMs: elapsedMs,
+                status: .failed,
+                errorMessage: BackendRuntimeContractError.cancelled.rawValue,
+                metadata: failedMetadata
             )
-            do {
-                try await runtimeControlPlane.finishCancelled(
-                    streamHandle: launch.streamHandle,
-                    summary: summary
+            if let launch {
+                let summary = await backendSummary(
+                    from: request,
+                    launch: launch,
+                    output: nil,
+                    cancelled: true,
+                    errorClass: .cancelled
                 )
-            } catch {
-                Log.engine.error(
-                    "MLXInferenceService: failed to mark cancelled stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
+                do {
+                    try await runtimeControlPlane.finishCancelled(
+                        streamHandle: launch.streamHandle,
+                        summary: summary
+                    )
+                } catch {
+                    Log.engine.error(
+                        "MLXInferenceService: failed to mark cancelled stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                    )
+                }
             }
             throw CancellationError()
         } catch {
-            let mapped = Self.mapBackendError(error)
-            let summary = await backendSummary(
-                from: request,
-                launch: launch,
-                output: nil,
-                cancelled: false,
-                errorClass: mapped
+            let elapsedMs = Self.localMLXGenerateDurationMilliseconds(since: lifecycleStart)
+            let failureClass = Self.mapBackendError(error)
+            var failedMetadata = provenance.metadata
+            failedMetadata["failure_class"] = failureClass.rawValue
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallFailed,
+                resultJSON: Self.localMLXGenerateResultJSON(
+                    success: false,
+                    elapsedMs: elapsedMs
+                ),
+                durationMs: elapsedMs,
+                status: .failed,
+                errorMessage: failureClass.rawValue,
+                metadata: failedMetadata
             )
-            do {
-                try await runtimeControlPlane.finishFailed(
-                    streamHandle: launch.streamHandle,
-                    errorClass: mapped,
-                    message: error.localizedDescription,
-                    summary: summary
+            if let launch {
+                let summary = await backendSummary(
+                    from: request,
+                    launch: launch,
+                    output: nil,
+                    cancelled: false,
+                    errorClass: failureClass
                 )
-            } catch {
-                Log.engine.error(
-                    "MLXInferenceService: failed to mark failed stream \(launch.streamHandle, privacy: .public): \(error.localizedDescription, privacy: .public)"
-                )
+                do {
+                    try await runtimeControlPlane.finishFailed(
+                        streamHandle: launch.streamHandle,
+                        errorClass: failureClass,
+                        message: failureClass.rawValue,
+                        summary: summary
+                    )
+                } catch {
+                    Log.engine.error(
+                        "MLXInferenceService: failed to mark failed stream \(launch.streamHandle, privacy: .public)"
+                    )
+                }
             }
             throw error
         }
@@ -916,6 +985,133 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
         )
     }
 
+    private struct LocalMLXGenerateProvenanceContext {
+        let runID: String
+        let toolCallID: String
+        let actor: AgentProvenanceActor
+        let argumentsJSON: String
+        let metadata: [String: String]
+    }
+
+    private func makeGenerateProvenanceContext(
+        for request: LocalMLXRequest,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) -> LocalMLXGenerateProvenanceContext {
+        LocalMLXGenerateProvenanceContext(
+            runID: "local-mlx-generate-\(UUID().uuidString.uppercased())",
+            toolCallID: nextGenerateToolCallID(),
+            actor: .agent(id: "local-mlx-client", modelID: nil),
+            argumentsJSON: Self.localMLXGenerateArgumentsJSON(
+                for: request,
+                requestedRuntimeKind: requestedRuntimeKind
+            ),
+            metadata: Self.localMLXGenerateMetadata(
+                for: request,
+                requestedRuntimeKind: requestedRuntimeKind
+            )
+        )
+    }
+
+    private func nextGenerateToolCallID() -> String {
+        generateToolSequence += 1
+        return "local-mlx-generate:\(generateToolSequence)"
+    }
+
+    private func recordGenerateAgentEvent(
+        _ context: LocalMLXGenerateProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        agentProvenanceRecorder?.recordToolEvent(
+            runID: context.runID,
+            traceID: nil,
+            kind: kind,
+            actor: context.actor,
+            toolCallID: context.toolCallID,
+            toolName: "local_generate.mlx",
+            argumentsJSON: context.argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata ?? context.metadata
+        )
+    }
+
+    private nonisolated static func localMLXGenerateArgumentsJSON(
+        for request: LocalMLXRequest,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) -> String {
+        localMLXGenerateJSON([
+            "max_tokens": request.maxTokens,
+            "prompt_char_count": request.prompt.count,
+            "provider": "local_mlx",
+            "reasoning_mode": request.reasoningMode.rawValue,
+            "requested_runtime": requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": BackendRuntimeKind.mlx.rawValue,
+            "steering_hints_present": hasSteeringHints(request.steeringHintsJSON),
+            "system_prompt_char_count": request.systemPrompt?.count ?? 0,
+        ])
+    }
+
+    private nonisolated static func localMLXGenerateMetadata(
+        for request: LocalMLXRequest,
+        requestedRuntimeKind: BackendRuntimeKind?
+    ) -> [String: String] {
+        [
+            "max_tokens": "\(request.maxTokens)",
+            "prompt_char_count": "\(request.prompt.count)",
+            "provider": "local_mlx",
+            "reasoning_mode": request.reasoningMode.rawValue,
+            "requested_runtime": requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": BackendRuntimeKind.mlx.rawValue,
+            "source": "local_mlx_client",
+            "steering_hints_present": "\(hasSteeringHints(request.steeringHintsJSON))",
+            "surface": "generate",
+            "system_prompt_char_count": "\(request.systemPrompt?.count ?? 0)",
+        ]
+    }
+
+    private nonisolated static func localMLXGenerateResultJSON(
+        success: Bool,
+        elapsedMs: UInt64,
+        outputCharacterCount: Int? = nil
+    ) -> String {
+        var payload: [String: Any] = [
+            "elapsed_ms": elapsedMs,
+            "success": success,
+        ]
+        if let outputCharacterCount {
+            payload["output_char_count"] = outputCharacterCount
+        }
+        return localMLXGenerateJSON(payload)
+    }
+
+    private nonisolated static func localMLXGenerateJSON(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
+
+    private nonisolated static func hasSteeringHints(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private nonisolated static func localMLXGenerateDurationMilliseconds(since start: DispatchTime) -> UInt64 {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now >= start.uptimeNanoseconds else { return 0 }
+        let elapsedNanoseconds = now - start.uptimeNanoseconds
+        return elapsedNanoseconds / 1_000_000
+    }
+
     private func backendSummary(
         from request: LocalMLXRequest,
         launch: BackendGenerationLaunch,
@@ -973,6 +1169,9 @@ final class LocalMLXClient: RoutedLocalRuntimeClient {
     private nonisolated static func mapBackendError(_ error: Error) -> BackendRuntimeContractError {
         if error is CancellationError {
             return .cancelled
+        }
+        if let contractError = error as? BackendRuntimeContractError {
+            return contractError
         }
         if let routingError = error as? LocalInferenceRoutingError {
             switch routingError {

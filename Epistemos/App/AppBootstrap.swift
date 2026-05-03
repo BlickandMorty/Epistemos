@@ -1274,11 +1274,13 @@ final class AppBootstrap {
         // notifications and will apply the real snapshot once loaded.
         graphState.applyPreparedRetrievalRuntimeConfiguration(nil)
 
+        let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()
         let localMLXClient = LocalMLXClient(
             runtime: localInferenceService,
             inference: inference,
             paths: localModelManager.paths,
             runtimeControlPlane: localRuntimeControlPlane,
+            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,
             prepareForRequest: {
                 localModelRefreshThrottle.refreshIfNeeded()
             }
@@ -1287,7 +1289,6 @@ final class AppBootstrap {
             preparedModelRegistryState.generationRuntimeConfiguration
         )
         self.localMLXClient = localMLXClient
-        let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()
         let localGGUFRuntime = LocalGGUFInProcessRuntime()
         let localGGUFClient = LocalGGUFClient(
             runtime: localGGUFRuntime,
