@@ -11,10 +11,15 @@ import os
 
 @MainActor @Observable
 final class AgentCommandCenterState {
-    typealias ToolCatalogLoader = @MainActor (_ vaultPath: String, _ operatingMode: EpistemosOperatingMode) -> [OmegaToolDefinition]
+    typealias ToolCatalogLoader = @MainActor (
+        _ vaultPath: String,
+        _ operatingMode: EpistemosOperatingMode,
+        _ distribution: ToolSurfacePolicy.Distribution
+    ) -> [OmegaToolDefinition]
 
     private let log = Logger(subsystem: "com.epistemos", category: "AgentCommandCenter")
     @ObservationIgnored private let toolCatalogLoader: ToolCatalogLoader
+    @ObservationIgnored private let toolSurfaceDistribution: ToolSurfacePolicy.Distribution
     @ObservationIgnored private let userDefaults: UserDefaults
     @ObservationIgnored private var catalogVaultPath: String = ""
     @ObservationIgnored private var isApplyingSpecialistConfiguration = false
@@ -193,9 +198,11 @@ final class AgentCommandCenterState {
 
     init(
         toolCatalogLoader: @escaping ToolCatalogLoader = AgentCommandCenterState.defaultToolCatalogLoader,
+        toolSurfaceDistribution: ToolSurfacePolicy.Distribution = .currentBuild,
         userDefaults: UserDefaults = .standard
     ) {
         self.toolCatalogLoader = toolCatalogLoader
+        self.toolSurfaceDistribution = toolSurfaceDistribution
         self.userDefaults = userDefaults
 
         if let rawValue = userDefaults.string(forKey: PersistenceKey.activeSpecialistPreset),
@@ -303,7 +310,7 @@ final class AgentCommandCenterState {
             ("Safari", "safari"), ("Terminal", "terminal"),
             ("Notes", "notes"), ("Files", "file"), ("Automation", "automation"),
         ]
-        for (token, id) in agents {
+        for (token, id) in agents where isBuiltInAgentContextProviderVisible(id) {
             providers.append(ACCContextProvider(id: "agent:\(id)", token: token, category: .agent))
         }
 
@@ -319,6 +326,19 @@ final class AgentCommandCenterState {
         contextProviders = providers
     }
 
+    private func isBuiltInAgentContextProviderVisible(_ id: String) -> Bool {
+        guard ToolSurfacePolicy.resolvedDistribution(toolSurfaceDistribution) == .coreAppStore else {
+            return true
+        }
+
+        switch id {
+        case "notes", "file":
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Refresh all catalogs at once (called on present()).
     private func refreshCatalogs() {
         refreshSkillCatalog()
@@ -327,7 +347,14 @@ final class AgentCommandCenterState {
     }
 
     private func rebuildToolCatalog() {
-        let tools = toolCatalogLoader(catalogVaultPath, selectedOperatingMode)
+        let tools = ToolSurfacePolicy.surfacedTools(
+            toolCatalogLoader(
+                catalogVaultPath,
+                selectedOperatingMode,
+                toolSurfaceDistribution
+            ),
+            distribution: toolSurfaceDistribution
+        )
         let previousToggles = toolToggles
         availableTools = tools
         toolToggles = Dictionary(
@@ -343,7 +370,8 @@ final class AgentCommandCenterState {
 
     private static func defaultToolCatalogLoader(
         vaultPath: String,
-        operatingMode: EpistemosOperatingMode
+        operatingMode: EpistemosOperatingMode,
+        _: ToolSurfacePolicy.Distribution
     ) -> [OmegaToolDefinition] {
         let tier = ChatToolTier.from(operatingMode: operatingMode)
         return ToolTierBridge(vaultPath: vaultPath, tier: tier).loadTools()

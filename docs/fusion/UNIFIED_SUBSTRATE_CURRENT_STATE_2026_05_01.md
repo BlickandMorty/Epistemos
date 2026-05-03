@@ -863,6 +863,18 @@ Proven or actively wired:
   merge. Focused evidence:
   `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log`
   and `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`.
+- Command Center Tool Surface Policy PR1 is now code-closed for the dormant
+  Agent Command Center compatibility state: `AgentCommandCenterState` accepts a
+  distribution, filters every loaded tool catalog at the `rebuildToolCatalog`
+  fan-in through `ToolSurfacePolicy`, rebuilds toggles from the filtered tools,
+  derives `mcpToolsByAgent` from that same filtered list, and hides Safari,
+  Terminal, and Automation context providers in Core/App Store while preserving
+  Notes/Files/vault/open-note context. Manually typed `@Terminal` does not
+  resolve in Core because parsing uses the filtered provider list. No Omega,
+  Rust, Engine, view, provider, entitlement, project, graph, or generated files
+  were touched. Claude red-team found a real P0 around catalog filtering, then
+  approved the hardened R3 patch with P0=0/P1=0. Focused evidence:
+  `/tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
