@@ -602,3 +602,4 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 81 | 2026-05-03T17:06Z | codex-red-team | brief=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/fleet/phase4-screen-watch-agent-event-pr42/claude-red-team/attacks.md | +1 |
 | 81 | 2026-05-03T17:04Z | test-green | scope=phase4-screen-watch-agent-event-pr42 | xcodebuild | session:9986 | done | /tmp/epistemos-phase4-screen-watch-agent-event-pr42-redgreen-20260503.log | +1 |
 | 81 | 2026-05-03T17:06Z | guard | slice=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 82 | 2026-05-03T17:12Z | parallel-work-manifest | scope=clarify-prompt-bridge-agent-event-pr43 | codex/local | n/a | done | docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md | +1 |
