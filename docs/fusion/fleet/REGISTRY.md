@@ -266,3 +266,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 43 | 2026-05-03T04:45Z | test | suite=UniFFICallbackThroughputTests | xcodebuild | session:57624 | done | /tmp/epistemos-r15-true-rust-callback-pr10-green-20260502.log | +1 |
 | 43 | 2026-05-03T04:49Z | test | suite=UniFFICallbackThroughputTests+BenchmarkHarnessSourceGuardTests+R15BenchmarkEvidenceLedgerTests | xcodebuild | session:76574 | done | /tmp/epistemos-r15-true-rust-callback-pr10-green-final-20260502.log | +1 |
 | 43 | 2026-05-03T04:50Z | test | suite=agent_core bridge::tests | cargo | session:64158 | done | /tmp/epistemos-r15-true-rust-callback-pr10-cargo-bridge-20260502.log | +1 |
+| 44 | 2026-05-03T05:01Z | preflight | scope=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_44_2026_05_02.md | +1 |
+| 44 | 2026-05-03T05:03Z | detective | concept=R15 live renderer FPS baseline | codex/local | n/a | done | docs/fusion/fleet/r15-renderer-fps-baseline-pr11/detectives/r15-renderer-fps-baseline.md | +1 |
+| 44 | 2026-05-03T05:03Z | aggregator | slice=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/fleet/r15-renderer-fps-baseline-pr11/aggregator.md | +1 |
+| 44 | 2026-05-03T05:03Z | pipeline-builder | slice=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/deliberation/r15_renderer_fps_baseline_pr11_deliberation_2026_05_02.md | +1 |
+| 44 | 2026-05-03T05:04Z | claude-red-team | brief=r15-renderer-fps-baseline-pr11 | claude/print-readonly | pid:12296 | failed | docs/fusion/fleet/r15-renderer-fps-baseline-pr11/claude-red-team/attacks-stalled.md | -1 |
+| 44 | 2026-05-03T05:06Z | codex-red-team | brief=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/fleet/r15-renderer-fps-baseline-pr11/claude-red-team/attacks.md | +1 |
+| 44 | 2026-05-03T05:07Z | test | suite=BenchmarkHarnessSourceGuardTests | xcodebuild | session:7658 | failed | /tmp/epistemos-r15-renderer-fps-pr11-red-20260502.log | +1 |
+| 44 | 2026-05-03T05:12Z | test | suite=GraphFFIBenchmarkTests+BenchmarkHarnessSourceGuardTests+R15BenchmarkEvidenceLedgerTests | xcodebuild | session:93185 | done | /tmp/epistemos-r15-renderer-fps-pr11-green-20260502.log | +1 |
+| 44 | 2026-05-03T05:21Z | test | suite=GraphFFIBenchmarkTests opt-in artifact | xcodebuild | session:87805 | done | /tmp/epistemos-r15-renderer-fps-pr11-artifact-suite-20260502.log | +1 |
+| 44 | 2026-05-03T05:22Z | artifact | result=renderer_fps_thermal_soak | codex/local | n/a | done | benchmarks/results/2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json | +1 |
+| 44 | 2026-05-03T05:23Z | guard | slice=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

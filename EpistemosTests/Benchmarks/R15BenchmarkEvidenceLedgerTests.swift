@@ -21,7 +21,7 @@ nonisolated enum R15BenchmarkEvidenceLedgerError: Error, CustomStringConvertible
     var description: String {
         switch self {
         case .unexpectedExpectationCount(let count):
-            return "Expected 10 closed R15 baselines, found \(count)"
+            return "Unexpected closed R15 baseline count: \(count)"
         case .duplicateFilename(let filename):
             return "Duplicate R15 benchmark evidence filename: \(filename)"
         case .invalidFilename(let filename):
@@ -164,15 +164,28 @@ nonisolated enum R15BenchmarkEvidenceLedger {
                 "rust_loop_status": "true_rust_to_swift_loop",
             ]
         ),
+        .init(
+            filename: "2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json",
+            suite: "R15 Renderer FPS Baseline",
+            measurement: "renderer_fps_thermal_soak",
+            unit: "frames_per_second",
+            sampleCount: 5,
+            requiredMetadata: [
+                "baseline_kind": "r15_pr11_renderer_fps",
+                "fixture_status": "live_graph_renderer_frame_rate_fixture",
+                "render_status": "live_render_frame_rate",
+                "layer_status": "offscreen_cAMetalLayer_drawable",
+                "thermal_soak_status": "not_five_min_thermal_soak",
+            ]
+        ),
     ]
 
     static let forbiddenOpenBaselineFilenames: Set<String> = [
         "2026-05-02t00-00-00-000z-r15-mlx-live-token-throughput-baseline-mlx_live_token_throughput_deepseek7b_32.json",
-        "2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json",
     ]
 
     static func validateClosedBaselineLedger() throws {
-        guard closedBaselineExpectations.count == 11 else {
+        guard closedBaselineExpectations.count == 12 else {
             throw R15BenchmarkEvidenceLedgerError.unexpectedExpectationCount(
                 closedBaselineExpectations.count
             )
@@ -204,6 +217,7 @@ nonisolated enum R15BenchmarkEvidenceLedger {
         try requireMeasurement("true_rust_callback_loop", metadataKey: "rust_loop_status", value: "true_rust_to_swift_loop")
         try requireMeasurement("mlx_thermal_policy_snapshot_1000", metadataKey: "live_inference_status", value: "not_live_mlx_inference_tok_s")
         try requireMeasurement("graph_ffi_bridge_fixture_250", metadataKey: "render_status", value: "not_live_render_frame_rate")
+        try requireMeasurement("renderer_fps_thermal_soak", metadataKey: "thermal_soak_status", value: "not_five_min_thermal_soak")
     }
 
     private static func validateRequiredMetadata(

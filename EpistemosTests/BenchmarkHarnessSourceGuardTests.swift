@@ -157,6 +157,22 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.contains("@Suite(\"Graph FFI Benchmarks\", .disabled"))
     }
 
+    @Test("R15 PR11 renderer FPS baseline uses the live GraphEngine render path honestly")
+    @MainActor
+    func r15PR11RendererFPSBaselineUsesLiveGraphEngineRenderPathHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/GraphFFIBenchmarkTests.swift")
+
+        #expect(source.contains("GraphRendererFPSBaselineRunner"))
+        #expect(source.contains("renderer_fps_thermal_soak"))
+        #expect(source.contains("GraphEngine.render(width:height:)"))
+        #expect(source.contains("live_graph_renderer_frame_rate_fixture"))
+        #expect(source.contains("offscreen_cAMetalLayer_drawable"))
+        #expect(source.contains("not_five_min_thermal_soak"))
+        #expect(source.contains("EPISTEMOS_RUN_RENDERER_FPS_BENCHMARK"))
+        #expect(!source.contains("try? BenchmarkRunRecorder"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+    }
+
     @Test("R15 PR8 live MLX token throughput baseline uses the real local runtime honestly")
     @MainActor
     func r15PR8LiveMLXTokenThroughputBaselineUsesRealLocalRuntimeHonestly() throws {

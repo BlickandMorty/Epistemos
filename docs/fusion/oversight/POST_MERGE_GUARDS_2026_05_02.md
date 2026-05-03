@@ -348,3 +348,24 @@
 - test: `BenchmarkHarnessSourceGuardTests`
 - test: `R15BenchmarkEvidenceLedgerTests`
 - test: `cargo test --manifest-path agent_core/Cargo.toml --lib bridge::tests`
+
+## r15-renderer-fps-baseline-pr11
+
+- grep: `GraphRendererFPSBaselineRunner`
+- grep: `renderer_fps_thermal_soak`
+- grep: `live_graph_renderer_frame_rate_fixture`
+- grep: `GraphEngine.render(width:height:)`
+- grep: `not_five_min_thermal_soak`
+- forbidden staged grep: `graph-engine/src/renderer.rs|MetalGraphView.swift|HologramController.swift|Epistemos/Graph/GraphEngine.swift|mlx_live_token_throughput|MLXInferenceService|LocalMLXClient` in the staged diff, except pre-existing unchanged docs/test references.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine Epistemos/Engine Epistemos/Omega Epistemos.xcodeproj build-rust`
+- staged allow: only benchmark tests/source guard/evidence ledger, the new renderer FPS JSON artifact, and Round 44 docs are allowed.
+- log: `✔ Test "renderer FPS baseline writes finite decodable report when explicitly enabled" passed`
+- log: `✔ Test "renderer FPS baseline rejects invalid counts" passed`
+- log: `✔ Test "R15 PR11 renderer FPS baseline uses live GraphEngine render path honestly" passed`
+- log: `✔ Test "committed R15 benchmark ledger names only closed evidence" passed`
+- log: `✔ Test "open R15 live baseline claims remain explicitly open" passed`
+- log: `✔ Test run with 5 tests in 1 suite passed`
+- note: focused verification logs `/tmp/epistemos-r15-renderer-fps-pr11-green-20260502.log` and `/tmp/epistemos-r15-renderer-fps-pr11-artifact-suite-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise. The committed artifact records p50 `119.65399546442954` fps, p95 `119.8709496648827` fps, and `thermal_soak_status=not_five_min_thermal_soak`.
+- test: `GraphFFIBenchmarkTests`
+- test: `BenchmarkHarnessSourceGuardTests`
+- test: `R15BenchmarkEvidenceLedgerTests`

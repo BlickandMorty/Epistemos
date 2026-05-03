@@ -269,10 +269,16 @@ set. PR10 adds a debug-only true Rust-to-Swift callback-loop export baseline:
 Rust loops over `AgentEventDelegate.on_text_delta`, Swift records the real JSON
 artifact, source guards prove the Rust export is used, and the evidence ledger
 now names 11 closed R15 artifacts while keeping MLX tok/s and renderer FPS
-open. Remaining specialized baselines for live MLX token throughput under
-sufficient-memory/thermal-soak conditions and live renderer FPS stay open for
-later fixture gates; production GRDB/768d KNN still needs its own future gate
-before any product claim.
+open. PR11 closes the offscreen live renderer FPS fixture through
+`GraphEngine.render(width:height:)`, writes
+`2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json`,
+and marks `thermal_soak_status=not_five_min_thermal_soak` so it is not a
+manual five-minute thermal-soak, renderer optimization, or product-runtime
+claim. The evidence ledger now names 12 closed R15 artifacts while keeping MLX
+tok/s open. Remaining specialized baseline for live MLX token throughput under
+sufficient-memory/thermal-soak conditions stays open for a later fixture gate;
+production GRDB/768d KNN still needs its own future gate before any product
+claim.
 
 Goal:
 Create measurement scaffolding before touching graph renderer, FFI, or
@@ -342,6 +348,15 @@ Acceptance:
   as a debug-only true Rust-to-Swift callback-loop baseline. This does not
   claim a hot-path replacement, BoltFFI migration, graph/render speedup, or
   production session behavior change.
+- For PR11, cite
+  `docs/fusion/deliberation/r15_renderer_fps_baseline_pr11_deliberation_2026_05_02.md`,
+  `EpistemosTests/Benchmarks/GraphFFIBenchmarkTests.swift`,
+  `EpistemosTests/BenchmarkHarnessSourceGuardTests.swift`,
+  `EpistemosTests/Benchmarks/R15BenchmarkEvidenceLedgerTests.swift`, and
+  `2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json`
+  as an offscreen live renderer FPS fixture baseline only. This does not claim
+  a five-minute/manual thermal soak, production renderer optimization, or
+  product runtime readiness.
 - For remaining specialized surfaces, the baseline must come from a later real
   fixture gate, not the PR1 placeholder bodies.
 
