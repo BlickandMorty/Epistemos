@@ -9,12 +9,15 @@ private let settingsViewLogger = Logger(subsystem: "Epistemos", category: "Setti
 enum SettingsViewDestructiveActionSovereignGate {
     enum Target: Equatable {
         case savedWorkspace(name: String)
+        case vaultDisconnect(name: String)
         case resetEverything
     }
 
     static func requirement(for target: Target) -> SovereignGateRequirement {
         switch target {
         case .savedWorkspace:
+            return .deviceOwnerAuthentication
+        case .vaultDisconnect:
             return .deviceOwnerAuthentication
         case .resetEverything:
             return .deviceOwnerAuthentication
@@ -25,6 +28,8 @@ enum SettingsViewDestructiveActionSovereignGate {
         switch target {
         case .savedWorkspace(let name):
             return "Delete saved workspace \"\(safeName(name))\"."
+        case .vaultDisconnect(let name):
+            return "Disconnect vault \"\(safeName(name))\"."
         case .resetEverything:
             return "Reset Everything and delete saved data."
         }
@@ -3029,6 +3034,7 @@ private struct VaultDetailView: View {
     @Environment(UIState.self) private var ui
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
+    @State private var isVaultDisconnectAuthorizationInFlight = false
 
     private var theme: EpistemosTheme { ui.theme }
 
@@ -3064,9 +3070,12 @@ private struct VaultDetailView: View {
                         }
                         .controlSize(.small)
                         Button("Disconnect", role: .destructive) {
-                            VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
+                            Task { @MainActor in
+                                await requestVaultDisconnectAuthorization(vaultURL: url)
+                            }
                         }
                         .controlSize(.small)
+                        .disabled(isVaultDisconnectAuthorizationInFlight)
                     }
                 } else {
                     Text("No vault connected. Select a folder to sync your markdown notes.")
@@ -3130,6 +3139,24 @@ private struct VaultDetailView: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    @MainActor
+    private func requestVaultDisconnectAuthorization(vaultURL: URL) async {
+        guard !isVaultDisconnectAuthorizationInFlight else { return }
+        isVaultDisconnectAuthorizationInFlight = true
+        defer { isVaultDisconnectAuthorizationInFlight = false }
+
+        let target = SettingsViewDestructiveActionSovereignGate.Target.vaultDisconnect(name: vaultURL.lastPathComponent)
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: target),
+            reason: SettingsViewDestructiveActionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }
+
+        VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
     }
 
     private func autoSaveOption(from interval: TimeInterval) -> Int {
