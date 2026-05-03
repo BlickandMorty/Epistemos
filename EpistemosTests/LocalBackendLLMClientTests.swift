@@ -26,11 +26,13 @@ struct LocalBackendLLMClientTests {
 
     private final class StubRoutedLocalClient: RoutedLocalRuntimeClient {
         let response: String
+        let generateError: Error?
         let streamError: Error?
         var generateCalls: [RoutedCall] = []
 
-        init(response: String, streamError: Error? = nil) {
+        init(response: String, generateError: Error? = nil, streamError: Error? = nil) {
             self.response = response
+            self.generateError = generateError
             self.streamError = streamError
         }
 
@@ -114,6 +116,9 @@ struct LocalBackendLLMClientTests {
                     steeringHintsJSON: steeringHintsJSON
                 )
             )
+            if let generateError {
+                throw generateError
+            }
             return response
         }
 
@@ -467,6 +472,277 @@ struct LocalBackendLLMClientTests {
         #expect(mlxClient.generateCalls.isEmpty)
     }
 
+    @Test("backend generate records sanitized AgentEvents")
+    func backendGenerateRecordsSanitizedAgentEvents() async throws {
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx, .gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx secret generated output")
+        let ggufOutput = "gguf secret generated output"
+        let ggufClient = StubRoutedLocalClient(response: ggufOutput)
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 880 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx, .gguf] },
+            preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            ),
+            agentProvenanceRecorder: recorder
+        )
+        let secretPrompt = "secret backend generate prompt"
+        let secretSystemPrompt = "secret backend generate system"
+        let secretHints = "{\"secret\":\"backend generate hint\"}"
+
+        let output = try await client.generate(
+            prompt: secretPrompt,
+            systemPrompt: secretSystemPrompt,
+            maxTokens: 37,
+            reasoningMode: .fast,
+            modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+            requestedRuntimeKind: nil,
+            steeringHintsJSON: secretHints
+        )
+
+        #expect(output == ggufOutput)
+        #expect(ggufClient.generateCalls.count == 1)
+        #expect(mlxClient.generateCalls.isEmpty)
+
+        let routerEvents = sink.events.filter { $0.tool?.toolName == "local_backend.generate" }
+        #expect(routerEvents.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(Set(routerEvents.map(\.runID)).count == 1)
+        #expect(routerEvents.first?.runID.hasPrefix("local-backend-generate-") == true)
+        #expect(routerEvents.allSatisfy { $0.tool?.toolCallID == "local-backend-generate:1" })
+        #expect(routerEvents.allSatisfy { $0.metadata["source"] == "local_backend_llm_client" })
+        #expect(routerEvents.allSatisfy { $0.metadata["surface"] == "generate" })
+        #expect(routerEvents.allSatisfy { $0.metadata["provider"] == "local_backend" })
+        #expect(routerEvents.last?.metadata["resolved_runtime"] == BackendRuntimeKind.gguf.rawValue)
+        #expect(routerEvents.last?.metadata["requested_runtime"] == BackendRuntimeKind.gguf.rawValue)
+
+        let argumentsPayload = try payload(from: routerEvents.last?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == [
+            "max_tokens",
+            "prompt_char_count",
+            "provider",
+            "reasoning_mode",
+            "requested_runtime",
+            "resolved_runtime",
+            "steering_hints_present",
+            "surface",
+            "system_prompt_char_count"
+        ])
+        #expect(argumentsPayload["prompt_char_count"] as? Int == secretPrompt.count)
+        #expect(argumentsPayload["system_prompt_char_count"] as? Int == secretSystemPrompt.count)
+        #expect(argumentsPayload["surface"] as? String == "generate")
+
+        let resultPayload = try payload(from: routerEvents.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "output_char_count", "success"])
+        #expect(resultPayload["success"] as? Bool == true)
+        #expect(resultPayload["output_char_count"] as? Int == ggufOutput.count)
+        #expect(routerEvents.last?.tool?.status == .completed)
+        #expect(routerEvents.last?.tool?.errorMessage == nil)
+
+        try assertNoLocalBackendSecretLeak(
+            in: routerEvents,
+            forbidden: [
+                secretPrompt,
+                secretSystemPrompt,
+                secretHints,
+                ggufOutput,
+                "mlx secret generated output",
+                "qwen35-35b-a3b-apexmini",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                preparedDirectory.path
+            ]
+        )
+    }
+
+    @Test("backend generate records sanitized routing failure AgentEvent")
+    func backendGenerateRecordsSanitizedRoutingFailureAgentEvent() async throws {
+        let inference = makeInferenceState()
+        inference.setPreparedLocalTextModelIDs([LocalTextModelID.qwopus27Bv3.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwopus27Bv3.rawValue)
+        inference.setAvailableLocalGenerationRuntimeKinds([.mlx, .gguf])
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx")
+        let ggufClient = StubRoutedLocalClient(response: "gguf")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 881 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx] },
+            preparedGenerationRuntimeConfiguration: nil,
+            agentProvenanceRecorder: recorder
+        )
+
+        await #expect(throws: LocalInferenceRoutingError.runtimeUnavailable) {
+            _ = try await client.generate(
+                prompt: "secret backend route prompt",
+                systemPrompt: "secret backend route system",
+                maxTokens: 32,
+                reasoningMode: .fast,
+                modelID: LocalTextModelID.qwopus27Bv3.rawValue,
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: "{\"secret\":\"route hint\"}"
+            )
+        }
+
+        #expect(ggufClient.generateCalls.isEmpty)
+        #expect(mlxClient.generateCalls.isEmpty)
+        let routerEvents = sink.events.filter { $0.tool?.toolName == "local_backend.generate" }
+        #expect(routerEvents.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        #expect(routerEvents.last?.tool?.status == .failed)
+        #expect(routerEvents.last?.tool?.errorMessage == "runtime_unavailable")
+        #expect(routerEvents.last?.metadata["failure_class"] == "runtime_unavailable")
+        #expect(routerEvents.last?.metadata["resolved_runtime"] == BackendRuntimeKind.mlx.rawValue)
+
+        let resultPayload = try payload(from: routerEvents.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "success"])
+        #expect(resultPayload["success"] as? Bool == false)
+
+        try assertNoLocalBackendSecretLeak(
+            in: routerEvents,
+            forbidden: [
+                "secret backend route prompt",
+                "secret backend route system",
+                "{\"secret\":\"route hint\"}",
+                LocalTextModelID.qwopus27Bv3.rawValue
+            ]
+        )
+    }
+
+    @Test("backend generate records sanitized backend failure AgentEvent")
+    func backendGenerateRecordsSanitizedBackendFailureAgentEvent() async throws {
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx, .gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx unused")
+        let ggufClient = StubRoutedLocalClient(
+            response: "gguf unused",
+            generateError: AgentEventTestError.backendSecret
+        )
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 882 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx, .gguf] },
+            preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            ),
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try await client.generate(
+                prompt: "secret backend failure prompt",
+                systemPrompt: "secret backend failure system",
+                maxTokens: 42,
+                reasoningMode: .fast,
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: "{\"secret\":\"backend failure hint\"}"
+            )
+            Issue.record("Expected local backend generate to fail.")
+        } catch AgentEventTestError.backendSecret {
+        } catch {
+            Issue.record("Expected backendSecret failure, got \(error).")
+        }
+
+        #expect(ggufClient.generateCalls.count == 1)
+        #expect(mlxClient.generateCalls.isEmpty)
+        let routerEvents = sink.events.filter { $0.tool?.toolName == "local_backend.generate" }
+        #expect(routerEvents.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        #expect(routerEvents.last?.tool?.status == .failed)
+        #expect(routerEvents.last?.tool?.errorMessage == "backend_failure")
+        #expect(routerEvents.last?.metadata["failure_class"] == "backend_failure")
+
+        let resultPayload = try payload(from: routerEvents.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "success"])
+        #expect(resultPayload["success"] as? Bool == false)
+
+        try assertNoLocalBackendSecretLeak(
+            in: routerEvents,
+            forbidden: [
+                "secret backend failure prompt",
+                "secret backend failure system",
+                "{\"secret\":\"backend failure hint\"}",
+                "gguf unused",
+                "mlx unused",
+                "backendSecret",
+                "qwen35-35b-a3b-apexmini",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                preparedDirectory.path
+            ]
+        )
+    }
+
     @Test("backend stream records sanitized AgentEvents")
     func backendStreamRecordsSanitizedAgentEvents() async throws {
         let inference = makeInferenceState()
@@ -565,11 +841,13 @@ struct LocalBackendLLMClientTests {
             "requested_runtime",
             "resolved_runtime",
             "steering_hints_present",
+            "surface",
             "system_prompt_char_count"
         ])
         #expect(argumentsPayload["prompt_char_count"] as? Int == secretPrompt.count)
         #expect(argumentsPayload["system_prompt_char_count"] as? Int == secretSystemPrompt.count)
         #expect(argumentsPayload["provider"] as? String == "local_backend")
+        #expect(argumentsPayload["surface"] as? String == "stream")
 
         let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
         #expect(Set(resultPayload.keys) == ["chunk_count", "elapsed_ms", "output_char_count", "success"])

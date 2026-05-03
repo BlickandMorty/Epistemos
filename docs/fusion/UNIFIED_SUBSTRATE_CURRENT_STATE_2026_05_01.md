@@ -458,6 +458,29 @@ closed:
   cancellation test still surfaces the existing runtime-control-plane UniFFI
   cleanup log `Can't lift flat errors` when `finishCancelled` is invoked, which
   is a separate runtime-contract follow-up and not AgentEvent persisted data.
+- AgentEvent PR29 now instruments `LocalBackendLLMClient.generate(...)` without
+  touching routing policy or lower runtime implementations. Valid local backend
+  generate requests persist router-level requested, started, and
+  completed/failed AgentEvents with `local-backend-generate-...` run ids,
+  per-router `local-backend-generate:N` tool ids,
+  `local-backend-llm-client` actor metadata, `local_backend.generate` tool
+  name, `source=local_backend_llm_client`, `surface=generate`,
+  `provider=local_backend`, requested/resolved runtime, reasoning mode, max
+  token count, prompt/system prompt character counts, steering-hints presence,
+  elapsed milliseconds, output character count, success boolean, and bounded
+  `cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+  failure classes. Prompt text, system prompts, steering hint JSON, generated
+  output, model ids, artifact ids, filesystem paths, localized descriptions,
+  arbitrary error text, Hermes/MCP/subprocess surfaces, browser/computer-use
+  surfaces, LocalAuthentication, and ANE/private API details are intentionally
+  excluded from persisted provenance. This does not suppress lower-runtime
+  GGUF/MLX AgentEvents when real lower clients emit them, and does not change
+  runtime control-plane policy, model loading, UI, graph, Rust, generated
+  bindings, or EventStore schema. Focused tests pass; the focused suite still
+  surfaces the existing runtime-control-plane UniFFI cleanup log
+  `Can't lift flat errors` through the already-existing MLX stream cancellation
+  test, which is a separate runtime-contract follow-up and not PR29 persisted
+  data.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1247,7 +1270,7 @@ are:
   PR11, AgentEvent PR12, AgentEvent PR17, AgentEvent PR18, AgentEvent PR19,
   AgentEvent PR20, AgentEvent PR21, AgentEvent PR22, AgentEvent PR23,
   AgentEvent PR24, AgentEvent PR25, AgentEvent PR26, AgentEvent PR27,
-  AgentEvent PR28, GraphEvent PR1, GraphEvent visibility PR2,
+  AgentEvent PR28, AgentEvent PR29, GraphEvent PR1, GraphEvent visibility PR2,
   GraphEvent projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
@@ -1407,6 +1430,7 @@ AgentEvent LocalBackend stream provenance PR25,
 AgentEvent local runtime recorder mount PR26,
 AgentEvent LocalMLX direct generate provenance PR27,
 AgentEvent LocalMLX direct stream provenance PR28,
+AgentEvent LocalBackend direct generate provenance PR29,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
