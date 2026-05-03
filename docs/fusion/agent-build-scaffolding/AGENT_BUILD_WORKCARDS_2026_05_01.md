@@ -1618,6 +1618,14 @@ missing/unavailable auth performs no disconnect, and an in-flight guard prevents
 double prompts/actions. The slice does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, alter vault teardown semantics, or touch Rust/generated/
 graph/Omega/ChatCoordinator.
+Authority Reset PR12 is also closed. `Epistemos/Views/Settings/AuthoritySettingsView.swift`
+now routes the existing Authority Settings batch "Reset to defaults" footer and
+Quick Setup preset buttons through the shared `AppBootstrap` `SovereignGate`
+with `.deviceOwnerAuthentication` before mutating `AgentAuthorityStore`. The
+slice denies safely when the shared gate is unavailable, keeps individual
+picker changes out of scope, and does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, alter authority persistence semantics, or touch
+Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1678,6 +1686,8 @@ Allowed write set:
   closed.
 - PR11 Notes Sidebar vault menu disconnect migration and focused tests: already
   closed.
+- PR12 Authority Settings batch reset and Quick Setup preset migration and
+  focused tests: already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1689,7 +1699,8 @@ Allowed write set:
   covered by PR7, RootView database reset/vault disconnect controls are already
   covered by PR8, Model Vaults sidebar file/folder deletes are already covered
   by PR9, Agent Control custom-tool deletes are already covered by PR10, and
-  Notes Sidebar vault menu disconnect is already covered by PR11.
+  Notes Sidebar vault menu disconnect is already covered by PR11, and
+  Authority Settings batch reset/preset actions are already covered by PR12.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1773,6 +1784,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-red-20260502.log`.
 - PR11 focused green log:
   `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log`.
+- PR12 red log:
+  `/tmp/epistemos-sovereign-gate-authority-reset-pr12-red-20260502.log`.
+- PR12 focused green log:
+  `/tmp/epistemos-sovereign-gate-authority-reset-pr12-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1878,6 +1893,16 @@ Acceptance:
   `LocalAuthentication`, vault teardown semantics, generated transport, Rust,
   graph files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor
   copies, and memory hot paths.
+- PR12 wired/reachable/visible: the existing Authority Settings batch "Reset to
+  defaults" footer and Quick Setup preset actions request shared
+  `SovereignGate` device-owner authentication before mutating
+  `AgentAuthorityStore`, focused tests prove reset/preset targets map to
+  Destructive auth with explicit reason strings, source guards prove the button
+  closures call authorization helpers instead of direct mutation, denied or
+  unavailable auth performs no policy mutation, and the slice stays out of
+  `SovereignGate.swift`, duplicate `LocalAuthentication`, authority persistence
+  semantics, generated transport, Rust, graph files, Omega, ChatCoordinator,
+  subprocesses, solver hot paths, tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

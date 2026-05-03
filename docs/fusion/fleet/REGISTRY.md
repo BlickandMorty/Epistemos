@@ -159,3 +159,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 33 | 2026-05-03T00:12Z | implementation | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | Epistemos/Views/Notes/NotesSidebar.swift | +1 |
 | 33 | 2026-05-03T00:12Z | test | suite=SovereignGateTests | xcodebuild | session:33252 | done | /tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log | +1 |
 | 33 | 2026-05-03T00:12Z | guard | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 34 | 2026-05-03T00:18Z | preflight | scope=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_34_2026_05_02.md | +1 |
+| 34 | 2026-05-03T00:18Z | detective | concept=Sovereign Gate authority reset and preset migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-authority-reset-pr12/detectives/sovereign-gate-authority-reset.md | +1 |
+| 34 | 2026-05-03T00:18Z | aggregator | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-authority-reset-pr12/aggregator.md | +1 |
+| 34 | 2026-05-03T00:18Z | pipeline-builder | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_authority_reset_pr12_deliberation_2026_05_02.md | +1 |
+| 34 | 2026-05-03T00:19Z | claude-red-team | brief=sovereign-gate-authority-reset-pr12 | claude/print-readonly | session:14510 | failed | docs/fusion/fleet/sovereign-gate-authority-reset-pr12/claude-red-team/attacks.md | -1 |
+| 34 | 2026-05-03T00:23Z | codex-red-team | brief=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-authority-reset-pr12/codex-red-team/attacks.md | +1 |
+| 34 | 2026-05-03T00:30Z | implementation | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | Epistemos/Views/Settings/AuthoritySettingsView.swift | +1 |
+| 34 | 2026-05-03T00:31Z | test | suite=SovereignGateTests | xcodebuild | session:48144 | done | /tmp/epistemos-sovereign-gate-authority-reset-pr12-green-20260502.log | +1 |
+| 34 | 2026-05-03T00:31Z | guard | slice=sovereign-gate-authority-reset-pr12 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

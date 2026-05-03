@@ -436,6 +436,16 @@ closed:
   passed 23/23. This does not edit `SovereignGate.swift`, duplicate
   `LocalAuthentication`, alter vault teardown semantics, or touch
   Rust/generated/graph/Omega/ChatCoordinator surfaces.
+- Sovereign Gate Authority Reset PR12 is now closed for the existing Authority
+  Settings batch policy reset and Quick Setup preset surfaces.
+  `AuthoritySettingsView` maps reset/default and preset targets through typed
+  `AuthoritySettingsSovereignGate` requirements, routes both batch actions
+  through the shared `AppBootstrap` `SovereignGate` with
+  `.deviceOwnerAuthentication`, denies safely when the gate is unavailable, and
+  only mutates the existing `AgentAuthorityStore` after `.allowed`. Focused
+  Swift tests passed 25/25. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, alter authority persistence semantics, or touch
+  Rust/generated/graph/Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
