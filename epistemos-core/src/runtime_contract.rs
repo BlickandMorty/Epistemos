@@ -193,7 +193,7 @@ pub struct RuntimeGenerationSummary {
     pub budget_outcome: String,
     pub plan_trace_present: bool,
     pub cancelled: bool,
-    pub error_class: Option<RuntimeContractError>,
+    pub error_class: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -202,7 +202,7 @@ pub struct RuntimeGenerationEvent {
     pub text: Option<String>,
     pub status: Option<String>,
     pub summary: Option<RuntimeGenerationSummary>,
-    pub error_class: Option<RuntimeContractError>,
+    pub error_class: Option<String>,
     pub error_message: Option<String>,
 }
 
@@ -465,7 +465,10 @@ impl RuntimeControlPlane {
                 available_runtime_kinds,
                 primary_generation_runtime_kind,
                 allow_mlx_generation_fallback,
-                allowed_reasoning_profiles: vec![ReasoningProfile::Standard, ReasoningProfile::Deep],
+                allowed_reasoning_profiles: vec![
+                    ReasoningProfile::Standard,
+                    ReasoningProfile::Deep,
+                ],
                 default_reasoning_profile: ReasoningProfile::Standard,
             }),
             model_handles: Mutex::new(HashMap::new()),
@@ -527,7 +530,11 @@ impl RuntimeControlPlane {
         let resolved_reasoning_profile = handshake
             .resolved_reasoning_profile
             .ok_or(RuntimeContractError::ContractViolation)?;
-        let execution_plan = self.resolve_execution_plan(&request, resolved_runtime_kind, resolved_reasoning_profile)?;
+        let execution_plan = self.resolve_execution_plan(
+            &request,
+            resolved_runtime_kind,
+            resolved_reasoning_profile,
+        )?;
         let model_handle = self.resolve_or_load_model_handle(&request, resolved_runtime_kind)?;
         let stream_handle = next_handle_id("stream");
         let state = StreamState::new(
@@ -688,7 +695,7 @@ impl RuntimeControlPlane {
                 text: None,
                 status: None,
                 summary: Some(summary.clone()),
-                error_class: summary.error_class,
+                error_class: summary.error_class.clone(),
                 error_message: None,
             },
             Some(summary),
@@ -699,7 +706,7 @@ impl RuntimeControlPlane {
     pub fn finish_failed(
         &self,
         stream_handle: String,
-        error_class: RuntimeContractError,
+        error_class: String,
         error_message: String,
         summary: Option<RuntimeGenerationSummary>,
     ) -> Result<(), RuntimeContractError> {
@@ -730,7 +737,7 @@ impl RuntimeControlPlane {
                 text: None,
                 status: None,
                 summary: summary.clone(),
-                error_class: Some(RuntimeContractError::Cancelled),
+                error_class: Some(RuntimeContractError::Cancelled.to_string()),
                 error_message: None,
             },
             summary,
@@ -787,10 +794,7 @@ impl RuntimeControlPlane {
             .unwrap_or(false)
     }
 
-    pub fn stats(
-        &self,
-        target: RuntimeStatsTarget,
-    ) -> Result<RuntimeStats, RuntimeContractError> {
+    pub fn stats(&self, target: RuntimeStatsTarget) -> Result<RuntimeStats, RuntimeContractError> {
         if let Some(model_handle_id) = target.model_handle_id {
             let handles = self
                 .model_handles

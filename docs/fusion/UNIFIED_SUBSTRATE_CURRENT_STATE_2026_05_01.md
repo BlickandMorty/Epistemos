@@ -455,9 +455,8 @@ closed:
   from persisted provenance. This does not change routing, token delivery, model
   loading, runtime control-plane policy, lower runtime semantics, UI, graph,
   Rust, generated bindings, or EventStore schema. Focused tests pass; the
-  cancellation test still surfaces the existing runtime-control-plane UniFFI
-  cleanup log `Can't lift flat errors` when `finishCancelled` is invoked, which
-  is a separate runtime-contract follow-up and not AgentEvent persisted data.
+  cancellation cleanup issue these tests exposed is now closed by Runtime
+  Contract PR30.
 - AgentEvent PR29 now instruments `LocalBackendLLMClient.generate(...)` without
   touching routing policy or lower runtime implementations. Valid local backend
   generate requests persist router-level requested, started, and
@@ -476,11 +475,19 @@ closed:
   excluded from persisted provenance. This does not suppress lower-runtime
   GGUF/MLX AgentEvents when real lower clients emit them, and does not change
   runtime control-plane policy, model loading, UI, graph, Rust, generated
-  bindings, or EventStore schema. Focused tests pass; the focused suite still
-  surfaces the existing runtime-control-plane UniFFI cleanup log
-  `Can't lift flat errors` through the already-existing MLX stream cancellation
-  test, which is a separate runtime-contract follow-up and not PR29 persisted
-  data.
+  bindings, or EventStore schema. Focused tests pass; the runtime-control-plane
+  UniFFI cleanup issue surfaced by the older MLX stream cancellation test is now
+  closed by Runtime Contract PR30.
+- Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
+  payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
+  `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
+  the generated FFI as bounded raw strings; Swift maps those strings back into
+  `BackendRuntimeContractError`, and Rust still throws typed
+  `RuntimeContractError` for real contract failures. This resolves the repeated
+  `Can't lift flat errors` cleanup panic without changing runtime policy, model
+  loading, EventStore schema, AgentEvent persistence, UI, graph, or lower
+  GGUF/MLX semantics. Focused `BackendRuntimeContractTests` now pass with the
+  failed/cancelled terminal-event error-class bridge covered.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1199,8 +1206,9 @@ before building.
   AgentEvent LocalGGUF non-streaming generate provenance PR24, AgentEvent
   LocalBackend stream provenance PR25, AgentEvent local runtime recorder mount
   PR26, AgentEvent LocalMLX direct generate provenance PR27, AgentEvent
-  LocalMLX direct stream provenance PR28, durable GraphEvent mutation mapping
-  PR1, durable GraphEvent Settings
+  LocalMLX direct stream provenance PR28, AgentEvent LocalBackend direct
+  generate provenance PR29, Runtime Contract error-class bridge PR30, durable
+  GraphEvent mutation mapping PR1, durable GraphEvent Settings
   visibility PR2, durable GraphEvent projection snapshot PR3, durable GraphEvent
   projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -1270,8 +1278,8 @@ are:
   PR11, AgentEvent PR12, AgentEvent PR17, AgentEvent PR18, AgentEvent PR19,
   AgentEvent PR20, AgentEvent PR21, AgentEvent PR22, AgentEvent PR23,
   AgentEvent PR24, AgentEvent PR25, AgentEvent PR26, AgentEvent PR27,
-  AgentEvent PR28, AgentEvent PR29, GraphEvent PR1, GraphEvent visibility PR2,
-  GraphEvent projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
+  AgentEvent PR28, AgentEvent PR29, Runtime Contract PR30, GraphEvent PR1,
+  GraphEvent visibility PR2, GraphEvent projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
   visibility, and trace/audit projection semantics.
@@ -1431,6 +1439,7 @@ AgentEvent local runtime recorder mount PR26,
 AgentEvent LocalMLX direct generate provenance PR27,
 AgentEvent LocalMLX direct stream provenance PR28,
 AgentEvent LocalBackend direct generate provenance PR29,
+Runtime Contract error-class bridge PR30,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings

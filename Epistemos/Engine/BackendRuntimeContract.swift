@@ -653,7 +653,7 @@ actor BackendRuntimeControlPlane {
         try mapRuntimeError {
             try runtimeControlPlane.finishFailed(
                 streamHandle: streamHandle,
-                errorClass: errorClass.runtimeContractError,
+                errorClass: errorClass.rawValue,
                 errorMessage: message,
                 summary: summary?.runtimeGenerationSummary
             )
@@ -1048,7 +1048,7 @@ private extension BackendGenerationSummary {
             budgetOutcome: budgetOutcome,
             planTracePresent: planTracePresent,
             cancelled: cancelled,
-            errorClass: errorClass?.runtimeContractError
+            errorClass: errorClass?.rawValue
         )
     }
 }
@@ -1083,7 +1083,7 @@ private extension BackendGenerationEvent {
             text: runtimeGenerationEvent.text,
             status: runtimeGenerationEvent.status,
             summary: runtimeGenerationEvent.summary.map(BackendGenerationSummary.init),
-            errorClass: runtimeGenerationEvent.errorClass.map(BackendRuntimeContractError.init),
+            errorClass: runtimeGenerationEvent.errorClass.flatMap(BackendRuntimeContractError.init(rawValue:)),
             errorMessage: runtimeGenerationEvent.errorMessage
         )
     }
@@ -1194,7 +1194,7 @@ private extension BackendGenerationSummary {
             budgetOutcome: runtimeGenerationSummary.budgetOutcome,
             planTracePresent: runtimeGenerationSummary.planTracePresent,
             cancelled: runtimeGenerationSummary.cancelled,
-            errorClass: runtimeGenerationSummary.errorClass.map(BackendRuntimeContractError.init)
+            errorClass: runtimeGenerationSummary.errorClass.flatMap(BackendRuntimeContractError.init(rawValue:))
         )
     }
 }

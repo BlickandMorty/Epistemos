@@ -1048,9 +1048,8 @@ LocalAuthentication, and ANE/private API details. Source and behavior stay away
 from routing semantics, token delivery, model loading, runtime control-plane
 policy, lower runtime semantics, UI, graph, Rust, generated bindings, and
 EventStore schema. Focused runtime verification passes under `pipefail`; the
-green log still records the existing runtime-control-plane UniFFI cancellation
-cleanup issue `Can't lift flat errors`, which remains outside the AgentEvent
-slice.
+runtime-control-plane UniFFI cancellation cleanup issue exposed by this slice is
+now closed by Runtime Contract PR30.
 
 PR29 LocalBackend direct generate provenance is also closed.
 `LocalBackendLLMClient.generate(...)` now records router-level requested,
@@ -1070,9 +1069,19 @@ browser/computer-use surfaces, LocalAuthentication, and ANE/private API details.
 Source and behavior stay away from routing policy changes, lower GGUF/MLX
 runtime behavior, model loading, UI, graph, Rust, generated bindings, and
 EventStore schema. Focused runtime verification passes under `pipefail`; the
-green log still records the existing runtime-control-plane UniFFI cancellation
-cleanup issue `Can't lift flat errors` through the older MLX stream cancellation
-test, which remains outside this AgentEvent slice.
+runtime-control-plane UniFFI cancellation cleanup issue exposed through the
+older MLX stream cancellation test is now closed by Runtime Contract PR30.
+
+PR30 Runtime Contract error-class bridge is also closed.
+`RuntimeGenerationSummary.error_class`, `RuntimeGenerationEvent.error_class`,
+and `finish_failed(error_class:)` now cross the generated UniFFI boundary as
+bounded raw strings, while Swift maps them back into
+`BackendRuntimeContractError` and Rust still throws typed
+`RuntimeContractError` for contract failures. This removes the repeated
+`Can't lift flat errors` cleanup panic from failed/cancelled terminal-event
+polling without changing runtime policy, model loading, EventStore schema,
+AgentEvent persistence, UI, graph, or lower GGUF/MLX semantics. Focused
+`BackendRuntimeContractTests` pass under `pipefail`.
 
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
