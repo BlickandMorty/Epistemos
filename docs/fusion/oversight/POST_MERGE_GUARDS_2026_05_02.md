@@ -973,3 +973,13 @@
 - log: `✔ Suite "Startup Auto-Discovery Credential Import AgentEvent" passed`
 - note: focused verification log `/tmp/epistemos-auth-credential-imported-agent-event-pr52-20260503.log`; Xcode exited `0`, passed 4 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `StartupAutoDiscoveryCredentialImportedAgentEventTests`
+
+## shadow-git-checkpoint-dead-code-delete-pr53
+
+- grep: `rg -n "ShadowGitCheckpoint|shadow_git" Epistemos` stays empty.
+- deleted-source grep: `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift` remains absent.
+- runtime source-guard grep: `RuntimeValidationTests` keeps `shadowGitCheckpointDeadCodeRemainsDeleted` and no longer loads the deleted file as a subprocess helper.
+- staged allow: only `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift`, `EpistemosTests/RuntimeValidationTests.swift` ShadowGit hunks, `EpistemosTests/ShadowGitCheckpointDeadCodeGuardTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this cleanup commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "ShadowGitCheckpoint Dead Code Guard" passed`
+- note: focused verification log `/tmp/epistemos-shadow-git-checkpoint-delete-pr53-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `ShadowGitCheckpointDeadCodeGuardTests`
