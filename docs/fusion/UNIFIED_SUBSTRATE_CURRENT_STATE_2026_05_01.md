@@ -793,6 +793,11 @@ closed:
   utility task, cancels stale refreshes, and keeps
   `GraphEventAuditProjectionService` explicitly nonisolated/Sendable so the
   bounded read does not run on the main actor.
+- Durable GraphEvent consumer projection guard PR38 is now closed as a
+  test-only source guard over the existing EventStore, audit service, Settings,
+  Halo, Trace Inspector, and QueryRuntime projection consumers. It adds no new
+  production consumer, schema, renderer, retrieval, OpLog, Rust, mutation,
+  repair, polling, timer, or project-file behavior.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,
@@ -835,7 +840,9 @@ closed:
   and
   `/tmp/epistemos-sovereign-gate-pr2-green-20260502-r2.log`,
   and
-  `/tmp/epistemos-r16-sidecar-schema-swift-green-20260502.log`.
+  `/tmp/epistemos-r16-sidecar-schema-swift-green-20260502.log`,
+  and
+  `/tmp/epistemos-graph-event-consumer-projection-guard-pr38-green-20260503.log`.
 - Kimi found no P0/P1 blockers in
   `/tmp/epistemos-oplog-swift-bridge-pr1-kimi-advisory-fallback-20260501.log`
   `/tmp/epistemos-eventstore-oplog-projection-kimi-final-advisory-20260501.log`,
@@ -1299,17 +1306,18 @@ before building.
   provenance PR32, AgentEvent Apple Intelligence direct generate provenance
   PR33, AgentEvent v1.6 forward vocabulary PR34, AgentEvent MCPBridge Core
   `tools/call` denial provenance PR35, AgentEvent Phase7 NightBrain trigger
-  provenance PR36, AgentEvent Phase5 SSM state provenance PR37, durable GraphEvent mutation
-  mapping PR1, durable GraphEvent Settings visibility PR2, durable GraphEvent
-  projection snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
-  Settings projection visibility PR5, durable GraphEvent audit projection PR6,
-  durable GraphEvent Halo projection PR7, durable GraphEvent audit visibility
-  PR8, durable GraphEvent Trace Inspector visibility PR9, and durable GraphEvent
-  QueryRuntime projection hint PR10 are closed. Add remaining broader runtime
-  AgentEvent coverage, live GraphEvent consumer projections beyond the closed
-  read-only Settings/Halo/Trace Inspector/QueryRuntime consumers, or mutating
-  repair/audit surfaces only after a new gate names the exact EventStore, OpLog,
-  worker, runtime, and visibility files.
+  provenance PR36, AgentEvent Phase5 SSM state provenance PR37, durable
+  GraphEvent mutation mapping PR1, durable GraphEvent Settings visibility PR2,
+  durable GraphEvent projection snapshot PR3, durable GraphEvent projection
+  consumer PR4, durable GraphEvent Settings projection visibility PR5, durable
+  GraphEvent audit projection PR6, durable GraphEvent Halo projection PR7,
+  durable GraphEvent audit visibility PR8, durable GraphEvent Trace Inspector
+  visibility PR9, durable GraphEvent QueryRuntime projection hint PR10, and
+  durable GraphEvent consumer projection guard PR38 are closed. Add remaining
+  broader runtime AgentEvent coverage, live GraphEvent consumer projections
+  beyond the closed read-only Settings/Halo/Trace Inspector/QueryRuntime
+  consumers, or mutating repair/audit surfaces only after a new gate names the
+  exact EventStore, OpLog, worker, runtime, and visibility files.
 
 4. **Core/MAS release split audit and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
@@ -1568,6 +1576,7 @@ durable GraphEvent projection consumer PR4, durable GraphEvent Settings
 projection visibility PR5,
 durable GraphEvent audit projection PR6,
 durable GraphEvent Halo projection PR7,
+durable GraphEvent consumer projection guard PR38,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
 Surface PR3, Sovereign Gate Rust Matrix PR4, Sovereign Gate Notes Delete PR5,
 Sovereign Gate Chat Delete PR6, Sovereign Gate Version Delete PR7, Sovereign
@@ -1587,7 +1596,8 @@ PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
 Mirror Card 2 audit/no-op closure, are good to build on.
 The next best build card is either remaining live GraphEvent consumer projection
-beyond Halo's read-only ribbon,
+beyond the now-guarded read-only Settings/Halo/Trace Inspector/QueryRuntime
+consumers,
 remaining broader runtime AgentEvent coverage beyond the already closed
 CloudLLM generate/stream/structured, live local runtime recorder mount,
 LocalAgentLoop tool execution,

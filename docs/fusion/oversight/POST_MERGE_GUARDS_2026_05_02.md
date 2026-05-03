@@ -776,3 +776,19 @@
 - log: `✔ Test "Phase5 SSM invalid JSON records bounded failed events" passed`
 - note: focused verification log `/tmp/epistemos-phase5-ssm-state-provenance-pr37-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `Phase5BridgeAgentEventTests`
+
+## graph-event-consumer-projection-guard-pr38
+
+- grep: `graphEventProjectionSnapshot|GraphEventAuditProjectionService|Graph projection idle|EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1` in `EpistemosTests/GraphEventConsumerProjectionGuardTests.swift`
+- forbidden implementation grep: `saveGraphEvent|saveMutationEnvelope|GraphState|GraphStore|SearchIndexService|DispatchSourceTimer|repeatForever|graph-engine|OpLog` returns no matches in the guarded consumer contexts named by the test.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `EpistemosTests/GraphEventConsumerProjectionGuardTests.swift`, Round 76 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files such as `EpistemosTests/GraphEventProjectionFixtureTests.swift` are intentionally excluded.
+- log: first focused build reported `Call to main actor-isolated global function 'loadMirroredSourceTextFile' in a synchronous nonisolated context` before the source-guard suite dropped `nonisolated`.
+- log: `✔ Test "EventStore projection consumer remains a bounded read-only fold" passed`
+- log: `✔ Test "audit projection service stays read-only and UI-free" passed`
+- log: `✔ Test "settings projection row stays appear-refresh only" passed`
+- log: `✔ Test "Halo projection ribbon stays panel-open read-only" passed`
+- log: `✔ Test "Trace Inspector and QueryRuntime projection consumers stay bounded and non-mutating" passed`
+- note: focused verification log `/tmp/epistemos-graph-event-consumer-projection-guard-pr38-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- note: the focused verification also required a compile-order repair in the parallel-agent-created `EpistemosTests/GraphEventProjectionFixtureTests.swift`; that file remains outside this commit.
+- test: `GraphEventConsumerProjectionGuardTests`
