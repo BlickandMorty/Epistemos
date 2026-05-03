@@ -549,3 +549,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 73 | 2026-05-03T15:08Z | test-red | scope=phase7-nightbrain-trigger-provenance-pr36 | xcodebuild | session:10708 | failed | /tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-redgreen-20260503.log | +1 |
 | 73 | 2026-05-03T15:12Z | test-green | scope=phase7-nightbrain-trigger-provenance-pr36 | xcodebuild | session:25883 | done | /tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-green-20260503.log | +1 |
 | 73 | 2026-05-03T15:13Z | guard | slice=phase7-nightbrain-trigger-provenance-pr36 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 74 | 2026-05-03T15:20Z | explorer | scope=phase5-ssm-state-provenance-pr37 | codex/explorer-agent | agent:019dee6c-9df1-79b1-81b6-6fe1b8a002a6 | done | transcript | +1 |
+| 74 | 2026-05-03T15:21Z | preflight | scope=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_74_2026_05_03.md | +1 |
+| 74 | 2026-05-03T15:21Z | detective | concept=Phase5 SSM state AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/phase5-ssm-state-provenance-pr37/detectives/phase5-ssm-state-provenance.md | +1 |
+| 74 | 2026-05-03T15:22Z | aggregator | slice=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/fleet/phase5-ssm-state-provenance-pr37/aggregator.md | +1 |
+| 74 | 2026-05-03T15:22Z | pipeline-builder | slice=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/deliberation/phase5_ssm_state_provenance_pr37_deliberation_2026_05_03.md | +1 |
+| 74 | 2026-05-03T15:22Z | codex-red-team | brief=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/fleet/phase5-ssm-state-provenance-pr37/claude-red-team/attacks.md | +1 |
+| 74 | 2026-05-03T15:24Z | test-red | scope=phase5-ssm-state-provenance-pr37 | xcodebuild | session:unknown | failed | /tmp/epistemos-phase5-ssm-state-provenance-pr37-red-20260503.log | +1 |
+| 74 | 2026-05-03T15:27Z | implementation | slice=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | Epistemos/Bridge/Phase5Bridge.swift; EpistemosTests/Phase5BridgeAgentEventTests.swift | +1 |
+| 74 | 2026-05-03T15:32Z | test-green | scope=phase5-ssm-state-provenance-pr37 | xcodebuild | session:35407 | done | /tmp/epistemos-phase5-ssm-state-provenance-pr37-green-20260503.log | +1 |
+| 74 | 2026-05-03T15:33Z | guard | slice=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 75 | 2026-05-03T15:33Z | parallel-work-manifest | scope=phase5-ssm-state-provenance-pr37 | codex/local | n/a | done | docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md | +1 |

@@ -14,11 +14,24 @@ import os
 
 @MainActor
 final class Phase5Bridge {
+    typealias SSMStateServiceProvider = @MainActor () -> SSMStateService?
+
     static let shared = Phase5Bridge()
 
     private let logger = Logger(subsystem: "app.epistemos", category: "Phase5Bridge")
+    private let ssmStateServiceProvider: SSMStateServiceProvider
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+    private var ssmToolCallSequence: UInt64 = 0
 
-    private init() {}
+    init(
+        ssmStateServiceProvider: @escaping SSMStateServiceProvider = {
+            AppBootstrap.shared?.ssmStateService
+        },
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
+    ) {
+        self.ssmStateServiceProvider = ssmStateServiceProvider
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+    }
 
     // MARK: - Specialty C1: SSM State Management
 
@@ -29,13 +42,37 @@ final class Phase5Bridge {
     /// here — the chat path saves cache snapshots automatically as part
     /// of the inference loop, not via agent FFI.
     func manageSsmState(actionJson: String) async -> String {
-        guard let bootstrap = AppBootstrap.shared else {
+        let toolCallID = nextSsmToolCallID()
+        let parsedRequest = parseSsmStateRequest(actionJson: actionJson)
+        recordSsmStateEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallRequested,
+            status: .requested,
+            request: parsedRequest
+        )
+
+        guard let svc = ssmStateServiceProvider() else {
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedRequest,
+                failureClass: "bootstrap_unavailable",
+                errorMessage: "SSM action could not be started."
+            )
             return errorJson("AppBootstrap is not initialised")
         }
-        let svc = bootstrap.ssmStateService
         guard let data = actionJson.data(using: .utf8),
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedRequest,
+                failureClass: "invalid_action_json",
+                errorMessage: "SSM action was not accepted."
+            )
             return errorJson("invalid SSM action JSON")
         }
 
@@ -44,6 +81,13 @@ final class Phase5Bridge {
 
         switch action {
         case "list":
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallStarted,
+                status: .started,
+                request: parsedRequest
+            )
+            let start = Date()
             let states = svc.listStates(modelId: modelId)
             let entries = states.map { entry -> [String: Any] in
                 [
@@ -52,6 +96,14 @@ final class Phase5Bridge {
                     "timestamp": ISO8601DateFormatter().string(from: entry.timestamp),
                 ]
             }
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallCompleted,
+                status: .completed,
+                request: parsedRequest,
+                result: .list(count: states.count),
+                durationMs: durationMilliseconds(since: start)
+            )
             return jsonString([
                 "success": true,
                 "action": "list",
@@ -60,8 +112,23 @@ final class Phase5Bridge {
                 "states": entries,
             ])
         case "prune":
-            let keepCount = (payload["keep_count"] as? Int) ?? 5
+            let keepCount = boundedKeepCount(payload["keep_count"] as? Int)
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallStarted,
+                status: .started,
+                request: parsedRequest.withKeepCount(keepCount)
+            )
+            let start = Date()
             let removed = svc.pruneStates(modelId: modelId, keepCount: keepCount)
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallCompleted,
+                status: .completed,
+                request: parsedRequest.withKeepCount(keepCount),
+                result: .prune(removed: removed, kept: keepCount),
+                durationMs: durationMilliseconds(since: start)
+            )
             return jsonString([
                 "success": true,
                 "action": "prune",
@@ -70,17 +137,48 @@ final class Phase5Bridge {
                 "kept": keepCount,
             ])
         case "total_size":
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallStarted,
+                status: .started,
+                request: parsedRequest
+            )
+            let start = Date()
             let bytes = svc.totalDiskUsage()
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallCompleted,
+                status: .completed,
+                request: parsedRequest,
+                result: .totalSize(bytes: bytes),
+                durationMs: durationMilliseconds(since: start)
+            )
             return jsonString([
                 "success": true,
                 "action": "total_size",
                 "bytes": bytes,
             ])
         case "save", "load":
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedRequest,
+                failureClass: "live_cache_action_unavailable",
+                errorMessage: "SSM action was not accepted."
+            )
             return errorJson(
                 "ssm_resume save/load are not callable from the agent FFI — they require live MLX cache access. Use list/prune/total_size instead, or save the state from the chat session that owns the cache."
             )
         default:
+            recordSsmStateEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedRequest,
+                failureClass: "unsupported_action",
+                errorMessage: "SSM action was not accepted."
+            )
             return errorJson("unknown SSM action: \(action)")
         }
     }
@@ -153,6 +251,164 @@ final class Phase5Bridge {
     }
 
     // MARK: - Helpers
+
+    private struct SSMStateRequest {
+        let actionClass: String
+        let modelScope: String
+        let keepCount: Int?
+
+        func withKeepCount(_ keepCount: Int) -> Self {
+            Self(actionClass: actionClass, modelScope: modelScope, keepCount: keepCount)
+        }
+    }
+
+    private enum SSMStateResult {
+        case list(count: Int)
+        case prune(removed: Int, kept: Int)
+        case totalSize(bytes: Int)
+    }
+
+    private func nextSsmToolCallID() -> String {
+        let sequence = ssmToolCallSequence
+        if ssmToolCallSequence < UInt64.max {
+            ssmToolCallSequence += 1
+        }
+        return "phase5-ssm-state-\(sequence)"
+    }
+
+    private func parseSsmStateRequest(actionJson: String) -> SSMStateRequest {
+        guard let data = actionJson.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return SSMStateRequest(actionClass: "invalid_json", modelScope: "unknown", keepCount: nil)
+        }
+
+        let action = boundedSsmActionClass(payload["action"] as? String)
+        let modelScope = modelScope(payload["model_id"] as? String)
+        return SSMStateRequest(
+            actionClass: action,
+            modelScope: modelScope,
+            keepCount: (payload["keep_count"] as? Int).map(boundedKeepCount)
+        )
+    }
+
+    private func boundedSsmActionClass(_ action: String?) -> String {
+        switch action?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "list":
+            return "list"
+        case "prune":
+            return "prune"
+        case "total_size":
+            return "total_size"
+        case "save":
+            return "save"
+        case "load":
+            return "load"
+        case nil, "":
+            return "list"
+        default:
+            return "unknown"
+        }
+    }
+
+    private func modelScope(_ modelID: String?) -> String {
+        guard let modelID,
+              !modelID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            return "wildcard"
+        }
+        return modelID == "*" ? "wildcard" : "specific"
+    }
+
+    private func boundedKeepCount(_ keepCount: Int?) -> Int {
+        min(max(keepCount ?? 5, 0), 100)
+    }
+
+    private func durationMilliseconds(since start: Date) -> UInt64? {
+        let elapsed = Int(Date().timeIntervalSince(start) * 1_000)
+        return elapsed >= 0 ? UInt64(elapsed) : nil
+    }
+
+    private func recordSsmStateEvent(
+        toolCallID: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        request: SSMStateRequest,
+        result: SSMStateResult? = nil,
+        durationMs: UInt64? = nil,
+        failureClass: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "phase5-ssm-state",
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "phase5-bridge", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "ssm_state_manage",
+            argumentsJSON: ssmStateArgumentsJSON(request),
+            resultJSON: result.map(ssmStateResultJSON),
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: ssmStateMetadata(request: request, result: result, failureClass: failureClass)
+        )
+    }
+
+    private func ssmStateArgumentsJSON(_ request: SSMStateRequest) -> String {
+        var payload: [String: Any] = [
+            "action_class": request.actionClass,
+            "model_scope": request.modelScope,
+        ]
+        if let keepCount = request.keepCount {
+            payload["keep_count"] = keepCount
+        }
+        return jsonString(payload)
+    }
+
+    private func ssmStateResultJSON(_ result: SSMStateResult) -> String {
+        switch result {
+        case .list(let count):
+            return jsonString([
+                "success": true,
+                "action_class": "list",
+                "count": count,
+            ])
+        case .prune(let removed, let kept):
+            return jsonString([
+                "success": true,
+                "action_class": "prune",
+                "removed": removed,
+                "kept": kept,
+            ])
+        case .totalSize(let bytes):
+            return jsonString([
+                "success": true,
+                "action_class": "total_size",
+                "bytes": bytes,
+            ])
+        }
+    }
+
+    private func ssmStateMetadata(
+        request: SSMStateRequest,
+        result: SSMStateResult?,
+        failureClass: String?
+    ) -> [String: String] {
+        var metadata: [String: String] = [
+            "source": "phase5_bridge",
+            "surface": "ssm_state",
+            "action_class": request.actionClass,
+            "model_scope": request.modelScope,
+        ]
+        if result != nil {
+            metadata["result"] = "completed"
+        }
+        if let failureClass {
+            metadata["failure_class"] = failureClass
+        }
+        return metadata
+    }
 
     private func errorJson(_ message: String) -> String {
         jsonString(["error": message, "success": false])

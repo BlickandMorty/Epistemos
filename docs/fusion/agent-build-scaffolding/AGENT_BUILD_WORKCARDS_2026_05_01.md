@@ -1164,6 +1164,22 @@ This does not change NightBrain scheduling semantics, AppBootstrap lifecycle,
 EventStore schema, UI, graph, Rust, generated bindings, Sovereign, Hermes/MCP,
 subprocess, browser/computer-use, or ANE/private API surfaces.
 
+PR37 AgentEvent Phase5 SSM state provenance is also closed.
+`Phase5Bridge.manageSsmState(actionJson:)` now records sanitized
+requested/started/completed/failed AgentEvents for SSM state `list`, `prune`,
+`total_size`, invalid JSON, unsupported action, bootstrap-unavailable, and
+live-cache-only `save`/`load` outcomes. Persisted rows use the
+`phase5-ssm-state` run id, synthetic `phase5-ssm-state:N` tool-call ids,
+`ssm_state_manage` tool name, bounded action classes, model scope, clamped
+`keep_count`, scalar result counts/bytes, duration, success status, and bounded
+failure classes including `live_cache_action_unavailable`. Focused tests prove
+the bridge does not persist raw action JSON, model ids, cache/state paths,
+state URLs, session ids, timestamps, localized descriptions, or
+bootstrap/internal errors into AgentEvents. This does not change live SSM cache
+ownership, `SSMStateService` internals, generation, UI, graph, Rust, generated
+bindings, EventStore schema, Sovereign, Hermes/MCP, subprocess,
+browser/computer-use, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1285,6 +1301,8 @@ Allowed write set:
   requested/denied policy-gate audit rows only.
 - PR36 Phase7 NightBrain trigger provenance: already closed for
   `Phase7Bridge.triggerNightbrainJob(jobType:priority:)` only.
+- PR37 Phase5 SSM state provenance: already closed for
+  `Phase5Bridge.manageSsmState(actionJson:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay

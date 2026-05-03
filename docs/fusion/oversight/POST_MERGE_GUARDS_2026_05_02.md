@@ -761,3 +761,18 @@
 - log: `✔ Test "Existing Phase7 job aliases stay intact" passed`
 - note: focused verification log `/tmp/epistemos-phase7-nightbrain-trigger-provenance-pr36-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `Phase7BridgeAgentEventTests`
+
+## phase5-ssm-state-provenance-pr37
+
+- grep: `recordSsmStateEvent|phase5-ssm-state|ssm_state_manage|action_class|model_scope|failure_class|live_cache_action_unavailable|boundedKeepCount` in `Epistemos/Bridge/Phase5Bridge.swift` and `EpistemosTests/Phase5BridgeAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: actionJson|resultJSON: response|resultJSON: jsonString\(\[|errorMessage: error|localizedDescription|params\[|state_path|url\.path|session_id` returns no unsafe AgentEvent persistence matches; expected hits are the test poison payload, the unchanged external `list` response fields, the pre-existing constrained-generation error path, and the bounded `errorMessage` recorder parameter.
+- tier-leakage grep: `Hermes|MCP|subprocess|browser|computer-use|LocalAuthentication|LAContext|AppleNeuralEngine|_ANEClient|storageModeManaged|storageModePrivate|memcpy|Z3|Kani|Lean|Kissat|cvc5` returns no matches in the touched source/test files.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Bridge/Phase5Bridge.swift`, `EpistemosTests/Phase5BridgeAgentEventTests.swift`, Round 74 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent test files such as `EpistemosTests/CoreMASBoundarySourceGuardTests.swift` are intentionally excluded.
+- log: `Phase5Bridge' initializer is inaccessible due to 'private' protection level` in `/tmp/epistemos-phase5-ssm-state-provenance-pr37-red-20260503.log` before the injection seam was added.
+- log: `✔ Test "Phase5 SSM total size records sanitized requested started and completed events" passed`
+- log: `✔ Test "Phase5 SSM unsupported actions record sanitized failed events" passed`
+- log: `✔ Test "Phase5 SSM service unavailable records bounded bootstrap failure" passed`
+- log: `✔ Test "Phase5 SSM invalid JSON records bounded failed events" passed`
+- note: focused verification log `/tmp/epistemos-phase5-ssm-state-provenance-pr37-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `Phase5BridgeAgentEventTests`

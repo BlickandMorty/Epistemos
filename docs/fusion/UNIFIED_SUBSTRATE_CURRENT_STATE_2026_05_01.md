@@ -546,6 +546,21 @@ closed:
   JSON. This does not change NightBrain scheduling semantics, AppBootstrap
   lifecycle, EventStore schema, UI, graph, Rust, generated bindings, Sovereign,
   Hermes/MCP, subprocess, browser/computer-use, or ANE/private API surfaces.
+- AgentEvent Phase5 SSM state provenance PR37 now records sanitized
+  requested/started/completed/failed AgentEvents for
+  `Phase5Bridge.manageSsmState(actionJson:)`. `list`, `prune`, and
+  `total_size` persist only bounded action/model-scope metadata plus scalar
+  counts, kept/removed counts, bytes, duration, and success status; `save` and
+  `load` remain non-callable from the agent FFI and record the bounded
+  `live_cache_action_unavailable` failure class. Invalid JSON, unsupported
+  actions, and bootstrap-unavailable paths record generic bounded failures, and
+  `keep_count` is clamped before pruning to avoid negative or huge retention
+  traps. Raw action JSON, model ids, cache/state paths, state URLs, session ids,
+  timestamps, localized descriptions, and internal/bootstrap errors are not
+  persisted in AgentEvents. This does not change SSM live-cache ownership,
+  `SSMStateService` internals, generation, UI, graph, Rust, generated bindings,
+  EventStore schema, Sovereign, Hermes/MCP, subprocess, browser/computer-use,
+  or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1284,7 +1299,7 @@ before building.
   provenance PR32, AgentEvent Apple Intelligence direct generate provenance
   PR33, AgentEvent v1.6 forward vocabulary PR34, AgentEvent MCPBridge Core
   `tools/call` denial provenance PR35, AgentEvent Phase7 NightBrain trigger
-  provenance PR36, durable GraphEvent mutation
+  provenance PR36, AgentEvent Phase5 SSM state provenance PR37, durable GraphEvent mutation
   mapping PR1, durable GraphEvent Settings visibility PR2, durable GraphEvent
   projection snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
