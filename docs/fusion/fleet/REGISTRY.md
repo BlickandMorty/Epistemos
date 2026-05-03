@@ -207,3 +207,15 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 38 | 2026-05-03T02:00Z | implementation | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | Epistemos/LocalAgent/HermesGatewayPolicy.swift | +1 |
 | 38 | 2026-05-03T02:00Z | test | suite=HermesGatewayPolicyTests | xcodebuild | session:7850 | done | /tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log | +1 |
 | 38 | 2026-05-03T02:01Z | guard | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 39 | 2026-05-03T02:06Z | preflight | scope=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_39_2026_05_02.md | +1 |
+| 39 | 2026-05-03T02:06Z | detective | concept=Core/MAS visible tool surface policy | codex/local | n/a | done | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/detectives/tool-surface-policy-core-mas.md | +1 |
+| 39 | 2026-05-03T02:06Z | aggregator | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/aggregator.md | +1 |
+| 39 | 2026-05-03T02:06Z | pipeline-builder | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | docs/fusion/deliberation/tool_surface_policy_core_mas_pr1_deliberation_2026_05_02.md | +1 |
+| 39 | 2026-05-03T02:15Z | test | suite=ToolSurfacePolicyTests | xcodebuild | session:76937 | done | /tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log | +1 |
+| 39 | 2026-05-03T02:15Z | claude-red-team | brief=tool-surface-policy-core-mas-pr1 | claude/authenticated | pid:8872 | failed | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks.md | -1 |
+| 39 | 2026-05-03T02:20Z | claude-red-team | brief=tool-surface-policy-core-mas-pr1 | claude/no-tools | session:25193 | returned | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks-initial.md | +1 |
+| 39 | 2026-05-03T02:26Z | claude-red-team | brief=tool-surface-policy-core-mas-pr1-post-fix | claude/no-tools | session:85388 | returned | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks-post-allowlist.md | +1 |
+| 39 | 2026-05-03T02:32Z | claude-red-team | brief=tool-surface-policy-core-mas-pr1-final | claude/no-tools | session:96073 | done | docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks.md | +1 |
+| 39 | 2026-05-03T02:35Z | implementation | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | Epistemos/Bridge/ToolTierBridge.swift | +1 |
+| 39 | 2026-05-03T02:35Z | test | suite=ToolSurfacePolicyTests | xcodebuild | session:86944 | done | /tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log | +1 |
+| 39 | 2026-05-03T02:35Z | guard | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

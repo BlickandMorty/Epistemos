@@ -825,6 +825,20 @@ Proven or actively wired:
   file, or protected editor path was touched. Red/green evidence:
   `/tmp/epistemos-hermes-provider-surface-pr8-red-20260502.log` and
   `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`.
+- Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
+  planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
+  to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
+  environment marker, then uses a conservative allow-list so Hermes/CLI/MCP/
+  browser/computer-use/Docker/subprocess tools fail closed in Core visibility.
+  Pro/Research distribution keeps gateway tools visible for Hermes-controlled
+  operation, `think` stays hidden, route primitives such as `route_private` are
+  not Core-visible, and tool names are canonicalized before policy lookup.
+  Claude red-team blocked the initial deny-list shape and later the visible
+  `route_private` surface; both were fixed before merge. No runtime adapter,
+  provider, subprocess launcher, MCP bridge, graph, Rust, generated transport,
+  entitlement, project file, or protected editor path was touched. Red/green
+  evidence: `/tmp/epistemos-tool-surface-policy-core-mas-pr1-red-20260502.log`
+  and `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -965,8 +979,9 @@ before building.
    into the Core/App Store build.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
-   authorities. Hermes Gateway Directness PR1 through Evidence Return PR7 are
-   closed for prompt/policy invariants only; future runtime/provider routing
+   authorities. Hermes Gateway Directness PR1 through Provider Surface PR8 and
+   Core/MAS Tool Surface Policy PR1 are closed for prompt/policy/visibility
+   invariants only; future runtime/provider routing
    still requires a new exact gate.
 
 5. **Halo runtime/manual follow-up.**

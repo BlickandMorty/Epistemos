@@ -2026,6 +2026,13 @@ gateway group. `externalGatewaySurfaces` composes from that group so future
 provider additions stay single-edit and inherit the same Pro/Research,
 `hermesGateway`, network, no-direct-substrate, and structured-provenance
 contract.
+Core/MAS Tool Surface Policy PR1 is closed. `ToolSurfacePolicy` now resolves
+visible planning surfaces by distribution: real Core/App Store builds and
+sandboxed processes use a conservative allow-list, Pro/Research keeps gateway
+tools visible for Hermes-controlled operation, `think` stays hidden, and route
+primitives such as `route_private` are not advertised in Core. Claude red-team
+blocked the initial deny-list shape and then the `route_private` allow-list
+entry; both were fixed before merge.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2104,6 +2111,14 @@ Evidence:
   `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`.
 - PR8 Claude red-team:
   `docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md`.
+- Core/MAS Tool Surface PR1 Deliberation:
+  `docs/fusion/deliberation/tool_surface_policy_core_mas_pr1_deliberation_2026_05_02.md`.
+- Core/MAS Tool Surface PR1 Red log:
+  `/tmp/epistemos-tool-surface-policy-core-mas-pr1-red-20260502.log`.
+- Core/MAS Tool Surface PR1 Green log:
+  `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`.
+- Core/MAS Tool Surface PR1 Claude red-team:
+  `docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2111,7 +2126,8 @@ Evidence:
   tests across the policy and prompt suites; PR5 passed the expanded 6-test
   policy suite; PR6 passed the expanded 8-test policy suite; PR7 passed the
   expanded 11-test policy suite; PR8 passed the expanded 13-test policy suite
-  after Claude red-team P1 fixes. Xcode still
+  after Claude red-team P1 fixes. Core/MAS Tool Surface PR1 passed 7 focused
+  `ToolSurfacePolicyTests` after Claude red-team P1 fixes. Xcode still
   printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
