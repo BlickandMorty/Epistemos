@@ -21,6 +21,10 @@ final class Phase4Bridge {
     typealias ComputerActionExecutor = @MainActor (String) async -> String
     typealias PressElementExecutor = @MainActor (String, String) -> AXResponse
     typealias SetFocusedValueExecutor = @MainActor (String, String) -> AXResponse
+    typealias FindElementsExecutor = @MainActor (String, String) -> AXResponse
+    typealias FileExistsProvider = @MainActor (String) -> Bool
+    typealias FileModificationDateProvider = @MainActor (String) -> Date?
+    typealias WatchSleeper = @MainActor (Int) async -> Void
 
     static let shared = Phase4Bridge()
 
@@ -29,9 +33,14 @@ final class Phase4Bridge {
     private let computerActionExecutor: ComputerActionExecutor
     private let pressElementExecutor: PressElementExecutor
     private let setFocusedValueExecutor: SetFocusedValueExecutor
+    private let findElementsExecutor: FindElementsExecutor
+    private let fileExistsProvider: FileExistsProvider
+    private let fileModificationDateProvider: FileModificationDateProvider
+    private let watchSleeper: WatchSleeper
     private let agentProvenanceRecorder: AgentToolProvenanceRecorder
     private var perceiveToolCallSequence: UInt64 = 0
     private var interactToolCallSequence: UInt64 = 0
+    private var screenWatchToolCallSequence: UInt64 = 0
 
     init(
         perceptionProvider: @escaping PerceptionProvider = { appName in
@@ -49,12 +58,29 @@ final class Phase4Bridge {
         setFocusedValueExecutor: @escaping SetFocusedValueExecutor = { value, bundleID in
             AXorcistBridge.shared.setFocusedValue(value, bundleID: bundleID)
         },
+        findElementsExecutor: @escaping FindElementsExecutor = { bundleID, target in
+            AXorcistBridge.shared.findElements(bundleID: bundleID, title: target)
+        },
+        fileExistsProvider: @escaping FileExistsProvider = { path in
+            FileManager.default.fileExists(atPath: path)
+        },
+        fileModificationDateProvider: @escaping FileModificationDateProvider = { path in
+            let attrs = try? FileManager.default.attributesOfItem(atPath: path)
+            return attrs?[.modificationDate] as? Date
+        },
+        watchSleeper: @escaping WatchSleeper = { milliseconds in
+            try? await Task.sleep(for: .milliseconds(milliseconds))
+        },
         agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
     ) {
         self.perceptionProvider = perceptionProvider
         self.computerActionExecutor = computerActionExecutor
         self.pressElementExecutor = pressElementExecutor
         self.setFocusedValueExecutor = setFocusedValueExecutor
+        self.findElementsExecutor = findElementsExecutor
+        self.fileExistsProvider = fileExistsProvider
+        self.fileModificationDateProvider = fileModificationDateProvider
+        self.watchSleeper = watchSleeper
         self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
@@ -318,9 +344,26 @@ final class Phase4Bridge {
     /// - "file_changed" — record mtime, poll until it changes
     /// - "timeout_ms"   — minimum wait, used by callers as a sleep primitive
     func startScreenWatch(watchJson: String) async -> String {
+        let parsedRequest = parsePhase4ScreenWatchRequest(watchJson: watchJson)
+        let toolCallID = nextScreenWatchToolCallID()
+        recordPhase4ScreenWatchEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallRequested,
+            status: .requested,
+            request: parsedRequest
+        )
+
         guard let data = watchJson.data(using: .utf8),
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
+            recordPhase4ScreenWatchEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: parsedRequest,
+                failureClass: "invalid_watch_json",
+                errorMessage: "Phase4 screen watch request was not accepted."
+            )
             return errorJson("invalid watch JSON")
         }
         let mode = (payload["mode"] as? String)?.lowercased() ?? "timeout_ms"
@@ -330,58 +373,118 @@ final class Phase4Bridge {
 
         let start = Date()
         let deadline = start.addingTimeInterval(TimeInterval(timeoutSecs))
+        recordPhase4ScreenWatchEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallStarted,
+            status: .started,
+            request: parsedRequest
+        )
 
         while Date() < deadline {
             if Task.isCancelled { break }
             switch mode {
             case "ax_present":
                 if let bundleID = payload["bundle_id"] as? String, !target.isEmpty {
-                    let response = AXorcistBridge.shared.findElements(
-                        bundleID: bundleID,
-                        title: target
-                    )
+                    let response = findElementsExecutor(bundleID, target)
                     if case .success(let payload, _) = response, payload != nil {
-                        return jsonString([
+                        let response = jsonString([
                             "triggered": true,
                             "mode": mode,
                             "elapsed_ms": elapsedMs(since: start),
                         ])
+                        recordPhase4ScreenWatchEvent(
+                            toolCallID: toolCallID,
+                            kind: .toolCallCompleted,
+                            status: .completed,
+                            request: parsedRequest,
+                            result: Phase4ScreenWatchResult(
+                                triggered: true,
+                                reasonClass: "condition_met"
+                            ),
+                            durationMs: durationMilliseconds(since: start)
+                        )
+                        return response
                     }
                 }
             case "file_exists":
-                if !target.isEmpty, FileManager.default.fileExists(atPath: target) {
-                    return jsonString([
+                if !target.isEmpty, fileExistsProvider(target) {
+                    let response = jsonString([
                         "triggered": true,
                         "mode": mode,
                         "elapsed_ms": elapsedMs(since: start),
                     ])
+                    recordPhase4ScreenWatchEvent(
+                        toolCallID: toolCallID,
+                        kind: .toolCallCompleted,
+                        status: .completed,
+                        request: parsedRequest,
+                        result: Phase4ScreenWatchResult(
+                            triggered: true,
+                            reasonClass: "condition_met"
+                        ),
+                        durationMs: durationMilliseconds(since: start)
+                    )
+                    return response
                 }
             case "file_changed":
                 if !target.isEmpty {
-                    let attrs = try? FileManager.default.attributesOfItem(atPath: target)
-                    if let modDate = attrs?[.modificationDate] as? Date, modDate > start {
-                        return jsonString([
+                    if let modDate = fileModificationDateProvider(target), modDate > start {
+                        let response = jsonString([
                             "triggered": true,
                             "mode": mode,
                             "elapsed_ms": elapsedMs(since: start),
                         ])
+                        recordPhase4ScreenWatchEvent(
+                            toolCallID: toolCallID,
+                            kind: .toolCallCompleted,
+                            status: .completed,
+                            request: parsedRequest,
+                            result: Phase4ScreenWatchResult(
+                                triggered: true,
+                                reasonClass: "condition_met"
+                            ),
+                            durationMs: durationMilliseconds(since: start)
+                        )
+                        return response
                     }
                 }
             case "timeout_ms":
                 // Pure sleep mode — fall through to the timeout below.
                 break
             default:
+                recordPhase4ScreenWatchEvent(
+                    toolCallID: toolCallID,
+                    kind: .toolCallFailed,
+                    status: .failed,
+                    request: parsedRequest,
+                    durationMs: durationMilliseconds(since: start),
+                    failureClass: "unsupported_watch_mode",
+                    errorMessage: "Phase4 screen watch mode was unsupported."
+                )
                 return errorJson("unknown watch mode: \(mode)")
             }
-            try? await Task.sleep(for: .milliseconds(pollIntervalMs))
+            await watchSleeper(pollIntervalMs)
         }
 
-        return jsonString([
+        let triggered = mode == "timeout_ms"
+        let response = jsonString([
             "triggered": mode == "timeout_ms",
             "mode": mode,
             "elapsed_ms": elapsedMs(since: start),
             "reason": mode == "timeout_ms" ? "elapsed" : "timeout",
         ])
+        recordPhase4ScreenWatchEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallCompleted,
+            status: .completed,
+            request: parsedRequest,
+            result: Phase4ScreenWatchResult(
+                triggered: triggered,
+                reasonClass: triggered ? "elapsed" : "timeout"
+            ),
+            durationMs: durationMilliseconds(since: start)
+        )
+        return response
     }
 
     // MARK: - Helpers
@@ -408,6 +511,19 @@ final class Phase4Bridge {
         let failureClass: String?
     }
 
+    private struct Phase4ScreenWatchRequest {
+        let modeClass: String
+        let appScope: String?
+        let targetScope: String?
+        let timeoutBucket: String
+        let pollIntervalBucket: String
+    }
+
+    private struct Phase4ScreenWatchResult {
+        let triggered: Bool
+        let reasonClass: String
+    }
+
     private func nextPerceiveToolCallID() -> String {
         let sequence = perceiveToolCallSequence
         if perceiveToolCallSequence < UInt64.max {
@@ -422,6 +538,14 @@ final class Phase4Bridge {
             interactToolCallSequence += 1
         }
         return "phase4-interact-\(sequence)"
+    }
+
+    private func nextScreenWatchToolCallID() -> String {
+        let sequence = screenWatchToolCallSequence
+        if screenWatchToolCallSequence < UInt64.max {
+            screenWatchToolCallSequence += 1
+        }
+        return "phase4-screen-watch-\(sequence)"
     }
 
     private func recordPhase4PerceiveEvent(
@@ -447,6 +571,36 @@ final class Phase4Bridge {
             status: status,
             errorMessage: errorMessage,
             metadata: phase4PerceiveMetadata(
+                request: request,
+                result: result,
+                failureClass: failureClass
+            )
+        )
+    }
+
+    private func recordPhase4ScreenWatchEvent(
+        toolCallID: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        request: Phase4ScreenWatchRequest,
+        result: Phase4ScreenWatchResult? = nil,
+        durationMs: UInt64? = nil,
+        failureClass: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "phase4-screen-watch",
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "phase4-bridge", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "phase4.screen_watch.\(request.modeClass)",
+            argumentsJSON: phase4ScreenWatchArgumentsJSON(request),
+            resultJSON: result.map(phase4ScreenWatchResultJSON),
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: phase4ScreenWatchMetadata(
                 request: request,
                 result: result,
                 failureClass: failureClass
@@ -494,6 +648,21 @@ final class Phase4Bridge {
         return jsonString(payload)
     }
 
+    private func phase4ScreenWatchArgumentsJSON(_ request: Phase4ScreenWatchRequest) -> String {
+        var payload: [String: Any] = [
+            "mode_class": request.modeClass,
+            "timeout_bucket": request.timeoutBucket,
+            "poll_interval_bucket": request.pollIntervalBucket,
+        ]
+        if let appScope = request.appScope {
+            payload["app_scope"] = appScope
+        }
+        if let targetScope = request.targetScope {
+            payload["target_scope"] = targetScope
+        }
+        return jsonString(payload)
+    }
+
     private func phase4InteractArgumentsJSON(_ request: Phase4InteractRequest) -> String {
         var payload: [String: Any] = [
             "action_class": request.actionClass,
@@ -530,6 +699,13 @@ final class Phase4Bridge {
         ])
     }
 
+    private func phase4ScreenWatchResultJSON(_ result: Phase4ScreenWatchResult) -> String {
+        jsonString([
+            "triggered": result.triggered,
+            "reason_class": result.reasonClass,
+        ])
+    }
+
     private func phase4InteractResultJSON(_ result: Phase4InteractResult) -> String {
         jsonString([
             "success": result.success,
@@ -552,6 +728,25 @@ final class Phase4Bridge {
         }
         if let result {
             metadata["method"] = result.method.rawValue
+        }
+        if let failureClass {
+            metadata["failure_class"] = failureClass
+        }
+        return metadata
+    }
+
+    private func phase4ScreenWatchMetadata(
+        request: Phase4ScreenWatchRequest,
+        result: Phase4ScreenWatchResult?,
+        failureClass: String?
+    ) -> [String: String] {
+        var metadata: [String: String] = [
+            "source": "phase4_bridge",
+            "surface": "screen_watch",
+            "mode_class": request.modeClass,
+        ]
+        if let result {
+            metadata["reason_class"] = result.reasonClass
         }
         if let failureClass {
             metadata["failure_class"] = failureClass
@@ -610,6 +805,75 @@ final class Phase4Bridge {
             directionClass: interactDirectionClass(payload["direction"] as? String),
             keyClass: actionClass == "key" ? interactKeyClass(payload["text"] as? String) : nil
         )
+    }
+
+    private func parsePhase4ScreenWatchRequest(watchJson: String) -> Phase4ScreenWatchRequest {
+        guard let data = watchJson.data(using: .utf8),
+              let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            return Phase4ScreenWatchRequest(
+                modeClass: "invalid_json",
+                appScope: nil,
+                targetScope: nil,
+                timeoutBucket: "unknown",
+                pollIntervalBucket: "unknown"
+            )
+        }
+
+        return Phase4ScreenWatchRequest(
+            modeClass: screenWatchModeClass(payload["mode"] as? String),
+            appScope: optionalAppScope(payload["bundle_id"] as? String),
+            targetScope: targetScope(payload["target"] as? String),
+            timeoutBucket: secondsBucket(payload["timeout_secs"] as? Int),
+            pollIntervalBucket: millisecondsBucket(payload["poll_interval_ms"] as? Int)
+        )
+    }
+
+    private func screenWatchModeClass(_ rawMode: String?) -> String {
+        switch rawMode?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case nil, "", "timeout_ms":
+            return "timeout"
+        case "ax_present":
+            return "ax_present"
+        case "file_exists":
+            return "file_exists"
+        case "file_changed":
+            return "file_changed"
+        default:
+            return "unknown"
+        }
+    }
+
+    private func secondsBucket(_ seconds: Int?) -> String {
+        guard let seconds else { return "default" }
+        switch seconds {
+        case ...0:
+            return "0"
+        case 1...5:
+            return "1_5"
+        case 6...30:
+            return "6_30"
+        case 31...120:
+            return "31_120"
+        default:
+            return "121_plus"
+        }
+    }
+
+    private func millisecondsBucket(_ milliseconds: Int?) -> String {
+        guard let milliseconds else { return "default" }
+        switch milliseconds {
+        case ...0:
+            return "0"
+        case 1...100:
+            return "1_100"
+        case 101...500:
+            return "101_500"
+        case 501...1_000:
+            return "501_1000"
+        default:
+            return "1001_plus"
+        }
     }
 
     private func phase4InteractActionClass(_ rawAction: String?) -> String {

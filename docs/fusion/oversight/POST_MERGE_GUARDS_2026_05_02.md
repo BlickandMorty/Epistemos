@@ -832,3 +832,16 @@
 - log: `✔ Test "Phase4 interact source never stores raw action JSON target values or raw results" passed`
 - note: focused verification log `/tmp/epistemos-phase4-interact-agent-event-pr41-redgreen-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `Phase4BridgeInteractAgentEventTests`
+
+## phase4-screen-watch-agent-event-pr42
+
+- grep: `recordPhase4ScreenWatchEvent|phase4\\.screen_watch|mode_class|timeout_bucket|poll_interval_bucket|target_scope` in `Epistemos/Bridge/Phase4Bridge.swift` and `EpistemosTests/Phase4BridgeScreenWatchAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: watchJson|argumentsJSON: payload|resultJSON: response|resultJSON: jsonString|errorMessage: errorJson|localizedDescription` returns no unsafe AgentEvent persistence matches in the new recorder path.
+- tier-leakage grep: no new Core/MAS tool allowlist, MCP/Hermes routing, subprocess launcher, LocalAuthentication, ANE/private API, graph, or hot-path Metal buffer changes are introduced by the staged source/test files.
+- staged allow: only `Epistemos/Bridge/Phase4Bridge.swift`, `EpistemosTests/Phase4BridgeScreenWatchAgentEventTests.swift`, Round 81 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Test "Phase4 screen watch timeout records sanitized requested started and completed events" passed`
+- log: `✔ Test "Phase4 screen watch file exists records target-scope without path" passed`
+- log: `✔ Test "Phase4 screen watch invalid JSON records bounded failed event" passed`
+- log: `✔ Test "Phase4 screen watch source never stores raw watch JSON paths" passed`
+- note: focused verification log `/tmp/epistemos-phase4-screen-watch-agent-event-pr42-redgreen-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `Phase4BridgeScreenWatchAgentEventTests`

@@ -595,3 +595,10 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 80 | 2026-05-03T16:52Z | codex-red-team | brief=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/fleet/phase4-interact-agent-event-pr41/claude-red-team/attacks.md | +1 |
 | 80 | 2026-05-03T16:52Z | test-green | scope=phase4-interact-agent-event-pr41 | xcodebuild | session:99563 | done | /tmp/epistemos-phase4-interact-agent-event-pr41-redgreen-20260503.log | +1 |
 | 80 | 2026-05-03T16:52Z | guard | slice=phase4-interact-agent-event-pr41 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 81 | 2026-05-03T17:06Z | preflight | scope=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_81_2026_05_03.md | +1 |
+| 81 | 2026-05-03T17:06Z | detective | concept=Phase4 screen_watch AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/phase4-screen-watch-agent-event-pr42/detectives/phase4-screen-watch-agent-event.md | +1 |
+| 81 | 2026-05-03T17:06Z | aggregator | slice=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/fleet/phase4-screen-watch-agent-event-pr42/aggregator.md | +1 |
+| 81 | 2026-05-03T17:06Z | pipeline-builder | slice=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/deliberation/phase4_screen_watch_agent_event_pr42_deliberation_2026_05_03.md | +1 |
+| 81 | 2026-05-03T17:06Z | codex-red-team | brief=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/fleet/phase4-screen-watch-agent-event-pr42/claude-red-team/attacks.md | +1 |
+| 81 | 2026-05-03T17:04Z | test-green | scope=phase4-screen-watch-agent-event-pr42 | xcodebuild | session:9986 | done | /tmp/epistemos-phase4-screen-watch-agent-event-pr42-redgreen-20260503.log | +1 |
+| 81 | 2026-05-03T17:06Z | guard | slice=phase4-screen-watch-agent-event-pr42 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
