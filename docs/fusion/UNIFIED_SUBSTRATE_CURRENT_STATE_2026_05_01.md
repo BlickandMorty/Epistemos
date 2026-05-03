@@ -617,6 +617,17 @@ closed:
   execution, AXorcist behavior, Core/MAS tool policy, MCP/Hermes routing, UI,
   graph, EventStore schema, Sovereign, generated bindings, subprocess surfaces,
   or ANE/private API surfaces.
+- AgentEvent ClarifyPromptBridge provenance PR43 now records sanitized
+  requested/started/completed AgentEvents around the existing Rust clarify
+  callback to native NSAlert path. Persisted rows use the `clarify-prompt` run
+  id, synthetic `clarify-prompt:N` tool-call ids, `clarify.ask.<input_mode>`
+  tool names, bounded input mode, question scope, choice-count bucket, payload
+  class, result class, response-length bucket, selected choice index, and scalar
+  duration. Focused tests prove raw question JSON, questions, choices, answers,
+  filesystem paths, prompt text, and arbitrary errors are not persisted in
+  AgentEvents. This does not change returned clarify response JSON, prompt UI,
+  Core/MAS tool policy, MCP/Hermes routing, Sovereign, graph, EventStore schema,
+  generated bindings, subprocess surfaces, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1365,7 +1376,8 @@ before building.
   provenance PR36, AgentEvent Phase5 SSM state provenance PR37, AgentEvent
   ComputerUseBridge provenance PR39, AgentEvent Phase4 perceive provenance PR40,
   AgentEvent Phase4 interact provenance PR41, AgentEvent Phase4 screen_watch
-  provenance PR42, durable GraphEvent mutation mapping PR1,
+  provenance PR42, AgentEvent ClarifyPromptBridge provenance PR43,
+  durable GraphEvent mutation mapping PR1,
   durable GraphEvent Settings visibility PR2,
   durable GraphEvent projection snapshot PR3, durable GraphEvent projection
   consumer PR4, durable GraphEvent Settings projection visibility PR5, durable
@@ -1439,6 +1451,7 @@ are:
   AgentEvent PR28, AgentEvent PR29, Runtime Contract PR30, AgentEvent PR32,
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
   AgentEvent PR39, AgentEvent PR40, AgentEvent PR41, AgentEvent PR42,
+  AgentEvent PR43,
   GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond

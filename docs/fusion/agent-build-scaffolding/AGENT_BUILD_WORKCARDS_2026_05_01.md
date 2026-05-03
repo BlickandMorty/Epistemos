@@ -1241,6 +1241,19 @@ Core/MAS tool policy, MCP/Hermes routing, UI, graph, EventStore schema,
 Sovereign, generated bindings, subprocess surfaces, or ANE/private API
 surfaces.
 
+PR43 AgentEvent ClarifyPromptBridge provenance is also closed.
+`ClarifyPromptBridge.ask(questionJson:)` now records sanitized
+requested/started/completed AgentEvents around the existing Rust clarify
+callback to native NSAlert path. Persisted rows use the `clarify-prompt` run id,
+synthetic `clarify-prompt:N` tool-call ids, `clarify.ask.<input_mode>` tool
+names, bounded input mode, question scope, choice-count bucket, payload class,
+result class, response-length bucket, selected choice index, and scalar
+duration. Focused tests prove raw question JSON, questions, choices, answers,
+filesystem paths, prompt text, and arbitrary errors are not persisted in
+AgentEvents. This does not change returned clarify response JSON, prompt UI,
+Core/MAS tool policy, MCP/Hermes routing, Sovereign, graph, EventStore schema,
+generated bindings, subprocess surfaces, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1372,6 +1385,8 @@ Allowed write set:
   `Phase4Bridge.interact(actionJson:)` only.
 - PR42 Phase4 screen_watch provenance: already closed for
   `Phase4Bridge.startScreenWatch(watchJson:)` only.
+- PR43 ClarifyPromptBridge provenance: already closed for
+  `ClarifyPromptBridge.ask(questionJson:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
