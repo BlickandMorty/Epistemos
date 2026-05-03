@@ -443,6 +443,53 @@ struct SovereignGateTests {
         #expect(!source.contains("evaluatePolicy"))
     }
 
+    @Test("Agent control custom tool deletes map to destructive Sovereign Gate requirements")
+    func agentControlCustomToolDeletesMapToDestructiveSovereignGateRequirements() {
+        #expect(
+            AgentControlSettingsDeletionSovereignGate.requirement(for: .customTool(name: "shell-wrap"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = AgentControlSettingsDeletionSovereignGate.reason(for: .customTool(name: "shell-wrap"))
+
+        #expect(reason.contains("shell-wrap"))
+        #expect(reason.localizedCaseInsensitiveContains("permanently delete"))
+    }
+
+    @Test("Agent control custom tool delete routes through Sovereign Gate")
+    func agentControlCustomToolDeleteRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AgentControlSettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let customToolsList = try section(
+            from: "ForEach(customTools) { tool in",
+            to: "Text(tool.commandTemplate)"
+        )
+        #expect(customToolsList.contains("requestCustomToolDeleteAuthorization("))
+        #expect(customToolsList.contains("named: tool.name"))
+        #expect(customToolsList.contains("vaultPath: vaultPath"))
+        #expect(!customToolsList.contains("deleteCustomTool(named: tool.name, vaultPath: vaultPath)"))
+
+        let request = try section(
+            from: "private func requestCustomToolDeleteAuthorization(named name: String, vaultPath: String) async",
+            to: "private func deleteCustomTool(named name: String, vaultPath: String) async"
+        )
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("await deleteCustomTool(named: name, vaultPath: vaultPath)"))
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])

@@ -415,6 +415,16 @@ closed:
   `SovereignGate.swift`, duplicate `LocalAuthentication`, alter model-vault
   browser/delete semantics, or touch Rust/generated/graph/Omega/ChatCoordinator
   surfaces.
+- Sovereign Gate Custom Tool Delete PR10 is now closed for the existing Agent
+  Control custom-tool destructive delete surface. `AgentControlSettingsView`
+  now maps custom-tool delete targets through typed
+  `AgentControlSettingsDeletionSovereignGate` requirements, routes the existing
+  custom-tool Delete button through the shared `AppBootstrap` `SovereignGate`
+  with `.deviceOwnerAuthentication`, and only calls the original
+  `deleteCustomTool(named:vaultPath:)` after `.allowed`. Focused Swift tests
+  passed 21/21. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, alter custom-tool manager semantics, or touch
+  Rust/generated/graph/Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -879,8 +889,10 @@ before building.
    Chat Delete PR6 is closed for the existing Chat Sidebar context-menu
    destructive chat delete surface, Version Delete PR7 is closed for the
    existing DiffSheet version-delete menu surface, RootView Destructive PR8 is
-   closed for database reset and vault disconnect, and Model Vault Delete PR9
-   is closed for the existing Model Vaults sidebar file/folder delete surface.
+   closed for database reset and vault disconnect, Model Vault Delete PR9 is
+   closed for the existing Model Vaults sidebar file/folder delete surface, and
+   Custom Tool Delete PR10 is closed for the existing Agent Control custom-tool
+   delete surface.
    Future Sovereign slices must
    start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
@@ -1066,7 +1078,8 @@ durable GraphEvent Halo projection PR7,
 Sovereign Gate Core PR1, Sovereign Gate Lifecycle PR2, Sovereign Gate Approval
 Surface PR3, Sovereign Gate Rust Matrix PR4, Sovereign Gate Notes Delete PR5,
 Sovereign Gate Chat Delete PR6, Sovereign Gate Version Delete PR7, Sovereign
-Gate RootView Destructive PR8, the Halo V0 Shadow
+Gate RootView Destructive PR8, Sovereign Gate Model Vault Delete PR9, Sovereign
+Gate Custom Tool Delete PR10, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
