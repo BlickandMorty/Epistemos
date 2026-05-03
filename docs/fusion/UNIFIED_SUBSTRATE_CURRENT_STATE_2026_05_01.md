@@ -513,6 +513,15 @@ closed:
   localized descriptions, arbitrary backend error text, Hermes/MCP/subprocess
   surfaces, browser/computer-use surfaces, LocalAuthentication, and ANE/private
   API details are intentionally excluded from persisted provenance.
+- AgentEvent v1.6 forward vocabulary PR34 now seeds the six simulation-doctrine
+  forward kinds in `AgentProvenanceEventKind`:
+  `steer_requested`, `summary_started`, `summary_delta`, `summary_completed`,
+  `vault_created`, and `vault_archived`. Focused tests prove CaseIterable
+  membership, Codable round-trip, and EventStore persistence as tool-less
+  `forward_variant_only` rows. This does not implement dispatch-panel
+  steering, helper-model summary streams, multi-vault UI, Rust simulation enum
+  variants, Swift stream events, generated bindings, emitters, or EventStore
+  schema changes.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1249,9 +1258,9 @@ before building.
   generate provenance PR29, Runtime Contract error-class bridge PR30,
   LocalAgent reflex streaming EOF flush PR31, AgentEvent LocalGGUF direct stream
   provenance PR32, AgentEvent Apple Intelligence direct generate provenance
-  PR33, durable GraphEvent mutation mapping PR1, durable GraphEvent Settings
-  visibility PR2, durable GraphEvent projection snapshot PR3, durable GraphEvent
-  projection consumer PR4, durable GraphEvent
+  PR33, AgentEvent v1.6 forward vocabulary PR34, durable GraphEvent mutation
+  mapping PR1, durable GraphEvent Settings visibility PR2, durable GraphEvent
+  projection snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
   durable GraphEvent Halo projection PR7, durable GraphEvent audit visibility
   PR8, durable GraphEvent Trace Inspector visibility PR9, and durable GraphEvent
@@ -1509,6 +1518,7 @@ Runtime Contract error-class bridge PR30,
 LocalAgent reflex streaming EOF flush PR31,
 AgentEvent LocalGGUF direct stream provenance PR32,
 AgentEvent Apple Intelligence direct generate provenance PR33,
+AgentEvent v1.6 forward vocabulary PR34,
 RRF QueryRuntime fused full-text PR34,
 RRF Search Fusion Health observability row PR35,
 durable GraphEvent mutation mapping PR1,

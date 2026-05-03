@@ -513,3 +513,16 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 68 | 2026-05-03T14:07Z | guard | slice=rrf-search-fusion-health-row-pr35 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
 | 68 | 2026-05-03T14:12Z | implementation-safety-fix | slice=rrf-search-fusion-health-row-pr35 | codex/local | n/a | done | Epistemos/Views/Settings/SearchFusionHealthRow.swift; EpistemosTests/SearchFusionHealthRowTests.swift | +1 |
 | 68 | 2026-05-03T14:12Z | test-green-final | scope=rrf-search-fusion-health-row-pr35 | xcodebuild | session:73586 | done | xcresult:Test-Epistemos-2026.05.03_09-09-07--0500.xcresult | +1 |
+| 69 | 2026-05-03T14:18Z | preflight | scope=r15-mlx-live-token-throughput-pr12 | codex/local | n/a | done | docs/fusion/fleet/r15-mlx-live-token-throughput-pr8-closure/aggregator.md | 0 |
+| 69 | 2026-05-03T14:19Z | memory-audit | scope=r15-mlx-live-token-throughput-pr12 | codex/local | n/a | done | sysctl hw.memsize; vm_stat | +1 |
+| 69 | 2026-05-03T14:20Z | blocker | scope=r15-mlx-live-token-throughput-pr12 | codex/local | n/a | done | live MLX sufficient-memory benchmark artifact absent; current memory below floor | +1 |
+| 70 | 2026-05-03T14:21Z | explorer | scope=agent-event-v16-forward-variants-pr34/main-vocabulary-scout | codex/explorer-agent | agent:019dee35-1d85-7290-a915-e8ac7b3e92f9 | done | transcript | +1 |
+| 70 | 2026-05-03T14:21Z | explorer | scope=agent-event-v16-forward-variants-pr34/simulation-donor-scout | codex/explorer-agent | agent:019dee35-1dda-7261-927b-b9f11056eebd | done | transcript | +1 |
+| 70 | 2026-05-03T14:27Z | preflight | scope=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_70_2026_05_03.md | +1 |
+| 70 | 2026-05-03T14:27Z | detective | concept=AgentEvent v1.6 forward variants | codex/local | n/a | done | docs/fusion/fleet/agent-event-v16-forward-variants-pr34/detectives/agent-event-v16-forward-variants.md | +1 |
+| 70 | 2026-05-03T14:28Z | aggregator | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/fleet/agent-event-v16-forward-variants-pr34/aggregator.md | +1 |
+| 70 | 2026-05-03T14:28Z | pipeline-builder | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_v16_forward_variants_pr34_deliberation_2026_05_03.md | +1 |
+| 70 | 2026-05-03T14:28Z | codex-red-team | brief=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/fleet/agent-event-v16-forward-variants-pr34/claude-red-team/attacks.md | +1 |
+| 70 | 2026-05-03T14:32Z | implementation | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | Epistemos/Models/AgentProvenanceEvent.swift; EpistemosTests/AgentEventV16ForwardVariantTests.swift | +1 |
+| 70 | 2026-05-03T14:32Z | test-green | scope=agent-event-v16-forward-variants-pr34 | xcodebuild | session:99244 | done | /tmp/epistemos-agent-event-v16-forward-variants-pr34-green-20260503.log | +1 |
+| 70 | 2026-05-03T14:32Z | guard | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

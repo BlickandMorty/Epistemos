@@ -13,6 +13,12 @@ nonisolated public enum AgentProvenanceEventKind: String, Codable, Sendable, Has
     case hookRegistered = "hook_registered"
     case hookFired = "hook_fired"
     case hookCompleted = "hook_completed"
+    case steerRequested = "steer_requested"
+    case summaryStarted = "summary_started"
+    case summaryDelta = "summary_delta"
+    case summaryCompleted = "summary_completed"
+    case vaultCreated = "vault_created"
+    case vaultArchived = "vault_archived"
 }
 
 nonisolated public enum AgentProvenanceActor: Codable, Sendable, Hashable {
