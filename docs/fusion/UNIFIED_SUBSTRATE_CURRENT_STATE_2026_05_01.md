@@ -1284,6 +1284,18 @@ Proven or actively wired:
   Codex ran the protocol fallback Red Team and added a shell source-shape guard.
   Focused evidence:
   `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green2-20260503.log`.
+- Core/MAS Boundary Regression Guard PR3 is now code-closed as a test-only
+  closure slice. `CoreMASBoundarySourceGuardTests` source-audits
+  `HermesGatewayPolicy`, `ToolTierBridge`, and `MCPBridge` so deterministic
+  local work stays Core/direct/in-process, cloud/CLI/MCP/browser/Docker/Hermes
+  subprocess surfaces stay Pro/Research gateway-bound with structured evidence,
+  Core App Store tool allowance remains a full no-network/no-subprocess/direct
+  invariant, and boundary files do not host Touch ID prompts or subprocess
+  launchers. `ToolSurfaceBehavioralMatrixTests` exercises
+  `ToolSurfacePolicy.isSurfacedToolName`, `surfacedTools`, and distribution
+  resolution so Core is a strict subset of Pro/Research and `think` never
+  surfaces. Focused evidence:
+  `/tmp/epistemos-mas-core-symbol-separation-closure-pr3-20260503.log`.
 - Omega Tool Registry Core Planning PR1 is now code-closed as the Omega-side
   complement to Core/MAS Tool Surface Policy PR1: `OmegaToolRegistry` exposes
   distribution-aware planning schemas, planning JSON, prompt blocks, and raw
@@ -1493,8 +1505,10 @@ before building.
    authorities. Hermes Gateway Directness PR1 through Provider Surface PR8 and
    Core/MAS Tool Surface Policy PR1 is closed for prompt/policy/visibility
    invariants, and Core/MAS ToolTier Execution Symbol Gate PR2 is closed for the
-   `ToolTierBridge` runtime executor gate. Future provider routing
-   still requires a new exact gate.
+   `ToolTierBridge` runtime executor gate. Core/MAS Boundary Regression Guard
+   PR3 is closed as a test-only source/behavioral guard over Hermes policy,
+   ToolTier, MCP dispatch denial, and `ToolSurfacePolicy` distribution
+   filtering. Future provider routing still requires a new exact gate.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are
@@ -1737,8 +1751,8 @@ Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
 Policy PR4, Hermes Gateway App Store Guard PR5, Hermes Gateway Route Policy
-PR6, Hermes Gateway Evidence Return PR7, Hermes Provider Surface Policy PR8, R16
-memory-pressure dispatch pause PR3E,
+PR6, Hermes Gateway Evidence Return PR7, Hermes Provider Surface Policy PR8,
+Core/MAS Boundary Regression Guard PR3, R16 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge
 visibility PR3G, and R16 ETL worker execution PR3H, plus the R16 Sidecar Schema
