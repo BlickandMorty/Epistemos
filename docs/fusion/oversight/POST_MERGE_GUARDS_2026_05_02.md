@@ -527,3 +527,15 @@
 - log: `✔ Test run with 7 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-backend-stream-pr25-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The red log `/tmp/epistemos-agent-event-local-backend-stream-pr25-red-20260503.log` failed before implementation because `agentProvenanceRecorder` and `.fast` contextual typing were not yet present at the test callsite.
 - test: `LocalBackendLLMClientTests`
+
+## agent-event-local-runtime-recorder-mount-pr26
+
+- grep: `let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()` in `Epistemos/App/AppBootstrap.swift`
+- grep: `agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder` appears in both `LocalGGUFClient` and `LocalBackendLLMClient` constructor argument blocks in `Epistemos/App/AppBootstrap.swift`
+- forbidden staged-diff grep: no new EventStore schema, graph, Rust, Hermes/MCP, LocalAuthentication, ANE/private API, subprocess, or Xcode project edits.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/App/AppBootstrap.swift`, `EpistemosTests/LocalBackendLLMClientTests.swift`, Round 58 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "bootstrap mounts local runtime AgentEvent recorder" passed`
+- log: `✔ Test run with 8 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-runtime-recorder-mount-pr26-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The red log `/tmp/epistemos-agent-event-local-runtime-recorder-mount-pr26-red-20260503.log` failed before implementation with the expected missing mount assertions.
+- test: `LocalBackendLLMClientTests`
