@@ -403,3 +403,22 @@
 - note: focused verification log `/tmp/epistemos-graph-event-query-projection-pr10-green-20260502-r2.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `QueryRuntimeTests`
 - test: `GraphEventAuditProjectionTests`
+
+## core-mas-tooltier-execution-symbol-gate-pr2
+
+- grep: `distribution: ToolSurfacePolicy.Distribution`
+- grep: `executionPolicyDenial`
+- grep: `toolExecutorDeniesCoreAppStoreHiddenToolsBeforeBindings`
+- grep: `Tool not found:`
+- forbidden staged grep: `git diff --cached --name-only | rg '^(Epistemos/Omega/|Epistemos/App/ChatCoordinator.swift|Epistemos/Engine/PipelineService.swift|agent_core/|graph-engine/|Epistemos.xcodeproj|.*entitlements|Epistemos/Views/Notes/ProseEditor|Epistemos/Views/Graph/)'` returns no matches.
+- staged allow: only `Epistemos/Bridge/ToolTierBridge.swift`, `EpistemosTests/ToolSurfacePolicyTests.swift`, Round 49 blocked R15 evidence docs, Round 50 fleet/deliberation/preflight docs, this guard file, current-state docs, and workcard docs are allowed for this commit.
+- log: `✔ Test toolExecutorDeniesCoreAppStoreHiddenToolsBeforeBindings() passed`
+- log: `✔ Test toolExecutionPolicyPreservesAllowedAndProResearchPaths() passed`
+- log: `✔ Test run with 9 tests in 1 suite passed`
+- log: `✔ Test run with 62 tests in 2 suites passed`
+- log: `✔ Test run with 22 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-core-mas-tooltier-execution-pr2-green-20260503.log`; guard log `/tmp/epistemos-core-mas-tooltier-execution-pr2-guard-green-20260503.log`; schema log `/tmp/epistemos-core-mas-tooltier-execution-pr2-schema-green-20260503.log`. Xcode exited `0` and printed `** TEST SUCCEEDED **` for all three, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `ToolSurfacePolicyTests`
+- test: `AgentCommandCenterStateTests`
+- test: `AppStoreHardeningTests`
+- test: `ToolSchemaGrammarTests`

@@ -873,6 +873,20 @@ Proven or actively wired:
   entitlement, project file, or protected editor path was touched. Red/green
   evidence: `/tmp/epistemos-tool-surface-policy-core-mas-pr1-red-20260502.log`
   and `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 is now code-closed for the
+  `ToolTierBridge` runtime executor: the bridge carries
+  `ToolSurfacePolicy.Distribution` through visible catalog loading and
+  `toolExecutor()`, then `executeToolCallBridged` denies Core/App Store-hidden
+  tool names before `agent_core` bindings can run. Hidden gateway symbols such
+  as `run_command`, `run_persistent`, browser/computer-use, Docker, and
+  Hermes-subprocess names now return `Tool not found` in Core/App Store instead
+  of falling through to FFI/bindings. Focused `ToolSurfacePolicyTests` prove the
+  denial path and preserve allowed Core plus Pro/Research execution paths;
+  `AgentCommandCenterStateTests`, `AppStoreHardeningTests`, and
+  `ToolSchemaGrammarTests` remained green as guards. Focused evidence:
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-green-20260503.log`,
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-guard-green-20260503.log`,
+  and `/tmp/epistemos-core-mas-tooltier-execution-pr2-schema-green-20260503.log`.
 - Omega Tool Registry Core Planning PR1 is now code-closed as the Omega-side
   complement to Core/MAS Tool Surface Policy PR1: `OmegaToolRegistry` exposes
   distribution-aware planning schemas, planning JSON, prompt blocks, and raw
@@ -1061,8 +1075,9 @@ before building.
    For Pro/Research, Hermes/gateway is the cloud/tool control surface; direct
    CLIs are delegated tools behind it, not separate app architectures or graph
    authorities. Hermes Gateway Directness PR1 through Provider Surface PR8 and
-   Core/MAS Tool Surface Policy PR1 are closed for prompt/policy/visibility
-   invariants only; future runtime/provider routing
+   Core/MAS Tool Surface Policy PR1 is closed for prompt/policy/visibility
+   invariants, and Core/MAS ToolTier Execution Symbol Gate PR2 is closed for the
+   `ToolTierBridge` runtime executor gate. Future provider routing
    still requires a new exact gate.
 
 5. **Halo runtime/manual follow-up.**
