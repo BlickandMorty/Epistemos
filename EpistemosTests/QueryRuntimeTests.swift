@@ -66,6 +66,17 @@ struct QueryRuntimeTests {
         )
     }
 
+    private func makeProjectionNode(id: String) -> DurableGraphProjectionNode {
+        DurableGraphProjectionNode(
+            id: id,
+            kind: "note",
+            lastEventID: "event-\(id)",
+            lastMutationID: "mutation-\(id)",
+            lastEventKind: .nodeUpdated,
+            lastOccurredAtMs: 1
+        )
+    }
+
     private func makeEdge(
         id: String,
         source: String,
@@ -737,6 +748,110 @@ struct QueryRuntimeTests {
         let ids = Set(runtime.fullText(query: "physics", scope: .all).map(\.id))
 
         #expect(ids == ["note-1", "note-2"])
+    }
+
+    @Test("GraphEvent projection hint only reorders existing equal-score candidates")
+    func graphEventProjectionHintOnlyReordersExistingEqualScoreCandidates() throws {
+        let candidates = [
+            RetrievalCandidate(
+                node: QueryResultNode(
+                    from: makeNoteNode(id: "note-a", sourceId: "page-a", label: "Alpha"),
+                    score: 1.0
+                ),
+                source: .pageSearch
+            ),
+            RetrievalCandidate(
+                node: QueryResultNode(
+                    from: makeNoteNode(id: "note-b", sourceId: "page-b", label: "Beta"),
+                    score: 1.0
+                ),
+                source: .pageSearch
+            ),
+            RetrievalCandidate(
+                node: QueryResultNode(
+                    from: makeNoteNode(id: "note-c", sourceId: "page-c", label: "Gamma"),
+                    score: 0.5
+                ),
+                source: .pageSearch
+            ),
+        ]
+        let snapshot = DurableGraphProjectionSnapshot(
+            nodes: [
+                makeProjectionNode(id: "note-b"),
+                makeProjectionNode(id: "note-ghost"),
+            ],
+            edges: [],
+            eventCount: 2,
+            latestEventID: "event-note-b"
+        )
+
+        let hinted = GraphEventProjectionHint.apply(to: candidates, snapshot: snapshot)
+
+        #expect(hinted.map(\.node.id) == ["note-b", "note-a", "note-c"])
+        #expect(Set(hinted.map(\.node.id)) == Set(candidates.map(\.node.id)))
+        #expect(hinted.count == candidates.count)
+    }
+
+    @Test("retrieval runtime applies GraphEvent projection hint only to existing full-text candidates")
+    func retrievalRuntimeAppliesGraphEventProjectionHintOnlyToExistingFullTextCandidates() throws {
+        let store = GraphStore()
+        let graphState = GraphState()
+        let searchIndex = try makeSearchIndex()
+
+        store.addNode(makeNoteNode(id: "note-1", sourceId: "page-1", label: "Alpha"))
+        store.addNode(makeNoteNode(id: "note-2", sourceId: "page-2", label: "Beta"))
+        try searchIndex.upsert(
+            id: "page-1",
+            title: "Physics",
+            body: "shared retrieval body",
+            tags: "",
+            updatedAt: .now
+        )
+        try searchIndex.upsert(
+            id: "page-2",
+            title: "Physics",
+            body: "shared retrieval body",
+            tags: "",
+            updatedAt: .now
+        )
+        let snapshot = DurableGraphProjectionSnapshot(
+            nodes: [
+                makeProjectionNode(id: "note-2"),
+                makeProjectionNode(id: "note-ghost"),
+            ],
+            edges: [],
+            eventCount: 2,
+            latestEventID: "event-note-2"
+        )
+        let runtime = RetrievalRuntime(
+            graphStore: store,
+            graphState: graphState,
+            searchIndex: searchIndex,
+            scoreLimit: 0,
+            graphEventProjectionSnapshotProvider: { snapshot }
+        )
+
+        let results = runtime.fullText(query: "physics", scope: .pages)
+
+        #expect(results.map(\.id) == ["note-2", "note-1"])
+        #expect(Set(results.map(\.id)) == ["note-1", "note-2"])
+    }
+
+    @Test("GraphEvent projection hint stays out of indexes and renderer")
+    func graphEventProjectionHintStaysOutOfIndexesAndRenderer() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/QueryRuntime.swift")
+
+        #expect(source.contains("GraphEventProjectionHint"))
+        #expect(source.contains("graphEventProjectionSnapshotProvider"))
+        #expect(source.contains("EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1"))
+        #expect(!source.contains("saveGraphEvent"))
+        #expect(!source.contains("saveMutationEnvelope"))
+        #expect(!source.contains("GraphEventAuditProjectionService"))
+        #expect(!source.contains("InstantRecallService"))
+        #expect(!source.contains("MeaningAnchorService"))
+        #expect(!source.contains("DispatchSourceTimer"))
+        #expect(!source.contains("repeatForever"))
+        #expect(!source.contains("Epistemos/Views/Graph"))
     }
 
     @Test("retrieval runtime scores only the configured top-k candidates")

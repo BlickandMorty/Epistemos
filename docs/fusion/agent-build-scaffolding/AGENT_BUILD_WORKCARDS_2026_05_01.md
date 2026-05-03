@@ -1381,6 +1381,14 @@ nonisolated/Sendable without graph renderer, retrieval, Halo, Theater, OpLog,
 Rust, generated-binding, EventStore schema, mutation, repair, polling, timer,
 or projection-worker behavior.
 
+PR10 read-only QueryRuntime projection hint is also closed. `QueryRuntime`
+consumes an injected or env-enabled bounded `DurableGraphProjectionSnapshot`
+only as a stable tie-break for existing full-text retrieval candidates. It never
+creates new hits, never writes to SearchIndex/EventStore, never touches semantic
+retrieval, graph renderer, Theater, OpLog, Rust, generated bindings, mutation,
+repair, polling, timer, or projection-worker behavior, and defaults off unless
+`EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1=1`.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -1398,6 +1406,7 @@ Authority to read first:
 - `docs/fusion/deliberation/graph_event_projection_visibility_pr5_deliberation_2026_05_02.md`
 - `docs/fusion/deliberation/graph_event_audit_projection_pr6_deliberation_2026_05_02.md`
 - `docs/fusion/deliberation/graph_event_halo_projection_pr7_deliberation_2026_05_02.md`
+- `docs/fusion/deliberation/graph_event_query_projection_pr10_deliberation_2026_05_02.md`
 - `docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`
 - `/tmp/epistemos-graph-event-pr1-green-20260501-r1.log`
 - `/tmp/epistemos-graph-event-visibility-pr2-final-20260501.log`
@@ -1409,6 +1418,8 @@ Authority to read first:
 - `Epistemos/Engine/GraphEventAuditProjectionService.swift`
 - `Epistemos/Views/Capture/TraceInspectorView.swift` only for PR9 evidence and
   future Trace Inspector projection-summary regression checks.
+- `Epistemos/Engine/QueryRuntime.swift` only for PR10 evidence and future
+  retrieval projection-hint regression checks.
 - `Epistemos/Engine/HaloController.swift` only for PR7 evidence and future
   Halo projection-ribbon regression checks.
 - `Epistemos/Views/Halo/ShadowPanelContent.swift` only for PR7 evidence and
@@ -1431,6 +1442,9 @@ Allowed write set:
 - PR9 read-only Trace Inspector projection visibility: already closed for
   exactly `TraceInspectorView` appear/manual-refresh display of the PR6 audit
   report plus cancellation of stale refresh tasks.
+- PR10 read-only QueryRuntime projection hint: already closed for exactly
+  full-text retrieval stable tie-breaking of existing candidates through an
+  injected or env-enabled bounded projection snapshot.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -1517,6 +1531,14 @@ Tests and logs:
   The focused `GraphEventAuditProjectionTests` suite passed 4 tests; Xcode
   still printed known CodeEdit SwiftLint package-plugin footer noise after
   `** TEST SUCCEEDED **`.
+- PR10 red log:
+  `/tmp/epistemos-graph-event-query-projection-pr10-red-20260502.log`.
+- PR10 green log:
+  `/tmp/epistemos-graph-event-query-projection-pr10-green-20260502-r2.log`.
+  The focused `QueryRuntimeTests` and `GraphEventAuditProjectionTests` suites
+  passed 32 tests, including the new GraphEvent projection-hint full-text
+  retrieval tests; Xcode still printed known CodeEdit SwiftLint package-plugin
+  footer noise after `** TEST SUCCEEDED **`.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -1572,6 +1594,14 @@ Acceptance:
   keep it out of GraphEvent writes, mutation writes, graph renderer, retrieval,
   Settings, Halo, Theater, OpLog, Rust, generated bindings, EventStore schema,
   repair, polling, timer, and projection-worker paths.
+- PR10 wired/reachable/visible: `QueryRuntime` full-text retrieval accepts an
+  injected or env-enabled bounded durable GraphEvent projection snapshot and
+  applies it only as a stable equal-score tie-break over existing candidates.
+  Tests prove projected ghost nodes are not created, the hint is full-text only,
+  and the implementation stays out of SearchIndex writes, GraphEvent writes,
+  mutation writes, graph renderer, InstantRecall, MeaningAnchor, Theater,
+  OpLog, Rust, generated bindings, repair, polling, timer, and
+  projection-worker paths.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named
