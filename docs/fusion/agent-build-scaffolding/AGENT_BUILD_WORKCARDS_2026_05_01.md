@@ -1608,6 +1608,16 @@ delete path. The exact tool name and vault path are captured before async auth,
 denied/unavailable auth performs no delete, and the slice does not edit
 `SovereignGate.swift`, duplicate `LocalAuthentication`, alter custom-tool
 manager semantics, or touch Rust/generated/graph/Omega/ChatCoordinator.
+Notes Vault Disconnect PR11 is also closed. `Epistemos/Views/Notes/NotesSidebar.swift`
+now routes the normal Notes Sidebar vault menu "Disconnect Vault" destructive
+action through the shared `AppBootstrap` `SovereignGate` with
+`.deviceOwnerAuthentication` before calling the original
+`VaultConnectionActions.disconnect(notesUI:vaultSync:)` helper. The exact vault
+URL is captured before async auth and rechecked on the main actor after auth,
+missing/unavailable auth performs no disconnect, and an in-flight guard prevents
+double prompts/actions. The slice does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, alter vault teardown semantics, or touch Rust/generated/
+graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1666,6 +1676,8 @@ Allowed write set:
   already closed.
 - PR10 Agent Control custom-tool delete migration and focused tests: already
   closed.
+- PR11 Notes Sidebar vault menu disconnect migration and focused tests: already
+  closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1676,7 +1688,8 @@ Allowed write set:
   deletes are already covered by PR6, DiffSheet version deletes are already
   covered by PR7, RootView database reset/vault disconnect controls are already
   covered by PR8, Model Vaults sidebar file/folder deletes are already covered
-  by PR9, and Agent Control custom-tool deletes are already covered by PR10.
+  by PR9, Agent Control custom-tool deletes are already covered by PR10, and
+  Notes Sidebar vault menu disconnect is already covered by PR11.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1756,6 +1769,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-custom-tool-pr10-red-20260502.log`.
 - PR10 focused green log:
   `/tmp/epistemos-sovereign-gate-custom-tool-pr10-green-r2-20260502.log`.
+- PR11 red log:
+  `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-red-20260502.log`.
+- PR11 focused green log:
+  `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1849,6 +1866,18 @@ Acceptance:
   `LocalAuthentication`, custom-tool manager semantics, generated transport,
   Rust, graph files, Omega, ChatCoordinator, subprocesses, solver hot paths,
   tensor copies, and memory hot paths.
+- PR11 wired/reachable/visible: the normal Notes Sidebar vault menu
+  "Disconnect Vault" action requests shared `SovereignGate` device-owner
+  authentication before calling the original vault teardown helper, focused
+  tests prove vault disconnect maps to Destructive auth with an explicit reason
+  string, source guards prove the button calls the authorization path instead
+  of direct disconnect, the authorized disconnect runs only after `.allowed`,
+  missing/unavailable auth performs no disconnect, the captured vault URL is
+  rechecked after auth, an in-flight guard prevents duplicate prompts/actions,
+  and the slice stays out of `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, vault teardown semantics, generated transport, Rust,
+  graph files, Omega, ChatCoordinator, subprocesses, solver hot paths, tensor
+  copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave

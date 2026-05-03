@@ -249,6 +249,63 @@ struct SovereignGateTests {
         #expect(folderReason.localizedCaseInsensitiveContains("permanently delete"))
     }
 
+    @Test("Notes sidebar vault disconnect maps to destructive Sovereign Gate requirements")
+    func notesSidebarVaultDisconnectMapsToDestructiveSovereignGateRequirements() {
+        #expect(
+            NotesSidebarDeletionSovereignGate.requirement(for: .vaultDisconnect(name: "Research Vault"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = NotesSidebarDeletionSovereignGate.reason(
+            for: .vaultDisconnect(name: "Research Vault")
+        )
+
+        #expect(reason.contains("Research Vault"))
+        #expect(reason.localizedCaseInsensitiveContains("disconnect vault"))
+    }
+
+    @Test("Notes sidebar vault disconnect routes through Sovereign Gate")
+    func notesSidebarVaultDisconnectRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Notes/NotesSidebar.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let vaultButton = try section(
+            from: "private struct VaultConnectionButton: View",
+            to: "// MARK: - Sidebar Icon Button"
+        )
+        #expect(vaultButton.contains("@State private var isVaultDisconnectAuthorizationInFlight = false"))
+        #expect(vaultButton.contains("requestVaultDisconnectAuthorization(vaultURL: vaultURL)"))
+        #expect(!vaultButton.contains("Button(\"Disconnect Vault\", role: .destructive) {\n                    VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)"))
+        #expect(vaultButton.contains(".disabled(isVaultDisconnectAuthorizationInFlight)"))
+
+        let request = try section(
+            from: "private func requestVaultDisconnectAuthorization(vaultURL: URL) async",
+            to: "// MARK: - Sidebar Icon Button"
+        )
+        #expect(request.contains("guard !isVaultDisconnectAuthorizationInFlight else { return }"))
+        #expect(request.contains("isVaultDisconnectAuthorizationInFlight = true"))
+        #expect(request.contains("defer { isVaultDisconnectAuthorizationInFlight = false }"))
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("?? .denied(.authenticationFailed)"))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }"))
+        #expect(request.contains("VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)"))
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Chat sidebar deletes map to destructive Sovereign Gate requirements")
     func chatSidebarDeletesMapToSovereignGateRequirements() {
         #expect(
