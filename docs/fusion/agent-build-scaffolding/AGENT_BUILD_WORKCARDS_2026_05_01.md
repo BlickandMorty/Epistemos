@@ -2041,6 +2041,15 @@ planning surfaces hide terminal, automation, and computer-use tools, while
 Pro/Research catalog names preserve the Rust-visible source of truth. Runtime
 MCP registration and `dispatch(_:)` are intentionally unchanged and remain a
 future execution-gate slice.
+Omega Dispatch Core Execution Gate PR1 is closed. `MCPBridge.dispatch(
+_:distribution:)` now applies `ToolSurfacePolicy` before JSON-RPC reaches the
+Rust dispatcher: Core/App Store `tools/list` returns the filtered visible tool
+set, Core/App Store `tools/call` denies terminal/automation/computer-use tools
+as "Tool not found", and Core-safe `read_file` still forwards to Rust. Pro/
+Research `tools/list` falls through to the Rust dispatcher when no filtering is
+needed. `ToolSurfacePolicy.resolvedDistribution(_:)` is now internal so Omega
+can use the same Core/App Store resolution instead of duplicating sandbox
+detection.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2135,6 +2144,16 @@ Evidence:
   `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`.
 - Omega Tool Registry Core Planning PR1 Claude red-team:
   `docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks.md`.
+- Omega Dispatch Core Execution Gate PR1 Deliberation:
+  `docs/fusion/deliberation/omega_dispatch_core_execution_gate_pr1_deliberation_2026_05_02.md`.
+- Omega Dispatch Core Execution Gate PR1 Red log:
+  `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-red-20260502.log`.
+- Omega Dispatch Core Execution Gate PR1 Green log:
+  `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log`.
+- Omega Dispatch Core Execution Gate PR1 ToolSurfacePolicy log:
+  `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`.
+- Omega Dispatch Core Execution Gate PR1 Claude red-team:
+  `docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2146,6 +2165,9 @@ Evidence:
   `ToolSurfacePolicyTests` after Claude red-team P1 fixes. Omega Tool Registry
   Core Planning PR1 passed 18 focused `ToolSchemaGrammarTests` after Claude
   red-team P1 fixes and one non-blocking P2 cross-source invariant follow-up.
+  Omega Dispatch Core Execution Gate PR1 passed 22 focused
+  `ToolSchemaGrammarTests` plus the 7-test `ToolSurfacePolicyTests` suite after
+  a Claude red-team P1 call-deny coverage fix.
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
 

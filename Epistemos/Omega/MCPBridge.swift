@@ -258,8 +258,92 @@ final class MCPBridge {
     // MARK: - Dispatch
 
     /// Dispatch a JSON-RPC request and return the response.
-    func dispatch(_ requestJson: String) -> String {
-        dispatcher?.dispatch(requestJson: requestJson) ?? "{\"error\":\"Dispatcher not initialized\"}"
+    func dispatch(
+        _ requestJson: String,
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
+    ) -> String {
+        if let gateResponse = Self.policyGateResponse(
+            for: requestJson,
+            distribution: distribution
+        ) {
+            return gateResponse
+        }
+        return dispatcher?.dispatch(requestJson: requestJson) ?? "{\"error\":\"Dispatcher not initialized\"}"
+    }
+
+    private static func policyGateResponse(
+        for requestJson: String,
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> String? {
+        guard let data = requestJson.data(using: .utf8),
+              let request = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let method = request["method"] as? String else {
+            return nil
+        }
+
+        let id = request["id"] ?? NSNull()
+        switch method {
+        case "tools/list":
+            let resolvedDistribution = ToolSurfacePolicy.resolvedDistribution(
+                distribution
+            )
+            let visibleTools = OmegaToolRegistry.surfacedTools(
+                distribution: distribution
+            )
+            let visibleNames = Set(visibleTools.map(\.name))
+            let allNames = Set(OmegaToolRegistry.all.map(\.name))
+            guard resolvedDistribution != .proResearch || visibleNames != allNames else {
+                return nil
+            }
+            return jsonRpcSuccess(
+                id: id,
+                result: [
+                    "tools": visibleTools.map(\.planningSchema),
+                ]
+            )
+        case "tools/call":
+            guard let params = request["params"] as? [String: Any],
+                  let toolName = params["name"] as? String else {
+                return nil
+            }
+            guard ToolSurfacePolicy.isSurfacedToolName(
+                toolName,
+                distribution: distribution
+            ) else {
+                return jsonRpcError(
+                    id: id,
+                    code: -32601,
+                    message: "Tool not found: \(toolName)"
+                )
+            }
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    private static func jsonRpcSuccess(id: Any, result: [String: Any]) -> String {
+        serializeJsonRpc([
+            "jsonrpc": "2.0",
+            "result": result,
+            "id": id,
+        ])
+    }
+
+    private static func jsonRpcError(id: Any, code: Int, message: String) -> String {
+        serializeJsonRpc([
+            "jsonrpc": "2.0",
+            "error": [
+                "code": code,
+                "message": message,
+            ],
+            "id": id,
+        ])
+    }
+
+    private static func serializeJsonRpc(_ response: [String: Any]) -> String {
+        (try? JSONSerialization.data(withJSONObject: response, options: [.sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "{\"jsonrpc\":\"2.0\",\"error\":{\"code\":-32603,\"message\":\"Internal error\"},\"id\":null}"
     }
 
     // MARK: - Paths

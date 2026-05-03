@@ -267,6 +267,81 @@ struct ToolSchemaGrammarTests {
         #expect(!block.contains("- click:"))
     }
 
+    @Test("Omega Core App Store dispatch list hides Pro gateway tools")
+    func omegaCoreAppStoreDispatchListHidesProGatewayTools() throws {
+        let bridge = MCPBridge()
+        let response = bridge.dispatch(
+            #"{"jsonrpc":"2.0","method":"tools/list","id":1}"#,
+            distribution: .coreAppStore
+        )
+        let json = try Self.jsonObject(from: response)
+        let result = try #require(json["result"] as? [String: Any])
+        let tools = try #require(result["tools"] as? [[String: Any]])
+        let names = Set(tools.compactMap { $0["name"] as? String })
+
+        #expect(names.contains("read_file"))
+        #expect(names.contains("write_file"))
+        #expect(!names.contains("run_command"))
+        #expect(!names.contains("run_persistent"))
+        #expect(!names.contains("get_ui_tree"))
+        #expect(!names.contains("see"))
+        #expect(!names.contains("click"))
+    }
+
+    @Test("Omega Pro Research dispatch list preserves full registered tools")
+    func omegaProResearchDispatchListPreservesFullRegisteredTools() throws {
+        let bridge = MCPBridge()
+        let response = bridge.dispatch(
+            #"{"jsonrpc":"2.0","method":"tools/list","id":4}"#,
+            distribution: .proResearch
+        )
+        let json = try Self.jsonObject(from: response)
+        let result = try #require(json["result"] as? [String: Any])
+        let tools = try #require(result["tools"] as? [[String: Any]])
+        let names = Set(tools.compactMap { $0["name"] as? String })
+
+        #expect(names.count == OmegaToolRegistry.all.count)
+        #expect(names.contains("run_command"))
+    }
+
+    @Test("Omega Core App Store dispatch denies Pro gateway tool calls")
+    func omegaCoreAppStoreDispatchDeniesProGatewayToolCalls() throws {
+        let bridge = MCPBridge()
+        for toolName in [
+            "run_command",
+            "run_persistent",
+            "get_ui_tree",
+            "see",
+            "click",
+        ] {
+            let request = """
+            {"jsonrpc":"2.0","method":"tools/call","params":{"name":"\(toolName)","arguments":{}},"id":2}
+            """
+            let response = bridge.dispatch(request, distribution: .coreAppStore)
+            let json = try Self.jsonObject(from: response)
+            let error = try #require(json["error"] as? [String: Any])
+
+            #expect(error["code"] as? Int == -32601)
+            #expect((error["message"] as? String)?.contains("Tool not found: \(toolName)") == true)
+            #expect(json["result"] == nil)
+        }
+    }
+
+    @Test("Omega Core App Store dispatch still allows Core-safe tool calls")
+    func omegaCoreAppStoreDispatchStillAllowsCoreSafeToolCalls() throws {
+        let bridge = MCPBridge()
+        let response = bridge.dispatch(
+            #"{"jsonrpc":"2.0","method":"tools/call","params":{"name":"read_file","arguments":{"path":"/tmp/test"}},"id":3}"#,
+            distribution: .coreAppStore
+        )
+        let json = try Self.jsonObject(from: response)
+        let result = try #require(json["result"] as? [String: Any])
+
+        #expect(result["status"] as? String == "pending")
+        #expect(result["tool_name"] as? String == "read_file")
+        #expect(json["error"] == nil || json["error"] is NSNull)
+    }
+
     @Test("Planning schemas close object inputs for strict tool runtimes")
     func planningSchemasCloseObjectInputsForStrictToolRuntimes() throws {
         let tool = OmegaToolDefinition(
@@ -299,5 +374,10 @@ struct ToolSchemaGrammarTests {
         let properties = try #require(schema["properties"] as? [String: Any])
         let options = try #require(properties["options"] as? [String: Any])
         #expect(options["additionalProperties"] as? Bool == false)
+    }
+
+    private static func jsonObject(from response: String) throws -> [String: Any] {
+        let data = try #require(response.data(using: .utf8))
+        return try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 }

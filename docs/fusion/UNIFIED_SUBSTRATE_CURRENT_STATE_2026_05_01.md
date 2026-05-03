@@ -849,6 +849,20 @@ Proven or actively wired:
   execution-gate concern. Claude red-team found two P1s (`builtinCatalogJson`
   unfiltered, then source-of-truth swap); both were fixed before merge. Focused
   evidence: `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`.
+- Omega Dispatch Core Execution Gate PR1 is now code-closed as the runtime
+  complement to the Omega planning guard: `MCPBridge.dispatch(_:distribution:)`
+  gates JSON-RPC `tools/list` and `tools/call` through `ToolSurfacePolicy`
+  before requests reach the Rust dispatcher. Core/App Store `tools/list` hides
+  terminal, automation, and computer-use tools; Core/App Store `tools/call`
+  returns a JSON-RPC "Tool not found" error for `run_command`,
+  `run_persistent`, `get_ui_tree`, `see`, and `click`; Core-safe `read_file`
+  still forwards to Rust and returns pending. Pro/Research full-list dispatch
+  falls through when no filtering is needed. Rust dispatcher registration,
+  provider code, entitlements, graph, engine, and view files were not touched.
+  Claude red-team found one P1 call-deny coverage gap; it was fixed before
+  merge. Focused evidence:
+  `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log`
+  and `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
