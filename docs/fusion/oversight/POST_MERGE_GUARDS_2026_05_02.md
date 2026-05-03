@@ -910,3 +910,15 @@
 - log: `✔ Suite "Cloud Provider Auth Refresh AgentEvent Provenance" passed`
 - note: focused verification log `/tmp/epistemos-auth-token-refreshed-agent-event-pr47-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `CloudProviderAuthServiceRefreshAgentEventTests`
+
+## sovereign-gate-adapter-delete-pr17
+
+- grep: `requestAdapterDeleteAuthorization|KnowledgeFusionAdapterDeletionSovereignGate|deleteAdapter` in `Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift`, `Epistemos/KnowledgeFusion/UI/KnowledgeFusionAdapterDeletionSovereignGate.swift`, and `EpistemosTests/KnowledgeFusionAdapterDeletionSovereignGateTests.swift`.
+- forbidden LocalAuthentication grep: `LocalAuthentication|LAContext|canEvaluatePolicy|evaluatePolicy` returns no matches in `Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift` or `Epistemos/KnowledgeFusion/UI/KnowledgeFusionAdapterDeletionSovereignGate.swift`.
+- behavior grep: `TrainingHistoryView` keeps the visible `Delete` button routed through `requestAdapterDeleteAuthorization`, calls `AppBootstrap.shared?.sovereignGate.confirm`, guards `.allowed`, and only then calls the original `vm.deleteAdapter(adapter)`.
+- staged allow: only `Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift`, `Epistemos/KnowledgeFusion/UI/KnowledgeFusionAdapterDeletionSovereignGate.swift`, `EpistemosTests/KnowledgeFusionAdapterDeletionSovereignGateTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "Knowledge Fusion Adapter Deletion Sovereign Gate" passed`
+- log: `✔ Suite "Sovereign Gate" passed`
+- note: focused verification logs `/tmp/epistemos-knowledge-fusion-adapter-sg-pr48-20260503.log` and `/tmp/epistemos-sovereign-gate-regression-pr48-20260503.log`; both Xcode runs exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `KnowledgeFusionAdapterDeletionSovereignGateTests`
+- test: `SovereignGateTests`
