@@ -880,3 +880,13 @@
 - log: `✔ Suite "GhostComputerAgent Reachability Guards" passed`
 - note: focused verification log `/tmp/epistemos-ghost-computer-agent-reachability-guard-pr45-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `GhostComputerAgentReachabilityGuardTests`
+
+## hermes-capability-registry-pr1
+
+- grep: `HermesCapabilityRegistry` in `Epistemos/LocalAgent/HermesCapabilityRegistry.swift` and `EpistemosTests/HermesCapabilityRegistryTests.swift`.
+- parity grep: every command row in `docs/fusion/fleet/hermes-capability-pass-through/HERMES_CAPABILITY_PARITY_TARGET_2026_05_03.md` must have a registry row, enforced by `HermesCapabilityRegistryTests`.
+- tier-leakage grep: `HermesCapabilityRegistry.capabilities(for: .coreAppStore)` exposes only `.core` / `.nativeCore` rows with no network, no subprocess, and no structured external evidence.
+- staged allow: only `Epistemos/LocalAgent/HermesCapabilityRegistry.swift`, `EpistemosTests/HermesCapabilityRegistryTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "Hermes Capability Registry" passed`
+- note: focused verification log `/tmp/epistemos-hermes-capability-registry-pr1-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `HermesCapabilityRegistryTests`

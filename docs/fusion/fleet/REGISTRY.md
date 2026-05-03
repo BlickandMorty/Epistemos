@@ -624,3 +624,5 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 88 | 2026-05-03T18:20Z | kimi-code-audit | scope=local-agent-reflex-completion-audit | antigravity/kimi-k2.6 | pid:97853 | done | docs/fusion/fleet/local-agent-reflex-completion-audit/LOCAL_AGENT_REFLEX_COMPLETION_AUDIT_2026_05_03.md | +1 |
 | 88 | 2026-05-03T18:24Z | detective | concept=GhostComputerAgent reachability | codex/local | n/a | done | docs/fusion/fleet/omega-localagent-agent-event-inventory-pr45/detectives/ghost-computer-agent-reachability.md | +1 |
 | 88 | 2026-05-03T18:24Z | test-green | scope=ghost-computer-agent-reachability-guard-pr45 | xcodebuild | session:59603 | done | /tmp/epistemos-ghost-computer-agent-reachability-guard-pr45-20260503.log | +1 |
+| 89 | 2026-05-03T18:44Z | implementation | slice=hermes-capability-registry-pr1 | codex/local | n/a | done | Epistemos/LocalAgent/HermesCapabilityRegistry.swift; EpistemosTests/HermesCapabilityRegistryTests.swift | +1 |
+| 89 | 2026-05-03T18:44Z | test-green | scope=hermes-capability-registry-pr1 | xcodebuild | session:15189 | done | /tmp/epistemos-hermes-capability-registry-pr1-20260503.log | +1 |

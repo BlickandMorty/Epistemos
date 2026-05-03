@@ -1199,6 +1199,18 @@ Proven or actively wired:
   file, or protected editor path was touched. Red/green evidence:
   `/tmp/epistemos-hermes-provider-surface-pr8-red-20260502.log` and
   `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`.
+- Hermes Capability Registry PR1 is now code-closed as a typed parity map for
+  the user's Hermes slash-command and toolset target:
+  `HermesCapabilityRegistry` enumerates every command row in
+  `HERMES_CAPABILITY_PARITY_TARGET_2026_05_03.md` with command pattern,
+  surface, tier, owner, network/subprocess/approval/evidence flags, native
+  equivalent, and Hermes passthrough intent. Core/App Store filtering exposes
+  only native Core-owned no-network/no-subprocess/no-structured-evidence rows,
+  while Pro/Research keeps Hermes gateway rows visible as pass-through targets.
+  This is a registry seed only: no UI command palette, subprocess launcher,
+  MCP execution, provider adapter, graph/Rex/substrate authority, entitlement,
+  project file, or protected editor path was touched. Focused evidence:
+  `/tmp/epistemos-hermes-capability-registry-pr1-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

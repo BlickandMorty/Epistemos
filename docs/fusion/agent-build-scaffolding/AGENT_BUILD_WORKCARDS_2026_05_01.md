@@ -2687,6 +2687,13 @@ gateway group. `externalGatewaySurfaces` composes from that group so future
 provider additions stay single-edit and inherit the same Pro/Research,
 `hermesGateway`, network, no-direct-substrate, and structured-provenance
 contract.
+Hermes Capability Registry PR1 is closed. `HermesCapabilityRegistry` now mirrors
+the user's Hermes command/capability target into typed command rows with
+surface, tier, owner, network/subprocess/approval/evidence, native-equivalent,
+and Hermes-passthrough flags. Focused tests prove every documented command row
+has a registry entry, Core/App Store sees only native Core-owned rows, and
+Pro/Research keeps Hermes gateway rows visible without granting graph, Rex, or
+substrate authority.
 Core/MAS Tool Surface Policy PR1 is closed. `ToolSurfacePolicy` now resolves
 visible planning surfaces by distribution: real Core/App Store builds and
 sandboxed processes use a conservative allow-list, Pro/Research keeps gateway
@@ -2748,6 +2755,8 @@ Allowed Future Write Set:
 - Prompt-only follow-up: `Epistemos/LocalAgent/HermesPromptBuilder.swift`.
 - Prompt-only tests: `EpistemosTests/HermesPromptBuilderTests.swift`.
 - Pure policy follow-up: `Epistemos/LocalAgent/HermesGatewayPolicy.swift`.
+- Capability registry follow-up: `Epistemos/LocalAgent/HermesCapabilityRegistry.swift`.
+- Capability registry tests: `EpistemosTests/HermesCapabilityRegistryTests.swift`.
 - Pure policy tests: `EpistemosTests/HermesGatewayPolicyTests.swift`.
 - Runtime/provider slices only after a new gate names exact provider, MCP,
   subprocess, entitlement, auth, event, and projection files.
