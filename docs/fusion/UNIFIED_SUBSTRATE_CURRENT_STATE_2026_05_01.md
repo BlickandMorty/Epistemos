@@ -535,6 +535,17 @@ closed:
   arbitrary denial text are not persisted. This does not change Rust MCP
   dispatch, provider behavior, subprocess launchers, UI, graph, EventStore
   schema, Sovereign, generated bindings, or ANE/private API surfaces.
+- AgentEvent Phase7 NightBrain trigger provenance PR36 now records sanitized
+  requested/started/completed/failed AgentEvents for
+  `Phase7Bridge.triggerNightbrainJob(jobType:priority:)`. Supported jobs record
+  canonical `maintenance_log` / `event_checkpoint` values, bounded priority
+  classes, `requested_job_supported`, `success`, result, duration, and bounded
+  failure classes. Unsupported and bootstrap-unavailable paths record requested
+  and failed events before live work, with raw job strings, filesystem paths,
+  priorities, and internal/bootstrap errors excluded from persisted AgentEvent
+  JSON. This does not change NightBrain scheduling semantics, AppBootstrap
+  lifecycle, EventStore schema, UI, graph, Rust, generated bindings, Sovereign,
+  Hermes/MCP, subprocess, browser/computer-use, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1272,7 +1283,8 @@ before building.
   LocalAgent reflex streaming EOF flush PR31, AgentEvent LocalGGUF direct stream
   provenance PR32, AgentEvent Apple Intelligence direct generate provenance
   PR33, AgentEvent v1.6 forward vocabulary PR34, AgentEvent MCPBridge Core
-  `tools/call` denial provenance PR35, durable GraphEvent mutation
+  `tools/call` denial provenance PR35, AgentEvent Phase7 NightBrain trigger
+  provenance PR36, durable GraphEvent mutation
   mapping PR1, durable GraphEvent Settings visibility PR2, durable GraphEvent
   projection snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
