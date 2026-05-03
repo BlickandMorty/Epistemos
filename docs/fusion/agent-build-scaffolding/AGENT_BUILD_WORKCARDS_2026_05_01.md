@@ -1013,6 +1013,24 @@ provenance, change routing, EventStore schema, UI, graph, Rust, generated
 bindings, Hermes/MCP, Sovereign, or ANE/private API surfaces. Focused
 source-guard verification passes under `pipefail`.
 
+PR27 LocalMLX direct generate provenance is also closed.
+`LocalMLXClient.generate(...)` now records requested, started, and
+completed/failed AgentEvents for direct MLX text generation with
+`local-mlx-generate-...` run ids, `local-mlx-client` actor metadata, per-client
+`local-mlx-generate:N` tool call ids, `local_generate.mlx` tool name,
+`source=local_mlx_client`, `surface=generate`, `provider=local_mlx`,
+requested/resolved runtime, reasoning mode, max token count, prompt/system
+prompt character counts, steering-hints presence, elapsed milliseconds, output
+character count, success boolean, and bounded control-plane/backend failure
+classes. Persisted provenance excludes prompt text, system prompts, steering
+hint JSON, generated output, model id, artifact id, image URLs, filesystem
+paths, localized descriptions, arbitrary error text, Hermes/MCP/subprocess
+surfaces, browser/computer-use surfaces, LocalAuthentication, and ANE/private
+API details. Source and behavior stay away from stream behavior, routing
+semantics, model loading, runtime control-plane policy, UI, graph, Rust,
+generated bindings, and EventStore schema. Focused runtime verification passes
+under `pipefail`.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1463,6 +1481,17 @@ Acceptance:
   Source guards prove this mount does not create a second recorder per client
   and does not add routing, EventStore schema, UI, graph, Rust, generated
   binding, Hermes/MCP, Sovereign, or ANE/private API work.
+- PR27 wired/reachable/visible: Direct `LocalMLXClient.generate(...)` emits
+  requested, started, and completed/failed AgentEvents with non-empty run id,
+  per-client tool call id, actor, source/surface/provider metadata,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, output
+  character count, success boolean, and bounded control-plane/backend failure
+  classes. Tests prove prompt text, system prompts, steering hint JSON,
+  generated output, model id, artifact id, image URLs, filesystem paths,
+  localized descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+  browser/computer-use surfaces, LocalAuthentication, and ANE/private API
+  details are not persisted in AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

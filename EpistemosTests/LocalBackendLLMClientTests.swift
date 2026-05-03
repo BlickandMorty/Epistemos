@@ -156,6 +156,43 @@ struct LocalBackendLLMClientTests {
         }
     }
 
+    private actor StubLocalMLXRuntime: LocalMLXRuntime {
+        let output: String
+        let generateError: Error?
+        private(set) var generateRequests: [LocalMLXRequest] = []
+
+        init(output: String, generateError: Error? = nil) {
+            self.output = output
+            self.generateError = generateError
+        }
+
+        func generate(request: LocalMLXRequest) async throws -> String {
+            generateRequests.append(request)
+            if let generateError {
+                throw generateError
+            }
+            return output
+        }
+
+        func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
+            _ = request
+            return AsyncThrowingStream { continuation in
+                if let generateError {
+                    continuation.finish(throwing: generateError)
+                    return
+                }
+                continuation.yield(output)
+                continuation.finish()
+            }
+        }
+
+        func profilingSnapshot() async -> LocalMLXRunProfile? {
+            nil
+        }
+
+        func unload() async {}
+    }
+
     private enum AgentEventTestError: Error {
         case backendSecret
     }
@@ -178,6 +215,13 @@ struct LocalBackendLLMClientTests {
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    private func makeTemporaryLocalModelPaths() -> LocalModelPaths {
+        LocalModelPaths(
+            rootDirectory: FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        )
     }
 
     @Test("main local generation resolves to gguf when the configured gguf runtime is available")
@@ -652,6 +696,152 @@ struct LocalBackendLLMClientTests {
         #expect(bootstrap.contains("agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,\n            prepareForRequest:"))
         #expect(bootstrap.contains("preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration,\n            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder"))
         #expect(!bootstrap.contains("agentProvenanceRecorder: AgentToolProvenanceRecorder()"))
+    }
+
+    @Test("local mlx generate records sanitized AgentEvents")
+    func localMLXGenerateRecordsSanitizedAgentEvents() async throws {
+        let paths = makeTemporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = StubLocalMLXRuntime(output: "mlx answer")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 1_111 },
+            persist: sink.append
+        )
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            agentProvenanceRecorder: recorder
+        )
+
+        let output = try await client.generate(
+            prompt: "secret prompt",
+            systemPrompt: "secret system",
+            maxTokens: 42,
+            reasoningMode: .fast,
+            modelID: descriptor.id,
+            requestedRuntimeKind: .mlx,
+            steeringHintsJSON: #"{"secret":true}"#
+        )
+
+        #expect(output == "mlx answer")
+        #expect(await runtime.generateRequests.count == 1)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(sink.events.allSatisfy { $0.runID.hasPrefix("local-mlx-generate-") })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-mlx-generate:1" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "local_generate.mlx" })
+        #expect(sink.events.allSatisfy { $0.actor == .agent(id: "local-mlx-client", modelID: nil) })
+
+        let completed = try #require(sink.events.last)
+        let argumentsJSON = try #require(completed.tool?.argumentsJSON)
+        let resultJSON = try #require(completed.tool?.resultJSON)
+
+        #expect(argumentsJSON.contains(#""provider":"local_mlx""#))
+        #expect(argumentsJSON.contains(#""prompt_char_count":13"#))
+        #expect(argumentsJSON.contains(#""system_prompt_char_count":13"#))
+        #expect(argumentsJSON.contains(#""requested_runtime":"mlx""#))
+        #expect(argumentsJSON.contains(#""resolved_runtime":"mlx""#))
+        #expect(argumentsJSON.contains(#""steering_hints_present":true"#))
+        #expect(resultJSON.contains(#""success":true"#))
+        #expect(resultJSON.contains(#""output_char_count":10"#))
+        #expect(completed.metadata["source"] == "local_mlx_client")
+        #expect(completed.metadata["surface"] == "generate")
+        #expect(completed.metadata["provider"] == "local_mlx")
+
+        let persistedText = sink.events.map { event in
+            [
+                event.tool?.argumentsJSON,
+                event.tool?.resultJSON,
+                event.tool?.errorMessage,
+                event.metadata.description,
+            ].compactMap { $0 }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        #expect(!persistedText.contains("secret prompt"))
+        #expect(!persistedText.contains("secret system"))
+        #expect(!persistedText.contains("secret"))
+        #expect(!persistedText.contains("mlx answer"))
+        #expect(!persistedText.contains(descriptor.id))
+        #expect(!persistedText.contains(paths.rootDirectory.path))
+    }
+
+    @Test("local mlx generate records sanitized failed AgentEvent")
+    func localMLXGenerateRecordsSanitizedFailedAgentEvent() async throws {
+        let paths = makeTemporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = StubLocalMLXRuntime(output: "unused")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 2_222 },
+            persist: sink.append
+        )
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try await client.generate(
+                prompt: "secret failure prompt",
+                systemPrompt: "secret failure system",
+                maxTokens: 17,
+                reasoningMode: .fast,
+                modelID: descriptor.id,
+                requestedRuntimeKind: .gguf,
+                steeringHintsJSON: """
+                {"depth_budget":{"max_turns":1,"max_reasoning_steps":1,"max_tool_calls":1,"max_output_tokens":8}}
+                """
+            )
+            Issue.record("Expected local mlx generate to fail.")
+        } catch {
+        }
+
+        #expect(await runtime.generateRequests.isEmpty)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        let failed = try #require(sink.events.last)
+        #expect(failed.tool?.status == .failed)
+        #expect(failed.tool?.errorMessage == "policy_denied")
+        #expect(failed.metadata["failure_class"] == "policy_denied")
+        #expect(failed.tool?.resultJSON?.contains(#""success":false"#) == true)
+
+        let persistedText = sink.events.map { event in
+            [
+                event.tool?.argumentsJSON,
+                event.tool?.resultJSON,
+                event.tool?.errorMessage,
+                event.metadata.description,
+            ].compactMap { $0 }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        #expect(!persistedText.contains("secret failure prompt"))
+        #expect(!persistedText.contains("secret failure system"))
+        #expect(!persistedText.contains("depth_budget"))
+        #expect(!persistedText.contains("backendSecret"))
+        #expect(!persistedText.contains(descriptor.id))
+        #expect(!persistedText.contains(paths.rootDirectory.path))
     }
 
     private func collectStream(_ stream: AsyncThrowingStream<String, Error>) async throws -> String {
