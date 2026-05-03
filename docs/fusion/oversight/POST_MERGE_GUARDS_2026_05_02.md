@@ -717,3 +717,15 @@
 - log: `✔ Test run with 4 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-rrf-search-fusion-health-row-pr35-green-r2-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`. The known SwiftLint package-plugin lines appear after success.
 - test: `SearchFusionHealthRowTests`
+
+## agent-event-v16-forward-variants-pr34
+
+- grep: `steerRequested|summaryStarted|summaryDelta|summaryCompleted|vaultCreated|vaultArchived` in `Epistemos/Models/AgentProvenanceEvent.swift`
+- grep: `forward_variant_only` in `EpistemosTests/AgentEventV16ForwardVariantTests.swift`
+- forbidden staged-path guard: `git diff --cached --name-only -- Epistemos/Bridge agent_core epistemos-core graph-engine Epistemos/Views Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Models/AgentProvenanceEvent.swift`, `EpistemosTests/AgentEventV16ForwardVariantTests.swift`, Round 70 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "AgentEvent kind vocabulary includes simulation v1.6 forward variants" passed`
+- log: `✔ Test "simulation v1.6 forward variants round-trip through Codable" passed`
+- log: `✔ Test "EventStore persists simulation v1.6 forward variant events" passed`
+- note: focused verification log `/tmp/epistemos-agent-event-v16-forward-variants-pr34-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`. This slice is forward vocabulary only, not live dispatch-panel steering, helper summarizer, or multi-vault runtime.
+- test: `AgentEventV16ForwardVariantTests`

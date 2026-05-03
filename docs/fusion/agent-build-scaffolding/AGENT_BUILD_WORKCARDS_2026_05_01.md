@@ -1123,6 +1123,16 @@ UI, graph, Rust, generated bindings, and EventStore schema. Focused
 `AppleIntelligenceServiceAgentEventTests` pass under `pipefail` with isolated
 DerivedData after the expected red failure proved the missing test seam.
 
+PR34 AgentEvent v1.6 forward vocabulary is also closed as vocabulary-only.
+`AgentProvenanceEventKind` now contains the six simulation doctrine forward
+kinds `steer_requested`, `summary_started`, `summary_delta`,
+`summary_completed`, `vault_created`, and `vault_archived`. Focused tests prove
+CaseIterable membership, Codable round-trip, and EventStore persistence as
+tool-less `forward_variant_only` rows. This does not implement dispatch-panel
+steering, helper-model summary streams, multi-vault UI, Rust simulation enum
+variants, Swift stream events, generated bindings, emitters, or EventStore
+schema changes.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1237,6 +1247,9 @@ Allowed write set:
   `LocalGGUFClient.stream(...)` only.
 - PR33 Apple Intelligence direct generate provenance: already closed for
   `AppleIntelligenceService.generate(...)` only.
+- PR34 AgentEvent v1.6 forward vocabulary: already closed for
+  `AgentProvenanceEventKind` raw-value compatibility and EventStore
+  persistence tests only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
@@ -1662,6 +1675,11 @@ Acceptance:
   Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
   LocalAuthentication, and ANE/private API details are not persisted in
   AgentEvent arguments/results/errors.
+- PR34 wired/reachable/visible: `AgentProvenanceEventKind` contains the six
+  simulation v1.6 forward raw values and EventStore can persist/reload each as
+  a tool-less `forward_variant_only` row. No runtime emits these events yet, and
+  no dispatch panel, helper summarizer, multi-vault UI, Rust enum, Swift stream
+  event, generated binding, or schema surface was changed.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
