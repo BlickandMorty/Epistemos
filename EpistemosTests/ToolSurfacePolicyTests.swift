@@ -146,4 +146,48 @@ struct ToolSurfacePolicyTests {
             distribution: .proResearch
         ))
     }
+
+    @Test @MainActor func toolExecutorDeniesCoreAppStoreHiddenToolsBeforeBindings() async {
+        let bridge = ToolTierBridge(
+            vaultPath: "/tmp/epistemos-tool-surface-test-vault",
+            tier: .full,
+            distribution: .coreAppStore
+        )
+        let executor = bridge.toolExecutor()
+
+        for toolName in [
+            "run_command",
+            "run_persistent",
+            "get_ui_tree",
+            "see",
+            "click",
+            "browser_navigate",
+            "docker_run",
+            "hermes_subprocess",
+        ] {
+            let result = await executor(toolName, "{}")
+            #expect(result.toolName == toolName)
+            #expect(result.isError)
+            #expect(result.resultJson.contains("Tool not found: \(toolName)"))
+            #expect(!result.resultJson.contains("agent_core bindings unavailable"))
+        }
+    }
+
+    @Test @MainActor func toolExecutionPolicyPreservesAllowedAndProResearchPaths() {
+        #expect(ToolTierBridge.executionPolicyDenial(
+            toolName: "vault_search",
+            distribution: .coreAppStore
+        ) == nil)
+        #expect(ToolTierBridge.executionPolicyDenial(
+            toolName: "run_command",
+            distribution: .proResearch
+        ) == nil)
+
+        let deniedThink = ToolTierBridge.executionPolicyDenial(
+            toolName: "think",
+            distribution: .proResearch
+        )
+        #expect(deniedThink?.isError == true)
+        #expect(deniedThink?.resultJson.contains("Tool not found: think") == true)
+    }
 }

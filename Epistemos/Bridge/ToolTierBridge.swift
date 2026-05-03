@@ -2,7 +2,7 @@ import Foundation
 import os
 
 nonisolated enum ToolSurfacePolicy {
-    enum Distribution {
+    enum Distribution: Sendable {
         case currentBuild
         case coreAppStore
         case proResearch
@@ -149,6 +149,7 @@ final class ToolTierBridge {
     private let vaultPath: String
     private let tier: ChatToolTier
     private let allowedToolNames: Set<String>?
+    private let distribution: ToolSurfacePolicy.Distribution
     private let logger = Logger(subsystem: "com.epistemos", category: "ToolTierBridge")
 
     private var resolvedVaultPath: String {
@@ -160,11 +161,13 @@ final class ToolTierBridge {
     init(
         vaultPath: String,
         tier: ChatToolTier,
-        allowedToolNames: Set<String>? = nil
+        allowedToolNames: Set<String>? = nil,
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
     ) {
         self.vaultPath = vaultPath
         self.tier = tier
         self.allowedToolNames = allowedToolNames
+        self.distribution = distribution
     }
 
     /// Load the tier-filtered tool list as `OmegaToolDefinition` structs so
@@ -201,7 +204,10 @@ final class ToolTierBridge {
                     requiresConfirmation: schema.riskLevel == "destructive"
                 )
             }
-            return ToolSurfacePolicy.surfacedTools(tools)
+            return ToolSurfacePolicy.surfacedTools(
+                tools,
+                distribution: distribution
+            )
         } catch {
             logger.warning("Tool list fetch failed: \(error.localizedDescription, privacy: .public)")
             return []
@@ -218,13 +224,15 @@ final class ToolTierBridge {
         let path = self.resolvedVaultPath
         let tierRaw = self.tier.rawValue
         let allowlist = self.allowedToolNames.map { Array($0).sorted() }
+        let distribution = self.distribution
         return { @Sendable name, argumentsJson in
             await Self.executeToolCallBridged(
                 vaultPath: path,
                 tier: tierRaw,
                 toolName: name,
                 inputJson: argumentsJson,
-                allowedToolNames: allowlist
+                allowedToolNames: allowlist,
+                distribution: distribution
             )
         }
     }
@@ -237,8 +245,16 @@ final class ToolTierBridge {
         tier: String,
         toolName: String,
         inputJson: String,
-        allowedToolNames: [String]?
+        allowedToolNames: [String]?,
+        distribution: ToolSurfacePolicy.Distribution
     ) async -> LocalToolResult {
+        if let denial = executionPolicyDenial(
+            toolName: toolName,
+            distribution: distribution
+        ) {
+            return denial
+        }
+
         #if canImport(agent_coreFFI)
         do {
             let result: ToolExecutionResultFfi
@@ -290,7 +306,25 @@ final class ToolTierBridge {
         #endif
     }
 
-    private static func errorToJson(_ message: String) -> String {
+    nonisolated static func executionPolicyDenial(
+        toolName: String,
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> LocalToolResult? {
+        guard !ToolSurfacePolicy.isSurfacedToolName(
+            toolName,
+            distribution: distribution
+        ) else {
+            return nil
+        }
+
+        return LocalToolResult(
+            toolName: toolName,
+            resultJson: errorToJson("Tool not found: \(toolName)"),
+            isError: true
+        )
+    }
+
+    private nonisolated static func errorToJson(_ message: String) -> String {
         let payload: [String: Any] = [
             "error": message,
             "success": false,

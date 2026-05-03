@@ -2160,6 +2160,13 @@ Automation while keeping Notes, Files, vault, graph, and open-note context;
 manually typed `@Terminal` does not resolve because parsing consumes only the
 filtered provider list. Claude red-team found a real catalog-filtering P0 and
 then approved the hardened R3 patch with P0=0/P1=0.
+Core/MAS ToolTier Execution Symbol Gate PR2 is closed. `ToolTierBridge` now
+carries `ToolSurfacePolicy.Distribution` through visible catalog loading and
+`toolExecutor()`, and denies non-surfaced Core/App Store tool names before FFI
+or bindings execution. The slice keeps the policy in the existing bridge rather
+than adding provider, MCP, Omega, or subprocess machinery: hidden gateway symbols
+return `Tool not found` in Core/App Store, while Core-safe `vault_search` and
+Pro/Research `run_command` execution policy remain allowed.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2272,6 +2279,18 @@ Evidence:
   `/tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log`.
 - Command Center Tool Surface Policy PR1 Claude red-team:
   `docs/fusion/fleet/command-center-tool-surface-policy-pr1/claude-red-team/attacks.md`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 Deliberation:
+  `docs/fusion/deliberation/core_mas_tooltier_execution_symbol_gate_pr2_deliberation_2026_05_03.md`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 Red log:
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-red-20260503.log`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 Green log:
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-green-20260503.log`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 guard log:
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-guard-green-20260503.log`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 schema log:
+  `/tmp/epistemos-core-mas-tooltier-execution-pr2-schema-green-20260503.log`.
+- Core/MAS ToolTier Execution Symbol Gate PR2 Codex red-team:
+  `docs/fusion/fleet/core-mas-tooltier-execution-symbol-gate-pr2/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2287,7 +2306,10 @@ Evidence:
   `ToolSchemaGrammarTests` plus the 7-test `ToolSurfacePolicyTests` suite after
   a Claude red-team P1 call-deny coverage fix. Command Center Tool Surface
   Policy PR1 passed 42 focused `AgentCommandCenterStateTests` after Claude
-  red-team drove the catalog-filtering hardening.
+  red-team drove the catalog-filtering hardening. Core/MAS ToolTier Execution
+  Symbol Gate PR2 passed 9 focused `ToolSurfacePolicyTests`, 62 guard tests
+  across `AgentCommandCenterStateTests` and `AppStoreHardeningTests`, and 22
+  focused `ToolSchemaGrammarTests`.
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
 
