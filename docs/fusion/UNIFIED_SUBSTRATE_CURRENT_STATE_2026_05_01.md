@@ -477,6 +477,18 @@ closed:
   `SovereignGate.swift`, duplicate `LocalAuthentication`, alter workspace
   service semantics, or touch Rust/generated/graph/Omega/ChatCoordinator
   surfaces.
+- Sovereign Gate Settings Vault Disconnect PR16 is now closed for the existing
+  Settings > Vault `Disconnect` button. `SettingsView` maps vault disconnect
+  through typed `SettingsViewDestructiveActionSovereignGate` requirements,
+  routes the visible destructive button through the shared `AppBootstrap`
+  `SovereignGate` with `.deviceOwnerAuthentication`, denies safely when the
+  gate is unavailable, disables duplicate clicks while auth is in flight,
+  rechecks that the active vault URL still matches the captured URL after
+  approval, and only then calls the original
+  `VaultConnectionActions.disconnect(notesUI:vaultSync:)`. Focused Swift tests
+  passed 33/33. This does not edit `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, alter vault disconnect semantics, or touch
+  Rust/generated/graph/Omega/ChatCoordinator surfaces.
 - R16 Sidecar Schema Mirror Card 2 is closed as a docs-only audit/no-op for
   code. A refreshed Rust/Swift audit found no active Rust reader or writer for
   note `<stem>.epistemos.json` sidecars, so Swift remains the active contract
@@ -1035,7 +1047,8 @@ before building.
    batch authority reset/preset surfaces, Overseer History Reset PR13 is closed
    for reset-history, Settings Reset Everything PR14 is closed for the existing
    reset-all-data alert, and Settings Workspace Delete PR15 is closed for the
-   saved-workspace trash action.
+   saved-workspace trash action, and Settings Vault Disconnect PR16 is closed
+   for the Settings Vault disconnect button.
    Future Sovereign slices must
    start from
    `docs/fusion/deliberation/sovereign_gate_core_pr1_deliberation_2026_05_02.md`
@@ -1233,7 +1246,7 @@ Gate RootView Destructive PR8, Sovereign Gate Model Vault Delete PR9, Sovereign
 Gate Custom Tool Delete PR10, Sovereign Gate Notes Vault Disconnect PR11,
 Sovereign Gate Authority Reset PR12, Sovereign Gate Overseer History Reset
 PR13, Sovereign Gate Settings Reset Everything PR14, Sovereign Gate Settings
-Workspace Delete PR15, the Halo V0 Shadow
+Workspace Delete PR15, Sovereign Gate Settings Vault Disconnect PR16, the Halo V0 Shadow
 backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway

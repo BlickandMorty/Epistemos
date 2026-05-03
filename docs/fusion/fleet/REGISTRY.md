@@ -287,3 +287,13 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 45 | 2026-05-03T05:40Z | implementation | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | Epistemos/Views/Settings/SettingsView.swift | +1 |
 | 45 | 2026-05-03T05:40Z | test | suite=SovereignGateTests | xcodebuild | session:64792 | done | /tmp/epistemos-sovereign-gate-settings-workspace-pr15-green-20260502.log | +1 |
 | 45 | 2026-05-03T05:42Z | guard | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 46 | 2026-05-03T05:45Z | preflight | scope=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_46_2026_05_02.md | +1 |
+| 46 | 2026-05-03T05:45Z | detective | concept=Sovereign Gate Settings vault disconnect migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/detectives/sovereign-gate-settings-vault-disconnect.md | +1 |
+| 46 | 2026-05-03T05:45Z | aggregator | slice=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/aggregator.md | +1 |
+| 46 | 2026-05-03T05:45Z | pipeline-builder | slice=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_settings_vault_disconnect_pr16_deliberation_2026_05_02.md | +1 |
+| 46 | 2026-05-03T05:53Z | test | suite=SovereignGateTests | xcodebuild | session:28356 | failed | /tmp/epistemos-sovereign-gate-settings-vault-disconnect-pr16-green-20260502.log | +1 |
+| 46 | 2026-05-03T05:57Z | implementation | slice=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | Epistemos/Views/Settings/SettingsView.swift | +1 |
+| 46 | 2026-05-03T05:58Z | test | suite=SovereignGateTests | xcodebuild | session:78802 | done | /tmp/epistemos-sovereign-gate-settings-vault-disconnect-pr16-green-20260502-rerun.log | +1 |
+| 46 | 2026-05-03T05:59Z | guard | slice=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 46 | 2026-05-03T06:00Z | claude-red-team | brief=sovereign-gate-settings-vault-disconnect-pr16 | claude/print-readonly | pid:13845 | failed | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/claude-red-team/attacks-stalled.md | -1 |
+| 46 | 2026-05-03T06:03Z | codex-red-team | brief=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/claude-red-team/attacks.md | +1 |

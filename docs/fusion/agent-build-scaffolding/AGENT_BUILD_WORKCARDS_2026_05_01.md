@@ -1704,6 +1704,15 @@ the original workspace delete path. The slice preserves the original
 behavior after `.allowed`, denies safely when the shared gate is unavailable,
 and does not edit `SovereignGate.swift`, duplicate `LocalAuthentication`, alter
 workspace service semantics, or touch Rust/generated/graph/Omega/ChatCoordinator.
+Settings Vault Disconnect PR16 is also closed. `Epistemos/Views/Settings/SettingsView.swift`
+routes the existing Settings > Vault `Disconnect` destructive button through
+the shared `AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication`
+before calling the original vault disconnect helper. The slice denies safely
+when the shared gate is unavailable, disables duplicate prompts while auth is
+in flight, rechecks that the active vault URL still matches the captured URL
+after approval, and does not edit `SovereignGate.swift`, duplicate
+`LocalAuthentication`, alter vault disconnect semantics, or touch
+Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1772,6 +1781,7 @@ Allowed write set:
   closed.
 - PR15 Settings saved-workspace delete migration and focused tests: already
   closed.
+- PR16 Settings vault disconnect migration and focused tests: already closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1787,7 +1797,8 @@ Allowed write set:
   Authority Settings batch reset/preset actions are already covered by PR12,
   Overseer Settings reset-history is already covered by PR13, Settings reset
   everything is already covered by PR14, and Settings saved-workspace delete is
-  already covered by PR15.
+  already covered by PR15, and Settings Vault disconnect is already covered by
+  PR16.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:

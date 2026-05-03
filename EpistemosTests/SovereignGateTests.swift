@@ -695,6 +695,19 @@ struct SovereignGateTests {
         #expect(reason.localizedCaseInsensitiveContains("delete saved workspace"))
     }
 
+    @Test("Settings vault disconnect maps to destructive Sovereign Gate requirements")
+    func settingsVaultDisconnectMapsToDestructiveSovereignGateRequirements() {
+        #expect(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: .vaultDisconnect(name: "Research Vault"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = SettingsViewDestructiveActionSovereignGate.reason(for: .vaultDisconnect(name: "Research Vault"))
+
+        #expect(reason.contains("Research Vault"))
+        #expect(reason.localizedCaseInsensitiveContains("disconnect vault"))
+    }
+
     @Test("Settings reset everything alert routes through Sovereign Gate")
     func settingsResetEverythingAlertRoutesThroughSovereignGate() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -773,6 +786,50 @@ struct SovereignGateTests {
         )
         #expect(delete.contains("workspaceService.deleteWorkspace(workspace)"))
         #expect(delete.contains("refreshWorkspaces()"))
+
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
+    @Test("Settings vault disconnect routes through Sovereign Gate")
+    func settingsVaultDisconnectRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let vaultDetail = try section(
+            from: "private struct VaultDetailView: View",
+            to: "private func autoSaveOption"
+        )
+
+        #expect(vaultDetail.contains("@State private var isVaultDisconnectAuthorizationInFlight = false"))
+        #expect(vaultDetail.contains("requestVaultDisconnectAuthorization(vaultURL: url)"))
+        #expect(!vaultDetail.contains("Button(\"Disconnect\", role: .destructive) {\n                            VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)"))
+        #expect(vaultDetail.contains(".disabled(isVaultDisconnectAuthorizationInFlight)"))
+
+        let request = try section(
+            from: "private func requestVaultDisconnectAuthorization(vaultURL: URL) async",
+            to: "private func autoSaveOption"
+        )
+        #expect(request.contains("guard !isVaultDisconnectAuthorizationInFlight else { return }"))
+        #expect(request.contains("isVaultDisconnectAuthorizationInFlight = true"))
+        #expect(request.contains("defer { isVaultDisconnectAuthorizationInFlight = false }"))
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("?? .denied(.authenticationFailed)"))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }"))
+        #expect(request.contains("VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)"))
 
         #expect(!source.contains("LocalAuthentication"))
         #expect(!source.contains("LAContext"))

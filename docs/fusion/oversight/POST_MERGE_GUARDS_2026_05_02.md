@@ -1,5 +1,16 @@
 # Post-Merge Guards - 2026-05-02
 
+## sovereign-gate-settings-vault-disconnect-pr16
+
+- grep: `rg -n "vaultDisconnect\\(name:|requestVaultDisconnectAuthorization\\(vaultURL:|isVaultDisconnectAuthorizationInFlight|guard vaultSync\\.vaultURL\\?\\.standardizedFileURL == vaultURL\\.standardizedFileURL else \\{ return \\}" Epistemos/Views/Settings/SettingsView.swift EpistemosTests/SovereignGateTests.swift`
+- forbidden grep: `rg -n "LocalAuthentication|LAContext|canEvaluatePolicy|evaluatePolicy" Epistemos/Views/Settings/SettingsView.swift`
+- staged guard: `git diff --cached -- Epistemos/Views/Settings/SettingsView.swift | rg -n 'BackgroundIndexingHealthRow|SearchFusionHealthRow|Read-only health probes.*Halo backend'` must return no matches.
+- log: `/tmp/epistemos-sovereign-gate-settings-vault-disconnect-pr16-green-20260502-rerun.log`
+- log: `✔ Test "Settings vault disconnect maps to destructive Sovereign Gate requirements" passed`
+- log: `✔ Test "Settings vault disconnect routes through Sovereign Gate" passed`
+- log: `✔ Test run with 33 tests in 1 suite passed`
+- test: `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/SovereignGateTests test`
+
 ## sovereign-gate-settings-workspace-delete-pr15
 
 - grep: `rg -n "savedWorkspace\\(name:|requestSavedWorkspaceDeleteAuthorization\\(|deleteSavedWorkspace\\(" Epistemos/Views/Settings/SettingsView.swift EpistemosTests/SovereignGateTests.swift`
