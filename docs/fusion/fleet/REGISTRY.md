@@ -231,3 +231,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 40 | 2026-05-03T03:04Z | claude-red-team | brief=omega-tool-registry-core-planning-pr1-final | claude/no-tools | session:84069 | done | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks.md | +1 |
 | 40 | 2026-05-03T03:10Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:2389 | done | /tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log | +1 |
 | 40 | 2026-05-03T03:10Z | guard | slice=omega-tool-registry-core-planning-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 41 | 2026-05-03T03:14Z | preflight | scope=omega-dispatch-core-execution-gate-pr1 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_41_2026_05_02.md | +1 |
+| 41 | 2026-05-03T03:14Z | detective | concept=Omega dispatch Core execution gate | codex/local | n/a | done | docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/detectives/omega-dispatch-core-execution-gate.md | +1 |
+| 41 | 2026-05-03T03:14Z | aggregator | slice=omega-dispatch-core-execution-gate-pr1 | codex/local | n/a | done | docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/aggregator.md | +1 |
+| 41 | 2026-05-03T03:14Z | pipeline-builder | slice=omega-dispatch-core-execution-gate-pr1 | codex/local | n/a | done | docs/fusion/deliberation/omega_dispatch_core_execution_gate_pr1_deliberation_2026_05_02.md | +1 |
+| 41 | 2026-05-03T03:20Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:74752 | failed | /tmp/epistemos-omega-dispatch-core-execution-gate-pr1-red-20260502.log | +1 |
+| 41 | 2026-05-03T03:32Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:85775 | done | /tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-final-20260502.log | +1 |
+| 41 | 2026-05-03T03:32Z | claude-red-team | brief=omega-dispatch-core-execution-gate-pr1 | claude/no-tools | session:6741 | returned | docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/claude-red-team/attacks-initial.md | +1 |
+| 41 | 2026-05-03T03:39Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:92882 | done | /tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log | +1 |
+| 41 | 2026-05-03T03:42Z | test | suite=ToolSurfacePolicyTests | xcodebuild | session:1871 | done | /tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log | +1 |
+| 41 | 2026-05-03T03:42Z | claude-red-team | brief=omega-dispatch-core-execution-gate-pr1-final | claude/no-tools | session:37154 | done | docs/fusion/fleet/omega-dispatch-core-execution-gate-pr1/claude-red-team/attacks.md | +1 |
+| 41 | 2026-05-03T03:42Z | guard | slice=omega-dispatch-core-execution-gate-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

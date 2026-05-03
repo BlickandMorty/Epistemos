@@ -291,3 +291,24 @@
 - log: `✔ Test run with 18 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `ToolSchemaGrammarTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `ToolSchemaGrammarTests`
+
+## omega-dispatch-core-execution-gate-pr1
+
+- grep: `resolvedDistribution(_ distribution: Distribution) -> Distribution` in `Epistemos/Bridge/ToolTierBridge.swift`
+- grep: `func dispatch(`
+- grep: `distribution: ToolSurfacePolicy.Distribution = .currentBuild`
+- grep: `policyGateResponse`
+- grep: `jsonRpcError`
+- grep: `Omega Core App Store dispatch denies Pro gateway tool calls`
+- forbidden grep: `registerBuiltinTools|McpDispatcher\\(|builtinToolsJson\\(\\)|URLSession|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy|CloudLLMClient|CloudProviderAuthService|LLMService|TriageService` in the staged diff for `Epistemos/Omega/MCPBridge.swift` and `EpistemosTests/OmegaToolSchemaGrammarTests.swift`, except pre-existing unchanged lines in `MCPBridge.swift`.
+- staged guard: `git diff --cached --name-only -- Epistemos/Engine Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Bridge/ToolTierBridge.swift` and `Epistemos/Omega/MCPBridge.swift` are allowed app-code files for this slice.
+- log: `✔ Test "Omega Core App Store dispatch list hides Pro gateway tools" passed`
+- log: `✔ Test "Omega Pro Research dispatch list preserves full registered tools" passed`
+- log: `✔ Test "Omega Core App Store dispatch denies Pro gateway tool calls" passed`
+- log: `✔ Test "Omega Core App Store dispatch still allows Core-safe tool calls" passed`
+- log: `✔ Test run with 22 tests in 1 suite passed`
+- log: `✔ Test run with 7 tests in 1 suite passed`
+- note: focused verification logs `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-green-r2-20260502.log` and `/tmp/epistemos-omega-dispatch-core-execution-gate-pr1-tool-surface-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after both runs, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `ToolSchemaGrammarTests`
+- test: `ToolSurfacePolicyTests`

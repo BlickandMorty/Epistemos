@@ -57,7 +57,7 @@ nonisolated enum ToolSurfacePolicy {
         }
     }
 
-    private static func resolvedDistribution(_ distribution: Distribution) -> Distribution {
+    static func resolvedDistribution(_ distribution: Distribution) -> Distribution {
         if isCoreAppStoreBuild {
             return .coreAppStore
         }
