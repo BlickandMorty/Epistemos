@@ -900,3 +900,13 @@
 - log: `✔ Suite "Hermes Capability Registry" passed`
 - note: focused verification log `/tmp/epistemos-hermes-capability-registry-pr1-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `HermesCapabilityRegistryTests`
+
+## auth-token-refreshed-agent-event-pr47
+
+- grep: `auth.token.refreshed|previous_token_fingerprint|new_expires_at|OAuth token refresh failed` in `Epistemos/Engine/CloudProviderAuthService.swift` and `EpistemosTests/CloudProviderAuthServiceRefreshAgentEventTests.swift`.
+- forbidden secret persistence grep: `CloudProviderAuthServiceRefreshAgentEventTests` proves encoded AgentEvents never contain `old-google-access-token-secret`, `google-refresh-token-secret`, `new-google-access-token-secret`, or `google-client-secret`.
+- behavior grep: `refreshedCredentialIfNeeded` records only expired/expiring OAuth refresh, while fresh credentials return without events.
+- staged allow: only `Epistemos/Engine/CloudProviderAuthService.swift`, `EpistemosTests/CloudProviderAuthServiceRefreshAgentEventTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "Cloud Provider Auth Refresh AgentEvent Provenance" passed`
+- note: focused verification log `/tmp/epistemos-auth-token-refreshed-agent-event-pr47-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `CloudProviderAuthServiceRefreshAgentEventTests`

@@ -629,3 +629,6 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 90 | 2026-05-03T18:58Z | implementation | slice=ghost-computer-agent-dead-code-delete-pr46 | codex/local | n/a | done | Epistemos/Omega/Agents/GhostComputerAgent.swift; EpistemosTests/GhostComputerAgentReachabilityGuardTests.swift | +1 |
 | 90 | 2026-05-03T18:58Z | test-green | scope=ghost-computer-agent-dead-code-delete-pr46 | xcodebuild | session:85417 | done | /tmp/epistemos-ghost-computer-agent-delete-pr46-20260503.log | +1 |
 | 90 | 2026-05-03T18:58Z | guard | slice=ghost-computer-agent-dead-code-delete-pr46 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 91 | 2026-05-03T19:07Z | implementation | slice=auth-token-refreshed-agent-event-pr47 | codex/local | n/a | done | Epistemos/Engine/CloudProviderAuthService.swift; EpistemosTests/CloudProviderAuthServiceRefreshAgentEventTests.swift | +1 |
+| 91 | 2026-05-03T19:07Z | test-green | scope=auth-token-refreshed-agent-event-pr47 | xcodebuild | session:65273 | done | /tmp/epistemos-auth-token-refreshed-agent-event-pr47-20260503.log | +1 |
+| 91 | 2026-05-03T19:07Z | guard | slice=auth-token-refreshed-agent-event-pr47 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
