@@ -581,3 +581,10 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 77 | 2026-05-03T16:33Z | test-green | scope=computer-use-bridge-agent-event-pr39 | xcodebuild | session:74968 | done | /tmp/epistemos-computer-use-bridge-agent-event-pr39-green-20260503.log | +1 |
 | 77 | 2026-05-03T16:33Z | guard | slice=computer-use-bridge-agent-event-pr39 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
 | 78 | 2026-05-03T16:40Z | parallel-work-manifest | scope=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md | +1 |
+| 79 | 2026-05-03T16:44Z | preflight | scope=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_79_2026_05_03.md | +1 |
+| 79 | 2026-05-03T16:44Z | detective | concept=Phase4 perceive AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/phase4-perceive-agent-event-pr40/detectives/phase4-perceive-agent-event.md | +1 |
+| 79 | 2026-05-03T16:44Z | aggregator | slice=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/fleet/phase4-perceive-agent-event-pr40/aggregator.md | +1 |
+| 79 | 2026-05-03T16:44Z | pipeline-builder | slice=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/deliberation/phase4_perceive_agent_event_pr40_deliberation_2026_05_03.md | +1 |
+| 79 | 2026-05-03T16:44Z | codex-red-team | brief=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/fleet/phase4-perceive-agent-event-pr40/claude-red-team/attacks.md | +1 |
+| 79 | 2026-05-03T16:43Z | test-green | scope=phase4-perceive-agent-event-pr40 | xcodebuild | session:95880 | done | /tmp/epistemos-phase4-perceive-agent-event-pr40-redgreen-20260503.log | +1 |
+| 79 | 2026-05-03T16:44Z | guard | slice=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

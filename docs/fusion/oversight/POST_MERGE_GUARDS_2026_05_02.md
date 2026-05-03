@@ -807,3 +807,15 @@
 - log: `✔ Test "ComputerUseBridge provenance source never stores raw action payloads or raw results" passed`
 - note: focused verification log `/tmp/epistemos-computer-use-bridge-agent-event-pr39-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `ComputerUseBridgeAgentEventTests`
+
+## phase4-perceive-agent-event-pr40
+
+- grep: `recordPhase4PerceiveEvent|phase4\\.perceive|depth_class|app_scope|interactive_count|ocr_count` in `Epistemos/Bridge/Phase4Bridge.swift` and `EpistemosTests/Phase4BridgePerceiveAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: appName|argumentsJSON: depth|resultJSON: payload|errorMessage: errorJson|ax_tree_json` returns no unsafe AgentEvent persistence matches in the new recorder path; the expected `ax_tree_json` hits remain in the unchanged external perception response and source guard only.
+- tier-leakage grep: no new Core/MAS tool allowlist, MCP/Hermes routing, subprocess launcher, LocalAuthentication, ANE/private API, graph, or hot-path Metal buffer changes are introduced by the staged source/test files.
+- staged allow: only `Epistemos/Bridge/Phase4Bridge.swift`, `EpistemosTests/Phase4BridgePerceiveAgentEventTests.swift`, Round 79 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Test "Phase4 perceive records sanitized requested started and completed events" passed`
+- log: `✔ Test "Phase4 perceive unavailable records bounded failed events" passed`
+- log: `✔ Test "Phase4 perceive source never stores AX tree OCR text app names or raw results" passed`
+- note: focused verification log `/tmp/epistemos-phase4-perceive-agent-event-pr40-redgreen-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `Phase4BridgePerceiveAgentEventTests`

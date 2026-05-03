@@ -1195,6 +1195,21 @@ AgentEvents. This does not change Computer Use execution, Core/MAS tool policy,
 MCP/Hermes routing, UI, graph, EventStore schema, Sovereign, generated bindings,
 subprocess surfaces, or ANE/private API surfaces.
 
+PR40 AgentEvent Phase4 perceive provenance is also closed.
+`Phase4Bridge.perceive(appName:depth:)` now records sanitized
+requested/started/completed/failed AgentEvents around existing Screen2AX
+perception. Persisted rows use the `phase4-perceive` run id, synthetic
+`phase4-perceive:N` tool-call ids, the `phase4.perceive` tool name, bounded
+depth classes, app-scope class, perception method, scalar interactive/OCR
+counts, rounded latency, duration, success status, and bounded failure classes.
+Focused tests prove raw AX tree JSON, OCR text, app names, raw depth strings,
+user paths, raw perception results, localized descriptions, and arbitrary
+errors are not persisted in AgentEvents. This does not change returned
+perception payloads, `interact`, `screen_watch`, Computer Use execution,
+Core/MAS tool policy, MCP/Hermes routing, UI, graph, EventStore schema,
+Sovereign, generated bindings, subprocess surfaces, or ANE/private API
+surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1318,6 +1333,10 @@ Allowed write set:
   `Phase7Bridge.triggerNightbrainJob(jobType:priority:)` only.
 - PR37 Phase5 SSM state provenance: already closed for
   `Phase5Bridge.manageSsmState(actionJson:)` only.
+- PR39 ComputerUseBridge provenance: already closed for
+  `ComputerUseBridge.execute(actionJSON:)` only.
+- PR40 Phase4 perceive provenance: already closed for
+  `Phase4Bridge.perceive(appName:depth:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay

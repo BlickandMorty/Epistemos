@@ -575,6 +575,19 @@ closed:
   execution, Core/MAS tool policy, MCP/Hermes routing, UI, graph, EventStore
   schema, Sovereign, generated bindings, subprocess surfaces, or ANE/private API
   surfaces.
+- AgentEvent Phase4 perceive provenance PR40 now records sanitized
+  requested/started/completed/failed AgentEvents around the existing
+  `Phase4Bridge.perceive(appName:depth:)` Screen2AX bridge path. Persisted rows
+  use the `phase4-perceive` run id, synthetic `phase4-perceive:N` tool-call ids,
+  the `phase4.perceive` tool name, bounded depth classes, app-scope class,
+  perception method, scalar interactive/OCR counts, rounded latency, duration,
+  success status, and bounded failure classes. Focused tests prove raw AX tree
+  JSON, OCR text, app names, raw depth strings, user paths, raw perception
+  results, localized descriptions, and arbitrary errors are not persisted in
+  AgentEvents. This does not change the returned perception payload,
+  `interact`, `screen_watch`, Computer Use execution, Core/MAS tool policy,
+  MCP/Hermes routing, UI, graph, EventStore schema, Sovereign, generated
+  bindings, subprocess surfaces, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1321,8 +1334,8 @@ before building.
   PR33, AgentEvent v1.6 forward vocabulary PR34, AgentEvent MCPBridge Core
   `tools/call` denial provenance PR35, AgentEvent Phase7 NightBrain trigger
   provenance PR36, AgentEvent Phase5 SSM state provenance PR37, AgentEvent
-  ComputerUseBridge provenance PR39, durable GraphEvent mutation mapping PR1,
-  durable GraphEvent Settings visibility PR2,
+  ComputerUseBridge provenance PR39, AgentEvent Phase4 perceive provenance PR40,
+  durable GraphEvent mutation mapping PR1, durable GraphEvent Settings visibility PR2,
   durable GraphEvent projection snapshot PR3, durable GraphEvent projection
   consumer PR4, durable GraphEvent Settings projection visibility PR5, durable
   GraphEvent audit projection PR6, durable GraphEvent Halo projection PR7,
@@ -1394,7 +1407,7 @@ are:
   AgentEvent PR24, AgentEvent PR25, AgentEvent PR26, AgentEvent PR27,
   AgentEvent PR28, AgentEvent PR29, Runtime Contract PR30, AgentEvent PR32,
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
-  AgentEvent PR39, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
+  AgentEvent PR39, AgentEvent PR40, GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit

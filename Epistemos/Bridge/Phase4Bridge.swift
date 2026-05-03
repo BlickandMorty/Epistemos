@@ -17,11 +17,27 @@ import os
 
 @MainActor
 final class Phase4Bridge {
+    typealias PerceptionProvider = @MainActor (String) async -> PerceptionResult?
+
     static let shared = Phase4Bridge()
 
     private let logger = Logger(subsystem: "app.epistemos", category: "Phase4Bridge")
+    private let perceptionProvider: PerceptionProvider
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+    private var perceiveToolCallSequence: UInt64 = 0
 
-    private init() {}
+    init(
+        perceptionProvider: @escaping PerceptionProvider = { appName in
+            guard let fusion = AppBootstrap.shared?.screen2AXFusion else {
+                return nil
+            }
+            return await fusion.perceive(appName: appName)
+        },
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
+    ) {
+        self.perceptionProvider = perceptionProvider
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+    }
 
     // MARK: - Specialty A1: perceive
 
@@ -32,10 +48,37 @@ final class Phase4Bridge {
     /// Returns JSON of the form
     /// `{ elements, screenshot_path?, latency_ms, method, error? }`.
     func perceive(appName: String, depth: String) async -> String {
-        guard let fusion = AppBootstrap.shared?.screen2AXFusion else {
+        let toolCallID = nextPerceiveToolCallID()
+        let request = Phase4PerceiveRequest(
+            appScope: appScope(appName),
+            depthClass: perceiveDepthClass(depth)
+        )
+        recordPhase4PerceiveEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallRequested,
+            status: .requested,
+            request: request
+        )
+        recordPhase4PerceiveEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallStarted,
+            status: .started,
+            request: request
+        )
+
+        let start = Date()
+        guard let result = await perceptionProvider(appName) else {
+            recordPhase4PerceiveEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                request: request,
+                durationMs: durationMilliseconds(since: start),
+                failureClass: "perception_unavailable",
+                errorMessage: "Phase4 perceive could not start."
+            )
             return errorJson("Screen2AXFusion is not initialised")
         }
-        let result = await fusion.perceive(appName: appName)
 
         let payload: [String: Any] = [
             "method": String(describing: result.method),
@@ -45,6 +88,14 @@ final class Phase4Bridge {
             "ax_tree_json": result.axTreeJson,
             "ocr_count": result.ocrTexts.count,
         ]
+        recordPhase4PerceiveEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallCompleted,
+            status: .completed,
+            request: request,
+            result: result,
+            durationMs: durationMilliseconds(since: start)
+        )
         return jsonString(payload)
     }
 
@@ -193,8 +244,122 @@ final class Phase4Bridge {
 
     // MARK: - Helpers
 
+    private struct Phase4PerceiveRequest {
+        let appScope: String?
+        let depthClass: String
+    }
+
+    private func nextPerceiveToolCallID() -> String {
+        let sequence = perceiveToolCallSequence
+        if perceiveToolCallSequence < UInt64.max {
+            perceiveToolCallSequence += 1
+        }
+        return "phase4-perceive-\(sequence)"
+    }
+
+    private func recordPhase4PerceiveEvent(
+        toolCallID: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        request: Phase4PerceiveRequest,
+        result: PerceptionResult? = nil,
+        durationMs: UInt64? = nil,
+        failureClass: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "phase4-perceive",
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "phase4-bridge", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "phase4.perceive",
+            argumentsJSON: phase4PerceiveArgumentsJSON(request),
+            resultJSON: result.map(phase4PerceiveResultJSON),
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: phase4PerceiveMetadata(
+                request: request,
+                result: result,
+                failureClass: failureClass
+            )
+        )
+    }
+
+    private func phase4PerceiveArgumentsJSON(_ request: Phase4PerceiveRequest) -> String {
+        var payload: [String: Any] = [
+            "depth_class": request.depthClass,
+        ]
+        if let appScope = request.appScope {
+            payload["app_scope"] = appScope
+        }
+        return jsonString(payload)
+    }
+
+    private func phase4PerceiveResultJSON(_ result: PerceptionResult) -> String {
+        jsonString([
+            "method": result.method.rawValue,
+            "interactive_count": max(0, result.interactiveCount),
+            "ocr_count": result.ocrTexts.count,
+            "latency_ms": safeMilliseconds(result.latencyMs),
+            "success": result.method != .failed,
+        ])
+    }
+
+    private func phase4PerceiveMetadata(
+        request: Phase4PerceiveRequest,
+        result: PerceptionResult?,
+        failureClass: String?
+    ) -> [String: String] {
+        var metadata: [String: String] = [
+            "source": "phase4_bridge",
+            "surface": "perceive",
+            "depth_class": request.depthClass,
+        ]
+        if let appScope = request.appScope {
+            metadata["app_scope"] = appScope
+        }
+        if let result {
+            metadata["method"] = result.method.rawValue
+        }
+        if let failureClass {
+            metadata["failure_class"] = failureClass
+        }
+        return metadata
+    }
+
+    private func appScope(_ appName: String) -> String? {
+        appName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : "specific"
+    }
+
+    private func perceiveDepthClass(_ depth: String) -> String {
+        switch depth.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "fast":
+            return "fast"
+        case "enriched":
+            return "enriched"
+        case "full":
+            return "full"
+        case "":
+            return "default"
+        default:
+            return "unknown"
+        }
+    }
+
+    private func safeMilliseconds(_ value: Double) -> Int {
+        guard value.isFinite, value >= 0 else { return 0 }
+        return Int(value.rounded())
+    }
+
     private func elapsedMs(since start: Date) -> Int {
         Int(Date().timeIntervalSince(start) * 1000)
+    }
+
+    private func durationMilliseconds(since start: Date) -> UInt64? {
+        let elapsed = elapsedMs(since: start)
+        return elapsed >= 0 ? UInt64(elapsed) : nil
     }
 
     private func errorJson(_ message: String) -> String {
