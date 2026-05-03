@@ -38,10 +38,13 @@ import GRDB
 /// `nonisolated`, so this can't be `@MainActor`-bound).
 ///
 /// The Settings → "Search Fusion Health" row reads `snapshot()` on
-/// view appearance + on a 1 Hz timer for live updating. p95 is
-/// computed lazily from the sample buffer at snapshot time.
+/// view appearance and refreshes when metrics change. p95 is computed
+/// lazily from the sample buffer at snapshot time.
 nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     public static let shared = SearchFusionMetrics()
+    public static let didChangeNotification = Notification.Name(
+        "epistemos.searchFusionMetrics.didChange"
+    )
 
     /// Sample buffer cap. 200 samples × 200 bytes ≈ 40 KB peak.
     /// Bounded so that long-running sessions do not balloon memory.
@@ -61,7 +64,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
     /// Record a successful fused search. Called from
     /// `SearchIndexService.fusedSearch` and `fusedSearchAsync`.
     public func record(latencyMs: Double, results: [FusedResult]) {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
         samples.append(latencyMs)
         if samples.count > Self.bufferCap {
             samples.removeFirst(samples.count - Self.bufferCap)
@@ -75,14 +78,18 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         }
         hitsBySource = hits
         lastErrorDescription = nil
+        lock.unlock()
+        notifyDidChange()
     }
 
     /// Record an error from the fused path so the health row can
     /// surface it. Latency is unknown; sample buffer is not appended.
     public func recordError(_ error: Error) {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
         lastErrorDescription = String(describing: error)
         lastErrorAt = Date()
+        lock.unlock()
+        notifyDidChange()
     }
 
     /// Atomic read of every metric for view rendering.
@@ -103,7 +110,7 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
 
     /// Reset the metrics. Test-only convenience.
     public func reset() {
-        lock.lock(); defer { lock.unlock() }
+        lock.lock()
         samples.removeAll(keepingCapacity: true)
         lastLatencyMs = 0
         lastQueryAt = nil
@@ -111,6 +118,15 @@ nonisolated public final class SearchFusionMetrics: @unchecked Sendable {
         hitsBySource.removeAll(keepingCapacity: true)
         lastErrorDescription = nil
         lastErrorAt = nil
+        lock.unlock()
+        notifyDidChange()
+    }
+
+    private func notifyDidChange() {
+        NotificationCenter.default.post(
+            name: Self.didChangeNotification,
+            object: self
+        )
     }
 
     public struct Snapshot: Sendable {

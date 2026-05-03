@@ -2835,6 +2835,15 @@ Acceptance:
 - PR34 boundary: no SearchIndexService, RRF SQL, VaultSyncService, UI, graph,
   Rust, generated, default-flag, or Phase 6 dogfood/default-flip path was
   touched.
+- PR35 wired: Settings Diagnostics now mounts a read-only Search Fusion Health
+  row backed by `SearchFusionMetrics`.
+- PR35 reachable: `SearchFusionMetrics` publishes a lightweight change
+  notification and `SearchFusionHealthRow` refreshes from that event instead of
+  polling.
+- PR35 verified: focused `SearchFusionHealthRowTests` pass with 4 tests in 1
+  suite.
+- PR35 boundary: no RRF SQL scoring, QueryRuntime, VaultSyncService, graph,
+  Rust, generated, dogfood-completion, or default-flag flip path was touched.
 
 Stop triggers:
 

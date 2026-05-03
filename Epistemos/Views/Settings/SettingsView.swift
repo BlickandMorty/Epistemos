@@ -696,12 +696,13 @@ private struct GeneralDetailView: View {
 
             Section("Diagnostics") {
                 SettingsDescriptionText(
-                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Agent Events reports durable tool provenance visibility; Graph Events reports durable graph-event persistence visibility."
+                    text: "Read-only health probes for the local stack. Editor bundle confirms the Tiptap WKWebView assets ship with the app; Agent Events reports durable tool provenance visibility; Graph Events reports durable graph-event persistence visibility; Search Fusion shows live latency + per-source hit distribution for the cross-index RRF query (RRF Phase 6)."
                 )
                 EditorBundleHealthRow()
                 OpLogProjectionHealthRow()
                 AgentEventVisibilityRow()
                 GraphEventVisibilityRow()
+                SearchFusionHealthRow()
             }
 
             Section("Reset") {

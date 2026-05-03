@@ -698,3 +698,22 @@
 - note: QueryRuntime focused verification log `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-green-r3-20260503.log`; ReadableBlocksIndex focused verification log `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-readable-green-20260503.log`. Both Xcode runs exited `0` and printed `** TEST SUCCEEDED **`; the known SwiftLint package-plugin lines appear after success.
 - test: `QueryRuntimeTests`
 - test: `ReadableBlocksIndexTests`
+
+## rrf-search-fusion-health-row-pr35
+
+- grep: `SearchFusionHealthRow()` in `Epistemos/Views/Settings/SettingsView.swift`
+- grep: `SearchFusionMetrics.didChangeNotification` in `Epistemos/Views/Settings/SearchFusionHealthRow.swift`
+- grep: `NotificationCenter.default.post(` in `Epistemos/Sync/RRFFusionQuery.swift`
+- grep: `Search Fusion shows live latency + per-source hit distribution` in `Epistemos/Views/Settings/SettingsView.swift`
+- forbidden polling grep: `while !Task\.isCancelled|Timer|DispatchSourceTimer|repeatForever` returns no matches in `Epistemos/Views/Settings/SearchFusionHealthRow.swift`
+- forbidden default-flag grep: `setenv\("EPISTEMOS_RRF_FUSION_V1"` returns no matches in `Epistemos/Views/Settings/SearchFusionHealthRow.swift`, `Epistemos/Views/Settings/SettingsView.swift`, and `Epistemos/Sync/RRFFusionQuery.swift`
+- forbidden implementation grep: `saveGraphEvent|saveMutationEnvelope|GraphEventAuditProjectionService|InstantRecallService|MeaningAnchorService|Process\(|DispatchSourceTimer|repeatForever|Epistemos/Views/Graph` returns no matches in PR35 implementation files.
+- staged guard: `git diff --cached --name-only -- Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Sync/RRFFusionQuery.swift`, `Epistemos/Views/Settings/SearchFusionHealthRow.swift`, the Search Fusion mount hunk in `Epistemos/Views/Settings/SettingsView.swift`, `EpistemosTests/SearchFusionHealthRowTests.swift`, `docs/RRF_FUSION_DESIGN.md`, Round 68 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "Search Fusion Health row is mounted in Settings diagnostics" passed`
+- log: `✔ Test "Search Fusion Health row is read-only and event-driven" passed`
+- log: `✔ Test "Search Fusion metrics summarize latency, hits, and errors" passed`
+- log: `✔ Test "Search Fusion metrics publish change notifications" passed`
+- log: `✔ Test run with 4 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-rrf-search-fusion-health-row-pr35-green-r2-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`. The known SwiftLint package-plugin lines appear after success.
+- test: `SearchFusionHealthRowTests`
