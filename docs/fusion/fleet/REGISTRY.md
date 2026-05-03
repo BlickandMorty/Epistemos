@@ -351,3 +351,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 53 | 2026-05-03T08:00Z | implementation | slice=agent-event-search-index-block-search-pr22 | codex/local | n/a | done | Epistemos/Sync/SearchIndexService.swift; EpistemosTests/SearchIndexServiceFusionTests.swift | +1 |
 | 53 | 2026-05-03T08:00Z | test-green | scope=agent-event-search-index-block-search-pr22 | xcodebuild | session:20715 | done | /tmp/epistemos-agent-event-search-index-block-pr22-green-pipefail-20260503.log | +1 |
 | 53 | 2026-05-03T08:08Z | guard | slice=agent-event-search-index-block-search-pr22 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 54 | 2026-05-03T08:14Z | preflight | scope=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_54_2026_05_03.md | +1 |
+| 54 | 2026-05-03T08:15Z | claude-side-fleet | scope=mlx-image-generation-slice-selection | claude/print-readonly | session:login-required | failed | docs/fusion/fleet/agent-event-mlx-image-generation-pr23/claude-side-fleet/selection.md | -1 |
+| 54 | 2026-05-03T08:16Z | detective | concept=MLX image generation AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/agent-event-mlx-image-generation-pr23/detectives/mlx-image-generation-agent-event.md | +1 |
+| 54 | 2026-05-03T08:16Z | aggregator | slice=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/fleet/agent-event-mlx-image-generation-pr23/aggregator.md | +1 |
+| 54 | 2026-05-03T08:16Z | pipeline-builder | slice=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_mlx_image_generation_pr23_deliberation_2026_05_03.md | +1 |
+| 54 | 2026-05-03T08:16Z | codex-red-team | brief=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/fleet/agent-event-mlx-image-generation-pr23/claude-red-team/attacks.md | +1 |
+| 54 | 2026-05-03T08:18Z | test-red | scope=agent-event-mlx-image-generation-pr23 | xcodebuild | session:73258 | done | /tmp/epistemos-agent-event-mlx-image-generation-pr23-red-20260503.log | +1 |
+| 54 | 2026-05-03T08:23Z | implementation | slice=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | Epistemos/Engine/MLXImageGenerationService.swift; EpistemosTests/MLXImageGenerationServiceTests.swift | +1 |
+| 54 | 2026-05-03T08:23Z | test-green | scope=agent-event-mlx-image-generation-pr23 | xcodebuild | session:81005 | failed | /tmp/epistemos-agent-event-mlx-image-generation-pr23-green-20260503.log | +1 |
+| 54 | 2026-05-03T08:27Z | test-green | scope=agent-event-mlx-image-generation-pr23 | xcodebuild | session:31245 | done | /tmp/epistemos-agent-event-mlx-image-generation-pr23-green2-20260503.log | +1 |
+| 54 | 2026-05-03T08:33Z | guard | slice=agent-event-mlx-image-generation-pr23 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
