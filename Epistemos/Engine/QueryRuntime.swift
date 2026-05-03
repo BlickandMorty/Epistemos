@@ -129,6 +129,68 @@ nonisolated struct RetrievalCandidate: Sendable {
     let source: RetrievalCandidateSource
 }
 
+typealias GraphEventProjectionSnapshotProvider = @MainActor () -> DurableGraphProjectionSnapshot
+
+nonisolated enum GraphEventProjectionHint {
+    static let emptySnapshot = DurableGraphProjectionSnapshot(
+        nodes: [],
+        edges: [],
+        eventCount: 0,
+        latestEventID: nil
+    )
+
+    static func apply(
+        to candidates: [RetrievalCandidate],
+        snapshot: DurableGraphProjectionSnapshot
+    ) -> [RetrievalCandidate] {
+        guard candidates.count > 1, snapshot.eventCount > 0 else { return candidates }
+
+        var projectedIDs = Set<String>()
+        projectedIDs.reserveCapacity(snapshot.nodes.count + (snapshot.edges.count * 2))
+        for node in snapshot.nodes {
+            projectedIDs.insert(node.id)
+        }
+        for edge in snapshot.edges {
+            projectedIDs.insert(edge.fromID)
+            projectedIDs.insert(edge.toID)
+        }
+        guard !projectedIDs.isEmpty else { return candidates }
+
+        var reordered: [RetrievalCandidate] = []
+        reordered.reserveCapacity(candidates.count)
+        var index = 0
+        while index < candidates.count {
+            let score = candidates[index].node.score
+            var end = index + 1
+            while end < candidates.count, candidates[end].node.score == score {
+                end += 1
+            }
+
+            let group = candidates[index..<end]
+            reordered.append(
+                contentsOf: group.enumerated().sorted { lhs, rhs in
+                    let lhsHinted = isHinted(lhs.element, projectedIDs: projectedIDs)
+                    let rhsHinted = isHinted(rhs.element, projectedIDs: projectedIDs)
+                    if lhsHinted == rhsHinted {
+                        return lhs.offset < rhs.offset
+                    }
+                    return lhsHinted && !rhsHinted
+                }.map(\.element)
+            )
+            index = end
+        }
+        return reordered
+    }
+
+    private static func isHinted(
+        _ candidate: RetrievalCandidate,
+        projectedIDs: Set<String>
+    ) -> Bool {
+        projectedIDs.contains(candidate.node.id)
+            || candidate.node.sourceId.map(projectedIDs.contains) == true
+    }
+}
+
 @MainActor
 protocol RetrievalScoring {
     func score(query: String, candidates: [RetrievalCandidate]) -> [RetrievalCandidate]
@@ -254,24 +316,30 @@ final class RetrievalRuntime {
         static let scoreLimit = 12
     }
 
+    private static let graphEventProjectionEnvironmentKey = "EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1"
+
     private let graphStore: GraphStore
     private let graphState: GraphState
     private let searchIndex: SearchIndexService
     private let scorer: any RetrievalScoring
     private let scoreLimit: Int
+    private let graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider
 
     init(
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
         scorer: any RetrievalScoring = PassthroughRetrievalScorer(),
-        scoreLimit: Int = RetrievalPolicy.scoreLimit
+        scoreLimit: Int = RetrievalPolicy.scoreLimit,
+        graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider? = nil
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
         self.searchIndex = searchIndex
         self.scorer = scorer
         self.scoreLimit = max(0, scoreLimit)
+        self.graphEventProjectionSnapshotProvider = graphEventProjectionSnapshotProvider
+            ?? Self.defaultGraphEventProjectionSnapshot
     }
 
     func fullText(query: String, scope: SearchScope, limit: Int = 50) -> [QueryResultNode] {
@@ -318,7 +386,9 @@ final class RetrievalRuntime {
             }
         }
 
-        return scoredCandidates(query: query, candidates: candidates).map(\.node)
+        return graphEventHintedCandidates(
+            scoredCandidates(query: query, candidates: candidates)
+        ).map(\.node)
     }
 
     func semantic(query: String, limit: Int) -> [QueryResultNode] {
@@ -368,6 +438,22 @@ final class RetrievalRuntime {
         }
         return scoredPrefix + candidates.dropFirst(prefixCount)
     }
+
+    private func graphEventHintedCandidates(_ candidates: [RetrievalCandidate]) -> [RetrievalCandidate] {
+        guard candidates.count > 1 else { return candidates }
+        return GraphEventProjectionHint.apply(
+            to: candidates,
+            snapshot: graphEventProjectionSnapshotProvider()
+        )
+    }
+
+    private static func defaultGraphEventProjectionSnapshot() -> DurableGraphProjectionSnapshot {
+        guard ProcessInfo.processInfo.environment[graphEventProjectionEnvironmentKey] == "1" else {
+            return GraphEventProjectionHint.emptySnapshot
+        }
+        return EventStore.shared?.graphEventProjectionSnapshot(limit: 100)
+            ?? GraphEventProjectionHint.emptySnapshot
+    }
 }
 
 // MARK: - QueryRuntime
@@ -384,7 +470,8 @@ final class QueryRuntime {
         graphStore: GraphStore,
         graphState: GraphState,
         searchIndex: SearchIndexService,
-        scorer: any RetrievalScoring = PassthroughRetrievalScorer()
+        scorer: any RetrievalScoring = PassthroughRetrievalScorer(),
+        graphEventProjectionSnapshotProvider: GraphEventProjectionSnapshotProvider? = nil
     ) {
         self.graphStore = graphStore
         self.graphState = graphState
@@ -392,7 +479,8 @@ final class QueryRuntime {
             graphStore: graphStore,
             graphState: graphState,
             searchIndex: searchIndex,
-            scorer: scorer
+            scorer: scorer,
+            graphEventProjectionSnapshotProvider: graphEventProjectionSnapshotProvider
         )
     }
 

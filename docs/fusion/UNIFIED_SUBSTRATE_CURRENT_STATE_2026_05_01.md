@@ -935,7 +935,8 @@ Still open:
   read-only Settings visibility, the read-only projection snapshot, the
   EventStore projection-consumer API, read-only Settings projection counts, and
   the read-only audit projection report plus Halo panel read-only projection
-  ribbon, such as graph renderer, retrieval, or Theater surfaces.
+  ribbon, Trace Inspector projection summary, and QueryRuntime full-text
+  projection hint, such as graph renderer or Theater surfaces.
 - Sovereign Gate follow-through beyond the Core Swift executor, lifecycle
   observer, agent approval sheet migration, Rust action-class seed, Notes
   Sidebar page/folder delete migration, Chat Sidebar chat delete migration,
@@ -1017,18 +1018,18 @@ before building.
   recall provenance PR16, AgentEvent InstantRecall async recall provenance PR17,
   AgentEvent ShadowSearch backend provenance PR18, AgentEvent SearchIndex
   fused async provenance PR19, AgentEvent sync recorder enabler PR0,
-  AgentEvent SearchIndex fused sync provenance PR20,
-  durable
-  GraphEvent mutation mapping PR1, durable
-   GraphEvent Settings visibility PR2, and durable GraphEvent projection
-   snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
-   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
-   durable GraphEvent Halo projection PR7, and durable GraphEvent audit
-   visibility PR8 are closed. Add remaining broader runtime AgentEvent coverage,
-   live GraphEvent consumer projections beyond the
-   closed read-only Settings/Halo consumers, or mutating
-   repair/audit surfaces only after a new gate names the exact EventStore,
-   OpLog, worker, runtime, and visibility files.
+  AgentEvent SearchIndex fused sync provenance PR20, durable GraphEvent
+  mutation mapping PR1, durable GraphEvent Settings visibility PR2, durable
+  GraphEvent projection snapshot PR3, durable GraphEvent projection consumer
+  PR4, durable GraphEvent Settings projection visibility PR5, durable
+  GraphEvent audit projection PR6, durable GraphEvent Halo projection PR7,
+  durable GraphEvent audit visibility PR8, durable GraphEvent Trace Inspector
+  visibility PR9, and durable GraphEvent QueryRuntime projection hint PR10 are
+  closed. Add remaining broader runtime AgentEvent coverage, live GraphEvent
+  consumer projections beyond the closed read-only Settings/Halo/Trace
+  Inspector/QueryRuntime consumers, or mutating repair/audit surfaces only
+  after a new gate names the exact EventStore, OpLog, worker, runtime, and
+  visibility files.
 
 4. **Core/MAS release split audit and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle

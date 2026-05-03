@@ -297,3 +297,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 46 | 2026-05-03T05:59Z | guard | slice=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
 | 46 | 2026-05-03T06:00Z | claude-red-team | brief=sovereign-gate-settings-vault-disconnect-pr16 | claude/print-readonly | pid:13845 | failed | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/claude-red-team/attacks-stalled.md | -1 |
 | 46 | 2026-05-03T06:03Z | codex-red-team | brief=sovereign-gate-settings-vault-disconnect-pr16 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-vault-disconnect-pr16/claude-red-team/attacks.md | +1 |
+| 47 | 2026-05-03T06:08Z | preflight | scope=master-plan-next-slice-round47 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_47_2026_05_02.md | +1 |
+| 47 | 2026-05-03T06:08Z | explorer | scope=next-graph-event-consumer-slice | codex/explorer-agent | agent:019dec73-98c3-75e0-b634-26be7a3c4dd2 | done | transcript | +1 |
+| 47 | 2026-05-03T06:08Z | explorer | scope=next-agent-event-provenance-slice | codex/explorer-agent | agent:019dec73-9ad7-7c60-8375-51c0e44b493c | done | transcript | +1 |
+| 47 | 2026-05-03T06:09Z | claude-side-fleet | scope=next-master-plan-slice-selection | claude/print-readonly | session:37673 | failed | docs/fusion/fleet/round-47-next-master-plan-slice-selection/claude-side-fleet/aggregator.md | -1 |
+| 47 | 2026-05-03T06:18Z | claude-red-team | brief=graph-event-query-projection-pr10 | claude/stdin-readonly | pid:27545 | failed | docs/fusion/fleet/graph-event-query-projection-pr10/claude-red-team/attacks.md | -1 |
+| 47 | 2026-05-03T06:20Z | codex-red-team | brief=graph-event-query-projection-pr10 | codex/local | n/a | done | docs/fusion/fleet/graph-event-query-projection-pr10/claude-red-team/attacks.md | +1 |
+| 47 | 2026-05-03T06:24Z | test-red | scope=graph-event-query-projection-pr10 | xcodebuild | session:47636 | done | /tmp/epistemos-graph-event-query-projection-pr10-red-20260502.log | +1 |
+| 47 | 2026-05-03T06:27Z | test-green | scope=graph-event-query-projection-pr10 | xcodebuild | session:47533 | done | /tmp/epistemos-graph-event-query-projection-pr10-green-20260502-r2.log | +1 |
+| 47 | 2026-05-03T06:28Z | guard | scope=graph-event-query-projection-pr10 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

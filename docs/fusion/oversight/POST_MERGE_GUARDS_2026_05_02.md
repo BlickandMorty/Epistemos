@@ -387,3 +387,19 @@
 - test: `GraphFFIBenchmarkTests`
 - test: `BenchmarkHarnessSourceGuardTests`
 - test: `R15BenchmarkEvidenceLedgerTests`
+
+## graph-event-query-projection-pr10
+
+- grep: `GraphEventProjectionHint`
+- grep: `graphEventProjectionSnapshotProvider`
+- grep: `EPISTEMOS_GRAPH_EVENT_QUERY_PROJECTION_V1`
+- forbidden grep: `saveGraphEvent|saveMutationEnvelope|GraphEventAuditProjectionService|InstantRecallService|MeaningAnchorService|Timer|DispatchSourceTimer|repeatForever` in `Epistemos/Engine/QueryRuntime.swift` returns no matches.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views/Graph Epistemos/Graph graph-engine agent_core epistemos-core Epistemos/Views/Notes/ProseEditor*.swift Epistemos.xcodeproj`
+- staged allow: only the PR10 hunks in `Epistemos/Engine/QueryRuntime.swift`, `EpistemosTests/QueryRuntimeTests.swift`, and Round 47 docs are allowed.
+- log: `✔ Test "GraphEvent projection hint only reorders existing equal-score candidates" passed`
+- log: `✔ Test "retrieval runtime applies GraphEvent projection hint only to existing full-text candidates" passed`
+- log: `✔ Test "GraphEvent projection hint stays out of indexes and renderer" passed`
+- log: `✔ Test run with 32 tests in 2 suites passed`
+- note: focused verification log `/tmp/epistemos-graph-event-query-projection-pr10-green-20260502-r2.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `QueryRuntimeTests`
+- test: `GraphEventAuditProjectionTests`
