@@ -638,3 +638,6 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 93 | 2026-05-03T19:24Z | implementation | slice=mas-core-symbol-separation-closure-pr3 | codex/local | n/a | done | EpistemosTests/CoreMASBoundarySourceGuardTests.swift; EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift | +1 |
 | 93 | 2026-05-03T19:24Z | test-green | scope=mas-core-symbol-separation-closure-pr3 | xcodebuild | session:67712 | done | /tmp/epistemos-mas-core-symbol-separation-closure-pr3-20260503.log | +1 |
 | 93 | 2026-05-03T19:24Z | guard | slice=mas-core-symbol-separation-closure-pr3 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 94 | 2026-05-03T19:32Z | implementation | slice=agent-graph-memory-record-execution-delete-pr49 | codex/local | n/a | done | Epistemos/Omega/Knowledge/AgentGraphMemory.swift; EpistemosTests/AgentGraphMemoryDeadCodeGuardTests.swift | +1 |
+| 94 | 2026-05-03T19:32Z | test-green | scope=agent-graph-memory-record-execution-delete-pr49 | xcodebuild | session:18043 | done | /tmp/epistemos-agent-graph-memory-dead-code-delete-pr49-20260503.log | +1 |
+| 94 | 2026-05-03T19:32Z | guard | slice=agent-graph-memory-record-execution-delete-pr49 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
