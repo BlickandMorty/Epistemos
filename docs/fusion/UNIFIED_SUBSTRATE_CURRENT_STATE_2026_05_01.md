@@ -1510,6 +1510,7 @@ LocalAgent reflex streaming EOF flush PR31,
 AgentEvent LocalGGUF direct stream provenance PR32,
 AgentEvent Apple Intelligence direct generate provenance PR33,
 RRF QueryRuntime fused full-text PR34,
+RRF Search Fusion Health observability row PR35,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1544,8 +1545,8 @@ paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
 plus LocalGGUF non-streaming generate and stream, LocalBackend generate and
-stream, direct LocalMLX generate and stream, and Apple Intelligence direct
-generate surfaces,
+stream, direct LocalMLX generate and stream, Apple Intelligence direct
+generate, and RRF Search Fusion Health observability surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual
