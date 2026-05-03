@@ -983,3 +983,12 @@
 - log: `✔ Suite "ShadowGitCheckpoint Dead Code Guard" passed`
 - note: focused verification log `/tmp/epistemos-shadow-git-checkpoint-delete-pr53-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `ShadowGitCheckpointDeadCodeGuardTests`
+
+## visual-verify-loop-bootstrap-cleanup-pr54
+
+- grep: `rg -n "visualVerifyLoop|_visualVerifyLoop|VisualVerifyLoop\\(" Epistemos/App Epistemos/Bridge` keeps `VisualVerifyLoop` absent from `AppBootstrap`, `AppEnvironment`, and `ComputerUseBridge`.
+- helper retention grep: `VisualVerifyLoopTests` remains present so the helper can be wired later behind a fresh ComputerUse/Omega verification gate.
+- staged allow: only `Epistemos/App/AppBootstrap.swift` VisualVerifyLoop hunks, `Epistemos/App/AppEnvironment.swift` VisualVerifyLoop injection hunk, `EpistemosTests/VisualVerifyLoopBootstrapDeadCodeGuardTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this cleanup commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "VisualVerifyLoop Bootstrap Dead Code Guard" passed`
+- note: focused verification log `/tmp/epistemos-visual-verify-loop-bootstrap-cleanup-pr54-20260503.log`; Xcode exited `0`, passed 3 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `VisualVerifyLoopBootstrapDeadCodeGuardTests`

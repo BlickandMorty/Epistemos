@@ -909,8 +909,6 @@ final class AppBootstrap {
     var deviceAgent: DeviceAgentService { Self.requireInitialized(_deviceAgent, name: "deviceAgent") }
     private var _screen2AXFusion: Screen2AXFusion?
     var screen2AXFusion: Screen2AXFusion { Self.requireInitialized(_screen2AXFusion, name: "screen2AXFusion") }
-    private var _visualVerifyLoop: VisualVerifyLoop?
-    var visualVerifyLoop: VisualVerifyLoop { Self.requireInitialized(_visualVerifyLoop, name: "visualVerifyLoop") }
     private var _agentGraphMemory: AgentGraphMemory?
     var agentGraphMemory: AgentGraphMemory { Self.requireInitialized(_agentGraphMemory, name: "agentGraphMemory") }
     private var _recipeGraphSkills: RecipeGraphSkills?
@@ -1687,7 +1685,6 @@ final class AppBootstrap {
         // Initialize computer use stack (Ω13)
         let screenCapture = ScreenCaptureService()
         self._screen2AXFusion = Screen2AXFusion(screenCapture: screenCapture)
-        self._visualVerifyLoop = VisualVerifyLoop(screenCapture: screenCapture, deviceAgent: deviceAgent)
 
         // Initialize the persistent event store (separate SQLite database with WAL mode).
         EventStore.shared = EventStore()

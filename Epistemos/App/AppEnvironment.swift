@@ -35,7 +35,6 @@ extension View {
             .environment(bootstrap.constrainedDecoding)
             .environment(bootstrap.hardwareTierManager)
             .environment(bootstrap.screen2AXFusion)
-            .environment(bootstrap.visualVerifyLoop)
             .environment(bootstrap.ghostBrainCoauthor)
             .environment(bootstrap.epistemosConfig)
             #if !EPISTEMOS_APP_STORE

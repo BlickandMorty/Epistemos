@@ -1350,6 +1350,14 @@ asserts production Swift no longer references `ShadowGitCheckpoint` or
 `shadow_git`. Reintroducing a shadow-git checkpoint/rollback path requires a
 fresh provenance, Core/MAS, and subprocess deliberation gate.
 
+PR54 VisualVerifyLoop bootstrap dead-code cleanup is also closed. Claude's
+detective resolutions found no production caller for `VisualVerifyLoop.verify`,
+so `AppBootstrap` no longer owns the unwired singleton and `AppEnvironment`
+no longer injects it. `VisualVerifyLoop.swift` stays as a tested helper, while
+`VisualVerifyLoopBootstrapDeadCodeGuardTests` guards the absence of bootstrap,
+environment, and `ComputerUseBridge` visual-verification claims until a future
+bridge slice deliberately wires post-action verification.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1490,6 +1498,10 @@ Allowed write set:
   open a fresh provenance slice before enabling that path.
 - PR47 OAuth token refresh AgentEvent provenance: already closed for silent
   expired/expiring credential refresh only.
+- PR54 VisualVerifyLoop bootstrap dead-code cleanup: already closed for the
+  unwired `AppBootstrap`/`AppEnvironment` ownership surface only; future
+  post-action visual verification must open a fresh ComputerUse/Omega
+  provenance and Core/MAS gate before wiring `VisualVerifyLoop.verify`.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
