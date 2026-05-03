@@ -272,3 +272,22 @@
 - log: `✔ Test run with 7 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `ToolSurfacePolicyTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `ToolSurfacePolicyTests`
+
+## omega-tool-registry-core-planning-pr1
+
+- grep: `planningSchemas(distribution:`
+- grep: `planningSchemasJson(distribution:`
+- grep: `catalogJson(distribution:`
+- grep: `planningPromptBlock(distribution:`
+- grep: `builtinCatalogJson(distribution:`
+- grep: `builtinToolsJson()` must remain inside `OmegaToolRegistry.catalogJson(distribution:)`
+- forbidden grep: `Process\(\)|Foundation\.Process|URLSession|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy|CloudLLMClient|CloudProviderAuthService|LLMService|TriageService` in `Epistemos/Omega/MCPBridge.swift` and `EpistemosTests/OmegaToolSchemaGrammarTests.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Engine Epistemos/Views Epistemos/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Omega/MCPBridge.swift` is allowed under `Epistemos/Omega` for this slice.
+- log: `✔ Test "Omega Core App Store planning schemas hide Pro gateway tools" passed`
+- log: `✔ Test "MCP Bridge Core App Store catalog hides Pro gateway tools" passed`
+- log: `✔ Test "MCP Bridge Pro catalog preserves Rust source of truth" passed`
+- log: `✔ Test "Omega planning schemas stay backed by the visible catalog" passed`
+- log: `✔ Test run with 18 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `ToolSchemaGrammarTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `ToolSchemaGrammarTests`

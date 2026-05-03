@@ -219,3 +219,15 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 39 | 2026-05-03T02:35Z | implementation | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | Epistemos/Bridge/ToolTierBridge.swift | +1 |
 | 39 | 2026-05-03T02:35Z | test | suite=ToolSurfacePolicyTests | xcodebuild | session:86944 | done | /tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log | +1 |
 | 39 | 2026-05-03T02:35Z | guard | slice=tool-surface-policy-core-mas-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 40 | 2026-05-03T02:44Z | preflight | scope=omega-tool-registry-core-planning-pr1 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_40_2026_05_02.md | +1 |
+| 40 | 2026-05-03T02:44Z | detective | concept=Omega planner schema Core/MAS visibility | codex/local | n/a | done | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/detectives/omega-tool-registry-core-planning.md | +1 |
+| 40 | 2026-05-03T02:44Z | aggregator | slice=omega-tool-registry-core-planning-pr1 | codex/local | n/a | done | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/aggregator.md | +1 |
+| 40 | 2026-05-03T02:44Z | pipeline-builder | slice=omega-tool-registry-core-planning-pr1 | codex/local | n/a | done | docs/fusion/deliberation/omega_tool_registry_core_planning_pr1_deliberation_2026_05_02.md | +1 |
+| 40 | 2026-05-03T02:47Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:54929 | done | /tmp/epistemos-omega-tool-registry-core-planning-pr1-green-20260502.log | +1 |
+| 40 | 2026-05-03T02:47Z | claude-red-team | brief=omega-tool-registry-core-planning-pr1 | claude/no-tools | session:52748 | returned | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks-initial.md | +1 |
+| 40 | 2026-05-03T02:55Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:12056 | done | /tmp/epistemos-omega-tool-registry-core-planning-pr1-green-r2-20260502.log | +1 |
+| 40 | 2026-05-03T02:55Z | claude-red-team | brief=omega-tool-registry-core-planning-pr1-post-fix | claude/no-tools | session:69912 | returned | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks-post-fix.md | +1 |
+| 40 | 2026-05-03T03:04Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:5714 | done | /tmp/epistemos-omega-tool-registry-core-planning-pr1-green-r4-20260502.log | +1 |
+| 40 | 2026-05-03T03:04Z | claude-red-team | brief=omega-tool-registry-core-planning-pr1-final | claude/no-tools | session:84069 | done | docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks.md | +1 |
+| 40 | 2026-05-03T03:10Z | test | suite=ToolSchemaGrammarTests | xcodebuild | session:2389 | done | /tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log | +1 |
+| 40 | 2026-05-03T03:10Z | guard | slice=omega-tool-registry-core-planning-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

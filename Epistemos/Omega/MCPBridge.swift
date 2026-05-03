@@ -107,24 +107,71 @@ nonisolated enum OmegaToolRegistry {
     }()
 
     static var planningSchemas: [[String: Any]] {
-        all.map(\.planningSchema)
+        planningSchemas(distribution: .currentBuild)
     }
 
-    static let planningSchemasJson: String = {
-        (try? JSONSerialization.data(withJSONObject: planningSchemas, options: [.sortedKeys]))
+    static func planningSchemas(
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> [[String: Any]] {
+        surfacedTools(distribution: distribution).map(\.planningSchema)
+    }
+
+    static var planningSchemasJson: String {
+        planningSchemasJson(distribution: .currentBuild)
+    }
+
+    static func planningSchemasJson(
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> String {
+        (try? JSONSerialization.data(
+            withJSONObject: planningSchemas(distribution: distribution),
+            options: [.sortedKeys]
+        ))
             .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-    }()
+    }
+
+    static var catalogJson: String {
+        catalogJson(distribution: .currentBuild)
+    }
+
+    static func catalogJson(
+        distribution: ToolSurfacePolicy.Distribution
+    ) -> String {
+        let json = builtinToolsJson()
+        guard let data = json.data(using: .utf8),
+              let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return "[]"
+        }
+        let filtered = array.filter { dict in
+            guard let name = dict["name"] as? String else { return false }
+            return ToolSurfacePolicy.isSurfacedToolName(name, distribution: distribution)
+        }
+        return (try? JSONSerialization.data(
+            withJSONObject: filtered,
+            options: [.sortedKeys]
+        ))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+    }
+
+    static func surfacedTools(
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
+    ) -> [OmegaToolDefinition] {
+        ToolSurfacePolicy.surfacedTools(all, distribution: distribution)
+    }
 
     static func agent(for toolName: String) -> String? {
         all.first(where: { $0.name == toolName })?.agent
     }
 
-    static func planningPromptBlock() -> String {
+    static func planningPromptBlock(
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
+    ) -> String {
         var lines: [String] = []
+        let surfacedTools = surfacedTools(distribution: distribution)
 
         for agent in agentOrder {
             guard let header = agentHeaders[agent] else { continue }
-            let tools = all.filter { $0.agent == agent }
+            let tools = surfacedTools.filter { $0.agent == agent }
             guard !tools.isEmpty else { continue }
 
             if !lines.isEmpty {
@@ -181,10 +228,11 @@ final class MCPBridge {
 
     // MARK: - Catalog Query
 
-    /// Returns the built-in tool catalog from Rust as a JSON array.
-    /// This is the single source of truth for tool definitions.
-    static func builtinCatalogJson() -> String {
-        builtinToolsJson()
+    /// Returns the distribution-visible tool catalog decoded from the Rust source of truth.
+    static func builtinCatalogJson(
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
+    ) -> String {
+        OmegaToolRegistry.catalogJson(distribution: distribution)
     }
 
     // MARK: - Execution Logging
