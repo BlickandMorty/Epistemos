@@ -1319,6 +1319,16 @@ credentials, and bearer tokens out of defaults-backed storage. It also locks
 Sovereign route, Core/MAS policy, MCP/Hermes route, or production source
 changed.
 
+PR51 CloudProviderSetupCard source guard is also closed.
+`CloudProviderSetupCardSourceGuardTests` asserts the OAuth setup card does not
+own `LAContext`, does not evaluate biometric policy, delegates account sign-in
+through `InferenceState`, does not directly construct or store
+`CloudProviderOAuthCredential`, carries no raw access/refresh-token markers,
+and keeps Google OAuth client config secrets Keychain-backed while defaults
+only store filename/project-ID metadata. This is test-only; no credential flow,
+OAuth behavior, Sovereign route, Core/MAS policy, MCP/Hermes route, or
+production source changed.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.

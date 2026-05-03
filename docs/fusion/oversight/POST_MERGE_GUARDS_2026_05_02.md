@@ -953,3 +953,13 @@
 - log: `✔ Suite "Credential UserDefaults Absence Guard" passed`
 - note: focused verification log `/tmp/epistemos-credential-userdefaults-absence-guard-pr50-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `CredentialUserDefaultsAbsenceGuardTests`
+
+## cloud-provider-setup-card-source-guard-pr51
+
+- grep: `LAContext\\(|canEvaluatePolicy|evaluatePolicy|SovereignGate.confirm` remains absent from `Epistemos/Views/Shared/CloudProviderSetupCard.swift`.
+- OAuth UI grep: `storeOAuthCredential\\(|CloudProviderOAuthCredential\\(|access_token|refresh_token|bearer` remains absent from `Epistemos/Views/Shared/CloudProviderSetupCard.swift`, while sign-in still delegates through `InferenceState`.
+- defaults grep: `UserDefaults.standard.set` writes in `CloudProviderSetupCard.swift` remain limited to `googleOAuthClientFilenameDefaultsKey` and `googleOAuthProjectIDDraftDefaultsKey`; Google OAuth client config data stays behind `Keychain.save`.
+- staged allow: only `EpistemosTests/CloudProviderSetupCardSourceGuardTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this test-only closure commit. Production OAuth/setup files remain intentionally unchanged.
+- log: `✔ Suite "Cloud Provider Setup Card Source Guard" passed`
+- note: focused verification log `/tmp/epistemos-cloud-provider-setup-card-source-guard-pr51-20260503.log`; Xcode exited `0`, passed 5 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `CloudProviderSetupCardSourceGuardTests`
