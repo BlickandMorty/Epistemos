@@ -952,6 +952,22 @@ bindings, and EventStore schema. Focused source-guard verification passes under
 `pipefail`; the focused runtime tests compile but remain skipped by the
 pre-existing FTS5 availability gate.
 
+PR23 MLX image-generation attempt provenance is also closed.
+`MLXImageGenerationService.generate(prompt:aspectRatio:)` now records requested,
+started, and completed/failed AgentEvents around the current honest
+attempt-and-explicit-failure scaffold with `mlx-image-generation-...` run ids,
+`mlx-image-generation-service` actor metadata, per-service
+`mlx-image-generation:N` tool call ids, `image_generate.mlx` tool name,
+`source=mlx_image_generation_service`, `surface=image_generate`, `provider=mlx`,
+aspect ratio, prompt character count, elapsed milliseconds, success boolean, and
+bounded `flux_pipeline_unavailable|unknown_error` failure classes. Persisted
+provenance excludes prompt text, generated image path, model id, FAL hints,
+localized descriptions, arbitrary error text, cloud routing, and filesystem
+paths. Source and behavior stay away from real Flux wiring, cloud provider
+selection, UI, graph, Rust, generated bindings, EventStore schema, Hermes, MCP,
+subprocesses, and ANE/private API work. Focused runtime verification passes
+under `pipefail`.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1363,6 +1379,15 @@ Acceptance:
   `MainActor.assumeIsolated`, and that direct-page/fused tool names stay absent
   from the block-search slice; the FTS5-gated runtime assertions are present
   but skipped on hosts where the suite's existing FTS5 probe is false.
+- PR23 wired/reachable/visible: MLX image generation emits requested, started,
+  and completed/failed AgentEvents around the existing
+  `generate(prompt:aspectRatio:)` scaffold with non-empty run id, per-service
+  tool call id, actor, source/surface/provider metadata, prompt character count,
+  aspect ratio, elapsed milliseconds, success boolean, and bounded
+  `flux_pipeline_unavailable|unknown_error` failure classes. Tests prove prompt
+  text, image path, model id, FAL hints, localized descriptions, arbitrary error
+  text, cloud routing, and filesystem paths are not persisted in AgentEvent
+  arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

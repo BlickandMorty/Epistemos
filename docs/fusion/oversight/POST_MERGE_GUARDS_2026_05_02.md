@@ -458,3 +458,20 @@
 - log: `✔ Test run with 29 tests in 2 suites passed`
 - note: focused verification log `/tmp/epistemos-agent-event-search-index-block-pr22-green-pipefail-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The runtime RRF Fusion suite still compiles but remains skipped by the pre-existing FTS5 availability gate on this host.
 - test: `SearchIndexServiceAgentEventSourceGuardTests`
+
+## agent-event-mlx-image-generation-pr23
+
+- grep: `toolName: "image_generate.mlx"` in `Epistemos/Engine/MLXImageGenerationService.swift`
+- grep: `runID = "mlx-image-generation-` in `Epistemos/Engine/MLXImageGenerationService.swift`
+- grep: `AgentProvenanceActor.agent(id: "mlx-image-generation-service", modelID: nil)` in `Epistemos/Engine/MLXImageGenerationService.swift`
+- grep: `source": "mlx_image_generation_service"` in `Epistemos/Engine/MLXImageGenerationService.swift`
+- grep: `prompt_char_count` in `Epistemos/Engine/MLXImageGenerationService.swift`
+- forbidden source grep: `Hermes|MCP|stdio_subprocess|docker|cli_passthrough|computer_use|_ANEClient|MTLBuffer.*contents|disable-library-validation|LAContext|LocalAuthentication|URLSession|Process\.` in `Epistemos/Engine/MLXImageGenerationService.swift` and `EpistemosTests/MLXImageGenerationServiceTests.swift` returns no matches.
+- forbidden metadata grep: prompt text, generated image path, model id, FAL hints, localized descriptions, arbitrary error text, cloud routing, filesystem paths, Hermes, MCP, subprocesses, ANE/private API, and real Flux wiring are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/MLXImageGenerationService.swift`, `EpistemosTests/MLXImageGenerationServiceTests.swift`, Round 54 fleet/deliberation/preflight docs, this guard file, current-state docs, and workcard docs are allowed for this commit.
+- log: `✔ Test "successful MLX image generation records sanitized AgentEvents" passed`
+- log: `✔ Test "unavailable MLX pipeline records terminal failed AgentEvent" passed`
+- log: `✔ Test run with 2 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-mlx-image-generation-pr23-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`.
+- test: `MLXImageGenerationServiceTests`
