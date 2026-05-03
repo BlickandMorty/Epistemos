@@ -255,3 +255,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 42 | 2026-05-03T04:17Z | claude-red-team | brief=command-center-tool-surface-policy-pr1-final | claude/print-readonly | session:28461 | returned | docs/fusion/fleet/command-center-tool-surface-policy-pr1/claude-red-team/attacks-post-r2.md | +1 |
 | 42 | 2026-05-03T04:24Z | test | suite=AgentCommandCenterStateTests | xcodebuild | session:34197 | done | /tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log | +1 |
 | 42 | 2026-05-03T04:24Z | claude-red-team | brief=command-center-tool-surface-policy-pr1-final-r3 | claude/print-readonly | session:3522 | done | docs/fusion/fleet/command-center-tool-surface-policy-pr1/claude-red-team/attacks.md | +1 |
+| 43 | 2026-05-03T04:31Z | preflight | scope=r15-true-rust-callback-loop-pr10 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_43_2026_05_02.md | +1 |
+| 43 | 2026-05-03T04:31Z | detective | concept=R15 true Rust callback-loop export baseline | codex/local | n/a | done | docs/fusion/fleet/r15-true-rust-callback-loop-pr10/detectives/r15-true-rust-callback-loop.md | +1 |
+| 43 | 2026-05-03T04:31Z | aggregator | slice=r15-true-rust-callback-loop-pr10 | codex/local | n/a | done | docs/fusion/fleet/r15-true-rust-callback-loop-pr10/aggregator.md | +1 |
+| 43 | 2026-05-03T04:31Z | pipeline-builder | slice=r15-true-rust-callback-loop-pr10 | codex/local | n/a | done | docs/fusion/deliberation/r15_true_rust_callback_loop_pr10_deliberation_2026_05_02.md | +1 |
+| 43 | 2026-05-03T04:32Z | claude-red-team | brief=r15-true-rust-callback-loop-pr10 | claude/print-readonly | session:pending | failed | docs/fusion/fleet/r15-true-rust-callback-loop-pr10/claude-red-team/attacks-timeout-command-missing.md | -1 |
+| 43 | 2026-05-03T04:33Z | claude-red-team | brief=r15-true-rust-callback-loop-pr10 | claude/print-readonly | pid:17753 | failed | docs/fusion/fleet/r15-true-rust-callback-loop-pr10/claude-red-team/attacks-stalled.md | -1 |
+| 43 | 2026-05-03T04:39Z | codex-red-team | brief=r15-true-rust-callback-loop-pr10 | codex/local | n/a | done | docs/fusion/fleet/r15-true-rust-callback-loop-pr10/claude-red-team/attacks.md | +1 |
+| 43 | 2026-05-03T04:41Z | test | suite=UniFFICallbackThroughputTests | xcodebuild | session:47651 | failed | /tmp/epistemos-r15-true-rust-callback-pr10-red-20260502.log | +1 |
+| 43 | 2026-05-03T04:45Z | test | suite=UniFFICallbackThroughputTests | xcodebuild | session:57624 | done | /tmp/epistemos-r15-true-rust-callback-pr10-green-20260502.log | +1 |
+| 43 | 2026-05-03T04:49Z | test | suite=UniFFICallbackThroughputTests+BenchmarkHarnessSourceGuardTests+R15BenchmarkEvidenceLedgerTests | xcodebuild | session:76574 | done | /tmp/epistemos-r15-true-rust-callback-pr10-green-final-20260502.log | +1 |
+| 43 | 2026-05-03T04:50Z | test | suite=agent_core bridge::tests | cargo | session:64158 | done | /tmp/epistemos-r15-true-rust-callback-pr10-cargo-bridge-20260502.log | +1 |

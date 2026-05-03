@@ -112,6 +112,23 @@ nonisolated struct BenchmarkHarnessSourceGuardTests {
         #expect(!source.contains("@Suite(\"UniFFI callback throughput\", .disabled"))
     }
 
+    @Test("R15 PR10 true Rust callback loop baseline uses the Rust export honestly")
+    @MainActor
+    func r15PR10TrueRustCallbackLoopBaselineUsesRustExportHonestly() throws {
+        let source = try loadMirroredSourceTextFile("EpistemosTests/Benchmarks/UniFFICallbackThroughputTests.swift")
+        let bridgeSource = try loadMirroredSourceTextFile("agent_core/src/bridge.rs")
+
+        #expect(source.contains("TrueRustCallbackLoopBaselineRunner"))
+        #expect(source.contains("runR15TrueRustCallbackLoopBenchmark"))
+        #expect(source.contains("true_rust_callback_loop_export"))
+        #expect(source.contains("true_rust_to_swift_loop"))
+        #expect(bridgeSource.contains("R15TrueRustCallbackLoopBenchmarkFFI"))
+        #expect(bridgeSource.contains("run_r15_true_rust_callback_loop_benchmark"))
+        #expect(bridgeSource.contains("#[cfg(debug_assertions)]"))
+        #expect(!source.contains("Task.sleep"))
+        #expect(!source.localizedCaseInsensitiveContains("placeholder"))
+    }
+
     @Test("R15 PR6 MLX thermal policy baseline uses PowerGate honestly")
     @MainActor
     func r15PR6MLXThermalPolicyBaselineUsesPowerGateHonestly() throws {

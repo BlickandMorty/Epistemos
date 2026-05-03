@@ -265,10 +265,14 @@ blocked by canonical memory preflight (`requiredGB=12`, `availableGB=4`), so it
 does not claim tok/s yet. PR9 adds an app-hosted evidence ledger guard that
 names the ten closed R15 JSON artifacts and keeps the open PR8 tok/s, renderer
 FPS, and true Rust callback-loop artifacts explicitly forbidden from the closed
-set. Remaining specialized baselines for live MLX token throughput under
-sufficient-memory/thermal-soak conditions and the true Rust callback-loop export
-stay open for later fixture gates; production GRDB/768d KNN still needs its own
-future gate before any product claim.
+set. PR10 adds a debug-only true Rust-to-Swift callback-loop export baseline:
+Rust loops over `AgentEventDelegate.on_text_delta`, Swift records the real JSON
+artifact, source guards prove the Rust export is used, and the evidence ledger
+now names 11 closed R15 artifacts while keeping MLX tok/s and renderer FPS
+open. Remaining specialized baselines for live MLX token throughput under
+sufficient-memory/thermal-soak conditions and live renderer FPS stay open for
+later fixture gates; production GRDB/768d KNN still needs its own future gate
+before any product claim.
 
 Goal:
 Create measurement scaffolding before touching graph renderer, FFI, or
@@ -330,6 +334,14 @@ Acceptance:
   and `EpistemosTests/Benchmarks/R15BenchmarkEvidenceLedgerTests.swift` as the
   evidence-ledger guard only. It names closed artifact filenames and metadata,
   and it must not be weakened into a product benchmark or live-runtime claim.
+- For PR10, cite
+  `docs/fusion/deliberation/r15_true_rust_callback_loop_pr10_deliberation_2026_05_02.md`,
+  `agent_core/src/bridge.rs`,
+  `EpistemosTests/Benchmarks/UniFFICallbackThroughputTests.swift`, and
+  `2026-05-02t00-00-00-000z-r15-true-rust-callback-loop-baseline-true_rust_callback_loop.json`
+  as a debug-only true Rust-to-Swift callback-loop baseline. This does not
+  claim a hot-path replacement, BoltFFI migration, graph/render speedup, or
+  production session behavior change.
 - For remaining specialized surfaces, the baseline must come from a later real
   fixture gate, not the PR1 placeholder bodies.
 

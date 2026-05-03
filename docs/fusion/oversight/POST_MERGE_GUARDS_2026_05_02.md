@@ -327,3 +327,24 @@
 - log: `✔ Test run with 42 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-command-center-tool-surface-pr1-green-r3-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `AgentCommandCenterStateTests`
+
+## r15-true-rust-callback-loop-pr10
+
+- grep: `run_r15_true_rust_callback_loop_benchmark`
+- grep: `R15TrueRustCallbackLoopBenchmarkFFI`
+- grep: `runR15TrueRustCallbackLoopBenchmark`
+- grep: `true_rust_to_swift_loop`
+- grep: `not_true_rust_to_swift_loop` must remain for the PR5 generated-handle baseline.
+- forbidden staged grep: `graph-engine/src/renderer.rs|MetalGraphView.swift|MLXInferenceService.swift|LocalMLXClient|GraphEngine\\(|render_frame_rate|mlx_live_token_throughput` in the staged diff, except pre-existing unchanged docs/test references.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine Epistemos/Engine Epistemos/Omega Epistemos.xcodeproj`
+- staged allow: only the PR10 hunk in `agent_core/src/bridge.rs`, benchmark tests/ledger/source guard, the new true-Rust JSON artifact, and Round 43 docs are allowed.
+- log: `✔ Test "true Rust callback loop runner writes finite decodable report" passed`
+- log: `✔ Test "R15 PR10 true Rust callback loop baseline uses the Rust export honestly" passed`
+- log: `✔ Test "committed R15 benchmark ledger names only closed evidence" passed`
+- log: `✔ Test "open R15 live baseline claims remain explicitly open" passed`
+- log: `test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 769 filtered out`
+- note: focused verification logs `/tmp/epistemos-r15-true-rust-callback-pr10-green-final-20260502.log` and `/tmp/epistemos-r15-true-rust-callback-pr10-cargo-bridge-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `UniFFICallbackThroughputTests`
+- test: `BenchmarkHarnessSourceGuardTests`
+- test: `R15BenchmarkEvidenceLedgerTests`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --lib bridge::tests`
