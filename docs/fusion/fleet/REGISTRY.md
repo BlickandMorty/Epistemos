@@ -611,3 +611,10 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 83 | 2026-05-03T17:18Z | codex-red-team | brief=clarify-prompt-bridge-agent-event-pr43 | codex/local | n/a | done | docs/fusion/fleet/clarify-prompt-bridge-agent-event-pr43/claude-red-team/attacks.md | +1 |
 | 83 | 2026-05-03T17:21Z | test-green | scope=clarify-prompt-bridge-agent-event-pr43 | xcodebuild | session:58859 | done | /tmp/epistemos-clarify-prompt-bridge-agent-event-pr43-green-20260503.log | +1 |
 | 83 | 2026-05-03T17:22Z | guard | slice=clarify-prompt-bridge-agent-event-pr43 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 85 | 2026-05-03T17:28Z | preflight | scope=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_85_2026_05_03.md | +1 |
+| 85 | 2026-05-03T17:28Z | detective | concept=Bridge no-double-count AgentEvent source guards | codex/local | n/a | done | docs/fusion/fleet/bridge-no-double-count-source-guards-pr44/detectives/bridge-no-double-count-source-guards.md | +1 |
+| 85 | 2026-05-03T17:28Z | aggregator | slice=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/fleet/bridge-no-double-count-source-guards-pr44/aggregator.md | +1 |
+| 85 | 2026-05-03T17:28Z | pipeline-builder | slice=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/deliberation/bridge_no_double_count_source_guards_pr44_deliberation_2026_05_03.md | +1 |
+| 85 | 2026-05-03T17:28Z | codex-red-team | brief=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/fleet/bridge-no-double-count-source-guards-pr44/claude-red-team/attacks.md | +1 |
+| 85 | 2026-05-03T17:33Z | test-green | scope=bridge-no-double-count-source-guards-pr44 | xcodebuild | session:61849 | done | /tmp/epistemos-bridge-no-double-count-source-guards-pr44-green-20260503.log | +1 |
+| 85 | 2026-05-03T17:33Z | guard | slice=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

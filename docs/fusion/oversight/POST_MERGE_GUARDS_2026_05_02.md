@@ -859,3 +859,12 @@
 - log: `✔ Test "Clarify source never stores raw question JSON answers or choices" passed`
 - note: focused verification log `/tmp/epistemos-clarify-prompt-bridge-agent-event-pr43-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `ClarifyPromptBridgeAgentEventTests`
+
+## bridge-no-double-count-source-guards-pr44
+
+- grep: `AgentEventBridgeNoDoubleCountSourceGuardTests` in `EpistemosTests/AgentEventBridgeNoDoubleCountSourceGuardTests.swift`
+- forbidden bridge grep: `AgentToolProvenanceRecorder\\(|recordToolEvent\\(` returns no matches in `Epistemos/Bridge/ChunkedMCPFraming.swift`, `Epistemos/Bridge/CoTStreamInterceptor.swift`, `Epistemos/Bridge/StreamingDelegate.swift`, and `Epistemos/Bridge/ToolTierBridge.swift`.
+- staged allow: only `EpistemosTests/AgentEventBridgeNoDoubleCountSourceGuardTests.swift`, Round 85 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "AgentEvent Bridge No-Double-Count Source Guards" passed`
+- note: focused verification log `/tmp/epistemos-bridge-no-double-count-source-guards-pr44-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `AgentEventBridgeNoDoubleCountSourceGuardTests`
