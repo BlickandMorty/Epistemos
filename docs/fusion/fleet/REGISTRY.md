@@ -580,3 +580,4 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 77 | 2026-05-03T16:30Z | test-red-source-guard | scope=computer-use-bridge-agent-event-pr39 | xcodebuild | session:unknown | failed | /tmp/epistemos-computer-use-bridge-agent-event-pr39-redgreen-20260503.log | +1 |
 | 77 | 2026-05-03T16:33Z | test-green | scope=computer-use-bridge-agent-event-pr39 | xcodebuild | session:74968 | done | /tmp/epistemos-computer-use-bridge-agent-event-pr39-green-20260503.log | +1 |
 | 77 | 2026-05-03T16:33Z | guard | slice=computer-use-bridge-agent-event-pr39 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 78 | 2026-05-03T16:40Z | parallel-work-manifest | scope=phase4-perceive-agent-event-pr40 | codex/local | n/a | done | docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md | +1 |

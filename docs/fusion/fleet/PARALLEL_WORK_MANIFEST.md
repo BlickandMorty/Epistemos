@@ -1,21 +1,27 @@
-# Parallel Work Manifest - refreshed 2026-05-03T15:33Z
+# Parallel Work Manifest - refreshed 2026-05-03T16:40Z
 
 ## Codex current state
-- Slice in flight: phase5-ssm-state-provenance-pr37 finalization
-- Round: 75
-- Slices reserved (next 3): [phase5-ssm-state-provenance-pr37, graph-event-consumer-projection-guard-pr38, agent-event-next-slice-selection-pr39]
-- Anchor heartbeat: ANCHOR: slice=parallel-work-manifest-refresh | round=75 | terminal=session:4012 | claude-side=off | claude-red-team=off | reading=[PARALLEL_WORK_MANIFEST.md,UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md,AGENT_BUILD_WORKCARDS_2026_05_01.md,REGISTRY.md]
+
+- Slice in flight: phase4-perceive-agent-event-pr40 setup
+- Round: 78
+- Slices reserved (next 3): [phase4-perceive-agent-event-pr40, phase4-interact-agent-event-pr41, phase4-screen-watch-agent-event-pr42]
+- Anchor heartbeat: ANCHOR: slice=parallel-work-manifest-refresh | round=78 | terminal=session:4012 | claude-side=desktop-app:idle | claude-red-team=off | reading=[PARALLEL_WORK_MANIFEST.md,AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md,UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md,AGENT_BUILD_WORKCARDS_2026_05_01.md,REGISTRY.md]
 
 ## Codex reservation set
-- /Users/jojo/Downloads/Epistemos/Epistemos/Bridge/Phase5Bridge.swift
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/Phase5BridgeAgentEventTests.swift
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/GraphEventConsumerProjectionGuardTests.swift
-- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/phase5-ssm-state-provenance-pr37/
-- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/graph-event-consumer-projection-guard-pr38/
-- /Users/jojo/Downloads/Epistemos/docs/fusion/deliberation/phase5_ssm_state_provenance_pr37_deliberation_2026_05_03.md
-- /Users/jojo/Downloads/Epistemos/docs/fusion/deliberation/graph_event_consumer_projection_guard_pr38_deliberation_2026_05_03.md
-- /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/PREFLIGHT_74_2026_05_03.md
-- /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/PREFLIGHT_75_2026_05_03.md
+
+- /Users/jojo/Downloads/Epistemos/Epistemos/Bridge/Phase4Bridge.swift
+- /Users/jojo/Downloads/Epistemos/EpistemosTests/Phase4BridgePerceiveAgentEventTests.swift
+- /Users/jojo/Downloads/Epistemos/EpistemosTests/Phase4BridgeInteractAgentEventTests.swift
+- /Users/jojo/Downloads/Epistemos/EpistemosTests/Phase4BridgeScreenWatchAgentEventTests.swift
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/phase4-perceive-agent-event-pr40/
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/phase4-interact-agent-event-pr41/
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/phase4-screen-watch-agent-event-pr42/
+- /Users/jojo/Downloads/Epistemos/docs/fusion/deliberation/phase4_perceive_agent_event_pr40_deliberation_2026_05_03.md
+- /Users/jojo/Downloads/Epistemos/docs/fusion/deliberation/phase4_interact_agent_event_pr41_deliberation_2026_05_03.md
+- /Users/jojo/Downloads/Epistemos/docs/fusion/deliberation/phase4_screen_watch_agent_event_pr42_deliberation_2026_05_03.md
+- /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/PREFLIGHT_78_2026_05_03.md
+- /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/PREFLIGHT_79_2026_05_03.md
+- /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/PREFLIGHT_80_2026_05_03.md
 - /Users/jojo/Downloads/Epistemos/docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md
 - /Users/jojo/Downloads/Epistemos/docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md
 - /Users/jojo/Downloads/Epistemos/docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md
@@ -23,230 +29,219 @@
 - /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md
 
 ## Canon / protected no-touch list
-- Do not edit: `MASTER_RESEARCH_INDEX_2026_05_02.md`, `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_AGENT_FLEET_PROMPT_2026_05_02.md`, `AGENT_BUILD_WORKCARDS_2026_05_01.md`, current `docs/fusion/deliberation/`, current `docs/fusion/oversight/`, or current `docs/fusion/fleet/<slice>/`.
+
+- Do not edit current canon-in-flight docs: `MASTER_RESEARCH_INDEX_2026_05_02.md`, `EPISTEMOS_FINAL_DOCTRINE_2026_05_01.md`, `UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md`, `CODEX_FINAL_EXECUTION_PROMPT_2026_05_01.md`, `CODEX_AGENT_FLEET_PROMPT_2026_05_02.md`, `AGENT_BUILD_WORKCARDS_2026_05_01.md`, current `docs/fusion/deliberation/`, current `docs/fusion/oversight/`, or current `docs/fusion/fleet/<slice>/`.
 - Do not touch protected code paths: `Epistemos/Views/Notes/ProseEditor*.swift`, `Epistemos/Views/Graph/MetalGraphView.swift`, `Epistemos/Views/Graph/HologramController.swift`, graph physics/render internals, generated `.rlib`, `DerivedData`, `.xcresult`, `Epistemos.xcodeproj/project.pbxproj`, `Cargo.toml`, `Package.swift`, or build scripts unless explicitly coordinated.
+- Do not touch `Epistemos/Bridge/Phase4Bridge.swift` or any Phase4 test file this round. Codex has those reserved.
 
 ## Parallel work items (open)
 
-### P1 - Hermes Gateway Evidence Contract Tests
-**Lane (doctrine §7):** Pro track - Hermes cloud gateway / MCP tunnel preparation
-**Effort:** S
-**Who:** agent-2-ok
-**Status:** open
+### P1 - ClarifyPromptBridge AgentEvent Provenance
 
-**What.**
-Create a new Swift Testing suite that hardens the Hermes-as-cloud-gateway decision: local substrate/prompt formatting remains direct and in-process; cloud provider surfaces route through Hermes, are not Core/App Store allowed, and require structured evidence provenance.
-
-**Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/HermesGatewayEvidenceContractTests.swift (NEW)
-
-**Why safe.**
-This creates a new test file outside the Codex reservation set. It does not edit `HermesGatewayPolicy.swift`, bridge files, current docs, project files, or protected UI/graph paths.
-
-**Why useful now.**
-It advances the Pro gateway lane while preserving the "unified but firewalled" architecture: Epistemos remains direct/local; Hermes owns cloud chaos and returns structured evidence.
-
-**Acceptance.**
-- New Swift Testing file exists.
-- Tests cover every `HermesGatewayPolicy.Surface.cloudProviderSurfaces` entry.
-- Tests prove cloud surfaces use `.hermesGateway`, require network, are not Core/App Store allowed, and require structured evidence provenance.
-- Tests prove local substrate and local prompt formatting stay direct/in-process.
-- No production files are modified.
-
-**If picked by agent-2, paste this prompt:**
-```text
-You are a parallel coding agent in /Users/jojo/Downloads/Epistemos on the same branch as Codex. Read /Users/jojo/Downloads/Epistemos/AGENTS.md, then read docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md item P1. Do not edit production code or current canon docs. Do not touch Phase5Bridge.swift, Phase5BridgeAgentEventTests.swift, GraphEventConsumerProjectionGuardTests.swift, any current docs/fusion/deliberation or docs/fusion/oversight file, ProseEditor*, MetalGraphView.swift, HologramController.swift, graph physics/render internals, project.pbxproj, Cargo.toml, Package.swift, or build scripts.
-
-Task: create /Users/jojo/Downloads/Epistemos/EpistemosTests/HermesGatewayEvidenceContractTests.swift. Use Swift Testing and @testable import Epistemos. Add coverage for HermesGatewayPolicy: every cloudProviderSurfaces entry must route through .hermesGateway, require network, not require subprocess if policy says so, not be allowed in Core App Store, and require structured evidence provenance. Local deterministic/local-prompt surfaces must remain direct or in-process. Run: xcodebuild -project /Users/jojo/Downloads/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayEvidenceContractTests test. If a policy invariant fails, stop and report; do not patch production.
-```
-
-### P2 - Tool Surface Behavioral Matrix Tests
-**Lane (doctrine §7):** Core open - MAS/Core vs Pro capability symbol separation
-**Effort:** S
-**Who:** agent-2-ok
-**Status:** open
-
-**What.**
-Create a new behavioral test matrix for the Core App Store tool-surface gate. This complements the source-guard tests by exercising the actual policy API for Core-safe allowlist tools versus Pro/Research-only tools.
-
-**Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift (NEW)
-
-**Why safe.**
-New test file only. It does not edit `ToolTierBridge.swift`, `ToolSurfacePolicy.swift`, `MCPBridge.swift`, or any current Codex-reserved file.
-
-**Why useful now.**
-It reduces App Store/Core leakage risk before more Hermes/Pro surfaces are wired.
-
-**Acceptance.**
-- New Swift Testing file exists.
-- Tests assert Core-safe tools are surfaced in Core distribution.
-- Tests assert `bash`, `shell_exec`, `browser_use`, `computer_use`, `docker`, `mcp_call`, `cli_passthrough`, and `hermes_subprocess` are not Core-surfaced.
-- No production files are modified.
-
-**If picked by agent-2, paste this prompt:**
-```text
-You are a parallel coding agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md item P2. Do not edit production code or current canon docs. Do not touch Phase5Bridge.swift, GraphEventConsumerProjectionGuardTests.swift, MCPBridge.swift, ToolTierBridge.swift, ToolSurfacePolicy.swift, current docs/fusion/deliberation files, ProseEditor*, MetalGraphView.swift, HologramController.swift, graph physics/render internals, project.pbxproj, Cargo.toml, or Package.swift.
-
-Task: create /Users/jojo/Downloads/Epistemos/EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift. Use Swift Testing and @testable import Epistemos. Add behavioral tests for the existing Core/App Store tool policy APIs. Assert Core-safe allowlist tools remain surfaced in Core, and Pro/Research-only surfaces such as bash, shell_exec, browser_use, computer_use, docker, mcp_call, cli_passthrough, and hermes_subprocess are not surfaced in Core. Run: xcodebuild -project /Users/jojo/Downloads/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ToolSurfaceBehavioralMatrixTests test. If an API name differs, adapt the test to existing APIs; do not patch production.
-```
-
-### P3 - Durable GraphEvent Projection Fixture Tests
-**Lane (doctrine §7):** Core open - live GraphEvent consumer projection preparation
+**Lane (doctrine section 7):** Core open - broader runtime AgentEvent coverage
 **Effort:** M
 **Who:** agent-2-ok
 **Status:** open
 
 **What.**
-Create a new test-only fixture suite for existing durable GraphEvent projection folding/reporting with synthetic events. Do not build the live consumer; just lock the semantics Codex will rely on.
+Instrument the existing clarify prompt bridge with bounded AgentEvents. The user-facing answer must not be persisted; record only question/action class, answer length bucket, selected-choice index if present, answered/cancelled status, duration, and bounded failure class.
 
 **Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/GraphEventProjectionFixtureTests.swift (NEW)
+- /Users/jojo/Downloads/Epistemos/Epistemos/Bridge/ClarifyPromptBridge.swift (EXISTS)
+- /Users/jojo/Downloads/Epistemos/EpistemosTests/ClarifyPromptBridgeAgentEventTests.swift (NEW)
+- /tmp/epistemos-clarify-prompt-agent-event-pr40-claude.log (NEW log)
 
 **Why safe.**
-This avoids Codex's reserved `GraphEventConsumerProjectionGuardTests.swift` and does not edit graph production, renderer, physics, Halo, or EventStore files.
+These files are disjoint from Codex's reserved Phase4 files. This item avoids `Phase4Bridge.swift`, all Phase4 test files, current deliberation/oversight/fleet folders, current canon docs, graph, editor, project, package, and build-script files.
 
 **Why useful now.**
-It reduces risk for the next graph projection slice by giving it a fixture baseline.
+The AgentEvent runtime coverage map identified ClarifyPromptBridge as the next clean bridge after ComputerUse and Phase4. It closes a Core+Pro audit gap while Codex works the high-risk Phase4 bridge.
 
 **Acceptance.**
-- New Swift Testing file exists.
-- Tests reuse existing fixture patterns from current GraphEvent projection/audit tests.
-- Tests cover empty input, chronological folding/reporting, bounded limit behavior if available, and duplicate/repeated node or edge behavior if supported.
-- No production files are modified.
+- `ClarifyPromptBridge.swift` records requested/started/completed-or-failed events around the existing clarify flow.
+- Tests prove the user's free-form answer is not persisted in `argumentsJSON`, `resultJSON`, `errorMessage`, or metadata.
+- Tests cover answered, cancelled/empty, invalid JSON if applicable, and source guards against raw payload persistence.
+- Focused test command is run and log path is reported.
 
 **If picked by agent-2, paste this prompt:**
 ```text
-You are a parallel coding agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md Card 8. Do not edit production code. Do not touch Epistemos/Views/Graph/MetalGraphView.swift, Epistemos/Views/Graph/HologramController.swift, graph-engine, graph physics/render internals, EventStore production files, GraphEventAuditProjectionService.swift, GraphEventConsumerProjectionGuardTests.swift, Phase5Bridge.swift, current docs/fusion/deliberation files, project.pbxproj, Cargo.toml, or Package.swift.
+You are a parallel coding agent in /Users/jojo/Downloads/Epistemos on the same branch as Codex. Read /Users/jojo/Downloads/Epistemos/AGENTS.md, docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md section 2 and section 13, docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md Safe Next Build Order item 3, docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md Card 7, and docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md item P1.
 
-Task: create /Users/jojo/Downloads/Epistemos/EpistemosTests/GraphEventProjectionFixtureTests.swift. Use Swift Testing. Read existing GraphEvent projection/audit tests for fixture style, then add synthetic projection tests for empty input, chronological folding/reporting, bounded limit behavior if available, and duplicate/repeated node or edge behavior if current APIs support it. Run: xcodebuild -project /Users/jojo/Downloads/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/GraphEventProjectionFixtureTests test. If current APIs cannot express an invariant, report it; do not patch production.
+Do not edit Phase4Bridge.swift, Phase4BridgePerceiveAgentEventTests.swift, Phase4BridgeInteractAgentEventTests.swift, Phase4BridgeScreenWatchAgentEventTests.swift, current docs/fusion/deliberation files, current docs/fusion/oversight files, current docs/fusion/fleet/phase4-* folders, ProseEditor*, MetalGraphView.swift, HologramController.swift, graph physics/render internals, project.pbxproj, Cargo.toml, Package.swift, or build scripts.
+
+Task: add bounded AgentEvent provenance to /Users/jojo/Downloads/Epistemos/Epistemos/Bridge/ClarifyPromptBridge.swift and create /Users/jojo/Downloads/Epistemos/EpistemosTests/ClarifyPromptBridgeAgentEventTests.swift. Preserve existing clarify behavior. Persist only sanitized data: question/action class, answer length bucket, selected-choice index if present, answered/cancelled status, duration, and bounded failure class. Never persist the user's raw answer, raw question text, raw JSON payload, localized descriptions, or arbitrary error text in AgentEvent JSON/metadata. Run: xcodebuild -project /Users/jojo/Downloads/Epistemos/Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/ClarifyPromptBridgeAgentEventTests test 2>&1 | tee /tmp/epistemos-clarify-prompt-agent-event-pr40-claude.log. If the bridge cannot be tested without UI seams, add the smallest internal injection seam and stop before touching unrelated code.
 ```
 
-### P4 - AgentEvent Runtime Coverage Map
-**Lane (doctrine §7):** Core open - broader runtime AgentEvent coverage
+### P2 - Bridge No-Double-Count Source Guards
+
+**Lane (doctrine section 7):** Core open - AgentEvent provenance hardening
+**Effort:** S
+**Who:** agent-2-ok
+**Status:** open
+
+**What.**
+Create a source-only Swift Testing suite that locks the "do not instrument here" conclusions from the runtime coverage map: `StreamingDelegate`, `ChunkedMCPFraming`, `CoTStreamInterceptor`, and Swift-side `ToolTierBridge` must not directly call `recordToolEvent` because they are routing/transport/parser layers.
+
+**Files touched (precise paths, all new unless flagged):**
+- /Users/jojo/Downloads/Epistemos/EpistemosTests/AgentEventBridgeNoDoubleCountSourceGuardTests.swift (NEW)
+
+**Why safe.**
+New test file only, outside Codex's Phase4 reservation set. It reads source but does not edit production code, current canon, current slice docs, project files, graph, or editor files.
+
+**Why useful now.**
+It prevents a future agent from "helpfully" adding duplicate AgentEvents at the wrong layer, which would corrupt the audit timeline and inflate the event table.
+
+**Acceptance.**
+- New test file exists.
+- Tests assert the four named files do not contain direct `recordToolEvent` / `AgentToolProvenanceRecorder` instrumentation.
+- Tests include comments naming where provenance should live instead.
+- Focused test runs or the agent reports why the test target cannot discover the new file.
+
+**If picked by agent-2, paste this prompt:**
+```text
+You are a parallel coding agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md, docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md section 4, and docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md item P2. Do not edit production code or current canon docs. Do not touch Phase4Bridge.swift, any Phase4 test file, current docs/fusion/deliberation or docs/fusion/oversight file, project.pbxproj, Cargo.toml, Package.swift, ProseEditor*, MetalGraphView.swift, HologramController.swift, or graph internals.
+
+Task: create /Users/jojo/Downloads/Epistemos/EpistemosTests/AgentEventBridgeNoDoubleCountSourceGuardTests.swift. Use Swift Testing. Read source files by path and assert `StreamingDelegate.swift`, `ChunkedMCPFraming.swift`, `CoTStreamInterceptor.swift`, and `ToolTierBridge.swift` do not directly call `recordToolEvent` or instantiate `AgentToolProvenanceRecorder`. Add short test comments explaining that AgentEvents belong at downstream tool/bridge execution sites, not transport/parser layers. Run a focused xcodebuild test and report the log path.
+```
+
+### P3 - Parallel Test Artifact Verification Bundle
+
+**Lane (doctrine section 7):** Core open - parallel quality gate
 **Effort:** M
 **Who:** agent-2-ok
 **Status:** open
 
 **What.**
-Create a read-only coverage map of remaining bridge/Omega runtime surfaces that still lack AgentEvent provenance. This is a future-slice selector, not a code patch.
+Verify the uncommitted parallel-agent test artifacts from the prior manifest without staging or committing them. Run focused tests for each new test file and write a single verification report that says which are green, which need repair, and which should be deferred.
 
 **Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md (NEW)
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/parallel-test-artifact-verification/PARALLEL_TEST_ARTIFACT_VERIFICATION_2026_05_03.md (NEW)
+- Existing uncommitted test files may be edited only if needed to fix compile/test failures: `HermesGatewayEvidenceContractTests.swift`, `ToolSurfaceBehavioralMatrixTests.swift`, `HermesPromptFormatGuardTests.swift`, `GraphEventProjectionFixtureTests.swift`, `CoreMASBoundarySourceGuardTests.swift`, `SovereignGateRequirementMatrixTests.swift`.
 
 **Why safe.**
-New doc in a future-lane folder. It avoids all current Codex docs and source files.
+Codex is not reserving those existing parallel test files in the next three slices. The report is a new docs/fusion/fleet subfolder, and the item does not touch Phase4, production code, current canon, project files, graph, or editor files.
 
 **Why useful now.**
-It turns "what do we build next?" into a concrete, non-duplicative queue after Phase5/GraphEvent.
+Claude already created several useful guard suites. This converts them from "pile of promising untracked files" into a verified queue Codex can integrate safely later.
 
 **Acceptance.**
-- New map exists.
-- It lists inspected bridge/runtime files, whether they already emit AgentEvents, sensitive payload risk, and smallest safe future slice.
-- It marks Phase5Bridge and Phase7Bridge as already/reserved and does not propose editing them.
-- No code or existing canon docs are modified.
+- Report lists each artifact, focused command, log path, pass/fail, and integration recommendation.
+- If a test file is repaired, the report names the exact change and why it remains test-only.
+- No production files are modified.
+- No staging or commit is performed.
 
 **If picked by agent-2, paste this prompt:**
 ```text
-You are a parallel research agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md, docs/fusion/UNIFIED_SUBSTRATE_CURRENT_STATE_2026_05_01.md Safe Next Build Order item 3, and docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md Card 7. Read-only except for creating one new doc. Do not edit source code or current canon docs. Do not touch Phase5Bridge.swift, Phase7Bridge.swift, current docs/fusion/deliberation files, ProseEditor*, MetalGraphView.swift, HologramController.swift, graph physics/render internals, project.pbxproj, Cargo.toml, or Package.swift.
+You are a parallel verification agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and docs/fusion/fleet/PARALLEL_WORK_MANIFEST.md item P3. Do not edit production code, current canon docs, Phase4Bridge.swift, any Phase4 test file, project.pbxproj, Cargo.toml, Package.swift, ProseEditor*, MetalGraphView.swift, HologramController.swift, or graph internals. Do not stage or commit.
 
-Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md. Inspect Epistemos/Bridge/*.swift and obvious Omega runtime files for AgentToolProvenanceRecorder / AgentProvenanceEvent usage. For each surface, record file path, action/tool names, already instrumented yes/no, sensitive payload risk yes/no, and smallest future safe PR slice. Do not modify code.
+Task: verify these uncommitted parallel test artifacts if present: EpistemosTests/HermesGatewayEvidenceContractTests.swift, EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift, EpistemosTests/HermesPromptFormatGuardTests.swift, EpistemosTests/GraphEventProjectionFixtureTests.swift, EpistemosTests/CoreMASBoundarySourceGuardTests.swift, EpistemosTests/SovereignGateRequirementMatrixTests.swift. Run focused xcodebuild tests per file when possible. If a test fails to compile due to test-only API naming or helper placement, you may repair only that test file. Write /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/parallel-test-artifact-verification/PARALLEL_TEST_ARTIFACT_VERIFICATION_2026_05_03.md with commands, log paths, pass/fail, files touched, and recommendation. Do not modify production.
 ```
 
-### P5 - R15 Live MLX Memory Preflight Artifact
-**Lane (doctrine §7):** Core open - R15 remaining specialized baselines
+### P4 - AgentEvent Coverage Map PR39 Delta
+
+**Lane (doctrine section 7):** Core open - broader runtime AgentEvent coverage
+**Effort:** S
+**Who:** agent-2-ok
+**Status:** open
+
+**What.**
+Create a new delta doc that updates the runtime coverage map after `ComputerUseBridge` PR39. Do not edit the original coverage map; write a new addendum that marks CUB-1 closed and re-ranks the remaining bridge gaps.
+
+**Files touched (precise paths, all new unless flagged):**
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_PR39_DELTA_2026_05_03.md (NEW)
+
+**Why safe.**
+New doc only. It avoids Codex's Phase4 source/test files and in-flight canon docs.
+
+**Why useful now.**
+It gives Codex a clean next-slice selector after the Phase4 trio and prevents us from re-reading stale "ComputerUseBridge is open" guidance.
+
+**Acceptance.**
+- New delta doc exists.
+- It marks ComputerUseBridge as closed by commit `92b40126`.
+- It ranks remaining slices: Phase4 perceive/interact/watch, ClarifyPromptBridge, and explicit no-instrument surfaces.
+- No existing docs or code are modified.
+
+**If picked by agent-2, paste this prompt:**
+```text
+You are a parallel research agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md, docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md, and git show --stat 92b40126. Do not edit code, current canon docs, current docs/fusion/deliberation files, current docs/fusion/oversight files, Phase4Bridge.swift, any Phase4 test file, project.pbxproj, Cargo.toml, or Package.swift.
+
+Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_PR39_DELTA_2026_05_03.md. Mark ComputerUseBridge/CUB-1 closed by commit 92b40126, summarize what remains, and re-rank the next safe slices. Do not modify the original map.
+```
+
+### P5 - R15 MLX Preflight Decision Note
+
+**Lane (doctrine section 7):** Core open - R15 remaining specialized baselines
 **Effort:** S
 **Who:** either
 **Status:** open
 
 **What.**
-Capture current machine memory/power/thermal evidence for the blocked live MLX token-throughput lane. Do not run the MLX benchmark.
+Read the existing R15 live MLX memory preflight artifact and write a short go/no-go decision note. Do not run the live MLX benchmark.
 
 **Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_MEMORY_PREFLIGHT_2026_05_03.md (NEW)
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_GO_NO_GO_2026_05_03.md (NEW)
 
 **Why safe.**
-New artifact only. No code, no current canon edits, no benchmark, no app runtime.
+New doc only. No code, no benchmark, no current canon edits, no app runtime.
 
 **Why useful now.**
-R15 live MLX throughput is blocked on sufficient-memory evidence. This gives Codex the go/no-go data without interrupting build work.
+The R15 lane is blocked on sufficient-memory/thermal evidence. This turns the collected machine facts into a clear next decision without interrupting Codex's Phase4 AgentEvent work.
 
 **Acceptance.**
-- Artifact includes `date -u`, `sw_vers`, `sysctl hw.memsize`, `vm_stat`, `df -h /`, `pmset -g batt`, and a yes/no/unknown conclusion.
-- No benchmark is run.
-- No code or existing docs are modified.
+- Decision note exists.
+- It cites the existing preflight artifact path.
+- It concludes `go`, `no-go`, or `unknown`, with one paragraph of reasoning.
+- It explicitly says no live MLX benchmark was run.
 
 **If picked by agent-2, paste this prompt:**
 ```text
-You are a parallel agent in /Users/jojo/Downloads/Epistemos. This task is read-only except for creating one new artifact file. Do not edit code, tests, project files, current canon docs, or current docs/fusion/deliberation files. Do not run any live MLX benchmark.
+You are a parallel research agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_MEMORY_PREFLIGHT_2026_05_03.md. Do not edit code, current canon docs, current deliberation/oversight docs, project files, package files, or build scripts. Do not run any live MLX benchmark.
 
-Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_MEMORY_PREFLIGHT_2026_05_03.md. Capture outputs from date -u, sw_vers, sysctl hw.memsize, vm_stat, df -h /, and pmset -g batt. Summarize whether the R15 live MLX tok/s harness should remain blocked or can be attempted later. Do not edit any other files.
+Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_GO_NO_GO_2026_05_03.md. Summarize the memory/power/storage evidence and conclude go/no-go/unknown for attempting the R15 live MLX tok/s harness later. State clearly that no benchmark was run.
 ```
 
-### P6 - Hermes Prompt Format Guard Tests
-**Lane (doctrine §7):** Pro track - Hermes gateway protocol correctness
-**Effort:** S
-**Who:** agent-2-ok
-**Status:** open
+### P6 - Sovereign Gate Backlog Workcard Drafts
 
-**What.**
-Create a source-guard test that locks the current Hermes prompt format reality: local Hermes prompt building is plain markdown / repo-native format, not NousResearch ChatML XML, unless a future deliberation deliberately migrates it.
-
-**Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/EpistemosTests/HermesPromptFormatGuardTests.swift (NEW)
-
-**Why safe.**
-New test file only. It does not edit prompt builders, Hermes policy, or current bridge slices.
-
-**Why useful now.**
-It protects Master Research Index honest discovery H2 and prevents future agents from wiring the wrong ChatML/XML assumption into Hermes.
-
-**Acceptance.**
-- New Swift Testing file exists.
-- Tests read `Epistemos/LocalAgent/HermesPromptBuilder.swift` and `agent_core/src/prompts.rs` if present.
-- Tests assert no `<|im_start|>` / `<|im_end|>` / ChatML XML markers in the current local Hermes prompt path.
-- No production files are modified.
-
-**If picked by agent-2, paste this prompt:**
-```text
-You are a parallel coding agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md §0 honest discovery H2. Do not edit production code or current canon docs. Do not touch Phase5Bridge.swift, GraphEventConsumerProjectionGuardTests.swift, current docs/fusion/deliberation files, project.pbxproj, Cargo.toml, or Package.swift.
-
-Task: create /Users/jojo/Downloads/Epistemos/EpistemosTests/HermesPromptFormatGuardTests.swift. Use Swift Testing. Source-read Epistemos/LocalAgent/HermesPromptBuilder.swift and agent_core/src/prompts.rs if present. Assert the current local Hermes-family prompt path does not use <|im_start|>, <|im_end|>, or XML ChatML markers, and document that changing this requires a future deliberation. Run a focused test if the file is included in the Xcode test target. Do not patch production.
-```
-
-### P7 - Sovereign Gate Surface Backlog Map
-**Lane (doctrine §7):** Core killer-feature seed work - Sovereign Gate broader Core classes
+**Lane (doctrine section 7):** Core killer-feature seed work - Sovereign Gate follow-through
 **Effort:** M
 **Who:** agent-2-ok
 **Status:** open
 
 **What.**
-Create a read-only backlog map of destructive/sensitive app surfaces that may still need Sovereign Gate routing after the existing closed PRs. This should identify future safe slices, not change code.
+Convert the existing Sovereign Gate surface map into 3-5 future workcard drafts in a new doc. Do not edit the canonical workcards file. Each draft should name the surface, risk, allowed files, forbidden files, tests, and stop triggers.
 
 **Files touched (precise paths, all new unless flagged):**
-- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_SURFACE_MAP_2026_05_03.md (NEW)
+- /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_FUTURE_WORKCARDS_DRAFT_2026_05_03.md (NEW)
 
 **Why safe.**
-New doc only. It does not edit `SovereignGate.swift`, existing Sovereign tests, app views, settings views, or current Codex docs.
+New doc only. It does not touch SovereignGate code/tests, current canon, Phase4, graph, editor, project, package, or build-script files.
 
 **Why useful now.**
-It turns the killer-feature seed lane into a concrete backlog while Codex continues the provenance/GraphEvent queue.
+It turns the Sovereign killer-feature seed lane from a broad map into executable future slices while Codex continues the provenance queue.
 
 **Acceptance.**
-- New map exists.
-- It lists candidate destructive/sensitive surfaces, current routing if identifiable, risk level, and smallest future PR slice.
-- It explicitly notes already-closed Sovereign Gate PR1-PR16 and avoids duplicating them.
-- No source or existing canon docs are modified.
+- New draft doc exists.
+- It contains 3-5 narrow future cards, each with allowed/forbidden files and acceptance tests.
+- It explicitly says the drafts are not canon until Codex/user approves them.
+- No code or existing docs are modified.
 
 **If picked by agent-2, paste this prompt:**
 ```text
-You are a parallel research agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md and docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md Card 9. Read-only except for one new doc. Do not edit code or existing canon docs. Do not touch Epistemos/Sovereign/SovereignGate.swift, existing Sovereign tests, current docs/fusion/deliberation files, ProseEditor*, MetalGraphView.swift, HologramController.swift, project.pbxproj, Cargo.toml, or Package.swift.
+You are a parallel research agent in /Users/jojo/Downloads/Epistemos. Read AGENTS.md, docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_SURFACE_MAP_2026_05_03.md, and docs/fusion/agent-build-scaffolding/AGENT_BUILD_WORKCARDS_2026_05_01.md template only. Do not edit existing canon docs, code, tests, Phase4 files, project.pbxproj, Cargo.toml, Package.swift, ProseEditor*, MetalGraphView.swift, HologramController.swift, or graph internals.
 
-Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_SURFACE_MAP_2026_05_03.md. Search for destructive/sensitive UI/service actions such as delete, reset, disconnect, revoke, archive, export, credential, keychain, approval, permission. List candidate surfaces, current routing if visible, risk level, and smallest future PR slice. Explicitly note already-closed Sovereign Gate PR1-PR16 and do not duplicate them. Do not modify code.
+Task: create /Users/jojo/Downloads/Epistemos/docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_FUTURE_WORKCARDS_DRAFT_2026_05_03.md. Draft 3-5 future Sovereign Gate workcards from the map. Each draft must include goal, authority to read first, allowed write set, forbidden write set, tests/logs, acceptance, and stop triggers. Mark the file as draft/non-canonical until approved.
 ```
 
 ## History (claimed / done / superseded / stale)
+
 | Item | Status | Resolved at | Notes |
 |---|---|---|---|
-| P1 Core/MAS Boundary Source-Guard Tests | done-uncommitted | 2026-05-03T15:33Z | Parallel agent created `/Users/jojo/Downloads/Epistemos/EpistemosTests/CoreMASBoundarySourceGuardTests.swift`; Codex will not stage it in Phase5 commit. |
-| P3 Sovereign Gate Requirement Matrix Tests | done-uncommitted | 2026-05-03T15:33Z | Parallel agent created `/Users/jojo/Downloads/Epistemos/EpistemosTests/SovereignGateRequirementMatrixTests.swift`; Codex will not stage it in Phase5 commit. |
+| Round 75 P1 Hermes Gateway Evidence Contract Tests | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/EpistemosTests/HermesGatewayEvidenceContractTests.swift`; not staged by Codex. |
+| Round 75 P2 Tool Surface Behavioral Matrix Tests | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift`; not staged by Codex. |
+| Round 75 P3 Durable GraphEvent Projection Fixture Tests | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/EpistemosTests/GraphEventProjectionFixtureTests.swift`; Codex repaired compile order during PR38 but did not stage it. |
+| Round 75 P4 AgentEvent Runtime Coverage Map | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/docs/fusion/fleet/agent-event-runtime-coverage-map/AGENT_EVENT_RUNTIME_COVERAGE_MAP_2026_05_03.md`; Codex consumed it for PR39. |
+| Round 75 P5 R15 Live MLX Memory Preflight Artifact | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/docs/fusion/fleet/r15-live-mlx-memory-preflight/R15_LIVE_MLX_MEMORY_PREFLIGHT_2026_05_03.md`; not staged by Codex. |
+| Round 75 P6 Hermes Prompt Format Guard Tests | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/EpistemosTests/HermesPromptFormatGuardTests.swift`; not staged by Codex. |
+| Round 75 P7 Sovereign Gate Surface Backlog Map | done-uncommitted | 2026-05-03T16:20Z | Claude created `/Users/jojo/Downloads/Epistemos/docs/fusion/fleet/sovereign-gate-surface-map/SOVEREIGN_GATE_SURFACE_MAP_2026_05_03.md`; not staged by Codex. |
+| ComputerUseBridge AgentEvent provenance | done-committed | 2026-05-03T16:33Z | Codex closed and committed PR39 as `92b40126 Record ComputerUseBridge AgentEvents`. |
