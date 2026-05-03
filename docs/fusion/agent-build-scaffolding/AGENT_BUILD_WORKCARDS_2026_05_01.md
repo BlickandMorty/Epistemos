@@ -1031,6 +1031,27 @@ semantics, model loading, runtime control-plane policy, UI, graph, Rust,
 generated bindings, and EventStore schema. Focused runtime verification passes
 under `pipefail`.
 
+PR28 LocalMLX direct stream provenance is also closed.
+`LocalMLXClient.stream(...)` now records requested, started, and
+completed/failed/cancelled AgentEvents for direct MLX streaming with
+`local-mlx-stream-...` run ids, `local-mlx-client` actor metadata, per-client
+`local-mlx-stream:N` tool call ids, `local_stream.mlx` tool name,
+`source=local_mlx_client`, `surface=stream`, `provider=local_mlx`,
+requested/resolved runtime, reasoning mode, max token count, prompt/system
+prompt character counts, steering-hints presence, elapsed milliseconds, output
+character count, streamed chunk count, success boolean, and bounded
+control-plane/backend/cancelled failure classes. Persisted provenance excludes
+prompt text, system prompts, steering hint JSON, streamed output, model id,
+artifact id, image URLs, filesystem paths, localized descriptions, arbitrary
+error text, Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
+LocalAuthentication, and ANE/private API details. Source and behavior stay away
+from routing semantics, token delivery, model loading, runtime control-plane
+policy, lower runtime semantics, UI, graph, Rust, generated bindings, and
+EventStore schema. Focused runtime verification passes under `pipefail`; the
+green log still records the existing runtime-control-plane UniFFI cancellation
+cleanup issue `Can't lift flat errors`, which remains outside the AgentEvent
+slice.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1492,6 +1513,18 @@ Acceptance:
   localized descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
   browser/computer-use surfaces, LocalAuthentication, and ANE/private API
   details are not persisted in AgentEvent arguments/results/errors.
+- PR28 wired/reachable/visible: Direct `LocalMLXClient.stream(...)` emits
+  requested, started, and completed/failed/cancelled AgentEvents with non-empty
+  run id, per-client tool call id, actor, source/surface/provider metadata,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, output
+  character count, streamed chunk count, success boolean, and bounded
+  control-plane/backend/cancelled failure classes. Tests prove prompt text,
+  system prompts, steering hint JSON, streamed output, model id, artifact id,
+  image URLs, filesystem paths, localized descriptions, arbitrary error text,
+  Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
+  LocalAuthentication, and ANE/private API details are not persisted in
+  AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

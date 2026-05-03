@@ -439,6 +439,25 @@ closed:
   from persisted provenance. This does not change stream behavior, routing,
   model loading, runtime control-plane policy, UI, graph, Rust, generated
   bindings, or EventStore schema.
+- AgentEvent PR28 now instruments direct `LocalMLXClient.stream(...)` calls.
+  Valid MLX streaming requests persist requested, started, and
+  completed/failed/cancelled AgentEvents with `local-mlx-stream-...` run ids,
+  per-client `local-mlx-stream:N` tool ids, `local-mlx-client` actor metadata,
+  `local_stream.mlx` tool name, `source=local_mlx_client`, `surface=stream`,
+  `provider=local_mlx`, requested/resolved runtime, reasoning mode, max token
+  count, prompt/system prompt character counts, steering-hints presence, elapsed
+  milliseconds, output character count, streamed chunk count, success boolean,
+  and bounded control-plane/backend/cancelled failure classes. Prompt text,
+  system prompts, steering hint JSON, streamed output, model ids, artifact ids,
+  image URLs, filesystem paths, localized descriptions, arbitrary error text,
+  Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
+  LocalAuthentication, and ANE/private API details are intentionally excluded
+  from persisted provenance. This does not change routing, token delivery, model
+  loading, runtime control-plane policy, lower runtime semantics, UI, graph,
+  Rust, generated bindings, or EventStore schema. Focused tests pass; the
+  cancellation test still surfaces the existing runtime-control-plane UniFFI
+  cleanup log `Can't lift flat errors` when `finishCancelled` is invoked, which
+  is a separate runtime-contract follow-up and not AgentEvent persisted data.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1156,8 +1175,9 @@ before building.
   sync/async provenance PR22, AgentEvent MLX image generation provenance PR23,
   AgentEvent LocalGGUF non-streaming generate provenance PR24, AgentEvent
   LocalBackend stream provenance PR25, AgentEvent local runtime recorder mount
-  PR26, AgentEvent LocalMLX direct generate provenance PR27, durable GraphEvent
-  mutation mapping PR1, durable GraphEvent Settings
+  PR26, AgentEvent LocalMLX direct generate provenance PR27, AgentEvent
+  LocalMLX direct stream provenance PR28, durable GraphEvent mutation mapping
+  PR1, durable GraphEvent Settings
   visibility PR2, durable GraphEvent projection snapshot PR3, durable GraphEvent
   projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -1226,8 +1246,8 @@ are:
   AgentEvent PR7, AgentEvent PR8, AgentEvent PR9, AgentEvent PR10, AgentEvent
   PR11, AgentEvent PR12, AgentEvent PR17, AgentEvent PR18, AgentEvent PR19,
   AgentEvent PR20, AgentEvent PR21, AgentEvent PR22, AgentEvent PR23,
-  AgentEvent PR24, AgentEvent PR25, AgentEvent PR26, AgentEvent PR27, GraphEvent PR1,
-  GraphEvent visibility PR2,
+  AgentEvent PR24, AgentEvent PR25, AgentEvent PR26, AgentEvent PR27,
+  AgentEvent PR28, GraphEvent PR1, GraphEvent visibility PR2,
   GraphEvent projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
   Halo's read-only ribbon, deeper repair/audit
@@ -1386,6 +1406,7 @@ AgentEvent LocalGGUF non-streaming generate provenance PR24,
 AgentEvent LocalBackend stream provenance PR25,
 AgentEvent local runtime recorder mount PR26,
 AgentEvent LocalMLX direct generate provenance PR27,
+AgentEvent LocalMLX direct stream provenance PR28,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1420,7 +1441,7 @@ paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
 plus LocalGGUF non-streaming generate, LocalBackend stream, and direct LocalMLX
-generate surfaces,
+generate and stream surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

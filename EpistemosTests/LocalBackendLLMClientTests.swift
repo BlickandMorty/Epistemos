@@ -160,6 +160,7 @@ struct LocalBackendLLMClientTests {
         let output: String
         let generateError: Error?
         private(set) var generateRequests: [LocalMLXRequest] = []
+        private(set) var streamRequests: [LocalMLXRequest] = []
 
         init(output: String, generateError: Error? = nil) {
             self.output = output
@@ -175,7 +176,7 @@ struct LocalBackendLLMClientTests {
         }
 
         func stream(request: LocalMLXRequest) async -> AsyncThrowingStream<String, Error> {
-            _ = request
+            streamRequests.append(request)
             return AsyncThrowingStream { continuation in
                 if let generateError {
                     continuation.finish(throwing: generateError)
@@ -840,6 +841,229 @@ struct LocalBackendLLMClientTests {
         #expect(!persistedText.contains("secret failure system"))
         #expect(!persistedText.contains("depth_budget"))
         #expect(!persistedText.contains("backendSecret"))
+        #expect(!persistedText.contains(descriptor.id))
+        #expect(!persistedText.contains(paths.rootDirectory.path))
+    }
+
+    @Test("local mlx stream records sanitized AgentEvents")
+    func localMLXStreamRecordsSanitizedAgentEvents() async throws {
+        let paths = makeTemporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = StubLocalMLXRuntime(output: "mlx stream")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 3_333 },
+            persist: sink.append
+        )
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            agentProvenanceRecorder: recorder
+        )
+
+        let output = try await collectStream(
+            client.stream(
+                prompt: "secret stream prompt",
+                systemPrompt: "secret stream system",
+                maxTokens: 43,
+                reasoningMode: .fast,
+                modelID: descriptor.id,
+                requestedRuntimeKind: .mlx,
+                steeringHintsJSON: #"{"secret":true}"#
+            )
+        )
+
+        #expect(output == "mlx stream")
+        #expect(await runtime.streamRequests.count == 1)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallCompleted])
+        #expect(sink.events.allSatisfy { $0.runID.hasPrefix("local-mlx-stream-") })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-mlx-stream:1" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "local_stream.mlx" })
+        #expect(sink.events.allSatisfy { $0.actor == .agent(id: "local-mlx-client", modelID: nil) })
+
+        let completed = try #require(sink.events.last)
+        let argumentsJSON = try #require(completed.tool?.argumentsJSON)
+        let resultJSON = try #require(completed.tool?.resultJSON)
+
+        #expect(argumentsJSON.contains(#""provider":"local_mlx""#))
+        #expect(argumentsJSON.contains(#""prompt_char_count":20"#))
+        #expect(argumentsJSON.contains(#""system_prompt_char_count":20"#))
+        #expect(argumentsJSON.contains(#""requested_runtime":"mlx""#))
+        #expect(argumentsJSON.contains(#""resolved_runtime":"mlx""#))
+        #expect(argumentsJSON.contains(#""steering_hints_present":true"#))
+        #expect(resultJSON.contains(#""success":true"#))
+        #expect(resultJSON.contains(#""chunk_count":1"#))
+        #expect(resultJSON.contains(#""output_char_count":10"#))
+        #expect(completed.metadata["source"] == "local_mlx_client")
+        #expect(completed.metadata["surface"] == "stream")
+        #expect(completed.metadata["provider"] == "local_mlx")
+
+        let persistedText = sink.events.map { event in
+            [
+                event.tool?.argumentsJSON,
+                event.tool?.resultJSON,
+                event.tool?.errorMessage,
+                event.metadata.description,
+            ].compactMap { $0 }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        #expect(!persistedText.contains("secret stream prompt"))
+        #expect(!persistedText.contains("secret stream system"))
+        #expect(!persistedText.contains("secret"))
+        #expect(!persistedText.contains("mlx stream"))
+        #expect(!persistedText.contains(descriptor.id))
+        #expect(!persistedText.contains(paths.rootDirectory.path))
+    }
+
+    @Test("local mlx stream records sanitized failed AgentEvent")
+    func localMLXStreamRecordsSanitizedFailedAgentEvent() async throws {
+        let paths = makeTemporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = StubLocalMLXRuntime(output: "unused")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 4_444 },
+            persist: sink.append
+        )
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try await collectStream(
+                client.stream(
+                    prompt: "secret stream failure prompt",
+                    systemPrompt: "secret stream failure system",
+                    maxTokens: 18,
+                    reasoningMode: .fast,
+                    modelID: descriptor.id,
+                    requestedRuntimeKind: .gguf,
+                    steeringHintsJSON: """
+                    {"depth_budget":{"max_turns":1,"max_reasoning_steps":1,"max_tool_calls":1,"max_output_tokens":8}}
+                    """
+                )
+            )
+            Issue.record("Expected local mlx stream to fail.")
+        } catch {
+        }
+
+        #expect(await runtime.streamRequests.isEmpty)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        let failed = try #require(sink.events.last)
+        #expect(failed.tool?.status == .failed)
+        #expect(failed.tool?.errorMessage == "policy_denied")
+        #expect(failed.metadata["failure_class"] == "policy_denied")
+        #expect(failed.tool?.resultJSON?.contains(#""success":false"#) == true)
+        #expect(failed.tool?.resultJSON?.contains(#""chunk_count":0"#) == true)
+        #expect(failed.tool?.resultJSON?.contains(#""output_char_count":0"#) == true)
+
+        let persistedText = sink.events.map { event in
+            [
+                event.tool?.argumentsJSON,
+                event.tool?.resultJSON,
+                event.tool?.errorMessage,
+                event.metadata.description,
+            ].compactMap { $0 }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        #expect(!persistedText.contains("secret stream failure prompt"))
+        #expect(!persistedText.contains("secret stream failure system"))
+        #expect(!persistedText.contains("depth_budget"))
+        #expect(!persistedText.contains("backendSecret"))
+        #expect(!persistedText.contains(descriptor.id))
+        #expect(!persistedText.contains(paths.rootDirectory.path))
+    }
+
+    @Test("local mlx stream records sanitized cancelled AgentEvent")
+    func localMLXStreamRecordsSanitizedCancelledAgentEvent() async throws {
+        let paths = makeTemporaryLocalModelPaths()
+        defer { try? FileManager.default.removeItem(at: paths.rootDirectory) }
+
+        let descriptor = try #require(LocalModelCatalog.descriptor(for: LocalTextModelID.qwen3_4B4Bit.rawValue))
+        try FileManager.default.createDirectory(
+            at: paths.activeDirectory(for: descriptor),
+            withIntermediateDirectories: true
+        )
+
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([descriptor.id])
+        inference.setPreferredLocalTextModelID(descriptor.id)
+
+        let runtime = StubLocalMLXRuntime(output: "partial", generateError: CancellationError())
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 5_555 },
+            persist: sink.append
+        )
+        let client = LocalMLXClient(
+            runtime: runtime,
+            inference: inference,
+            paths: paths,
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try await collectStream(
+                client.stream(
+                    prompt: "secret stream cancel prompt",
+                    systemPrompt: "secret stream cancel system",
+                    maxTokens: 19,
+                    reasoningMode: .fast,
+                    modelID: descriptor.id,
+                    requestedRuntimeKind: .mlx,
+                    steeringHintsJSON: #"{"secret":true}"#
+                )
+            )
+            Issue.record("Expected local mlx stream to cancel.")
+        } catch is CancellationError {
+        }
+
+        #expect(await runtime.streamRequests.count == 1)
+        #expect(sink.events.map(\.kind) == [.toolCallRequested, .toolCallStarted, .toolCallFailed])
+        let cancelled = try #require(sink.events.last)
+        #expect(cancelled.tool?.status == .failed)
+        #expect(cancelled.tool?.errorMessage == "cancelled")
+        #expect(cancelled.metadata["failure_class"] == "cancelled")
+        #expect(cancelled.tool?.resultJSON?.contains(#""success":false"#) == true)
+        #expect(cancelled.tool?.resultJSON?.contains(#""chunk_count":0"#) == true)
+        #expect(cancelled.tool?.resultJSON?.contains(#""output_char_count":0"#) == true)
+
+        let persistedText = sink.events.map { event in
+            [
+                event.tool?.argumentsJSON,
+                event.tool?.resultJSON,
+                event.tool?.errorMessage,
+                event.metadata.description,
+            ].compactMap { $0 }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        #expect(!persistedText.contains("secret stream cancel prompt"))
+        #expect(!persistedText.contains("secret stream cancel system"))
+        #expect(!persistedText.contains("secret"))
+        #expect(!persistedText.contains("partial"))
         #expect(!persistedText.contains(descriptor.id))
         #expect(!persistedText.contains(paths.rootDirectory.path))
     }

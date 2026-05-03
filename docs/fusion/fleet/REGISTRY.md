@@ -416,3 +416,14 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 59 | 2026-05-03T10:12Z | implementation | slice=agent-event-local-mlx-generate-pr27 | codex/local | n/a | done | Epistemos/Engine/MLXInferenceService.swift; Epistemos/App/AppBootstrap.swift; EpistemosTests/LocalBackendLLMClientTests.swift | +1 |
 | 59 | 2026-05-03T10:26Z | test-green | scope=agent-event-local-mlx-generate-pr27 | xcodebuild | session:59011 | done | /tmp/epistemos-agent-event-local-mlx-generate-pr27-green-20260503.log | +1 |
 | 59 | 2026-05-03T10:27Z | guard | slice=agent-event-local-mlx-generate-pr27 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 60 | 2026-05-03T10:34Z | preflight | scope=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_60_2026_05_03.md | +1 |
+| 60 | 2026-05-03T10:34Z | detective | concept=LocalMLX direct stream AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-mlx-stream-pr28/detectives/local-mlx-stream-agent-event.md | +1 |
+| 60 | 2026-05-03T10:34Z | aggregator | slice=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-mlx-stream-pr28/aggregator.md | +1 |
+| 60 | 2026-05-03T10:34Z | pipeline-builder | slice=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_local_mlx_stream_pr28_deliberation_2026_05_03.md | +1 |
+| 60 | 2026-05-03T10:35Z | claude-red-team | brief=agent-event-local-mlx-stream-pr28 | claude/print-readonly | pid:54915/session:79827 | done | docs/fusion/fleet/agent-event-local-mlx-stream-pr28/claude-red-team/attacks-claude.md | +1 |
+| 60 | 2026-05-03T10:37Z | codex-red-team | brief=agent-event-local-mlx-stream-pr28-revised | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-mlx-stream-pr28/claude-red-team/attacks.md | +1 |
+| 60 | 2026-05-03T10:40Z | test-red | scope=agent-event-local-mlx-stream-pr28 | xcodebuild | session:76621 | done | /tmp/epistemos-agent-event-local-mlx-stream-pr28-red-20260503.log | +1 |
+| 60 | 2026-05-03T10:50Z | implementation | slice=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | Epistemos/Engine/MLXInferenceService.swift; EpistemosTests/LocalBackendLLMClientTests.swift | +1 |
+| 60 | 2026-05-03T10:51Z | test-green | scope=agent-event-local-mlx-stream-pr28 | xcodebuild | session:51166 | failed | /tmp/epistemos-agent-event-local-mlx-stream-pr28-green-20260503.log | +1 |
+| 60 | 2026-05-03T10:54Z | test-green | scope=agent-event-local-mlx-stream-pr28 | xcodebuild | session:8689 | done | /tmp/epistemos-agent-event-local-mlx-stream-pr28-green2-20260503.log | +1 |
+| 60 | 2026-05-03T10:57Z | guard | slice=agent-event-local-mlx-stream-pr28 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
