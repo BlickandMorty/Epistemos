@@ -559,3 +559,24 @@
 - log: `✔ Test run with 10 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-mlx-generate-pr27-green-20260503.log`; Xcode exited `0` under `pipefail`, printed `** TEST SUCCEEDED **`, and contained no `panicked` or `Can't lift flat errors` text. The red log `/tmp/epistemos-agent-event-local-mlx-generate-pr27-red-20260503.log` failed before implementation because `LocalMLXClient` did not yet accept the provenance recorder.
 - test: `LocalBackendLLMClientTests`
+
+## agent-event-local-mlx-stream-pr28
+
+- grep: `toolName: "local_stream.mlx"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `runID: "local-mlx-stream-` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `AgentProvenanceActor.agent(id: "local-mlx-client", modelID: nil)` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"source": "local_mlx_client"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"surface": "stream"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"provider": "local_mlx"` in `Epistemos/Engine/MLXInferenceService.swift`
+- grep: `"chunk_count"` in `Epistemos/Engine/MLXInferenceService.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in PR28 staged source/test hunks returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in PR28 staged source/test hunks returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, streamed output, model id, artifact id, image URLs, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/MLXInferenceService.swift`, `EpistemosTests/LocalBackendLLMClientTests.swift`, Round 60 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "local mlx stream records sanitized AgentEvents" passed`
+- log: `✔ Test "local mlx stream records sanitized failed AgentEvent" passed`
+- log: `✔ Test "local mlx stream records sanitized cancelled AgentEvent" passed`
+- log: `✔ Test run with 13 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-mlx-stream-pr28-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The same log still contains the existing runtime-control-plane UniFFI cancellation cleanup message `Can't lift flat errors` after AgentEvent cancellation is recorded; that runtime-contract issue is outside PR28 and should be handled as a separate slice.
+- test: `LocalBackendLLMClientTests`
