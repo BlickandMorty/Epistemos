@@ -693,6 +693,17 @@ closed:
   production credential storage, OAuth flows, Sovereign routes, Core/MAS tool
   policy, MCP/Hermes routing, graph, generated bindings, subprocess surfaces,
   or ANE/private API surfaces.
+- CloudProviderSetupCard source guard PR51 is now closed.
+  `CloudProviderSetupCardSourceGuardTests` locks the OAuth setup UI to the
+  verdict from the Sovereign Gate OAuth audit: the view does not instantiate
+  `LAContext`, does not evaluate biometric policy, delegates account sign-in to
+  `InferenceState`, does not construct or directly store
+  `CloudProviderOAuthCredential`, carries no raw access/refresh-token markers,
+  and keeps Google OAuth client config secrets Keychain-backed while
+  `UserDefaults` remains limited to filename/project-ID metadata. This is a
+  test-only guard and does not change production credential storage, OAuth
+  flows, Sovereign routes, Core/MAS tool policy, MCP/Hermes routing, graph,
+  generated bindings, subprocess surfaces, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
