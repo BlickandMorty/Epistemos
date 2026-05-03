@@ -2774,3 +2774,73 @@ Stop Triggers:
 - A prompt or runtime path frames Hermes as graph/Rex/substrate authority.
 - Direct local answers start taking tool hops when the necessary context is
   already available.
+
+## Card 11 - RRF QueryRuntime Phase-4 Recovery
+
+Status on 2026-05-03:
+
+- PR34 recovers the RRF Phase 4 site 3 wiring that canon already claimed:
+  `RetrievalRuntime.fullText(query:scope:)` uses
+  `SearchIndexService.fusedSearch(query:weights:now:)` only when
+  `RRFFusionFlags.isEnabled && scope == .all`.
+- Flag-off, `.pages`, `.blocks`, and fused-path failure preserve the existing
+  legacy page/block search dispatch.
+- Claude Red Team found the missing reactive dependency; PR34 now adds
+  `QueryDependencyKey.searchReadable` and `ReadableBlocksIndex` invalidation so
+  `.all` reactive surfaces do not go stale when only the universal readable
+  projection changes.
+- The slice updates `MASTER_RESEARCH_INDEX_2026_05_02.md` so future sessions can
+  find Swift RRF Cross-Index Fusion directly instead of discovering it via Halo
+  RRF aliases.
+
+Allowed write set:
+
+- `Epistemos/Engine/QueryRuntime.swift`
+- `Epistemos/Models/QueryTypes.swift`
+- `Epistemos/Sync/ReadableBlocksIndex.swift`
+- `EpistemosTests/QueryRuntimeTests.swift`
+- `docs/fusion/MASTER_RESEARCH_INDEX_2026_05_02.md`
+- Round 66 fleet, deliberation, registry, current-state, and guard docs.
+
+Forbidden write set:
+
+- `Epistemos/Sync/SearchIndexService.swift`
+- `Epistemos/Sync/RRFFusionQuery.swift`
+- `Epistemos/Sync/VaultSyncService.swift`
+- `Epistemos/Views/**`
+- `Epistemos/Graph/**`
+- `graph-engine/**`
+- `agent_core/**`
+- `epistemos-core/**`
+- generated bindings, entitlements, and Xcode project files.
+
+Tests and logs:
+
+- PR34 green log:
+  `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-green-r3-20260503.log`.
+- Focused command:
+  `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -derivedDataPath /tmp/epistemos-dd-pr34-r3 -parallel-testing-enabled NO -only-testing:EpistemosTests/QueryRuntimeTests test`.
+- Note: this host's SQLite lacks FTS5, so the readable-block-only fused behavior
+  test skips behind the existing fusion gate; non-skipped fallback, non-`.all`
+  scope, reactive invalidation, and source guards pass.
+- ReadableBlocksIndex focused log:
+  `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-readable-green-20260503.log`.
+
+Acceptance:
+
+- PR34 wired: `.all` full-text retrieval can use the single-SQL RRF path behind
+  `EPISTEMOS_RRF_FUSION_V1`.
+- PR34 reachable: source guards prove the path is flag-gated and falls back.
+- PR34 verified: focused `QueryRuntimeTests` pass with 32 tests in 1 suite.
+- PR34 boundary: no SearchIndexService, RRF SQL, VaultSyncService, UI, graph,
+  Rust, generated, default-flag, or Phase 6 dogfood/default-flip path was
+  touched.
+
+Stop triggers:
+
+- A future RRF slice flips the feature flag default without a Phase 6 runtime
+  dogfood gate.
+- A future RRF slice routes Rust agent tools or Hermes grammar through Swift
+  fusion without the deferred FFI bridge design.
+- A future QueryRuntime slice edits graph renderer, GraphEvent writes, OpLog,
+  MutationEnvelope, or Halo surfaces without a fresh gate.

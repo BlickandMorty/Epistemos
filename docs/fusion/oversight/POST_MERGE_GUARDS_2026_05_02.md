@@ -676,3 +676,25 @@
 - log: `✘ Test "Apple Intelligence generate records sanitized AgentEvents" failed` in `/tmp/epistemos-agent-event-apple-intelligence-generate-pr33-red-20260503.log` before implementation because `AppleIntelligenceService` still exposed only its private no-argument initializer.
 - log: focused verification log `/tmp/epistemos-agent-event-apple-intelligence-generate-pr33-green-r3-20260503.log`; Xcode exited `0` under `pipefail` with isolated DerivedData at `/tmp/epistemos-dd-pr33`.
 - test: `AppleIntelligenceServiceAgentEventTests`
+
+## query-runtime-rrf-fused-fulltext-pr34
+
+- grep: `RRFFusionFlags.isEnabled && scope == .all` in `Epistemos/Engine/QueryRuntime.swift`
+- grep: `searchIndex.fusedSearch(` in `Epistemos/Engine/QueryRuntime.swift`
+- grep: `FusionWeights(maxResults: limit)` in `Epistemos/Engine/QueryRuntime.swift`
+- grep: `Falling back to legacy per-index dispatch` in `Epistemos/Engine/QueryRuntime.swift`
+- grep: `case searchReadable` in `Epistemos/Models/QueryTypes.swift`
+- grep: `.searchReadable` in `Epistemos/Models/QueryTypes.swift`, `Epistemos/Sync/ReadableBlocksIndex.swift`, and `EpistemosTests/QueryRuntimeTests.swift`
+- forbidden implementation grep: `fusedSearchAsync\(|saveGraphEvent|saveMutationEnvelope|GraphEventAuditProjectionService|InstantRecallService|MeaningAnchorService|Process\(|DispatchSourceTimer|repeatForever|Epistemos/Views/Graph` returns no matches in `Epistemos/Engine/QueryRuntime.swift`, `Epistemos/Models/QueryTypes.swift`, and `Epistemos/Sync/ReadableBlocksIndex.swift`
+- forbidden zero-copy/single-binary grep: `LAContext|LocalAuthentication|_ANEClient|storageModeManaged|storageModePrivate|memcpy|memmove|copyMemory|Data\(bytes:|Foundation\.Process|std::process::Command|swift-subprocess` returns no matches in implementation files
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/QueryRuntime.swift`, `Epistemos/Models/QueryTypes.swift`, `Epistemos/Sync/ReadableBlocksIndex.swift`, `EpistemosTests/QueryRuntimeTests.swift`, Round 66 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "reactive query scopes search invalidation by index domain" passed`
+- log: `✔ Test "retrieval runtime preserves legacy full-text results when RRF fused path falls back" passed`
+- log: `✔ Test "retrieval runtime keeps page and block scopes on legacy search when RRF flag is enabled" passed`
+- log: `✔ Test "QueryRuntime RRF fused path stays flag-gated and falls back" passed`
+- log: `✔ Test run with 32 tests in 1 suite passed`
+- log: `✔ Test run with 16 tests in 1 suite passed`
+- note: QueryRuntime focused verification log `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-green-r3-20260503.log`; ReadableBlocksIndex focused verification log `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-readable-green-20260503.log`. Both Xcode runs exited `0` and printed `** TEST SUCCEEDED **`; the known SwiftLint package-plugin lines appear after success.
+- test: `QueryRuntimeTests`
+- test: `ReadableBlocksIndexTests`

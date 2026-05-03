@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Metal
 import QuartzCore
 import Testing
@@ -560,6 +561,13 @@ struct QueryRuntimeTests {
                 combiner: .single
             )
         )
+        let allReactive = ReactiveQuery(
+            runtime: runtime,
+            plan: QueryPlan(
+                steps: [.fts5Search(query: "graph", scope: .all)],
+                combiner: .single
+            )
+        )
 
         #expect(
             pageReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchPages]))
@@ -568,7 +576,16 @@ struct QueryRuntimeTests {
             !pageReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchBlocks]))
         )
         #expect(
+            !pageReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchReadable]))
+        )
+        #expect(
             blockReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchBlocks]))
+        )
+        #expect(
+            !blockReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchReadable]))
+        )
+        #expect(
+            allReactive.shouldInvalidate(for: notification(name: .searchIndexDidUpdate, keys: [.searchReadable]))
         )
     }
 
@@ -837,6 +854,149 @@ struct QueryRuntimeTests {
         #expect(Set(results.map(\.id)) == ["note-1", "note-2"])
     }
 
+    @Test(
+        "retrieval runtime routes all-scope through RRF fused search only behind the flag",
+        .enabled(if: sqliteSupportsFTS5ForFusionTests())
+    )
+    func retrievalRuntimeRoutesAllScopeThroughRRFFusedSearchOnlyBehindFlag() throws {
+        let flag = "EPISTEMOS_RRF_FUSION_V1"
+        let previous = ProcessInfo.processInfo.environment[flag]
+        unsetenv(flag)
+        defer {
+            if let previous {
+                _ = setenv(flag, previous, 1)
+            } else {
+                unsetenv(flag)
+            }
+        }
+
+        let store = GraphStore()
+        let graphState = GraphState()
+        let searchIndex = try makeSearchIndex()
+        let runtime = RetrievalRuntime(
+            graphStore: store,
+            graphState: graphState,
+            searchIndex: searchIndex
+        )
+
+        store.addNode(makeNoteNode(id: "note-readable", sourceId: "doc-readable", label: "Readable Doc"))
+        let block = ReadableBlock(
+            artifactID: "doc-readable",
+            artifactKind: .document,
+            blockID: "doc-readable#root",
+            blockKind: .paragraph,
+            titlePath: "Readable Doc",
+            body: "metaphysics appears only in the universal readable blocks projection",
+            updatedAt: ReadableBlock.iso8601(Date(timeIntervalSince1970: 200)),
+            vaultID: "query-runtime-test"
+        )
+        try searchIndex.databaseWriter().write { db in
+            try ReadableBlocksIndex.insert(block, in: db)
+        }
+
+        #expect(runtime.fullText(query: "metaphysics", scope: .all).isEmpty)
+
+        _ = setenv(flag, "1", 1)
+
+        #expect(runtime.fullText(query: "metaphysics", scope: .pages).isEmpty)
+        #expect(runtime.fullText(query: "metaphysics", scope: .all).map(\.id) == ["note-readable"])
+    }
+
+    @Test("retrieval runtime preserves legacy full-text results when RRF fused path falls back")
+    func retrievalRuntimePreservesLegacyResultsWhenRRFFusedPathFallsBack() throws {
+        let flag = "EPISTEMOS_RRF_FUSION_V1"
+        let previous = ProcessInfo.processInfo.environment[flag]
+        _ = setenv(flag, "1", 1)
+        SearchFusionMetrics.shared.reset()
+        defer {
+            SearchFusionMetrics.shared.reset()
+            if let previous {
+                _ = setenv(flag, previous, 1)
+            } else {
+                unsetenv(flag)
+            }
+        }
+
+        let store = GraphStore()
+        let graphState = GraphState()
+        let searchIndex = try makeSearchIndex()
+        store.addNode(makeNoteNode(id: "note-legacy", sourceId: "page-legacy", label: "Legacy Search"))
+        try searchIndex.upsert(
+            id: "page-legacy",
+            title: "Legacy Search",
+            body: "physics appears in the legacy page index",
+            tags: "",
+            updatedAt: .now
+        )
+        try searchIndex.databaseWriter().write { db in
+            try db.execute(sql: "DROP TABLE IF EXISTS readable_blocks_fts")
+        }
+
+        let runtime = RetrievalRuntime(
+            graphStore: store,
+            graphState: graphState,
+            searchIndex: searchIndex
+        )
+
+        let results = runtime.fullText(query: "physics", scope: .all)
+
+        #expect(results.map(\.id) == ["note-legacy"])
+        #expect(SearchFusionMetrics.shared.snapshot().lastErrorDescription != nil)
+    }
+
+    @Test("retrieval runtime keeps page and block scopes on legacy search when RRF flag is enabled")
+    func retrievalRuntimeKeepsNonAllScopesOffRRFFusedPath() throws {
+        let flag = "EPISTEMOS_RRF_FUSION_V1"
+        let previous = ProcessInfo.processInfo.environment[flag]
+        _ = setenv(flag, "1", 1)
+        SearchFusionMetrics.shared.reset()
+        defer {
+            SearchFusionMetrics.shared.reset()
+            if let previous {
+                _ = setenv(flag, previous, 1)
+            } else {
+                unsetenv(flag)
+            }
+        }
+
+        let store = GraphStore()
+        let graphState = GraphState()
+        let searchIndex = try makeSearchIndex()
+        store.addNode(makeNoteNode(id: "note-page", sourceId: "page-page", label: "Page Search"))
+        store.addNode(makeNoteNode(id: "note-block", sourceId: "page-block", label: "Block Search"))
+        try searchIndex.upsert(
+            id: "page-page",
+            title: "Page Search",
+            body: "pagetoken appears in the legacy page index",
+            tags: "",
+            updatedAt: .now
+        )
+        try searchIndex.upsert(
+            id: "page-block",
+            title: "Block Search",
+            body: "block page shell",
+            tags: "",
+            updatedAt: .now
+        )
+        try searchIndex.upsertBlock(
+            blockId: "block-1",
+            pageId: "page-block",
+            content: "blocktoken appears in the legacy block index"
+        )
+
+        let runtime = RetrievalRuntime(
+            graphStore: store,
+            graphState: graphState,
+            searchIndex: searchIndex
+        )
+
+        #expect(runtime.fullText(query: "pagetoken", scope: .pages).map(\.id) == ["note-page"])
+        #expect(runtime.fullText(query: "blocktoken", scope: .blocks).map(\.id) == ["note-block"])
+        let snapshot = SearchFusionMetrics.shared.snapshot()
+        #expect(snapshot.totalQueries == 0)
+        #expect(snapshot.lastErrorDescription == nil)
+    }
+
     @Test("GraphEvent projection hint stays out of indexes and renderer")
     func graphEventProjectionHintStaysOutOfIndexesAndRenderer() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Engine/QueryRuntime.swift")
@@ -849,6 +1009,26 @@ struct QueryRuntimeTests {
         #expect(!source.contains("GraphEventAuditProjectionService"))
         #expect(!source.contains("InstantRecallService"))
         #expect(!source.contains("MeaningAnchorService"))
+        #expect(!source.contains("DispatchSourceTimer"))
+        #expect(!source.contains("repeatForever"))
+        #expect(!source.contains("Epistemos/Views/Graph"))
+    }
+
+    @Test("QueryRuntime RRF fused path stays flag-gated and falls back")
+    func queryRuntimeRRFFusedPathStaysFlagGatedAndFallsBack() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Engine/QueryRuntime.swift")
+
+        #expect(source.contains("RRFFusionFlags.isEnabled && scope == .all"))
+        #expect(source.contains("searchIndex.fusedSearch("))
+        #expect(source.contains("FusionWeights(maxResults: limit)"))
+        #expect(source.contains("Falling back to legacy per-index dispatch"))
+        #expect(!source.contains("fusedSearchAsync("))
+        #expect(!source.contains("saveGraphEvent"))
+        #expect(!source.contains("saveMutationEnvelope"))
+        #expect(!source.contains("GraphEventAuditProjectionService"))
+        #expect(!source.contains("InstantRecallService"))
+        #expect(!source.contains("MeaningAnchorService"))
+        #expect(!source.contains("Process("))
         #expect(!source.contains("DispatchSourceTimer"))
         #expect(!source.contains("repeatForever"))
         #expect(!source.contains("Epistemos/Views/Graph"))

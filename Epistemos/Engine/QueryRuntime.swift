@@ -346,6 +346,41 @@ final class RetrievalRuntime {
         var seen = Set<String>()
         var candidates: [RetrievalCandidate] = []
 
+        // RRF Fusion Phase 4 wiring site §3 — Epdoc Slash menu / @-mention
+        // block-link autocomplete. When the env flag is set AND the caller
+        // wants `.all` (mixed page+block scope), one fused SQL query
+        // replaces the two per-index dispatches below. Per-index calls
+        // remain the legacy fallback path on flag-off and on fused-path
+        // failure.
+        if RRFFusionFlags.isEnabled && scope == .all {
+            do {
+                let fused = try searchIndex.fusedSearch(
+                    query: query,
+                    weights: FusionWeights(maxResults: limit)
+                )
+                for result in fused {
+                    let resolvedSource: RetrievalCandidateSource =
+                        (result.entityKind == "block") ? .blockSearch : .pageSearch
+                    appendNoteResult(
+                        pageId: result.parentDocID,
+                        score: Float(result.fusedScore),
+                        snippet: result.snippet ?? "",
+                        source: resolvedSource,
+                        seen: &seen,
+                        candidates: &candidates
+                    )
+                }
+                return graphEventHintedCandidates(
+                    scoredCandidates(query: query, candidates: candidates)
+                ).map(\.node)
+            } catch {
+                Log.ffiBoundary.error(
+                    "QueryRuntime: fusedSearch failed for '\(query, privacy: .public)': \(error.localizedDescription, privacy: .public). Falling back to legacy per-index dispatch."
+                )
+                // Fall through to legacy path below.
+            }
+        }
+
         if scope != .blocks {
             do {
                 let results = try searchIndex.search(query: query, limit: limit)
