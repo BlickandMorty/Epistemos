@@ -508,3 +508,22 @@
 - log: `✔ Test run with 7 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The first green attempt log `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green-20260503.log` failed because the source-shape Swift test hung the hosted app process after real permission assertions passed; that source-shape proof moved to the shell guard above.
 - test: `OverseerProtocolTests`
+
+## agent-event-local-backend-stream-pr25
+
+- grep: `toolName: "local_backend.stream"` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `runID: "local-backend-stream-` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `AgentProvenanceActor.agent(id: "local-backend-llm-client", modelID: nil)` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `"source": "local_backend_llm_client"` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `"provider": "local_backend"` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- grep: `"prompt_char_count"` and `"system_prompt_char_count"` in `Epistemos/Engine/LocalBackendLLMClient.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in `Epistemos/Engine/LocalBackendLLMClient.swift` and `EpistemosTests/LocalBackendLLMClientTests.swift` returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in `Epistemos/Engine/LocalBackendLLMClient.swift` and `EpistemosTests/LocalBackendLLMClientTests.swift` returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, steering hint JSON, streamed output, model id, artifact id, filesystem paths, localized descriptions, arbitrary error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/LocalBackendLLMClient.swift`, `EpistemosTests/LocalBackendLLMClientTests.swift`, Round 57 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "backend stream records sanitized AgentEvents" passed`
+- log: `✔ Test "backend stream records sanitized failed AgentEvent" passed`
+- log: `✔ Test run with 7 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-agent-event-local-backend-stream-pr25-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The red log `/tmp/epistemos-agent-event-local-backend-stream-pr25-red-20260503.log` failed before implementation because `agentProvenanceRecorder` and `.fast` contextual typing were not yet present at the test callsite.
+- test: `LocalBackendLLMClientTests`

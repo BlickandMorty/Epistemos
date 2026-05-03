@@ -985,6 +985,25 @@ semantics, UI, graph, Rust, generated bindings, EventStore schema, Hermes, MCP,
 subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private
 API work. Focused runtime verification passes under `pipefail`.
 
+PR25 LocalBackend stream provenance is also closed.
+`LocalBackendLLMClient.stream(...)` now records requested, started, and
+completed/failed AgentEvents for the local backend stream router with
+`local-backend-stream-...` run ids, `local-backend-llm-client` actor metadata,
+per-router `local-backend-stream:N` tool call ids, `local_backend.stream` tool
+name, `source=local_backend_llm_client`, `surface=stream`,
+`provider=local_backend`, requested/resolved runtime, reasoning mode, max token
+count, prompt/system prompt character counts, steering-hints presence, elapsed
+milliseconds, chunk count, output character count, success boolean, and bounded
+`cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+failure classes. Persisted provenance excludes prompt text, system prompts,
+steering hint JSON, streamed output, model id, artifact id, filesystem paths,
+localized descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+browser/computer-use surfaces, LocalAuthentication, and ANE/private API details.
+Source and behavior stay away from non-streaming generate, stream routing
+semantics, token delivery, lower GGUF/MLX runtime behavior, runtime control-plane
+policy, UI, graph, Rust, generated bindings, and EventStore schema. Focused
+runtime verification passes under `pipefail`.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1415,6 +1434,19 @@ Acceptance:
   system prompts, steering hint JSON, generated output, model id, artifact id,
   filesystem paths, localized descriptions, and arbitrary error text are not
   persisted in AgentEvent arguments/results/errors.
+- PR25 wired/reachable/visible: LocalBackend stream routing emits requested,
+  started, and completed/failed AgentEvents around
+  `LocalBackendLLMClient.stream(...)` with non-empty run id, per-router tool call
+  id, actor, source/surface/provider metadata, requested/resolved runtime,
+  reasoning mode, max token count, prompt/system prompt character counts,
+  steering-hints presence, elapsed milliseconds, chunk count, output character
+  count, success boolean, and bounded
+  `cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+  failure classes. Tests prove prompt text, system prompts, steering hint JSON,
+  streamed output, model id, artifact id, filesystem paths, localized
+  descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+  browser/computer-use surfaces, LocalAuthentication, and ANE/private API
+  details are not persisted in AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

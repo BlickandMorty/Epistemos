@@ -397,6 +397,24 @@ closed:
   arbitrary error text are intentionally excluded from persisted provenance. This
   does not change GGUF routing, streaming, model loading, runtime control-plane
   state transitions, UI, graph, Rust, generated bindings, or EventStore schema.
+- AgentEvent PR25 now instruments `LocalBackendLLMClient.stream(...)` without
+  touching non-streaming generate or lower runtime implementations. Valid local
+  backend streams persist requested, started, and completed/failed AgentEvents
+  with `local-backend-stream-...` run ids, per-router
+  `local-backend-stream:N` tool ids, `local-backend-llm-client` actor metadata,
+  `local_backend.stream` tool name, `source=local_backend_llm_client`,
+  `surface=stream`, `provider=local_backend`, requested/resolved runtime,
+  reasoning mode, max token count, prompt/system prompt character counts,
+  steering-hints presence, elapsed milliseconds, chunk count, output character
+  count, success boolean, and bounded
+  `cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+  failure classes. Prompt text, system prompts, steering hint JSON, streamed
+  output, model ids, artifact ids, filesystem paths, localized descriptions,
+  arbitrary error text, Hermes/MCP/subprocess surfaces, browser/computer-use
+  surfaces, LocalAuthentication, and ANE/private API details are intentionally
+  excluded from persisted provenance. This does not change stream routing, token
+  delivery, runtime control-plane policy, lower GGUF/MLX runtime behavior, UI,
+  graph, Rust, generated bindings, or EventStore schema.
 - LocalAgent reflex streaming EOF flush is now closed. When reflex streaming
   ends without a detected tool call, `LocalAgentLoop` drains the detector's
   safe plaintext read-ahead buffer so trailing tag-prefix text such as a lone
@@ -1112,17 +1130,18 @@ before building.
   AgentEvent SearchIndex fused sync provenance PR20, AgentEvent SearchIndex
   direct page sync/async provenance PR21, AgentEvent SearchIndex block search
   sync/async provenance PR22, AgentEvent MLX image generation provenance PR23,
-  durable GraphEvent mutation mapping PR1, durable GraphEvent Settings visibility PR2, durable
-  GraphEvent projection snapshot PR3, durable GraphEvent projection consumer
-  PR4, durable GraphEvent Settings projection visibility PR5, durable
-  GraphEvent audit projection PR6, durable GraphEvent Halo projection PR7,
-  durable GraphEvent audit visibility PR8, durable GraphEvent Trace Inspector
-  visibility PR9, and durable GraphEvent QueryRuntime projection hint PR10 are
-  closed. Add remaining broader runtime AgentEvent coverage, live GraphEvent
-  consumer projections beyond the closed read-only Settings/Halo/Trace
-  Inspector/QueryRuntime consumers, or mutating repair/audit surfaces only
-  after a new gate names the exact EventStore, OpLog, worker, runtime, and
-  visibility files.
+  AgentEvent LocalGGUF non-streaming generate provenance PR24, AgentEvent
+  LocalBackend stream provenance PR25, durable GraphEvent mutation mapping PR1,
+  durable GraphEvent Settings visibility PR2, durable GraphEvent projection
+  snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
+  Settings projection visibility PR5, durable GraphEvent audit projection PR6,
+  durable GraphEvent Halo projection PR7, durable GraphEvent audit visibility
+  PR8, durable GraphEvent Trace Inspector visibility PR9, and durable GraphEvent
+  QueryRuntime projection hint PR10 are closed. Add remaining broader runtime
+  AgentEvent coverage, live GraphEvent consumer projections beyond the closed
+  read-only Settings/Halo/Trace Inspector/QueryRuntime consumers, or mutating
+  repair/audit surfaces only after a new gate names the exact EventStore, OpLog,
+  worker, runtime, and visibility files.
 
 4. **Core/MAS release split audit and Sovereign follow-through.**
    Sovereign Gate Core PR1 is closed for the single Swift executor, Lifecycle
@@ -1336,6 +1355,7 @@ AgentEvent SearchIndex direct page sync/async provenance PR21,
 AgentEvent SearchIndex block search sync/async provenance PR22,
 AgentEvent MLX image generation provenance PR23,
 AgentEvent LocalGGUF non-streaming generate provenance PR24,
+AgentEvent LocalBackend stream provenance PR25,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1368,7 +1388,7 @@ DriverChannelToolExecutor channel wrapper, remote relay channel HTTP client
 paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
-and LocalGGUF non-streaming generate surfaces,
+plus LocalGGUF non-streaming generate and LocalBackend stream surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

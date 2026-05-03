@@ -6,8 +6,10 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
     private let runtimeControlPlane: BackendRuntimeControlPlane
     private let mlxClient: any RoutedLocalRuntimeClient
     private let ggufClient: any RoutedLocalRuntimeClient
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private let refreshAvailableRuntimeKinds: @MainActor @Sendable (PreparedGenerationRuntimeConfiguration?, String?) async -> Set<BackendRuntimeKind>
     private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
+    private var streamToolSequence: UInt64 = 0
 
     init(
         inference: InferenceState,
@@ -15,12 +17,14 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         mlxClient: any RoutedLocalRuntimeClient,
         ggufClient: any RoutedLocalRuntimeClient,
         refreshAvailableRuntimeKinds: @escaping @MainActor @Sendable (PreparedGenerationRuntimeConfiguration?, String?) async -> Set<BackendRuntimeKind>,
-        preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
+        preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?,
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = nil
     ) {
         self.inference = inference
         self.runtimeControlPlane = runtimeControlPlane
         self.mlxClient = mlxClient
         self.ggufClient = ggufClient
+        self.agentProvenanceRecorder = agentProvenanceRecorder
         self.refreshAvailableRuntimeKinds = refreshAvailableRuntimeKinds
         self.preparedGenerationRuntimeConfiguration = preparedGenerationRuntimeConfiguration
     }
@@ -169,12 +173,49 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
             bufferingPolicy: .bufferingNewest(StreamingBufferPolicy.textLimit)
         ) { continuation in
             let task = Task { @MainActor in
+                let lifecycleStart = DispatchTime.now()
+                var provenance: LocalBackendStreamProvenanceContext?
+                var chunkCount = 0
+                var outputCharacterCount = 0
                 do {
                     let preference = runtimePreference(for: modelID, requestedRuntimeKindOverride: requestedRuntimeKind)
+                    provenance = makeStreamProvenanceContext(
+                        prompt: prompt,
+                        systemPrompt: systemPrompt,
+                        maxTokens: maxTokens,
+                        reasoningMode: reasoningMode,
+                        requestedRuntimeKind: preference.requestedRuntimeKind,
+                        resolvedRuntimeKind: nil,
+                        steeringHintsJSON: steeringHintsJSON
+                    )
+                    if let provenance {
+                        recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallRequested,
+                            status: .requested
+                        )
+                        recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallStarted,
+                            status: .started
+                        )
+                    }
                     _ = await refreshRuntimeAvailability(for: modelID)
                     let resolvedRuntimeKind = try await runtimeControlPlane.resolveGenerationRuntimeKind(
                         requestedRuntimeKind: preference.requestedRuntimeKind
                     )
+                    if let currentProvenance = provenance {
+                        provenance = Self.localBackendStreamProvenanceContext(
+                            currentProvenance,
+                            prompt: prompt,
+                            systemPrompt: systemPrompt,
+                            maxTokens: maxTokens,
+                            reasoningMode: reasoningMode,
+                            requestedRuntimeKind: preference.requestedRuntimeKind,
+                            resolvedRuntimeKind: resolvedRuntimeKind,
+                            steeringHintsJSON: steeringHintsJSON
+                        )
+                    }
                     if resolvedRuntimeKind == .mlx,
                        preference.requestedRuntimeKind == .gguf,
                        !preference.allowMLXFallback {
@@ -208,10 +249,64 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
                     }
 
                     for try await token in stream {
+                        chunkCount += 1
+                        outputCharacterCount += token.count
                         continuation.yield(token)
                     }
+                    let elapsedMs = Self.localBackendStreamDurationMilliseconds(since: lifecycleStart)
+                    if let provenance {
+                        recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallCompleted,
+                            resultJSON: Self.localBackendStreamResultJSON(
+                                success: true,
+                                elapsedMs: elapsedMs,
+                                chunkCount: chunkCount,
+                                outputCharacterCount: outputCharacterCount
+                            ),
+                            durationMs: elapsedMs,
+                            status: .completed
+                        )
+                    }
                     continuation.finish()
+                } catch is CancellationError {
+                    let elapsedMs = Self.localBackendStreamDurationMilliseconds(since: lifecycleStart)
+                    if let provenance {
+                        var failedMetadata = provenance.metadata
+                        failedMetadata["failure_class"] = "cancelled"
+                        recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallFailed,
+                            resultJSON: Self.localBackendStreamResultJSON(
+                                success: false,
+                                elapsedMs: elapsedMs
+                            ),
+                            durationMs: elapsedMs,
+                            status: .failed,
+                            errorMessage: "cancelled",
+                            metadata: failedMetadata
+                        )
+                    }
+                    continuation.finish(throwing: CancellationError())
                 } catch {
+                    let elapsedMs = Self.localBackendStreamDurationMilliseconds(since: lifecycleStart)
+                    let failureClass = Self.mapLocalBackendStreamError(error)
+                    if let provenance {
+                        var failedMetadata = provenance.metadata
+                        failedMetadata["failure_class"] = failureClass
+                        recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallFailed,
+                            resultJSON: Self.localBackendStreamResultJSON(
+                                success: false,
+                                elapsedMs: elapsedMs
+                            ),
+                            durationMs: elapsedMs,
+                            status: .failed,
+                            errorMessage: failureClass,
+                            metadata: failedMetadata
+                        )
+                    }
                     continuation.finish(throwing: error)
                 }
             }
@@ -283,5 +378,212 @@ final class LocalBackendLLMClient: RoutedLocalRuntimeClient {
         case .remote:
             return (nil, true)
         }
+    }
+
+    private struct LocalBackendStreamProvenanceContext {
+        let runID: String
+        let toolCallID: String
+        let actor: AgentProvenanceActor
+        let argumentsJSON: String
+        let metadata: [String: String]
+    }
+
+    private func makeStreamProvenanceContext(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        requestedRuntimeKind: BackendRuntimeKind?,
+        resolvedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
+    ) -> LocalBackendStreamProvenanceContext {
+        LocalBackendStreamProvenanceContext(
+            runID: "local-backend-stream-\(UUID().uuidString.uppercased())",
+            toolCallID: nextStreamToolCallID(),
+            actor: .agent(id: "local-backend-llm-client", modelID: nil),
+            argumentsJSON: Self.localBackendStreamArgumentsJSON(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                requestedRuntimeKind: requestedRuntimeKind,
+                resolvedRuntimeKind: resolvedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            ),
+            metadata: Self.localBackendStreamMetadata(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                requestedRuntimeKind: requestedRuntimeKind,
+                resolvedRuntimeKind: resolvedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        )
+    }
+
+    private nonisolated static func localBackendStreamProvenanceContext(
+        _ context: LocalBackendStreamProvenanceContext,
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        requestedRuntimeKind: BackendRuntimeKind?,
+        resolvedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
+    ) -> LocalBackendStreamProvenanceContext {
+        LocalBackendStreamProvenanceContext(
+            runID: context.runID,
+            toolCallID: context.toolCallID,
+            actor: context.actor,
+            argumentsJSON: localBackendStreamArgumentsJSON(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                requestedRuntimeKind: requestedRuntimeKind,
+                resolvedRuntimeKind: resolvedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            ),
+            metadata: localBackendStreamMetadata(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                maxTokens: maxTokens,
+                reasoningMode: reasoningMode,
+                requestedRuntimeKind: requestedRuntimeKind,
+                resolvedRuntimeKind: resolvedRuntimeKind,
+                steeringHintsJSON: steeringHintsJSON
+            )
+        )
+    }
+
+    private func nextStreamToolCallID() -> String {
+        streamToolSequence += 1
+        return "local-backend-stream:\(streamToolSequence)"
+    }
+
+    private func recordStreamAgentEvent(
+        _ context: LocalBackendStreamProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        agentProvenanceRecorder?.recordToolEvent(
+            runID: context.runID,
+            traceID: nil,
+            kind: kind,
+            actor: context.actor,
+            toolCallID: context.toolCallID,
+            toolName: "local_backend.stream",
+            argumentsJSON: context.argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata ?? context.metadata
+        )
+    }
+
+    private nonisolated static func localBackendStreamArgumentsJSON(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        requestedRuntimeKind: BackendRuntimeKind?,
+        resolvedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
+    ) -> String {
+        localBackendStreamJSON([
+            "max_tokens": max(0, maxTokens),
+            "prompt_char_count": prompt.count,
+            "provider": "local_backend",
+            "reasoning_mode": reasoningMode.rawValue,
+            "requested_runtime": requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": resolvedRuntimeKind?.rawValue ?? "pending",
+            "steering_hints_present": hasSteeringHints(steeringHintsJSON),
+            "system_prompt_char_count": systemPrompt?.count ?? 0,
+        ])
+    }
+
+    private nonisolated static func localBackendStreamMetadata(
+        prompt: String,
+        systemPrompt: String?,
+        maxTokens: Int,
+        reasoningMode: LocalReasoningMode,
+        requestedRuntimeKind: BackendRuntimeKind?,
+        resolvedRuntimeKind: BackendRuntimeKind?,
+        steeringHintsJSON: String?
+    ) -> [String: String] {
+        [
+            "max_tokens": "\(max(0, maxTokens))",
+            "prompt_char_count": "\(prompt.count)",
+            "provider": "local_backend",
+            "reasoning_mode": reasoningMode.rawValue,
+            "requested_runtime": requestedRuntimeKind?.rawValue ?? "none",
+            "resolved_runtime": resolvedRuntimeKind?.rawValue ?? "pending",
+            "source": "local_backend_llm_client",
+            "steering_hints_present": "\(hasSteeringHints(steeringHintsJSON))",
+            "surface": "stream",
+            "system_prompt_char_count": "\(systemPrompt?.count ?? 0)",
+        ]
+    }
+
+    private nonisolated static func localBackendStreamResultJSON(
+        success: Bool,
+        elapsedMs: UInt64,
+        chunkCount: Int? = nil,
+        outputCharacterCount: Int? = nil
+    ) -> String {
+        var payload: [String: Any] = [
+            "elapsed_ms": elapsedMs,
+            "success": success,
+        ]
+        if let chunkCount {
+            payload["chunk_count"] = chunkCount
+        }
+        if let outputCharacterCount {
+            payload["output_char_count"] = outputCharacterCount
+        }
+        return localBackendStreamJSON(payload)
+    }
+
+    private nonisolated static func localBackendStreamJSON(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
+
+    private nonisolated static func hasSteeringHints(_ value: String?) -> Bool {
+        guard let value else { return false }
+        return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private nonisolated static func localBackendStreamDurationMilliseconds(since start: DispatchTime) -> UInt64 {
+        let now = DispatchTime.now().uptimeNanoseconds
+        guard now >= start.uptimeNanoseconds else { return 0 }
+        return (now - start.uptimeNanoseconds) / 1_000_000
+    }
+
+    private nonisolated static func mapLocalBackendStreamError(_ error: Error) -> String {
+        if error is CancellationError {
+            return "cancelled"
+        }
+        if let routingError = error as? LocalInferenceRoutingError {
+            switch routingError {
+            case .modelRequired:
+                return "model_required"
+            case .runtimeUnavailable, .fastModeUnsupported:
+                return "runtime_unavailable"
+            case .modelLoaderUnavailable, .modelLoadStalled, .insufficientMemory:
+                return "model_unavailable"
+            }
+        }
+        return "backend_failure"
     }
 }
