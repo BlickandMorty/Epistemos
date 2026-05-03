@@ -495,6 +495,10 @@ closed:
   suppresses unclosed hidden scratchpad and malformed tool-call opens, and the
   slice does not change model routing, tool parsing, tool execution, repair
   semantics, UI, provider calls, Rust, generated bindings, or EventStore schema.
+  PR31 completes the detector-side closure by landing
+  `IncrementalToolCallDetector.flushOnStreamEnd()` plus focused detector tests,
+  so the committed `LocalAgentLoop` call no longer depends on an uncommitted
+  working-tree API.
 - Sovereign Gate Core PR1 now has the single Swift authorization executor:
   `Epistemos/Sovereign/SovereignGate.swift` is the only production source that
   imports `LocalAuthentication` or instantiates `LAContext`. It executes
