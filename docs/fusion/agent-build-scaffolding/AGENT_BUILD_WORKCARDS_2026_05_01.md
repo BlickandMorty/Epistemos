@@ -2019,6 +2019,13 @@ return contract: direct substrate work returns no external evidence, local
 in-process prompt formatting returns prompt context only, and every unified
 Hermes gateway surface must return structured evidence/provenance rather than
 graph, Rex, or substrate authority.
+Provider Surface Policy PR8 is closed. `HermesGatewayPolicy.Surface.cloudProviderSurfaces`
+now names the generic cloud-provider bucket plus OpenAI, Anthropic, Google,
+OpenAI-compatible, and Codex account-backed provider surfaces as one cloud
+gateway group. `externalGatewaySurfaces` composes from that group so future
+provider additions stay single-edit and inherit the same Pro/Research,
+`hermesGateway`, network, no-direct-substrate, and structured-provenance
+contract.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2089,13 +2096,22 @@ Evidence:
   `/tmp/epistemos-hermes-gateway-evidence-return-pr7-red-20260502.log`.
 - PR7 Green log:
   `/tmp/epistemos-hermes-gateway-evidence-return-pr7-green-20260502.log`.
+- PR8 Deliberation:
+  `docs/fusion/deliberation/hermes_provider_surface_policy_pr8_deliberation_2026_05_02.md`.
+- PR8 Red log:
+  `/tmp/epistemos-hermes-provider-surface-pr8-red-20260502.log`.
+- PR8 Green log:
+  `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`.
+- PR8 Claude red-team:
+  `docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
   10-test suite; PR3 passed the expanded 11-test suite; PR4 passed 15 focused
   tests across the policy and prompt suites; PR5 passed the expanded 6-test
   policy suite; PR6 passed the expanded 8-test policy suite; PR7 passed the
-  expanded 11-test policy suite. Xcode still
+  expanded 11-test policy suite; PR8 passed the expanded 13-test policy suite
+  after Claude red-team P1 fixes. Xcode still
   printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
 
 Acceptance:
@@ -2147,6 +2163,20 @@ Acceptance:
 - PR7 reachable: focused tests prove local surfaces do not require structured
   external evidence while every Hermes gateway surface does.
 - PR7 boundary: no runtime adapter, provider, subprocess, MCP, browser,
+  Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
+  protected graph, or protected editor path was touched.
+- PR8 wired: named cloud provider surfaces are first-class cloud gateway policy
+  cases, and the legacy generic `.cloudProvider` case is included in the same
+  group.
+- PR8 reachable: focused tests prove every cloud-provider surface is
+  Pro/Research, `hermesGateway`, network-required, not subprocess-required, not
+  direct-substrate, not Core/App Store-allowed, and structured-provenance
+  returning.
+- PR8 red-team closed: Claude found the initial cloud-provider group was not
+  exhaustive and the external gateway list duplicated provider cases; both were
+  fixed by composing `externalGatewaySurfaces` from `cloudProviderSurfaces` and
+  adding a regression test.
+- PR8 boundary: no runtime adapter, provider, subprocess, MCP, browser,
   Docker/devcontainer, graph, Rust, generated transport, entitlement, project,
   protected graph, or protected editor path was touched.
 

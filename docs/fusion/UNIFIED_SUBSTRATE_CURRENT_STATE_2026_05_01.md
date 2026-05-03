@@ -812,6 +812,19 @@ Proven or actively wired:
   touched. Red/green evidence:
   `/tmp/epistemos-hermes-gateway-evidence-return-pr7-red-20260502.log` and
   `/tmp/epistemos-hermes-gateway-evidence-return-pr7-green-20260502.log`.
+- Hermes Provider Surface Policy PR8 is now code-closed as a pure policy helper:
+  `HermesGatewayPolicy.Surface.cloudProviderSurfaces` explicitly groups the
+  generic cloud-provider surface plus OpenAI, Anthropic, Google,
+  OpenAI-compatible, and Codex account-backed provider surfaces. The external
+  gateway surface list composes from that cloud-provider group so future
+  provider additions stay single-edit and mechanically inherit Pro/Research,
+  `hermesGateway`, network-required, no direct substrate path, and structured
+  evidence/provenance policy. Claude red-team found two P1 composition gaps;
+  both were fixed before merge. No runtime adapter, provider, subprocess
+  launcher, MCP bridge, graph, Rust, generated transport, entitlement, project
+  file, or protected editor path was touched. Red/green evidence:
+  `/tmp/epistemos-hermes-provider-surface-pr8-red-20260502.log` and
+  `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open
@@ -1135,7 +1148,7 @@ backend route, Halo V1 protected editor mount PR1, Halo V1 live domain re-query
 PR2, Halo V1 visible panel actions PR3, Hermes Gateway Directness PR1,
 Hermes Gateway Fast Path PR2, Hermes Gateway Tier Boundary PR3, Hermes Gateway
 Policy PR4, Hermes Gateway App Store Guard PR5, Hermes Gateway Route Policy
-PR6, Hermes Gateway Evidence Return PR7, R16
+PR6, Hermes Gateway Evidence Return PR7, Hermes Provider Surface Policy PR8, R16
 memory-pressure dispatch pause PR3E,
 and R16 MAS bookmark enforcement
 PR3F, R16 model-derived badge

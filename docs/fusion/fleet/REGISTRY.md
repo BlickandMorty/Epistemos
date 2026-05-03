@@ -194,3 +194,16 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 37 | 2026-05-03T01:24Z | claude-red-team | brief=graph-event-trace-inspector-projection-pr9 | claude/PID 58579 | session:58579 | done | docs/fusion/fleet/graph-event-trace-inspector-projection-pr9/claude-red-team/attacks.md | +1 |
 | 37 | 2026-05-03T01:31Z | test | suite=GraphEventAuditProjectionTests | xcodebuild | session:43076 | done | /tmp/epistemos-graph-event-trace-inspector-pr9-green-20260502.log | +1 |
 | 37 | 2026-05-03T01:32Z | guard | slice=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 38 | 2026-05-03T01:34Z | preflight | scope=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_38_2026_05_02.md | +1 |
+| 38 | 2026-05-03T01:34Z | detective | concept=Hermes provider surface cloud gateway policy | codex/local | n/a | done | docs/fusion/fleet/hermes-provider-surface-policy-pr8/detectives/hermes-provider-surface-policy.md | +1 |
+| 38 | 2026-05-03T01:34Z | aggregator | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | docs/fusion/fleet/hermes-provider-surface-policy-pr8/aggregator.md | +1 |
+| 38 | 2026-05-03T01:34Z | pipeline-builder | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | docs/fusion/deliberation/hermes_provider_surface_policy_pr8_deliberation_2026_05_02.md | +1 |
+| 38 | 2026-05-03T01:47Z | test | suite=HermesGatewayPolicyTests | xcodebuild | session:90095 | done | /tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log | +1 |
+| 38 | 2026-05-03T01:47Z | claude-red-team | brief=hermes-provider-surface-policy-pr8 | claude/PID 62184 | pid:62184 | failed | docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md | -1 |
+| 38 | 2026-05-03T01:50Z | claude-red-team | brief=hermes-provider-surface-policy-pr8 | claude/foreground | session:48278 | failed | docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md | -1 |
+| 38 | 2026-05-03T01:51Z | claude-red-team | brief=hermes-provider-surface-policy-pr8 | claude/stdin | session:21288 | failed | docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md | -1 |
+| 38 | 2026-05-03T01:55Z | claude-red-team | brief=hermes-provider-surface-policy-pr8 | claude/bare | session:pending | failed | docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md | -1 |
+| 38 | 2026-05-03T01:56Z | claude-red-team | brief=hermes-provider-surface-policy-pr8 | claude/authenticated | session:82762 | done | docs/fusion/fleet/hermes-provider-surface-policy-pr8/claude-red-team/attacks.md | +1 |
+| 38 | 2026-05-03T02:00Z | implementation | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | Epistemos/LocalAgent/HermesGatewayPolicy.swift | +1 |
+| 38 | 2026-05-03T02:00Z | test | suite=HermesGatewayPolicyTests | xcodebuild | session:7850 | done | /tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log | +1 |
+| 38 | 2026-05-03T02:01Z | guard | slice=hermes-provider-surface-policy-pr8 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

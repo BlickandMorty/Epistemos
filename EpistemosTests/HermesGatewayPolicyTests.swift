@@ -19,7 +19,7 @@ nonisolated struct HermesGatewayPolicyTests {
             let decision = HermesGatewayPolicy.decision(for: surface)
 
             #expect(decision.tier == .proResearch)
-            #expect(decision.requiresSubprocess || surface == .cloudProvider)
+            #expect(decision.requiresNetwork || decision.requiresSubprocess)
             #expect(!decision.preservesDirectSubstratePath)
         }
     }
@@ -106,6 +106,39 @@ nonisolated struct HermesGatewayPolicyTests {
         for surface in HermesGatewayPolicy.Surface.externalGatewaySurfaces {
             #expect(HermesGatewayPolicy.evidenceReturn(for: surface) == .structuredEvidenceProvenance)
             #expect(HermesGatewayPolicy.requiresStructuredEvidenceReturn(surface))
+        }
+    }
+
+    @Test("named cloud provider surfaces are gateway only")
+    func namedCloudProviderSurfacesAreGatewayOnly() {
+        let expected: [HermesGatewayPolicy.Surface] = [
+            .cloudProvider,
+            .openAIProvider,
+            .anthropicProvider,
+            .googleProvider,
+            .openAICompatibleProvider,
+            .codexAccountProvider,
+        ]
+
+        #expect(HermesGatewayPolicy.Surface.cloudProviderSurfaces == expected)
+
+        for surface in HermesGatewayPolicy.Surface.cloudProviderSurfaces {
+            let decision = HermesGatewayPolicy.decision(for: surface)
+
+            #expect(decision.tier == .proResearch)
+            #expect(decision.route == .hermesGateway)
+            #expect(decision.requiresNetwork)
+            #expect(!decision.requiresSubprocess)
+            #expect(!decision.preservesDirectSubstratePath)
+            #expect(decision.evidenceReturn == .structuredEvidenceProvenance)
+            #expect(!HermesGatewayPolicy.isAllowedInCoreAppStoreBuild(surface))
+        }
+    }
+
+    @Test("external gateway surfaces compose all cloud provider surfaces")
+    func externalGatewaySurfacesComposeAllCloudProviderSurfaces() {
+        for surface in HermesGatewayPolicy.Surface.cloudProviderSurfaces {
+            #expect(HermesGatewayPolicy.Surface.externalGatewaySurfaces.contains(surface))
         }
     }
 

@@ -21,6 +21,11 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     case deterministicLocalSubstrate
     case localPromptFormatting
     case cloudProvider
+    case openAIProvider
+    case anthropicProvider
+    case googleProvider
+    case openAICompatibleProvider
+    case codexAccountProvider
     case cliDelegation
     case mcpWebTool
     case hermesSubprocess
@@ -28,8 +33,16 @@ nonisolated enum HermesGatewaySurface: CaseIterable, Sendable {
     case dockerDevcontainer
     case explicitExternalSideEffect
 
-    static let externalGatewaySurfaces: [Self] = [
+    static let cloudProviderSurfaces: [Self] = [
         .cloudProvider,
+        .openAIProvider,
+        .anthropicProvider,
+        .googleProvider,
+        .openAICompatibleProvider,
+        .codexAccountProvider,
+    ]
+
+    static let externalGatewaySurfaces: [Self] = cloudProviderSurfaces + [
         .cliDelegation,
         .mcpWebTool,
         .hermesSubprocess,
@@ -107,7 +120,12 @@ nonisolated enum HermesGatewayPolicy {
                 evidenceReturn: .inProcessPromptContext,
                 reason: "Hermes-family prompt grammar is Core-safe only when it stays in-process over local context."
             )
-        case .cloudProvider:
+        case .cloudProvider,
+             .openAIProvider,
+             .anthropicProvider,
+             .googleProvider,
+             .openAICompatibleProvider,
+             .codexAccountProvider:
             Decision(
                 tier: .proResearch,
                 route: .hermesGateway,
@@ -115,7 +133,7 @@ nonisolated enum HermesGatewayPolicy {
                 requiresSubprocess: false,
                 preservesDirectSubstratePath: false,
                 evidenceReturn: .structuredEvidenceProvenance,
-                reason: "Cloud providers are external intelligence and must stay behind the Pro/Research gateway."
+                reason: "Cloud providers are external intelligence and must stay behind the unified Hermes gateway."
             )
         case .cliDelegation:
             Decision(
