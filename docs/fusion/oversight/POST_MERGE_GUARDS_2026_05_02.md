@@ -922,3 +922,15 @@
 - note: focused verification logs `/tmp/epistemos-knowledge-fusion-adapter-sg-pr48-20260503.log` and `/tmp/epistemos-sovereign-gate-regression-pr48-20260503.log`; both Xcode runs exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `KnowledgeFusionAdapterDeletionSovereignGateTests`
 - test: `SovereignGateTests`
+
+## mas-core-symbol-separation-closure-pr3
+
+- grep: `CoreMASBoundarySourceGuardTests|ToolSurfaceBehavioralMatrixTests` in `EpistemosTests/CoreMASBoundarySourceGuardTests.swift` and `EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift`.
+- source guard grep: `CoreMASBoundarySourceGuardTests` keeps `HermesGatewayPolicy`, `ToolTierBridge`, and `MCPBridge` locked to Core-direct local surfaces, Pro/Research gateway external surfaces, MCP `tools/call` policy denial before Rust dispatch, and no boundary-owned Touch ID or subprocess launcher.
+- behavior guard grep: `ToolSurfaceBehavioralMatrixTests` proves `ToolSurfacePolicy.isSurfacedToolName` and `surfacedTools` keep Core App Store as a strict subset of Pro/Research and keep `think` hidden for every distribution.
+- staged allow: only `EpistemosTests/CoreMASBoundarySourceGuardTests.swift`, `EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this test-only closure commit. Parallel-agent production files remain intentionally excluded.
+- log: `✔ Suite "Core/MAS Boundary Source Guard" passed`
+- log: `✔ Suite "Tool Surface Behavioral Matrix" passed`
+- note: focused verification log `/tmp/epistemos-mas-core-symbol-separation-closure-pr3-20260503.log`; Xcode exited `0`, passed 23 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `CoreMASBoundarySourceGuardTests`
+- test: `ToolSurfaceBehavioralMatrixTests`

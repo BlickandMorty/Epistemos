@@ -2775,6 +2775,16 @@ fallback plans keep Core-visible vault/web search tools and hide `run_command`,
 `open_url`, `search_web`, browser/computer-use, Docker, and Hermes subprocess
 aliases; Pro/Research fallback plans preserve the explicit ask-mode tools for
 the Hermes-controlled gateway path.
+Core/MAS Boundary Regression Guard PR3 is closed as a test-only closure slice.
+`CoreMASBoundarySourceGuardTests` locks the source-level contract across
+`HermesGatewayPolicy`, `ToolTierBridge`, and `MCPBridge`: deterministic local
+work stays Core/direct/in-process, external gateway surfaces stay Pro/Research,
+Core App Store allowance remains a no-network/no-subprocess/direct-substrate
+conjunction, Core tools remain in-process, MCP `tools/call` policy denial
+happens before Rust dispatch, and boundary files do not host their own Touch ID
+prompts or subprocess launchers. `ToolSurfaceBehavioralMatrixTests` exercises
+the actual `ToolSurfacePolicy` API so Core is a strict subset of Pro/Research
+and `think` stays hidden in every distribution.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2901,6 +2911,8 @@ Evidence:
   `/tmp/epistemos-core-mas-tooltier-execution-pr2-schema-green-20260503.log`.
 - Core/MAS ToolTier Execution Symbol Gate PR2 Codex red-team:
   `docs/fusion/fleet/core-mas-tooltier-execution-symbol-gate-pr2/claude-red-team/attacks.md`.
+- Core/MAS Boundary Regression Guard PR3 focused log:
+  `/tmp/epistemos-mas-core-symbol-separation-closure-pr3-20260503.log`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2922,7 +2934,9 @@ Evidence:
   focused `ToolSchemaGrammarTests`. Overseer Core/MAS Tool Permission Fallback
   PR1 passed 7 focused `OverseerProtocolTests`; the first green attempt exposed
   a source-shape Swift Testing harness hang, so that structural assertion moved
-  into the shell guard list.
+  into the shell guard list. Core/MAS Boundary Regression Guard PR3 passed 23
+  focused Swift Testing tests across `CoreMASBoundarySourceGuardTests` and
+  `ToolSurfaceBehavioralMatrixTests`.
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
 
