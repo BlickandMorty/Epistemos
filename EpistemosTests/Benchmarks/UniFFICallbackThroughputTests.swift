@@ -70,6 +70,73 @@ nonisolated struct UniFFICallbackFixtureBaselineRunner {
     }
 }
 
+nonisolated struct TrueRustCallbackLoopBaselineRunner {
+    static let stableGeneratedAt = UniFFICallbackFixtureBaselineRunner.stableGeneratedAt
+    static let payload = "true_rust_callback_loop"
+
+    static func run(
+        resultsDirectory: URL,
+        generatedAt: Date = stableGeneratedAt,
+        iterations: Int = 10_000,
+        samples: Int = 5
+    ) throws -> URL {
+        guard iterations > 0 else {
+            throw UniFFICallbackFixtureBaselineError.invalidIterations(iterations)
+        }
+        guard samples > 0 else {
+            throw UniFFICallbackFixtureBaselineError.invalidSampleCount(samples)
+        }
+
+        let delegate = CountingAgentEventDelegate()
+        var sampleValues: [Double] = []
+        sampleValues.reserveCapacity(samples)
+        var emittedCallbacks = 0
+        var emittedPayloadBytes = 0
+
+        for _ in 0..<samples {
+            let start = ContinuousClock.now
+            let result = runR15TrueRustCallbackLoopBenchmark(
+                delegate: delegate,
+                iterations: UInt32(iterations),
+                payload: payload
+            )
+            let duration = ContinuousClock.now - start
+            emittedCallbacks += Int(result.callbacksEmitted)
+            emittedPayloadBytes += Int(result.payloadBytesEmitted)
+            sampleValues.append(duration.secondsAsDouble * 1_000_000_000 / Double(iterations))
+        }
+
+        let expectedCallbacks = iterations * samples
+        guard emittedCallbacks == expectedCallbacks, delegate.textDeltaCount == expectedCallbacks else {
+            throw UniFFICallbackFixtureBaselineError.callbackCountMismatch(
+                expected: expectedCallbacks,
+                actual: delegate.textDeltaCount
+            )
+        }
+
+        return try BenchmarkRunRecorder.record(
+            suite: "R15 True Rust Callback Loop Baseline",
+            measurement: "true_rust_callback_loop",
+            unit: "nanoseconds_per_callback",
+            samples: sampleValues,
+            metadata: [
+                "baseline_kind": "r15_pr10_true_rust_callback_loop",
+                "fixture_status": "true_rust_callback_loop_export",
+                "sample_source": "focused_xcode_test",
+                "iterations_per_sample": "\(iterations)",
+                "sample_count_target": "\(samples)",
+                "callback_method": "AgentEventDelegate.onTextDelta",
+                "rust_loop_status": "true_rust_to_swift_loop",
+                "emitted_callbacks": "\(emittedCallbacks)",
+                "emitted_payload_bytes": "\(emittedPayloadBytes)",
+                "checksum": "\(delegate.byteChecksum)",
+            ],
+            generatedAt: generatedAt,
+            resultsDirectory: resultsDirectory
+        )
+    }
+}
+
 @Suite("R15 UniFFI Callback Baseline")
 nonisolated struct UniFFICallbackThroughputTests {
     @Test("generated callback handle runner writes finite decodable report")
@@ -124,6 +191,45 @@ nonisolated struct UniFFICallbackThroughputTests {
                 samples: 0
             )
         }
+    }
+
+    @Test("true Rust callback loop runner writes finite decodable report")
+    func trueRustCallbackLoopRunnerWritesFiniteDecodableReport() throws {
+        let configuration = configuredResultsDirectory()
+        let resultsDirectory = configuration.url
+        let shouldCleanUp = configuration.removeAfterRun
+        defer {
+            if shouldCleanUp {
+                try? FileManager.default.removeItem(at: resultsDirectory)
+            }
+        }
+
+        let outputURL = try TrueRustCallbackLoopBaselineRunner.run(resultsDirectory: resultsDirectory)
+        let data = try Data(contentsOf: outputURL)
+        let report = try JSONDecoder().decode(BenchmarkRunReport.self, from: data)
+
+        #expect(outputURL.lastPathComponent == "2026-05-02t00-00-00-000z-r15-true-rust-callback-loop-baseline-true_rust_callback_loop.json")
+        #expect(report.schema_version == 1)
+        #expect(report.generated_at == "2026-05-02T00:00:00.000Z")
+        #expect(report.suite == "R15 True Rust Callback Loop Baseline")
+        #expect(report.measurement == "true_rust_callback_loop")
+        #expect(report.unit == "nanoseconds_per_callback")
+        #expect(report.sample_count == 5)
+        #expect(report.samples.count == report.sample_count)
+        for sample in report.samples {
+            #expect(sample.isFinite)
+            #expect(sample >= 0)
+        }
+        #expect(report.metadata["baseline_kind"] == "r15_pr10_true_rust_callback_loop")
+        #expect(report.metadata["fixture_status"] == "true_rust_callback_loop_export")
+        #expect(report.metadata["sample_source"] == "focused_xcode_test")
+        #expect(report.metadata["iterations_per_sample"] == "10000")
+        #expect(report.metadata["sample_count_target"] == "5")
+        #expect(report.metadata["callback_method"] == "AgentEventDelegate.onTextDelta")
+        #expect(report.metadata["rust_loop_status"] == "true_rust_to_swift_loop")
+        #expect(report.metadata["emitted_callbacks"] == "50000")
+        #expect(report.metadata["emitted_payload_bytes"]?.isEmpty == false)
+        #expect(report.metadata["checksum"]?.isEmpty == false)
     }
 
     private func configuredResultsDirectory() -> (url: URL, removeAfterRun: Bool) {

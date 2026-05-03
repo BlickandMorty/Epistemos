@@ -719,6 +719,45 @@ pub fn active_session_count() -> u32 {
     ffi_guard_value!(GlobalSessions::active_count() as u32, 0)
 }
 
+#[cfg(debug_assertions)]
+#[derive(uniffi::Record)]
+pub struct R15TrueRustCallbackLoopBenchmarkFFI {
+    pub callbacks_emitted: u32,
+    pub payload_bytes_emitted: u64,
+}
+
+#[cfg(debug_assertions)]
+#[uniffi::export]
+pub fn run_r15_true_rust_callback_loop_benchmark(
+    delegate: Box<dyn AgentEventDelegate>,
+    iterations: u32,
+    payload: String,
+) -> R15TrueRustCallbackLoopBenchmarkFFI {
+    ffi_guard_value!(
+        {
+            let payload = if payload.is_empty() {
+                "true_rust_callback_loop".to_string()
+            } else {
+                payload
+            };
+            let payload_bytes = payload.as_bytes().len() as u64;
+
+            for _ in 0..iterations {
+                delegate.on_text_delta(payload.clone());
+            }
+
+            R15TrueRustCallbackLoopBenchmarkFFI {
+                callbacks_emitted: iterations,
+                payload_bytes_emitted: payload_bytes.saturating_mul(iterations as u64),
+            }
+        },
+        R15TrueRustCallbackLoopBenchmarkFFI {
+            callbacks_emitted: 0,
+            payload_bytes_emitted: 0,
+        }
+    )
+}
+
 // MARK: - Agent Command Center Request Compilation
 //
 // Rust authority per PLAN_V2 §3.1 / §4.1. Swift must call this entry point

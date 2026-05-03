@@ -152,16 +152,27 @@ nonisolated enum R15BenchmarkEvidenceLedger {
                 "render_status": "not_live_render_frame_rate",
             ]
         ),
+        .init(
+            filename: "2026-05-02t00-00-00-000z-r15-true-rust-callback-loop-baseline-true_rust_callback_loop.json",
+            suite: "R15 True Rust Callback Loop Baseline",
+            measurement: "true_rust_callback_loop",
+            unit: "nanoseconds_per_callback",
+            sampleCount: 5,
+            requiredMetadata: [
+                "baseline_kind": "r15_pr10_true_rust_callback_loop",
+                "fixture_status": "true_rust_callback_loop_export",
+                "rust_loop_status": "true_rust_to_swift_loop",
+            ]
+        ),
     ]
 
     static let forbiddenOpenBaselineFilenames: Set<String> = [
         "2026-05-02t00-00-00-000z-r15-mlx-live-token-throughput-baseline-mlx_live_token_throughput_deepseek7b_32.json",
         "2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json",
-        "2026-05-02t00-00-00-000z-r15-true-rust-callback-loop-baseline-true_rust_callback_loop.json",
     ]
 
     static func validateClosedBaselineLedger() throws {
-        guard closedBaselineExpectations.count == 10 else {
+        guard closedBaselineExpectations.count == 11 else {
             throw R15BenchmarkEvidenceLedgerError.unexpectedExpectationCount(
                 closedBaselineExpectations.count
             )
@@ -190,6 +201,7 @@ nonisolated enum R15BenchmarkEvidenceLedger {
         }
 
         try requireMeasurement("uniffi_callback_handle_roundtrip_10000", metadataKey: "rust_loop_status", value: "not_true_rust_to_swift_loop")
+        try requireMeasurement("true_rust_callback_loop", metadataKey: "rust_loop_status", value: "true_rust_to_swift_loop")
         try requireMeasurement("mlx_thermal_policy_snapshot_1000", metadataKey: "live_inference_status", value: "not_live_mlx_inference_tok_s")
         try requireMeasurement("graph_ffi_bridge_fixture_250", metadataKey: "render_status", value: "not_live_render_frame_rate")
     }

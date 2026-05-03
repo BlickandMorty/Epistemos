@@ -714,7 +714,14 @@ Proven or actively wired:
   (`requiredGB=12`, `availableGB=4`), so no live tok/s JSON artifact exists yet.
   R15 PR9 adds a test-only evidence ledger that names the ten closed R15 JSON
   artifacts and keeps the open PR8 tok/s, renderer FPS, and true Rust
-  callback-loop artifact names out of the closed set.
+  callback-loop artifact names out of the closed set. R15 PR10 adds the true
+  Rust-to-Swift callback-loop baseline through a debug-only UniFFI export that
+  loops in Rust and calls `AgentEventDelegate.on_text_delta`, producing
+  `2026-05-02t00-00-00-000z-r15-true-rust-callback-loop-baseline-true_rust_callback_loop.json`
+  with p50 682.9417 ns/callback, p95 712.60078 ns/callback, 50,000 emitted
+  callbacks, and metadata marking `rust_loop_status=true_rust_to_swift_loop`.
+  The ledger now names 11 closed R15 artifacts while keeping MLX live tok/s and
+  renderer FPS explicitly open.
 - R16 background indexing has visible diagnostics, ETL stats/dispatch plumbing,
   AFM sidecar generation, memory-pressure-aware dispatch pause semantics,
   MAS/security-scoped bookmark enforcement, model-derived badge visibility, and
@@ -916,7 +923,7 @@ Still open:
   is reopened and passes against a real vault.
 - R15 remaining specialized baselines before any graph-engine/FFI optimization:
   live MLX token throughput under sufficient-memory/thermal-soak conditions and
-  the true Rust callback-loop export. Any production GRDB/768-dimensional KNN
+  live renderer FPS/optimization. Any production GRDB/768-dimensional KNN
   claim still needs its own later fixture gate.
 - MAS/Core versus Pro capability symbol separation.
 - Manual runtime verification for user-facing ship claims.
@@ -942,9 +949,10 @@ before building.
    PR6 is closed for `PowerGate.deferSnapshot` MLX thermal policy/backpressure
    decisions only. PR7 is closed for live `GraphEngine`/C FFI bridge fixture
    roundtrips only. PR8 now has an opt-in live MLX tok/s harness and a documented
-   blocked sentinel run, but live MLX token throughput under sufficient-memory
-   thermal soak, live renderer FPS/optimization, and the true Rust callback-loop
-   export remain later runtime/generated-transport gates.
+   blocked sentinel run. PR10 is closed for the debug-only true Rust
+   callback-loop export baseline. Live MLX token throughput under
+   sufficient-memory thermal soak and live renderer FPS/optimization remain
+   later runtime/generated-transport gates.
    Before modifying graph-engine, graph rendering, BoltFFI, live MLX inference,
    production KNN, or any hot path beyond those surfaces, run a new fixture gate
    that writes real JSON results and promotes `try?` recorder calls only when the
