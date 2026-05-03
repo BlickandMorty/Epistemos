@@ -934,3 +934,13 @@
 - note: focused verification log `/tmp/epistemos-mas-core-symbol-separation-closure-pr3-20260503.log`; Xcode exited `0`, passed 23 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `CoreMASBoundarySourceGuardTests`
 - test: `ToolSurfaceBehavioralMatrixTests`
+
+## agent-graph-memory-record-execution-delete-pr49
+
+- grep: `recordExecution\\(` returns no production Swift matches under `Epistemos/`.
+- forbidden writer grep: `nodesCreatedThisSession|edgesCreatedThisSession|extractSourceNode|extractTags|linkOrCreateTag|truncateLabel` returns no matches in `Epistemos/Omega/Knowledge/AgentGraphMemory.swift`.
+- live API grep: `recall\\(|sourcesFor\\(|contextFor\\(|distillMemory\\(` remains present in `Epistemos/Omega/Knowledge/AgentGraphMemory.swift`.
+- staged allow: only `Epistemos/Omega/Knowledge/AgentGraphMemory.swift`, `EpistemosTests/AgentGraphMemoryDeadCodeGuardTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this cleanup commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "AgentGraphMemory Dead Code Guard" passed`
+- note: focused verification log `/tmp/epistemos-agent-graph-memory-dead-code-delete-pr49-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `AgentGraphMemoryDeadCodeGuardTests`

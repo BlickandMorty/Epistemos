@@ -672,6 +672,16 @@ closed:
   sign-in/sign-out behavior change, Core/MAS tool policy change, MCP/Hermes
   routing change, graph change, generated binding change, subprocess surface,
   or ANE/private API surface.
+- AgentGraphMemory recordExecution dead-code deletion PR49 is now closed.
+  Claude's detective resolutions confirmed `recordExecution` had no production
+  callers, so the unreachable execution-writer path was removed instead of
+  instrumented. `AgentGraphMemoryDeadCodeGuardTests` proves the old
+  `recordExecution`, session counters, source extraction, tag extraction, tag
+  linking, and label truncation symbols stay absent while `recall`,
+  `sourcesFor`, `contextFor`, and `distillMemory` remain. This does not change
+  EventStore schema, AgentEvent persistence, Core/MAS policy, MCP/Hermes
+  routing, Sovereign, graph renderer internals, generated bindings, subprocess
+  surfaces, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross

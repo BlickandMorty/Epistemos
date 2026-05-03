@@ -1301,6 +1301,14 @@ raw provider error payloads are not stored in AgentEvents. This is audit
 visibility only; it adds no Touch ID prompt and no Sovereign route for silent
 background refresh.
 
+PR49 AgentGraphMemory recordExecution dead-code deletion is also closed.
+Claude's detective resolutions found `AgentGraphMemory.recordExecution` had no
+production callers, so the unreachable graph write path was deleted instead of
+instrumented. `AgentGraphMemoryDeadCodeGuardTests` asserts the writer method,
+session counters, source/tag helper methods, and truncation helper stay absent
+while the live recall/source/context/distillation APIs remain. Reintroducing an
+agent graph write path requires a new provenance deliberation first.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
