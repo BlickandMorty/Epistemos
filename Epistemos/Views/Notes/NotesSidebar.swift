@@ -250,6 +250,7 @@ enum NotesSidebarDeletionSovereignGate {
     enum Target: Equatable {
         case page(title: String)
         case folder(name: String)
+        case vaultDisconnect(name: String)
     }
 
     static func requirement(for target: Target) -> SovereignGateRequirement {
@@ -262,6 +263,8 @@ enum NotesSidebarDeletionSovereignGate {
             return "Permanently delete page \"\(safeName(title))\"."
         case let .folder(name):
             return "Permanently delete folder \"\(safeName(name))\" and its contents."
+        case let .vaultDisconnect(name):
+            return "Disconnect vault \"\(safeName(name))\" and clear local vault state."
         }
     }
 
@@ -2762,6 +2765,7 @@ private struct EditorActionsBar: View {
 private struct VaultConnectionButton: View {
     @Environment(NotesUIState.self) private var notesUI
     @Environment(VaultSyncService.self) private var vaultSync
+    @State private var isVaultDisconnectAuthorizationInFlight = false
 
     var body: some View {
         Menu {
@@ -2776,8 +2780,11 @@ private struct VaultConnectionButton: View {
                 }
                 Divider()
                 Button("Disconnect Vault", role: .destructive) {
-                    VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
+                    Task { @MainActor in
+                        await requestVaultDisconnectAuthorization(vaultURL: vaultURL)
+                    }
                 }
+                .disabled(isVaultDisconnectAuthorizationInFlight)
             } else {
                 Button("Select Vault Folder") {
                     VaultConnectionActions.selectVaultFolder(notesUI: notesUI, vaultSync: vaultSync)
@@ -2792,6 +2799,24 @@ private struct VaultConnectionButton: View {
         .buttonStyle(NativeToolbarButtonStyle())
         .help(vaultSync.vaultURL == nil ? "Select Vault" : "Vault Connection")
         .accessibilityLabel(vaultSync.vaultURL == nil ? "Select Vault" : "Vault Connection")
+    }
+
+    @MainActor
+    private func requestVaultDisconnectAuthorization(vaultURL: URL) async {
+        guard !isVaultDisconnectAuthorizationInFlight else { return }
+        isVaultDisconnectAuthorizationInFlight = true
+        defer { isVaultDisconnectAuthorizationInFlight = false }
+
+        let target = NotesSidebarDeletionSovereignGate.Target.vaultDisconnect(name: vaultURL.lastPathComponent)
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            NotesSidebarDeletionSovereignGate.requirement(for: target),
+            reason: NotesSidebarDeletionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }
+
+        VaultConnectionActions.disconnect(notesUI: notesUI, vaultSync: vaultSync)
     }
 }
 

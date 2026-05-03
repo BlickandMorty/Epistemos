@@ -151,3 +151,11 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 32 | 2026-05-02T23:58Z | implementation | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | Epistemos/Views/Settings/AgentControlSettingsView.swift | +1 |
 | 32 | 2026-05-02T23:59Z | test | suite=SovereignGateTests | xcodebuild | session:50880 | done | /tmp/epistemos-sovereign-gate-custom-tool-pr10-green-r2-20260502.log | +1 |
 | 32 | 2026-05-02T23:59Z | guard | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 33 | 2026-05-03T00:04Z | preflight | scope=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_33_2026_05_02.md | +1 |
+| 33 | 2026-05-03T00:04Z | detective | concept=Sovereign Gate Notes Sidebar vault disconnect migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-notes-vault-disconnect-pr11/detectives/sovereign-gate-notes-vault-disconnect.md | +1 |
+| 33 | 2026-05-03T00:04Z | aggregator | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-notes-vault-disconnect-pr11/aggregator.md | +1 |
+| 33 | 2026-05-03T00:04Z | pipeline-builder | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_notes_vault_disconnect_pr11_deliberation_2026_05_02.md | +1 |
+| 33 | 2026-05-03T00:04Z | claude-red-team | brief=sovereign-gate-notes-vault-disconnect-pr11 | claude/print-readonly | session:23712 | done | docs/fusion/fleet/sovereign-gate-notes-vault-disconnect-pr11/claude-red-team/attacks.md | +1 |
+| 33 | 2026-05-03T00:12Z | implementation | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | Epistemos/Views/Notes/NotesSidebar.swift | +1 |
+| 33 | 2026-05-03T00:12Z | test | suite=SovereignGateTests | xcodebuild | session:33252 | done | /tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log | +1 |
+| 33 | 2026-05-03T00:12Z | guard | slice=sovereign-gate-notes-vault-disconnect-pr11 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

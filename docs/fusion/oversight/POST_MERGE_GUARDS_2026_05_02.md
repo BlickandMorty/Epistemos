@@ -172,3 +172,17 @@
 - log: `✔ Test run with 21 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-sovereign-gate-custom-tool-pr10-green-r2-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
 - test: `SovereignGateTests`
+
+## sovereign-gate-notes-vault-disconnect-pr11
+
+- grep: `case vaultDisconnect(name: String)`
+- grep: `requestVaultDisconnectAuthorization(vaultURL:)`
+- grep: `isVaultDisconnectAuthorizationInFlight`
+- grep: `guard vaultSync.vaultURL?.standardizedFileURL == vaultURL.standardizedFileURL else { return }`
+- forbidden grep: `LocalAuthentication|LAContext|LAError|LABiometryType|LAPolicy|canEvaluatePolicy|evaluatePolicy` in `Epistemos/Views/Notes/NotesSidebar.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Sovereign/SovereignGate.swift Epistemos/Views/Notes/ProseEditorRepresentable2.swift Epistemos/Views/Notes/ProseTextView2.swift Epistemos/Views/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- log: `✔ Test "Notes sidebar vault disconnect maps to destructive Sovereign Gate requirements" passed`
+- log: `✔ Test "Notes sidebar vault disconnect routes through Sovereign Gate" passed`
+- log: `✔ Test run with 23 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
+- test: `SovereignGateTests`
