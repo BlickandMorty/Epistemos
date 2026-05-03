@@ -1,5 +1,16 @@
 # Post-Merge Guards - 2026-05-02
 
+## graph-event-trace-inspector-projection-pr9
+
+- grep: `graphProjectionReport|loadTask?.cancel()|GraphEventAuditProjectionService().auditReport(limit: 100)|Graph projection`
+- grep: `nonisolated final class GraphEventAuditProjectionService: @unchecked Sendable`
+- forbidden grep: `saveGraphEvent|saveMutationEnvelope|graphEvents\(|MutationOpLog|OpLog|HaloController|GraphEventVisibilityRow|Timer|DispatchSourceTimer|repeatForever|while !Task\.isCancelled`
+- staged guard: `git diff --cached --name-only -- Epistemos/Views/Graph Epistemos/Graph graph-engine agent_core epistemos-core Epistemos/State/EventStore.swift Epistemos/Models/MutationEnvelope.swift Epistemos/Views/Settings Epistemos.xcodeproj` returns empty.
+- log: `✔ Test "trace inspector exposes read-only GraphEvent projection summary" passed`
+- log: `✔ Test run with 4 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-graph-event-trace-inspector-pr9-green-20260502.log`; Xcode exited 0 and printed `** TEST SUCCEEDED **` after the focused `GraphEventAuditProjectionTests` run.
+- test: `GraphEventAuditProjectionTests`
+
 ## graph-event-audit-visibility-pr8
 
 - grep: `GraphEventAuditProjectionService().auditReport(limit: 100)`
