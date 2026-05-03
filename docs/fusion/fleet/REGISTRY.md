@@ -526,3 +526,16 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 70 | 2026-05-03T14:32Z | implementation | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | Epistemos/Models/AgentProvenanceEvent.swift; EpistemosTests/AgentEventV16ForwardVariantTests.swift | +1 |
 | 70 | 2026-05-03T14:32Z | test-green | scope=agent-event-v16-forward-variants-pr34 | xcodebuild | session:99244 | done | /tmp/epistemos-agent-event-v16-forward-variants-pr34-green-20260503.log | +1 |
 | 70 | 2026-05-03T14:32Z | guard | slice=agent-event-v16-forward-variants-pr34 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 71 | 2026-05-03T14:36Z | explorer | scope=next-agent-event-slice-selection | codex/explorer-agent | agent:019dee43-86fb-74c0-8733-c581aa705f28 | done | transcript | +1 |
+| 71 | 2026-05-03T14:36Z | explorer | scope=next-graph-event-slice-selection | codex/explorer-agent | agent:019dee43-8779-71c1-bcb9-f500068eec28 | done | transcript | +1 |
+| 72 | 2026-05-03T14:42Z | preflight | scope=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_72_2026_05_03.md | +1 |
+| 72 | 2026-05-03T14:43Z | detective | concept=MCPBridge Core tools/call denial AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/mcpbridge-tools-call-denial-provenance-pr35/detectives/mcpbridge-tools-call-denial-provenance.md | +1 |
+| 72 | 2026-05-03T14:43Z | aggregator | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/fleet/mcpbridge-tools-call-denial-provenance-pr35/aggregator.md | +1 |
+| 72 | 2026-05-03T14:43Z | pipeline-builder | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/deliberation/mcpbridge_tools_call_denial_provenance_pr35_deliberation_2026_05_03.md | +1 |
+| 72 | 2026-05-03T14:43Z | codex-red-team | brief=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/fleet/mcpbridge-tools-call-denial-provenance-pr35/claude-red-team/attacks.md | +1 |
+| 72 | 2026-05-03T14:44Z | implementation | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | Epistemos/Omega/MCPBridge.swift; EpistemosTests/MCPBridgeAgentEventTests.swift | +1 |
+| 72 | 2026-05-03T14:45Z | test-red-compile | scope=mcpbridge-tools-call-denial-provenance-pr35 | xcodebuild | session:1022 | failed | /tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-redgreen-20260503.log | +1 |
+| 72 | 2026-05-03T14:45Z | implementation-fix | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | Epistemos/Omega/MCPBridge.swift | +1 |
+| 72 | 2026-05-03T14:50Z | test-green | scope=mcpbridge-tools-call-denial-provenance-pr35 | xcodebuild | session:65490 | done | /tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-green-20260503.log | +1 |
+| 72 | 2026-05-03T14:55Z | test-green-compat | scope=mcpbridge-tools-call-denial-provenance-pr35/tool-schema-grammar | xcodebuild | session:21418 | done | /tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-tool-schema-green-20260503.log | +1 |
+| 72 | 2026-05-03T14:51Z | guard | slice=mcpbridge-tools-call-denial-provenance-pr35 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

@@ -522,6 +522,19 @@ closed:
   steering, helper-model summary streams, multi-vault UI, Rust simulation enum
   variants, Swift stream events, generated bindings, emitters, or EventStore
   schema changes.
+- AgentEvent MCPBridge Core `tools/call` denial provenance PR35 now records
+  sanitized requested/denied AgentEvents when the already-closed Omega Dispatch
+  Core Execution Gate rejects a hidden Pro gateway tool before Rust dispatch.
+  The events use `mcp-bridge-policy-gate` run ids, synthetic
+  `mcp-policy-denial:N` tool-call ids, `mcp_bridge_policy_gate` source
+  metadata, fixed sanitized arguments JSON, nil result JSON, and a generic
+  denial error. Focused tests prove Core denial still returns JSON-RPC
+  `-32601`, Core-safe and Pro/Research calls do not emit policy-denial
+  provenance, and raw request bodies, `params.arguments`, command strings,
+  filesystem paths, result payloads, request ids, localized descriptions, and
+  arbitrary denial text are not persisted. This does not change Rust MCP
+  dispatch, provider behavior, subprocess launchers, UI, graph, EventStore
+  schema, Sovereign, generated bindings, or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1258,7 +1271,8 @@ before building.
   generate provenance PR29, Runtime Contract error-class bridge PR30,
   LocalAgent reflex streaming EOF flush PR31, AgentEvent LocalGGUF direct stream
   provenance PR32, AgentEvent Apple Intelligence direct generate provenance
-  PR33, AgentEvent v1.6 forward vocabulary PR34, durable GraphEvent mutation
+  PR33, AgentEvent v1.6 forward vocabulary PR34, AgentEvent MCPBridge Core
+  `tools/call` denial provenance PR35, durable GraphEvent mutation
   mapping PR1, durable GraphEvent Settings visibility PR2, durable GraphEvent
   projection snapshot PR3, durable GraphEvent projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,

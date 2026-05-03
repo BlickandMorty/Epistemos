@@ -199,6 +199,10 @@ final class MCPBridge {
     /// The Rust-side dispatcher (UniFFI object).
     /// Nil if the database path couldn't be resolved.
     private(set) var dispatcher: McpDispatcher?
+    @ObservationIgnored
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+    @ObservationIgnored
+    private var policyGateToolCallSequence: UInt64 = 0
 
     /// Number of registered tools.
     var toolCount: Int {
@@ -210,7 +214,10 @@ final class MCPBridge {
         Int(dispatcher?.executionCount() ?? 0)
     }
 
-    init() {
+    init(
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder()
+    ) {
+        self.agentProvenanceRecorder = agentProvenanceRecorder
         // Create the SQLite database in Application Support
         let dbPath = Self.executionLogPath()
         dispatcher = McpDispatcher(logDbPath: dbPath)
@@ -262,7 +269,7 @@ final class MCPBridge {
         _ requestJson: String,
         distribution: ToolSurfacePolicy.Distribution = .currentBuild
     ) -> String {
-        if let gateResponse = Self.policyGateResponse(
+        if let gateResponse = policyGateResponse(
             for: requestJson,
             distribution: distribution
         ) {
@@ -271,7 +278,7 @@ final class MCPBridge {
         return dispatcher?.dispatch(requestJson: requestJson) ?? "{\"error\":\"Dispatcher not initialized\"}"
     }
 
-    private static func policyGateResponse(
+    private func policyGateResponse(
         for requestJson: String,
         distribution: ToolSurfacePolicy.Distribution
     ) -> String? {
@@ -295,7 +302,7 @@ final class MCPBridge {
             guard resolvedDistribution != .proResearch || visibleNames != allNames else {
                 return nil
             }
-            return jsonRpcSuccess(
+            return Self.jsonRpcSuccess(
                 id: id,
                 result: [
                     "tools": visibleTools.map(\.planningSchema),
@@ -310,7 +317,11 @@ final class MCPBridge {
                 toolName,
                 distribution: distribution
             ) else {
-                return jsonRpcError(
+                recordToolCallPolicyDenial(
+                    toolName: toolName,
+                    distribution: distribution
+                )
+                return Self.jsonRpcError(
                     id: id,
                     code: -32601,
                     message: "Tool not found: \(toolName)"
@@ -319,6 +330,67 @@ final class MCPBridge {
             return nil
         default:
             return nil
+        }
+    }
+
+    private func recordToolCallPolicyDenial(
+        toolName: String,
+        distribution: ToolSurfacePolicy.Distribution
+    ) {
+        let toolCallID = nextPolicyGateToolCallID()
+        let resolvedDistribution = ToolSurfacePolicy.resolvedDistribution(distribution)
+        let metadata = [
+            "source": "mcp_bridge_policy_gate",
+            "surface": "omega_dispatch",
+            "method": "tools/call",
+            "distribution": Self.policyGateDistributionName(resolvedDistribution),
+            "policy": "tool_surface",
+        ]
+        let argumentsJSON = #"{"method":"tools/call","policy_gate":"tool_surface"}"#
+
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "mcp-bridge-policy-gate",
+            traceID: nil,
+            kind: .toolCallRequested,
+            actor: .system,
+            toolCallID: toolCallID,
+            toolName: toolName,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: metadata
+        )
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: "mcp-bridge-policy-gate",
+            traceID: nil,
+            kind: .toolCallDenied,
+            actor: .system,
+            toolCallID: toolCallID,
+            toolName: toolName,
+            argumentsJSON: argumentsJSON,
+            status: .denied,
+            errorMessage: "Tool is not surfaced for this distribution.",
+            metadata: metadata
+        )
+    }
+
+    private func nextPolicyGateToolCallID() -> String {
+        let sequence = policyGateToolCallSequence
+        if policyGateToolCallSequence < UInt64.max {
+            policyGateToolCallSequence += 1
+        }
+        return "mcp-policy-denial-\(sequence)"
+    }
+
+    private static func policyGateDistributionName(
+        _ distribution: ToolSurfacePolicy.Distribution
+    ) -> String {
+        switch distribution {
+        case .currentBuild:
+            "current_build"
+        case .coreAppStore:
+            "core_app_store"
+        case .proResearch:
+            "pro_research"
         }
     }
 
