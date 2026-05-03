@@ -868,3 +868,15 @@
 - log: `✔ Suite "AgentEvent Bridge No-Double-Count Source Guards" passed`
 - note: focused verification log `/tmp/epistemos-bridge-no-double-count-source-guards-pr44-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
 - test: `AgentEventBridgeNoDoubleCountSourceGuardTests`
+
+## ghost-computer-agent-reachability-guard-pr45
+
+- grep: `GhostComputerAgentReachabilityGuardTests` in `EpistemosTests/GhostComputerAgentReachabilityGuardTests.swift`
+- forbidden route grep: production Swift must not instantiate `GhostComputerAgent(` outside `Epistemos/LocalAgent/GhostComputerAgent.swift`.
+- forbidden adapter grep: production Swift must not call `GhostComputerAgent.mcpSee`, `mcpClick`, `mcpType`, `mcpKeys`, `mcpScroll`, or `mcpScreenshot`.
+- shipping route grep: `Phase4Bridge.swift` and `StreamingDelegate.swift` keep computer-use dispatch on `ComputerUseBridge.shared.execute(actionJSON:)`, while `agent_core/src/agent_loop.rs` keeps `name == "computer"` delegated through the native computer callback.
+- LocalAgent reflex audit: `flushOnStreamEnd()` returns plaintext only, fallback parsing routes tool calls into `executeToolCall`, and Kimi found no requested-without-terminal event path.
+- staged allow: only the PR45 fleet detector, Kimi audit artifact, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this closure commit. Parallel-agent production/test work remains intentionally excluded.
+- log: `✔ Suite "GhostComputerAgent Reachability Guards" passed`
+- note: focused verification log `/tmp/epistemos-ghost-computer-agent-reachability-guard-pr45-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `GhostComputerAgentReachabilityGuardTests`

@@ -1267,6 +1267,20 @@ change production source, EventStore schema, Core/MAS policy, MCP/Hermes
 routing, Sovereign, graph, generated bindings, subprocess surfaces, or
 ANE/private API surfaces.
 
+PR45 AgentEvent GhostComputerAgent reachability guard is also closed.
+`GhostComputerAgentReachabilityGuardTests` now proves production Swift does not
+instantiate `GhostComputerAgent`, does not call its static MCP adapters, and
+keeps the shipping computer-use route on `ComputerUseBridge` from both
+`Phase4Bridge` and `StreamingDelegate` while Rust delegates `name == "computer"`
+through the native computer-action callback. The LocalAgent reflex/EOF
+completion candidate was audited as closed by Kimi: EOF flush is plaintext
+only, fallback parsing still enters `executeToolCall`, and requested tool
+events still reach completed or failed terminal events. If production routing
+ever starts using `GhostComputerAgent`, open a fresh provenance slice first.
+This does not change production source, EventStore schema, Core/MAS policy,
+MCP/Hermes routing, Sovereign, graph, generated bindings, subprocess surfaces,
+or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1402,6 +1416,9 @@ Allowed write set:
   `ClarifyPromptBridge.ask(questionJson:)` only.
 - PR44 Bridge no-double-count source guard: already closed for the four
   intentional no-instrument Bridge surfaces only.
+- PR45 GhostComputerAgent reachability guard: already closed for the no-route
+  source guard only; if production routing starts using `GhostComputerAgent`,
+  open a fresh provenance slice before enabling that path.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
