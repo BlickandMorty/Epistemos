@@ -10,6 +10,12 @@ import FoundationModels
 
 @MainActor
 final class AppleIntelligenceService {
+    typealias SystemPromptResolver = @MainActor (String?) async -> String?
+    typealias ThermalClearance = @MainActor () async throws -> Void
+    typealias ThermalPauseRecorder = @MainActor () async -> Void
+    typealias BreakerExecutor = @MainActor (@escaping @Sendable () async throws -> String) async throws -> String
+    typealias FoundationModelsGenerate = @MainActor (String, String?) async throws -> String
+
     private static let log = Logger(subsystem: "com.epistemos.ai", category: "AppleIntelligenceService")
 
     static let shared = AppleIntelligenceService()
@@ -28,32 +34,136 @@ final class AppleIntelligenceService {
     private var _cachedSessionSystemPrompt: String?
     private var _sessionCreatedAt: Date = .distantPast
     private let knowledgeProfileStore = KnowledgeProfileStore()
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder
+    private let systemPromptResolver: SystemPromptResolver?
+    private let thermalClearance: ThermalClearance
+    private let thermalPauseRecorder: ThermalPauseRecorder
+    private let breakerExecutor: BreakerExecutor
+    private let foundationModelsGenerate: FoundationModelsGenerate?
+    private var generateToolSequence: UInt64 = 0
 
-    private init() {}
+    init(
+        agentProvenanceRecorder: AgentToolProvenanceRecorder = AgentToolProvenanceRecorder(),
+        systemPromptResolver: SystemPromptResolver? = nil,
+        thermalClearance: @escaping ThermalClearance = {
+            try await ThermalGuard.shared.acquireClearance()
+        },
+        thermalPauseRecorder: @escaping ThermalPauseRecorder = {
+            BreakerRegistry.shared.foundationModels.recordThermalPause()
+        },
+        breakerExecutor: @escaping BreakerExecutor = { work in
+            try await BreakerRegistry.shared.foundationModels.execute(work)
+        },
+        foundationModelsGenerate: FoundationModelsGenerate? = nil
+    ) {
+        self.agentProvenanceRecorder = agentProvenanceRecorder
+        self.systemPromptResolver = systemPromptResolver
+        self.thermalClearance = thermalClearance
+        self.thermalPauseRecorder = thermalPauseRecorder
+        self.breakerExecutor = breakerExecutor
+        self.foundationModelsGenerate = foundationModelsGenerate
+    }
 
     func generate(prompt: String, systemPrompt: String? = nil) async throws -> String {
-        let breaker = BreakerRegistry.shared.foundationModels
-        let resolvedSystemPrompt = await knowledgeAwareSystemPrompt(from: systemPrompt)
+        let resolvedSystemPrompt: String?
+        if let systemPromptResolver {
+            resolvedSystemPrompt = await systemPromptResolver(systemPrompt)
+        } else {
+            resolvedSystemPrompt = await knowledgeAwareSystemPrompt(from: systemPrompt)
+        }
+        let provenance = makeGenerateProvenanceContext(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            resolvedSystemPrompt: resolvedSystemPrompt
+        )
+        let lifecycleStart = DispatchTime.now()
+
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallRequested,
+            status: .requested
+        )
+        recordGenerateAgentEvent(
+            provenance,
+            kind: .toolCallStarted,
+            status: .started
+        )
 
         // Thermal clearance: park if thermal pressure is high, cancel if critical.
         // ThermalError is distinct from inference failure — the breaker's
         // isNeutral() classification handles this automatically.
         do {
-            try await ThermalGuard.shared.acquireClearance()
-        } catch let error as ThermalError {
-            await breaker.recordThermalPause()
+            try await thermalClearance()
+        } catch {
+            if error is ThermalError {
+                await thermalPauseRecorder()
+            }
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.generateFailureClass(for: error)
+            var failedMetadata = provenance.metadata
+            failedMetadata["failure_class"] = failureClass.rawValue
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallFailed,
+                resultJSON: Self.generateResultJSON(
+                    success: false,
+                    elapsedMs: elapsedMs,
+                    outputCharacterCount: 0
+                ),
+                durationMs: elapsedMs,
+                status: .failed,
+                errorMessage: failureClass.rawValue,
+                metadata: failedMetadata
+            )
             throw error
         }
 
         // Route through the FoundationModels circuit breaker.
         // execute<T>() handles: open rejection, success/failure recording,
         // neutral error classification (thermal, cancellation, context exhaustion).
-        return try await breaker.execute {
-            if #available(macOS 26.0, *) {
-                return try await self.generateWithFoundationModels(prompt: prompt, systemPrompt: resolvedSystemPrompt)
-            } else {
-                throw AppleIntelligenceError.unavailable("Apple Intelligence requires macOS 26 or later.")
+        do {
+            let output = try await breakerExecutor { [self] in
+                if let foundationModelsGenerate = self.foundationModelsGenerate {
+                    return try await foundationModelsGenerate(prompt, resolvedSystemPrompt)
+                }
+                if #available(macOS 26.0, *) {
+                    return try await self.generateWithFoundationModels(prompt: prompt, systemPrompt: resolvedSystemPrompt)
+                } else {
+                    throw AppleIntelligenceError.unavailable("Apple Intelligence requires macOS 26 or later.")
+                }
             }
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallCompleted,
+                resultJSON: Self.generateResultJSON(
+                    success: true,
+                    elapsedMs: elapsedMs,
+                    outputCharacterCount: output.count
+                ),
+                durationMs: elapsedMs,
+                status: .completed
+            )
+            return output
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.generateFailureClass(for: error)
+            var failedMetadata = provenance.metadata
+            failedMetadata["failure_class"] = failureClass.rawValue
+            recordGenerateAgentEvent(
+                provenance,
+                kind: .toolCallFailed,
+                resultJSON: Self.generateResultJSON(
+                    success: false,
+                    elapsedMs: elapsedMs,
+                    outputCharacterCount: 0
+                ),
+                durationMs: elapsedMs,
+                status: .failed,
+                errorMessage: failureClass.rawValue,
+                metadata: failedMetadata
+            )
+            throw error
         }
     }
 
@@ -181,6 +291,142 @@ final class AppleIntelligenceService {
         guard let systemPrompt else { return nil }
         let trimmed = systemPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private struct GenerateProvenanceContext {
+        let runID: String
+        let actor: AgentProvenanceActor
+        let toolCallID: String
+        let argumentsJSON: String
+        let metadata: [String: String]
+    }
+
+    private enum GenerateFailureClass: String {
+        case unavailable
+        case thermalPause = "thermal_pause"
+        case cancelled
+        case generationFailed = "generation_failed"
+    }
+
+    private func makeGenerateProvenanceContext(
+        prompt: String,
+        systemPrompt: String?,
+        resolvedSystemPrompt: String?
+    ) -> GenerateProvenanceContext {
+        let metadata = Self.generateMetadata(
+            prompt: prompt,
+            systemPrompt: systemPrompt,
+            resolvedSystemPrompt: resolvedSystemPrompt
+        )
+        return GenerateProvenanceContext(
+            runID: "apple-intelligence-generate-\(UUID().uuidString.uppercased())",
+            actor: .agent(id: "apple-intelligence-service", modelID: nil),
+            toolCallID: nextGenerateToolCallID(),
+            argumentsJSON: Self.generateArgumentsJSON(
+                prompt: prompt,
+                systemPrompt: systemPrompt,
+                resolvedSystemPrompt: resolvedSystemPrompt
+            ),
+            metadata: metadata
+        )
+    }
+
+    private func nextGenerateToolCallID() -> String {
+        generateToolSequence += 1
+        return "apple-intelligence-generate:\(generateToolSequence)"
+    }
+
+    private func recordGenerateAgentEvent(
+        _ context: GenerateProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        agentProvenanceRecorder.recordToolEvent(
+            runID: context.runID,
+            traceID: nil,
+            kind: kind,
+            actor: context.actor,
+            toolCallID: context.toolCallID,
+            toolName: "apple_intelligence.generate",
+            argumentsJSON: context.argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata ?? context.metadata
+        )
+    }
+
+    private nonisolated static func generateArgumentsJSON(
+        prompt: String,
+        systemPrompt: String?,
+        resolvedSystemPrompt: String?
+    ) -> String {
+        generateAgentJSON([
+            "augmented_system_prompt_present": resolvedSystemPrompt != systemPrompt,
+            "prompt_char_count": prompt.count,
+            "provider": "apple_intelligence",
+            "resolved_system_prompt_char_count": resolvedSystemPrompt?.count ?? 0,
+            "system_prompt_char_count": systemPrompt?.count ?? 0
+        ])
+    }
+
+    private nonisolated static func generateMetadata(
+        prompt: String,
+        systemPrompt: String?,
+        resolvedSystemPrompt: String?
+    ) -> [String: String] {
+        [
+            "augmented_system_prompt_present": "\(resolvedSystemPrompt != systemPrompt)",
+            "prompt_char_count": "\(prompt.count)",
+            "provider": "apple_intelligence",
+            "resolved_system_prompt_char_count": "\(resolvedSystemPrompt?.count ?? 0)",
+            "source": "apple_intelligence_service",
+            "surface": "generate",
+            "system_prompt_char_count": "\(systemPrompt?.count ?? 0)"
+        ]
+    }
+
+    private nonisolated static func generateResultJSON(
+        success: Bool,
+        elapsedMs: UInt64,
+        outputCharacterCount: Int
+    ) -> String {
+        generateAgentJSON([
+            "elapsed_ms": elapsedMs,
+            "output_char_count": outputCharacterCount,
+            "success": success
+        ])
+    }
+
+    private nonisolated static func generateAgentJSON(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return json
+    }
+
+    private nonisolated static func elapsedMilliseconds(since start: DispatchTime) -> UInt64 {
+        (DispatchTime.now().uptimeNanoseconds &- start.uptimeNanoseconds) / 1_000_000
+    }
+
+    private nonisolated static func generateFailureClass(for error: Error) -> GenerateFailureClass {
+        if error is ThermalError {
+            return .thermalPause
+        }
+        if error is CancellationError {
+            return .cancelled
+        }
+        if error is AppleIntelligenceError {
+            return .unavailable
+        }
+        return .generationFailed
     }
 
     /// Summarize transcript using a separate session to preserve context continuity.

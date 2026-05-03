@@ -1103,6 +1103,26 @@ Rust, generated bindings, and EventStore schema. Focused `LocalGGUFClientTests`
 pass under `pipefail` with isolated DerivedData after stale Xcode build
 processes were cleaned up.
 
+PR33 Apple Intelligence direct generate provenance is also closed.
+`AppleIntelligenceService.generate(...)` now records direct Apple Intelligence
+generation requested, started, and completed/failed AgentEvents with
+`apple-intelligence-generate-...` run ids, `apple-intelligence-service` actor
+metadata, per-service `apple-intelligence-generate:N` tool call ids,
+`apple_intelligence.generate` tool name, `source=apple_intelligence_service`,
+`surface=generate`, `provider=apple_intelligence`, prompt/system/resolved
+system prompt character counts, augmented-system-prompt presence, elapsed
+milliseconds, output character count, success boolean, and bounded
+`unavailable|thermal_pause|cancelled|generation_failed` failure classes.
+Persisted provenance excludes prompt text, system prompts, augmented vault
+context, generated output, localized descriptions, arbitrary backend error
+text, Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
+LocalAuthentication, and ANE/private API details. Source and behavior stay away
+from FoundationModels routing, thermal guard behavior, circuit-breaker
+behavior, session recycling, prompt-vault augmentation, availability checks,
+UI, graph, Rust, generated bindings, and EventStore schema. Focused
+`AppleIntelligenceServiceAgentEventTests` pass under `pipefail` with isolated
+DerivedData after the expected red failure proved the missing test seam.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1215,6 +1235,8 @@ Allowed write set:
   `LocalBackendLLMClient.generate(...)` only.
 - PR32 LocalGGUF direct stream provenance: already closed for
   `LocalGGUFClient.stream(...)` only.
+- PR33 Apple Intelligence direct generate provenance: already closed for
+  `AppleIntelligenceService.generate(...)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
@@ -1628,6 +1650,18 @@ Acceptance:
   descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
   browser/computer-use surfaces, LocalAuthentication, and ANE/private API
   details are not persisted in AgentEvent arguments/results/errors.
+- PR33 wired/reachable/visible: Direct `AppleIntelligenceService.generate(...)`
+  emits requested, started, and completed/failed AgentEvents with non-empty run
+  id, per-service tool call id, actor, source/surface/provider metadata,
+  prompt/system/resolved-system prompt character counts,
+  augmented-system-prompt presence, elapsed milliseconds, output character
+  count, success boolean, and bounded
+  `unavailable|thermal_pause|cancelled|generation_failed` failure classes.
+  Tests prove prompt text, system prompts, augmented vault context, generated
+  output, localized descriptions, arbitrary backend error text,
+  Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
+  LocalAuthentication, and ANE/private API details are not persisted in
+  AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

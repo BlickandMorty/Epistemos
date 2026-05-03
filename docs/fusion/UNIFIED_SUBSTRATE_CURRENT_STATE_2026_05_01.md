@@ -495,6 +495,24 @@ closed:
   excluded from persisted provenance. This does not change GGUF generation,
   model loading, runtime control-plane policy, UI, graph, Rust, generated
   bindings, or EventStore schema.
+- AgentEvent PR33 now instruments direct `AppleIntelligenceService.generate(...)`
+  calls without changing FoundationModels routing, thermal guard behavior,
+  circuit-breaker behavior, session recycling, prompt-vault augmentation,
+  availability checks, UI, graph, Rust, generated bindings, or EventStore
+  schema. Valid Apple Intelligence generation requests persist requested,
+  started, and completed/failed AgentEvents with
+  `apple-intelligence-generate-...` run ids, per-service
+  `apple-intelligence-generate:N` tool ids, `apple-intelligence-service` actor
+  metadata, `apple_intelligence.generate` tool name,
+  `source=apple_intelligence_service`, `surface=generate`,
+  `provider=apple_intelligence`, prompt/system/resolved-system prompt character
+  counts, augmented-system-prompt presence, elapsed milliseconds, output
+  character count, success boolean, and bounded
+  `unavailable|thermal_pause|cancelled|generation_failed` failure classes.
+  Prompt text, system prompts, augmented vault context, generated output,
+  localized descriptions, arbitrary backend error text, Hermes/MCP/subprocess
+  surfaces, browser/computer-use surfaces, LocalAuthentication, and ANE/private
+  API details are intentionally excluded from persisted provenance.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1230,7 +1248,8 @@ before building.
   LocalMLX direct stream provenance PR28, AgentEvent LocalBackend direct
   generate provenance PR29, Runtime Contract error-class bridge PR30,
   LocalAgent reflex streaming EOF flush PR31, AgentEvent LocalGGUF direct stream
-  provenance PR32, durable GraphEvent mutation mapping PR1, durable GraphEvent Settings
+  provenance PR32, AgentEvent Apple Intelligence direct generate provenance
+  PR33, durable GraphEvent mutation mapping PR1, durable GraphEvent Settings
   visibility PR2, durable GraphEvent projection snapshot PR3, durable GraphEvent
   projection consumer PR4, durable GraphEvent
   Settings projection visibility PR5, durable GraphEvent audit projection PR6,
@@ -1464,6 +1483,7 @@ AgentEvent LocalBackend direct generate provenance PR29,
 Runtime Contract error-class bridge PR30,
 LocalAgent reflex streaming EOF flush PR31,
 AgentEvent LocalGGUF direct stream provenance PR32,
+AgentEvent Apple Intelligence direct generate provenance PR33,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings
@@ -1498,7 +1518,8 @@ paths, AgentGrep search, AgentQueryEngine backend streams, InstantRecall
 sync/async recall search, ShadowSearch backend search, and SearchIndex fused
 async/sync RRF, direct page, block search, and MLX image-generation attempt
 plus LocalGGUF non-streaming generate and stream, LocalBackend generate and
-stream, and direct LocalMLX generate and stream surfaces,
+stream, direct LocalMLX generate and stream, and Apple Intelligence direct
+generate surfaces,
 Sovereign Gate Rust/transport/additional-surface
 follow-through, remaining
 R15 specialized baselines, R16 runtime/manual closure, or Halo runtime/manual

@@ -655,3 +655,24 @@
 - log: `✘ Test "gguf client stream records sanitized AgentEvents" failed` in `/tmp/epistemos-agent-event-local-gguf-stream-pr32-red2-20260503.log` before implementation because no direct stream AgentEvents were recorded.
 - log: focused verification log `/tmp/epistemos-agent-event-local-gguf-stream-pr32-green4-20260503.log`; Xcode exited `0` under `pipefail` with isolated DerivedData at `/tmp/epistemos-dd-pr32`. The earlier rerun logs exposed stale Xcode build database contention, not a code failure, and stale build processes were cleaned up before the isolated pass.
 - test: `LocalGGUFClientTests`
+
+## agent-event-apple-intelligence-generate-pr33
+
+- grep: `toolName: "apple_intelligence.generate"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `runID: "apple-intelligence-generate-` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `return "apple-intelligence-generate:\(generateToolSequence)"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `AgentProvenanceActor.agent(id: "apple-intelligence-service", modelID: nil)` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `"source": "apple_intelligence_service"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `"surface": "generate"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `"provider": "apple_intelligence"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `"augmented_system_prompt_present"` in `Epistemos/Engine/AppleIntelligenceService.swift`
+- grep: `generateRecordsSanitizedAgentEvents` in `EpistemosTests/AppleIntelligenceServiceAgentEventTests.swift`
+- grep: `generateRecordsSanitizedFailedAgentEvent` in `EpistemosTests/AppleIntelligenceServiceAgentEventTests.swift`
+- forbidden source grep: `Hermes|MCP|browser|computer|LAContext|LocalAuthentication|_ANEClient|EventStore|GraphEvent|OpLog|subprocess|Process\(` in PR33 staged source/test hunks returns no matches.
+- forbidden zero-copy/single-binary grep: `memcpy|memmove|\.copyMemory|Data\(bytes:|\.withUnsafeBytes.*copy|storageModeManaged|storageModePrivate|Process\(\)|swift-subprocess|Foundation\.Process|std::process::Command` in PR33 staged source/test hunks returns no matches.
+- forbidden metadata grep: prompt text, system prompt text, augmented vault context, generated output, localized descriptions, arbitrary backend error text, Hermes, MCP, subprocesses, browser/computer-use surfaces, LocalAuthentication, and ANE/private API details are not persisted in AgentEvent JSON.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Engine/AppleIntelligenceService.swift`, `EpistemosTests/AppleIntelligenceServiceAgentEventTests.swift`, Round 65 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✘ Test "Apple Intelligence generate records sanitized AgentEvents" failed` in `/tmp/epistemos-agent-event-apple-intelligence-generate-pr33-red-20260503.log` before implementation because `AppleIntelligenceService` still exposed only its private no-argument initializer.
+- log: focused verification log `/tmp/epistemos-agent-event-apple-intelligence-generate-pr33-green-r3-20260503.log`; Xcode exited `0` under `pipefail` with isolated DerivedData at `/tmp/epistemos-dd-pr33`.
+- test: `AppleIntelligenceServiceAgentEventTests`
