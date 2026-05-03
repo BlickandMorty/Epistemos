@@ -257,3 +257,18 @@
 - log: `✔ Test run with 13 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `HermesGatewayPolicyTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
 - test: `HermesGatewayPolicyTests`
+
+## tool-surface-policy-core-mas-pr1
+
+- grep: `coreAppStoreAllowedToolNames`
+- grep: `isCoreAppStoreBuild`
+- grep: `APP_SANDBOX_CONTAINER_ID`
+- grep: `route_private` must not appear in `Epistemos/Bridge/ToolTierBridge.swift`
+- grep: `sandboxEnvironmentForcesCoreAppStorePolicy`
+- forbidden grep: `Process\(\)|Foundation\.Process|URLSession|MCPBridge|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy|CloudLLMClient|CloudProviderAuthService|LLMService|TriageService` in `Epistemos/Bridge/ToolTierBridge.swift` and `EpistemosTests/ToolSurfacePolicyTests.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Engine Epistemos/Omega Epistemos/Views Epistemos/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- log: `✔ Test "coreAppStoreHiddenGatewayToolsDisappearFromVisibleToolSurfaces()" passed`
+- log: `✔ Test "sandboxEnvironmentForcesCoreAppStorePolicy()" passed`
+- log: `✔ Test run with 7 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `ToolSurfacePolicyTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `ToolSurfacePolicyTests`

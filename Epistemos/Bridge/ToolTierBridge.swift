@@ -2,16 +2,50 @@ import Foundation
 import os
 
 nonisolated enum ToolSurfacePolicy {
+    enum Distribution {
+        case currentBuild
+        case coreAppStore
+        case proResearch
+    }
+
+    static let coreAppStoreAllowedToolNames: Set<String> = [
+        "vault_search",
+        "vault_read",
+        "vault_write",
+        "read_file",
+        "write_file",
+        "patch",
+        "search_files",
+        "todo",
+        "graph_query",
+        "memory",
+        "web_search",
+        "web_extract",
+        "web_crawl",
+    ]
+
     /// User-facing tool surfaces must stay aligned with the runtime contract.
     /// If the app cannot actually satisfy a capability today, the tool should
     /// disappear from visible planning surfaces instead of being advertised and
     /// then failing at runtime.
-    static func surfacedTools(_ tools: [OmegaToolDefinition]) -> [OmegaToolDefinition] {
-        tools.filter { isSurfacedToolName($0.name) }
+    static func surfacedTools(
+        _ tools: [OmegaToolDefinition],
+        distribution: Distribution = .currentBuild
+    ) -> [OmegaToolDefinition] {
+        tools.filter { isSurfacedToolName($0.name, distribution: distribution) }
     }
 
-    static func isSurfacedToolName(_ toolName: String) -> Bool {
-        switch toolName {
+    static func isSurfacedToolName(
+        _ toolName: String,
+        distribution: Distribution = .currentBuild
+    ) -> Bool {
+        let canonicalToolName = toolName.lowercased()
+        if resolvedDistribution(distribution) == .coreAppStore,
+           !coreAppStoreAllowedToolNames.contains(canonicalToolName) {
+            return false
+        }
+
+        switch canonicalToolName {
         case "think":
             return false
         case "image_generate":
@@ -21,6 +55,27 @@ nonisolated enum ToolSurfacePolicy {
         default:
             return true
         }
+    }
+
+    private static func resolvedDistribution(_ distribution: Distribution) -> Distribution {
+        if isCoreAppStoreBuild {
+            return .coreAppStore
+        }
+
+        switch distribution {
+        case .currentBuild:
+            return .proResearch
+        case .coreAppStore, .proResearch:
+            return distribution
+        }
+    }
+
+    private static var isCoreAppStoreBuild: Bool {
+        #if EPISTEMOS_APP_STORE || MAS_SANDBOX
+        return true
+        #else
+        return ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
+        #endif
     }
 }
 
