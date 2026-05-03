@@ -75,8 +75,25 @@ struct TrainingHistoryView: View {
                 .disabled(adapter.isActive)
             Button("Export") { exportAdapter(adapter) }
             Divider()
-            Button("Delete", role: .destructive) { Task { await vm.deleteAdapter(adapter) } }
+            Button("Delete", role: .destructive) {
+                Task { @MainActor in
+                    await requestAdapterDeleteAuthorization(adapter)
+                }
+            }
         }
+    }
+
+    @MainActor
+    private func requestAdapterDeleteAuthorization(_ adapter: AdapterRecord) async {
+        let target = KnowledgeFusionAdapterDeletionSovereignGate.adapter(name: adapter.name)
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            KnowledgeFusionAdapterDeletionSovereignGate.requirement(for: target),
+            reason: KnowledgeFusionAdapterDeletionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+
+        await vm.deleteAdapter(adapter)
     }
 
     @ViewBuilder

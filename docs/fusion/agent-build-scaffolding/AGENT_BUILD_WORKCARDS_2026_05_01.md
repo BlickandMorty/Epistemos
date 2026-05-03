@@ -2326,6 +2326,16 @@ in flight, rechecks that the active vault URL still matches the captured URL
 after approval, and does not edit `SovereignGate.swift`, duplicate
 `LocalAuthentication`, alter vault disconnect semantics, or touch
 Rust/generated/graph/Omega/ChatCoordinator.
+Knowledge Fusion Adapter Delete PR17 is also closed.
+`Epistemos/KnowledgeFusion/UI/TrainingHistoryView.swift` routes the existing
+Training History adapter context-menu `Delete` action through the shared
+`AppBootstrap` `SovereignGate` with `.deviceOwnerAuthentication` before calling
+the original `KnowledgeFusionViewModel.deleteAdapter(_:)` helper. The slice
+denies safely when the shared gate is unavailable, preserves the original
+adapter registry/delete semantics after `.allowed`, and does not edit
+`SovereignGate.swift`, duplicate `LocalAuthentication`, alter Knowledge Fusion
+training history behavior outside the destructive delete action, or touch
+Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
