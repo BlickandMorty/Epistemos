@@ -619,4 +619,4 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 85 | 2026-05-03T17:33Z | test-green | scope=bridge-no-double-count-source-guards-pr44 | xcodebuild | session:61849 | done | /tmp/epistemos-bridge-no-double-count-source-guards-pr44-green-20260503.log | +1 |
 | 85 | 2026-05-03T17:33Z | guard | slice=bridge-no-double-count-source-guards-pr44 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
 | 86 | 2026-05-03T17:35Z | claude-desktop-side-fleet | scope=omega-localagent-agent-event-inventory-pr45 | claude-desktop | pid:89660 | done | docs/fusion/fleet/omega-localagent-agent-event-inventory-pr45/claude-side-fleet/OMEGA_LOCALAGENT_AGENT_EVENT_INVENTORY_2026_05_03.md | +1 |
-| 86 | 2026-05-03T17:38Z | kimi-code-parallel-builder | scope=tool-surface-behavioral-matrix-tests | antigravity/kimi-k2.6 | pid:97853 | running | EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift | pending |
+| 86 | 2026-05-03T17:38Z | kimi-code-parallel-builder | scope=tool-surface-behavioral-matrix-tests | antigravity/kimi-k2.6 | pid:97853 | done | EpistemosTests/ToolSurfaceBehavioralMatrixTests.swift | +1 |
