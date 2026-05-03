@@ -266,6 +266,7 @@ final class CloudProviderAuthService {
     private let urlSession: URLSession
     private let openAISignInTimeout: Duration
     private let googleSignInTimeout: Duration
+    private let agentProvenanceRecorder: AgentToolProvenanceRecorder?
 
     init(
         keychainLoad: @escaping @Sendable (String) -> String? = { Keychain.load(for: $0) },
@@ -275,7 +276,8 @@ final class CloudProviderAuthService {
         keychainDelete: @escaping @Sendable (String) -> Void = { Keychain.delete(for: $0) },
         urlSession: URLSession = .shared,
         openAISignInTimeout: Duration = .seconds(90),
-        googleSignInTimeout: Duration = .seconds(90)
+        googleSignInTimeout: Duration = .seconds(90),
+        agentProvenanceRecorder: AgentToolProvenanceRecorder? = AgentToolProvenanceRecorder()
     ) {
         self.keychainLoad = keychainLoad
         self.keychainSave = keychainSave
@@ -283,6 +285,7 @@ final class CloudProviderAuthService {
         self.urlSession = urlSession
         self.openAISignInTimeout = openAISignInTimeout
         self.googleSignInTimeout = googleSignInTimeout
+        self.agentProvenanceRecorder = agentProvenanceRecorder
     }
 
     func storedOAuthCredential(for provider: CloudModelProvider) -> CloudProviderOAuthCredential? {
@@ -492,14 +495,156 @@ final class CloudProviderAuthService {
     ) async throws -> CloudProviderOAuthCredential {
         guard credential.isExpiredOrExpiringSoon else { return credential }
 
-        switch credential.authMode {
-        case .openAICodex:
-            return try await refreshOpenAICredential(credential)
-        case .googleGemini:
-            return try await refreshGoogleCredential(credential)
-        case .anthropicClaudeCode:
-            return try await refreshAnthropicCredential(credential)
+        let toolCallID = Self.oauthRefreshToolCallID(for: credential.provider)
+        let startedAt = Date()
+        recordOAuthRefreshEvent(
+            toolCallID: toolCallID,
+            kind: .toolCallRequested,
+            status: .requested,
+            credential: credential
+        )
+
+        do {
+            let refreshed: CloudProviderOAuthCredential
+            switch credential.authMode {
+            case .openAICodex:
+                refreshed = try await refreshOpenAICredential(credential)
+            case .googleGemini:
+                refreshed = try await refreshGoogleCredential(credential)
+            case .anthropicClaudeCode:
+                refreshed = try await refreshAnthropicCredential(credential)
+            }
+            recordOAuthRefreshEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallCompleted,
+                status: .completed,
+                credential: credential,
+                refreshedCredential: refreshed,
+                durationMs: Self.durationMilliseconds(since: startedAt)
+            )
+            return refreshed
+        } catch {
+            recordOAuthRefreshEvent(
+                toolCallID: toolCallID,
+                kind: .toolCallFailed,
+                status: .failed,
+                credential: credential,
+                durationMs: Self.durationMilliseconds(since: startedAt),
+                failureClass: Self.oauthRefreshFailureClass(error),
+                errorMessage: "OAuth token refresh failed."
+            )
+            throw error
         }
+    }
+
+    private func recordOAuthRefreshEvent(
+        toolCallID: String,
+        kind: AgentProvenanceEventKind,
+        status: AgentToolEventStatus,
+        credential: CloudProviderOAuthCredential,
+        refreshedCredential: CloudProviderOAuthCredential? = nil,
+        durationMs: UInt64? = nil,
+        failureClass: String? = nil,
+        errorMessage: String? = nil
+    ) {
+        guard let agentProvenanceRecorder else { return }
+
+        var metadata = [
+            "source": "cloud_provider_auth_service",
+            "surface": "oauth_token_refresh",
+            "provider": credential.provider.rawValue,
+            "auth_mode": credential.authMode.rawValue,
+        ]
+        if let failureClass {
+            metadata["failure_class"] = failureClass
+        }
+
+        _ = agentProvenanceRecorder.recordToolEvent(
+            runID: Self.oauthRefreshRunID(for: credential.provider),
+            traceID: nil,
+            kind: kind,
+            actor: .agent(id: "cloud-provider-auth-service", modelID: nil),
+            toolCallID: toolCallID,
+            toolName: "auth.token.refreshed",
+            argumentsJSON: Self.oauthRefreshArgumentsJSON(for: credential),
+            resultJSON: refreshedCredential.map { Self.oauthRefreshResultJSON(before: credential, after: $0) },
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private nonisolated static func oauthRefreshRunID(for provider: CloudModelProvider) -> String {
+        "auth-token-refresh-\(provider.rawValue)"
+    }
+
+    private nonisolated static func oauthRefreshToolCallID(for provider: CloudModelProvider) -> String {
+        "auth-token-refresh:\(provider.rawValue)"
+    }
+
+    private nonisolated static func oauthRefreshArgumentsJSON(
+        for credential: CloudProviderOAuthCredential
+    ) -> String {
+        var payload: [String: Any] = [
+            "provider": credential.provider.rawValue,
+            "auth_mode": credential.authMode.rawValue,
+            "previous_token_fingerprint": tokenFingerprint(credential.accessToken),
+        ]
+        if let previousExpiresAt = iso8601String(credential.effectiveExpiration) {
+            payload["previous_expires_at"] = previousExpiresAt
+        }
+        return sortedJSONString(payload)
+    }
+
+    private nonisolated static func oauthRefreshResultJSON(
+        before credential: CloudProviderOAuthCredential,
+        after refreshedCredential: CloudProviderOAuthCredential
+    ) -> String {
+        var payload: [String: Any] = [
+            "provider": refreshedCredential.provider.rawValue,
+            "auth_mode": refreshedCredential.authMode.rawValue,
+            "refresh_token_rotated": credential.refreshToken != refreshedCredential.refreshToken,
+        ]
+        if let newExpiresAt = iso8601String(refreshedCredential.effectiveExpiration) {
+            payload["new_expires_at"] = newExpiresAt
+        }
+        return sortedJSONString(payload)
+    }
+
+    private nonisolated static func tokenFingerprint(_ token: String) -> String {
+        let digest = SHA256.hash(data: Data(token.utf8))
+        return digest.prefix(4).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private nonisolated static func sortedJSONString(_ payload: [String: Any]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
+    }
+
+    private nonisolated static func iso8601String(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        return ISO8601DateFormatter().string(from: date)
+    }
+
+    private nonisolated static func durationMilliseconds(since startedAt: Date) -> UInt64 {
+        let milliseconds = Date().timeIntervalSince(startedAt) * 1_000
+        guard milliseconds.isFinite, milliseconds >= 0 else { return 0 }
+        return UInt64(milliseconds.rounded())
+    }
+
+    private nonisolated static func oauthRefreshFailureClass(_ error: Error) -> String {
+        if error is CloudProviderAuthError {
+            return "CloudProviderAuthError"
+        }
+        if error is URLError {
+            return "URLError"
+        }
+        return String(describing: type(of: error))
     }
 
     private func refreshOpenAICredential(

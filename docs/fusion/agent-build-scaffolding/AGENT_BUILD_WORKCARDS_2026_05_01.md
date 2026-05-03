@@ -1290,6 +1290,17 @@ route stays on `ComputerUseBridge`; `ProductionHardeningTests` no longer expects
 the deleted file to be present as an App Store-excluded wrapper. Reintroducing a
 GhostComputerAgent-style path requires a new provenance deliberation first.
 
+PR47 OAuth token refresh AgentEvent provenance is also closed.
+`CloudProviderAuthService` now records `auth.token.refreshed`
+requested/completed/failed events around silent expired/expiring OAuth refresh.
+The persisted payload is bounded to provider, auth mode, old-token SHA-256
+fingerprint prefix, expiry timestamps, refresh-token rotation boolean, scalar
+duration, and sanitized failure class. `CloudProviderAuthServiceRefreshAgentEventTests`
+prove access tokens, refresh tokens, client secrets, raw provider responses, and
+raw provider error payloads are not stored in AgentEvents. This is audit
+visibility only; it adds no Touch ID prompt and no Sovereign route for silent
+background refresh.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1428,6 +1439,8 @@ Allowed write set:
 - PR45 GhostComputerAgent reachability guard: already closed for the no-route
   source guard only; if production routing starts using `GhostComputerAgent`,
   open a fresh provenance slice before enabling that path.
+- PR47 OAuth token refresh AgentEvent provenance: already closed for silent
+  expired/expiring credential refresh only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay

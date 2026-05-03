@@ -661,6 +661,17 @@ closed:
   an App Store-excluded wrapper. This does not change production routing,
   EventStore schema, Core/MAS policy, MCP/Hermes routing, Sovereign, graph,
   generated bindings, subprocess surfaces, or ANE/private API surfaces.
+- AgentEvent OAuth token refresh PR47 is now closed. `CloudProviderAuthService`
+  emits sanitized `auth.token.refreshed` requested/completed/failed events only
+  when an expired or expiring OAuth credential is silently refreshed. Persisted
+  rows include provider, auth mode, old-token SHA-256 fingerprint prefix,
+  previous/new expiry timestamps, refresh-token rotation boolean, bounded
+  duration, and sanitized failure class; focused tests prove access tokens,
+  refresh tokens, client secrets, raw provider responses, and raw error payloads
+  are not persisted. This does not add a Touch ID prompt, Sovereign route,
+  sign-in/sign-out behavior change, Core/MAS tool policy change, MCP/Hermes
+  routing change, graph change, generated binding change, subprocess surface,
+  or ANE/private API surface.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1423,7 +1434,7 @@ before building.
   AgentEvent Phase4 interact provenance PR41, AgentEvent Phase4 screen_watch
   provenance PR42, AgentEvent ClarifyPromptBridge provenance PR43, AgentEvent
   Bridge no-double-count source guard PR44, AgentEvent GhostComputerAgent
-  reachability guard PR45,
+  reachability guard PR45, AgentEvent OAuth token refresh PR47,
   durable GraphEvent mutation mapping PR1,
   durable GraphEvent Settings visibility PR2,
   durable GraphEvent projection snapshot PR3, durable GraphEvent projection
@@ -1498,7 +1509,7 @@ are:
   AgentEvent PR28, AgentEvent PR29, Runtime Contract PR30, AgentEvent PR32,
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
   AgentEvent PR39, AgentEvent PR40, AgentEvent PR41, AgentEvent PR42,
-  AgentEvent PR43, AgentEvent PR44, AgentEvent PR45,
+  AgentEvent PR43, AgentEvent PR44, AgentEvent PR45, AgentEvent PR47,
   GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
