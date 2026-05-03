@@ -682,6 +682,19 @@ struct SovereignGateTests {
         #expect(reason.localizedCaseInsensitiveContains("delete saved data"))
     }
 
+    @Test("Settings saved workspace delete maps to destructive Sovereign Gate requirements")
+    func settingsSavedWorkspaceDeleteMapsToDestructiveSovereignGateRequirements() {
+        #expect(
+            SettingsViewDestructiveActionSovereignGate.requirement(for: .savedWorkspace(name: "Research Sprint"))
+                == .deviceOwnerAuthentication
+        )
+
+        let reason = SettingsViewDestructiveActionSovereignGate.reason(for: .savedWorkspace(name: "Research Sprint"))
+
+        #expect(reason.contains("Research Sprint"))
+        #expect(reason.localizedCaseInsensitiveContains("delete saved workspace"))
+    }
+
     @Test("Settings reset everything alert routes through Sovereign Gate")
     func settingsResetEverythingAlertRoutesThroughSovereignGate() throws {
         let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
@@ -716,6 +729,50 @@ struct SovereignGateTests {
         #expect(request.contains("?? .denied(.authenticationFailed)"))
         #expect(request.contains("guard outcome == .allowed else { return }"))
         #expect(request.contains("await resetEverything()"))
+
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
+    @Test("Settings saved workspace delete routes through Sovereign Gate")
+    func settingsSavedWorkspaceDeleteRoutesThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/SettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let savedWorkspaces = try section(
+            from: "Section(\"Saved Workspaces\")",
+            to: "Section(\"Data Protection\")"
+        )
+        #expect(savedWorkspaces.contains("requestSavedWorkspaceDeleteAuthorization(workspace)"))
+        #expect(!savedWorkspaces.contains("workspaceService.deleteWorkspace(workspace)"))
+
+        let request = try section(
+            from: "private func requestSavedWorkspaceDeleteAuthorization(_ workspace: SDWorkspace) async",
+            to: "private func deleteSavedWorkspace(_ workspace: SDWorkspace)"
+        )
+        #expect(request.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(request.contains("?? .denied(.authenticationFailed)"))
+        #expect(request.contains("guard outcome == .allowed else { return }"))
+        #expect(request.contains("deleteSavedWorkspace(workspace)"))
+
+        let delete = try section(
+            from: "private func deleteSavedWorkspace(_ workspace: SDWorkspace)",
+            to: "private func requestResetEverythingAuthorization()"
+        )
+        #expect(delete.contains("workspaceService.deleteWorkspace(workspace)"))
+        #expect(delete.contains("refreshWorkspaces()"))
 
         #expect(!source.contains("LocalAuthentication"))
         #expect(!source.contains("LAContext"))

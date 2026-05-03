@@ -277,3 +277,13 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 44 | 2026-05-03T05:21Z | test | suite=GraphFFIBenchmarkTests opt-in artifact | xcodebuild | session:87805 | done | /tmp/epistemos-r15-renderer-fps-pr11-artifact-suite-20260502.log | +1 |
 | 44 | 2026-05-03T05:22Z | artifact | result=renderer_fps_thermal_soak | codex/local | n/a | done | benchmarks/results/2026-05-02t00-00-00-000z-r15-renderer-fps-baseline-renderer_fps_thermal_soak.json | +1 |
 | 44 | 2026-05-03T05:23Z | guard | slice=r15-renderer-fps-baseline-pr11 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 45 | 2026-05-03T05:29Z | preflight | scope=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_45_2026_05_02.md | +1 |
+| 45 | 2026-05-03T05:29Z | detective | concept=Sovereign Gate Settings saved-workspace delete migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-workspace-delete-pr15/detectives/sovereign-gate-settings-workspace-delete.md | +1 |
+| 45 | 2026-05-03T05:29Z | aggregator | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-workspace-delete-pr15/aggregator.md | +1 |
+| 45 | 2026-05-03T05:29Z | pipeline-builder | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_settings_workspace_delete_pr15_deliberation_2026_05_02.md | +1 |
+| 45 | 2026-05-03T05:29Z | claude-red-team | brief=sovereign-gate-settings-workspace-delete-pr15 | claude/print-readonly | pid:72138/session:78248 | failed | docs/fusion/fleet/sovereign-gate-settings-workspace-delete-pr15/claude-red-team/attacks-stalled.md | -1 |
+| 45 | 2026-05-03T05:32Z | codex-red-team | brief=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-settings-workspace-delete-pr15/claude-red-team/attacks.md | +1 |
+| 45 | 2026-05-03T05:34Z | test | suite=SovereignGateTests | xcodebuild | session:89219 | failed | /tmp/epistemos-sovereign-gate-settings-workspace-pr15-red-20260502.log | +1 |
+| 45 | 2026-05-03T05:40Z | implementation | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | Epistemos/Views/Settings/SettingsView.swift | +1 |
+| 45 | 2026-05-03T05:40Z | test | suite=SovereignGateTests | xcodebuild | session:64792 | done | /tmp/epistemos-sovereign-gate-settings-workspace-pr15-green-20260502.log | +1 |
+| 45 | 2026-05-03T05:42Z | guard | slice=sovereign-gate-settings-workspace-delete-pr15 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
