@@ -2846,6 +2846,14 @@ happens before Rust dispatch, and boundary files do not host their own Touch ID
 prompts or subprocess launchers. `ToolSurfaceBehavioralMatrixTests` exercises
 the actual `ToolSurfacePolicy` API so Core is a strict subset of Pro/Research
 and `think` stays hidden in every distribution.
+Hermes native todo substrate PR55 is closed. `HermesTodoCommand` preserves the
+Hermes command shape for `/todo`, `/todo list`, `/todo add <task>`,
+`/todo done <id>`, and `/todo clear`, while routing all task state through the
+existing Rust `todo` ledger. `agent_core` now accepts `add` and `done` actions
+without creating a Swift-side store; `/todo clear` remains approval-marked in
+both `HermesCapabilityRegistry` and the native command helper. The command
+center exposes `/todo` with the single preferred `todo` tool and local/light
+brain preference, not a cloud or subprocess route.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2861,6 +2869,10 @@ Allowed Future Write Set:
 - Capability registry follow-up: `Epistemos/LocalAgent/HermesCapabilityRegistry.swift`.
 - Capability registry tests: `EpistemosTests/HermesCapabilityRegistryTests.swift`.
 - Pure policy tests: `EpistemosTests/HermesGatewayPolicyTests.swift`.
+- Native todo command follow-up: `Epistemos/LocalAgent/HermesTodoCommand.swift`.
+- Native todo command tests: `EpistemosTests/HermesTodoCommandTests.swift`.
+- Rust todo ledger follow-up: `agent_core/src/tools/todo.rs`.
+- Rust todo parity tests: `agent_core/tests/todo_hermes_parity.rs`.
 - Runtime/provider slices only after a new gate names exact provider, MCP,
   subprocess, entitlement, auth, event, and projection files.
 - Documentation: this card, current state, and a dedicated deliberation note.

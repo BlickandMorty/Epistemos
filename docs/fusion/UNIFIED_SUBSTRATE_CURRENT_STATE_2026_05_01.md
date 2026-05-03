@@ -1307,6 +1307,19 @@ Proven or actively wired:
   MCP execution, provider adapter, graph/Rex/substrate authority, entitlement,
   project file, or protected editor path was touched. Focused evidence:
   `/tmp/epistemos-hermes-capability-registry-pr1-20260503.log`.
+- Hermes native todo substrate PR55 is now code-closed for the Core-safe
+  `/todo` parity slice. `HermesTodoCommand` parses `/todo`, `/todo list`,
+  `/todo add <task>`, `/todo done <id>`, and `/todo clear` into the existing
+  Rust `todo` ledger instead of creating a parallel Swift task store.
+  `agent_core` now accepts `add` and `done` actions alongside `list`, `write`,
+  `merge`, and `clear`; `/todo clear` remains approval-marked in both the
+  Hermes capability registry and native command helper. `AgentCommandCenterState`
+  exposes `/todo` as a local task-ledger command with only the `todo` preferred
+  tool and local/light brain preference. No cloud provider adapter, subprocess
+  launcher, MCP dispatch path, graph/Rex/substrate authority, entitlement,
+  project file, or protected editor path was touched. Focused evidence:
+  `/tmp/epistemos-hermes-todo-command-pr55-20260503-rerun2.log` and
+  `/tmp/epistemos-hermes-todo-rust-pr55-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
@@ -1573,7 +1586,9 @@ before building.
    `ToolTierBridge` runtime executor gate. Core/MAS Boundary Regression Guard
    PR3 is closed as a test-only source/behavioral guard over Hermes policy,
    ToolTier, MCP dispatch denial, and `ToolSurfacePolicy` distribution
-   filtering. Future provider routing still requires a new exact gate.
+   filtering. Hermes native todo substrate PR55 is closed for `/todo`,
+   `/todo add`, `/todo done`, and `/todo clear` routing into the existing Rust
+   task ledger. Future provider routing still requires a new exact gate.
 
 5. **Halo runtime/manual follow-up.**
    The protected V1 editor mount/glyph/panel route and domain re-query path are

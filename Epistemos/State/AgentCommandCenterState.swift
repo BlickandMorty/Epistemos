@@ -568,6 +568,8 @@ final class AgentCommandCenterState {
             return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit, .deepseekR1Distill7B])
                 ?? cloudBrain(preferredProviders: [.openAI, .anthropic, .google])
                 ?? availableBrains.first
+        case .todo:
+            return localBrain(preferredModels: [.qwen3_4B4Bit, .bonsai4B2Bit, .bonsai8B2Bit])
         case .image:
             // Image gen runs through the `image_generate` tool, not a
             // chat brain. Return nil so the picker defers to whichever
@@ -666,6 +668,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
     case summarize
     case readBranch = "read-branch"
     case explain
+    case todo
     /// Generate an image via the `image_generate` tool — MLX-first
     /// (Apple-native Flux pipeline) with Fal as an explicit cloud
     /// opt-in. Routes through Agent mode so the generated image card
@@ -696,6 +699,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .summarize: "Summarize"
         case .readBranch: "Read Branch"
         case .explain: "Explain"
+        case .todo: "Todo"
         case .image: "Image"
         }
     }
@@ -713,6 +717,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .summarize: "doc.text.magnifyingglass"
         case .readBranch: "arrow.triangle.branch"
         case .explain: "lightbulb"
+        case .todo: "checklist"
         case .image: "photo"
         }
     }
@@ -730,6 +735,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .summarize: .fast
         case .readBranch: .fast
         case .explain: .fast
+        case .todo: .agent
         case .image: .agent
         }
     }
@@ -751,6 +757,7 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
         case .summarize: "Condense content to key points"
         case .readBranch: "Read and understand a code branch"
         case .explain: "Explain a concept clearly"
+        case .todo: "Show or update the native agent task list"
         case .image: "Generate an image"
         }
     }
@@ -779,6 +786,8 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             "Orient on code changes before deciding whether to review or edit them."
         case .explain:
             "Turn complex context into a clearer explanation anchored in your notes."
+        case .todo:
+            "Work directly with the native task ledger that backs Hermes-compatible /todo commands."
         case .image:
             "Generate an image on-device via MLX Flux, or explicitly route to Fal when asked."
         }
@@ -804,6 +813,8 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             "Asks before risky writes"
         case .readBranch:
             "Read-only branch orientation"
+        case .todo:
+            "Native task ledger; asks before clearing"
         case .image:
             "On-device first; Fal only when explicitly named"
         }
@@ -833,6 +844,8 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             "Read this branch and summarize what changed: "
         case .explain:
             "Explain this clearly: "
+        case .todo:
+            "Show my current todos"
         case .image:
             "Generate an image of "
         }
@@ -856,6 +869,8 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             "Fast local preferred"
         case .readBranch:
             "Local review brain preferred"
+        case .todo:
+            "Local task ledger preferred"
         case .image:
             "MLX Flux preferred (Fal when explicit)"
         }
@@ -951,6 +966,10 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
                 "vault_search",
                 "vault_read",
             ]
+        case .todo:
+            return [
+                "todo",
+            ]
         case .image:
             return [
                 "image_generate",
@@ -982,6 +1001,8 @@ enum ACCSlashCommand: String, CaseIterable, Identifiable, Hashable {
             ["branch-analysis", "codebase-orientation", "review"]
         case .explain:
             ["teaching", "explanation", "simplification"]
+        case .todo:
+            ["planning", "task-management", "agent-orchestration"]
         case .image:
             ["image-generation", "diffusion"]
         }

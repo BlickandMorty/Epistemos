@@ -44,11 +44,13 @@ impl ToolHandler for TodoHandler {
 
         match action {
             "list" => list_todos(),
+            "add" => add_todo(input),
+            "done" => complete_todo(input),
             "write" => write_todos(input, false),
             "merge" => write_todos(input, true),
             "clear" => clear_todos(),
             other => Err(ToolError::InvalidArguments(format!(
-                "unknown action '{other}' (expected: list|write|merge|clear)"
+                "unknown action '{other}' (expected: list|add|done|write|merge|clear)"
             ))),
         }
     }
@@ -66,6 +68,58 @@ fn clear_todos() -> Result<String, ToolError> {
         .lock()
         .map_err(|e| ToolError::ExecutionFailed(format!("todo lock poisoned: {e}")))?;
     guard.clear();
+    Ok(render(&guard))
+}
+
+fn add_todo(input: &Value) -> Result<String, ToolError> {
+    let content = input
+        .get("content")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| ToolError::InvalidArguments("missing non-empty 'content'".into()))?;
+    let active_form = input
+        .get("active_form")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(content);
+    let id = input
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+
+    let mut guard = store()
+        .lock()
+        .map_err(|e| ToolError::ExecutionFailed(format!("todo lock poisoned: {e}")))?;
+    guard.push(TodoItem {
+        id,
+        content: content.to_string(),
+        active_form: active_form.to_string(),
+        status: "pending".to_string(),
+    });
+    Ok(render(&guard))
+}
+
+fn complete_todo(input: &Value) -> Result<String, ToolError> {
+    let id = input
+        .get("id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| ToolError::InvalidArguments("missing non-empty 'id'".into()))?;
+
+    let mut guard = store()
+        .lock()
+        .map_err(|e| ToolError::ExecutionFailed(format!("todo lock poisoned: {e}")))?;
+    let item = guard
+        .iter_mut()
+        .find(|item| item.id == id)
+        .ok_or_else(|| ToolError::InvalidArguments(format!("todo id '{id}' not found")))?;
+    item.status = "completed".to_string();
     Ok(render(&guard))
 }
 
@@ -165,17 +219,30 @@ pub fn todo_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
         name: "todo".to_string(),
         description: "Session-scoped task list for planning multi-step work. Actions: \
-             list (current todos), write (replace the whole list), merge (upsert by id), \
-             clear (drop everything). Each item needs 'content' plus optional 'active_form' \
-             and 'status' (pending|in_progress|completed|cancelled)."
+             list (current todos), add (append one pending todo), done (mark one todo completed), \
+             write (replace the whole list), merge (upsert by id), clear (drop everything). \
+             Each item needs 'content' plus optional 'active_form' and 'status' \
+             (pending|in_progress|completed|cancelled)."
             .to_string(),
         parameters: json!({
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["list", "write", "merge", "clear"],
+                    "enum": ["list", "add", "done", "write", "merge", "clear"],
                     "default": "list"
+                },
+                "id": {
+                    "type": "string",
+                    "description": "Todo id for add/done actions."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Todo content for add action."
+                },
+                "active_form": {
+                    "type": "string",
+                    "description": "Current active phrasing for add action."
                 },
                 "todos": {
                     "type": "array",
@@ -201,6 +268,11 @@ pub fn todo_schema() -> crate::types::ToolSchema {
 
 #[cfg(test)]
 mod tests {
+    // Test-isolation gate held across `.await` is intentional — see
+    // `resources/bridge.rs::tests` for the canonical rationale. The
+    // todo tests share a process-wide TODO_STORE singleton.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use serde_json::json;
     use std::sync::{Mutex, MutexGuard, OnceLock};
@@ -278,6 +350,73 @@ mod tests {
             .iter()
             .any(|t| t["id"] == "a" && t["status"] == "completed"));
         assert!(todos.iter().any(|t| t["id"] == "b"));
+    }
+
+    #[tokio::test]
+    async fn todo_add_appends_pending_item() {
+        let _gate = lock_tests();
+        reset_store().await;
+        let handler = TodoHandler;
+
+        let result = handler
+            .execute(&json!({
+                "action": "add",
+                "id": "hermes-1",
+                "content": "Ship Hermes todo bridge",
+                "active_form": "Shipping Hermes todo bridge"
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(parsed["summary"]["total"], json!(1));
+        assert_eq!(parsed["summary"]["pending"], json!(1));
+        assert_eq!(parsed["todos"][0]["id"], json!("hermes-1"));
+        assert_eq!(parsed["todos"][0]["active_form"], json!("Shipping Hermes todo bridge"));
+    }
+
+    #[tokio::test]
+    async fn todo_done_marks_existing_item_completed() {
+        let _gate = lock_tests();
+        reset_store().await;
+        let handler = TodoHandler;
+
+        handler
+            .execute(&json!({
+                "action": "add",
+                "id": "hermes-2",
+                "content": "Finish the task",
+            }))
+            .await
+            .unwrap();
+        let result = handler
+            .execute(&json!({
+                "action": "done",
+                "id": "hermes-2",
+            }))
+            .await
+            .unwrap();
+        let parsed: Value = serde_json::from_str(&result).unwrap();
+
+        assert_eq!(parsed["summary"]["completed"], json!(1));
+        assert_eq!(parsed["todos"][0]["status"], json!("completed"));
+    }
+
+    #[tokio::test]
+    async fn todo_done_rejects_unknown_id() {
+        let _gate = lock_tests();
+        reset_store().await;
+        let handler = TodoHandler;
+
+        let err = handler
+            .execute(&json!({
+                "action": "done",
+                "id": "missing",
+            }))
+            .await
+            .unwrap_err();
+
+        assert!(format!("{err}").contains("not found"));
     }
 
     #[tokio::test]

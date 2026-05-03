@@ -992,3 +992,16 @@
 - log: `✔ Suite "VisualVerifyLoop Bootstrap Dead Code Guard" passed`
 - note: focused verification log `/tmp/epistemos-visual-verify-loop-bootstrap-cleanup-pr54-20260503.log`; Xcode exited `0`, passed 3 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `VisualVerifyLoopBootstrapDeadCodeGuardTests`
+
+## hermes-todo-native-substrate-pr55
+
+- grep: `rg -n "HermesTodoCommand|case todo|/todo add|/todo done|/todo clear" Epistemos EpistemosTests` keeps the native Hermes todo parser, command-center route, and approval tests present.
+- Rust action grep: `rg -n "\"add\"|\"done\"|add_todo|complete_todo" agent_core/src/tools/todo.rs agent_core/tests/todo_hermes_parity.rs` keeps `add` and `done` backed by the native Rust todo ledger.
+- approval grep: `rg -n "requiresApproval|/todo clear" Epistemos/LocalAgent/HermesTodoCommand.swift Epistemos/LocalAgent/HermesCapabilityRegistry.swift EpistemosTests/HermesTodoCommandTests.swift` keeps clear destructive semantics approval-marked.
+- forbidden route grep: no new cloud provider adapter, subprocess launcher, MCP dispatch path, graph/Rex/substrate authority, entitlement, project file, or protected editor path belongs in this slice.
+- staged allow: only `Epistemos/LocalAgent/HermesTodoCommand.swift`, `Epistemos/State/AgentCommandCenterState.swift` todo hunks, `EpistemosTests/HermesTodoCommandTests.swift`, `agent_core/src/tools/todo.rs` todo hunks, `agent_core/tests/todo_hermes_parity.rs`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "Hermes Todo Command" passed`
+- log: `test hermes_todo_add_done_clear_actions_share_native_store ... ok`
+- note: focused verification logs `/tmp/epistemos-hermes-todo-command-pr55-20260503-rerun2.log` and `/tmp/epistemos-hermes-todo-rust-pr55-20260503.log`; both runs exited `0`.
+- test: `HermesTodoCommandTests`
+- test: `todo_hermes_parity`
