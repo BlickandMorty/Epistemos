@@ -240,3 +240,20 @@
 - log: `✔ Test run with 29 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-sovereign-gate-settings-reset-pr14-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
 - test: `SovereignGateTests`
+
+## hermes-provider-surface-policy-pr8
+
+- grep: `cloudProviderSurfaces`
+- grep: `case openAIProvider`
+- grep: `case anthropicProvider`
+- grep: `case googleProvider`
+- grep: `case openAICompatibleProvider`
+- grep: `case codexAccountProvider`
+- grep: `externalGatewaySurfaces: [Self] = cloudProviderSurfaces`
+- forbidden grep: `URLSession|Process\.|MCPBridge|DockerClient|DockerBridge|docker run|LAContext|evaluatePolicy|CloudLLMClient|CloudProviderAuthService|LLMService|TriageService` in `Epistemos/LocalAgent/HermesGatewayPolicy.swift` and `EpistemosTests/HermesGatewayPolicyTests.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Engine Epistemos/Omega Epistemos/Views Epistemos/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- log: `✔ Test "named cloud provider surfaces are gateway only" passed`
+- log: `✔ Test "external gateway surfaces compose all cloud provider surfaces" passed`
+- log: `✔ Test run with 13 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-hermes-provider-surface-pr8-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `HermesGatewayPolicyTests` run, followed by known CodeEdit SwiftLint package-plugin footer noise.
+- test: `HermesGatewayPolicyTests`
