@@ -717,6 +717,15 @@ closed:
   route, credential flow behavior change, Core/MAS tool policy change,
   MCP/Hermes routing change, graph change, generated binding change,
   subprocess surface, or ANE/private API surface.
+- ShadowGitCheckpoint dead-code deletion PR53 is now closed. Claude's detective
+  resolutions found `ShadowGitCheckpoint.checkpoint/rollback` had no production
+  callers, and the surface would have owned `/usr/bin/git` subprocesses outside
+  Core/MAS. `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift` is deleted,
+  `RuntimeValidationTests` no longer source-reads it as a live subprocess
+  helper, and `ShadowGitCheckpointDeadCodeGuardTests` asserts the production
+  source remains absent with no `ShadowGitCheckpoint` or `shadow_git`
+  references under `Epistemos/`. Reintroducing a shadow-git rollback/checkpoint
+  path requires a new provenance, Core/MAS, and subprocess deliberation first.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1504,6 +1513,7 @@ before building.
   provenance PR42, AgentEvent ClarifyPromptBridge provenance PR43, AgentEvent
   Bridge no-double-count source guard PR44, AgentEvent GhostComputerAgent
   reachability guard PR45, AgentEvent OAuth token refresh PR47,
+  ShadowGitCheckpoint dead-code deletion PR53,
   durable GraphEvent mutation mapping PR1,
   durable GraphEvent Settings visibility PR2,
   durable GraphEvent projection snapshot PR3, durable GraphEvent projection
@@ -1582,7 +1592,7 @@ are:
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
   AgentEvent PR39, AgentEvent PR40, AgentEvent PR41, AgentEvent PR42,
   AgentEvent PR43, AgentEvent PR44, AgentEvent PR45, AgentEvent PR47,
-  AgentEvent PR52,
+  AgentEvent PR52, ShadowGitCheckpoint dead-code deletion PR53,
   GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond

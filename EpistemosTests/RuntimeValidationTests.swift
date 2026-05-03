@@ -762,7 +762,6 @@ struct RuntimeValidationTests {
         let traceCollector = try loadRepoTextFile("Epistemos/Harness/TraceCollector.swift")
         let harnessRegistry = try loadRepoTextFile("Epistemos/Harness/HarnessRegistry.swift")
         let progressStore = try loadRepoTextFile("Epistemos/Harness/ProgressStore.swift")
-        let shadowGit = try loadRepoTextFile("Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
         let watchdog = try loadRepoTextFile("Epistemos/State/MainThreadWatchdog.swift")
         let pageEditorCache = try loadRepoTextFile("Epistemos/Views/Notes/PageEditorCache.swift")
         let app = try loadRepoTextFile("Epistemos/App/EpistemosApp.swift")
@@ -785,7 +784,6 @@ struct RuntimeValidationTests {
             traceCollector,
             harnessRegistry,
             progressStore,
-            shadowGit,
             watchdog,
             pageEditorCache,
             app,
@@ -1211,21 +1209,16 @@ struct RuntimeValidationTests {
         #expect(graphEngine.contains("--features bolt-graph,shared-position-buffers"))
     }
 
-    @Test("shadow git checkpoint subprocess remains cancellation-safe")
-    func shadowGitCheckpointSubprocessRemainsCancellationSafe() throws {
-        let source = try loadRepoTextFile("Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
+    @Test("shadow git checkpoint dead code remains deleted")
+    func shadowGitCheckpointDeadCodeRemainsDeleted() throws {
+        let shadowGitURL = try sourceMirrorURL(for: "Epistemos/Omega/Safety/ShadowGitCheckpoint.swift")
 
-        #expect(source.contains("ThrowingProcessContinuationState<Void>()"))
-        #expect(source.contains("withTaskCancellationHandler"))
-        #expect(source.contains("TimeoutError(seconds: timeoutSeconds)"))
-        #expect(source.contains("state.terminate()"))
-        #expect(source.contains("state.resume(throwing: CancellationError())"))
+        #expect(!FileManager.default.fileExists(atPath: shadowGitURL.path))
     }
 
     @Test("subprocess timeout watchdogs stop cleanly on cancellation")
     func subprocessTimeoutWatchdogsStopCleanlyOnCancellation() throws {
         let sourcePaths = [
-            "Epistemos/Omega/Safety/ShadowGitCheckpoint.swift",
             "Epistemos/KnowledgeFusion/Alignment/KTOTrainer.swift",
             "Epistemos/KnowledgeFusion/Training/QLoRATrainer.swift",
             "Epistemos/KnowledgeFusion/DataIngestion/AudioTranscriber.swift",

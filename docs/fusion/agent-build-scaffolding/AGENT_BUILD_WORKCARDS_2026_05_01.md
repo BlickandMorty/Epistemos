@@ -1341,6 +1341,15 @@ This is audit visibility only; no Touch ID prompt, Sovereign route, credential
 flow behavior, Core/MAS policy, MCP/Hermes route, or production source beyond
 startup provenance changed.
 
+PR53 ShadowGitCheckpoint dead-code deletion is also closed. Claude's detective
+resolutions found `ShadowGitCheckpoint.checkpoint/rollback` had no production
+callers, so `Epistemos/Omega/Safety/ShadowGitCheckpoint.swift` was deleted
+instead of instrumented or wired. `RuntimeValidationTests` now treats the
+surface as intentionally absent, and `ShadowGitCheckpointDeadCodeGuardTests`
+asserts production Swift no longer references `ShadowGitCheckpoint` or
+`shadow_git`. Reintroducing a shadow-git checkpoint/rollback path requires a
+fresh provenance, Core/MAS, and subprocess deliberation gate.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
