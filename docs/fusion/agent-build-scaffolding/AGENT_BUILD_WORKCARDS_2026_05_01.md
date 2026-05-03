@@ -1329,6 +1329,18 @@ only store filename/project-ID metadata. This is test-only; no credential flow,
 OAuth behavior, Sovereign route, Core/MAS policy, MCP/Hermes route, or
 production source changed.
 
+PR52 startup credential import AgentEvent provenance is also closed.
+`StartupAutoDiscovery.perform` now emits sanitized `auth.credential.imported`
+completed events through an injected `AgentToolProvenanceSyncRecorder` only
+after a successful Keychain save from environment or config-file discovery.
+The event payload is bounded to env var, keychain key, credential source, and
+config filename provenance; `StartupAutoDiscoveryCredentialImportedAgentEventTests`
+prove raw credential values are never persisted, existing Keychain credentials
+do not become false imports, and failed Keychain saves do not emit import rows.
+This is audit visibility only; no Touch ID prompt, Sovereign route, credential
+flow behavior, Core/MAS policy, MCP/Hermes route, or production source beyond
+startup provenance changed.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.

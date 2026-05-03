@@ -963,3 +963,13 @@
 - log: `✔ Suite "Cloud Provider Setup Card Source Guard" passed`
 - note: focused verification log `/tmp/epistemos-cloud-provider-setup-card-source-guard-pr51-20260503.log`; Xcode exited `0`, passed 5 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `CloudProviderSetupCardSourceGuardTests`
+
+## auth-credential-imported-agent-event-pr52
+
+- grep: `auth.credential.imported|recordCredentialImportedEvent|AgentToolProvenanceSyncRecorder` remains present in `Epistemos/App/AppBootstrap.swift` and `EpistemosTests/StartupAutoDiscoveryCredentialImportedAgentEventTests.swift`.
+- credential-sanitization grep: `StartupAutoDiscoveryCredentialImportedAgentEventTests` proves encoded AgentEvents never contain `bb-env-secret` or `bb-config-secret`.
+- behavior grep: startup auto-discovery records only successful Keychain imports from environment/config sources, while existing Keychain credentials and failed saves emit no `auth.credential.imported` rows.
+- staged allow: only `Epistemos/App/AppBootstrap.swift`, `EpistemosTests/StartupAutoDiscoveryCredentialImportedAgentEventTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Parallel-agent files remain intentionally excluded.
+- log: `✔ Suite "Startup Auto-Discovery Credential Import AgentEvent" passed`
+- note: focused verification log `/tmp/epistemos-auth-credential-imported-agent-event-pr52-20260503.log`; Xcode exited `0`, passed 4 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `StartupAutoDiscoveryCredentialImportedAgentEventTests`

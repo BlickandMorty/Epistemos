@@ -234,7 +234,8 @@ enum StartupAutoDiscovery {
         keychainLoad: (String) -> String? = { Keychain.load(for: $0) },
         keychainSave: (String, String) -> Bool = { value, key in
             Keychain.save(value, for: key)
-        }
+        },
+        agentProvenanceRecorder: AgentToolProvenanceSyncRecorder? = nil
     ) -> StartupAutoDiscoveryReport {
         let resolvedHomeURL = (homeDirectoryURL ?? fileManager.homeDirectoryForCurrentUser)
             .standardizedFileURL
@@ -249,7 +250,14 @@ enum StartupAutoDiscovery {
         let statuses = keyMappings.map { mapping in
             if let envValue = normalizedCredential(environment[mapping.envVar]) {
                 if normalizedCredential(keychainLoad(mapping.keychainKey)) == nil {
-                    _ = keychainSave(envValue, mapping.keychainKey)
+                    if keychainSave(envValue, mapping.keychainKey) {
+                        recordCredentialImportedEvent(
+                            recorder: agentProvenanceRecorder,
+                            mapping: mapping,
+                            source: .environment,
+                            origin: nil
+                        )
+                    }
                 }
                 return StartupAutoDiscoveryCredentialStatus(
                     envVar: mapping.envVar,
@@ -269,12 +277,20 @@ enum StartupAutoDiscovery {
             }
 
             if let configMatch = configMatch(for: mapping.envVar, parsedConfigs: parsedConfigs) {
-                _ = keychainSave(configMatch.value, mapping.keychainKey)
+                let origin = configMatch.url.lastPathComponent
+                if keychainSave(configMatch.value, mapping.keychainKey) {
+                    recordCredentialImportedEvent(
+                        recorder: agentProvenanceRecorder,
+                        mapping: mapping,
+                        source: .configFile,
+                        origin: origin
+                    )
+                }
                 return StartupAutoDiscoveryCredentialStatus(
                     envVar: mapping.envVar,
                     keychainKey: mapping.keychainKey,
                     source: .configFile,
-                    origin: configMatch.url.lastPathComponent
+                    origin: origin
                 )
             }
 
@@ -342,6 +358,74 @@ enum StartupAutoDiscovery {
                 .appendingPathComponent(".epistemos", isDirectory: true)
                 .appendingPathComponent("config.toml", isDirectory: false),
         ]
+    }
+
+    private nonisolated static func recordCredentialImportedEvent(
+        recorder: AgentToolProvenanceSyncRecorder?,
+        mapping: StartupAutoDiscoveryKeyMapping,
+        source: StartupAutoDiscoveryCredentialSource,
+        origin: String?
+    ) {
+        guard let recorder else { return }
+
+        var payload = [
+            "env_var": mapping.envVar,
+            "keychain_key": mapping.keychainKey,
+            "source": source.rawValue,
+        ]
+        var metadata = [
+            "source": "startup_auto_discovery",
+            "surface": "credential_auto_discovery",
+            "credential_source": source.rawValue,
+            "env_var": mapping.envVar,
+            "keychain_key": mapping.keychainKey,
+        ]
+        if let origin {
+            payload["origin"] = origin
+            metadata["origin"] = origin
+        }
+
+        _ = recorder.recordToolEvent(
+            runID: "auth-credential-imported-startup",
+            traceID: nil,
+            kind: .toolCallCompleted,
+            actor: .agent(id: "startup-auto-discovery", modelID: nil),
+            toolCallID: credentialImportedToolCallID(
+                mapping: mapping,
+                source: source,
+                origin: origin
+            ),
+            toolName: "auth.credential.imported",
+            argumentsJSON: sortedJSONString(payload),
+            resultJSON: "{\"imported\":true}",
+            status: .completed,
+            metadata: metadata
+        )
+    }
+
+    private nonisolated static func credentialImportedToolCallID(
+        mapping: StartupAutoDiscoveryKeyMapping,
+        source: StartupAutoDiscoveryCredentialSource,
+        origin: String?
+    ) -> String {
+        var components = [
+            "auth-credential-imported",
+            source.rawValue,
+            mapping.envVar,
+        ]
+        if let origin {
+            components.append(origin)
+        }
+        return components.joined(separator: ":")
+    }
+
+    private nonisolated static func sortedJSONString(_ payload: [String: String]) -> String {
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+              let string = String(data: data, encoding: .utf8) else {
+            return "{}"
+        }
+        return string
     }
 
     nonisolated static func parseConfigValues(_ contents: String) -> [String: String] {
@@ -735,7 +819,12 @@ final class AppBootstrap {
         guard shouldReadKeychainAtLaunch() else { return }
         Task.detached(priority: .utility) {
             let report = startupAutoDiscoveryReportForTesting(
-                isRunningTests: Self.isRunningTests
+                isRunningTests: Self.isRunningTests,
+                discover: {
+                    StartupAutoDiscovery.perform(
+                        agentProvenanceRecorder: AgentToolProvenanceSyncRecorder()
+                    )
+                }
             )
             StartupAutoDiscovery.log(report)
         }

@@ -704,6 +704,19 @@ closed:
   test-only guard and does not change production credential storage, OAuth
   flows, Sovereign routes, Core/MAS tool policy, MCP/Hermes routing, graph,
   generated bindings, subprocess surfaces, or ANE/private API surfaces.
+- AgentEvent startup credential import PR52 is now closed.
+  `StartupAutoDiscovery.perform` now accepts an injected
+  `AgentToolProvenanceSyncRecorder`, and the production startup logging path
+  passes a real sync recorder only outside tests. Successful Keychain imports
+  from environment or config files emit one sanitized
+  `auth.credential.imported` completed event with env var, keychain key,
+  credential source, and config filename provenance only; focused tests prove
+  raw credential values are not persisted, existing Keychain credentials do not
+  emit a false import, and failed Keychain saves do not emit import events.
+  This is audit visibility only and does not add a Touch ID prompt, Sovereign
+  route, credential flow behavior change, Core/MAS tool policy change,
+  MCP/Hermes routing change, graph change, generated binding change,
+  subprocess surface, or ANE/private API surface.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
@@ -1569,6 +1582,7 @@ are:
   AgentEvent PR33, AgentEvent PR35, AgentEvent PR36, AgentEvent PR37,
   AgentEvent PR39, AgentEvent PR40, AgentEvent PR41, AgentEvent PR42,
   AgentEvent PR43, AgentEvent PR44, AgentEvent PR45, AgentEvent PR47,
+  AgentEvent PR52,
   GraphEvent PR1, GraphEvent visibility PR2, GraphEvent
   projection snapshot PR3, and GraphEvent Halo projection PR7 with remaining broader
   runtime AgentEvent coverage, live GraphEvent consumer projections beyond
