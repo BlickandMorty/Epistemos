@@ -24,7 +24,7 @@ nonisolated struct GraphEventAuditProjectionReport: Equatable, Sendable {
     )
 }
 
-final class GraphEventAuditProjectionService {
+nonisolated final class GraphEventAuditProjectionService: @unchecked Sendable {
     typealias SnapshotProvider = @Sendable (Int) -> DurableGraphProjectionSnapshot
     typealias EventStoreProvider = @Sendable () -> EventStore?
     typealias Clock = @Sendable () -> Int64

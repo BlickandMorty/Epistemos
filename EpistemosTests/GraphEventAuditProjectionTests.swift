@@ -68,6 +68,52 @@ struct GraphEventAuditProjectionTests {
         #expect(report.isEmpty)
     }
 
+    @Test("audit report forwards requested limit to injected snapshot provider")
+    func auditReportForwardsRequestedLimitToInjectedSnapshotProvider() {
+        let service = GraphEventAuditProjectionService(
+            snapshotProvider: { limit in
+                #expect(limit == 37)
+                return DurableGraphEventProjection.snapshot(from: [])
+            },
+            nowMilliseconds: { 42 }
+        )
+
+        let report = service.auditReport(limit: 37)
+
+        #expect(report.generatedAtMs == 42)
+        #expect(report.isEmpty)
+    }
+
+    @Test("trace inspector exposes read-only GraphEvent projection summary")
+    func traceInspectorExposesReadOnlyGraphEventProjectionSummary() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Capture/TraceInspectorView.swift")
+        let serviceSource = try loadMirroredSourceTextFile("Epistemos/Engine/GraphEventAuditProjectionService.swift")
+        try #require(!source.isEmpty)
+        try #require(!serviceSource.isEmpty)
+
+        #expect(source.contains("graphProjectionReport"))
+        #expect(source.contains("loadTask?.cancel()"))
+        #expect(source.contains("Task.detached(priority: .utility)"))
+        #expect(source.contains("refreshGraphProjectionReport("))
+        #expect(source.contains("GraphEventAuditProjectionService().auditReport(limit: 100)"))
+        #expect(source.contains("Graph projection"))
+        #expect(source.contains("graphProjectionDetail"))
+        #expect(source.contains("onAppear"))
+
+        #expect(!source.contains("saveGraphEvent"))
+        #expect(!source.contains("saveMutationEnvelope"))
+        #expect(!source.contains("graphEvents("))
+        #expect(!source.contains("MutationOpLog"))
+        #expect(!source.contains("OpLog"))
+        #expect(!source.contains("HaloController"))
+        #expect(!source.contains("GraphEventVisibilityRow"))
+        #expect(!source.contains("Timer"))
+        #expect(!source.contains("DispatchSourceTimer"))
+        #expect(!source.contains("repeatForever"))
+        #expect(!source.contains("while !Task.isCancelled"))
+        #expect(serviceSource.contains("nonisolated final class GraphEventAuditProjectionService: @unchecked Sendable"))
+    }
+
     private func makeTestStore() -> EventStore? {
         let dbURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("graph-event-audit-\(UUID().uuidString).sqlite")

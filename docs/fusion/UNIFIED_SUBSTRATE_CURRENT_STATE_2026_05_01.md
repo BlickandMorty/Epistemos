@@ -520,6 +520,13 @@ closed:
   renderer, retrieval, Halo, Theater, OpLog, Rust, generated bindings,
   EventStore schema, mutation, repair, polling, timer, or projection-worker
   behavior.
+- Durable GraphEvent Trace Inspector projection PR9 is now closed.
+  `TraceInspectorView` displays a compact read-only GraphEvent projection
+  summary backed by `GraphEventAuditProjectionService().auditReport(limit: 100)`.
+  The refresh path computes the report and trace-file snapshot in a detached
+  utility task, cancels stale refreshes, and keeps
+  `GraphEventAuditProjectionService` explicitly nonisolated/Sendable so the
+  bounded read does not run on the main actor.
 - Focused tests passed:
   `/tmp/epistemos-oplog-swift-bridge-pr1-cargo-test-final-20260501.log`,
   `/tmp/epistemos-oplog-swift-bridge-pr1-final2-xcode-20260501.log`,

@@ -1345,6 +1345,15 @@ event/node/edge/latest-event counts without changing `SettingsView`, graph
 renderer, retrieval, Halo, Theater, OpLog, Rust, generated-binding, EventStore
 schema, mutation, repair, polling, timer, or projection-worker behavior.
 
+PR9 read-only Trace Inspector projection visibility is also closed.
+`TraceInspectorView` displays a compact durable GraphEvent projection summary
+backed by `GraphEventAuditProjectionService().auditReport(limit: 100)`. The
+refresh path computes the bounded report and trace snapshot off the main actor,
+cancels stale refresh tasks, and keeps the projection service explicitly
+nonisolated/Sendable without graph renderer, retrieval, Halo, Theater, OpLog,
+Rust, generated-binding, EventStore schema, mutation, repair, polling, timer,
+or projection-worker behavior.
+
 Naming note:
 The durable model is intentionally named `DurableGraphEvent` because
 `Epistemos/Engine/EventDrain.swift` already contains the 64-byte public
@@ -1371,6 +1380,8 @@ Authority to read first:
 - `EpistemosTests/CognitiveSubstrateTests.swift`
 - `Epistemos/Views/Settings/GraphEventVisibilityRow.swift`
 - `Epistemos/Engine/GraphEventAuditProjectionService.swift`
+- `Epistemos/Views/Capture/TraceInspectorView.swift` only for PR9 evidence and
+  future Trace Inspector projection-summary regression checks.
 - `Epistemos/Engine/HaloController.swift` only for PR7 evidence and future
   Halo projection-ribbon regression checks.
 - `Epistemos/Views/Halo/ShadowPanelContent.swift` only for PR7 evidence and
@@ -1390,6 +1401,9 @@ Allowed write set:
 - PR8 read-only Settings audit projection visibility: already closed for
   exactly `GraphEventVisibilityRow` appear/refresh display of the PR6 audit
   report.
+- PR9 read-only Trace Inspector projection visibility: already closed for
+  exactly `TraceInspectorView` appear/manual-refresh display of the PR6 audit
+  report plus cancellation of stale refresh tasks.
 - Future live GraphEvent consumer projections only after a new deliberation gate
   names exact projection files and focused tests.
 - Docs under `docs/fusion/**`.
@@ -1469,6 +1483,13 @@ Tests and logs:
   `/tmp/epistemos-graph-event-audit-visibility-pr8-build-for-testing-20260502.log`.
   The command exited 0 with `** TEST BUILD SUCCEEDED **`; Xcode still printed
   known SwiftLint package-plugin noise after success.
+- PR9 red log:
+  `/tmp/epistemos-graph-event-trace-inspector-pr9-red-20260502.log`.
+- PR9 green log:
+  `/tmp/epistemos-graph-event-trace-inspector-pr9-green-20260502.log`.
+  The focused `GraphEventAuditProjectionTests` suite passed 4 tests; Xcode
+  still printed known CodeEdit SwiftLint package-plugin footer noise after
+  `** TEST SUCCEEDED **`.
 - Kimi audit attempt:
   `/tmp/epistemos-graph-event-pr1-kimi-audit-20260501-r1.log` produced no
   output and was terminated.
@@ -1517,6 +1538,13 @@ Acceptance:
   counts while staying out of `SettingsView`, graph renderer, retrieval, Halo,
   Theater, OpLog, Rust, generated bindings, EventStore schema, mutation, repair,
   polling, timer, and projection-worker paths.
+- PR9 wired/reachable/visible: the existing Capture Trace Inspector refreshes a
+  bounded read-only GraphEvent audit projection report through
+  `GraphEventAuditProjectionService` and displays event/node/edge/latest-event
+  counts while cancellation guards prevent stale refresh wins and source guards
+  keep it out of GraphEvent writes, mutation writes, graph renderer, retrieval,
+  Settings, Halo, Theater, OpLog, Rust, generated bindings, EventStore schema,
+  repair, polling, timer, and projection-worker paths.
 
 Stop triggers:
 - A live projection slice requires protected graph/editor/Rust files not named

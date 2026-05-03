@@ -185,3 +185,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 36 | 2026-05-03T01:02Z | implementation | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | Epistemos/Views/Settings/SettingsView.swift | +1 |
 | 36 | 2026-05-03T01:02Z | test | suite=SovereignGateTests | xcodebuild | session:88205 | done | /tmp/epistemos-sovereign-gate-settings-reset-pr14-green-20260502.log | +1 |
 | 36 | 2026-05-03T01:03Z | guard | slice=sovereign-gate-settings-reset-everything-pr14 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 37 | 2026-05-03T01:19Z | preflight | scope=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_37_2026_05_02.md | +1 |
+| 37 | 2026-05-03T01:19Z | detective | concept=GraphEvent Trace Inspector read-only projection consumer | codex/local | n/a | done | docs/fusion/fleet/graph-event-trace-inspector-projection-pr9/detectives/graph-event-trace-inspector-projection.md | +1 |
+| 37 | 2026-05-03T01:19Z | aggregator | slice=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | docs/fusion/fleet/graph-event-trace-inspector-projection-pr9/aggregator.md | +1 |
+| 37 | 2026-05-03T01:19Z | pipeline-builder | slice=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | docs/fusion/deliberation/graph_event_trace_inspector_projection_pr9_deliberation_2026_05_02.md | +1 |
+| 37 | 2026-05-03T01:19Z | implementation | slice=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | Epistemos/Views/Capture/TraceInspectorView.swift | +1 |
+| 37 | 2026-05-03T01:19Z | test | suite=GraphEventAuditProjectionTests | xcodebuild | session:12580 | done | /tmp/epistemos-graph-event-trace-inspector-pr9-green-20260502.log | +1 |
+| 37 | 2026-05-03T01:24Z | claude-red-team | brief=graph-event-trace-inspector-projection-pr9 | claude/PID 58579 | session:58579 | done | docs/fusion/fleet/graph-event-trace-inspector-projection-pr9/claude-red-team/attacks.md | +1 |
+| 37 | 2026-05-03T01:31Z | test | suite=GraphEventAuditProjectionTests | xcodebuild | session:43076 | done | /tmp/epistemos-graph-event-trace-inspector-pr9-green-20260502.log | +1 |
+| 37 | 2026-05-03T01:32Z | guard | slice=graph-event-trace-inspector-projection-pr9 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
