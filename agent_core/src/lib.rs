@@ -23,6 +23,7 @@ pub mod prompts;
 pub mod provenance;
 pub mod provider;
 pub mod reasoning_metrics;
+pub mod resonance;
 pub mod resources;
 pub mod rope;
 pub mod rope_handle;
