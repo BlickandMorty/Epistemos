@@ -839,6 +839,16 @@ Proven or actively wired:
   entitlement, project file, or protected editor path was touched. Red/green
   evidence: `/tmp/epistemos-tool-surface-policy-core-mas-pr1-red-20260502.log`
   and `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`.
+- Omega Tool Registry Core Planning PR1 is now code-closed as the Omega-side
+  complement to Core/MAS Tool Surface Policy PR1: `OmegaToolRegistry` exposes
+  distribution-aware planning schemas, planning JSON, prompt blocks, and raw
+  Rust-catalog JSON visibility through `ToolSurfacePolicy`, while preserving
+  Pro/Research's Rust `builtinToolsJson()` source of truth. Core/App Store
+  planning surfaces hide terminal, automation, and computer-use tools; runtime
+  MCP registration and dispatch remain untouched and are explicitly a follow-on
+  execution-gate concern. Claude red-team found two P1s (`builtinCatalogJson`
+  unfiltered, then source-of-truth swap); both were fixed before merge. Focused
+  evidence: `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`.
 - Halo V1 live domain re-query is now code-closed: the panel Notes/Chats picker
   calls `HaloController.selectDomain(_:)`, which reuses the latest meaningful
   editor query, refreshes the selected domain asynchronously, and keeps an open

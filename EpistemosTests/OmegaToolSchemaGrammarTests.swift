@@ -157,11 +157,114 @@ struct ToolSchemaGrammarTests {
     @MainActor func omegaToolRegistrySeedsToolSchemas() throws {
         let runtime = MCPBridge()
 
-        let data = try #require(OmegaToolRegistry.planningSchemasJson.data(using: .utf8))
+        let data = try #require(OmegaToolRegistry.planningSchemasJson(
+            distribution: .proResearch
+        ).data(using: .utf8))
         let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
 
         #expect(!schemas.isEmpty)
-        #expect(schemas.count == runtime.toolCount)
+        #expect(schemas.count == OmegaToolRegistry.surfacedTools(
+            distribution: .proResearch
+        ).count)
+        #expect(runtime.toolCount == OmegaToolRegistry.all.count)
+    }
+
+    @Test("Omega Core App Store planning schemas hide Pro gateway tools")
+    func omegaCoreAppStorePlanningSchemasHideProGatewayTools() throws {
+        let data = try #require(OmegaToolRegistry.planningSchemasJson(
+            distribution: .coreAppStore
+        ).data(using: .utf8))
+        let schemas = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let names = Set(schemas.compactMap { $0["name"] as? String })
+
+        #expect(names.contains("read_file"))
+        #expect(names.contains("write_file"))
+        #expect(!names.contains("run_command"))
+        #expect(!names.contains("run_persistent"))
+        #expect(!names.contains("get_ui_tree"))
+        #expect(!names.contains("see"))
+        #expect(!names.contains("click"))
+    }
+
+    @Test("MCP Bridge Core App Store catalog hides Pro gateway tools")
+    @MainActor func mcpBridgeCoreAppStoreCatalogHidesProGatewayTools() throws {
+        let data = try #require(MCPBridge.builtinCatalogJson(
+            distribution: .coreAppStore
+        ).data(using: .utf8))
+        let catalog = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+        let names = Set(catalog.compactMap { $0["name"] as? String })
+
+        #expect(names.contains("read_file"))
+        #expect(names.contains("write_file"))
+        #expect(!names.contains("run_command"))
+        #expect(!names.contains("run_persistent"))
+        #expect(!names.contains("get_ui_tree"))
+        #expect(!names.contains("see"))
+        #expect(!names.contains("click"))
+    }
+
+    @Test("MCP Bridge Pro catalog preserves Rust source of truth")
+    func mcpBridgeProCatalogPreservesRustSourceOfTruth() throws {
+        let bridgeData = try #require(MCPBridge.builtinCatalogJson(
+            distribution: .proResearch
+        ).data(using: .utf8))
+        let bridgeCatalog = try #require(try JSONSerialization.jsonObject(
+            with: bridgeData
+        ) as? [[String: Any]])
+        let rawData = try #require(builtinToolsJson().data(using: .utf8))
+        let rawCatalog = try #require(try JSONSerialization.jsonObject(
+            with: rawData
+        ) as? [[String: Any]])
+
+        let bridgeNames = bridgeCatalog.compactMap { $0["name"] as? String }
+        let rawVisibleNames = rawCatalog
+            .compactMap { $0["name"] as? String }
+            .filter {
+                ToolSurfacePolicy.isSurfacedToolName(
+                    $0,
+                    distribution: .proResearch
+                )
+            }
+
+        #expect(bridgeNames == rawVisibleNames)
+        let readFile = try #require(bridgeCatalog.first { ($0["name"] as? String) == "read_file" })
+        let schemaJson = try #require(readFile["input_schema_json"] as? String)
+        let schemaData = try #require(schemaJson.data(using: .utf8))
+        #expect(try JSONSerialization.jsonObject(with: schemaData) is [String: Any])
+    }
+
+    @Test("Omega planning schemas stay backed by the visible catalog")
+    func omegaPlanningSchemasStayBackedByVisibleCatalog() throws {
+        for distribution in [
+            ToolSurfacePolicy.Distribution.coreAppStore,
+            ToolSurfacePolicy.Distribution.proResearch,
+        ] {
+            let schemaNames = Set(
+                OmegaToolRegistry.planningSchemas(distribution: distribution)
+                    .compactMap { $0["name"] as? String }
+            )
+            let catalogData = try #require(OmegaToolRegistry.catalogJson(
+                distribution: distribution
+            ).data(using: .utf8))
+            let catalog = try #require(try JSONSerialization.jsonObject(
+                with: catalogData
+            ) as? [[String: Any]])
+            let catalogNames = Set(catalog.compactMap { $0["name"] as? String })
+
+            #expect(schemaNames.isSubset(of: catalogNames))
+        }
+    }
+
+    @Test("Omega Core App Store planning prompt hides Pro agent groups")
+    func omegaCoreAppStorePlanningPromptHidesProAgentGroups() {
+        let block = OmegaToolRegistry.planningPromptBlock(distribution: .coreAppStore)
+
+        #expect(block.contains("- read_file:"))
+        #expect(!block.contains("- run_command:"))
+        #expect(!block.contains("- run_persistent:"))
+        #expect(!block.contains("- get_ui_tree:"))
+        #expect(!block.contains("- see:"))
+        #expect(!block.contains("- click:"))
     }
 
     @Test("Planning schemas close object inputs for strict tool runtimes")

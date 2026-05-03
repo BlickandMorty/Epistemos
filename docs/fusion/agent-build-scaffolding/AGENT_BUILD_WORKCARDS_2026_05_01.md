@@ -2033,6 +2033,14 @@ tools visible for Hermes-controlled operation, `think` stays hidden, and route
 primitives such as `route_private` are not advertised in Core. Claude red-team
 blocked the initial deny-list shape and then the `route_private` allow-list
 entry; both were fixed before merge.
+Omega Tool Registry Core Planning PR1 is closed. `OmegaToolRegistry` now exposes
+distribution-aware planning schemas, planning JSON, prompt blocks, and
+Rust-catalog JSON visibility through `ToolSurfacePolicy`; `MCPBridge.builtinCatalogJson(distribution:)` filters the raw Rust `builtinToolsJson()`
+output rather than rebuilding from a Swift mirror. Core/App Store Omega
+planning surfaces hide terminal, automation, and computer-use tools, while
+Pro/Research catalog names preserve the Rust-visible source of truth. Runtime
+MCP registration and `dispatch(_:)` are intentionally unchanged and remain a
+future execution-gate slice.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2119,6 +2127,14 @@ Evidence:
   `/tmp/epistemos-tool-surface-policy-core-mas-pr1-green-20260502.log`.
 - Core/MAS Tool Surface PR1 Claude red-team:
   `docs/fusion/fleet/tool-surface-policy-core-mas-pr1/claude-red-team/attacks.md`.
+- Omega Tool Registry Core Planning PR1 Deliberation:
+  `docs/fusion/deliberation/omega_tool_registry_core_planning_pr1_deliberation_2026_05_02.md`.
+- Omega Tool Registry Core Planning PR1 Red log:
+  `/tmp/epistemos-omega-tool-registry-core-planning-pr1-red-20260502.log`.
+- Omega Tool Registry Core Planning PR1 Green log:
+  `/tmp/epistemos-omega-tool-registry-core-planning-pr1-green-final-20260502.log`.
+- Omega Tool Registry Core Planning PR1 Claude red-team:
+  `docs/fusion/fleet/omega-tool-registry-core-planning-pr1/claude-red-team/attacks.md`.
 - Focused command:
   `xcodebuild -project Epistemos.xcodeproj -scheme Epistemos -destination 'platform=macOS' -only-testing:EpistemosTests/HermesGatewayPolicyTests test`.
 - Note: PR1 passed 9 focused Swift Testing tests; PR2 passed the expanded
@@ -2127,8 +2143,11 @@ Evidence:
   policy suite; PR6 passed the expanded 8-test policy suite; PR7 passed the
   expanded 11-test policy suite; PR8 passed the expanded 13-test policy suite
   after Claude red-team P1 fixes. Core/MAS Tool Surface PR1 passed 7 focused
-  `ToolSurfacePolicyTests` after Claude red-team P1 fixes. Xcode still
-  printed known SwiftLint package-plugin noise after `TEST SUCCEEDED`.
+  `ToolSurfacePolicyTests` after Claude red-team P1 fixes. Omega Tool Registry
+  Core Planning PR1 passed 18 focused `ToolSchemaGrammarTests` after Claude
+  red-team P1 fixes and one non-blocking P2 cross-source invariant follow-up.
+  Xcode still printed known SwiftLint package-plugin noise after
+  `TEST SUCCEEDED`.
 
 Acceptance:
 - PR1 wired: the local Hermes-family system prompt names Hermes as the
