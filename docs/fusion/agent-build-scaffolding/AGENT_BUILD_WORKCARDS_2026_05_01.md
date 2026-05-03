@@ -1133,6 +1133,20 @@ steering, helper-model summary streams, multi-vault UI, Rust simulation enum
 variants, Swift stream events, generated bindings, emitters, or EventStore
 schema changes.
 
+PR35 AgentEvent MCPBridge Core `tools/call` denial provenance is also closed.
+`MCPBridge.dispatch(_:distribution:)` now records sanitized requested/denied
+AgentEvents when Core/App Store policy rejects a hidden Pro gateway tool before
+Rust dispatch. The persisted rows use `mcp-bridge-policy-gate` run ids,
+synthetic `mcp-policy-denial:N` tool-call ids, `mcp_bridge_policy_gate`
+metadata, fixed sanitized arguments JSON, nil result JSON, and a generic denial
+error. Focused tests prove denied calls still return JSON-RPC `-32601`,
+Core-safe and Pro/Research calls do not emit false policy-denial provenance,
+and raw request bodies, `params.arguments`, command strings, filesystem paths,
+result payloads, request ids, localized descriptions, and arbitrary denial
+text are not persisted. This does not change Rust MCP dispatch, provider
+behavior, subprocess launchers, UI, graph, EventStore schema, Sovereign,
+generated bindings, or ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1250,6 +1264,8 @@ Allowed write set:
 - PR34 AgentEvent v1.6 forward vocabulary: already closed for
   `AgentProvenanceEventKind` raw-value compatibility and EventStore
   persistence tests only.
+- PR35 MCPBridge Core `tools/call` denial provenance: already closed for
+  requested/denied policy-gate audit rows only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay

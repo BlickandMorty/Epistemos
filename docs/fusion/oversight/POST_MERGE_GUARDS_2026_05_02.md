@@ -729,3 +729,20 @@
 - log: `✔ Test "EventStore persists simulation v1.6 forward variant events" passed`
 - note: focused verification log `/tmp/epistemos-agent-event-v16-forward-variants-pr34-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`. This slice is forward vocabulary only, not live dispatch-panel steering, helper summarizer, or multi-vault runtime.
 - test: `AgentEventV16ForwardVariantTests`
+
+## mcpbridge-tools-call-denial-provenance-pr35
+
+- grep: `recordToolCallPolicyDenial|mcp_bridge_policy_gate|policy_gate` in `Epistemos/Omega/MCPBridge.swift` and `EpistemosTests/MCPBridgeAgentEventTests.swift`
+- forbidden raw-payload grep: `argumentsJSON: requestJson|resultJSON: gateResponse|params\["arguments"\]` returns no matches in `Epistemos/Omega/MCPBridge.swift`
+- tier-leakage grep: `Hermes|MCP|stdio_subprocess|docker|cli_passthrough|computer_use|_ANEClient|MTLBuffer.*contents|disable-library-validation` returns expected MCPBridge filename/comment hits only; no new subprocess, provider, computer-use, ANE, or Metal buffer surfaces are introduced.
+- Sovereign grep: `LAContext|canEvaluatePolicy|evaluatePolicy|deviceOwnerAuthentication|TouchID|biometric` returns no matches in touched source/test files.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Omega/MCPBridge.swift`, `EpistemosTests/MCPBridgeAgentEventTests.swift`, Round 72 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `Static member 'jsonRpcSuccess' cannot be used on instance of type 'MCPBridge'` in `/tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-redgreen-20260503.log` before the compile fix.
+- log: `✔ Test "Core policy denied tools call records sanitized requested and denied events" passed`
+- log: `✔ Test "Core safe and Pro tool calls do not emit policy denial provenance" passed`
+- log: `✔ Test "MCPBridge policy provenance source avoids raw JSON RPC payload persistence" passed`
+- note: focused verification log `/tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-green-20260503.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **`.
+- note: compatibility verification log `/tmp/epistemos-mcpbridge-tools-call-denial-provenance-pr35-tool-schema-green-20260503.log`; existing `ToolSchemaGrammarTests` ran 22 tests, preserving Core/Pro catalog and dispatch behavior.
+- test: `MCPBridgeAgentEventTests`
+- test: `ToolSchemaGrammarTests`
