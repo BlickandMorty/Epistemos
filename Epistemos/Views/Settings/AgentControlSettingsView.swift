@@ -8,6 +8,31 @@ private struct ActiveGrantSettingsRow: Identifiable {
     let isRevocable: Bool
 }
 
+enum AgentControlSettingsDeletionSovereignGate {
+    enum Target: Equatable {
+        case customTool(name: String)
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        switch target {
+        case .customTool:
+            .deviceOwnerAuthentication
+        }
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case let .customTool(name):
+            "Permanently delete custom tool \"\(safeName(name))\"."
+        }
+    }
+
+    private static func safeName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+}
+
 struct AgentControlDetailView: View {
     @Environment(MCPBridge.self) private var mcpBridge
     @Environment(VaultSyncService.self) private var vaultSync
@@ -449,7 +474,12 @@ struct AgentControlDetailView: View {
                                     }
                                     .accessibilityLabel("Load \(tool.name) into the tool spec editor")
                                     Button("Delete") {
-                                        Task { await deleteCustomTool(named: tool.name, vaultPath: vaultPath) }
+                                        Task {
+                                            await requestCustomToolDeleteAuthorization(
+                                                named: tool.name,
+                                                vaultPath: vaultPath
+                                            )
+                                        }
                                     }
                                     .foregroundStyle(.orange)
                                     .accessibilityLabel("Delete custom tool \(tool.name)")
@@ -862,6 +892,18 @@ struct AgentControlDetailView: View {
             customToolStatusMessage = error.localizedDescription
             customToolStatusIsError = true
         }
+    }
+
+    private func requestCustomToolDeleteAuthorization(named name: String, vaultPath: String) async {
+        let target = AgentControlSettingsDeletionSovereignGate.Target.customTool(name: name)
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            AgentControlSettingsDeletionSovereignGate.requirement(for: target),
+            reason: AgentControlSettingsDeletionSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+
+        await deleteCustomTool(named: name, vaultPath: vaultPath)
     }
 
     private func deleteCustomTool(named name: String, vaultPath: String) async {

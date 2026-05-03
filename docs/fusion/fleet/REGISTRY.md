@@ -142,3 +142,12 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 31 | 2026-05-02T23:37Z | implementation | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | Epistemos/Views/Notes/ModelVaultsSidebarSection.swift | +1 |
 | 31 | 2026-05-02T23:42Z | test | suite=SovereignGateTests | xcodebuild | session:37207 | done | /tmp/epistemos-sovereign-gate-model-vault-pr9-green-r2-20260502.log | +1 |
 | 31 | 2026-05-02T23:37Z | guard | slice=sovereign-gate-model-vault-delete-pr9 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 32 | 2026-05-02T23:45Z | preflight | scope=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_32_2026_05_02.md | +1 |
+| 32 | 2026-05-02T23:45Z | detective | concept=Sovereign Gate custom tool destructive delete migration | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-custom-tool-delete-pr10/detectives/sovereign-gate-custom-tool-delete.md | +1 |
+| 32 | 2026-05-02T23:45Z | aggregator | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-custom-tool-delete-pr10/aggregator.md | +1 |
+| 32 | 2026-05-02T23:45Z | pipeline-builder | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/deliberation/sovereign_gate_custom_tool_delete_pr10_deliberation_2026_05_02.md | +1 |
+| 32 | 2026-05-02T23:45Z | claude-red-team | brief=sovereign-gate-custom-tool-delete-pr10 | claude/print-readonly | pid:59278 | failed | docs/fusion/fleet/sovereign-gate-custom-tool-delete-pr10/claude-red-team/attacks.md | -1 |
+| 32 | 2026-05-02T23:49Z | codex-red-team | brief=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/fleet/sovereign-gate-custom-tool-delete-pr10/codex-red-team/attacks.md | +1 |
+| 32 | 2026-05-02T23:58Z | implementation | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | Epistemos/Views/Settings/AgentControlSettingsView.swift | +1 |
+| 32 | 2026-05-02T23:59Z | test | suite=SovereignGateTests | xcodebuild | session:50880 | done | /tmp/epistemos-sovereign-gate-custom-tool-pr10-green-r2-20260502.log | +1 |
+| 32 | 2026-05-02T23:59Z | guard | slice=sovereign-gate-custom-tool-delete-pr10 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

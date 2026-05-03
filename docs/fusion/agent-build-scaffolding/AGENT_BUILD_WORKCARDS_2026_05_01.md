@@ -1600,6 +1600,14 @@ stores a typed file/folder gate target before async auth, denied/unavailable aut
 performs no delete, and the slice does not edit `SovereignGate.swift`,
 duplicate `LocalAuthentication`, alter model-vault browser/delete semantics, or
 touch Rust/generated/graph/Omega/ChatCoordinator.
+Custom Tool Delete PR10 is also closed. `Epistemos/Views/Settings/AgentControlSettingsView.swift`
+now routes the existing Agent Control custom-tool destructive delete button
+through the shared `AppBootstrap` `SovereignGate` with
+`.deviceOwnerAuthentication` before calling the original custom-tool manager
+delete path. The exact tool name and vault path are captured before async auth,
+denied/unavailable auth performs no delete, and the slice does not edit
+`SovereignGate.swift`, duplicate `LocalAuthentication`, alter custom-tool
+manager semantics, or touch Rust/generated/graph/Omega/ChatCoordinator.
 
 Goal:
 Route future Core confirmation surfaces through one native macOS biometric gate
@@ -1656,6 +1664,8 @@ Allowed write set:
   already closed.
 - PR9 Model Vaults sidebar file/folder delete migration and focused tests:
   already closed.
+- PR10 Agent Control custom-tool delete migration and focused tests: already
+  closed.
 - Future generated requirement transport only after a gate names exact Rust,
   Swift, and generated transport boundaries.
 - Future lifecycle follow-up only after a gate names exact app lifecycle files
@@ -1665,8 +1675,8 @@ Allowed write set:
   deletes are already covered by PR5, and Chat Sidebar context-menu chat
   deletes are already covered by PR6, DiffSheet version deletes are already
   covered by PR7, RootView database reset/vault disconnect controls are already
-  covered by PR8, and Model Vaults sidebar file/folder deletes are already
-  covered by PR9.
+  covered by PR8, Model Vaults sidebar file/folder deletes are already covered
+  by PR9, and Agent Control custom-tool deletes are already covered by PR10.
 - Docs under `docs/fusion/**`.
 
 Forbidden write set:
@@ -1742,6 +1752,10 @@ Tests and logs:
   `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-20260502.log`.
 - PR9 final focused green log:
   `/tmp/epistemos-sovereign-gate-model-vault-pr9-green-r2-20260502.log`.
+- PR10 red log:
+  `/tmp/epistemos-sovereign-gate-custom-tool-pr10-red-20260502.log`.
+- PR10 focused green log:
+  `/tmp/epistemos-sovereign-gate-custom-tool-pr10-green-r2-20260502.log`.
 - Guardrails: `git diff --check`, source grep proving LocalAuthentication /
   LAContext confinement, diff-only invariant greps, and staged protected-path
   scan.
@@ -1825,6 +1839,16 @@ Acceptance:
   duplicate `LocalAuthentication`, model-vault browser/delete semantics,
   generated transport, Rust, graph files, Omega, ChatCoordinator, subprocesses,
   solver hot paths, tensor copies, and memory hot paths.
+- PR10 wired/reachable/visible: the existing Agent Control custom-tool delete
+  button requests shared `SovereignGate` device-owner authentication before
+  calling the custom-tool manager delete path, focused tests prove custom-tool
+  delete maps to Destructive auth with an explicit reason string, source guards
+  prove the button calls the authorization path instead of direct deletion, the
+  authorized delete runs only after `.allowed`, denied/unavailable auth performs
+  no delete, and the slice stays out of `SovereignGate.swift`, duplicate
+  `LocalAuthentication`, custom-tool manager semantics, generated transport,
+  Rust, graph files, Omega, ChatCoordinator, subprocesses, solver hot paths,
+  tensor copies, and memory hot paths.
 
 Stop triggers:
 - A future slice needs generated UniFFI, new lifecycle hooks, Secure Enclave
