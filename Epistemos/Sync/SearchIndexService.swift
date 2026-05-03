@@ -135,9 +135,11 @@ actor SearchIndexService {
     nonisolated private let supportsBlockFTS5: Bool
     nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder
     nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)
+    nonisolated private let blockSyncSearchToolSequence = Mutex<UInt64>(0)
     nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)
     private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
     private var directPageAsyncSearchToolSequence: UInt64 = 0
+    private var blockAsyncSearchToolSequence: UInt64 = 0
     private var fusedAsyncSearchToolSequence: UInt64 = 0
 
     init(
@@ -514,8 +516,8 @@ actor SearchIndexService {
         let recorder = agentProvenanceSyncRecorder
         let runID = "search-index-page-sync-\(UUID().uuidString.uppercased())"
         let toolCallID = nextDirectPageSyncSearchToolCallID()
-        let argumentsJSON = Self.directPageSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.directPageSearchMetadata(
+        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.limitedSearchMetadata(
             surface: "search",
             query: query,
             terms: terms,
@@ -590,8 +592,8 @@ actor SearchIndexService {
         let recorder = await resolvedAgentProvenanceRecorder()
         let runID = "search-index-page-async-\(UUID().uuidString.uppercased())"
         let toolCallID = nextDirectPageAsyncSearchToolCallID()
-        let argumentsJSON = Self.directPageSearchArgumentsJSON(query: query, terms: terms, limit: limit)
-        let baseMetadata = Self.directPageSearchMetadata(
+        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.limitedSearchMetadata(
             surface: "search_async",
             query: query,
             terms: terms,
@@ -686,16 +688,170 @@ actor SearchIndexService {
     nonisolated func searchBlocks(query: String, limit: Int = 50) throws -> [BlockSearchResult] {
         let terms = Self.normalizedSearchTerms(query)
         guard !terms.isEmpty else { return [] }
+        let recorder = agentProvenanceSyncRecorder
+        let runID = "search-index-block-sync-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextBlockSyncSearchToolCallID()
+        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.limitedSearchMetadata(
+            surface: "search_blocks",
+            query: query,
+            terms: terms,
+            limit: limit
+        )
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
 
-        return try searchBlocks(terms: terms, limit: limit)
+        recordBlockSearchSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordBlockSearchSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        do {
+            let results = try searchBlocks(terms: terms, limit: limit)
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": elapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            recordBlockSearchSyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: elapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
+            return results
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.searchIndexFailureClass(for: error)
+            recordBlockSearchSyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
+            throw error
+        }
     }
 
     func searchBlocksAsync(query: String, limit: Int = 50) async throws -> [BlockSearchResult] {
-        try await offloadSearch { [self] cancellation in
-            let terms = Self.normalizedSearchTerms(query)
-            guard !terms.isEmpty else { return [] }
-            try cancellation.check()
-            return try searchBlocks(terms: terms, limit: limit, cancellation: cancellation)
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
+        let recorder = await resolvedAgentProvenanceRecorder()
+        let runID = "search-index-block-async-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextBlockAsyncSearchToolCallID()
+        let argumentsJSON = Self.limitedSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.limitedSearchMetadata(
+            surface: "search_blocks_async",
+            query: query,
+            terms: terms,
+            limit: limit
+        )
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
+
+        await recordBlockSearchAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        await recordBlockSearchAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        if Task.isCancelled {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            await recordBlockSearchAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: .cancelled,
+                metadata: baseMetadata
+            )
+            throw CancellationError()
+        }
+
+        do {
+            let results = try await offloadSearch { [self, terms, limit] cancellation in
+                try cancellation.check()
+                return try searchBlocks(terms: terms, limit: limit, cancellation: cancellation)
+            }
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": elapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            await recordBlockSearchAsyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: elapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
+            return results
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.searchIndexFailureClass(for: error)
+            await recordBlockSearchAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
+            throw error
         }
     }
 
@@ -989,6 +1145,11 @@ actor SearchIndexService {
         return "search-index-page-async:\(directPageAsyncSearchToolSequence)"
     }
 
+    private func nextBlockAsyncSearchToolCallID() -> String {
+        blockAsyncSearchToolSequence += 1
+        return "search-index-block-async:\(blockAsyncSearchToolSequence)"
+    }
+
     private nonisolated func nextFusedSyncSearchToolCallID() -> String {
         let sequence = fusedSyncSearchToolSequence.withLock { value -> UInt64 in
             value += 1
@@ -1003,6 +1164,14 @@ actor SearchIndexService {
             return value
         }
         return "search-index-page-sync:\(sequence)"
+    }
+
+    private nonisolated func nextBlockSyncSearchToolCallID() -> String {
+        let sequence = blockSyncSearchToolSequence.withLock { value -> UInt64 in
+            value += 1
+            return value
+        }
+        return "search-index-block-sync:\(sequence)"
     }
 
     private func recordDirectPageAsyncFailure(
@@ -1053,6 +1222,68 @@ actor SearchIndexService {
         var failedMetadata = metadata
         failedMetadata["failure_class"] = failureClass.rawValue
         recordDirectPageSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
+    }
+
+    private func recordBlockSearchAsyncFailure(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: SearchIndexFailureClass,
+        metadata: [String: String]
+    ) async {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        await recordBlockSearchAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
+    }
+
+    private nonisolated func recordBlockSearchSyncFailure(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: SearchIndexFailureClass,
+        metadata: [String: String]
+    ) {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        recordBlockSearchSyncAgentEvent(
             recorder: recorder,
             runID: runID,
             kind: .toolCallFailed,
@@ -1187,6 +1418,35 @@ actor SearchIndexService {
         )
     }
 
+    private func recordBlockSearchAsyncAgentEvent(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        await recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.search_blocks_async",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
     private nonisolated func recordFusedSyncAgentEvent(
         recorder: AgentToolProvenanceSyncRecorder,
         runID: String,
@@ -1245,6 +1505,35 @@ actor SearchIndexService {
         )
     }
 
+    private nonisolated func recordBlockSearchSyncAgentEvent(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.search_blocks",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
     private nonisolated static func searchIndexFailureClass(for error: Error) -> SearchIndexFailureClass {
         if error is CancellationError {
             return .cancelled
@@ -1255,7 +1544,7 @@ actor SearchIndexService {
         return .unknownError
     }
 
-    private nonisolated static func directPageSearchArgumentsJSON(
+    private nonisolated static func limitedSearchArgumentsJSON(
         query: String,
         terms: [String],
         limit: Int
@@ -1267,7 +1556,7 @@ actor SearchIndexService {
         ])
     }
 
-    private nonisolated static func directPageSearchMetadata(
+    private nonisolated static func limitedSearchMetadata(
         surface: String,
         query: String,
         terms: [String],

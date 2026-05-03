@@ -933,6 +933,25 @@ EventStore schema. Focused source-guard verification passes under `pipefail`;
 the focused runtime tests compile but remain skipped by the pre-existing FTS5
 availability gate.
 
+PR22 SearchIndex block search sync/async provenance is also closed.
+`SearchIndexService.searchBlocks(query:limit:)` and
+`SearchIndexService.searchBlocksAsync(query:limit:)` now record requested,
+started, and completed/failed AgentEvents for valid non-empty block searches
+with `search-index-block-sync-...` / `search-index-block-async-...` run ids,
+`search-index-service` actor metadata, per-instance
+`search-index-block-sync:N` / `search-index-block-async:N` ids,
+`surface=search_blocks|search_blocks_async`, query character count, term count,
+limit, hit count, elapsed milliseconds, zero-hit completed events, and closed
+`cancelled|sql_error|unknown_error` failure classes. Persisted provenance
+excludes query text, sanitized FTS query, block ids, page ids, titles, snippets,
+ranks, document bodies, vault paths, SQL, GRDB error strings, localized
+descriptions, arbitrary error text, direct-page tool names, and fused-search
+tool names. Source and behavior stay away from block-search SQL, page search,
+fused search, VaultSyncService, QueryRuntime, UI, graph, Rust, generated
+bindings, and EventStore schema. Focused source-guard verification passes under
+`pipefail`; the focused runtime tests compile but remain skipped by the
+pre-existing FTS5 availability gate.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1333,6 +1352,17 @@ Acceptance:
   and that block-search tool names stay absent from the direct page slice; the
   FTS5-gated runtime assertions are present but skipped on hosts where the
   suite's existing FTS5 probe is false.
+- PR22 wired/reachable/visible: SearchIndex block sync and async search emits
+  requested, started, and completed/failed AgentEvents for valid non-empty
+  `searchBlocks(query:limit:)` and `searchBlocksAsync(query:limit:)` calls with
+  non-empty run id, per-instance tool call id, actor, source/surface metadata,
+  query character count, term count, limit, hit count, elapsed milliseconds,
+  zero-hit completed events, and bounded `cancelled|sql_error|unknown_error`
+  failure classes. Tests prove block sync uses the sync recorder without
+  `Task`, `Task.detached`, `DispatchQueue.main.sync`, or
+  `MainActor.assumeIsolated`, and that direct-page/fused tool names stay absent
+  from the block-search slice; the FTS5-gated runtime assertions are present
+  but skipped on hosts where the suite's existing FTS5 probe is false.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
