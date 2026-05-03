@@ -952,6 +952,18 @@ Proven or actively wired:
   `/tmp/epistemos-core-mas-tooltier-execution-pr2-green-20260503.log`,
   `/tmp/epistemos-core-mas-tooltier-execution-pr2-guard-green-20260503.log`,
   and `/tmp/epistemos-core-mas-tooltier-execution-pr2-schema-green-20260503.log`.
+- Overseer Core/MAS Tool Permission Fallback PR1 is now code-closed for the
+  degraded-registry overseer route path: `OverseerComplexityRouter` exposes a
+  single `fallbackToolPermissions(distribution:)` helper and the private
+  route fallback delegates through `ToolSurfacePolicy` instead of returning an
+  unfiltered hardcoded list. Core/App Store fallback permissions keep
+  Core-visible vault/web search entries while hiding `run_command`, `open_url`,
+  `search_web`, browser/computer-use, Docker, and Hermes subprocess aliases;
+  Pro/Research fallback keeps the existing explicit ask-mode tools for the
+  Hermes-controlled gateway path. Claude CLI Red Team returned no artifact, so
+  Codex ran the protocol fallback Red Team and added a shell source-shape guard.
+  Focused evidence:
+  `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green2-20260503.log`.
 - Omega Tool Registry Core Planning PR1 is now code-closed as the Omega-side
   complement to Core/MAS Tool Surface Policy PR1: `OmegaToolRegistry` exposes
   distribution-aware planning schemas, planning JSON, prompt blocks, and raw
