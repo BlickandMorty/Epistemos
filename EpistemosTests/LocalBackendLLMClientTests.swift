@@ -5,6 +5,15 @@ import Testing
 @MainActor
 @Suite("Local Backend LLM Client")
 struct LocalBackendLLMClientTests {
+    private final class AgentEventSink {
+        private(set) var events: [AgentProvenanceEvent] = []
+
+        func append(_ event: AgentProvenanceEvent) -> Bool {
+            events.append(event)
+            return true
+        }
+    }
+
     private struct RoutedCall: Equatable {
         let prompt: String
         let systemPrompt: String?
@@ -17,10 +26,12 @@ struct LocalBackendLLMClientTests {
 
     private final class StubRoutedLocalClient: RoutedLocalRuntimeClient {
         let response: String
+        let streamError: Error?
         var generateCalls: [RoutedCall] = []
 
-        init(response: String) {
+        init(response: String, streamError: Error? = nil) {
             self.response = response
+            self.streamError = streamError
         }
 
         func generate(prompt: String, systemPrompt: String?, maxTokens: Int) async throws -> String {
@@ -127,6 +138,10 @@ struct LocalBackendLLMClientTests {
                 )
             )
             return AsyncThrowingStream { continuation in
+                if let streamError {
+                    continuation.finish(throwing: streamError)
+                    return
+                }
                 continuation.yield(response)
                 continuation.finish()
             }
@@ -139,6 +154,10 @@ struct LocalBackendLLMClientTests {
         func configSnapshot() -> LLMSnapshot {
             LLMSnapshot(provider: .localMLX, model: "", reasoningMode: .fast)
         }
+    }
+
+    private enum AgentEventTestError: Error {
+        case backendSecret
     }
 
     private func makeInferenceState() -> InferenceState {
@@ -401,5 +420,257 @@ struct LocalBackendLLMClientTests {
 
         #expect(ggufClient.generateCalls.isEmpty)
         #expect(mlxClient.generateCalls.isEmpty)
+    }
+
+    @Test("backend stream records sanitized AgentEvents")
+    func backendStreamRecordsSanitizedAgentEvents() async throws {
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx, .gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx secret streamed output")
+        let ggufClient = StubRoutedLocalClient(response: "gguf secret streamed output")
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 789 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx, .gguf] },
+            preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            ),
+            agentProvenanceRecorder: recorder
+        )
+        let secretPrompt = "secret backend prompt"
+        let secretSystemPrompt = "secret backend system"
+        let secretHints = "{\"secret\":\"backend hint\"}"
+
+        let output = try await collectStream(
+            client.stream(
+                prompt: secretPrompt,
+                systemPrompt: secretSystemPrompt,
+                maxTokens: 42,
+                reasoningMode: .fast,
+                modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                requestedRuntimeKind: nil,
+                steeringHintsJSON: secretHints
+            )
+        )
+
+        #expect(output == "gguf secret streamed output")
+        #expect(ggufClient.generateCalls.count == 1)
+        #expect(mlxClient.generateCalls.isEmpty)
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallCompleted
+        ])
+        #expect(Set(sink.events.map(\.runID)).count == 1)
+        #expect(sink.events.first?.runID.hasPrefix("local-backend-stream-") == true)
+        #expect(sink.events.allSatisfy { event in
+            if case .agent(let id, let modelID) = event.actor {
+                return id == "local-backend-llm-client" && modelID == nil
+            }
+            return false
+        })
+        #expect(sink.events.allSatisfy { $0.tool?.toolName == "local_backend.stream" })
+        #expect(sink.events.allSatisfy { $0.tool?.toolCallID == "local-backend-stream:1" })
+        #expect(sink.events.allSatisfy { $0.metadata["source"] == "local_backend_llm_client" })
+        #expect(sink.events.allSatisfy { $0.metadata["surface"] == "stream" })
+        #expect(sink.events.allSatisfy { $0.metadata["provider"] == "local_backend" })
+        #expect(sink.events.last?.metadata["resolved_runtime"] == BackendRuntimeKind.gguf.rawValue)
+        #expect(sink.events.last?.metadata["requested_runtime"] == BackendRuntimeKind.gguf.rawValue)
+        #expect(sink.events.last?.metadata["reasoning_mode"] == LocalReasoningMode.fast.rawValue)
+        #expect(sink.events.last?.metadata["max_tokens"] == "42")
+        #expect(sink.events.last?.metadata["prompt_char_count"] == "\(secretPrompt.count)")
+        #expect(sink.events.last?.metadata["system_prompt_char_count"] == "\(secretSystemPrompt.count)")
+        #expect(sink.events.last?.metadata["steering_hints_present"] == "true")
+
+        let argumentsPayload = try payload(from: sink.events.last?.tool?.argumentsJSON)
+        #expect(Set(argumentsPayload.keys) == [
+            "max_tokens",
+            "prompt_char_count",
+            "provider",
+            "reasoning_mode",
+            "requested_runtime",
+            "resolved_runtime",
+            "steering_hints_present",
+            "system_prompt_char_count"
+        ])
+        #expect(argumentsPayload["prompt_char_count"] as? Int == secretPrompt.count)
+        #expect(argumentsPayload["system_prompt_char_count"] as? Int == secretSystemPrompt.count)
+        #expect(argumentsPayload["provider"] as? String == "local_backend")
+
+        let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["chunk_count", "elapsed_ms", "output_char_count", "success"])
+        #expect(resultPayload["success"] as? Bool == true)
+        #expect(resultPayload["chunk_count"] as? Int == 1)
+        #expect(resultPayload["output_char_count"] as? Int == 27)
+        #expect(sink.events.last?.tool?.status == .completed)
+        #expect(sink.events.last?.tool?.errorMessage == nil)
+
+        try assertNoLocalBackendSecretLeak(
+            in: sink.events,
+            forbidden: [
+                secretPrompt,
+                secretSystemPrompt,
+                secretHints,
+                "gguf secret streamed output",
+                "mlx secret streamed output",
+                "qwen35-35b-a3b-apexmini",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                preparedDirectory.path
+            ]
+        )
+    }
+
+    @Test("backend stream records sanitized failed AgentEvent")
+    func backendStreamRecordsSanitizedFailedAgentEvent() async throws {
+        let inference = makeInferenceState()
+        inference.setInstalledLocalTextModelIDs([LocalTextModelID.qwen35_35BA3B4Bit.rawValue])
+        inference.setPreferredLocalTextModelID(LocalTextModelID.qwen35_35BA3B4Bit.rawValue)
+        let preparedDirectory = try makeTemporaryPreparedDirectory()
+        defer { try? FileManager.default.removeItem(at: preparedDirectory) }
+
+        let controlPlane = BackendRuntimeControlPlane(
+            policy: BackendRuntimePolicy(
+                availableRuntimeKinds: [.mlx, .gguf],
+                primaryGenerationRuntimeKind: .gguf,
+                allowMLXGenerationFallback: true
+            )
+        )
+        let mlxClient = StubRoutedLocalClient(response: "mlx unused")
+        let ggufClient = StubRoutedLocalClient(
+            response: "gguf unused",
+            streamError: AgentEventTestError.backendSecret
+        )
+        let sink = AgentEventSink()
+        let recorder = AgentToolProvenanceRecorder(
+            nowMilliseconds: { 790 },
+            persist: { event in sink.append(event) }
+        )
+        let client = LocalBackendLLMClient(
+            inference: inference,
+            runtimeControlPlane: controlPlane,
+            mlxClient: mlxClient,
+            ggufClient: ggufClient,
+            refreshAvailableRuntimeKinds: { _, _ in [.mlx, .gguf] },
+            preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration(
+                primaryGenerator: PreparedModelDescriptor(
+                    key: "generator_primary",
+                    role: .generator,
+                    displayName: "Qwen 3.5 35B APEXMini",
+                    declaredRuntimeKind: .gguf,
+                    artifactID: "qwen35-35b-a3b-apexmini",
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    servedModelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    mlxOutputPath: preparedDirectory.path,
+                    status: "ready"
+                ),
+                speculativeDraftGenerator: nil
+            ),
+            agentProvenanceRecorder: recorder
+        )
+
+        do {
+            _ = try await collectStream(
+                client.stream(
+                    prompt: "secret backend prompt",
+                    systemPrompt: "secret backend system",
+                    maxTokens: 42,
+                    reasoningMode: .fast,
+                    modelID: LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                    requestedRuntimeKind: nil,
+                    steeringHintsJSON: "{\"secret\":\"backend hint\"}"
+                )
+            )
+            Issue.record("Expected local backend stream to fail.")
+        } catch AgentEventTestError.backendSecret {
+        } catch {
+            Issue.record("Expected backendSecret failure, got \(error).")
+        }
+
+        #expect(sink.events.map(\.kind) == [
+            .toolCallRequested,
+            .toolCallStarted,
+            .toolCallFailed
+        ])
+        #expect(sink.events.last?.tool?.status == .failed)
+        #expect(sink.events.last?.tool?.errorMessage == "backend_failure")
+        #expect(sink.events.last?.metadata["failure_class"] == "backend_failure")
+
+        let resultPayload = try payload(from: sink.events.last?.tool?.resultJSON)
+        #expect(Set(resultPayload.keys) == ["elapsed_ms", "success"])
+        #expect(resultPayload["success"] as? Bool == false)
+
+        try assertNoLocalBackendSecretLeak(
+            in: sink.events,
+            forbidden: [
+                "secret backend prompt",
+                "secret backend system",
+                "{\"secret\":\"backend hint\"}",
+                "gguf unused",
+                "mlx unused",
+                "backendSecret",
+                "qwen35-35b-a3b-apexmini",
+                LocalTextModelID.qwen35_35BA3B4Bit.rawValue,
+                preparedDirectory.path
+            ]
+        )
+    }
+
+    private func collectStream(_ stream: AsyncThrowingStream<String, Error>) async throws -> String {
+        var output = ""
+        for try await token in stream {
+            output += token
+        }
+        return output
+    }
+
+    private func payload(from json: String?) throws -> [String: Any] {
+        let json = try #require(json)
+        let data = try #require(json.data(using: .utf8))
+        let object = try JSONSerialization.jsonObject(with: data)
+        return try #require(object as? [String: Any])
+    }
+
+    private func assertNoLocalBackendSecretLeak(
+        in events: [AgentProvenanceEvent],
+        forbidden: [String],
+        sourceLocation: SourceLocation = #_sourceLocation
+    ) throws {
+        let persisted = try events.map { event -> String in
+            let data = try JSONEncoder().encode(event)
+            return try #require(String(data: data, encoding: .utf8))
+        }.joined(separator: "\n")
+
+        for value in forbidden {
+            #expect(!persisted.contains(value), "AgentEvent persisted forbidden value: \(value)", sourceLocation: sourceLocation)
+        }
     }
 }

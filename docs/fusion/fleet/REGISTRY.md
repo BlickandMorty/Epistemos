@@ -386,3 +386,13 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 56 | 2026-05-03T09:14Z | test-green | scope=overseer-core-mas-tool-permission-fallback-pr1 | xcodebuild | session:61015 | failed | /tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green-20260503.log | 0 |
 | 56 | 2026-05-03T09:18Z | test-green | scope=overseer-core-mas-tool-permission-fallback-pr1 | xcodebuild | session:21727 | done | /tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green2-20260503.log | +1 |
 | 56 | 2026-05-03T09:20Z | guard | slice=overseer-core-mas-tool-permission-fallback-pr1 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 57 | 2026-05-03T09:25Z | preflight | scope=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | docs/fusion/oversight/PREFLIGHT_57_2026_05_03.md | +1 |
+| 57 | 2026-05-03T09:25Z | detective | concept=LocalBackend stream AgentEvent provenance | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-stream-pr25/detectives/local-backend-stream-agent-event.md | +1 |
+| 57 | 2026-05-03T09:25Z | aggregator | slice=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-stream-pr25/aggregator.md | +1 |
+| 57 | 2026-05-03T09:25Z | pipeline-builder | slice=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | docs/fusion/deliberation/agent_event_local_backend_stream_pr25_deliberation_2026_05_03.md | +1 |
+| 57 | 2026-05-03T09:26Z | claude-red-team | brief=agent-event-local-backend-stream-pr25-brief-only | claude/print-readonly | pid:38789/session:96098 | failed | docs/fusion/fleet/agent-event-local-backend-stream-pr25/claude-red-team/attacks-claude.md | -1 |
+| 57 | 2026-05-03T09:28Z | codex-red-team | brief=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | docs/fusion/fleet/agent-event-local-backend-stream-pr25/claude-red-team/attacks.md | +1 |
+| 57 | 2026-05-03T09:29Z | test-red | scope=agent-event-local-backend-stream-pr25 | xcodebuild | session:55498 | done | /tmp/epistemos-agent-event-local-backend-stream-pr25-red-20260503.log | +1 |
+| 57 | 2026-05-03T09:33Z | implementation | slice=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | Epistemos/Engine/LocalBackendLLMClient.swift; EpistemosTests/LocalBackendLLMClientTests.swift | +1 |
+| 57 | 2026-05-03T09:36Z | test-green | scope=agent-event-local-backend-stream-pr25 | xcodebuild | session:47185 | done | /tmp/epistemos-agent-event-local-backend-stream-pr25-green-20260503.log | +1 |
+| 57 | 2026-05-03T09:37Z | guard | slice=agent-event-local-backend-stream-pr25 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
