@@ -944,3 +944,12 @@
 - log: `✔ Suite "AgentGraphMemory Dead Code Guard" passed`
 - note: focused verification log `/tmp/epistemos-agent-graph-memory-dead-code-delete-pr49-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
 - test: `AgentGraphMemoryDeadCodeGuardTests`
+
+## credential-userdefaults-absence-guard-pr50
+
+- grep: `UserDefaults|@AppStorage` plus credential markers `api_key|access_token|refresh_token|client_secret|secret|password|credential|bearer` stays empty in production Swift unless a future deliberation explicitly routes the value through Keychain first.
+- Keychain grep: `SecItemAdd|SecItemCopyMatching|SecItemDelete` remains present in `Epistemos/Engine/Keychain.swift`, and `UserDefaults` remains absent from that file.
+- staged allow: only `EpistemosTests/CredentialUserDefaultsAbsenceGuardTests.swift`, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this test-only closure commit. Production credential files remain intentionally unchanged.
+- log: `✔ Suite "Credential UserDefaults Absence Guard" passed`
+- note: focused verification log `/tmp/epistemos-credential-userdefaults-absence-guard-pr50-20260503.log`; Xcode exited `0`, passed 2 Swift Testing tests, and printed `** TEST SUCCEEDED **`.
+- test: `CredentialUserDefaultsAbsenceGuardTests`

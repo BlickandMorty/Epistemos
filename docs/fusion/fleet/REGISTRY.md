@@ -641,3 +641,6 @@ Current status on 2026-05-02: round 14 OpLog incremental replay PR6 completed as
 | 94 | 2026-05-03T19:32Z | implementation | slice=agent-graph-memory-record-execution-delete-pr49 | codex/local | n/a | done | Epistemos/Omega/Knowledge/AgentGraphMemory.swift; EpistemosTests/AgentGraphMemoryDeadCodeGuardTests.swift | +1 |
 | 94 | 2026-05-03T19:32Z | test-green | scope=agent-graph-memory-record-execution-delete-pr49 | xcodebuild | session:18043 | done | /tmp/epistemos-agent-graph-memory-dead-code-delete-pr49-20260503.log | +1 |
 | 94 | 2026-05-03T19:32Z | guard | slice=agent-graph-memory-record-execution-delete-pr49 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |
+| 96 | 2026-05-03T19:39Z | implementation | slice=credential-userdefaults-absence-guard-pr50 | codex/local | n/a | done | EpistemosTests/CredentialUserDefaultsAbsenceGuardTests.swift | +1 |
+| 96 | 2026-05-03T19:39Z | test-green | scope=credential-userdefaults-absence-guard-pr50 | xcodebuild | session:34744 | done | /tmp/epistemos-credential-userdefaults-absence-guard-pr50-20260503.log | +1 |
+| 96 | 2026-05-03T19:39Z | guard | slice=credential-userdefaults-absence-guard-pr50 | codex/local | n/a | done | docs/fusion/oversight/POST_MERGE_GUARDS_2026_05_02.md | +1 |

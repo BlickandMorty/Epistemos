@@ -682,6 +682,17 @@ closed:
   EventStore schema, AgentEvent persistence, Core/MAS policy, MCP/Hermes
   routing, Sovereign, graph renderer internals, generated bindings, subprocess
   surfaces, or ANE/private API surfaces.
+- Credential UserDefaults absence guard PR50 is now closed.
+  `CredentialUserDefaultsAbsenceGuardTests` enforces the CLAUDE.md credential
+  storage rule by scanning production Swift source for `UserDefaults` or
+  `@AppStorage` lines that carry credential-shaped markers, while explicitly
+  allowing non-secret filenames, project IDs, toggles, and UI preferences. It
+  also proves `Epistemos/Engine/Keychain.swift` keeps using
+  `SecItemAdd`, `SecItemCopyMatching`, and `SecItemDelete` with no
+  `UserDefaults` fallback. This is a test-only guard and does not change
+  production credential storage, OAuth flows, Sovereign routes, Core/MAS tool
+  policy, MCP/Hermes routing, graph, generated bindings, subprocess surfaces,
+  or ANE/private API surfaces.
 - Runtime Contract PR30 now keeps UniFFI flat errors out of generation record
   payloads and non-throwing inputs. `RuntimeGenerationSummary.error_class`,
   `RuntimeGenerationEvent.error_class`, and `finish_failed(error_class:)` cross
