@@ -1,0 +1,37 @@
+{
+  "generated_at" : "2026-05-02T00:00:00.000Z",
+  "max" : 119.92242518121091,
+  "measurement" : "renderer_fps_thermal_soak",
+  "metadata" : {
+    "baseline_kind" : "r15_pr11_renderer_fps",
+    "checksum" : "6629",
+    "edge_count" : "280",
+    "fixture_status" : "live_graph_renderer_frame_rate_fixture",
+    "frames_per_sample" : "120",
+    "future_gate" : "five_min_manual_thermal_soak_release_floor",
+    "layer_status" : "offscreen_cAMetalLayer_drawable",
+    "needs_more_frame_count" : "612",
+    "node_count" : "250",
+    "render_status" : "live_render_frame_rate",
+    "renderer_authority" : "GraphEngine.render(width:height:)",
+    "sample_count_target" : "5",
+    "sample_source" : "focused_xcode_test_explicit_opt_in",
+    "thermal_soak_status" : "not_five_min_thermal_soak",
+    "warmup_frames" : "12"
+  },
+  "min" : 119.3583346062071,
+  "p50" : 119.65399546442954,
+  "p95" : 119.8709496648827,
+  "p99" : 119.91213007794526,
+  "sample_count" : 5,
+  "samples" : [
+    119.3583346062071,
+    119.55321969508223,
+    119.65399546442954,
+    119.66504759956986,
+    119.92242518121091
+  ],
+  "schema_version" : 1,
+  "suite" : "R15 Renderer FPS Baseline",
+  "unit" : "frames_per_second"
+}
