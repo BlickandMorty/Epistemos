@@ -2279,6 +2279,14 @@ or bindings execution. The slice keeps the policy in the existing bridge rather
 than adding provider, MCP, Omega, or subprocess machinery: hidden gateway symbols
 return `Tool not found` in Core/App Store, while Core-safe `vault_search` and
 Pro/Research `run_command` execution policy remain allowed.
+Overseer Core/MAS Tool Permission Fallback PR1 is closed. `OverseerComplexityRouter`
+now exposes a single distribution-aware `fallbackToolPermissions(...)` helper,
+and the private route fallback delegates to that helper through
+`ToolSurfacePolicy` instead of carrying a raw hardcoded list. Core/App Store
+fallback plans keep Core-visible vault/web search tools and hide `run_command`,
+`open_url`, `search_web`, browser/computer-use, Docker, and Hermes subprocess
+aliases; Pro/Research fallback plans preserve the explicit ask-mode tools for
+the Hermes-controlled gateway path.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web
@@ -2421,7 +2429,10 @@ Evidence:
   red-team drove the catalog-filtering hardening. Core/MAS ToolTier Execution
   Symbol Gate PR2 passed 9 focused `ToolSurfacePolicyTests`, 62 guard tests
   across `AgentCommandCenterStateTests` and `AppStoreHardeningTests`, and 22
-  focused `ToolSchemaGrammarTests`.
+  focused `ToolSchemaGrammarTests`. Overseer Core/MAS Tool Permission Fallback
+  PR1 passed 7 focused `OverseerProtocolTests`; the first green attempt exposed
+  a source-shape Swift Testing harness hang, so that structural assertion moved
+  into the shell guard list.
   Xcode still printed known SwiftLint package-plugin noise after
   `TEST SUCCEEDED`.
 
@@ -2500,6 +2511,14 @@ Acceptance:
   parsing while preserving Notes/Files context.
 - Command Center PR1 boundary: no Omega, Engine, view, Rust, generated,
   entitlement, project, provider, graph, or execution-path files were touched.
+- Overseer fallback PR1 wired: degraded-registry route permissions delegate to
+  `fallbackToolPermissions(distribution: .currentBuild)`.
+- Overseer fallback PR1 reachable: focused tests prove Core/App Store fallback
+  hides Pro gateway aliases while Pro/Research preserves explicit ask-mode
+  fallback entries.
+- Overseer fallback PR1 boundary: no provider, MCP, Omega, Rust, generated,
+  entitlement, project, graph, view, or execution-path bridge files were
+  touched.
 
 Stop Triggers:
 - A future slice wants to execute a provider request, shell command, MCP call,

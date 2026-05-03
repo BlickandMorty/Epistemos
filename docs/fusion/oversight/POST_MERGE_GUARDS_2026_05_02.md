@@ -494,3 +494,17 @@
 - log: `✔ Test run with 7 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-agent-event-local-gguf-generate-pr24-green-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`.
 - test: `LocalGGUFClientTests`
+
+## overseer-core-mas-tool-permission-fallback-pr1
+
+- grep: `nonisolated static func fallbackToolPermissions(` in `Epistemos/Engine/OverseerProtocol.swift`
+- grep: `ToolSurfacePolicy.isSurfacedToolName($0.toolName, distribution: distribution)` in `Epistemos/Engine/OverseerProtocol.swift`
+- grep: `return Self.fallbackToolPermissions(distribution: .currentBuild)` in the private `toolPermissions(for:)` fallback body.
+- forbidden route-body grep: `OverseerToolPermission(toolName: "run_command"` between `private func toolPermissions(for route:` and `private func permissionMode(for tool:` returns no matches; `run_command` is allowed only in the shared Pro/Research-preserving helper and negative/Core tests.
+- forbidden source grep: provider, MCP, Omega, Rust, generated transport, entitlement, project, graph, view, and execution bridge paths are not staged for this slice.
+- staged allow: only `Epistemos/Engine/OverseerProtocol.swift`, `EpistemosTests/OverseerProtocolTests.swift`, Round 56 fleet/deliberation/preflight docs, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit.
+- log: `✔ Test "Core App Store fallback permissions hide Pro gateway tools" passed`
+- log: `✔ Test "Pro Research fallback permissions preserve explicit ask tools" passed`
+- log: `✔ Test run with 7 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green2-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The first green attempt log `/tmp/epistemos-overseer-core-mas-tool-permission-fallback-pr1-green-20260503.log` failed because the source-shape Swift test hung the hosted app process after real permission assertions passed; that source-shape proof moved to the shell guard above.
+- test: `OverseerProtocolTests`

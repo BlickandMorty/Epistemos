@@ -133,6 +133,44 @@ struct OverseerProtocolTests {
         #expect(required.contains("context_summary"))
     }
 
+    @Test("Core App Store fallback permissions hide Pro gateway tools")
+    func coreAppStoreFallbackPermissionsHideProGatewayTools() {
+        let permissions = OverseerComplexityRouter.fallbackToolPermissions(distribution: .coreAppStore)
+        let names = Set(permissions.map(\.toolName))
+
+        #expect(names.contains("vault_search"))
+        #expect(names.contains("web_search"))
+        #expect(names.allSatisfy {
+            ToolSurfacePolicy.isSurfacedToolName($0, distribution: .coreAppStore)
+        })
+
+        for forbidden in [
+            "run_command",
+            "open_url",
+            "search_web",
+            "browser_navigate",
+            "get_ui_tree",
+            "docker_run",
+            "hermes_subprocess",
+        ] {
+            #expect(!names.contains(forbidden))
+        }
+    }
+
+    @Test("Pro Research fallback permissions preserve explicit ask tools")
+    func proResearchFallbackPermissionsPreserveExplicitAskTools() {
+        let permissions = OverseerComplexityRouter.fallbackToolPermissions(distribution: .proResearch)
+        let byName = Dictionary(uniqueKeysWithValues: permissions.map { ($0.toolName, $0.mode) })
+
+        #expect(byName["vault_search"] == .allow)
+        #expect(byName["web_search"] == .ask)
+        #expect(byName["search_web"] == .ask)
+        #expect(byName["open_url"] == .ask)
+        #expect(byName["run_command"] == .ask)
+        #expect(byName["pkm_write"] == .deny)
+        #expect(byName["delete_file"] == .deny)
+    }
+
     private func makePlan() -> OverseerPlanV1 {
         OverseerPlanV1(
             version: .v1,

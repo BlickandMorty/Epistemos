@@ -890,6 +890,28 @@ final class OverseerComplexityRouter {
         }
     }
 
+    nonisolated static func fallbackToolPermissions(
+        distribution: ToolSurfacePolicy.Distribution = .currentBuild
+    ) -> [OverseerToolPermission] {
+        [
+            OverseerToolPermission(toolName: "vault_search", mode: .allow),
+            OverseerToolPermission(toolName: "vault_get", mode: .allow),
+            OverseerToolPermission(toolName: "pkm_search", mode: .allow),
+            OverseerToolPermission(toolName: "pkm_get", mode: .allow),
+            OverseerToolPermission(toolName: "pkm_graph_neighbors", mode: .allow),
+            OverseerToolPermission(toolName: "web_search", mode: .ask),
+            OverseerToolPermission(toolName: "search_web", mode: .ask),
+            OverseerToolPermission(toolName: "open_url", mode: .ask),
+            OverseerToolPermission(toolName: "run_command", mode: .ask),
+            OverseerToolPermission(toolName: "pkm_write", mode: .deny),
+            OverseerToolPermission(toolName: "edit_file", mode: .deny),
+            OverseerToolPermission(toolName: "delete_file", mode: .deny),
+            OverseerToolPermission(toolName: "create_note", mode: .deny),
+        ].filter {
+            ToolSurfacePolicy.isSurfacedToolName($0.toolName, distribution: distribution)
+        }
+    }
+
     private func toolPermissions(for route: OverseerExecutionRoute) -> [OverseerToolPermission] {
         guard route == .overseerLocalExecution || route == .managedAgentSession else { return [] }
 
@@ -914,21 +936,7 @@ final class OverseerComplexityRouter {
             }
         }
 
-        return [
-            OverseerToolPermission(toolName: "vault_search", mode: .allow),
-            OverseerToolPermission(toolName: "vault_get", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_search", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_get", mode: .allow),
-            OverseerToolPermission(toolName: "pkm_graph_neighbors", mode: .allow),
-            OverseerToolPermission(toolName: "web_search", mode: .ask),
-            OverseerToolPermission(toolName: "search_web", mode: .ask),
-            OverseerToolPermission(toolName: "open_url", mode: .ask),
-            OverseerToolPermission(toolName: "run_command", mode: .ask),
-            OverseerToolPermission(toolName: "pkm_write", mode: .deny),
-            OverseerToolPermission(toolName: "edit_file", mode: .deny),
-            OverseerToolPermission(toolName: "delete_file", mode: .deny),
-            OverseerToolPermission(toolName: "create_note", mode: .deny),
-        ]
+        return Self.fallbackToolPermissions(distribution: .currentBuild)
     }
 
     private func permissionMode(for tool: OmegaToolDefinition) -> OverseerToolPermissionMode? {
