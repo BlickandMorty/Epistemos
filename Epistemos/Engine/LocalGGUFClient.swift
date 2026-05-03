@@ -617,6 +617,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
     private var preparedGenerationRuntimeConfiguration: PreparedGenerationRuntimeConfiguration?
     private var onRunProfileUpdated: (@Sendable (LocalGGUFRunProfile) -> Void)?
     private var generateToolSequence: UInt64 = 0
+    private var streamToolSequence: UInt64 = 0
 
     init(
         runtime: any LocalGGUFRuntime,
@@ -811,12 +812,26 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                 steeringHintsJSON: steeringHintsJSON
             )
             let contractRequest = backendGenerationRequest(for: request)
+            let provenance = makeStreamProvenanceContext(for: request)
+            let lifecycleStart = DispatchTime.now()
+
+            recordStreamAgentEvent(
+                provenance,
+                kind: .toolCallRequested,
+                status: .requested
+            )
+            recordStreamAgentEvent(
+                provenance,
+                kind: .toolCallStarted,
+                status: .started
+            )
 
             return StreamingBufferPolicy.throwingStream { continuation in
                 let task = Task {
                     await self.prepareForRequest()
                     var launch: BackendGenerationLaunch?
                     var output = ""
+                    var chunkCount = 0
                     do {
                         let preparedLaunch = try await self.runtimeControlPlane.generate(request: contractRequest)
                         launch = preparedLaunch
@@ -831,6 +846,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
 
                         let stream = await self.runtime.stream(request: request)
                         for try await chunk in stream {
+                            chunkCount += 1
                             output += chunk
                             try await self.runtimeControlPlane.appendToken(
                                 streamHandle: preparedLaunch.streamHandle,
@@ -850,8 +866,38 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                             streamHandle: preparedLaunch.streamHandle,
                             summary: summary
                         )
+                        let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
+                        self.recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallCompleted,
+                            resultJSON: Self.localGGUFStreamResultJSON(
+                                success: true,
+                                elapsedMs: elapsedMs,
+                                chunkCount: chunkCount,
+                                outputCharacterCount: output.count
+                            ),
+                            durationMs: elapsedMs,
+                            status: .completed
+                        )
                         continuation.finish()
                     } catch is CancellationError {
+                        let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
+                        var failedMetadata = provenance.metadata
+                        failedMetadata["failure_class"] = BackendRuntimeContractError.cancelled.rawValue
+                        self.recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallFailed,
+                            resultJSON: Self.localGGUFStreamResultJSON(
+                                success: false,
+                                elapsedMs: elapsedMs,
+                                chunkCount: chunkCount,
+                                outputCharacterCount: output.count
+                            ),
+                            durationMs: elapsedMs,
+                            status: .failed,
+                            errorMessage: BackendRuntimeContractError.cancelled.rawValue,
+                            metadata: failedMetadata
+                        )
                         if let launch {
                             let summary = await self.backendSummary(
                                 from: request,
@@ -873,8 +919,25 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
                         }
                         continuation.finish(throwing: CancellationError())
                     } catch {
+                        let elapsedMs = Self.localGGUFGenerateDurationMilliseconds(since: lifecycleStart)
+                        let mapped = Self.mapBackendError(error)
+                        var failedMetadata = provenance.metadata
+                        failedMetadata["failure_class"] = mapped.rawValue
+                        self.recordStreamAgentEvent(
+                            provenance,
+                            kind: .toolCallFailed,
+                            resultJSON: Self.localGGUFStreamResultJSON(
+                                success: false,
+                                elapsedMs: elapsedMs,
+                                chunkCount: chunkCount,
+                                outputCharacterCount: output.count
+                            ),
+                            durationMs: elapsedMs,
+                            status: .failed,
+                            errorMessage: mapped.rawValue,
+                            metadata: failedMetadata
+                        )
                         if let launch {
-                            let mapped = Self.mapBackendError(error)
                             let summary = await self.backendSummary(
                                 from: request,
                                 launch: launch,
@@ -1024,9 +1087,51 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
         )
     }
 
-    private struct LocalGGUFGenerateProvenanceContext {
+    private enum LocalGGUFProvenanceSurface {
+        case generate
+        case stream
+
+        nonisolated var runIDPrefix: String {
+            switch self {
+            case .generate:
+                "local-gguf-generate-"
+            case .stream:
+                "local-gguf-stream-"
+            }
+        }
+
+        nonisolated var toolCallPrefix: String {
+            switch self {
+            case .generate:
+                "local-gguf-generate"
+            case .stream:
+                "local-gguf-stream"
+            }
+        }
+
+        nonisolated var toolName: String {
+            switch self {
+            case .generate:
+                "local_generate.gguf"
+            case .stream:
+                "local_stream.gguf"
+            }
+        }
+
+        nonisolated var metadataValue: String {
+            switch self {
+            case .generate:
+                "generate"
+            case .stream:
+                "stream"
+            }
+        }
+    }
+
+    private struct LocalGGUFProvenanceContext {
         let runID: String
         let toolCallID: String
+        let toolName: String
         let actor: AgentProvenanceActor
         let argumentsJSON: String
         let metadata: [String: String]
@@ -1034,23 +1139,83 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
 
     private func makeGenerateProvenanceContext(
         for request: LocalGGUFRequest
-    ) -> LocalGGUFGenerateProvenanceContext {
-        LocalGGUFGenerateProvenanceContext(
-            runID: "local-gguf-generate-\(UUID().uuidString.uppercased())",
-            toolCallID: nextGenerateToolCallID(),
+    ) -> LocalGGUFProvenanceContext {
+        makeProvenanceContext(for: request, surface: .generate)
+    }
+
+    private func makeStreamProvenanceContext(
+        for request: LocalGGUFRequest
+    ) -> LocalGGUFProvenanceContext {
+        makeProvenanceContext(for: request, surface: .stream)
+    }
+
+    private func makeProvenanceContext(
+        for request: LocalGGUFRequest,
+        surface: LocalGGUFProvenanceSurface
+    ) -> LocalGGUFProvenanceContext {
+        LocalGGUFProvenanceContext(
+            runID: "\(surface.runIDPrefix)\(UUID().uuidString.uppercased())",
+            toolCallID: nextToolCallID(for: surface),
+            toolName: surface.toolName,
             actor: .agent(id: "local-gguf-client", modelID: nil),
             argumentsJSON: Self.localGGUFGenerateArgumentsJSON(for: request),
-            metadata: Self.localGGUFGenerateMetadata(for: request)
+            metadata: Self.localGGUFGenerateMetadata(for: request, surface: surface)
         )
     }
 
-    private func nextGenerateToolCallID() -> String {
-        generateToolSequence += 1
-        return "local-gguf-generate:\(generateToolSequence)"
+    private func nextToolCallID(for surface: LocalGGUFProvenanceSurface) -> String {
+        switch surface {
+        case .generate:
+            generateToolSequence += 1
+            return "\(surface.toolCallPrefix):\(generateToolSequence)"
+        case .stream:
+            streamToolSequence += 1
+            return "\(surface.toolCallPrefix):\(streamToolSequence)"
+        }
     }
 
     private func recordGenerateAgentEvent(
-        _ context: LocalGGUFGenerateProvenanceContext,
+        _ context: LocalGGUFProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        recordLocalGGUFAgentEvent(
+            context,
+            kind: kind,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private func recordStreamAgentEvent(
+        _ context: LocalGGUFProvenanceContext,
+        kind: AgentProvenanceEventKind,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]? = nil
+    ) {
+        recordLocalGGUFAgentEvent(
+            context,
+            kind: kind,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private func recordLocalGGUFAgentEvent(
+        _ context: LocalGGUFProvenanceContext,
         kind: AgentProvenanceEventKind,
         resultJSON: String? = nil,
         durationMs: UInt64? = nil,
@@ -1064,7 +1229,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             kind: kind,
             actor: context.actor,
             toolCallID: context.toolCallID,
-            toolName: "local_generate.gguf",
+            toolName: context.toolName,
             argumentsJSON: context.argumentsJSON,
             resultJSON: resultJSON,
             durationMs: durationMs,
@@ -1090,7 +1255,8 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
     }
 
     private nonisolated static func localGGUFGenerateMetadata(
-        for request: LocalGGUFRequest
+        for request: LocalGGUFRequest,
+        surface: LocalGGUFProvenanceSurface
     ) -> [String: String] {
         [
             "max_tokens": "\(request.maxTokens)",
@@ -1101,7 +1267,7 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             "resolved_runtime": request.resolvedRuntimeKind.rawValue,
             "source": "local_gguf_client",
             "steering_hints_present": "\(hasSteeringHints(request.steeringHintsJSON))",
-            "surface": "generate",
+            "surface": surface.metadataValue,
             "system_prompt_char_count": "\(request.systemPrompt?.count ?? 0)",
         ]
     }
@@ -1119,6 +1285,20 @@ final class LocalGGUFClient: RoutedLocalRuntimeClient {
             payload["output_char_count"] = outputCharacterCount
         }
         return localGGUFGenerateJSON(payload)
+    }
+
+    private nonisolated static func localGGUFStreamResultJSON(
+        success: Bool,
+        elapsedMs: UInt64,
+        chunkCount: Int,
+        outputCharacterCount: Int
+    ) -> String {
+        localGGUFGenerateJSON([
+            "chunk_count": chunkCount,
+            "elapsed_ms": elapsedMs,
+            "output_char_count": outputCharacterCount,
+            "success": success,
+        ])
     }
 
     private nonisolated static func localGGUFGenerateJSON(_ payload: [String: Any]) -> String {

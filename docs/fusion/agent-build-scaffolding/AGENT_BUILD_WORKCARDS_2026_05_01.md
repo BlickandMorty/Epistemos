@@ -1083,6 +1083,26 @@ polling without changing runtime policy, model loading, EventStore schema,
 AgentEvent persistence, UI, graph, or lower GGUF/MLX semantics. Focused
 `BackendRuntimeContractTests` pass under `pipefail`.
 
+PR32 LocalGGUF direct stream provenance is also closed.
+`LocalGGUFClient.stream(...)` now records direct GGUF streaming requested,
+started, and completed/failed AgentEvents with `local-gguf-stream-...` run ids,
+`local-gguf-client` actor metadata, per-client `local-gguf-stream:N` tool call
+ids, `local_stream.gguf` tool name, `source=local_gguf_client`,
+`surface=stream`, `provider=local_gguf`, requested/resolved runtime, reasoning
+mode, max token count, prompt/system prompt character counts, steering-hints
+presence, elapsed milliseconds, chunk count, output character count, success
+boolean, and bounded
+`cancelled|runtime_unavailable|model_not_loaded|model_not_found|backend_failure`
+failure classes. Persisted provenance excludes prompt text, system prompts,
+steering hint JSON, streamed output, model id, artifact id, filesystem paths,
+localized descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+browser/computer-use surfaces, LocalAuthentication, and ANE/private API
+details. Source and behavior stay away from routing semantics, token delivery,
+model loading, runtime-control-plane policy, lower runtime semantics, UI, graph,
+Rust, generated bindings, and EventStore schema. Focused `LocalGGUFClientTests`
+pass under `pipefail` with isolated DerivedData after stale Xcode build
+processes were cleaned up.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1167,6 +1187,34 @@ Allowed write set:
   `InstantRecallService.search(queryText:topK:)` only.
 - PR17 InstantRecall async recall provenance: already closed for
   `InstantRecallService.searchAsync(query:topK:)` only.
+- PR18 ShadowSearch backend provenance: already closed for
+  `ShadowSearchService.search(text:domain:limit:)` only.
+- PR19 SearchIndex fused async provenance: already closed for
+  `SearchIndexService.fusedSearchAsync(query:weights:now:)` only.
+- PR0 sync recorder enabler: already closed for shared sync factory/recorder
+  reuse only.
+- PR20 SearchIndex fused sync provenance: already closed for
+  `SearchIndexService.fusedSearch(query:weights:now:)` only.
+- PR21 SearchIndex direct page sync/async provenance: already closed for
+  `search(query:limit:)` and `searchAsync(query:limit:)` only.
+- PR22 SearchIndex block sync/async provenance: already closed for
+  `searchBlocks(query:limit:)` and `searchBlocksAsync(query:limit:)` only.
+- PR23 MLX image generation attempt provenance: already closed for
+  `MLXImageGenerationService.generate(prompt:aspectRatio:)` only.
+- PR24 LocalGGUF non-streaming generate provenance: already closed for
+  `LocalGGUFClient.generate(...)` only.
+- PR25 LocalBackend stream provenance: already closed for
+  `LocalBackendLLMClient.stream(...)` only.
+- PR26 local runtime recorder mount: already closed for the `AppBootstrap`
+  recorder injection into `LocalGGUFClient` and `LocalBackendLLMClient` only.
+- PR27 LocalMLX direct generate provenance: already closed for
+  `LocalMLXClient.generate(...)` only.
+- PR28 LocalMLX direct stream provenance: already closed for
+  `LocalMLXClient.stream(...)` only.
+- PR29 LocalBackend direct generate provenance: already closed for
+  `LocalBackendLLMClient.generate(...)` only.
+- PR32 LocalGGUF direct stream provenance: already closed for
+  `LocalGGUFClient.stream(...)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
@@ -1556,6 +1604,30 @@ Acceptance:
   Hermes/MCP/subprocess surfaces, browser/computer-use surfaces,
   LocalAuthentication, and ANE/private API details are not persisted in
   AgentEvent arguments/results/errors.
+- PR29 wired/reachable/visible: `LocalBackendLLMClient.generate(...)` emits
+  requested, started, and completed/failed AgentEvents with non-empty run id,
+  per-router tool call id, actor, source/surface/provider metadata,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, output
+  character count, success boolean, and bounded
+  `cancelled|model_required|runtime_unavailable|model_unavailable|backend_failure`
+  failure classes. Tests prove prompt text, system prompts, steering hint JSON,
+  generated output, model id, artifact id, filesystem paths, localized
+  descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+  browser/computer-use surfaces, LocalAuthentication, and ANE/private API
+  details are not persisted in AgentEvent arguments/results/errors.
+- PR32 wired/reachable/visible: Direct `LocalGGUFClient.stream(...)` emits
+  requested, started, and completed/failed AgentEvents with non-empty run id,
+  per-client tool call id, actor, source/surface/provider metadata,
+  requested/resolved runtime, reasoning mode, max token count, prompt/system
+  prompt character counts, steering-hints presence, elapsed milliseconds, chunk
+  count, output character count, success boolean, and bounded
+  `cancelled|runtime_unavailable|model_not_loaded|model_not_found|backend_failure`
+  failure classes. Tests prove prompt text, system prompts, steering hint JSON,
+  streamed output, model id, artifact id, filesystem paths, localized
+  descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
+  browser/computer-use surfaces, LocalAuthentication, and ANE/private API
+  details are not persisted in AgentEvent arguments/results/errors.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,
