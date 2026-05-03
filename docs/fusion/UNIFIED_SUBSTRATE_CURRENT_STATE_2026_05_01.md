@@ -1424,6 +1424,31 @@ Halo V1:
   Open/Edit/Summarise actions.
 - Gap: manual runtime verification against a real vault.
 
+RRF QueryRuntime Phase 4:
+
+- PR34 recovers the claimed RRF Phase 4 site 3 wiring for
+  `QueryRuntime.fullText(query:scope:)`: when `EPISTEMOS_RRF_FUSION_V1=1` and
+  the scope is `.all`, QueryRuntime calls `SearchIndexService.fusedSearch` with
+  `FusionWeights(maxResults: limit)` and then applies the existing scorer plus
+  GraphEvent projection hint. Flag-off and fused-path failure both preserve the
+  legacy page + block search dispatch.
+- PR34 also closes the reactive invalidation gap Claude Red Team found:
+  `.all` full-text plans now depend on `QueryDependencyKey.searchReadable`, and
+  `ReadableBlocksIndex` mutations post `.searchReadable` invalidation so the
+  universal projection cannot go stale in reactive surfaces.
+- This does not change RRF SQL, `SearchIndexService`, `VaultSyncService`,
+  SearchFusionMetrics semantics, UI, graph, Rust, generated bindings, default
+  flag policy, or Phase 6 dogfood/default flip.
+- Focused QueryRuntime verification passed in
+  `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-green-r3-20260503.log`.
+  This host's SQLite lacks FTS5, so the readable-block-only fused behavior test
+  is skipped behind the existing fusion gate; non-skipped tests prove fallback
+  preserves legacy hits when fused search throws, `.pages` / `.blocks` do not
+  enter fused search with the flag on, and `.all` reacts to readable-block
+  invalidation.
+- Focused ReadableBlocksIndex verification also passed in
+  `/tmp/epistemos-query-runtime-rrf-fused-fulltext-pr34-readable-green-20260503.log`.
+
 ## Operating Rule For New Sessions
 
 Start from this file, then read:
@@ -1484,6 +1509,7 @@ Runtime Contract error-class bridge PR30,
 LocalAgent reflex streaming EOF flush PR31,
 AgentEvent LocalGGUF direct stream provenance PR32,
 AgentEvent Apple Intelligence direct generate provenance PR33,
+RRF QueryRuntime fused full-text PR34,
 durable GraphEvent mutation mapping PR1,
 durable GraphEvent Settings visibility PR2, durable GraphEvent projection snapshot PR3,
 durable GraphEvent projection consumer PR4, durable GraphEvent Settings

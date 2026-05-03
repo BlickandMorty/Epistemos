@@ -201,6 +201,7 @@ enum QueryDependencyKey: String, CaseIterable, Hashable, Sendable {
     case graphEdges
     case searchPages
     case searchBlocks
+    case searchReadable
 
     private static let notificationUserInfoKey = "queryDependencyKeys"
 
@@ -241,7 +242,7 @@ extension QueryPlan.QueryStep {
             case .blocks:
                 return [.searchBlocks]
             case .all:
-                return [.searchPages, .searchBlocks]
+                return [.searchPages, .searchBlocks, .searchReadable]
             }
         case .btkPropertyFilter, .btkDepthFilter:
             return [.graphNodes, .graphEdges]

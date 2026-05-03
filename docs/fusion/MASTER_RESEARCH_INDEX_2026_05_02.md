@@ -78,6 +78,26 @@ TypedArtifact → MutationEnvelope → RunEventLog / AgentEvent / GraphEvent →
 ### WRV doctrine (Wired + Reachable + Visible + Verified)
 **Status:** staged in `docs/fusion/CANON_GAPS_AND_ADDENDA_2026_05_02.md` C1. Not yet in doctrine. Mentioned across `docs/audits/MASTER_HARDENING_WIRING_AUDIT.md` ("init-time gate GREEN; 4k-line runtime fluidity unproven") and `docs/fusion/KIMI_FUSION_REVIEW_2026_04_30.md` ("recommended first three slices").
 
+### Swift RRF Cross-Index Fusion
+**Canonical:** `docs/RRF_FUSION_PROMPT.md` + `docs/RRF_FUSION_DESIGN.md` + `CLAUDE.md` "Swift RRF Cross-Index Fusion".
+
+**Load-bearing claim:** "wire it into every site in the app where unified search is currently fragmented."
+
+**Code anchors:**
+- `Epistemos/Sync/RRFFusionQuery.swift` - feature flag, `FusionWeights`, `FusedResult`, single SQL query, metrics.
+- `Epistemos/Sync/SearchIndexService.swift` - `fusedSearch(query:weights:now:)` and `fusedSearchAsync(query:weights:now:)`.
+- `Epistemos/Sync/VaultSyncService.swift` - flag-aware `searchFull`, `searchFullAsync`, and `searchIndex`.
+- `Epistemos/Engine/QueryRuntime.swift` - Phase 4 site 3, flag-aware `.all` full-text fused path for Epdoc slash menu / at-mention block-link autocomplete.
+- `Epistemos/Models/QueryTypes.swift` - `.all` full-text reactive dependency includes `searchReadable`.
+- `Epistemos/Sync/ReadableBlocksIndex.swift` - readable-block projection mutations publish `.searchReadable` invalidation.
+- `EpistemosTests/RRFFusionQueryTests.swift` - k=60, bm25 sign, EXPLAIN plan, and SQL invariant tests.
+- `EpistemosTests/SearchIndexServiceFusionTests.swift` - real file-backed DB fusion integration tests.
+- `EpistemosTests/QueryRuntimeTests.swift` - QueryRuntime consumer guard tests.
+
+**Tier:** Core by default when flag-off; Pro/Research/dev-dogfood when `EPISTEMOS_RRF_FUSION_V1=1` until Phase 6 runtime dogfood flips defaults.
+
+**Search aliases:** RRF, fused search, cross-index fusion, Search Fusion Health, readable blocks, universal projection, Epdoc slash, at-mention autocomplete, block-link autocomplete, one SQL query, `EPISTEMOS_RRF_FUSION_V1`.
+
 ### SCOPE-Rex / Rex naming
 **Canonical:** doctrine §4.1 Annex A.1. `Epistemos` = product, `Rex` = Rust kernel (`agent_core` becoming Rex), `SCOPE-Rex` = full runtime (Sparse-feature, Claim-graph, Ontology, Proof, Execution).
 

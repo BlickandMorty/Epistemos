@@ -297,6 +297,10 @@ nonisolated public enum ReadableBlocksIndex {
     /// the active workspace id through `ReadableBlock.vaultID` so
     /// Phase-4 `WHERE vault_id = ?` predicates scope correctly.
     public static func insert(_ block: ReadableBlock, in db: Database) throws {
+        try insert(block, in: db, notifying: true)
+    }
+
+    private static func insert(_ block: ReadableBlock, in db: Database, notifying: Bool) throws {
         try db.execute(sql: """
             INSERT INTO readable_blocks
                 (artifact_id, artifact_kind, block_id, block_kind, title_path, body, updated_at, vault_id)
@@ -311,6 +315,9 @@ nonisolated public enum ReadableBlocksIndex {
             block.updatedAt,
             block.vaultID,
         ])
+        if notifying {
+            notifyIndexChanged()
+        }
     }
 
     /// Atomic "replace this artifact's projection" — deletes every
@@ -335,8 +342,9 @@ nonisolated public enum ReadableBlocksIndex {
                 block.artifactID == artifactID,
                 "ReadableBlocksIndex.replaceAllForArtifact: every block must share the same artifact_id (\(artifactID)), got \(block.artifactID)"
             )
-            try insert(block, in: db)
+            try insert(block, in: db, notifying: false)
         }
+        notifyIndexChanged()
     }
 
     /// Delete every row for `artifactID`. Useful when an artifact is
@@ -346,6 +354,17 @@ nonisolated public enum ReadableBlocksIndex {
             sql: "DELETE FROM readable_blocks WHERE artifact_id = ?",
             arguments: [artifactID]
         )
+        notifyIndexChanged()
+    }
+
+    private static func notifyIndexChanged() {
+        Task { @MainActor in
+            NotificationCenter.default.post(
+                name: .searchIndexDidUpdate,
+                object: nil,
+                userInfo: QueryDependencyKey.userInfo(for: [.searchReadable])
+            )
+        }
     }
 
     // MARK: Reader surface
