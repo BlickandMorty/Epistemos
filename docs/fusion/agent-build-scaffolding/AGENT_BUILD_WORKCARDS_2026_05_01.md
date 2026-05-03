@@ -1254,6 +1254,19 @@ AgentEvents. This does not change returned clarify response JSON, prompt UI,
 Core/MAS tool policy, MCP/Hermes routing, Sovereign, graph, EventStore schema,
 generated bindings, subprocess surfaces, or ANE/private API surfaces.
 
+PR44 AgentEvent Bridge no-double-count source guard is also closed.
+`AgentEventBridgeNoDoubleCountSourceGuardTests` now reads the four intentional
+no-instrument Bridge surfaces: `StreamingDelegate.swift`,
+`ChunkedMCPFraming.swift`, `CoTStreamInterceptor.swift`, and
+`ToolTierBridge.swift`. The suite fails if any of those
+transport/parser/router/policy surfaces directly instantiate
+`AgentToolProvenanceRecorder` or call `recordToolEvent`. This preserves the
+post-PR43 Bridge-complete boundary and keeps future AgentEvent expansion aimed
+at Omega runtime + LocalAgent instead of lower Bridge layers. This does not
+change production source, EventStore schema, Core/MAS policy, MCP/Hermes
+routing, Sovereign, graph, generated bindings, subprocess surfaces, or
+ANE/private API surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1387,6 +1400,8 @@ Allowed write set:
   `Phase4Bridge.startScreenWatch(watchJson:)` only.
 - PR43 ClarifyPromptBridge provenance: already closed for
   `ClarifyPromptBridge.ask(questionJson:)` only.
+- PR44 Bridge no-double-count source guard: already closed for the four
+  intentional no-instrument Bridge surfaces only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
