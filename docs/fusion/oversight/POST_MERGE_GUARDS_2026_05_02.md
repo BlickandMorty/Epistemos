@@ -422,3 +422,21 @@
 - test: `AgentCommandCenterStateTests`
 - test: `AppStoreHardeningTests`
 - test: `ToolSchemaGrammarTests`
+
+## agent-event-search-index-direct-page-pr21
+
+- grep: `toolName: "search_index.search"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `toolName: "search_index.search_async"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `directPageSearchMetadata(surface: "search"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `directPageSearchMetadata(surface: "search_async"` in `Epistemos/Sync/SearchIndexService.swift`
+- grep: `nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)`
+- grep: `private var directPageAsyncSearchToolSequence: UInt64 = 0`
+- forbidden grep: `search_index.search_blocks|search_index.search_blocks_async` in `Epistemos/Sync/SearchIndexService.swift`
+- forbidden direct-sync grep: `AgentToolProvenanceRecorder|Task \\{|Task\\.detached|DispatchQueue\\.main\\.sync|MainActor\\.assumeIsolated|search_index\\.search_async` inside the `search(query:limit:)` body.
+- staged guard: `git diff --cached --name-only -- Epistemos/Views Epistemos/Graph graph-engine agent_core omega-mcp epistemos-core Epistemos.xcodeproj`
+- staged allow: only `Epistemos/Sync/SearchIndexService.swift`, `EpistemosTests/SearchIndexServiceFusionTests.swift`, Round 52 fleet/deliberation/preflight docs, this guard file, current-state docs, and workcard docs are allowed for this commit.
+- log: `✔ Test "fusedSearch provenance surfaces stay bounded" passed`
+- log: `✔ Suite "SearchIndexService AgentEvent source guards" passed`
+- log: `✔ Test run with 24 tests in 2 suites passed`
+- note: focused verification log `/tmp/epistemos-agent-event-search-index-page-pr21-green-pipefail-20260503.log`; Xcode exited `0` under `pipefail` and printed `** TEST SUCCEEDED **`. The runtime RRF Fusion suite still compiles but remains skipped by the pre-existing FTS5 availability gate on this host.
+- test: `SearchIndexServiceAgentEventSourceGuardTests`

@@ -914,6 +914,25 @@ Rust, generated bindings, and EventStore schema. Focused source-guard
 verification passes on this host; the focused runtime tests compile but remain
 skipped by the pre-existing FTS5 availability gate.
 
+PR21 SearchIndex direct page sync/async provenance is also closed.
+`SearchIndexService.search(query:limit:)` and
+`SearchIndexService.searchAsync(query:limit:)` now record requested, started,
+and completed/failed AgentEvents for valid non-empty direct page searches with
+`search-index-page-sync-...` / `search-index-page-async-...` run ids,
+`search-index-service` actor metadata, per-instance
+`search-index-page-sync:N` / `search-index-page-async:N` ids,
+`surface=search|search_async`, query character count, term count, limit, hit
+count, elapsed milliseconds, zero-hit completed events, and closed
+`cancelled|sql_error|unknown_error` failure classes. Persisted provenance
+excludes query text, sanitized FTS query, hit ids, titles, snippets, scores,
+source labels, document bodies, vault paths, SQL, GRDB error strings, localized
+descriptions, arbitrary error text, and block-search tool names. Source and
+behavior stay away from page-search SQL, block search, fused search,
+VaultSyncService, QueryRuntime, UI, graph, Rust, generated bindings, and
+EventStore schema. Focused source-guard verification passes under `pipefail`;
+the focused runtime tests compile but remain skipped by the pre-existing FTS5
+availability gate.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1303,6 +1322,17 @@ Acceptance:
   without `Task`, `Task.detached`, `DispatchQueue.main.sync`, or
   `MainActor.assumeIsolated`; the FTS5-gated runtime assertions are present but
   skipped on hosts where the suite's existing FTS5 probe is false.
+- PR21 wired/reachable/visible: SearchIndex direct page sync and async search
+  emits requested, started, and completed/failed AgentEvents for valid non-empty
+  `search(query:limit:)` and `searchAsync(query:limit:)` calls with non-empty
+  run id, per-instance tool call id, actor, source/surface metadata, query
+  character count, term count, limit, hit count, elapsed milliseconds, zero-hit
+  completed events, and bounded `cancelled|sql_error|unknown_error` failure
+  classes. Tests prove direct sync uses the sync recorder without `Task`,
+  `Task.detached`, `DispatchQueue.main.sync`, or `MainActor.assumeIsolated`,
+  and that block-search tool names stay absent from the direct page slice; the
+  FTS5-gated runtime assertions are present but skipped on hosts where the
+  suite's existing FTS5 probe is false.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

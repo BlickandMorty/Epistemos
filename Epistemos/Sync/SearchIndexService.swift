@@ -134,8 +134,10 @@ actor SearchIndexService {
     nonisolated private let supportsPageFTS5: Bool
     nonisolated private let supportsBlockFTS5: Bool
     nonisolated private let agentProvenanceSyncRecorder: AgentToolProvenanceSyncRecorder
+    nonisolated private let directPageSyncSearchToolSequence = Mutex<UInt64>(0)
     nonisolated private let fusedSyncSearchToolSequence = Mutex<UInt64>(0)
     private var agentProvenanceRecorder: AgentToolProvenanceRecorder?
+    private var directPageAsyncSearchToolSequence: UInt64 = 0
     private var fusedAsyncSearchToolSequence: UInt64 = 0
 
     init(
@@ -509,15 +511,173 @@ actor SearchIndexService {
 
         let terms = Self.normalizedSearchTerms(query)
         guard !terms.isEmpty else { return [] }
-        return try searchPages(terms: terms, limit: limit)
+        let recorder = agentProvenanceSyncRecorder
+        let runID = "search-index-page-sync-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextDirectPageSyncSearchToolCallID()
+        let argumentsJSON = Self.directPageSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.directPageSearchMetadata(
+            surface: "search",
+            query: query,
+            terms: terms,
+            limit: limit
+        )
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
+
+        recordDirectPageSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        recordDirectPageSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        do {
+            let results = try searchPages(terms: terms, limit: limit)
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": elapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            recordDirectPageSyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: elapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
+            return results
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.searchIndexFailureClass(for: error)
+            recordDirectPageSyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
+            throw error
+        }
     }
 
     func searchAsync(query: String, limit: Int = 50) async throws -> [SearchResult] {
-        try await offloadSearch { [self] cancellation in
-            let terms = Self.normalizedSearchTerms(query)
-            guard !terms.isEmpty else { return [] }
-            try cancellation.check()
-            return try searchPages(terms: terms, limit: limit, cancellation: cancellation)
+        let terms = Self.normalizedSearchTerms(query)
+        guard !terms.isEmpty else { return [] }
+        let recorder = await resolvedAgentProvenanceRecorder()
+        let runID = "search-index-page-async-\(UUID().uuidString.uppercased())"
+        let toolCallID = nextDirectPageAsyncSearchToolCallID()
+        let argumentsJSON = Self.directPageSearchArgumentsJSON(query: query, terms: terms, limit: limit)
+        let baseMetadata = Self.directPageSearchMetadata(
+            surface: "search_async",
+            query: query,
+            terms: terms,
+            limit: limit
+        )
+        let actor = AgentProvenanceActor.agent(id: "search-index-service", modelID: nil)
+        let lifecycleStart = DispatchTime.now()
+
+        await recordDirectPageAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallRequested,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .requested,
+            metadata: baseMetadata
+        )
+        await recordDirectPageAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallStarted,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            status: .started,
+            metadata: baseMetadata
+        )
+
+        if Task.isCancelled {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            await recordDirectPageAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: .cancelled,
+                metadata: baseMetadata
+            )
+            throw CancellationError()
+        }
+
+        do {
+            let results = try await offloadSearch { [self, terms, limit] cancellation in
+                try cancellation.check()
+                let signpostId = Sig.storage.makeSignpostID()
+                let state = Sig.storage.beginInterval("search", id: signpostId)
+                defer { Sig.storage.endInterval("search", state) }
+                return try searchPages(terms: terms, limit: limit, cancellation: cancellation)
+            }
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let resultJSON = Self.searchIndexAgentJSON([
+                "elapsed_ms": elapsedMs,
+                "hit_count": results.count
+            ])
+            var metadata = baseMetadata
+            metadata["hit_count"] = "\(results.count)"
+            await recordDirectPageAsyncAgentEvent(
+                recorder: recorder,
+                runID: runID,
+                kind: .toolCallCompleted,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                resultJSON: resultJSON,
+                durationMs: elapsedMs,
+                status: .completed,
+                metadata: metadata
+            )
+            return results
+        } catch {
+            let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
+            let failureClass = Self.searchIndexFailureClass(for: error)
+            await recordDirectPageAsyncFailure(
+                recorder: recorder,
+                runID: runID,
+                actor: actor,
+                toolCallID: toolCallID,
+                argumentsJSON: argumentsJSON,
+                durationMs: elapsedMs,
+                failureClass: failureClass,
+                metadata: baseMetadata
+            )
+            throw error
         }
     }
 
@@ -654,7 +814,7 @@ actor SearchIndexService {
         } catch {
             SearchFusionMetrics.shared.recordError(error)
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.fusedSearchFailureClass(for: error)
+            let failureClass = Self.searchIndexFailureClass(for: error)
             recordFusedSyncFailure(
                 recorder: recorder,
                 runID: runID,
@@ -787,7 +947,7 @@ actor SearchIndexService {
             return results
         } catch {
             let elapsedMs = Self.elapsedMilliseconds(since: lifecycleStart)
-            let failureClass = Self.fusedSearchFailureClass(for: error)
+            let failureClass = Self.searchIndexFailureClass(for: error)
             await recordFusedAsyncFailure(
                 recorder: recorder,
                 runID: runID,
@@ -802,7 +962,7 @@ actor SearchIndexService {
         }
     }
 
-    private enum FusedSearchFailureClass: String, Sendable {
+    private enum SearchIndexFailureClass: String, Sendable {
         case cancelled
         case sqlError = "sql_error"
         case unknownError = "unknown_error"
@@ -824,12 +984,87 @@ actor SearchIndexService {
         return "search-index-fused-async:\(fusedAsyncSearchToolSequence)"
     }
 
+    private func nextDirectPageAsyncSearchToolCallID() -> String {
+        directPageAsyncSearchToolSequence += 1
+        return "search-index-page-async:\(directPageAsyncSearchToolSequence)"
+    }
+
     private nonisolated func nextFusedSyncSearchToolCallID() -> String {
         let sequence = fusedSyncSearchToolSequence.withLock { value -> UInt64 in
             value += 1
             return value
         }
         return "search-index-fused-sync:\(sequence)"
+    }
+
+    private nonisolated func nextDirectPageSyncSearchToolCallID() -> String {
+        let sequence = directPageSyncSearchToolSequence.withLock { value -> UInt64 in
+            value += 1
+            return value
+        }
+        return "search-index-page-sync:\(sequence)"
+    }
+
+    private func recordDirectPageAsyncFailure(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: SearchIndexFailureClass,
+        metadata: [String: String]
+    ) async {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        await recordDirectPageAsyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
+    }
+
+    private nonisolated func recordDirectPageSyncFailure(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        durationMs: UInt64,
+        failureClass: SearchIndexFailureClass,
+        metadata: [String: String]
+    ) {
+        let resultJSON = Self.searchIndexAgentJSON([
+            "elapsed_ms": durationMs,
+            "hit_count": 0
+        ])
+        var failedMetadata = metadata
+        failedMetadata["failure_class"] = failureClass.rawValue
+        recordDirectPageSyncAgentEvent(
+            recorder: recorder,
+            runID: runID,
+            kind: .toolCallFailed,
+            actor: actor,
+            toolCallID: toolCallID,
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: .failed,
+            errorMessage: failureClass.rawValue,
+            metadata: failedMetadata
+        )
     }
 
     private func recordFusedAsyncFailure(
@@ -839,7 +1074,7 @@ actor SearchIndexService {
         toolCallID: String,
         argumentsJSON: String,
         durationMs: UInt64,
-        failureClass: FusedSearchFailureClass,
+        failureClass: SearchIndexFailureClass,
         metadata: [String: String]
     ) async {
         let resultJSON = Self.searchIndexAgentJSON([
@@ -870,7 +1105,7 @@ actor SearchIndexService {
         toolCallID: String,
         argumentsJSON: String,
         durationMs: UInt64,
-        failureClass: FusedSearchFailureClass,
+        failureClass: SearchIndexFailureClass,
         metadata: [String: String]
     ) {
         let resultJSON = Self.searchIndexAgentJSON([
@@ -923,6 +1158,35 @@ actor SearchIndexService {
         )
     }
 
+    private func recordDirectPageAsyncAgentEvent(
+        recorder: AgentToolProvenanceRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) async {
+        await recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.search_async",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
     private nonisolated func recordFusedSyncAgentEvent(
         recorder: AgentToolProvenanceSyncRecorder,
         runID: String,
@@ -952,7 +1216,36 @@ actor SearchIndexService {
         )
     }
 
-    private nonisolated static func fusedSearchFailureClass(for error: Error) -> FusedSearchFailureClass {
+    private nonisolated func recordDirectPageSyncAgentEvent(
+        recorder: AgentToolProvenanceSyncRecorder,
+        runID: String,
+        kind: AgentProvenanceEventKind,
+        actor: AgentProvenanceActor,
+        toolCallID: String,
+        argumentsJSON: String,
+        resultJSON: String? = nil,
+        durationMs: UInt64? = nil,
+        status: AgentToolEventStatus,
+        errorMessage: String? = nil,
+        metadata: [String: String]
+    ) {
+        recorder.recordToolEvent(
+            runID: runID,
+            traceID: nil,
+            kind: kind,
+            actor: actor,
+            toolCallID: toolCallID,
+            toolName: "search_index.search",
+            argumentsJSON: argumentsJSON,
+            resultJSON: resultJSON,
+            durationMs: durationMs,
+            status: status,
+            errorMessage: errorMessage,
+            metadata: metadata
+        )
+    }
+
+    private nonisolated static func searchIndexFailureClass(for error: Error) -> SearchIndexFailureClass {
         if error is CancellationError {
             return .cancelled
         }
@@ -960,6 +1253,33 @@ actor SearchIndexService {
             return .sqlError
         }
         return .unknownError
+    }
+
+    private nonisolated static func directPageSearchArgumentsJSON(
+        query: String,
+        terms: [String],
+        limit: Int
+    ) -> String {
+        searchIndexAgentJSON([
+            "limit": limit,
+            "query_char_count": min(query.count, 500),
+            "query_term_count": terms.count
+        ])
+    }
+
+    private nonisolated static func directPageSearchMetadata(
+        surface: String,
+        query: String,
+        terms: [String],
+        limit: Int
+    ) -> [String: String] {
+        [
+            "source": "search_index_service",
+            "surface": surface,
+            "query_char_count": "\(min(query.count, 500))",
+            "query_term_count": "\(terms.count)",
+            "limit": "\(limit)"
+        ]
     }
 
     private nonisolated static func millisecondsSinceEpoch(_ date: Date) -> Int64 {
