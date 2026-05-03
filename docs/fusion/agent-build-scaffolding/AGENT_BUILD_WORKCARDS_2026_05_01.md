@@ -1226,6 +1226,21 @@ Computer Use execution, AXorcist behavior, Core/MAS tool policy, MCP/Hermes
 routing, UI, graph, EventStore schema, Sovereign, generated bindings,
 subprocess surfaces, or ANE/private API surfaces.
 
+PR42 AgentEvent Phase4 screen_watch provenance is also closed.
+`Phase4Bridge.startScreenWatch(watchJson:)` now records sanitized
+requested/started/completed/failed AgentEvents around existing AX/file/timeout
+watch behavior. Persisted rows use the `phase4-screen-watch` run id, synthetic
+`phase4-screen-watch:N` tool-call ids, `phase4.screen_watch.<mode_class>` tool
+names, bounded mode classes, app/target scopes, timeout buckets, poll-interval
+buckets, scalar duration, triggered state, reason classes, and bounded failure
+classes. Focused tests prove raw watch JSON, file paths, target strings, bundle
+ids, raw AX payloads, localized descriptions, arbitrary errors, and per-poll
+state are not persisted in AgentEvents. This does not change returned watch
+payloads, `perceive`, `interact`, Computer Use execution, AXorcist behavior,
+Core/MAS tool policy, MCP/Hermes routing, UI, graph, EventStore schema,
+Sovereign, generated bindings, subprocess surfaces, or ANE/private API
+surfaces.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1355,6 +1370,8 @@ Allowed write set:
   `Phase4Bridge.perceive(appName:depth:)` only.
 - PR41 Phase4 interact provenance: already closed for
   `Phase4Bridge.interact(actionJson:)` only.
+- PR42 Phase4 screen_watch provenance: already closed for
+  `Phase4Bridge.startScreenWatch(watchJson:)` only.
 - Future CloudLLM paths beyond generate/stream/structured output,
   ChatCoordinator paths beyond PR3, LocalAgentLoop paths beyond parsed tool
   execution, driver-channel paths beyond the executor wrapper and remote relay
