@@ -1,5 +1,28 @@
 import SwiftUI
 
+enum AuthoritySettingsSovereignGate {
+    enum Target: Equatable {
+        case resetToDefaults
+        case quickSetup(name: String)
+    }
+
+    static func requirement(for target: Target) -> SovereignGateRequirement {
+        switch target {
+        case .resetToDefaults, .quickSetup:
+            return .deviceOwnerAuthentication
+        }
+    }
+
+    static func reason(for target: Target) -> String {
+        switch target {
+        case .resetToDefaults:
+            return "Reset authority settings to recommended defaults."
+        case let .quickSetup(name):
+            return "Apply authority preset \"\(name)\"."
+        }
+    }
+}
+
 /// User-facing Authority & Installs panel. One row per
 /// AgentAuthorityCategory with a three-state picker (auto-allow / ask /
 /// never). Backed by the @Observable AgentAuthorityStore so changes
@@ -96,7 +119,9 @@ struct AuthoritySettingsView: View {
 
                 ForEach(visibleQuickSetupPresets) { preset in
                     Button {
-                        applyPreset(preset)
+                        Task { @MainActor in
+                            await requestQuickSetupAuthorization(preset)
+                        }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(quickSetupTitle(for: preset))
@@ -163,12 +188,42 @@ struct AuthoritySettingsView: View {
             Spacer()
 
             Button("Reset to defaults") {
-                store.reset()
-                onResetConfirmed?()
+                Task { @MainActor in
+                    await requestResetToDefaultsAuthorization()
+                }
             }
             .buttonStyle(.bordered)
         }
         .padding(.top, 4)
+    }
+
+    @MainActor
+    private func requestResetToDefaultsAuthorization() async {
+        let target = AuthoritySettingsSovereignGate.Target.resetToDefaults
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            AuthoritySettingsSovereignGate.requirement(for: target),
+            reason: AuthoritySettingsSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        resetToDefaults()
+    }
+
+    @MainActor
+    private func requestQuickSetupAuthorization(_ preset: AgentAuthorityQuickSetupPreset) async {
+        let target = AuthoritySettingsSovereignGate.Target.quickSetup(name: quickSetupTitle(for: preset))
+        let outcome = await AppBootstrap.shared?.sovereignGate.confirm(
+            AuthoritySettingsSovereignGate.requirement(for: target),
+            reason: AuthoritySettingsSovereignGate.reason(for: target)
+        ) ?? .denied(.authenticationFailed)
+
+        guard outcome == .allowed else { return }
+        applyPreset(preset)
+    }
+
+    private func resetToDefaults() {
+        store.reset()
+        onResetConfirmed?()
     }
 
     private func applyPreset(_ preset: AgentAuthorityQuickSetupPreset) {

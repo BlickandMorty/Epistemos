@@ -186,3 +186,17 @@
 - log: `✔ Test run with 23 tests in 1 suite passed`
 - note: focused verification log `/tmp/epistemos-sovereign-gate-notes-vault-disconnect-pr11-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
 - test: `SovereignGateTests`
+
+## sovereign-gate-authority-reset-pr12
+
+- grep: `AuthoritySettingsSovereignGate`
+- grep: `requestResetToDefaultsAuthorization()`
+- grep: `requestQuickSetupAuthorization(preset)`
+- grep: `?? .denied(.authenticationFailed)` in `Epistemos/Views/Settings/AuthoritySettingsView.swift`
+- forbidden grep: `LocalAuthentication|LAContext|LAError|LABiometryType|LAPolicy|canEvaluatePolicy|evaluatePolicy` in `Epistemos/Views/Settings/AuthoritySettingsView.swift`
+- staged guard: `git diff --cached --name-only -- Epistemos/Sovereign/SovereignGate.swift Epistemos/Views/Notes/ProseEditorRepresentable2.swift Epistemos/Views/Notes/ProseTextView2.swift Epistemos/Views/Graph graph-engine agent_core epistemos-core Epistemos.xcodeproj`
+- log: `✔ Test "Authority settings batch policy changes map to destructive Sovereign Gate requirements" passed`
+- log: `✔ Test "Authority settings batch policy changes route through Sovereign Gate" passed`
+- log: `✔ Test run with 25 tests in 1 suite passed`
+- note: focused verification log `/tmp/epistemos-sovereign-gate-authority-reset-pr12-green-20260502.log`; Xcode exited `0` and printed `** TEST SUCCEEDED **` after the focused `SovereignGateTests` run.
+- test: `SovereignGateTests`

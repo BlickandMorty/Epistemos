@@ -547,6 +547,78 @@ struct SovereignGateTests {
         #expect(!source.contains("evaluatePolicy"))
     }
 
+    @Test("Authority settings batch policy changes map to destructive Sovereign Gate requirements")
+    func authoritySettingsBatchPolicyChangesMapToDestructiveSovereignGateRequirements() {
+        #expect(
+            AuthoritySettingsSovereignGate.requirement(for: .resetToDefaults)
+                == .deviceOwnerAuthentication
+        )
+        #expect(
+            AuthoritySettingsSovereignGate.requirement(for: .quickSetup(name: "Less Interruptions"))
+                == .deviceOwnerAuthentication
+        )
+
+        let resetReason = AuthoritySettingsSovereignGate.reason(for: .resetToDefaults)
+        let presetReason = AuthoritySettingsSovereignGate.reason(for: .quickSetup(name: "Less Interruptions"))
+
+        #expect(resetReason.localizedCaseInsensitiveContains("reset authority"))
+        #expect(presetReason.contains("Less Interruptions"))
+        #expect(presetReason.localizedCaseInsensitiveContains("apply authority preset"))
+    }
+
+    @Test("Authority settings batch policy changes route through Sovereign Gate")
+    func authoritySettingsBatchPolicyChangesRouteThroughSovereignGate() throws {
+        let source = try loadMirroredSourceTextFile("Epistemos/Views/Settings/AuthoritySettingsView.swift")
+
+        func section(from startMarker: String, to endMarker: String) throws -> String {
+            let start = try #require(source.range(of: startMarker))
+            let end = try #require(
+                source.range(of: endMarker, range: start.lowerBound..<source.endIndex)
+            )
+            return String(source[start.lowerBound..<end.lowerBound])
+        }
+
+        let quickSetup = try section(
+            from: "private var quickSetupCard: some View",
+            to: "private func categoryCard(for category: AgentAuthorityCategory)"
+        )
+        #expect(quickSetup.contains("requestQuickSetupAuthorization(preset)"))
+        #expect(!quickSetup.contains("applyPreset(preset)"))
+
+        let footer = try section(
+            from: "private var footer: some View",
+            to: "private func requestResetToDefaultsAuthorization()"
+        )
+        #expect(footer.contains("requestResetToDefaultsAuthorization()"))
+        #expect(!footer.contains("store.reset()"))
+
+        let resetRequest = try section(
+            from: "private func requestResetToDefaultsAuthorization()",
+            to: "private func requestQuickSetupAuthorization"
+        )
+        #expect(resetRequest.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(resetRequest.contains("?? .denied(.authenticationFailed)"))
+        #expect(resetRequest.contains("guard outcome == .allowed else { return }"))
+        #expect(resetRequest.contains("resetToDefaults()"))
+
+        let presetRequest = try section(
+            from: "private func requestQuickSetupAuthorization(_ preset: AgentAuthorityQuickSetupPreset)",
+            to: "private func resetToDefaults()"
+        )
+        #expect(presetRequest.contains("AppBootstrap.shared?.sovereignGate.confirm("))
+        #expect(presetRequest.contains("?? .denied(.authenticationFailed)"))
+        #expect(presetRequest.contains("guard outcome == .allowed else { return }"))
+        #expect(presetRequest.contains("applyPreset(preset)"))
+
+        #expect(!source.contains("LocalAuthentication"))
+        #expect(!source.contains("LAContext"))
+        #expect(!source.contains("LAError"))
+        #expect(!source.contains("LABiometryType"))
+        #expect(!source.contains("LAPolicy"))
+        #expect(!source.contains("canEvaluatePolicy"))
+        #expect(!source.contains("evaluatePolicy"))
+    }
+
     @Test("Lifecycle observer clears sensitive grace on app and system boundaries")
     func lifecycleObserverClearsSensitiveGraceOnBoundaries() async throws {
         let authenticator = FakeAuthenticator(results: [true, true, true])
