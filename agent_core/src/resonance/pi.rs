@@ -21,9 +21,10 @@
 //! short-circuit to their declared class.
 
 use crate::resonance::Claim;
+use serde::{Deserialize, Serialize};
 
 /// The 9 claim types per doctrine §4.1. Six concrete + three ontological.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ClaimType {
     // Concrete (six)
     Equation,
@@ -56,7 +57,7 @@ impl ClaimType {
 
 /// The π output classification — three structural classes per
 /// doctrine §4.1.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ClaimClass {
     /// Foundational claim with no dependencies on other claims of this corpus.
     Prime,

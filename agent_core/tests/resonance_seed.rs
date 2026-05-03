@@ -378,3 +378,55 @@ fn signature_full_sweep_never_emits_pro_research_for_default_seed_inputs() {
         }
     }
 }
+
+// ---------- Serde round-trip (FFI bridge contract) ----------
+
+#[test]
+fn claim_serde_round_trips() {
+    let claim = Claim {
+        kind: ClaimType::Empirical,
+        statement: "ANE outperforms GPU on int8".into(),
+        dependencies: vec![ClaimRef(7), ClaimRef(13)],
+        evidence_count: 5,
+    };
+    let json = serde_json::to_string(&claim).expect("encode claim");
+    let decoded: Claim = serde_json::from_str(&json).expect("decode claim");
+    assert_eq!(claim, decoded, "Claim round-trip must be identity");
+}
+
+#[test]
+fn signature_serde_round_trips() {
+    let sig = ResonanceSignatureCore {
+        truth: Truth::True,
+        class: ClaimClass::Prime,
+        residency: ResidencyLevel::L1Recent,
+    };
+    let json = serde_json::to_string(&sig).expect("encode signature");
+    let decoded: ResonanceSignatureCore =
+        serde_json::from_str(&json).expect("decode signature");
+    assert_eq!(sig, decoded, "ResonanceSignatureCore round-trip must be identity");
+}
+
+#[test]
+fn ffi_compute_resonance_signature_core_round_trips() {
+    let claim = Claim {
+        kind: ClaimType::Definition,
+        statement: "A graph is a set of nodes and edges.".into(),
+        dependencies: vec![],
+        evidence_count: 0,
+    };
+    let claim_json = serde_json::to_string(&claim).expect("encode claim");
+    let result = agent_core::bridge::compute_resonance_signature_core(claim_json);
+    let signature_json = result.expect("FFI must succeed for a well-formed claim");
+    let signature: ResonanceSignatureCore =
+        serde_json::from_str(&signature_json).expect("decode signature");
+    assert_eq!(signature.truth, Truth::True);
+    assert_eq!(signature.class, ClaimClass::Prime);
+    assert_eq!(signature.residency, ResidencyLevel::L2Warm);
+}
+
+#[test]
+fn ffi_compute_resonance_signature_core_rejects_garbage() {
+    let result = agent_core::bridge::compute_resonance_signature_core("{this is not json}".into());
+    assert!(result.is_err(), "FFI must error on invalid JSON");
+}

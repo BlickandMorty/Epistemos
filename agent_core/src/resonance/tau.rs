@@ -8,11 +8,12 @@
 //! consumers (Evidence Supremacy Protocol, Sovereign Gate) depend on.
 
 use crate::resonance::{Claim, ClaimType};
+use serde::{Deserialize, Serialize};
 
 /// Kleene K3 ternary truth value. The integer encoding (-1, 0, +1)
 /// matches the donor-research `ResonanceSignature.ternary: i8` field
 /// so a future FFI surface can serialize a signature as primitives.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Truth {
     /// τ = +1 — claim is supported.
     True,

@@ -36,9 +36,11 @@ pub use lambda::{target_residency, ResidencyLevel};
 pub use pi::{classify, ClaimClass, ClaimType};
 pub use tau::{evaluate_truth, Truth};
 
+use serde::{Deserialize, Serialize};
+
 /// Opaque reference to a previously-known claim. The Core seed treats this
 /// as a u64 nonce; future tiers may attach a real claim graph identifier.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct ClaimRef(pub u64);
 
 /// Input to the Resonance Gate τ + π + λ daemon.
@@ -47,7 +49,7 @@ pub struct ClaimRef(pub u64);
 /// (carried for downstream display + audit, not used by τ/π/λ math), a
 /// dependency list (used by π for compositeness), and an evidence count
 /// (used by τ + π for confidence).
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Claim {
     pub kind: ClaimType,
     pub statement: String,
@@ -60,7 +62,7 @@ pub struct Claim {
 ///
 /// Pro tier extends with `direction: Direction` + `resonance: f32`.
 /// Research tier extends with `kam_stability: f32` + `evidence: EvidenceStatus`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ResonanceSignatureCore {
     pub truth: Truth,
     pub class: ClaimClass,
