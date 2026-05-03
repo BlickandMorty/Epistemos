@@ -1287,11 +1287,13 @@ final class AppBootstrap {
             preparedModelRegistryState.generationRuntimeConfiguration
         )
         self.localMLXClient = localMLXClient
+        let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()
         let localGGUFRuntime = LocalGGUFInProcessRuntime()
         let localGGUFClient = LocalGGUFClient(
             runtime: localGGUFRuntime,
             inference: inference,
             runtimeControlPlane: localRuntimeControlPlane,
+            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,
             prepareForRequest: {
                 localModelRefreshThrottle.refreshIfNeeded()
             }
@@ -1355,7 +1357,8 @@ final class AppBootstrap {
 
                 return availableRuntimeKinds
             },
-            preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration
+            preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration,
+            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder
         )
         localLLMClient.configurePreparedGenerationRuntime(
             preparedModelRegistryState.generationRuntimeConfiguration

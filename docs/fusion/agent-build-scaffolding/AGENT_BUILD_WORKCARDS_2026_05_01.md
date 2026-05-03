@@ -1004,6 +1004,15 @@ semantics, token delivery, lower GGUF/MLX runtime behavior, runtime control-plan
 policy, UI, graph, Rust, generated bindings, and EventStore schema. Focused
 runtime verification passes under `pipefail`.
 
+PR26 local runtime recorder mount is also closed.
+`AppBootstrap` now constructs one shared `AgentToolProvenanceRecorder` for local
+runtime clients and passes it to `LocalGGUFClient` and `LocalBackendLLMClient`,
+making PR24/PR25 reachable in normal app boot. It intentionally does not
+instrument `LocalBackendLLMClient.generate(...)`, claim MLX text-generation
+provenance, change routing, EventStore schema, UI, graph, Rust, generated
+bindings, Hermes/MCP, Sovereign, or ANE/private API surfaces. Focused
+source-guard verification passes under `pipefail`.
+
 The durable model is intentionally named `AgentProvenanceEvent` because
 generated UniFFI Swift already contains an unrelated `AgentEvent` struct. Do
 not rename it back without a generated-binding gate.
@@ -1447,6 +1456,13 @@ Acceptance:
   descriptions, arbitrary error text, Hermes/MCP/subprocess surfaces,
   browser/computer-use surfaces, LocalAuthentication, and ANE/private API
   details are not persisted in AgentEvent arguments/results/errors.
+- PR26 wired/reachable/visible: `AppBootstrap` live-mounts one shared
+  `AgentToolProvenanceRecorder` into `LocalGGUFClient` and
+  `LocalBackendLLMClient`, so the already-closed PR24 GGUF generate and PR25
+  LocalBackend stream instrumentation are reachable from normal app boot.
+  Source guards prove this mount does not create a second recorder per client
+  and does not add routing, EventStore schema, UI, graph, Rust, generated
+  binding, Hermes/MCP, Sovereign, or ANE/private API work.
 
 Stop triggers:
 - A live-emission slice needs broad `agent_core`, generated binding, editor,

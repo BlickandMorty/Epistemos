@@ -644,6 +644,16 @@ struct LocalBackendLLMClientTests {
         )
     }
 
+    @Test("bootstrap mounts local runtime AgentEvent recorder")
+    func bootstrapMountsLocalRuntimeAgentEventRecorder() throws {
+        let bootstrap = try loadMirroredSourceTextFile("Epistemos/App/AppBootstrap.swift")
+
+        #expect(bootstrap.contains("let localRuntimeAgentProvenanceRecorder = AgentToolProvenanceRecorder()"))
+        #expect(bootstrap.contains("agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder,\n            prepareForRequest:"))
+        #expect(bootstrap.contains("preparedGenerationRuntimeConfiguration: preparedModelRegistryState.generationRuntimeConfiguration,\n            agentProvenanceRecorder: localRuntimeAgentProvenanceRecorder"))
+        #expect(!bootstrap.contains("agentProvenanceRecorder: AgentToolProvenanceRecorder()"))
+    }
+
     private func collectStream(_ stream: AsyncThrowingStream<String, Error>) async throws -> String {
         var output = ""
         for try await token in stream {
