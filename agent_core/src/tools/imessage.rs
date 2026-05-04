@@ -91,6 +91,11 @@ fn applescript_quote(value: &str) -> String {
 
 async fn run_osascript(script: &str) -> Result<String, ToolError> {
     let mut cmd = Command::new("osascript");
+    // Apply doctrine subprocess hardening (env_clear + allowlist +
+    // kill_on_drop + process_group). iMessage / contact-resolution
+    // AppleScript runs against system frameworks; defense in depth
+    // says: still don't leak DYLD_INSERT_LIBRARIES into the child.
+    crate::security::harden_cli_subprocess(&mut cmd);
     cmd.arg("-e").arg(script);
     let child = cmd.output();
     let output = match tokio::time::timeout(OSASCRIPT_TIMEOUT, child).await {
@@ -500,6 +505,12 @@ pub fn imessage_schema() -> crate::types::ToolSchema {
 
 #[cfg(test)]
 mod tests {
+    // Test-isolation gate held across `.await` is intentional — see
+    // `resources/bridge.rs::tests` for the canonical rationale.
+    // Process-wide iMessage AppleScript state requires serial test
+    // execution.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use serde_json::json;
     use std::sync::MutexGuard;

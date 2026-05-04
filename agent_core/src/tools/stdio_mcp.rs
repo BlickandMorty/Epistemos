@@ -27,8 +27,8 @@ use tracing::warn;
 
 use crate::mcp::client::{McpClient, McpServerConfig};
 use crate::tools::registry::{
-    is_reserved_tool_name, is_user_visible_tool, RegisteredTool, RiskLevel, ToolError,
-    ToolHandler, ToolRegistry, ToolTier,
+    is_reserved_tool_name, is_user_visible_tool, RegisteredTool, RiskLevel, ToolError, ToolHandler,
+    ToolRegistry, ToolTier,
 };
 
 /// Handler that forwards a tool call to an MCP server over stdio.
@@ -137,11 +137,8 @@ async fn connect_and_register(
             .unwrap_or(&tool.name)
             .to_string();
 
-        let handler = StdioMcpToolHandler::new(
-            client.clone(),
-            config.name.clone(),
-            remote_tool_name,
-        );
+        let handler =
+            StdioMcpToolHandler::new(client.clone(), config.name.clone(), remote_tool_name);
         registry.register(RegisteredTool {
             name: tool.name,
             description: tool.description,

@@ -199,14 +199,15 @@ fn check_constraints(old_content: &str, new_content: &str) -> ConstraintCheck {
 
 /// Extract the first meaningful paragraph as a description.
 fn extract_description(content: &str) -> String {
-    // Skip frontmatter
-    let body = if content.starts_with("---") {
-        content[3..]
+    // Skip frontmatter. `strip_prefix` keeps the index in lockstep
+    // with the prefix length so changing `"---"` to a different fence
+    // doesn't silently misindex the body.
+    let body = match content.strip_prefix("---") {
+        Some(after_open) => after_open
             .find("---")
-            .map(|idx| &content[idx + 6..])
-            .unwrap_or(content)
-    } else {
-        content
+            .map(|i| &after_open[i + 3..])
+            .unwrap_or(content),
+        None => content,
     };
 
     // Take first non-empty paragraph

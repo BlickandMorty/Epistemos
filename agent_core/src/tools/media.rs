@@ -587,6 +587,11 @@ impl ToolHandler for TextToSpeechHandler {
         let output_path = input.get("output_path").and_then(Value::as_str);
 
         let mut cmd = tokio::process::Command::new("say");
+        // Apply doctrine subprocess hardening. `say` is an Apple-stable
+        // system binary called with user-controlled `-v` (voice name) /
+        // `-r` (rate) / `-o` (output path) / text args; env_clear +
+        // kill_on_drop is the right baseline here too.
+        crate::security::harden_cli_subprocess(&mut cmd);
         if let Some(v) = voice {
             cmd.arg("-v").arg(v);
         }

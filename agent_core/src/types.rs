@@ -40,6 +40,9 @@ pub enum ContentBlock {
         thinking: String,
         signature: String,
     },
+    RedactedThinking {
+        data: String,
+    },
     Text {
         text: String,
     },

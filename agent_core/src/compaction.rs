@@ -523,6 +523,7 @@ mod tests {
         let retained_thinking = compacted.iter().rev().find_map(|message| match message {
             Message::Assistant { content } => content.iter().find_map(|block| match block {
                 ContentBlock::Thinking { thinking, .. } => Some(thinking.as_str()),
+                ContentBlock::RedactedThinking { .. } => None,
                 _ => None,
             }),
             _ => None,

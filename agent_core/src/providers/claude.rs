@@ -145,6 +145,9 @@ enum ContentBlockStartData {
         thinking: String,
         signature: String,
     },
+    RedactedThinking {
+        data: String,
+    },
     ToolUse {
         id: String,
         name: String,
@@ -191,6 +194,9 @@ enum BlockInProgress {
     Thinking {
         text: String,
         signature: String,
+    },
+    RedactedThinking {
+        data: String,
     },
     ToolUse {
         id: String,
@@ -363,6 +369,13 @@ impl AgentProvider for ClaudeProvider {
                                     signature,
                                 }
                             }
+                            ContentBlockStartData::RedactedThinking { data } => {
+                                yield Ok(StreamEvent::RedactedThinking {
+                                    index,
+                                    data: data.clone(),
+                                });
+                                BlockInProgress::RedactedThinking { data }
+                            }
                             ContentBlockStartData::ToolUse { id, name, input }
                             | ContentBlockStartData::ServerToolUse { id, name, input } => {
                                 BlockInProgress::ToolUse {
@@ -420,6 +433,9 @@ impl AgentProvider for ClaudeProvider {
                                     thinking: text,
                                     signature,
                                 },
+                                BlockInProgress::RedactedThinking { data } => {
+                                    ContentBlock::RedactedThinking { data }
+                                }
                                 BlockInProgress::ToolUse { id, name, input_json } => ContentBlock::ToolUse {
                                     id,
                                     name,
@@ -590,6 +606,10 @@ fn content_block_to_json(block: &ContentBlock) -> Value {
             "thinking": thinking,
             "signature": signature,
         }),
+        ContentBlock::RedactedThinking { data } => json!({
+            "type": "redacted_thinking",
+            "data": data,
+        }),
         ContentBlock::Text { text } => json!({
             "type": "text",
             "text": text,
@@ -659,6 +679,42 @@ mod tests {
 
         assert_eq!(json["type"], "thinking");
         assert_eq!(json["signature"], "sig-123");
+    }
+
+    #[test]
+    fn preserves_redacted_thinking_in_json() {
+        let opaque = "opaque-redacted-data+/=\nwith unicode \u{2603}";
+        let json = content_block_to_json(&ContentBlock::RedactedThinking {
+            data: opaque.to_string(),
+        });
+
+        assert_eq!(json["type"], "redacted_thinking");
+        assert_eq!(json["data"].as_str().unwrap().as_bytes(), opaque.as_bytes());
+    }
+
+    #[test]
+    fn parses_redacted_thinking_content_block_start() {
+        let opaque = "opaque-redacted-data+/=\nwith unicode \u{2603}";
+        let raw: super::RawSseEvent = serde_json::from_value(json!({
+            "type": "content_block_start",
+            "index": 2,
+            "content_block": {
+                "type": "redacted_thinking",
+                "data": opaque,
+            },
+        }))
+        .unwrap();
+
+        match raw {
+            super::RawSseEvent::ContentBlockStart {
+                index,
+                content_block: super::ContentBlockStartData::RedactedThinking { data },
+            } => {
+                assert_eq!(index, 2);
+                assert_eq!(data.as_bytes(), opaque.as_bytes());
+            }
+            other => panic!("expected redacted thinking block start, got {other:?}"),
+        }
     }
 
     #[test]

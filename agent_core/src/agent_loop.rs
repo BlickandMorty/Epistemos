@@ -174,7 +174,7 @@ pub async fn run_agent_loop(
             .vault_root
             .as_ref()
             .map(std::path::PathBuf::from)
-            .unwrap_or_else(std::path::PathBuf::new);
+            .unwrap_or_default();
         Arc::new(RawThoughtsEmitter::new(
             &vault_root_path,
             provider.name(),
@@ -338,6 +338,12 @@ pub async fn run_agent_loop(
                         text: text.clone(),
                     });
                     delegate.on_thinking_delta(text);
+                }
+                StreamEvent::RedactedThinking { index, data } => {
+                    let _ = raw_thoughts_emitter.record(RawThoughtsEvent::RedactedThinking {
+                        index: index as u32,
+                        data,
+                    });
                 }
                 StreamEvent::TextDelta { text, index } => {
                     if !ttft_recorded {
@@ -712,7 +718,9 @@ fn summarize_response_blocks(response_blocks: &[ContentBlock]) -> String {
         .iter()
         .filter_map(|block| match block {
             ContentBlock::Text { text } => Some(text.as_str()),
-            ContentBlock::Thinking { .. } | ContentBlock::ToolUse { .. } => None,
+            ContentBlock::Thinking { .. }
+            | ContentBlock::RedactedThinking { .. }
+            | ContentBlock::ToolUse { .. } => None,
         })
         .collect::<Vec<_>>()
         .join("\n");
@@ -828,7 +836,7 @@ async fn execute_one_tool(
             }
         };
 
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     let mut is_execution_approved = permission_auto_approved && approval_requirement.is_none();
     if let Some(requirement) = approval_requirement {
         let permission_id = uuid::Uuid::new_v4().to_string();
@@ -864,14 +872,14 @@ async fn execute_one_tool(
         if !approved {
             return Ok(ToolResult::text(id, "Tool execution denied by user.", true));
         }
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         {
             is_execution_approved = true;
         }
     }
 
     // Security: classify command risk for bash/shell tools.
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     if name == "bash_execute" || name == "shell" {
         if let Some(command) = input.get("command").and_then(serde_json::Value::as_str) {
             let risk = crate::security::classify_command_risk(command);
@@ -896,7 +904,7 @@ async fn execute_one_tool(
         }
     }
 
-    #[cfg(feature = "mas-sandbox")]
+    #[cfg(not(feature = "pro-build"))]
     if name == "computer" {
         return Ok(ToolResult::text(
             id,
@@ -1116,6 +1124,7 @@ fn estimate_tokens(messages: &[Message]) -> usize {
                         thinking,
                         signature,
                     } => thinking.len() + signature.len(),
+                    ContentBlock::RedactedThinking { data } => data.len(),
                     ContentBlock::Text { text } => text.len(),
                     ContentBlock::ToolUse { name, input, .. } => {
                         name.len() + input.to_string().len()

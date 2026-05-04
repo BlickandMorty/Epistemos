@@ -118,14 +118,16 @@ mod tests {
                 });
             });
         });
-        assert!(result.is_err(),
-                "nested with_frame on the same thread must panic — leaf frames only");
+        assert!(
+            result.is_err(),
+            "nested with_frame on the same thread must panic — leaf frames only"
+        );
     }
 
     #[test]
     fn separate_threads_have_independent_arenas() {
-        use std::sync::Arc;
         use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
         use std::thread;
 
         let counter = Arc::new(AtomicUsize::new(0));

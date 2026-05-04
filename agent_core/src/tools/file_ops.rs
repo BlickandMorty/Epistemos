@@ -330,14 +330,14 @@ impl ToolHandler for FileOpsTool {
             _ => json!({"success": false, "error": format!("Unknown action: {action}")}),
         };
 
-        Ok(serde_json::to_string_pretty(&result).unwrap_or_default())
+        Ok(serde_json::to_string(&result).unwrap_or_default())
     }
 }
 
 /// Returns the tool schema for registration.
 pub fn file_ops_tool_schema() -> crate::types::ToolSchema {
     crate::types::ToolSchema {
-        name: "file".to_string(),
+        name: "file_ops".to_string(),
         description: "Read, write, and patch files on the filesystem. Actions: read (with optional line range), write (create/overwrite), patch (find-and-replace), list (directory contents). Warns about stale files modified externally since last read.".to_string(),
         parameters: json!({
             "type": "object",

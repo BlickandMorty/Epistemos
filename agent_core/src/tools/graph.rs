@@ -666,7 +666,7 @@ mod tests {
             .await
             .unwrap();
         let nav: Value = serde_json::from_str(&result).unwrap();
-        assert!(nav["path"].as_array().unwrap().len() >= 1);
+        assert!(!nav["path"].as_array().unwrap().is_empty());
         assert!(nav["geodesic_distance"].as_f64().unwrap() >= 0.0);
     }
 }

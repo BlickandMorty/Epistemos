@@ -73,8 +73,7 @@ impl SessionMetrics {
     /// Returns 0.0 when total billed input tokens is 0.
     /// Range: [0.0, 1.0].
     pub fn cached_tokens_share(&self) -> f64 {
-        let total_input =
-            self.input_tokens as u64 + self.cache_read_input_tokens as u64;
+        let total_input = self.input_tokens as u64 + self.cache_read_input_tokens as u64;
         if total_input == 0 {
             return 0.0;
         }
@@ -298,10 +297,15 @@ impl InsightsEngine {
 
     fn compute_provider_breakdown(sessions: &[SessionMetrics]) -> Vec<ProviderBreakdown> {
         let mut by_provider: HashMap<String, (u32, u64, f64)> = HashMap::new();
-        let total_tokens: u64 = sessions.iter().map(|s| (s.input_tokens + s.output_tokens) as u64).sum();
+        let total_tokens: u64 = sessions
+            .iter()
+            .map(|s| (s.input_tokens + s.output_tokens) as u64)
+            .sum();
 
         for session in sessions {
-            let entry = by_provider.entry(session.provider_name.clone()).or_insert((0, 0, 0.0));
+            let entry = by_provider
+                .entry(session.provider_name.clone())
+                .or_insert((0, 0, 0.0));
             entry.0 += 1;
             entry.1 += (session.input_tokens + session.output_tokens) as u64;
             entry.2 += session.estimated_cost_usd;
@@ -326,9 +330,24 @@ impl InsightsEngine {
         breakdown
     }
 
-    fn compute_tool_breakdown(sessions: &[SessionMetrics]) -> Vec<ToolBreakdown> {
-        // TODO: Track per-tool call counts in session metrics
-        // For now, return empty — will be populated when tool tracking is added
+    fn compute_tool_breakdown(_sessions: &[SessionMetrics]) -> Vec<ToolBreakdown> {
+        // SCHEMA GAP: SessionMetrics carries only the scalar
+        // `tool_calls_count: u32` field (line 55) — not the per-tool-name
+        // counts ToolBreakdown needs. To populate this without lying:
+        //
+        // 1. Add `pub tool_call_counts: HashMap<String, u32>` to
+        //    SessionMetrics (with `#[serde(default)]` for backward compat).
+        // 2. Wire the producer code that builds SessionMetrics from agent
+        //    runs to fill in the per-tool counts (search for sites that
+        //    currently set `tool_calls_count`).
+        // 3. Aggregate across sessions here, compute percentage_of_total
+        //    against the grand total, sort by call_count descending.
+        //
+        // Until the schema is enriched the honest answer is empty —
+        // `_sessions` is underscored so the unused-variable warning
+        // doesn't pollute the build log. The InsightsReport's
+        // `tool_breakdown` field will surface as `[]` in the UI, which
+        // is correct (we don't have data to honestly populate it yet).
         Vec::new()
     }
 
@@ -336,16 +355,21 @@ impl InsightsEngine {
         let longest = sessions.iter().max_by_key(|s| s.duration_seconds).cloned();
         let most_tokens = sessions.iter().max_by_key(|s| s.total_tokens).cloned();
         let most_turns = sessions.iter().max_by_key(|s| s.turns).cloned();
-        let most_expensive = sessions.iter().max_by(|a, b| {
-            a.estimated_cost_usd.partial_cmp(&b.estimated_cost_usd).unwrap()
-        }).cloned();
+        let most_expensive = sessions
+            .iter()
+            .max_by(|a, b| {
+                a.estimated_cost_usd
+                    .partial_cmp(&b.estimated_cost_usd)
+                    .unwrap()
+            })
+            .cloned();
         let last = sessions.iter().max_by_key(|s| s.completed_at).cloned();
 
         NotableSessions {
             longest_session: longest,
-            most_tokens: most_tokens,
-            most_turns: most_turns,
-            most_expensive: most_expensive,
+            most_tokens,
+            most_turns,
+            most_expensive,
             last_session: last,
         }
     }
@@ -438,7 +462,8 @@ impl From<InsightsReport> for InsightsReportFFI {
             longest_streak: r.activity.longest_streak,
             last_7_days: r.activity.last_7_days,
             last_30_days: r.activity.last_30_days,
-            provider_breakdown_json: serde_json::to_string(&r.provider_breakdown).unwrap_or_default(),
+            provider_breakdown_json: serde_json::to_string(&r.provider_breakdown)
+                .unwrap_or_default(),
             notable_sessions_json: serde_json::to_string(&r.notable).unwrap_or_default(),
             generated_at: r.generated_at,
             total_cache_read_input_tokens: r.aggregated.total_cache_read_input_tokens,
@@ -454,7 +479,14 @@ impl From<InsightsReport> for InsightsReportFFI {
 mod tests {
     use super::*;
 
-    fn sample_session(id: &str, turns: u32, input: u32, output: u32, provider: &str, cost: f64) -> SessionMetrics {
+    fn sample_session(
+        id: &str,
+        turns: u32,
+        input: u32,
+        output: u32,
+        provider: &str,
+        cost: f64,
+    ) -> SessionMetrics {
         SessionMetrics {
             session_id: id.to_string(),
             objective: format!("Test session {}", id),
@@ -588,12 +620,27 @@ mod tests {
     #[test]
     fn notable_sessions_finds_extremes() {
         let sessions = vec![
-            SessionMetrics { duration_seconds: 50, total_tokens: 100, turns: 2, estimated_cost_usd: 0.01, ..sample_session("1", 2, 50, 50, "claude", 0.01) },
-            SessionMetrics { duration_seconds: 200, total_tokens: 500, turns: 10, estimated_cost_usd: 0.05, ..sample_session("2", 10, 250, 250, "openai", 0.05) },
+            SessionMetrics {
+                duration_seconds: 50,
+                total_tokens: 100,
+                turns: 2,
+                estimated_cost_usd: 0.01,
+                ..sample_session("1", 2, 50, 50, "claude", 0.01)
+            },
+            SessionMetrics {
+                duration_seconds: 200,
+                total_tokens: 500,
+                turns: 10,
+                estimated_cost_usd: 0.05,
+                ..sample_session("2", 10, 250, 250, "openai", 0.05)
+            },
         ];
 
         let report = InsightsEngine::build_report(&sessions);
-        assert_eq!(report.notable.longest_session.as_ref().unwrap().session_id, "2");
+        assert_eq!(
+            report.notable.longest_session.as_ref().unwrap().session_id,
+            "2"
+        );
         assert_eq!(report.notable.most_tokens.as_ref().unwrap().session_id, "2");
         assert_eq!(report.notable.most_turns.as_ref().unwrap().session_id, "2");
     }

@@ -468,6 +468,16 @@ pub fn imessage_contacts_schema() -> crate::types::ToolSchema {
 
 #[cfg(test)]
 mod tests {
+    // Test-isolation gates use `std::sync::MutexGuard` held across
+    // `.await` to serialize against process-wide state (the iMessage
+    // contacts SQLite store). Clippy's `await_holding_lock` lint
+    // correctly flags the sync-mutex-across-await idiom but here it's
+    // intentional: tests are exclusive within the gate, and a
+    // `tokio::sync::Mutex` would require every test to hop through
+    // an async runtime. See `resources/bridge.rs::tests` for the
+    // canonical rationale.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use serde_json::json;
     use std::sync::MutexGuard;

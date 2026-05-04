@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Mutex, OnceLock};
+use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
@@ -20,7 +21,7 @@ impl GlobalSessions {
         let handle = SessionHandle {
             cancel: token.clone(),
             state: SessionState::Running,
-            _started_at: chrono::Utc::now(),
+            started_at: chrono::Utc::now(),
             folder: None,
         };
 
@@ -44,7 +45,7 @@ impl GlobalSessions {
         let handle = SessionHandle {
             cancel: token.clone(),
             state: SessionState::Running,
-            _started_at: chrono::Utc::now(),
+            started_at: chrono::Utc::now(),
             folder: Some(folder),
         };
 
@@ -183,6 +184,53 @@ impl GlobalSessions {
             .collect()
     }
 
+    /// Drop any finished session (Completed/Failed/Terminated/Rescheduled)
+    /// whose `started_at` is older than `max_age`. Returns the number
+    /// of entries pruned.
+    ///
+    /// Skips sessions with a `SessionFolder` because folder finalization
+    /// runs in `SessionGuard::drop` and we don't want to race that work.
+    /// In practice the only callers that retain finished sessions in the
+    /// registry are tests and process-wide diagnostic loops; both are
+    /// happy to discard non-folder sessions early.
+    ///
+    /// Safe to call from a periodic timer or a memory-pressure handler.
+    pub fn prune_finished(max_age: Duration) -> usize {
+        let now = chrono::Utc::now();
+        let max_age_ms = max_age.as_millis() as i64;
+        let mut registry = Self::registry().lock().expect("session registry poisoned");
+        let before = registry.sessions.len();
+        registry.sessions.retain(|_id, handle| {
+            let is_finished = matches!(
+                handle.state,
+                SessionState::Completed { .. }
+                    | SessionState::Failed { .. }
+                    | SessionState::Terminated
+                    | SessionState::Rescheduled { .. }
+            );
+            if !is_finished {
+                return true;
+            }
+            if handle.folder.is_some() {
+                // Don't race SessionGuard::drop's finalize work.
+                return true;
+            }
+            let age_ms = now
+                .signed_duration_since(handle.started_at)
+                .num_milliseconds();
+            // Keep if younger than threshold.
+            age_ms < max_age_ms
+        });
+        before - registry.sessions.len()
+    }
+
+    /// Total session count (including finished ones still in the registry).
+    /// Diagnostic counterpart to `active_count`.
+    pub fn registry_size() -> usize {
+        let registry = Self::registry().lock().expect("session registry poisoned");
+        registry.sessions.len()
+    }
+
     fn remove(session_id: &str) {
         let mut registry = Self::registry().lock().expect("session registry poisoned");
         registry.sessions.remove(session_id);
@@ -197,7 +245,7 @@ struct SessionRegistry {
 struct SessionHandle {
     cancel: CancellationToken,
     state: SessionState,
-    _started_at: chrono::DateTime<chrono::Utc>,
+    started_at: chrono::DateTime<chrono::Utc>,
     folder: Option<SessionFolder>,
 }
 
@@ -233,7 +281,7 @@ pub struct SessionGuard {
 impl Drop for SessionGuard {
     fn drop(&mut self) {
         // Cascade-close any PTY sessions tied to this agent session.
-        #[cfg(not(feature = "mas-sandbox"))]
+        #[cfg(feature = "pro-build")]
         crate::pty::PtyPool::close_all_for_session(&self.session_id);
 
         // Crash recovery: if the session folder was never finalized, finalize it now
@@ -301,5 +349,94 @@ impl Drop for SessionGuard {
         }
 
         GlobalSessions::remove(&self.session_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::OnceLock;
+    use std::time::Duration;
+
+    /// All prune-related tests touch the global `SESSIONS` registry and
+    /// call `prune_finished`, which iterates the entire registry. If two
+    /// tests race, one can consume the other's prune target. Hold this
+    /// mutex for the duration of any test that calls `prune_finished`.
+    fn prune_test_mutex() -> &'static std::sync::Mutex<()> {
+        static M: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
+        M.get_or_init(|| std::sync::Mutex::new(()))
+    }
+
+    /// Test-only helper: backdate a session's `started_at` so the
+    /// prune threshold matches without a real-clock sleep.
+    fn backdate_session(session_id: &str, age_ms: i64) {
+        let mut registry = GlobalSessions::registry()
+            .lock()
+            .expect("session registry poisoned");
+        if let Some(handle) = registry.sessions.get_mut(session_id) {
+            handle.started_at = chrono::Utc::now() - chrono::Duration::milliseconds(age_ms);
+        }
+    }
+
+    #[test]
+    fn prune_finished_drops_aged_completed_sessions() {
+        let _guard = prune_test_mutex().lock().unwrap_or_else(|e| e.into_inner());
+        let (guard, _token) = GlobalSessions::register("prune-completed-1");
+        GlobalSessions::complete("prune-completed-1", 3, 100, 200, None);
+        backdate_session("prune-completed-1", 60_000);
+        let pruned = GlobalSessions::prune_finished(Duration::from_secs(30));
+        assert!(pruned >= 1, "expected at least one prune, got {pruned}");
+        let still_listed = GlobalSessions::list()
+            .iter()
+            .any(|(id, _)| id == "prune-completed-1");
+        assert!(!still_listed);
+        drop(guard);
+    }
+
+    #[test]
+    fn prune_finished_keeps_running_sessions() {
+        let _guard = prune_test_mutex().lock().unwrap_or_else(|e| e.into_inner());
+        let (guard, _token) = GlobalSessions::register("prune-running");
+        backdate_session("prune-running", 60_000);
+        let pruned = GlobalSessions::prune_finished(Duration::from_secs(30));
+        let still_listed = GlobalSessions::list()
+            .iter()
+            .any(|(id, _)| id == "prune-running");
+        assert!(still_listed, "running session should not be pruned");
+        let _ = pruned;
+        drop(guard);
+    }
+
+    #[test]
+    fn prune_finished_keeps_fresh_finished_sessions() {
+        let _guard = prune_test_mutex().lock().unwrap_or_else(|e| e.into_inner());
+        let (guard, _token) = GlobalSessions::register("prune-fresh");
+        GlobalSessions::fail("prune-fresh", "experiment");
+        let _ = GlobalSessions::prune_finished(Duration::from_secs(30));
+        let still_listed = GlobalSessions::list()
+            .iter()
+            .any(|(id, _)| id == "prune-fresh");
+        assert!(still_listed, "fresh failed session should not be pruned");
+        drop(guard);
+    }
+
+    #[test]
+    fn registry_size_counts_all_sessions() {
+        // Other tests may run concurrently and shift the baseline. Use
+        // unique IDs and verify our two are listed (and dropped) without
+        // asserting on the absolute count.
+        let id_a = "size-counter-a-unique-x4291";
+        let id_b = "size-counter-b-unique-x4291";
+        let (g1, _) = GlobalSessions::register(id_a);
+        let (g2, _) = GlobalSessions::register(id_b);
+        let listed = GlobalSessions::list();
+        assert!(listed.iter().any(|(id, _)| id == id_a));
+        assert!(listed.iter().any(|(id, _)| id == id_b));
+        assert!(GlobalSessions::registry_size() >= 2);
+        drop(g1);
+        drop(g2);
+        let listed = GlobalSessions::list();
+        assert!(!listed.iter().any(|(id, _)| id == id_a));
+        assert!(!listed.iter().any(|(id, _)| id == id_b));
     }
 }

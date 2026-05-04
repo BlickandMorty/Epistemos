@@ -258,7 +258,7 @@ fn estimate_file_complexity(path: &Path) -> f64 {
 
     // Base complexity from file size (log scale, 1.0–8.0)
     let size = fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-    let size_score = (size as f64).log10().max(0.0).min(6.0) / 6.0 * 7.0 + 1.0;
+    let size_score = (size as f64).log10().clamp(0.0, 6.0) / 6.0 * 7.0 + 1.0;
 
     // Language complexity modifier
     let lang_mod = match ext {
@@ -275,7 +275,7 @@ fn estimate_file_complexity(path: &Path) -> f64 {
 fn estimate_dir_complexity(path: &Path) -> f64 {
     // Directory complexity = sum of children's sizes (capped)
     let total_size: u64 = walkdir_size(path);
-    let score = (total_size as f64).log10().max(0.0).min(8.0) / 8.0 * 9.0 + 1.0;
+    let score = (total_size as f64).log10().clamp(0.0, 8.0) / 8.0 * 9.0 + 1.0;
     score.clamp(1.0, 10.0)
 }
 

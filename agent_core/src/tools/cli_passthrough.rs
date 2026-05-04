@@ -120,6 +120,14 @@ async fn run_passthrough(
     if let Some(dir) = working_dir.as_deref() {
         command.current_dir(dir);
     }
+    // Doctrine-mandated subprocess hardening: env_clear + tight allowlist
+    // (PATH/HOME/USER/locale/TERM only), kill_on_drop, process_group(0).
+    // Defends against LD_PRELOAD / DYLD_INSERT_LIBRARIES / NODE_OPTIONS /
+    // PYTHONPATH and the rest of the dynamic-loader + interpreter-option
+    // hijack vectors. CLI auth is the user's responsibility — the CLI
+    // reads its own config from the user's home dir, not from inherited
+    // env vars (so we do NOT proxy ANTHROPIC_API_KEY / OPENAI_API_KEY).
+    crate::security::harden_cli_subprocess(&mut command);
     command.stdin(std::process::Stdio::null());
     command.stdout(std::process::Stdio::piped());
     command.stderr(std::process::Stdio::piped());
@@ -130,16 +138,24 @@ async fn run_passthrough(
     )
     .await
     .map_err(|_| {
-        ToolError::ExecutionFailed(format!(
-            "{tool_name} timed out after {timeout_seconds}s"
-        ))
+        ToolError::ExecutionFailed(format!("{tool_name} timed out after {timeout_seconds}s"))
     })?
-    .map_err(|error| {
-        ToolError::ExecutionFailed(format!("{tool_name} spawn failed: {error}"))
-    })?;
+    .map_err(|error| ToolError::ExecutionFailed(format!("{tool_name} spawn failed: {error}")))?;
 
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    // Post-read output cap. The doctrine names "Codex 1.8GB stdout
+    // regression" as one of the 13 hardest engineering problems —
+    // a runaway CLI that floods stdout will OOM if we keep an
+    // unbounded String. Cap at 10 MiB per stream so even the worst
+    // case fits in agent context. NOTE: `cmd.output()` itself
+    // already collected everything into memory before returning;
+    // the true streaming-with-backpressure fix is a Phase-2 refactor
+    // that uses `cmd.spawn()` + bounded async reads. This cap is
+    // graduated hardening: bounds the post-collection allocation.
+    const MAX_OUTPUT_BYTES: usize = 10 * 1024 * 1024;
+    let stdout_bytes = &output.stdout[..output.stdout.len().min(MAX_OUTPUT_BYTES)];
+    let stderr_bytes = &output.stderr[..output.stderr.len().min(MAX_OUTPUT_BYTES)];
+    let stdout = String::from_utf8_lossy(stdout_bytes).trim().to_string();
+    let stderr = String::from_utf8_lossy(stderr_bytes).trim().to_string();
     let exit_code = output.status.code().unwrap_or(-1);
 
     let mut parts: Vec<String> = Vec::new();

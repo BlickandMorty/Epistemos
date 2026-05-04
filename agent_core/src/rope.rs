@@ -46,7 +46,12 @@ impl RopeDocument {
         }
     }
 
-    pub fn from_str(text: &str) -> Self {
+    /// Build a fresh rope from a text payload. Named `from_text`
+    /// (not `from_str`) so it doesn't collide with the
+    /// `std::str::FromStr` trait method, which is fallible — this
+    /// constructor is infallible and the trait's `Result` would be
+    /// awkward `Infallible` boilerplate.
+    pub fn from_text(text: &str) -> Self {
         Self {
             inner: Mutex::new(Rope::from(text)),
         }
@@ -124,7 +129,7 @@ mod tests {
 
     #[test]
     fn delete_range() {
-        let r = RopeDocument::from_str("Hello, world!");
+        let r = RopeDocument::from_text("Hello, world!");
         r.delete(5, 7);
         assert_eq!(r.snapshot(), "Helloworld!");
     }
@@ -132,13 +137,13 @@ mod tests {
     #[test]
     fn utf16_metrics_match_apis() {
         // ASCII: byte and utf16 lengths match.
-        let r = RopeDocument::from_str("abc");
+        let r = RopeDocument::from_text("abc");
         assert_eq!(r.len_bytes(), 3);
         assert_eq!(r.len_utf16(), 3);
         assert_eq!(r.utf16_to_byte(2), 2);
 
         // BMP non-ASCII char: 2 UTF-8 bytes, 1 UTF-16 code unit.
-        let r = RopeDocument::from_str("aäb");
+        let r = RopeDocument::from_text("aäb");
         assert_eq!(r.len_bytes(), 4);
         assert_eq!(r.len_utf16(), 3);
         // ä starts at byte 1, utf16 unit 1
@@ -150,7 +155,7 @@ mod tests {
     #[test]
     fn supplementary_plane_uses_two_utf16_units() {
         // 𐀀 (U+10000) — 4 UTF-8 bytes, 2 UTF-16 code units (surrogate pair).
-        let r = RopeDocument::from_str("a𐀀b");
+        let r = RopeDocument::from_text("a𐀀b");
         assert_eq!(r.len_bytes(), 6);
         assert_eq!(r.len_utf16(), 4);
         // 'b' starts at byte 5, utf16 unit 3
@@ -159,8 +164,8 @@ mod tests {
 
     #[test]
     fn delete_with_invalid_range_is_noop() {
-        let r = RopeDocument::from_str("hi");
-        r.delete(2, 1);  // inverted
+        let r = RopeDocument::from_text("hi");
+        r.delete(2, 1); // inverted
         assert_eq!(r.snapshot(), "hi");
     }
 }

@@ -102,16 +102,21 @@ pub struct RawThoughtsManifest {
 /// One JSONL event in `events.jsonl`. Variant tags use `snake_case` so the
 /// `type` field survives a Swift round-trip without a custom decoder.
 ///
-/// `SignatureDelta::signature` is opaque text that MUST round-trip
-/// byte-for-byte (Anthropic uses it to authenticate thinking blocks across
-/// tool turns; dropping or mutating it kills the agent per CLAUDE.md
-/// "PRESERVE THINKING BLOCKS").
+/// `SignatureDelta::signature` and `RedactedThinking::data` are opaque
+/// provider payloads that MUST round-trip byte-for-byte when replayed.
+/// Anthropic uses these surfaces to authenticate thinking blocks across tool
+/// turns; dropping or mutating them kills the agent per CLAUDE.md's
+/// "PRESERVE THINKING BLOCKS" rule.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum RawThoughtsEvent {
     ThinkingDelta {
         index: u32,
         text: String,
+    },
+    RedactedThinking {
+        index: u32,
+        data: String,
     },
     SignatureDelta {
         index: u32,
@@ -178,6 +183,7 @@ pub struct RawThoughtsToolSidecar {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RawThoughtsEventCounts {
     pub thinking_delta: u64,
+    pub redacted_thinking: u64,
     pub signature_delta: u64,
     pub text_delta: u64,
     /// Sum of `text_delta.text.len()` (bytes, not graphemes — cheap to count).
@@ -381,7 +387,7 @@ impl RawThoughtsEmitter {
             line.push('\n');
             let mut guard = writer_lock
                 .lock()
-                .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                .map_err(|error| io::Error::other(error.to_string()))?;
             if let Some(writer) = guard.as_mut() {
                 writer.write_all(line.as_bytes())?;
             }
@@ -408,12 +414,15 @@ impl RawThoughtsEmitter {
                 let mut map = self
                     .thoughts_in_flight
                     .lock()
-                    .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                    .map_err(|error| io::Error::other(error.to_string()))?;
                 let acc = map.entry(*index).or_insert_with(|| ThoughtAcc {
                     thinking: String::new(),
                     started_at: now,
                 });
                 acc.thinking.push_str(text);
+            }
+            RawThoughtsEvent::RedactedThinking { .. } => {
+                self.bump_count(|c| c.redacted_thinking += 1);
             }
             RawThoughtsEvent::SignatureDelta { index, signature } => {
                 self.bump_count(|c| c.signature_delta += 1);
@@ -421,7 +430,7 @@ impl RawThoughtsEmitter {
                     let mut map = self
                         .thoughts_in_flight
                         .lock()
-                        .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                        .map_err(|error| io::Error::other(error.to_string()))?;
                     map.remove(index)
                 };
                 let started_at = acc.as_ref().map(|a| a.started_at).unwrap_or(now);
@@ -451,7 +460,7 @@ impl RawThoughtsEmitter {
                 let mut map = self
                     .tools_in_flight
                     .lock()
-                    .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                    .map_err(|error| io::Error::other(error.to_string()))?;
                 map.insert(
                     id.clone(),
                     ToolAcc {
@@ -476,7 +485,7 @@ impl RawThoughtsEmitter {
                     let mut map = self
                         .tools_in_flight
                         .lock()
-                        .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                        .map_err(|error| io::Error::other(error.to_string()))?;
                     map.remove(tool_use_id)
                 };
                 if let Some(dir) = &self.run_dir {
@@ -543,16 +552,12 @@ impl RawThoughtsEmitter {
     /// summary markdown. Idempotent — calling `finish` more than once
     /// only rewrites the manifest with the latest status.
     /// No-op when disabled.
-    pub fn finish(
-        &self,
-        status: RawThoughtsStatus,
-        summary_md: Option<&str>,
-    ) -> io::Result<()> {
+    pub fn finish(&self, status: RawThoughtsStatus, summary_md: Option<&str>) -> io::Result<()> {
         let snapshot = {
             let mut guard = self
                 .manifest
                 .lock()
-                .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+                .map_err(|error| io::Error::other(error.to_string()))?;
             guard.status = status;
             guard.ended_at = Some(unix_ms_now());
             guard.clone()
@@ -597,16 +602,8 @@ impl RawThoughtsEmitter {
     /// Wave 3.1: build + serialise the `final.json` aggregate. Pulls
     /// the snapshot of every internal accumulator so the sidecar is a
     /// consistent point-in-time view of the run at finish-time.
-    fn write_final_sidecar(
-        &self,
-        dir: &Path,
-        manifest: &RawThoughtsManifest,
-    ) -> io::Result<()> {
-        let counts = self
-            .counts
-            .lock()
-            .map(|c| c.clone())
-            .unwrap_or_default();
+    fn write_final_sidecar(&self, dir: &Path, manifest: &RawThoughtsManifest) -> io::Result<()> {
+        let counts = self.counts.lock().map(|c| c.clone()).unwrap_or_default();
         let stop_reason = self
             .last_stop_reason
             .lock()
@@ -910,8 +907,7 @@ mod tests {
         let body = fs::read_to_string(dir.join("events.jsonl")).unwrap();
         let mut lines = body.lines();
 
-        let thinking_event: RawThoughtsEvent =
-            serde_json::from_str(lines.next().unwrap()).unwrap();
+        let thinking_event: RawThoughtsEvent = serde_json::from_str(lines.next().unwrap()).unwrap();
         match thinking_event {
             RawThoughtsEvent::ThinkingDelta { text, .. } => {
                 assert_eq!(text.as_bytes(), thinking.as_bytes());
@@ -922,13 +918,51 @@ mod tests {
         let signature_event: RawThoughtsEvent =
             serde_json::from_str(lines.next().unwrap()).unwrap();
         match signature_event {
-            RawThoughtsEvent::SignatureDelta {
-                signature: sig, ..
-            } => {
+            RawThoughtsEvent::SignatureDelta { signature: sig, .. } => {
                 assert_eq!(sig.as_bytes(), signature.as_bytes());
             }
             other => panic!("expected SignatureDelta, got {other:?}"),
         }
+        disable_flag();
+    }
+
+    #[test]
+    fn redacted_thinking_payload_bytes_round_trip() {
+        let _guard = env_lock();
+        enable_flag();
+        let tmp = TempDir::new().unwrap();
+        let payload = "opaque-redacted-payload+/=\nwith tabs\tand unicode \u{2603}";
+
+        let emitter = RawThoughtsEmitter::new(
+            tmp.path(),
+            "anthropic",
+            "claude-opus-4-7",
+            "run_redacted",
+            None,
+        );
+        emitter
+            .record(RawThoughtsEvent::RedactedThinking {
+                index: 3,
+                data: payload.to_string(),
+            })
+            .unwrap();
+        emitter.finish(RawThoughtsStatus::Completed, None).unwrap();
+
+        let dir = emitter.run_dir().unwrap();
+        let body = fs::read_to_string(dir.join("events.jsonl")).unwrap();
+        let event: RawThoughtsEvent = serde_json::from_str(body.lines().next().unwrap()).unwrap();
+        match event {
+            RawThoughtsEvent::RedactedThinking { index, data } => {
+                assert_eq!(index, 3);
+                assert_eq!(data.as_bytes(), payload.as_bytes());
+            }
+            other => panic!("expected RedactedThinking, got {other:?}"),
+        }
+
+        let final_body = fs::read_to_string(dir.join("final.json")).unwrap();
+        let sidecar: RawThoughtsFinalSidecar = serde_json::from_str(&final_body).unwrap();
+        assert_eq!(sidecar.event_counts.redacted_thinking, 1);
+        assert_eq!(sidecar.event_counts.thinking_delta, 0);
         disable_flag();
     }
 
@@ -1005,13 +1039,8 @@ mod tests {
         let _guard = env_lock();
         disable_flag();
         let tmp = TempDir::new().unwrap();
-        let emitter = RawThoughtsEmitter::new(
-            tmp.path(),
-            "anthropic",
-            "claude-opus-4-7",
-            "run_off",
-            None,
-        );
+        let emitter =
+            RawThoughtsEmitter::new(tmp.path(), "anthropic", "claude-opus-4-7", "run_off", None);
         assert!(!emitter.is_enabled());
         assert!(emitter.run_dir().is_none());
 
@@ -1038,13 +1067,8 @@ mod tests {
         let _guard = env_lock();
         enable_flag();
         let tmp = TempDir::new().unwrap();
-        let emitter = RawThoughtsEmitter::new(
-            tmp.path(),
-            "anthropic",
-            "claude-opus-4-7",
-            "run_done",
-            None,
-        );
+        let emitter =
+            RawThoughtsEmitter::new(tmp.path(), "anthropic", "claude-opus-4-7", "run_done", None);
         let dir = emitter.run_dir().unwrap().to_path_buf();
 
         // Confirm the initial manifest is "running" with no ended_at.
@@ -1060,10 +1084,7 @@ mod tests {
 
         let final_body = fs::read_to_string(dir.join("manifest.json")).unwrap();
         let final_manifest: RawThoughtsManifest = serde_json::from_str(&final_body).unwrap();
-        assert!(matches!(
-            final_manifest.status,
-            RawThoughtsStatus::Errored
-        ));
+        assert!(matches!(final_manifest.status, RawThoughtsStatus::Errored));
         assert!(final_manifest.ended_at.is_some());
 
         let summary_body = fs::read_to_string(dir.join("summary.md")).unwrap();
@@ -1267,7 +1288,10 @@ mod tests {
         assert_eq!(sidecar.event_counts.message_stop, 1);
 
         assert_eq!(sidecar.thought_indexes, vec![0, 1]);
-        assert_eq!(sidecar.tool_use_ids, vec!["tc_bad".to_string(), "tc_ok".to_string()]);
+        assert_eq!(
+            sidecar.tool_use_ids,
+            vec!["tc_bad".to_string(), "tc_ok".to_string()]
+        );
 
         assert!(sidecar.duration_ms >= 0);
         assert!(sidecar.ended_at >= sidecar.started_at);

@@ -322,9 +322,10 @@ fn flatten_assistant_content(content: &[ContentBlock]) -> String {
         .map(|block| match block {
             ContentBlock::Text { text } => text.clone(),
             ContentBlock::Thinking { thinking, .. } => format!("[thinking]\n{thinking}"),
+            ContentBlock::RedactedThinking { .. } => "[redacted_thinking]".to_string(),
             ContentBlock::ToolUse { id, name, input } => format!(
                 "[tool_use id={id} name={name}]\n{}",
-                serde_json::to_string_pretty(input).unwrap_or_else(|_| "{}".to_string())
+                serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string())
             ),
         })
         .filter(|segment| !segment.trim().is_empty())

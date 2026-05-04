@@ -501,7 +501,38 @@ enum BrowserExecutable {
 impl BrowserExecutable {
     fn into_command(self) -> Command {
         match self {
-            Self::Direct(path) => Command::new(path),
+            Self::Direct(path) => {
+                // The `agent-browser` binary is a user-installed
+                // automation harness running arbitrary scripts —
+                // same risk surface as MCP servers. Apply doctrine
+                // subprocess hardening: env_clear + canonical
+                // allowlist + kill_on_drop + process_group(0).
+                //
+                // `extra` forwards the small set of env vars the
+                // agent-browser binary's documented contract reads:
+                //   - `FAKE_BROWSER_LOG`: test fixture log target
+                //     (tests/browser_handlers_reuse_the_same_session
+                //     uses this; production users never set it).
+                //   - `HTTP_PROXY` / `HTTPS_PROXY` / `NO_PROXY`:
+                //     standard proxy passthrough so corporate users
+                //     can reach external sites through their proxy.
+                //   - `EPISTEMOS_BROWSER_*`: any future caller-set
+                //     overrides for the browser binary itself.
+                let mut cmd = Command::new(path);
+                crate::security::harden_cli_subprocess_extending(
+                    &mut cmd,
+                    &[
+                        "FAKE_BROWSER_LOG",
+                        "HTTP_PROXY",
+                        "HTTPS_PROXY",
+                        "NO_PROXY",
+                        "http_proxy",
+                        "https_proxy",
+                        "no_proxy",
+                    ],
+                );
+                cmd
+            }
         }
     }
 }

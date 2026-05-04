@@ -431,12 +431,11 @@ fn find_symbol_definitions(
                 let trimmed = line.trim_start();
                 // Check if this line defines the symbol
                 for pattern in DEFINITION_PATTERNS {
-                    if trimmed.starts_with(pattern) {
-                        let after_pattern = &trimmed[pattern.len()..];
+                    if let Some(after_pattern) = trimmed.strip_prefix(pattern) {
                         // Symbol name must start at the pattern boundary
-                        if after_pattern.starts_with(symbol) {
+                        if let Some(after_symbol) = after_pattern.strip_prefix(symbol) {
                             // Verify it's a word boundary (not a prefix of a longer name)
-                            let after_symbol = &after_pattern[symbol.len()..];
+                            let _ = after_pattern; // retained for any future use
                             if after_symbol.is_empty()
                                 || !after_symbol.as_bytes()[0].is_ascii_alphanumeric()
                                     && after_symbol.as_bytes()[0] != b'_'
@@ -754,8 +753,7 @@ impl ToolHandler for FindSymbolHandler {
             ));
         }
 
-        let output =
-            serde_json::to_string_pretty(&results).unwrap_or_else(|_| format!("{results:?}"));
+        let output = serde_json::to_string(&results).unwrap_or_else(|_| format!("{results:?}"));
         Ok(output)
     }
 }
@@ -822,8 +820,7 @@ impl ToolHandler for GetFunctionSourceHandler {
             ));
         }
 
-        let output =
-            serde_json::to_string_pretty(&results).unwrap_or_else(|_| format!("{results:?}"));
+        let output = serde_json::to_string(&results).unwrap_or_else(|_| format!("{results:?}"));
         Ok(output)
     }
 }

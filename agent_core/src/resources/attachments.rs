@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::{
-    ResourceContent, ResourceError, ResourceId, ResourceService, WriteResult,
-};
+use super::{ResourceContent, ResourceError, ResourceId, ResourceService, WriteResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, uniffi::Enum)]
 pub enum AttachmentMode {
@@ -102,7 +100,10 @@ pub async fn read_attached_resource(
             Ok(ResourceContent {
                 id: attachment.resource_id.clone(),
                 bytes,
-                version: attachment.version.clone().unwrap_or_else(|| checksum.clone()),
+                version: attachment
+                    .version
+                    .clone()
+                    .unwrap_or_else(|| checksum.clone()),
                 checksum,
                 media_type: "text/plain".into(),
             })
@@ -163,22 +164,19 @@ mod tests {
 
         let vault = Arc::new(VaultStore::open(temp.path().to_str().unwrap()).unwrap());
         let service = VaultResourceService::new(vault, temp.path(), "main");
-        let resource_id = service
-            .resolve("Inbox/Attached.md".into())
-            .await
-            .unwrap();
+        let resource_id = service.resolve("Inbox/Attached.md".into()).await.unwrap();
         let version = service.read(resource_id.clone()).await.unwrap().version;
-        let attachment = AttachedResource::attach_via_ui(
-            resource_id,
-            "Attached",
-            Some(version.clone()),
-        );
+        let attachment =
+            AttachedResource::attach_via_ui(resource_id, "Attached", Some(version.clone()));
 
         write_attached_resource(&service, &attachment, b"after", Some(version.as_str()))
             .await
             .unwrap();
 
-        assert_eq!(read_note_adapter(&service, "Attached").await.unwrap(), "after");
+        assert_eq!(
+            read_note_adapter(&service, "Attached").await.unwrap(),
+            "after"
+        );
         assert_eq!(std::fs::read_to_string(note_path).unwrap(), "after");
     }
 
@@ -202,10 +200,7 @@ mod tests {
         let error = write_attached_resource(&service, &attachment, b"mutated", None)
             .await
             .unwrap_err();
-        assert!(matches!(
-            error,
-            ResourceError::CapabilityDenied { .. }
-        ));
+        assert!(matches!(error, ResourceError::CapabilityDenied { .. }));
     }
 
     #[tokio::test]
@@ -220,11 +215,8 @@ mod tests {
             absolute_path: file_path.to_string_lossy().to_string(),
         };
         let version = service.read(resource_id.clone()).await.unwrap().version;
-        let attachment = AttachedResource::finder_file(
-            resource_id,
-            "Example.swift",
-            Some(version.clone()),
-        );
+        let attachment =
+            AttachedResource::finder_file(resource_id, "Example.swift", Some(version.clone()));
 
         write_attached_resource(
             &service,
@@ -235,7 +227,10 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(std::fs::read_to_string(file_path).unwrap(), "let answer = 42\n");
+        assert_eq!(
+            std::fs::read_to_string(file_path).unwrap(),
+            "let answer = 42\n"
+        );
     }
 
     #[tokio::test]

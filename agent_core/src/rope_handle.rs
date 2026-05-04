@@ -75,9 +75,7 @@ pub extern "C" fn rope_handle_new() -> *const RopeDocumentHandle {
 /// `text` must be a valid null-terminated UTF-8 C string, or null
 /// (in which case an empty rope is returned).
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn rope_handle_from_str(
-    text: *const c_char,
-) -> *const RopeDocumentHandle {
+pub unsafe extern "C" fn rope_handle_from_str(text: *const c_char) -> *const RopeDocumentHandle {
     let result = std::panic::catch_unwind(|| {
         if text.is_null() {
             let doc = Arc::new(RopeDocument::new());
@@ -87,7 +85,7 @@ pub unsafe extern "C" fn rope_handle_from_str(
         let s = unsafe { CStr::from_ptr(text) };
         match s.to_str() {
             Ok(s) => {
-                let doc = Arc::new(RopeDocument::from_str(s));
+                let doc = Arc::new(RopeDocument::from_text(s));
                 Arc::into_raw(Arc::new(RopeDocumentHandle { inner: doc }))
             }
             Err(_) => std::ptr::null(),
@@ -130,9 +128,7 @@ pub unsafe extern "C" fn rope_handle_release(handle: *const RopeDocumentHandle) 
 /// # Safety
 /// `handle` must be a live pointer or null. Returns 0 on null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn rope_handle_len_bytes(
-    handle: *const RopeDocumentHandle,
-) -> usize {
+pub unsafe extern "C" fn rope_handle_len_bytes(handle: *const RopeDocumentHandle) -> usize {
     if handle.is_null() {
         return 0;
     }
@@ -147,9 +143,7 @@ pub unsafe extern "C" fn rope_handle_len_bytes(
 /// # Safety
 /// `handle` must be a live pointer or null. Returns 0 on null.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn rope_handle_len_utf16(
-    handle: *const RopeDocumentHandle,
-) -> usize {
+pub unsafe extern "C" fn rope_handle_len_utf16(handle: *const RopeDocumentHandle) -> usize {
     if handle.is_null() {
         return 0;
     }
@@ -248,9 +242,7 @@ pub unsafe extern "C" fn rope_handle_byte_to_utf16(
 /// # Safety
 /// `handle` must be live or null. Returns null on null handle.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn rope_handle_snapshot(
-    handle: *const RopeDocumentHandle,
-) -> *mut c_char {
+pub unsafe extern "C" fn rope_handle_snapshot(handle: *const RopeDocumentHandle) -> *mut c_char {
     if handle.is_null() {
         return std::ptr::null_mut();
     }

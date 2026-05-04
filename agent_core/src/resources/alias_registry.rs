@@ -181,7 +181,12 @@ fn build_default_registry() -> AliasRegistry {
 
     // Local models — Qwen family (4-bit MLX quantizations).
     registry.register_all(
-        ["qwen3-4b", "qwen:qwen3-4b", "qwen_3_4b", "Qwen3-4B-MLX-4bit"],
+        [
+            "qwen3-4b",
+            "qwen:qwen3-4b",
+            "qwen_3_4b",
+            "Qwen3-4B-MLX-4bit",
+        ],
         ResourceId::Model {
             provider: "qwen".into(),
             model_id: "qwen3-4b".into(),
@@ -275,9 +280,7 @@ pub fn expand_model_aliases(alias: String) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        build_default_registry, canonical_model_id, expand_model_aliases, AliasRegistry,
-    };
+    use super::{build_default_registry, canonical_model_id, expand_model_aliases, AliasRegistry};
     use crate::resources::id::ResourceId;
 
     #[test]
@@ -288,10 +291,7 @@ mod tests {
         };
 
         let mut registry = AliasRegistry::new();
-        registry.register_all(
-            ["gpt-5.4", "openai:gpt-5.4", "gpt_5_4"],
-            canonical.clone(),
-        );
+        registry.register_all(["gpt-5.4", "openai:gpt-5.4", "gpt_5_4"], canonical.clone());
 
         assert_eq!(registry.resolve("gpt-5.4"), Some(canonical.clone()));
         assert_eq!(registry.resolve("openai:gpt-5.4"), Some(canonical.clone()));

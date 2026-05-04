@@ -117,7 +117,8 @@ pub struct SqlitePermissionService {
 
 impl SqlitePermissionService {
     pub fn open(path: impl AsRef<Path>) -> Result<Self, PermissionError> {
-        let conn = Connection::open(path).map_err(|error| PermissionError::Database(error.to_string()))?;
+        let conn =
+            Connection::open(path).map_err(|error| PermissionError::Database(error.to_string()))?;
         Self::init_schema(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
@@ -146,8 +147,8 @@ impl SqlitePermissionService {
     /// in-memory fallback keeps the feature working for the session,
     /// and the next launch can retry.
     pub fn reopen_at(&self, path: impl AsRef<Path>) -> Result<(), PermissionError> {
-        let conn = Connection::open(path)
-            .map_err(|error| PermissionError::Database(error.to_string()))?;
+        let conn =
+            Connection::open(path).map_err(|error| PermissionError::Database(error.to_string()))?;
         Self::init_schema(&conn)?;
         let mut inner = self
             .conn
@@ -299,9 +300,8 @@ impl PermissionService for SqlitePermissionService {
             };
             let resources_json: String = row.get(3)?;
             let capabilities_json: String = row.get(4)?;
-            let resources = serde_json::from_str(&resources_json).unwrap_or_else(|_| {
-                ResourceSelector::ByKind(ResourceSelectorKind::File)
-            });
+            let resources = serde_json::from_str(&resources_json)
+                .unwrap_or_else(|_| ResourceSelector::ByKind(ResourceSelectorKind::File));
             let capabilities = serde_json::from_str(&capabilities_json)
                 .unwrap_or_else(|_| Vec::<Capability>::new());
             Ok(PermissionGrant {
@@ -345,7 +345,9 @@ fn looks_like_user_grant(statement: &str) -> bool {
         "you can update",
         "feel free to edit",
     ];
-    grant_phrases.iter().any(|phrase| normalized.contains(phrase))
+    grant_phrases
+        .iter()
+        .any(|phrase| normalized.contains(phrase))
 }
 
 fn resource_path(resource: &ResourceId) -> Option<&str> {
@@ -443,18 +445,22 @@ mod tests {
             .unwrap();
 
         assert_eq!(grants.len(), 2);
-        assert!(service
-            .check(
-                ResourceId::VaultNote {
-                    vault_id: "main".into(),
-                    note_id: "Inbox/Anything.md".into(),
-                },
-                Capability::Search,
-            )
-            .await);
-        assert!(service
-            .check(live_attachment.resource_id.clone(), Capability::Write)
-            .await);
+        assert!(
+            service
+                .check(
+                    ResourceId::VaultNote {
+                        vault_id: "main".into(),
+                        note_id: "Inbox/Anything.md".into(),
+                    },
+                    Capability::Search,
+                )
+                .await
+        );
+        assert!(
+            service
+                .check(live_attachment.resource_id.clone(), Capability::Write)
+                .await
+        );
     }
 
     #[test]
