@@ -513,3 +513,24 @@ dimension mismatches as `Result` errors, and locks the behavior in
 
 **Usefulness:** +1 - prevents donor mockup drift from entering the hot-path
 quantization substrate.
+
+---
+
+## 2026-05-03 - App Group entitlement signing-profile drift
+
+**Status:** Recorded during STEP 5d/e / PR63 implementation.
+
+**Drift:** Fusion handoff STEP 5 says to add `group.com.epistemos.shared` to
+Epistemos entitlements. Adding the App Group key to the local direct/debug
+profiles made the current `xcodebuild` path fail with: `"Epistemos" has
+entitlements that require signing with a development certificate.`
+
+**Resolution:** PR63 keeps the canonical App Group key in
+`Epistemos/Epistemos-AppStore.entitlements`, leaves direct/debug signing
+profiles unchanged for local buildability, and keeps `AppGroupContainer`
+fallback-safe when the App Group container is unavailable. Direct/Pro/Research
+App Group expansion needs a signing-profile gate that updates certificate/team
+configuration alongside entitlements.
+
+**Usefulness:** +1 - prevents a correct architectural entitlement from silently
+breaking local debug/direct builds before the signing profile is coordinated.
