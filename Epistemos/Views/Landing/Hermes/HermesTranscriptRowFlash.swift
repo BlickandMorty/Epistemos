@@ -42,6 +42,7 @@ struct HermesTranscriptRowFlash<Content: View>: View {
         case .systemResponse: return 0.18
         case .info:           return 0.08
         case .error:          return 0.22
+        case .artifact:       return 0.14     // softer than response — the card itself draws attention
         }
     }
 }

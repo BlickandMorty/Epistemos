@@ -110,18 +110,38 @@ struct HermesExpertModeView: View {
 
     @ViewBuilder
     private func transcriptRow(_ entry: HermesExpertTranscriptEntry) -> some View {
-        let (prefix, color) = transcriptStyling(entry)
-        HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
-            HStack(alignment: .top, spacing: 8) {
-                Text(prefix)
-                    .font(monoFont)
-                    .foregroundStyle(color.opacity(0.7))
-                    .frame(width: 18, alignment: .leading)
-                Text(entry.text)
-                    .font(monoFont)
-                    .foregroundStyle(color)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
+        if let artifact = entry.artifact {
+            // GENUI-DEFER: hackathon-2026-05-03 (canonical:
+            // docs/fusion/COGNITIVE_GENUI_DOCTRINE_2026_05_03.md §6).
+            // Routed through the existing Artifact + ArtifactBlockView
+            // pipeline — the canonical schema-first renderer for chat
+            // content blocks. When GenUIDispatcher (G.2) lands, this
+            // call site becomes `GenUIDispatcher.shared.render(payload)`
+            // and the artifact migration in this file becomes a no-op.
+            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text("⌁")
+                        .font(monoFont)
+                        .foregroundStyle(theme.textPrimary.opacity(0.55))
+                        .frame(width: 18, alignment: .leading)
+                    ArtifactBlockView(artifact: artifact)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        } else {
+            let (prefix, color) = transcriptStyling(entry)
+            HermesTranscriptRowFlash(entry: entry, accent: theme.resolved.accent.color) {
+                HStack(alignment: .top, spacing: 8) {
+                    Text(prefix)
+                        .font(monoFont)
+                        .foregroundStyle(color.opacity(0.7))
+                        .frame(width: 18, alignment: .leading)
+                    Text(entry.text)
+                        .font(monoFont)
+                        .foregroundStyle(color)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
             }
         }
     }
@@ -133,6 +153,7 @@ struct HermesExpertModeView: View {
         case .systemResponse: return ("⌁",  theme.textPrimary.opacity(0.92))
         case .info:           return ("∙",  theme.textTertiary)
         case .error:          return ("!",  theme.resolved.accent.color)
+        case .artifact:       return ("⌁",  theme.textPrimary.opacity(0.92))  // not used (artifact path renders separately)
         }
     }
 
