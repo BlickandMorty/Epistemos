@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import SwiftUI
 
 /// Sovereign Gate category for Hermes Expert Mode approval-gated
 /// commands. Single-owner discipline — this category is only used by
@@ -155,8 +156,14 @@ struct HermesExpertModeRunner {
             chat.startNewChat()
 
         case .clear:
-            renderInfo("Clearing transcript.")
-            state.transcript = []
+            // Surface confirmation, then clear with the spring animation
+            // bound on `transcript.count` in the view (List rows fade out
+            // on removal). We append BEFORE clearing so the user sees
+            // the line then watches it sweep away with the rest.
+            renderInfo("Clearing transcript…")
+            withAnimation(.easeOut(duration: 0.32)) {
+                state.transcript = []
+            }
 
         case .compact:
             renderInfo("Compaction — handing to native compactor.")
@@ -180,7 +187,7 @@ struct HermesExpertModeRunner {
             renderModelInline(cmd)
 
         case .persona(let cmd):
-            renderInfo("Persona: " + cmd.echoSummary)
+            renderPersonaInline(cmd)
 
         case .parameter(let cmd):
             renderInfo("Parameter: " + cmd.echoSummary)
@@ -389,6 +396,46 @@ struct HermesExpertModeRunner {
             text: "history depth     \(state.history.count) entries"))
         state.append(.init(kind: .info,
             text: "transcript        \(state.transcript.count) entries"))
+    }
+
+    /// Persona subsystem isn't a runtime mutable state on the main
+    /// branch yet (PersonaState is canonical-target work). Surface a
+    /// useful read of what we know rather than a generic echo.
+    private func renderPersonaInline(_ cmd: HermesPersonaCommand) {
+        switch cmd.action {
+        case .showCurrent:
+            state.append(.init(kind: .systemResponse,
+                text: "current persona: default (Hermes runtime)"))
+            state.append(.init(kind: .info,
+                text: "active model carries persona via prompt; explicit PersonaState is canonical-target"))
+        case .list:
+            state.append(.init(kind: .systemResponse, text: "── personas (built-in) ──"))
+            state.append(.init(kind: .info, text: "default      Hermes runtime baseline"))
+            state.append(.init(kind: .info, text: "researcher   investigative tone, deep citations"))
+            state.append(.init(kind: .info, text: "engineer     direct, code-first answers"))
+            state.append(.init(kind: .info, text: "(roadmap: user-defined personas via /persona create)"))
+        case .switchTo(let name):
+            state.append(.init(kind: .info,
+                text: "persona switch '\(name)': queued (PersonaState canonical-target)"))
+        case .create(let name):
+            state.append(.init(kind: .info,
+                text: "persona create '\(name)': PersonaState not yet runtime-mutable"))
+        case .edit(let name):
+            state.append(.init(kind: .info,
+                text: "persona edit '\(name)': PersonaState not yet runtime-mutable"))
+        case .delete(let name):
+            state.append(.init(kind: .info,
+                text: "persona delete '\(name)': PersonaState not yet runtime-mutable"))
+        case .export(let name):
+            state.append(.init(kind: .info,
+                text: "persona export '\(name)': PersonaState not yet runtime-mutable"))
+        case .importFrom(let path):
+            state.append(.init(kind: .info,
+                text: "persona import '\(path)': PersonaState not yet runtime-mutable"))
+        case .info(let name):
+            state.append(.init(kind: .info,
+                text: "persona info '\(name)': built-in personas listed via /persona list"))
+        }
     }
 
     private func renderNotebookInline(_ cmd: HermesNotebookCommand) {
