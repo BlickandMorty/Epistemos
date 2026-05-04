@@ -58,7 +58,13 @@ Xcode/Metal shader bundle and not the GPT mockup path.
 
 - Add CPU golden-reference tests for each Mamba-2 kernel before claiming
   runtime correctness.
-- Decide whether future Rust-side Metal ownership belongs in `agent_core/metal/`
-  or stays Swift/Xcode-owned under `Epistemos/Shaders/`.
-- Re-derive GPT's EML/FWHT/Sherry/CountSketch ideas only when the build graph
-  reaches Research-tier compression kernels.
+- STEP 4e / PR61 seeded Rust-side Metal source ownership under
+  `agent_core/metal/` for six HELIOS kernels:
+  `eml_softmax_lse.metal`, `count_sketch_update.metal`, `kv_fingerprint.metal`,
+  `dora_apply.metal`, `ternary_gemv.metal`, and
+  `ternary_proj_residual.metal`. These compile with `xcrun metal`, but are not
+  runtime authority until a future bridge adds CPU golden references and an
+  explicit dispatch gate.
+- Swift/Xcode-owned UI and Mamba-2 runtime shaders remain under
+  `Epistemos/Shaders/`. The new `agent_core/metal/` files are substrate seeds,
+  not a bundle migration.

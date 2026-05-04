@@ -1,6 +1,16 @@
 {
+  "agent_core_metal_entrypoints": {
+    "agent_core/metal/count_sketch_update.metal": true,
+    "agent_core/metal/dora_apply.metal": true,
+    "agent_core/metal/eml_softmax_lse.metal": true,
+    "agent_core/metal/kv_fingerprint.metal": true,
+    "agent_core/metal/ternary_gemv.metal": true,
+    "agent_core/metal/ternary_proj_residual.metal": true
+  },
   "canonical_naming_hits": [],
   "checks": {
+    "agent_core_metal_entrypoints_present": true,
+    "agent_core_metal_no_placeholders": true,
     "apple_safe_inter_chunk_scan": true,
     "arena_budget_tests_present": true,
     "arena_container_uses_canonical_group": true,
