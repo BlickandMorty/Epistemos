@@ -1,6 +1,6 @@
 {
   "generated_at" : "2026-05-02T00:00:00.000Z",
-  "max" : 359.3083,
+  "max" : 377.0875,
   "measurement" : "uniffi_callback_handle_roundtrip_10000",
   "metadata" : {
     "baseline_kind" : "uniffi_callback_pr5_handle_fixture",
@@ -14,19 +14,19 @@
     "sample_count_target" : "7",
     "sample_source" : "focused_xcode_test"
   },
-  "min" : 322.875,
-  "p50" : 332.35,
-  "p95" : 354.97204,
-  "p99" : 358.44104799999997,
+  "min" : 355.0166,
+  "p50" : 359.7208,
+  "p95" : 375.05373999999995,
+  "p99" : 376.680748,
   "sample_count" : 7,
   "samples" : [
-    322.875,
-    323.5125,
-    325.9,
-    332.35,
-    344.6292,
-    344.8541,
-    359.3083
+    355.0166,
+    355.2833,
+    358.9209,
+    359.7208,
+    360.8125,
+    370.3083,
+    377.0875
   ],
   "schema_version" : 1,
   "suite" : "R15 UniFFI Callback Baseline",

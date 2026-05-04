@@ -14,8 +14,10 @@ set -e
 #   1. Verifies npm is available; loud-fails with install hints if not
 #   2. Installs deps via `npm ci` ONLY when package-lock.json hash
 #      changes (lock-hash stamp under node_modules/.installed-<hash>)
-#   3. Runs webpack in --mode development (Debug) or --mode production
-#      (Release)
+#   3. Runs webpack in --mode production by default so Xcode sees a stable
+#      resource graph across Pro/AppStore schemes. Set
+#      EPISTEMOS_TIPTAP_DEVELOPMENT=1 only when intentionally debugging
+#      the WKWebView bundle from an Xcode build.
 #   4. rsyncs dist/ → ../Epistemos/Resources/Editor/
 #   5. Sanity-checks editor.html landed at the destination so we never
 #      ship a broken .app
@@ -76,10 +78,10 @@ if [ ! -f "$STAMP_FILE" ]; then
 fi
 
 # -------------------------------------------------------------------
-# 2. webpack — dev mode under Debug, production under everything else
+# 2. webpack - production by default for stable Xcode resources
 # -------------------------------------------------------------------
 
-if [ "$CONFIGURATION" = "Debug" ]; then
+if [ "${EPISTEMOS_TIPTAP_DEVELOPMENT:-}" = "1" ]; then
     npm run build -- --mode development
 else
     npm run build -- --mode production
@@ -92,6 +94,32 @@ fi
 DEST="../Epistemos/Resources/Editor"
 mkdir -p "$DEST"
 rsync -a --delete dist/ "$DEST/"
+
+prune_production_editor_bundle() {
+    if [ "${EPISTEMOS_TIPTAP_DEVELOPMENT:-}" = "1" ]; then
+        return 0
+    fi
+
+    # The custom WKURLSchemeHandler serves *.br files for JS/CSS with
+    # Content-Encoding: br, so the uncompressed transfer source is only a
+    # development fallback. Keep production app bundles small by removing
+    # the plain counterpart whenever a Brotli asset exists.
+    find "$DEST" -type f -name '*.br' -print0 | while IFS= read -r -d '' compressed; do
+        plain="${compressed%.br}"
+        if [ -f "$plain" ]; then
+            rm -f "$plain"
+        fi
+    done
+
+    # WKWebView on the supported macOS target loads KaTeX WOFF2 fonts.
+    # Shipping TTF and WOFF alongside WOFF2 triples the font footprint with
+    # no V1 benefit.
+    if [ -d "$DEST/vendor/katex/fonts" ]; then
+        find "$DEST/vendor/katex/fonts" -type f \( -name '*.ttf' -o -name '*.woff' \) -delete
+    fi
+}
+
+prune_production_editor_bundle
 
 # -------------------------------------------------------------------
 # 4. Sanity check — never ship a broken .app
