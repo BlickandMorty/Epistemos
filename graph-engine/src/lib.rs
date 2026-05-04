@@ -894,7 +894,9 @@ pub extern "C" fn graph_engine_set_shared_position_buffer(
         ffi_engine!(engine);
         // SAFETY: caller guarantees ptr validity and exclusive access per semaphore protocol.
         unsafe {
-            engine.shared_position_buffers_mut().set_buffer(index, ptr, capacity_floats);
+            engine
+                .shared_position_buffers_mut()
+                .set_buffer(index, ptr, capacity_floats);
         }
     });
 }

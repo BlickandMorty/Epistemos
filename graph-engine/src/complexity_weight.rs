@@ -48,8 +48,8 @@ pub fn render_attributes(complexity: f32) -> ComplexityRenderAttributes {
     let c = clamp_unit(complexity);
     ComplexityRenderAttributes {
         radius_multiplier: lerp(0.7, 1.6, c),
-        label_font_scale:  lerp(1.0, 1.4, c),
-        halo_alpha:        lerp(0.0, 0.40, c),
+        label_font_scale: lerp(1.0, 1.4, c),
+        halo_alpha: lerp(0.0, 0.40, c),
     }
 }
 
@@ -59,10 +59,10 @@ pub fn render_attributes(complexity: f32) -> ComplexityRenderAttributes {
 pub fn edge_weight_multiplier(edge_kind: &str) -> f32 {
     match edge_kind {
         "derivedFrom" => 1.6,
-        "reference"   => 1.0,
-        "contains"    => 1.4,
-        "tagged"      => 0.7,
-        _             => 1.0,
+        "reference" => 1.0,
+        "contains" => 1.4,
+        "tagged" => 0.7,
+        _ => 1.0,
     }
 }
 
@@ -90,8 +90,10 @@ mod tests {
         let attrs = render_attributes(0.0);
         assert!(approx_eq(attrs.radius_multiplier, 0.7, 1e-5));
         assert!(approx_eq(attrs.label_font_scale, 1.0, 1e-5));
-        assert!(approx_eq(attrs.halo_alpha, 0.0, 1e-5),
-                "complexity 0 docs MUST disable halo (alpha 0)");
+        assert!(
+            approx_eq(attrs.halo_alpha, 0.0, 1e-5),
+            "complexity 0 docs MUST disable halo (alpha 0)"
+        );
     }
 
     #[test]
@@ -99,8 +101,10 @@ mod tests {
         let attrs = render_attributes(1.0);
         assert!(approx_eq(attrs.radius_multiplier, 1.6, 1e-5));
         assert!(approx_eq(attrs.label_font_scale, 1.4, 1e-5));
-        assert!(approx_eq(attrs.halo_alpha, 0.40, 1e-5),
-                "complexity 1 docs MUST cap halo at 0.40 (no blend blow-out)");
+        assert!(
+            approx_eq(attrs.halo_alpha, 0.40, 1e-5),
+            "complexity 1 docs MUST cap halo at 0.40 (no blend blow-out)"
+        );
     }
 
     #[test]
@@ -126,8 +130,8 @@ mod tests {
         for &w in &weights[1..] {
             let next = render_attributes(w);
             assert!(next.radius_multiplier >= prev.radius_multiplier);
-            assert!(next.label_font_scale  >= prev.label_font_scale);
-            assert!(next.halo_alpha        >= prev.halo_alpha);
+            assert!(next.label_font_scale >= prev.label_font_scale);
+            assert!(next.halo_alpha >= prev.halo_alpha);
             prev = next;
         }
     }
@@ -137,17 +141,20 @@ mod tests {
     #[test]
     fn edge_weight_table_matches_swift_mapper() {
         assert_eq!(edge_weight_multiplier("derivedFrom"), 1.6);
-        assert_eq!(edge_weight_multiplier("reference"),   1.0);
-        assert_eq!(edge_weight_multiplier("contains"),    1.4);
-        assert_eq!(edge_weight_multiplier("tagged"),      0.7);
+        assert_eq!(edge_weight_multiplier("reference"), 1.0);
+        assert_eq!(edge_weight_multiplier("contains"), 1.4);
+        assert_eq!(edge_weight_multiplier("tagged"), 0.7);
     }
 
     #[test]
     fn edge_weight_unknown_falls_back_to_one() {
-        assert_eq!(edge_weight_multiplier(""),               1.0);
-        assert_eq!(edge_weight_multiplier("never-defined"),  1.0);
-        assert_eq!(edge_weight_multiplier("related"),        1.0,
-                   "unmapped GraphEdgeType cases MUST inherit 1.0 (graceful default)");
+        assert_eq!(edge_weight_multiplier(""), 1.0);
+        assert_eq!(edge_weight_multiplier("never-defined"), 1.0);
+        assert_eq!(
+            edge_weight_multiplier("related"),
+            1.0,
+            "unmapped GraphEdgeType cases MUST inherit 1.0 (graceful default)"
+        );
     }
 
     /// Cross-language fixture: the three boundary points (0.0, 0.5,
@@ -159,18 +166,24 @@ mod tests {
     #[test]
     fn cross_language_fixture_matches_swift() {
         let fixtures: [(f32, f32, f32, f32); 3] = [
-            (0.0, 0.7,  1.0, 0.0),
+            (0.0, 0.7, 1.0, 0.0),
             (0.5, 1.15, 1.20, 0.20),
-            (1.0, 1.6,  1.4, 0.40),
+            (1.0, 1.6, 1.4, 0.40),
         ];
         for (c, expected_radius, expected_font, expected_halo) in fixtures {
             let attrs = render_attributes(c);
-            assert!(approx_eq(attrs.radius_multiplier, expected_radius, 1e-4),
-                    "complexity {c} radius drifted from Swift fixture");
-            assert!(approx_eq(attrs.label_font_scale, expected_font, 1e-4),
-                    "complexity {c} font drifted from Swift fixture");
-            assert!(approx_eq(attrs.halo_alpha, expected_halo, 1e-4),
-                    "complexity {c} halo drifted from Swift fixture");
+            assert!(
+                approx_eq(attrs.radius_multiplier, expected_radius, 1e-4),
+                "complexity {c} radius drifted from Swift fixture"
+            );
+            assert!(
+                approx_eq(attrs.label_font_scale, expected_font, 1e-4),
+                "complexity {c} font drifted from Swift fixture"
+            );
+            assert!(
+                approx_eq(attrs.halo_alpha, expected_halo, 1e-4),
+                "complexity {c} halo drifted from Swift fixture"
+            );
         }
     }
 }

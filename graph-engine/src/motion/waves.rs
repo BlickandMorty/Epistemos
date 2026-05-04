@@ -196,7 +196,14 @@ impl ActiveWaves {
     /// the user was effectively holding the node still). Amplitude
     /// scales as `sqrt(speed / 300)` for sublinear stacking — rapid
     /// repeated drags don't explode the visual noise floor.
-    pub fn emit(&mut self, center_x: f32, center_y: f32, release_vx: f32, release_vy: f32, now_s: f64) {
+    pub fn emit(
+        &mut self,
+        center_x: f32,
+        center_y: f32,
+        release_vx: f32,
+        release_vy: f32,
+        now_s: f64,
+    ) {
         let speed_sq = release_vx * release_vx + release_vy * release_vy;
         if !speed_sq.is_finite() || speed_sq < Self::RELEASE_MIN_SPEED_PX_S.powi(2) {
             return;
@@ -263,7 +270,12 @@ impl ActiveWaves {
         if self.events.is_empty() {
             return;
         }
-        let n = vx.len().min(x.len()).min(y.len()).min(fx.len()).min(vy.len());
+        let n = vx
+            .len()
+            .min(x.len())
+            .min(y.len())
+            .min(fx.len())
+            .min(vy.len());
         for i in 0..n {
             if fx[i].is_some() {
                 continue;
@@ -339,11 +351,19 @@ mod tests {
         let w = standard_event(0.0);
         let (fx, fy) = w.force_at(200.0, 0.0, 0.6); // front at r=192
         assert!(fx > 0.0, "fx should point outward (+X) but was {}", fx);
-        assert!(fy.abs() < 1e-4, "fy should be zero on the X-axis but was {}", fy);
+        assert!(
+            fy.abs() < 1e-4,
+            "fy should be zero on the X-axis but was {}",
+            fy
+        );
 
         let (fx2, fy2) = w.force_at(-200.0, 0.0, 0.6);
         assert!(fx2 < 0.0, "fx should point outward (-X) but was {}", fx2);
-        assert!(fy2.abs() < 1e-4, "fy should be zero on the X-axis but was {}", fy2);
+        assert!(
+            fy2.abs() < 1e-4,
+            "fy should be zero on the X-axis but was {}",
+            fy2
+        );
     }
 
     #[test]
@@ -373,7 +393,11 @@ mod tests {
         assert_eq!(fy0, 0.0);
 
         let (fx_near, _) = w.force_at(1.0, 0.0, 0.5);
-        assert!(fx_near.is_finite(), "near-origin force must be finite: {}", fx_near);
+        assert!(
+            fx_near.is_finite(),
+            "near-origin force must be finite: {}",
+            fx_near
+        );
     }
 
     #[test]
@@ -497,7 +521,11 @@ mod tests {
         let fx: Vec<Option<f32>> = vec![None];
         w.accumulate(&mut vx, &mut vy, &x, &y, &fx, 0.2, 1.0);
         assert!(vx[0].is_finite());
-        assert!(vx[0].abs() < 5000.0, "wave stack produced implausible force: {}", vx[0]);
+        assert!(
+            vx[0].abs() < 5000.0,
+            "wave stack produced implausible force: {}",
+            vx[0]
+        );
     }
 
     #[test]

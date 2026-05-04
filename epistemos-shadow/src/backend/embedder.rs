@@ -52,15 +52,28 @@ impl Embedder {
         INSTANCE.get_or_try_init(|| Self::load(DEFAULT_MODEL))
     }
 
+    /// W8.4.b extension — pre-initialise the global singleton off the
+    /// search hot path. Safe to call from any thread; on cold cache
+    /// blocks for ~2s while HuggingFace downloads `potion-base-8M`.
+    /// Subsequent calls are atomic-fast no-ops.
+    ///
+    /// Surfaces through the FFI as `shadow_warm()` (`crate::lib`); the
+    /// Swift bootstrap fires this once at app start so the first
+    /// `shadow_search_json` doesn't pay the download cost.
+    ///
+    /// Errors mirror [`Self::global`].
+    pub fn warm() -> Result<(), ShadowError> {
+        Self::global().map(|_| ())
+    }
+
     /// Construct a fresh instance from a model name OR local path.
     /// Useful for tests that point at a vendored fixture instead of
     /// hitting the network.
     pub fn load(model_name: &str) -> Result<Self, ShadowError> {
         let model = model2vec_rs::model::StaticModel::from_pretrained(
-            model_name,
-            None,  // hf_token — public model, no auth needed
-            None,  // normalize — default true so vectors are L2-unit-length
-            None,  // subfolder
+            model_name, None, // hf_token — public model, no auth needed
+            None, // normalize — default true so vectors are L2-unit-length
+            None, // subfolder
         )
         .map_err(|e| ShadowError::Backend {
             detail: format!("Model2Vec load '{model_name}' failed: {e}"),
@@ -112,7 +125,8 @@ mod tests {
         assert_eq!(
             v.len(),
             EMBED_DIM,
-            "potion-base-8M MUST produce 256-d vectors; got {}", v.len()
+            "potion-base-8M MUST produce 256-d vectors; got {}",
+            v.len()
         );
     }
 

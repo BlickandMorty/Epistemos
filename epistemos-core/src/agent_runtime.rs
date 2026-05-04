@@ -746,7 +746,8 @@ impl AgentBudgetLedger {
                 let spent = self.tokens_spent.lock().map(|v| *v).unwrap_or(0);
                 if spent >= self.limits.max_tokens {
                     BudgetCheckResult::Exhausted(format!(
-                        "token budget exhausted: {spent}/{}", self.limits.max_tokens
+                        "token budget exhausted: {spent}/{}",
+                        self.limits.max_tokens
                     ))
                 } else {
                     BudgetCheckResult::WithinBudget
@@ -756,7 +757,8 @@ impl AgentBudgetLedger {
                 let spent = self.wall_ms_spent.lock().map(|v| *v).unwrap_or(0);
                 if spent >= self.limits.max_wall_ms {
                     BudgetCheckResult::Exhausted(format!(
-                        "wall-clock budget exhausted: {spent}ms/{}ms", self.limits.max_wall_ms
+                        "wall-clock budget exhausted: {spent}ms/{}ms",
+                        self.limits.max_wall_ms
                     ))
                 } else {
                     BudgetCheckResult::WithinBudget
@@ -766,7 +768,8 @@ impl AgentBudgetLedger {
                 let depth = self.recursion_depth.lock().map(|v| *v).unwrap_or(0);
                 if depth >= self.limits.max_recursion_depth {
                     BudgetCheckResult::Exhausted(format!(
-                        "recursion depth exhausted: {depth}/{}", self.limits.max_recursion_depth
+                        "recursion depth exhausted: {depth}/{}",
+                        self.limits.max_recursion_depth
                     ))
                 } else {
                     BudgetCheckResult::WithinBudget
@@ -776,7 +779,8 @@ impl AgentBudgetLedger {
                 let count = self.child_agent_count.lock().map(|v| *v).unwrap_or(0);
                 if count >= self.limits.max_child_agents {
                     BudgetCheckResult::Exhausted(format!(
-                        "child agent limit reached: {count}/{}", self.limits.max_child_agents
+                        "child agent limit reached: {count}/{}",
+                        self.limits.max_child_agents
                     ))
                 } else {
                     BudgetCheckResult::WithinBudget
@@ -786,7 +790,8 @@ impl AgentBudgetLedger {
                 let count = self.review_round_count.lock().map(|v| *v).unwrap_or(0);
                 if count >= self.limits.max_review_rounds {
                     BudgetCheckResult::Exhausted(format!(
-                        "review round limit reached: {count}/{}", self.limits.max_review_rounds
+                        "review round limit reached: {count}/{}",
+                        self.limits.max_review_rounds
                     ))
                 } else {
                     BudgetCheckResult::WithinBudget
@@ -901,10 +906,7 @@ impl AgentAuditLog {
 
     pub fn persist_jsonl(&self, path: &std::path::Path) -> Result<(), std::io::Error> {
         let entries = self.entries();
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let file = OpenOptions::new().create(true).append(true).open(path)?;
         let mut writer = std::io::BufWriter::new(file);
         for entry in &entries {
             if let Ok(json) = serde_json::to_string(entry) {
@@ -1180,7 +1182,10 @@ mod tests {
             ..Default::default()
         });
         ledger.record_tokens(50);
-        assert_eq!(ledger.check(BudgetDimension::Tokens), BudgetCheckResult::WithinBudget);
+        assert_eq!(
+            ledger.check(BudgetDimension::Tokens),
+            BudgetCheckResult::WithinBudget
+        );
         ledger.record_tokens(60);
         assert!(matches!(
             ledger.check(BudgetDimension::Tokens),
@@ -1195,7 +1200,10 @@ mod tests {
             ..Default::default()
         });
         ledger.record_wall_ms(500);
-        assert_eq!(ledger.check(BudgetDimension::WallClock), BudgetCheckResult::WithinBudget);
+        assert_eq!(
+            ledger.check(BudgetDimension::WallClock),
+            BudgetCheckResult::WithinBudget
+        );
         ledger.record_wall_ms(600);
         assert!(matches!(
             ledger.check(BudgetDimension::WallClock),
@@ -1210,7 +1218,10 @@ mod tests {
             ..Default::default()
         });
         ledger.record_recursion_depth(1);
-        assert_eq!(ledger.check(BudgetDimension::RecursionDepth), BudgetCheckResult::WithinBudget);
+        assert_eq!(
+            ledger.check(BudgetDimension::RecursionDepth),
+            BudgetCheckResult::WithinBudget
+        );
         ledger.record_recursion_depth(3);
         assert!(matches!(
             ledger.check(BudgetDimension::RecursionDepth),
@@ -1284,7 +1295,11 @@ mod tests {
         for i in 0..3 {
             log.record(AgentAuditEntry {
                 message_id: format!("msg-{i}"),
-                task_id: if i < 2 { "task-a".into() } else { "task-b".into() },
+                task_id: if i < 2 {
+                    "task-a".into()
+                } else {
+                    "task-b".into()
+                },
                 sender_role: "overseer".into(),
                 sender_id: "os".into(),
                 recipient_role: "main_agent".into(),

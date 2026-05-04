@@ -155,7 +155,8 @@ impl CurlField {
         coupling: f32,
         t_s: f32,
     ) {
-        let n = vx.len()
+        let n = vx
+            .len()
             .min(vy.len())
             .min(x.len())
             .min(y.len())
@@ -252,7 +253,11 @@ fn simplex2d(x: f32, y: f32, seed: u32) -> f32 {
     let y0 = y - (j - t_unsk);
 
     // 3. Determine which simplex triangle we're in.
-    let (i1, j1) = if x0 > y0 { (1.0_f32, 0.0_f32) } else { (0.0, 1.0) };
+    let (i1, j1) = if x0 > y0 {
+        (1.0_f32, 0.0_f32)
+    } else {
+        (0.0, 1.0)
+    };
 
     // 4. Offsets for the other two corners.
     let x1 = x0 - i1 + G2;
@@ -267,7 +272,11 @@ fn simplex2d(x: f32, y: f32, seed: u32) -> f32 {
     let ii = i as i32;
     let jj = j as i32;
     let g0 = hash2(ii, jj, seed);
-    let g1 = hash2(ii.saturating_add(i1 as i32), jj.saturating_add(j1 as i32), seed);
+    let g1 = hash2(
+        ii.saturating_add(i1 as i32),
+        jj.saturating_add(j1 as i32),
+        seed,
+    );
     let g2 = hash2(ii.saturating_add(1), jj.saturating_add(1), seed);
 
     // 6. Sum corner contributions with radial falloff.
@@ -437,7 +446,10 @@ mod tests {
         // Both leaves pick up some motion.
         let leaf0_moved = vx[0].abs() + vy[0].abs();
         let leaf1_moved = vx[1].abs() + vy[1].abs();
-        assert!(leaf0_moved > 0.0 || leaf1_moved > 0.0, "leaves should breathe");
+        assert!(
+            leaf0_moved > 0.0 || leaf1_moved > 0.0,
+            "leaves should breathe"
+        );
         // Hub stays perfectly still.
         assert_eq!(vx[2], 0.0, "hub must not breathe");
         assert_eq!(vy[2], 0.0, "hub must not breathe");

@@ -101,7 +101,10 @@ impl ShadowState {
         }
         if doc.domain != "note" && doc.domain != "chat" {
             return Err(ShadowError::InvalidInput {
-                detail: format!("unknown domain '{}' (expected 'note' or 'chat')", doc.domain),
+                detail: format!(
+                    "unknown domain '{}' (expected 'note' or 'chat')",
+                    doc.domain
+                ),
             });
         }
         let mut guard = self.inner.write();
@@ -167,10 +170,7 @@ impl ShadowState {
                     let body_len = doc.body.len().max(1) as f32;
                     score += 1.0 - (pos as f32 / body_len);
                 }
-                if title_lower
-                    .split_whitespace()
-                    .any(|tok| tok == query_lower)
-                {
+                if title_lower.split_whitespace().any(|tok| tok == query_lower) {
                     score += 0.5;
                 }
 
@@ -271,10 +271,9 @@ pub fn shadow_backend() -> Arc<dyn ShadowBackend> {
         return real;
     }
     static STUB_FALLBACK: OnceLock<Arc<ShadowState>> = OnceLock::new();
-    let stub = STUB_FALLBACK
+    STUB_FALLBACK
         .get_or_init(|| Arc::new(ShadowState::new()))
-        .clone();
-    stub
+        .clone()
 }
 
 /// Reset the global RealBackend (test-only). Releases the Arc so
@@ -299,8 +298,13 @@ fn build_snippet(body: &str, hit_pos: Option<usize>) -> String {
     let start = center.saturating_sub(half);
     let end = (start + MAX).min(body.len());
     // Snap to char boundaries so we don't slice mid-codepoint.
-    let safe_start = (0..=start).rev().find(|i| body.is_char_boundary(*i)).unwrap_or(0);
-    let safe_end = (end..=body.len()).find(|i| body.is_char_boundary(*i)).unwrap_or(body.len());
+    let safe_start = (0..=start)
+        .rev()
+        .find(|i| body.is_char_boundary(*i))
+        .unwrap_or(0);
+    let safe_end = (end..=body.len())
+        .find(|i| body.is_char_boundary(*i))
+        .unwrap_or(body.len());
     body[safe_start..safe_end].to_string()
 }
 
@@ -340,8 +344,10 @@ mod tests {
         })
         .unwrap();
         let hits = b.search("shared", "note", 5).unwrap();
-        assert!(hits.iter().any(|h| h.doc_id == "share-test"),
-                "the second shadow_backend() handle MUST see the first one's writes");
+        assert!(
+            hits.iter().any(|h| h.doc_id == "share-test"),
+            "the second shadow_backend() handle MUST see the first one's writes"
+        );
     }
 
     fn fresh_state() -> ShadowState {
@@ -360,7 +366,13 @@ mod tests {
     #[test]
     fn insert_then_search_returns_hit() {
         let state = fresh_state();
-        state.insert_document(note("n1", "Kant on duty", "Categorical imperative discussion")).unwrap();
+        state
+            .insert_document(note(
+                "n1",
+                "Kant on duty",
+                "Categorical imperative discussion",
+            ))
+            .unwrap();
         let hits = state.search("kant", "note", 10).unwrap();
         assert_eq!(hits.len(), 1);
         assert_eq!(hits[0].doc_id, "n1");
@@ -370,7 +382,9 @@ mod tests {
     #[test]
     fn empty_query_returns_empty_results() {
         let state = fresh_state();
-        state.insert_document(note("n1", "anything", "anything")).unwrap();
+        state
+            .insert_document(note("n1", "anything", "anything"))
+            .unwrap();
         assert!(state.search("", "note", 10).unwrap().is_empty());
         assert!(state.search("   ", "note", 10).unwrap().is_empty());
     }
@@ -385,37 +399,45 @@ mod tests {
     #[test]
     fn unknown_domain_rejected_on_insert() {
         let state = fresh_state();
-        let err = state.insert_document(ShadowDocument {
-            doc_id: "x".into(),
-            title: "x".into(),
-            body: "x".into(),
-            domain: "unknown".into(),
-        }).unwrap_err();
+        let err = state
+            .insert_document(ShadowDocument {
+                doc_id: "x".into(),
+                title: "x".into(),
+                body: "x".into(),
+                domain: "unknown".into(),
+            })
+            .unwrap_err();
         assert!(matches!(err, ShadowError::InvalidInput { .. }));
     }
 
     #[test]
     fn empty_doc_id_rejected_on_insert() {
         let state = fresh_state();
-        let err = state.insert_document(ShadowDocument {
-            doc_id: "".into(),
-            title: "t".into(),
-            body: "b".into(),
-            domain: "note".into(),
-        }).unwrap_err();
+        let err = state
+            .insert_document(ShadowDocument {
+                doc_id: "".into(),
+                title: "t".into(),
+                body: "b".into(),
+                domain: "note".into(),
+            })
+            .unwrap_err();
         assert!(matches!(err, ShadowError::InvalidInput { .. }));
     }
 
     #[test]
     fn search_filters_by_domain() {
         let state = fresh_state();
-        state.insert_document(note("n1", "kant", "kant body")).unwrap();
-        state.insert_document(ShadowDocument {
-            doc_id: "c1".into(),
-            title: "kant chat".into(),
-            body: "kant chat body".into(),
-            domain: "chat".into(),
-        }).unwrap();
+        state
+            .insert_document(note("n1", "kant", "kant body"))
+            .unwrap();
+        state
+            .insert_document(ShadowDocument {
+                doc_id: "c1".into(),
+                title: "kant chat".into(),
+                body: "kant chat body".into(),
+                domain: "chat".into(),
+            })
+            .unwrap();
         let notes = state.search("kant", "note", 10).unwrap();
         let chats = state.search("kant", "chat", 10).unwrap();
         assert_eq!(notes.len(), 1);
@@ -427,17 +449,30 @@ mod tests {
     #[test]
     fn title_hit_outranks_body_only_hit() {
         let state = fresh_state();
-        state.insert_document(note("title", "kant on duty", "unrelated body")).unwrap();
-        state.insert_document(note("body", "unrelated title", "this mentions kant in passing")).unwrap();
+        state
+            .insert_document(note("title", "kant on duty", "unrelated body"))
+            .unwrap();
+        state
+            .insert_document(note(
+                "body",
+                "unrelated title",
+                "this mentions kant in passing",
+            ))
+            .unwrap();
         let hits = state.search("kant", "note", 10).unwrap();
-        assert_eq!(hits[0].doc_id, "title", "title match must outrank body-only match");
+        assert_eq!(
+            hits[0].doc_id, "title",
+            "title match must outrank body-only match"
+        );
     }
 
     #[test]
     fn limit_caps_results() {
         let state = fresh_state();
         for i in 0..20 {
-            state.insert_document(note(&format!("n{i}"), "kant", "kant")).unwrap();
+            state
+                .insert_document(note(&format!("n{i}"), "kant", "kant"))
+                .unwrap();
         }
         let hits = state.search("kant", "note", 5).unwrap();
         assert_eq!(hits.len(), 5);
@@ -463,12 +498,14 @@ mod tests {
         let state = fresh_state();
         state.insert_document(note("n1", "a", "b")).unwrap();
         state.insert_document(note("n2", "c", "d")).unwrap();
-        state.insert_document(ShadowDocument {
-            doc_id: "c1".into(),
-            title: "x".into(),
-            body: "y".into(),
-            domain: "chat".into(),
-        }).unwrap();
+        state
+            .insert_document(ShadowDocument {
+                doc_id: "c1".into(),
+                title: "x".into(),
+                body: "y".into(),
+                domain: "chat".into(),
+            })
+            .unwrap();
         let stats = state.stats().unwrap();
         assert_eq!(stats.note_count, 2);
         assert_eq!(stats.chat_count, 1);
@@ -481,7 +518,7 @@ mod tests {
         // mid-codepoint.
         let mut body = String::new();
         for _ in 0..40 {
-            body.push_str("hellö ");  // ö is 2 bytes in UTF-8
+            body.push_str("hellö "); // ö is 2 bytes in UTF-8
         }
         let state = fresh_state();
         state.insert_document(note("u", "title", &body)).unwrap();

@@ -107,21 +107,24 @@ def patch_file(path):
         flags=re.MULTILINE
     )
 
-    # 4f. The agent-runtime config/result structs cross Task boundaries from
-    # MainActor-isolated Swift code into nonisolated UniFFI entry points.
-    # Make that sendability explicit in regenerated bindings.
+    # 4f. UniFFI already emits Sendable extensions for these value types.
+    # Older patcher revisions also added inline Sendable conformances, which
+    # produced redundant-conformance warnings in MAS builds. Keep the generated
+    # extension as the single conformance source and clean already-patched files
+    # idempotently.
     for type_name in (
         "AgentConfigFfi",
         "ToolConfig",
         "ReasoningTrajectoryMetricsFfi",
         "AgentResultFfi",
     ):
-        content = re.sub(
-            rf'^nonisolated public struct {type_name} \{{$',
-            f'nonisolated public struct {type_name}: Sendable {{',
-            content,
-            flags=re.MULTILINE
-        )
+        if re.search(rf'^nonisolated extension {type_name}: Sendable \{{\}}$', content, flags=re.MULTILINE):
+            content = re.sub(
+                rf'^nonisolated public struct {type_name}: Sendable \{{$',
+                f'nonisolated public struct {type_name} {{',
+                content,
+                flags=re.MULTILINE
+            )
 
     with open(path, 'w') as f:
         f.write(content)

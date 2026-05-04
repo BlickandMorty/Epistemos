@@ -9,6 +9,8 @@ RESOURCES_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
 KNOWLEDGE_FUSION_DIR="$RESOURCES_DIR/KnowledgeFusion"
 AGENT_RUNTIME_DIR="$RESOURCES_DIR/AgentRuntime"
 HERMES_RUNTIME_DIR="$AGENT_RUNTIME_DIR/hermes-agent"
+EDITOR_SOURCE_DIR="$SRCROOT/Epistemos/Resources/Editor"
+EDITOR_BUNDLE_DIR="$RESOURCES_DIR/Editor"
 
 is_app_store_build() {
     [[ "${TARGET_NAME:-}" == "Epistemos-AppStore" ]] ||
@@ -37,6 +39,22 @@ sanitize_app_store_resources() {
     find "$KNOWLEDGE_FUSION_DIR" -depth -type d -empty -delete 2>/dev/null || true
 }
 
+bundle_editor_resources() {
+    if [ ! -d "$EDITOR_SOURCE_DIR" ]; then
+        return
+    fi
+
+    mkdir -p "$EDITOR_BUNDLE_DIR"
+    rsync -a --delete "$EDITOR_SOURCE_DIR/" "$EDITOR_BUNDLE_DIR/"
+
+    # Xcode's synchronized resource groups flatten generated editor files
+    # into Contents/Resources. Keep the canonical Resources/Editor tree and
+    # remove the duplicate root-level copies so the bundle stays small.
+    while IFS= read -r -d '' source_file; do
+        rm -f "$RESOURCES_DIR/$(basename "$source_file")"
+    done < <(find "$EDITOR_SOURCE_DIR" -type f -print0)
+}
+
 rm -rf "$KNOWLEDGE_FUSION_DIR/Training/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/Alignment/scripts"
 rm -rf "$KNOWLEDGE_FUSION_DIR/MoLoRA"
@@ -50,6 +68,8 @@ mkdir -p "$AGENT_RUNTIME_DIR"
 
 cp "$SRCROOT/config/model_manifest.json" \
     "$RESOURCES_DIR/model_manifest.json"
+
+bundle_editor_resources
 
 if is_app_store_build; then
     sanitize_app_store_resources

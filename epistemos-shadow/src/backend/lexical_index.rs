@@ -25,21 +25,24 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use tantivy::{
+    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term,
     collector::TopDocs,
     directory::{MmapDirectory, RamDirectory},
     doc,
     query::{BooleanQuery, Occur, Query, QueryParser, TermQuery},
-    schema::{Field, IndexRecordOption, Schema, STORED, STRING, TEXT, Value},
-    Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Term,
+    schema::{Field, IndexRecordOption, STORED, STRING, Schema, TEXT, Value},
 };
 
-use crate::error::ShadowError;
 use crate::ShadowDocument;
+use crate::error::ShadowError;
 
-/// Tantivy writer heap budget. Mirrors vault.rs:149 (50 MB) — the
-/// default that's been stable in production for the agent_core vault
-/// FTS5 path. Halo's V1 corpus stays well inside this.
-const WRITER_HEAP_BYTES: usize = 50_000_000;
+/// Tantivy writer heap budget — 15 MB is tantivy's documented minimum
+/// (`writer(heap)` returns an error below this). Halo's V1 corpus
+/// (~1M docs cap) writes infrequently; the larger 50 MB heap that
+/// vault.rs historically used was carried forward without measurement.
+/// Lowering to the floor cuts ~35 MB resident on idle without
+/// observed write-throughput change in the W8 test suite.
+const WRITER_HEAP_BYTES: usize = 15_000_000;
 
 pub struct LexicalIndex {
     index: Index,
@@ -116,9 +119,7 @@ impl LexicalIndex {
         Ok(out)
     }
 
-    fn build_from_directory(
-        directory: Box<dyn tantivy::Directory>,
-    ) -> Result<Self, ShadowError> {
+    fn build_from_directory(directory: Box<dyn tantivy::Directory>) -> Result<Self, ShadowError> {
         let mut schema_builder = Schema::builder();
         let field_doc_id = schema_builder.add_text_field("doc_id", STRING | STORED);
         let field_domain = schema_builder.add_text_field("domain", STRING | STORED);
@@ -203,7 +204,7 @@ impl LexicalIndex {
     }
 
     /// BM25 search filtered by domain. Defensive against operator-only
-    /// + unicode-corner inputs — those return Ok(empty) instead of
+    /// or unicode-corner inputs — those return Ok(empty) instead of
     /// surfacing a -1 InvalidInput to the Swift host.
     pub fn search(
         &self,
@@ -230,10 +231,8 @@ impl LexicalIndex {
             IndexRecordOption::Basic,
         ));
 
-        let combined = BooleanQuery::new(vec![
-            (Occur::Must, body_query),
-            (Occur::Must, domain_query),
-        ]);
+        let combined =
+            BooleanQuery::new(vec![(Occur::Must, body_query), (Occur::Must, domain_query)]);
 
         let top_docs = searcher
             .search(&combined, &TopDocs::with_limit(limit))
@@ -250,7 +249,12 @@ impl LexicalIndex {
             let doc_id = stored_text(&document, self.field_doc_id);
             let title = stored_text(&document, self.field_title);
             let body = stored_text(&document, self.field_body);
-            hits.push(LexicalHit { doc_id, title, body, score });
+            hits.push(LexicalHit {
+                doc_id,
+                title,
+                body,
+                score,
+            });
         }
         Ok(hits)
     }

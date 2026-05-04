@@ -159,7 +159,7 @@ impl Default for ForceParams {
             // (using the legacy scalar), compliance alone is safe
             // to ship as default.
             collision_compliance: 0.7,
-            ambient_breath_strength: 0.0,    // off, legacy
+            ambient_breath_strength: 0.0, // off, legacy
             // User 2026-04-24: "I want to use fluid wake but it
             // still feels like the nodes themselves carry too much
             // strict gravity and force for it to look appealing."
@@ -892,7 +892,8 @@ impl Simulation {
         // path runs identically to the old global path. A preset or
         // FFI opt-in would rebuild `decay[]` via `decay_for_mass` if
         // canonical damping is desired.
-        self.decay.resize(self.mass.len(), self.params.velocity_decay);
+        self.decay
+            .resize(self.mass.len(), self.params.velocity_decay);
         for d in &mut self.decay {
             *d = self.params.velocity_decay;
         }
@@ -1318,8 +1319,7 @@ impl Simulation {
                 &self.y,
                 &self.fx,
                 &self.degrees,
-                crate::motion::curl::DEFAULT_COUPLING
-                    * self.params.ambient_breath_strength,
+                crate::motion::curl::DEFAULT_COUPLING * self.params.ambient_breath_strength,
                 curl_t_s,
             );
         }
@@ -3488,7 +3488,9 @@ mod tests {
         let mut sim = Simulation::new();
         sim.load_from_graph(&graph);
         assert!(
-            sim.decay.iter().all(|&d| (d - WARM_START_SCALAR_DECAY).abs() > 1e-4),
+            sim.decay
+                .iter()
+                .all(|&d| (d - WARM_START_SCALAR_DECAY).abs() > 1e-4),
             "post-warm_start decay values should NOT be left at the warm-start scalar"
         );
         // And every restored value should be a plausible retain

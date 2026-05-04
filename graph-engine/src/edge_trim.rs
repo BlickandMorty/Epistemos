@@ -258,14 +258,17 @@ mod tests {
         // 45° segment length 100 → sqrt(2)/2 per axis; radii 5 + 5 + gap 1.
         let p0 = [0.0_f32, 0.0];
         let p1 = [100.0 / (2.0_f32).sqrt(), 100.0 / (2.0_f32).sqrt()];
-        let (start, end) = trim_line_endpoints(p0, p1, 5.0, 5.0, 1.0)
-            .expect("non-collapsing trim");
+        let (start, end) = trim_line_endpoints(p0, p1, 5.0, 5.0, 1.0).expect("non-collapsing trim");
         // Insets (5+1)=6 from start; direction is (1/sqrt2, 1/sqrt2).
         let inset = 6.0_f32 / (2.0_f32).sqrt();
         assert!(approx_eq_pt(start, [inset, inset], 1e-3));
         let remaining = 100.0_f32 - 12.0;
         let expected_end_offset = (100.0 - 6.0) / (2.0_f32).sqrt();
-        assert!(approx_eq_pt(end, [expected_end_offset, expected_end_offset], 1e-3));
+        assert!(approx_eq_pt(
+            end,
+            [expected_end_offset, expected_end_offset],
+            1e-3
+        ));
         // Length should be the original 100 minus two radii and two gaps.
         let len = ((end[0] - start[0]).powi(2) + (end[1] - start[1]).powi(2)).sqrt();
         assert!(approx_eq(len, remaining, 1e-2));
@@ -300,8 +303,8 @@ mod tests {
         let c0 = [0.0, 30.0];
         let c1 = [30.0, 60.0];
         let p1 = [60.0, 60.0];
-        let trimmed = trim_curve_endpoints(p0, c0, c1, p1, 5.0, 5.0, 1.0)
-            .expect("non-collapsing trim");
+        let trimmed =
+            trim_curve_endpoints(p0, c0, c1, p1, 5.0, 5.0, 1.0).expect("non-collapsing trim");
         let (p0t, _c0t, _c1t, p1t) = trimmed;
 
         // Start tangent is +Y, so trimmed p0 should only move in +Y.
@@ -323,8 +326,8 @@ mod tests {
         let c0 = [10.0, 0.0]; // handle length 10 along +X
         let c1 = [90.0, 0.0];
         let p1 = [100.0, 0.0];
-        let trimmed = trim_curve_endpoints(p0, c0, c1, p1, 4.0, 4.0, 1.0)
-            .expect("non-collapsing trim");
+        let trimmed =
+            trim_curve_endpoints(p0, c0, c1, p1, 4.0, 4.0, 1.0).expect("non-collapsing trim");
         let (p0t, c0t, c1t, p1t) = trimmed;
 
         // p0 trims to (5, 0); c0 must be p0t + 10 × (+X) = (15, 0).
@@ -342,8 +345,8 @@ mod tests {
         // straight-line tangent between p0 and p1.
         let p0 = [0.0_f32, 0.0];
         let p1 = [20.0, 0.0];
-        let trimmed = trim_curve_endpoints(p0, p0, p1, p1, 2.0, 2.0, 0.5)
-            .expect("non-collapsing trim");
+        let trimmed =
+            trim_curve_endpoints(p0, p0, p1, p1, 2.0, 2.0, 0.5).expect("non-collapsing trim");
         let (p0t, _c0t, _c1t, p1t) = trimmed;
         // The fallback tangent is the straight-line direction between
         // p0 and p1, so both trimmed points remain on the x-axis.
@@ -357,15 +360,17 @@ mod tests {
     fn curve_trim_collapses_when_straight_line_collapses() {
         // Overlapping nodes must report collapse consistently whether
         // the edge geometry is a line or a curve.
-        assert!(trim_curve_endpoints(
-            [0.0, 0.0],
-            [5.0, 5.0],
-            [0.0, -5.0],
-            [5.0, 0.0],
-            20.0,
-            20.0,
-            1.0
-        )
-        .is_none());
+        assert!(
+            trim_curve_endpoints(
+                [0.0, 0.0],
+                [5.0, 5.0],
+                [0.0, -5.0],
+                [5.0, 0.0],
+                20.0,
+                20.0,
+                1.0
+            )
+            .is_none()
+        );
     }
 }

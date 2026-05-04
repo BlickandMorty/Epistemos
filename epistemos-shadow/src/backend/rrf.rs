@@ -4,7 +4,9 @@
 //! work. Fuses dense (vector) + lexical (BM25) hit lists into a
 //! single ranking per the canonical Cormack/Clarke/Büttcher paper:
 //!
-//!     score(d) = Σ 1/(k + rank_i(d))
+//! ```text
+//! score(d) = Σ 1/(k + rank_i(d))
+//! ```
 //!
 //! where `rank_i(d)` is the doc's rank (1-indexed) in result list `i`.
 //! `k=60` is the original-pilot-study constant; anywhere in `[20, 100]`
@@ -72,15 +74,13 @@ pub fn rrf_fuse(
 
     let mut fused: Vec<(String, f32)> = scores.into_iter().collect();
     // Score descending; ties broken by first-seen order.
-    fused.sort_by(|a, b| {
-        match b.1.partial_cmp(&a.1) {
-            Some(std::cmp::Ordering::Equal) | None => {
-                let oa = order.get(&a.0).copied().unwrap_or(usize::MAX);
-                let ob = order.get(&b.0).copied().unwrap_or(usize::MAX);
-                oa.cmp(&ob)
-            }
-            Some(o) => o,
+    fused.sort_by(|a, b| match b.1.partial_cmp(&a.1) {
+        Some(std::cmp::Ordering::Equal) | None => {
+            let oa = order.get(&a.0).copied().unwrap_or(usize::MAX);
+            let ob = order.get(&b.0).copied().unwrap_or(usize::MAX);
+            oa.cmp(&ob)
         }
+        Some(o) => o,
     });
     fused.truncate(limit);
     fused
@@ -100,7 +100,11 @@ mod tests {
         let lexical = vec![pair("c", 1.5), pair("d", 0.3)];
         let fused = rrf_fuse(&dense, &lexical, RRF_K_DEFAULT, 10);
         let ids: Vec<&str> = fused.iter().map(|(id, _)| id.as_str()).collect();
-        assert_eq!(ids.len(), 4, "every input doc MUST appear in the fused list");
+        assert_eq!(
+            ids.len(),
+            4,
+            "every input doc MUST appear in the fused list"
+        );
         // Each doc has rank 1 in exactly one channel + rank 1 = 1/(60+1) = 0.01639.
         // Each doc has rank 2 in exactly one channel + rank 2 = 1/(60+2) = 0.01613.
         // So a + c (rank 1 in their channels) > b + d (rank 2).
@@ -124,7 +128,8 @@ mod tests {
         assert!(
             fused[0].1 > fused[1].1 + 0.01,
             "shared doc score {} must clearly exceed singleton {}",
-            fused[0].1, fused[1].1
+            fused[0].1,
+            fused[1].1
         );
     }
 

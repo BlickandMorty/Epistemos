@@ -2860,8 +2860,11 @@ impl Renderer {
                         ) else {
                             continue;
                         };
-                        self.straight_edge_scratch
-                            .push(LineEdgeInstance { p0: p0t, p1: p1t, color });
+                        self.straight_edge_scratch.push(LineEdgeInstance {
+                            p0: p0t,
+                            p1: p1t,
+                            color,
+                        });
                     }
                 }
                 self.edge_highlight_pairs.push([

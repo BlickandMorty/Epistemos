@@ -182,7 +182,7 @@ impl RealBackend {
         drop(read_guard);
         let mut write_guard = self.vectors.write().expect("vectors lock poisoned");
         if write_guard.contains_key(domain) {
-            return Ok(());  // raced; someone else created it
+            return Ok(()); // raced; someone else created it
         }
         let index = VectorIndex::new(embedder::EMBED_DIM)?;
         write_guard.insert(domain.to_string(), index);
@@ -199,7 +199,10 @@ impl ShadowBackend for RealBackend {
         }
         if doc.domain != "note" && doc.domain != "chat" {
             return Err(ShadowError::InvalidInput {
-                detail: format!("unknown domain '{}' (expected 'note' or 'chat')", doc.domain),
+                detail: format!(
+                    "unknown domain '{}' (expected 'note' or 'chat')",
+                    doc.domain
+                ),
             });
         }
 
@@ -220,9 +223,11 @@ impl ShadowBackend for RealBackend {
         self.ensure_vector_index(&doc.domain)?;
         {
             let vectors = self.vectors.read().expect("vectors lock poisoned");
-            let index = vectors.get(&doc.domain).ok_or_else(|| ShadowError::Backend {
-                detail: format!("vector index for '{}' missing post-ensure", doc.domain),
-            })?;
+            let index = vectors
+                .get(&doc.domain)
+                .ok_or_else(|| ShadowError::Backend {
+                    detail: format!("vector index for '{}' missing post-ensure", doc.domain),
+                })?;
             index.add(&doc.doc_id, &embedding)?;
         }
 
@@ -275,7 +280,11 @@ impl ShadowBackend for RealBackend {
             match vectors.get(domain) {
                 Some(index) => {
                     let q_vec = self.embedder.encode_one(query);
-                    if q_vec.is_empty() { Vec::new() } else { index.search(&q_vec, limit * 2) }
+                    if q_vec.is_empty() {
+                        Vec::new()
+                    } else {
+                        index.search(&q_vec, limit * 2)
+                    }
                 }
                 None => Vec::new(),
             }
@@ -302,11 +311,14 @@ impl ShadowBackend for RealBackend {
             .into_iter()
             .filter_map(|(doc_id, rrf_score)| {
                 let doc = docs.get(&doc_id)?;
-                let source = match (dense_set.contains(doc_id.as_str()), lex_set.contains(doc_id.as_str())) {
+                let source = match (
+                    dense_set.contains(doc_id.as_str()),
+                    lex_set.contains(doc_id.as_str()),
+                ) {
                     (true, true) => "rrf",
                     (true, false) => "dense",
                     (false, true) => "lexical",
-                    (false, false) => "rrf",  // unreachable in practice
+                    (false, false) => "rrf", // unreachable in practice
                 };
                 Some(ShadowHit {
                     doc_id: doc.doc_id.clone(),
@@ -389,8 +401,13 @@ fn build_snippet(body: &str, query: &str) -> String {
     let half = MAX / 2;
     let start = center.saturating_sub(half);
     let end = (start + MAX).min(body.len());
-    let safe_start = (0..=start).rev().find(|i| body.is_char_boundary(*i)).unwrap_or(0);
-    let safe_end = (end..=body.len()).find(|i| body.is_char_boundary(*i)).unwrap_or(body.len());
+    let safe_start = (0..=start)
+        .rev()
+        .find(|i| body.is_char_boundary(*i))
+        .unwrap_or(0);
+    let safe_end = (end..=body.len())
+        .find(|i| body.is_char_boundary(*i))
+        .unwrap_or(body.len());
     body[safe_start..safe_end].to_string()
 }
 
@@ -445,7 +462,8 @@ mod tests {
 
         // Build at the path, insert + flush
         {
-            let backend = RealBackend::open_at(&path).expect("first-open at empty path must succeed");
+            let backend =
+                RealBackend::open_at(&path).expect("first-open at empty path must succeed");
             backend
                 .insert_document(ShadowDocument {
                     doc_id: "doc-1".to_string(),
