@@ -191,13 +191,24 @@ pub struct ShmReference {
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 /// Global segment counter for unique naming across the process lifetime.
 static SEGMENT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
-/// Global registry: session_id → Vec<segment_name>.
+/// Per-segment record. `created_at` lets us evict zombie segments that
+/// outlive their session (long-lived agent loops where `cleanup_session`
+/// is never called would otherwise pin every payload until process exit).
+#[derive(Clone, Debug)]
+struct TrackedSegment {
+    name: String,
+    created_at: Instant,
+    byte_length: usize,
+}
+
+/// Global registry: session_id → Vec<TrackedSegment>.
 /// Protected by Mutex (bookkeeping only, never held during I/O).
-static POOL_REGISTRY: Mutex<Option<HashMap<String, Vec<String>>>> = Mutex::new(None);
+static POOL_REGISTRY: Mutex<Option<HashMap<String, Vec<TrackedSegment>>>> = Mutex::new(None);
 
 /// Threshold in bytes above which tool results are offloaded to shm.
 /// Chosen to stay well under the macOS 64KB pipe buffer limit.
@@ -205,6 +216,12 @@ pub const SHM_OFFLOAD_THRESHOLD: usize = 48 * 1024;
 
 /// Maximum single segment size (16MB safety cap).
 const MAX_SEGMENT_SIZE: usize = 16 * 1024 * 1024;
+
+/// Default TTL for `evict_stale` — segments older than 5 min are
+/// considered abandoned and unlinked. Chosen empirically: a 5-min
+/// agent turn that hasn't read its own payload back is almost
+/// certainly an orphan (the consumer crashed or never ran).
+pub const DEFAULT_SHM_TTL: Duration = Duration::from_secs(300);
 
 pub struct ShmPool;
 
@@ -252,7 +269,11 @@ impl ShmPool {
             registry
                 .entry(session_id.to_string())
                 .or_default()
-                .push(segment_name.clone());
+                .push(TrackedSegment {
+                    name: segment_name.clone(),
+                    created_at: Instant::now(),
+                    byte_length: data.len(),
+                });
         }
 
         // Drop the segment handle — the shm stays alive in the kernel until
@@ -289,8 +310,8 @@ impl ShmPool {
         };
 
         let count = segments.len();
-        for name in &segments {
-            Self::unlink_segment(name);
+        for tracked in &segments {
+            Self::unlink_segment(&tracked.name);
         }
         count
     }
@@ -299,7 +320,7 @@ impl ShmPool {
     ///
     /// Called on process exit to prevent zombie segments in the macOS kernel.
     pub fn cleanup_all() -> usize {
-        let all_segments: Vec<String> = {
+        let all_segments: Vec<TrackedSegment> = {
             let mut guard = POOL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
             guard
                 .take()
@@ -308,10 +329,96 @@ impl ShmPool {
         };
 
         let count = all_segments.len();
-        for name in &all_segments {
-            Self::unlink_segment(name);
+        for tracked in &all_segments {
+            Self::unlink_segment(&tracked.name);
         }
         count
+    }
+
+    /// Evict any segment whose `created_at` is older than `max_age`.
+    /// Returns (segments_evicted, bytes_freed). Safe to call from a
+    /// periodic timer or a `DispatchSourceMemoryPressure` callback.
+    ///
+    /// Empty session vectors are also pruned so the registry doesn't
+    /// retain a key per long-dead session.
+    pub fn evict_stale(max_age: Duration) -> (usize, usize) {
+        let now = Instant::now();
+        let evicted: Vec<TrackedSegment> = {
+            let mut guard = POOL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+            let Some(registry) = guard.as_mut() else {
+                return (0, 0);
+            };
+            let mut out = Vec::new();
+            registry.retain(|_session, segments| {
+                segments.retain(|tracked| {
+                    if now.duration_since(tracked.created_at) > max_age {
+                        out.push(tracked.clone());
+                        false
+                    } else {
+                        true
+                    }
+                });
+                !segments.is_empty()
+            });
+            out
+        };
+
+        let count = evicted.len();
+        let bytes: usize = evicted.iter().map(|t| t.byte_length).sum();
+        for tracked in &evicted {
+            Self::unlink_segment(&tracked.name);
+        }
+        (count, bytes)
+    }
+
+    /// Memory-pressure response: evict the `n` oldest segments across
+    /// all sessions. Used when macOS signals memory pressure (warning
+    /// or critical). Returns (segments_evicted, bytes_freed).
+    pub fn evict_oldest_n(n: usize) -> (usize, usize) {
+        if n == 0 {
+            return (0, 0);
+        }
+        let evicted: Vec<TrackedSegment> = {
+            let mut guard = POOL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+            let Some(registry) = guard.as_mut() else {
+                return (0, 0);
+            };
+            // Collect (session_id, segment_index, created_at) and pick n oldest.
+            let mut all: Vec<(String, usize, Instant)> = Vec::new();
+            for (session, segments) in registry.iter() {
+                for (idx, tracked) in segments.iter().enumerate() {
+                    all.push((session.clone(), idx, tracked.created_at));
+                }
+            }
+            all.sort_by_key(|(_, _, ts)| *ts);
+            let take = all.into_iter().take(n).collect::<Vec<_>>();
+            // Group by session_id, collect indices to remove (descending so
+            // index shifts don't invalidate later removals in the same vec).
+            let mut by_session: HashMap<String, Vec<usize>> = HashMap::new();
+            for (sess, idx, _) in take {
+                by_session.entry(sess).or_default().push(idx);
+            }
+            let mut out = Vec::new();
+            for (sess, mut indices) in by_session {
+                indices.sort_unstable_by(|a, b| b.cmp(a));
+                if let Some(segments) = registry.get_mut(&sess) {
+                    for idx in indices {
+                        if idx < segments.len() {
+                            out.push(segments.remove(idx));
+                        }
+                    }
+                }
+            }
+            registry.retain(|_, segments| !segments.is_empty());
+            out
+        };
+
+        let count = evicted.len();
+        let bytes: usize = evicted.iter().map(|t| t.byte_length).sum();
+        for tracked in &evicted {
+            Self::unlink_segment(&tracked.name);
+        }
+        (count, bytes)
     }
 
     /// Number of tracked segments for a session (diagnostics).
@@ -330,6 +437,22 @@ impl ShmPool {
         guard
             .as_ref()
             .map(|registry| registry.values().map(|v| v.len()).sum())
+            .unwrap_or(0)
+    }
+
+    /// Aggregate kernel-mmap bytes across all tracked segments. Used
+    /// by the developer panel + memory-pressure heuristics.
+    pub fn total_bytes() -> usize {
+        let guard = POOL_REGISTRY.lock().unwrap_or_else(|e| e.into_inner());
+        guard
+            .as_ref()
+            .map(|registry| {
+                registry
+                    .values()
+                    .flat_map(|v| v.iter())
+                    .map(|t| t.byte_length)
+                    .sum()
+            })
             .unwrap_or(0)
     }
 
@@ -502,5 +625,89 @@ mod tests {
         assert!(parsed.segment_name.contains("sess_large"));
         assert!(parsed.byte_length > SHM_OFFLOAD_THRESHOLD);
         ShmPool::cleanup_session("sess_large");
+    }
+
+    #[test]
+    fn evict_stale_drops_segments_older_than_threshold() {
+        let _scope = ShmTestScope::new();
+        ShmPool::init();
+        // Write a fresh segment, evict with 0-second TTL: every segment
+        // is "older than 0 seconds" so it should evict everything.
+        ShmPool::write_payload("ttl_evict", b"data", "text/plain").expect("write failed");
+        assert_eq!(ShmPool::segment_count("ttl_evict"), 1);
+        let (count, bytes) = ShmPool::evict_stale(Duration::from_secs(0));
+        // The segment was just written so it's age 0; >0 means "older than".
+        // sleep so duration_since > 0.
+        std::thread::sleep(Duration::from_millis(2));
+        let (count2, bytes2) = ShmPool::evict_stale(Duration::from_millis(1));
+        assert_eq!(count + count2, 1, "exactly one segment should evict");
+        assert!(bytes + bytes2 >= 4, "bytes freed should match payload");
+        assert_eq!(ShmPool::segment_count("ttl_evict"), 0);
+        // Empty session vec should be pruned from registry.
+        assert_eq!(ShmPool::total_segment_count(), 0);
+    }
+
+    #[test]
+    fn evict_stale_keeps_fresh_segments() {
+        let _scope = ShmTestScope::new();
+        ShmPool::init();
+        ShmPool::write_payload("fresh", b"data", "text/plain").expect("write failed");
+        // 1-hour threshold: nothing should evict.
+        let (count, _) = ShmPool::evict_stale(Duration::from_secs(3600));
+        assert_eq!(count, 0);
+        assert_eq!(ShmPool::segment_count("fresh"), 1);
+        ShmPool::cleanup_session("fresh");
+    }
+
+    #[test]
+    fn evict_oldest_n_picks_oldest_first() {
+        let _scope = ShmTestScope::new();
+        ShmPool::init();
+        let r1 = ShmPool::write_payload("aged", b"oldest", "text/plain").expect("write failed");
+        std::thread::sleep(Duration::from_millis(5));
+        let _ = ShmPool::write_payload("aged", b"middle", "text/plain").expect("write failed");
+        std::thread::sleep(Duration::from_millis(5));
+        let _ = ShmPool::write_payload("aged", b"newest", "text/plain").expect("write failed");
+        assert_eq!(ShmPool::segment_count("aged"), 3);
+
+        // Evict 1 — should be the oldest. byte_length=6 ("oldest").
+        let (count, bytes) = ShmPool::evict_oldest_n(1);
+        assert_eq!(count, 1);
+        assert_eq!(bytes, 6);
+        assert_eq!(ShmPool::segment_count("aged"), 2);
+
+        // The first segment should now be unreadable (kernel unlinked it).
+        // We can still cleanup the rest.
+        let _ = r1; // silence unused
+        ShmPool::cleanup_session("aged");
+    }
+
+    #[test]
+    fn evict_oldest_n_handles_zero_and_overflow() {
+        let _scope = ShmTestScope::new();
+        ShmPool::init();
+        ShmPool::write_payload("ev", b"a", "text/plain").expect("write failed");
+        ShmPool::write_payload("ev", b"b", "text/plain").expect("write failed");
+        // n=0 short-circuits.
+        assert_eq!(ShmPool::evict_oldest_n(0), (0, 0));
+        // n>population evicts everything.
+        let (count, bytes) = ShmPool::evict_oldest_n(100);
+        assert_eq!(count, 2);
+        assert_eq!(bytes, 2);
+        assert_eq!(ShmPool::total_segment_count(), 0);
+    }
+
+    #[test]
+    fn total_bytes_tracks_kernel_mmap_footprint() {
+        let _scope = ShmTestScope::new();
+        ShmPool::init();
+        assert_eq!(ShmPool::total_bytes(), 0);
+        ShmPool::write_payload("tb", &vec![0u8; 1024], "application/octet-stream")
+            .expect("write failed");
+        ShmPool::write_payload("tb", &vec![0u8; 4096], "application/octet-stream")
+            .expect("write failed");
+        assert_eq!(ShmPool::total_bytes(), 1024 + 4096);
+        ShmPool::cleanup_session("tb");
+        assert_eq!(ShmPool::total_bytes(), 0);
     }
 }

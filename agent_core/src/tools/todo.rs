@@ -372,7 +372,10 @@ mod tests {
         assert_eq!(parsed["summary"]["total"], json!(1));
         assert_eq!(parsed["summary"]["pending"], json!(1));
         assert_eq!(parsed["todos"][0]["id"], json!("hermes-1"));
-        assert_eq!(parsed["todos"][0]["active_form"], json!("Shipping Hermes todo bridge"));
+        assert_eq!(
+            parsed["todos"][0]["active_form"],
+            json!("Shipping Hermes todo bridge")
+        );
     }
 
     #[tokio::test]

@@ -158,7 +158,11 @@ impl VaultStore {
             .try_into()
             .map_err(|error| VaultError::IndexError(error.to_string()))?;
         let ft_writer = if writable_index {
-            Some(Mutex::new(ft_index.writer(50_000_000).map_err(
+            // 15 MB is tantivy's documented minimum heap. Vault writes
+            // happen on note save (low frequency); the 50 MB historical
+            // budget was carried forward without measurement. Lowering
+            // saves ~35 MB resident on idle.
+            Some(Mutex::new(ft_index.writer(15_000_000).map_err(
                 |error| VaultError::IndexError(error.to_string()),
             )?))
         } else {
@@ -242,13 +246,16 @@ impl VaultStore {
     }
 
     fn excerpt(content: &str, max_chars: usize) -> String {
-        let body = if content.starts_with("---") {
-            content[3..]
+        // Skip a YAML/TOML frontmatter block delimited by `---` if
+        // present. Using `strip_prefix` instead of `&content[3..]`
+        // means a future prefix-length change can't silently desync
+        // the slice index.
+        let body = match content.strip_prefix("---") {
+            Some(after_open) => after_open
                 .find("---")
-                .map(|index| content[index + 6..].trim_start())
-                .unwrap_or(content)
-        } else {
-            content
+                .map(|i| after_open[i + 3..].trim_start())
+                .unwrap_or(content),
+            None => content,
         };
 
         if body.len() <= max_chars {

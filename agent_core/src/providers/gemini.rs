@@ -484,6 +484,9 @@ fn message_to_gemini(message: &Message) -> Value {
                     ContentBlock::Thinking { thinking, .. } => {
                         Some(json!({ "text": thinking, "thought": true }))
                     }
+                    ContentBlock::RedactedThinking { .. } => {
+                        Some(json!({ "text": "[redacted_thinking]", "thought": true }))
+                    }
                 })
                 .collect();
 

@@ -755,6 +755,7 @@ fn build_openai_messages(messages: &[Message], system_prompt: Option<&str>) -> V
                                 text_parts.push('\n');
                             }
                         }
+                        ContentBlock::RedactedThinking { .. } => {}
                         ContentBlock::ToolUse { id, name, input } => {
                             tool_calls_json.push(json!({
                                 "id": id,
@@ -860,6 +861,7 @@ fn build_codex_input(messages: &[Message]) -> Vec<Value> {
                                 pending_text.push_str(thinking);
                             }
                         }
+                        ContentBlock::RedactedThinking { .. } => {}
                         ContentBlock::ToolUse {
                             id,
                             name,

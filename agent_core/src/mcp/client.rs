@@ -139,13 +139,23 @@ impl McpClient {
 
     /// Connects to an MCP server and fetches its tool list.
     pub async fn connect(&mut self, config: &McpServerConfig) -> Result<Vec<ToolSchema>, String> {
-        // Spawn server process
+        // Spawn server process. MCP servers are user-installed binaries
+        // executing arbitrary code in our process tree, so we harden
+        // FIRST (env_clear + canonical allowlist + kill_on_drop +
+        // process_group(0)) and then re-add the per-server `config.env`
+        // explicitly. The user-controlled `config.env` is the trusted
+        // allowlist; the parent process's env is NOT trusted.
         let mut cmd = Command::new(&config.command);
+        crate::security::harden_cli_subprocess(&mut cmd);
         cmd.args(&config.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null());
 
+        // After hardening, re-apply per-server config.env. Order
+        // matters: hardening clears env first, config.env overrides
+        // any allowlist values the user wants to customize (e.g. PATH
+        // pointing to a vendored Node).
         for (k, v) in &config.env {
             cmd.env(k, v);
         }

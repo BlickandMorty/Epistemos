@@ -12,6 +12,10 @@ pub enum StreamEvent {
         index: usize,
         text: String,
     },
+    RedactedThinking {
+        index: usize,
+        data: String,
+    },
     TextDelta {
         index: usize,
         text: String,

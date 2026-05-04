@@ -269,7 +269,7 @@ mod tests {
             "The service is offline and costs $20 and caching is enabled",
             &facts,
         );
-        assert!(contradictions.len() >= 1);
+        assert!(!contradictions.is_empty());
         // Should be sorted by confidence (highest first)
         for window in contradictions.windows(2) {
             assert!(window[0].confidence >= window[1].confidence);

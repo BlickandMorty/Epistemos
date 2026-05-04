@@ -41,8 +41,15 @@ impl ToolHandler for CodeExecutionTool {
         std::fs::write(&script_path, code)
             .map_err(|e| ToolError::ExecutionFailed(format!("Failed to write script: {e}")))?;
 
-        // Execute with timeout
+        // Execute with timeout. The interpreter binary (`cmd`) is
+        // resolved from the user's PATH and runs untrusted code from
+        // the LLM, so apply the doctrine-mandated subprocess hardening:
+        // env_clear + canonical allowlist + kill_on_drop +
+        // process_group(0). This blocks NODE_OPTIONS / PYTHONPATH /
+        // RUBYOPT / PERL5OPT / DYLD_INSERT_LIBRARIES injection — the
+        // exact vectors the doctrine names for code execution paths.
         let mut command = Command::new(cmd);
+        crate::security::harden_cli_subprocess(&mut command);
         command
             .arg(&script_path)
             .current_dir(tmp.path())

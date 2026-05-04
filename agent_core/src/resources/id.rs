@@ -84,8 +84,7 @@ impl ResourceId {
         }
 
         if let Some(rest) = trimmed.strip_prefix("attachment://") {
-            let (turn_id, attachment_id) =
-                split_once(rest, "/id/", "attachment")?;
+            let (turn_id, attachment_id) = split_once(rest, "/id/", "attachment")?;
             return Ok(Self::Attachment {
                 turn_id: turn_id.to_string(),
                 attachment_id: attachment_id.to_string(),

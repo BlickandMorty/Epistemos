@@ -44,8 +44,8 @@ use crate::storage::vault::VaultStore;
 
 use super::{
     AttachedResource, Capability, DeleteMode, GrantScope, PermissionGrant, PermissionService,
-    ResourceContent, ResourceError, ResourceHit, ResourceId, ResourceKind, ResourceSelector,
-    ResourceService, ResourceSearchScope, SqlitePermissionService, VaultResourceService, WriteResult,
+    ResourceContent, ResourceError, ResourceHit, ResourceId, ResourceKind, ResourceSearchScope,
+    ResourceSelector, ResourceService, SqlitePermissionService, VaultResourceService, WriteResult,
 };
 
 // `AttachmentMode` is only referenced inside tests; the production
@@ -151,9 +151,7 @@ fn parse_scope(name: &str) -> GrantScope {
 /// this is that runtime.
 fn runtime() -> &'static Runtime {
     static RUNTIME: OnceLock<Runtime> = OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        Runtime::new().expect("permission bridge tokio runtime init failed")
-    })
+    RUNTIME.get_or_init(|| Runtime::new().expect("permission bridge tokio runtime init failed"))
 }
 
 /// Process-local permission store. In-memory SQLite on first touch;
@@ -434,10 +432,7 @@ pub fn attached_resource_from_paste(
 /// capability. Mirrors `AttachedResource::allows` so Swift can gate
 /// tool suggestions without hand-parsing the capability list.
 #[uniffi::export]
-pub fn attached_resource_allows(
-    attachment: AttachedResource,
-    capability: Capability,
-) -> bool {
+pub fn attached_resource_allows(attachment: AttachedResource, capability: Capability) -> bool {
     attachment.allows(capability)
 }
 
@@ -500,8 +495,8 @@ pub fn resource_service_init(vault_root: String, vault_id: String) -> Result<(),
         )));
     }
     // VaultStore::open expects a &str path.
-    let vault = VaultStore::open(&vault_root)
-        .map_err(|error| ResourceError::Backend(error.to_string()))?;
+    let vault =
+        VaultStore::open(&vault_root).map_err(|error| ResourceError::Backend(error.to_string()))?;
     let service = Arc::new(VaultResourceService::new(Arc::new(vault), path, vault_id));
     let mut guard = resource_service_slot()
         .lock()
@@ -649,13 +644,18 @@ impl From<crate::runtime::WriteError> for VerifiedWriteError {
     fn from(error: crate::runtime::WriteError) -> Self {
         use crate::runtime::WriteError;
         match error {
-            WriteError::PermissionDenied { resource, capability } => {
-                Self::PermissionDenied {
-                    resource: resource.as_uri(),
-                    capability,
-                }
-            }
-            WriteError::VersionConflict { id, expected, actual } => Self::VersionConflict {
+            WriteError::PermissionDenied {
+                resource,
+                capability,
+            } => Self::PermissionDenied {
+                resource: resource.as_uri(),
+                capability,
+            },
+            WriteError::VersionConflict {
+                id,
+                expected,
+                actual,
+            } => Self::VersionConflict {
                 resource: id.as_uri(),
                 expected,
                 actual,
@@ -673,8 +673,8 @@ impl From<crate::runtime::WriteError> for VerifiedWriteError {
 /// first time a verified-write runs; can be swapped to an on-disk
 /// file via [`verified_write_init_audit_at_path`] once Swift
 /// resolves a container-safe location.
-fn audit_log_holder() -> &'static std::sync::RwLock<Option<Arc<crate::runtime::SqliteResourceAuditLog>>>
-{
+fn audit_log_holder(
+) -> &'static std::sync::RwLock<Option<Arc<crate::runtime::SqliteResourceAuditLog>>> {
     static HOLDER: OnceLock<
         std::sync::RwLock<Option<Arc<crate::runtime::SqliteResourceAuditLog>>>,
     > = OnceLock::new();
@@ -795,6 +795,18 @@ pub async fn resource_verified_write(
 
 #[cfg(test)]
 mod tests {
+    // The tests in this module use `BRIDGE_STORE_GATE` (a sync mutex) to
+    // serialize against a process-wide permission store singleton.
+    // Holding a sync `MutexGuard` across `.await` is what the gate IS —
+    // tests share the singleton, the mutex must be held for the whole
+    // test body. Clippy's `await_holding_lock` lint flags this idiom
+    // 20+ times in this file; allow it at the test-module level since
+    // (a) tests are serialized one-at-a-time within the gate, (b) no
+    // other code path competes on the same mutex, and (c) the
+    // alternative (`tokio::sync::Mutex`) would require an async runtime
+    // which not every test in this module uses.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use crate::runtime::ResourceAuditLog;
 
@@ -1010,9 +1022,9 @@ mod tests {
             .expect("re-init at same path should succeed");
 
         let after_restart = permission_store_list_active().await;
-        let found = after_restart.iter().any(|summary| {
-            summary.grant_id == grant_id && summary.selector.contains(&marker_uri)
-        });
+        let found = after_restart
+            .iter()
+            .any(|summary| summary.grant_id == grant_id && summary.selector.contains(&marker_uri));
         assert!(
             found,
             "grant {grant_id} should survive in-process restart via reinit at same path"
@@ -1055,15 +1067,17 @@ mod tests {
     /// the holder to None; the next `active_audit_log()` call will
     /// re-init an empty in-memory log.
     async fn reset_audit_log_for_tests() {
-        let mut guard = audit_log_holder().write().unwrap_or_else(|e| e.into_inner());
+        let mut guard = audit_log_holder()
+            .write()
+            .unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
 
     #[tokio::test]
     async fn verified_write_init_audit_at_empty_path_rejects() {
         let _gate = bridge_store_gate();
-        let err = verified_write_init_audit_at_path("".into())
-            .expect_err("empty path must be rejected");
+        let err =
+            verified_write_init_audit_at_path("".into()).expect_err("empty path must be rejected");
         match err {
             VerifiedWriteError::Audit { message } => {
                 assert!(message.contains("empty audit log path"));
@@ -1090,8 +1104,7 @@ mod tests {
         std::fs::write(&note_path, "before").unwrap();
         let vault_id = format!("r6-{}", uuid::Uuid::new_v4());
         let vault_root = tmp.path().to_string_lossy().to_string();
-        resource_service_init(vault_root, vault_id.clone())
-            .expect("resource service should init");
+        resource_service_init(vault_root, vault_id.clone()).expect("resource service should init");
 
         let id = resource_resolve("Inbox/Verified.md".into()).await.unwrap();
         let base_version = resource_read(id.clone()).await.unwrap().version;
@@ -1127,7 +1140,9 @@ mod tests {
         let entries = log.list().await.unwrap();
         let success_entries = entries.iter().filter(|e| e.result == "success");
         assert!(success_entries.clone().count() >= 1);
-        assert!(success_entries.clone().any(|e| e.resource_uri == id.as_uri()));
+        assert!(success_entries
+            .clone()
+            .any(|e| e.resource_uri == id.as_uri()));
 
         // Cleanup.
         restore_store_to_in_memory().await;
@@ -1149,8 +1164,7 @@ mod tests {
         std::fs::write(&note_path, "before").unwrap();
         let vault_id = format!("r6-denied-{}", uuid::Uuid::new_v4());
         let vault_root = tmp.path().to_string_lossy().to_string();
-        resource_service_init(vault_root, vault_id)
-            .expect("resource service should init");
+        resource_service_init(vault_root, vault_id).expect("resource service should init");
 
         let id = resource_resolve("Inbox/Denied.md".into()).await.unwrap();
 
@@ -1180,8 +1194,9 @@ mod tests {
         let log = active_audit_log().unwrap();
         let entries = log.list().await.unwrap();
         assert!(
-            entries.iter().any(|e| e.result == "capability_denied"
-                && e.resource_uri == id.as_uri()),
+            entries
+                .iter()
+                .any(|e| e.result == "capability_denied" && e.resource_uri == id.as_uri()),
             "audit log should record capability_denied row for the blocked write"
         );
 
@@ -1296,24 +1311,11 @@ mod tests {
 
     #[test]
     fn attached_resource_factories_reject_unparseable_uris() {
-        assert!(attached_resource_from_ui(
-            "nonsense".into(),
-            "x".into(),
-            None
-        )
-        .is_none());
-        assert!(attached_resource_from_finder(
-            "nonsense".into(),
-            "x".into(),
-            None
-        )
-        .is_none());
-        assert!(attached_resource_from_paste(
-            "nonsense".into(),
-            "x".into(),
-            "body".into()
-        )
-        .is_none());
+        assert!(attached_resource_from_ui("nonsense".into(), "x".into(), None).is_none());
+        assert!(attached_resource_from_finder("nonsense".into(), "x".into(), None).is_none());
+        assert!(
+            attached_resource_from_paste("nonsense".into(), "x".into(), "body".into()).is_none()
+        );
     }
 
     #[test]
@@ -1328,8 +1330,7 @@ mod tests {
         assert!(attached_resource_allows(snapshot.clone(), Capability::Read));
         assert!(!attached_resource_allows(snapshot, Capability::Write));
 
-        let live =
-            attached_resource_from_ui(uri, "live".into(), None).expect("live attachment");
+        let live = attached_resource_from_ui(uri, "live".into(), None).expect("live attachment");
         assert!(attached_resource_allows(live.clone(), Capability::Read));
         assert!(attached_resource_allows(live, Capability::Write));
     }
@@ -1474,13 +1475,9 @@ mod tests {
 
         let id = resource_resolve("R3Alpha".into()).await.unwrap();
         // Base version "stale-v0" deliberately does not match.
-        let err = resource_write(
-            id,
-            b"should not land".to_vec(),
-            Some("stale-v0".into()),
-        )
-        .await
-        .expect_err("stale base_version must error");
+        let err = resource_write(id, b"should not land".to_vec(), Some("stale-v0".into()))
+            .await
+            .expect_err("stale base_version must error");
         assert!(matches!(err, ResourceError::VersionConflict { .. }));
     }
 

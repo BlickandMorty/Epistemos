@@ -59,7 +59,12 @@ pub enum ThreatAssessment {
 }
 
 impl ThreatAssessment {
-    pub fn from_str(s: &str) -> Self {
+    /// Parse a textual severity label into a `ThreatAssessment`.
+    /// Named `from_label` (not `from_str`) so it doesn't collide with
+    /// the `std::str::FromStr` trait method, which is fallible — this
+    /// parser is infallible (unknown labels collapse to `Clean`) and
+    /// the trait's `Result` would be misleading.
+    pub fn from_label(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "clean" | "safe" | "none" | "0" => Self::Clean,
             "low" => Self::Low,
@@ -255,21 +260,21 @@ impl TirithClient {
     }
 
     async fn run_tirith(&self, binary: &Path, input_file: &Path) -> TirithScanResult {
-        let output = match tokio::time::timeout(
-            TIRITH_TIMEOUT,
-            tokio::process::Command::new(binary)
-                .arg("scan")
-                .arg("--input")
-                .arg(input_file)
-                .arg("--format")
-                .arg("json")
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .kill_on_drop(true)
-                .output(),
-        )
-        .await
-        {
+        // Tirith is a user-installed scanner binary; same hardening
+        // contract as the other CLI passthrough sites. Build the
+        // command first so we can apply `harden_cli_subprocess`
+        // (env_clear + allowlist + kill_on_drop + process_group(0))
+        // before awaiting it.
+        let mut cmd = tokio::process::Command::new(binary);
+        crate::security::harden_cli_subprocess(&mut cmd);
+        cmd.arg("scan")
+            .arg("--input")
+            .arg(input_file)
+            .arg("--format")
+            .arg("json")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let output = match tokio::time::timeout(TIRITH_TIMEOUT, cmd.output()).await {
             Ok(Ok(o)) => o,
             Ok(Err(e)) => {
                 return self.fallback_result(&format!("Failed to run tirith: {e}"));
@@ -387,14 +392,14 @@ fn parse_tirith_output(output: &str) -> Result<TirithScanResult, String> {
     let assessment = value
         .get("assessment")
         .and_then(|v| v.as_str())
-        .map(ThreatAssessment::from_str)
+        .map(ThreatAssessment::from_label)
         .unwrap_or(ThreatAssessment::Clean);
 
     // If threats exist but no assessment, infer from max severity
     let assessment = if assessment == ThreatAssessment::Clean && !threats.is_empty() {
         let max_severity = threats
             .iter()
-            .map(|t| ThreatAssessment::from_str(&t.severity))
+            .map(|t| ThreatAssessment::from_label(&t.severity))
             .max()
             .unwrap_or(ThreatAssessment::Clean);
         max_severity
@@ -430,26 +435,32 @@ mod tests {
 
     #[test]
     fn threat_assessment_from_string() {
-        assert_eq!(ThreatAssessment::from_str("clean"), ThreatAssessment::Clean);
-        assert_eq!(ThreatAssessment::from_str("low"), ThreatAssessment::Low);
         assert_eq!(
-            ThreatAssessment::from_str("medium"),
+            ThreatAssessment::from_label("clean"),
+            ThreatAssessment::Clean
+        );
+        assert_eq!(ThreatAssessment::from_label("low"), ThreatAssessment::Low);
+        assert_eq!(
+            ThreatAssessment::from_label("medium"),
             ThreatAssessment::Medium
         );
-        assert_eq!(ThreatAssessment::from_str("high"), ThreatAssessment::High);
+        assert_eq!(ThreatAssessment::from_label("high"), ThreatAssessment::High);
         assert_eq!(
-            ThreatAssessment::from_str("critical"),
+            ThreatAssessment::from_label("critical"),
             ThreatAssessment::Critical
         );
     }
 
     #[test]
     fn threat_assessment_from_numeric() {
-        assert_eq!(ThreatAssessment::from_str("0"), ThreatAssessment::Clean);
-        assert_eq!(ThreatAssessment::from_str("2"), ThreatAssessment::Low);
-        assert_eq!(ThreatAssessment::from_str("5"), ThreatAssessment::Medium);
-        assert_eq!(ThreatAssessment::from_str("8"), ThreatAssessment::High);
-        assert_eq!(ThreatAssessment::from_str("10"), ThreatAssessment::Critical);
+        assert_eq!(ThreatAssessment::from_label("0"), ThreatAssessment::Clean);
+        assert_eq!(ThreatAssessment::from_label("2"), ThreatAssessment::Low);
+        assert_eq!(ThreatAssessment::from_label("5"), ThreatAssessment::Medium);
+        assert_eq!(ThreatAssessment::from_label("8"), ThreatAssessment::High);
+        assert_eq!(
+            ThreatAssessment::from_label("10"),
+            ThreatAssessment::Critical
+        );
     }
 
     #[test]

@@ -415,6 +415,12 @@ pub fn cronjob_schema() -> crate::types::ToolSchema {
 
 #[cfg(test)]
 mod tests {
+    // Test-isolation gate held across `.await` is intentional — see
+    // `resources/bridge.rs::tests` for the canonical rationale.
+    // Scheduling tests share the EPISTEMOS_CRON_DB env var and the
+    // cron-job persistence layer.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use serde_json::json;
     use std::sync::MutexGuard;

@@ -660,7 +660,7 @@ fn message_to_openai_json(message: &Message) -> Value {
                             },
                         }));
                     }
-                    ContentBlock::Thinking { .. } => {}
+                    ContentBlock::Thinking { .. } | ContentBlock::RedactedThinking { .. } => {}
                 }
             }
 

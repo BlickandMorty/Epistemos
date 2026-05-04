@@ -21,8 +21,8 @@ use std::path::Path;
 
 use serde_json::Value;
 
-use super::id::ResourceId;
 use super::attachments::Capability;
+use super::id::ResourceId;
 use crate::tools::registry::RiskLevel;
 
 /// Result of the tool → authorization inference. `None` means
@@ -126,10 +126,7 @@ pub fn infer_tool_authz_target(
 /// authorization works off the path the handler will actually act
 /// on. Returns `None` when the JSON field is absent, non-string,
 /// empty, or expansion produces an empty buffer.
-fn file_target_from_path(
-    path_value: &Value,
-    capability: Capability,
-) -> Option<ToolAuthzTarget> {
+fn file_target_from_path(path_value: &Value, capability: Capability) -> Option<ToolAuthzTarget> {
     let raw = path_value.as_str()?;
     let trimmed = raw.trim();
     if trimmed.is_empty() {
@@ -223,9 +220,7 @@ mod tests {
     fn vault_write_without_vault_root_returns_none() {
         let input = json!({"path": "Inbox/Gamma.md", "content": "body"});
         // No vault root → can't build a canonical URI.
-        assert!(
-            infer_tool_authz_target("vault_write", &input, &write_risk(), None).is_none()
-        );
+        assert!(infer_tool_authz_target("vault_write", &input, &write_risk(), None).is_none());
     }
 
     #[test]
@@ -246,7 +241,8 @@ mod tests {
         );
         let only_slash = json!({"path": "/", "content": "body"});
         assert!(
-            infer_tool_authz_target("vault_write", &only_slash, &write_risk(), Some(&root)).is_none()
+            infer_tool_authz_target("vault_write", &only_slash, &write_risk(), Some(&root))
+                .is_none()
         );
     }
 
@@ -400,7 +396,11 @@ mod tests {
         let cases: &[(&str, Value, RiskLevel)] = &[
             ("bash_execute", json!({"command": "ls"}), destructive_risk()),
             ("process", json!({"action": "list"}), destructive_risk()),
-            ("claude_code", json!({"task": "refactor"}), destructive_risk()),
+            (
+                "claude_code",
+                json!({"task": "refactor"}),
+                destructive_risk(),
+            ),
             ("codex", json!({"task": "refactor"}), destructive_risk()),
             (
                 "send_message",
@@ -457,8 +457,16 @@ mod tests {
                 json!({"selector": "#i", "text": "hi"}),
                 destructive_risk(),
             ),
-            ("browser_navigate", json!({"url": "https://x"}), write_risk()),
-            ("memory", json!({"action": "add", "content": "x"}), write_risk()),
+            (
+                "browser_navigate",
+                json!({"url": "https://x"}),
+                write_risk(),
+            ),
+            (
+                "memory",
+                json!({"action": "add", "content": "x"}),
+                write_risk(),
+            ),
             (
                 "skill_manage",
                 json!({"action": "create", "name": "s", "content": "c"}),

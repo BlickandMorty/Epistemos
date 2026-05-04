@@ -150,12 +150,10 @@ impl VaultResourceService {
                 continue;
             }
             if let Ok(relative) = path.strip_prefix(&self.vault_root) {
-                if relative.components().any(|component| {
-                    component
-                        .as_os_str()
-                        .to_string_lossy()
-                        .starts_with('.')
-                }) {
+                if relative
+                    .components()
+                    .any(|component| component.as_os_str().to_string_lossy().starts_with('.'))
+                {
                     continue;
                 }
                 self.register_note_aliases(&mut aliases, relative);
@@ -248,8 +246,7 @@ impl VaultResourceService {
     }
 
     fn ensure_parent_directory(&self, parent: &Path) -> Result<(), ResourceError> {
-        std::fs::create_dir_all(parent)
-            .map_err(|error| ResourceError::Backend(error.to_string()))
+        std::fs::create_dir_all(parent).map_err(|error| ResourceError::Backend(error.to_string()))
     }
 
     fn fallback_search_hits(&self, query: &str) -> Result<Vec<ResourceHit>, ResourceError> {
@@ -277,12 +274,10 @@ impl VaultResourceService {
             let Ok(relative) = path.strip_prefix(&self.vault_root) else {
                 continue;
             };
-            if relative.components().any(|component| {
-                component
-                    .as_os_str()
-                    .to_string_lossy()
-                    .starts_with('.')
-            }) {
+            if relative
+                .components()
+                .any(|component| component.as_os_str().to_string_lossy().starts_with('.'))
+            {
                 continue;
             }
 
@@ -388,11 +383,7 @@ impl ResourceService for VaultResourceService {
         let canonical = self.canonicalize_id(id)?;
         match &canonical {
             ResourceId::VaultNote { note_id, .. } => {
-                let text = self
-                    .vault
-                    .read(note_id)
-                    .await
-                    .map_err(map_vault_error)?;
+                let text = self.vault.read(note_id).await.map_err(map_vault_error)?;
                 let bytes = text.into_bytes();
                 let checksum = checksum(&bytes);
                 Ok(ResourceContent {
@@ -506,7 +497,8 @@ impl ResourceService for VaultResourceService {
                 } else {
                     std::fs::write(&path, &content)
                         .map_err(|error| ResourceError::Backend(error.to_string()))?;
-                    self.resolve(format!("file://{}", path.to_string_lossy())).await
+                    self.resolve(format!("file://{}", path.to_string_lossy()))
+                        .await
                 }
             }
             ResourceKind::File { name } => {
@@ -536,10 +528,7 @@ impl ResourceService for VaultResourceService {
                 let relative = path
                     .strip_prefix(&self.vault_root)
                     .unwrap_or(path.as_path());
-                let trash_target = self
-                    .vault_root
-                    .join(".trash")
-                    .join(relative);
+                let trash_target = self.vault_root.join(".trash").join(relative);
                 if let Some(parent) = trash_target.parent() {
                     self.ensure_parent_directory(parent)?;
                 }
@@ -582,7 +571,9 @@ pub async fn find_note_adapter(
     service: &dyn ResourceService,
     query: &str,
 ) -> Result<Vec<ResourceHit>, ResourceError> {
-    service.search(query.to_string(), ResourceSearchScope::ActiveVault).await
+    service
+        .search(query.to_string(), ResourceSearchScope::ActiveVault)
+        .await
 }
 
 pub async fn create_note_adapter(
@@ -638,8 +629,12 @@ fn normalize_relative(path: &Path) -> String {
 
 fn sanitize_name(name: &str) -> String {
     let trimmed = name.trim();
-    let fallback = if trimmed.is_empty() { "untitled" } else { trimmed };
-    fallback.replace('/', "-").replace(':', "-")
+    let fallback = if trimmed.is_empty() {
+        "untitled"
+    } else {
+        trimmed
+    };
+    fallback.replace(['/', ':'], "-")
 }
 
 fn ensure_extension(name: &str, ext: &str) -> String {
@@ -676,7 +671,7 @@ mod tests {
 
     use super::{
         create_note_adapter, delete_note_adapter, find_note_adapter, read_note_adapter,
-        write_note_adapter, DeleteMode, ResourceService, ResourceSearchScope, VaultResourceService,
+        write_note_adapter, DeleteMode, ResourceSearchScope, ResourceService, VaultResourceService,
     };
     use crate::resources::ResourceId;
     use crate::storage::vault::VaultStore;
@@ -721,12 +716,7 @@ mod tests {
         assert_eq!(before, "before");
 
         let base_version = service
-            .read(
-                service
-                    .resolve("Inbox/Shared.md".into())
-                    .await
-                    .unwrap(),
-            )
+            .read(service.resolve("Inbox/Shared.md".into()).await.unwrap())
             .await
             .unwrap()
             .version;
@@ -776,7 +766,10 @@ mod tests {
 
         let found = find_note_adapter(&service, "hello").await.unwrap();
         assert_eq!(found.len(), 1);
-        assert_eq!(read_note_adapter(&service, "Created").await.unwrap(), "hello");
+        assert_eq!(
+            read_note_adapter(&service, "Created").await.unwrap(),
+            "hello"
+        );
 
         delete_note_adapter(&service, "Created", DeleteMode::Trash)
             .await

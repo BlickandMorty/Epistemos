@@ -496,6 +496,10 @@ pub fn channel_contacts_schema() -> crate::types::ToolSchema {
 
 #[cfg(test)]
 mod tests {
+    // Test-isolation gate held across `.await` is intentional — see
+    // `resources/bridge.rs::tests` for the canonical rationale.
+    #![allow(clippy::await_holding_lock)]
+
     use super::*;
     use serde_json::json;
     use std::sync::MutexGuard;

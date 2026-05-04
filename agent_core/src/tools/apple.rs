@@ -48,6 +48,13 @@ fn applescript_quote(value: &str) -> String {
 /// exit, timeout, or stderr output.
 async fn run_osascript(script: &str) -> Result<String, ToolError> {
     let mut cmd = Command::new("osascript");
+    // Apply doctrine subprocess hardening for defense in depth. osascript
+    // is an Apple-stable system binary so the dynamic-loader hijack
+    // surface is narrow, but the env_clear discipline is universal: a
+    // child process that doesn't need DYLD_INSERT_LIBRARIES should
+    // never inherit it. kill_on_drop + process_group(0) also belong
+    // here so a panic in the agent loop reaps the AppleScript runner.
+    crate::security::harden_cli_subprocess(&mut cmd);
     cmd.arg("-e").arg(script);
 
     let child = cmd.output();

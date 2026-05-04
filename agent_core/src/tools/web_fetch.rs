@@ -311,7 +311,7 @@ impl ToolHandler for WebFetchTool {
     async fn execute(&self, input: &Value) -> Result<String, super::registry::ToolError> {
         let url = input["url"].as_str().unwrap_or("");
         let result = self.fetch_url(url).await;
-        Ok(serde_json::to_string_pretty(&result).unwrap_or_default())
+        Ok(serde_json::to_string(&result).unwrap_or_default())
     }
 }
 

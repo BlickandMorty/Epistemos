@@ -5,9 +5,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use rusqlite::{params, Connection};
 
-use crate::resources::{
-    Capability, PermissionService, ResourceError, ResourceId, ResourceService,
-};
+use crate::resources::{Capability, PermissionService, ResourceError, ResourceId, ResourceService};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VerifiedWrite {
@@ -69,8 +67,8 @@ impl SqliteResourceAuditLog {
     }
 
     pub fn open_in_memory() -> Result<Self, WriteError> {
-        let conn = Connection::open_in_memory()
-            .map_err(|error| WriteError::Audit(error.to_string()))?;
+        let conn =
+            Connection::open_in_memory().map_err(|error| WriteError::Audit(error.to_string()))?;
         Self::init_schema(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
@@ -189,7 +187,11 @@ pub async fn verified_write(
     }
 
     let write_result = match service
-        .write(id.clone(), content.to_vec(), base_version.map(str::to_string))
+        .write(
+            id.clone(),
+            content.to_vec(),
+            base_version.map(str::to_string),
+        )
         .await
     {
         Ok(result) => result,
@@ -300,9 +302,9 @@ mod tests {
 
     use super::{verified_write, ResourceAuditLog, SqliteResourceAuditLog, WriteError};
     use crate::resources::{
-        Capability, GrantScope, PermissionGrant, PermissionService, ResourceContent,
-        ResourceError, ResourceHit, ResourceId, ResourceSelector, ResourceService,
-        ResourceSearchScope, SqlitePermissionService, WriteResult,
+        Capability, GrantScope, PermissionGrant, PermissionService, ResourceContent, ResourceError,
+        ResourceHit, ResourceId, ResourceSearchScope, ResourceSelector, ResourceService,
+        SqlitePermissionService, WriteResult,
     };
 
     struct MockResourceService {
@@ -370,7 +372,9 @@ mod tests {
             _kind: crate::resources::ResourceKind,
             _content: Vec<u8>,
         ) -> Result<ResourceId, ResourceError> {
-            Err(ResourceError::UnsupportedReference("create not used in tests".into()))
+            Err(ResourceError::UnsupportedReference(
+                "create not used in tests".into(),
+            ))
         }
 
         async fn delete(
@@ -378,7 +382,9 @@ mod tests {
             _id: ResourceId,
             _mode: crate::resources::DeleteMode,
         ) -> Result<(), ResourceError> {
-            Err(ResourceError::UnsupportedReference("delete not used in tests".into()))
+            Err(ResourceError::UnsupportedReference(
+                "delete not used in tests".into(),
+            ))
         }
     }
 
@@ -426,10 +432,9 @@ mod tests {
         std::fs::create_dir_all(note_path.parent().unwrap()).unwrap();
         std::fs::write(&note_path, "fresh").unwrap();
 
-        let vault = Arc::new(crate::storage::vault::VaultStore::open(
-            temp.path().to_str().unwrap(),
-        )
-        .unwrap());
+        let vault = Arc::new(
+            crate::storage::vault::VaultStore::open(temp.path().to_str().unwrap()).unwrap(),
+        );
         let service = crate::resources::VaultResourceService::new(vault, temp.path(), "main");
         let resource = service.resolve("Inbox/Stale.md".into()).await.unwrap();
         let current_version = service.read(resource.clone()).await.unwrap().version;
@@ -462,7 +467,10 @@ mod tests {
         let entries = audit.list().await.unwrap();
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].result, "version_conflict");
-        assert_eq!(current_version, service.read(resource).await.unwrap().version);
+        assert_eq!(
+            current_version,
+            service.read(resource).await.unwrap().version
+        );
     }
 
     fn checksum(bytes: &[u8]) -> String {

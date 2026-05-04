@@ -527,7 +527,7 @@ mod tests {
             .await
             .unwrap();
         let parsed: Value = serde_json::from_str(&result).unwrap();
-        assert!(parsed["contradictions"].as_array().unwrap().len() >= 1);
+        assert!(!parsed["contradictions"].as_array().unwrap().is_empty());
     }
 
     #[tokio::test]

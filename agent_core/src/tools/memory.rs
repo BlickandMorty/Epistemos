@@ -374,7 +374,7 @@ impl ToolHandler for MemoryTool {
             _ => json!({"success": false, "error": format!("Unknown action: {action}")}),
         };
 
-        Ok(serde_json::to_string_pretty(&result).unwrap_or_default())
+        Ok(serde_json::to_string(&result).unwrap_or_default())
     }
 }
 

@@ -275,7 +275,7 @@ fn default_tools_for_objective(objective: &str) -> Vec<String> {
     {
         tools.push("vault_read".to_string());
     }
-    #[cfg(not(feature = "mas-sandbox"))]
+    #[cfg(feature = "pro-build")]
     if contains_any(&normalized, &["bash", "shell", "command"]) {
         tools.push("bash_execute".to_string());
     }
