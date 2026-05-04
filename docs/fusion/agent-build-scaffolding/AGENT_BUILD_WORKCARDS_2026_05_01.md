@@ -2876,6 +2876,9 @@ projection primitives; runtime graph/RRF wiring stays deferred.
 Arena Rust foundation PR60 is closed. `agent_core::arena` is the canonical Rust
 mmap/App Group substrate foundation with `group.com.epistemos.shared`, fixed
 page-aligned request/response rings, and no Swift/XPC wiring yet.
+HELIOS Metal source PR61 is closed. `agent_core/metal/` now holds the six
+re-derived substrate seed kernels and they compile with `xcrun metal`; runtime
+dispatch and CPU golden references remain future work.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

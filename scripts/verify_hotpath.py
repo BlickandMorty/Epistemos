@@ -52,6 +52,15 @@ SHADER_PATHS = [
     "Epistemos/Shaders/Mamba2/segsum_stable.metal",
 ]
 
+AGENT_CORE_METAL_PATHS = [
+    "agent_core/metal/eml_softmax_lse.metal",
+    "agent_core/metal/count_sketch_update.metal",
+    "agent_core/metal/kv_fingerprint.metal",
+    "agent_core/metal/dora_apply.metal",
+    "agent_core/metal/ternary_gemv.metal",
+    "agent_core/metal/ternary_proj_residual.metal",
+]
+
 
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
@@ -171,13 +180,21 @@ def grep_for(pattern: str, roots: list[str], suffixes: tuple[str, ...]) -> list[
 
 
 def main() -> int:
-    missing = [p for p in REQUIRED_PATHS + SHADER_PATHS if not (ROOT / p).exists()]
+    missing = [p for p in REQUIRED_PATHS + SHADER_PATHS + AGENT_CORE_METAL_PATHS if not (ROOT / p).exists()]
 
     shader_entrypoints = {
         path: bool(re.search(r"\b(kernel|vertex|fragment)\s+", read(path)))
         for path in SHADER_PATHS
         if (ROOT / path).exists()
     }
+    agent_core_metal_entrypoints = {
+        path: bool(re.search(r"\bkernel\s+\w+", read(path)))
+        for path in AGENT_CORE_METAL_PATHS
+        if (ROOT / path).exists()
+    }
+    agent_core_metal_text = "\n".join(
+        read(path) for path in AGENT_CORE_METAL_PATHS if (ROOT / path).exists()
+    )
     mamba_shader_count = len(list((ROOT / "Epistemos/Shaders/Mamba2").glob("*.metal")))
     inter_chunk = read("Epistemos/Shaders/Mamba2/inter_chunk_scan.metal")
 
@@ -231,6 +248,8 @@ def main() -> int:
     checks = {
         "required_paths_present": not missing,
         "shader_entrypoints_present": all(shader_entrypoints.values()) and len(shader_entrypoints) == len(SHADER_PATHS),
+        "agent_core_metal_entrypoints_present": all(agent_core_metal_entrypoints.values()) and len(agent_core_metal_entrypoints) == len(AGENT_CORE_METAL_PATHS),
+        "agent_core_metal_no_placeholders": "placeholder" not in agent_core_metal_text and "y - x" not in agent_core_metal_text,
         "mamba_shader_count_at_least_4": mamba_shader_count >= 4,
         "apple_safe_inter_chunk_scan": "LACK Forward-Progress Guarantees" in inter_chunk and "Reduce-then-Scan" in inter_chunk,
         "resonance_core_rust_present": all(
@@ -305,6 +324,7 @@ def main() -> int:
         "root": str(ROOT),
         "missing": missing,
         "shader_entrypoints": shader_entrypoints,
+        "agent_core_metal_entrypoints": agent_core_metal_entrypoints,
         "mamba_shader_count": mamba_shader_count,
         "la_hits_outside_sovereign": la_hits_outside_sovereign,
         "critical_process_hits": process_hits,

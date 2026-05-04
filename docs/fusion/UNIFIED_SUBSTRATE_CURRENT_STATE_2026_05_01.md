@@ -1389,6 +1389,15 @@ Proven or actively wired:
   `/tmp/epistemos-arena-lattice-regression-pr60-20260503.log`,
   `/tmp/epistemos-arena-agent-core-lib-pr60-20260503.log`, and
   `/tmp/epistemos-arena-verify-hotpath-pr60-20260503-rerun.log`.
+- HELIOS Metal kernel source STEP 4e / PR61 is now source-closed.
+  `agent_core/metal/` contains six re-derived substrate seed kernels:
+  EML softmax LSE, CountSketch q16 update, KV fingerprint, DoRA apply, ternary
+  GEMV, and ternary projection + residual. All six pass the hot-path source
+  verifier and compile with `xcrun -sdk macosx metal -c`. They are not wired
+  into runtime dispatch and do not migrate existing `Epistemos/Shaders/` UI or
+  Mamba-2 shader authority. Evidence:
+  `/tmp/epistemos-metal-verify-hotpath-pr61-20260503.log` and
+  `/tmp/epistemos-metal-compile-pr61-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

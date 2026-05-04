@@ -1101,3 +1101,16 @@
 - test: `cargo test --manifest-path agent_core/Cargo.toml --test lattice_budget`
 - test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
 - test: `python3 scripts/verify_hotpath.py`
+
+## agent-core-metal-kernels-pr61
+
+- file grep: `agent_core/metal/eml_softmax_lse.metal`, `count_sketch_update.metal`, `kv_fingerprint.metal`, `dora_apply.metal`, `ternary_gemv.metal`, and `ternary_proj_residual.metal` remain present.
+- entrypoint grep: `eml_softmax_lse|count_sketch_update|kv_fingerprint|dora_apply|ternary_gemv|ternary_proj_residual` remains present in `agent_core/metal/*.metal`.
+- placeholder grep: `placeholder` and donor bug text `y - x` remain absent from `agent_core/metal/*.metal`.
+- verifier grep: `agent_core_metal_entrypoints_present|agent_core_metal_no_placeholders` remains present in `scripts/verify_hotpath.py`, and the hot-path JSON has `"status": "pass"`.
+- authority note: existing Swift/Xcode runtime shaders remain under `Epistemos/Shaders/`; PR61 does not wire runtime dispatch or migrate bundles.
+- staged allow: only `agent_core/metal/*.metal`, `scripts/verify_hotpath.py`, `docs/fusion/HELIOS_METAL_KERNELS_2026_05_03.md`, hot-path verification JSON, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `agent_core/Cargo.toml` or `Epistemos.xcodeproj/project.pbxproj`.
+- log: `"status": "pass"` in `/tmp/epistemos-metal-verify-hotpath-pr61-20260503.log`.
+- log: all six files compile in `/tmp/epistemos-metal-compile-pr61-20260503.log`.
+- test: `python3 scripts/verify_hotpath.py`
+- test: `xcrun -sdk macosx metal -c agent_core/metal/<kernel>.metal`
