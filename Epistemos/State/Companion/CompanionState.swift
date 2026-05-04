@@ -180,22 +180,64 @@ final class CompanionState {
         trashed = trashedRows.map(CompanionRosterEntry.init(from:))
     }
 
-    /// Synthesize a default companion if the roster is completely
-    /// empty — gives the Farm something to show on first launch
-    /// without forcing the user through the creation wizard. Per
-    /// Invariant I-1 (single base substrate) this companion uses the
-    /// `.orb` body and the project's accent color.
+    /// Synthesize the canonical 4-companion preset farm if the roster
+    /// is completely empty — gives the Landing Farm visible "tomagotchi
+    /// farm" reads on first launch with one of each canonical body
+    /// family (Block Compact, Block Wide, Orb, Sage) per Simulation
+    /// v1.6 §5.1. The user can rename, delete, or add to this set via
+    /// the standard wizard / context menu.
+    ///
+    /// Invariant I-1 (single base substrate): all 4 ride the same
+    /// rendering substrate; the wizard is the only path to non-canonical
+    /// custom bodies.
     @discardableResult
     func seedDefaultIfEmpty() -> CompanionRosterEntry? {
         reloadRoster()
         guard roster.isEmpty && trashed.isEmpty else { return nil }
-        return createCompanion(
-            name: "Sage",
-            tagline: "Your reflective companion. Click to focus.",
-            bodyKind: .sage,
-            accentHex: "#9C8FE5",
-            personaPrompt: "Reflective tone. Cite reasoning. Respect the user's time."
-        )
+
+        let presets: [(name: String, tagline: String, bodyKind: CompanionBodyKind, accentHex: String, personaPrompt: String)] = [
+            (
+                name: "Sage",
+                tagline: "Reflective companion · click to focus",
+                bodyKind: .sage,
+                accentHex: "#9C8FE5",
+                personaPrompt: "Reflective tone. Cite reasoning. Respect the user's time."
+            ),
+            (
+                name: "Orbit",
+                tagline: "Drifting planner · slow & deliberate",
+                bodyKind: .orb,
+                accentHex: "#7B95A8",
+                personaPrompt: "Calm planner. Consider trade-offs before acting."
+            ),
+            (
+                name: "Brick",
+                tagline: "Steady worker · purposeful",
+                bodyKind: .blockCompact,
+                accentHex: "#5B8DEF",
+                personaPrompt: "Direct and concrete. Ship the work."
+            ),
+            (
+                name: "Scribe",
+                tagline: "Editorial reader · careful",
+                bodyKind: .blockWide,
+                accentHex: "#D97757",
+                personaPrompt: "Careful editor. Consider style and clarity."
+            ),
+        ]
+
+        var first: CompanionRosterEntry?
+        for preset in presets {
+            let entry = createCompanion(
+                name: preset.name,
+                tagline: preset.tagline,
+                bodyKind: preset.bodyKind,
+                accentHex: preset.accentHex,
+                personaPrompt: preset.personaPrompt
+            )
+            if first == nil { first = entry }
+        }
+        return first
     }
 }
 
