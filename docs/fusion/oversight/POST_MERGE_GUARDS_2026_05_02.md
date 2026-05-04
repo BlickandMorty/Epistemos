@@ -1063,3 +1063,22 @@
 - test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
 - test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
 - test: `python3 scripts/verify_hotpath.py`
+
+## sketch-rust-foundation-pr59
+
+- module grep: `CountSketch|SparseJlMatrix|FrpBasis|fwht_inplace|SketchError` remains present in `agent_core/src/sketch/mod.rs`.
+- export grep: `pub mod sketch;` remains present in `agent_core/src/lib.rs`.
+- CountSketch grep: `count_sketch_recovers_heavy_item|count_sketch_is_seed_deterministic` remains present in `agent_core/tests/sketch_budget.rs`.
+- JL/FRP grep: `sparse_jl_has_requested_shape_and_is_deterministic|frp_preserves_l2_norm_across_deterministic_vectors` remains present in `agent_core/tests/sketch_budget.rs`.
+- verifier grep: `sketch_rust_surface_present|sketch_budget_tests_present` remains present in `scripts/verify_hotpath.py`, and the hot-path JSON has `"status": "pass"`.
+- staged allow: only `agent_core/src/lib.rs`, `agent_core/src/sketch/mod.rs`, `agent_core/tests/sketch_budget.rs`, `scripts/verify_hotpath.py`, hot-path verification JSON, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `Epistemos.xcodeproj/project.pbxproj`.
+- log: `test result: ok. 7 passed` in `/tmp/epistemos-sketch-budget-pr59-20260503.log`.
+- log: `test result: ok. 11 passed` in `/tmp/epistemos-sketch-lattice-regression-pr59-20260503.log`.
+- log: `test result: ok. 13 passed` in `/tmp/epistemos-sketch-wbo6-regression-pr59-20260503.log`.
+- log: `test result: ok. 806 passed` in `/tmp/epistemos-sketch-agent-core-lib-pr59-20260503.log`.
+- log: `"status": "pass"` in `/tmp/epistemos-sketch-verify-hotpath-pr59-20260503.log`.
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test sketch_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test lattice_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
+- test: `python3 scripts/verify_hotpath.py`

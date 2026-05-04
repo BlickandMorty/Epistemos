@@ -25,9 +25,11 @@ REQUIRED_PATHS = [
     "agent_core/src/resonance/lambda.rs",
     "agent_core/src/wbo6/mod.rs",
     "agent_core/src/lattice/mod.rs",
+    "agent_core/src/sketch/mod.rs",
     "agent_core/tests/resonance_seed.rs",
     "agent_core/tests/wbo6_budget.rs",
     "agent_core/tests/lattice_budget.rs",
+    "agent_core/tests/sketch_budget.rs",
     "Epistemos/Engine/ResonanceService.swift",
     "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
     "Epistemos/LocalAgent/HermesCapabilityRegistry.swift",
@@ -185,6 +187,8 @@ def main() -> int:
     wbo6_tests = read("agent_core/tests/wbo6_budget.rs")
     lattice = read("agent_core/src/lattice/mod.rs")
     lattice_tests = read("agent_core/tests/lattice_budget.rs")
+    sketch = read("agent_core/src/sketch/mod.rs")
+    sketch_tests = read("agent_core/tests/sketch_budget.rs")
     hermes_gateway = read("Epistemos/LocalAgent/HermesGatewayPolicy.swift")
     hermes_registry = read("Epistemos/LocalAgent/HermesCapabilityRegistry.swift")
     kivi = read("Epistemos/Engine/KIVIQuantization.swift")
@@ -251,6 +255,14 @@ def main() -> int:
         "lattice_budget_tests_present": all(
             marker in lattice_tests
             for marker in ["e8_norm2_shell_has_240_unique_vectors", "e8_norm4_shell_has_2160_unique_vectors", "quantization_budget_terms_consume_only_t_q"]
+        ),
+        "sketch_rust_surface_present": all(
+            marker in sketch
+            for marker in ["CountSketch", "SparseJlMatrix", "FrpBasis", "fwht_inplace", "SketchError"]
+        ),
+        "sketch_budget_tests_present": all(
+            marker in sketch_tests
+            for marker in ["count_sketch_recovers_heavy_item", "sparse_jl_has_requested_shape_and_is_deterministic", "frp_preserves_l2_norm_across_deterministic_vectors"]
         ),
         "hermes_gateway_policy_present": all(
             marker in hermes_gateway

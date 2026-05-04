@@ -2870,6 +2870,9 @@ through `resonance_core_budget_terms`.
 Lattice Rust foundation PR58 is closed. `agent_core::lattice` is the canonical
 Core lattice surface for E8 shell counts, Leech metadata/sample handling,
 lower-triangular Babai rounding, scalar quantization, and WBO-6 `T_Q` reporting.
+Sketch Rust foundation PR59 is closed. `agent_core::sketch` is the canonical
+Core L2 Shadow Sketch surface for CountSketch, sparse JL projection, and FRP
+projection primitives; runtime graph/RRF wiring stays deferred.
 
 Build Intent:
 Use Hermes as the single Pro/Research control surface for cloud models, MCP/web

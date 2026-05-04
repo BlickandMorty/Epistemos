@@ -1366,6 +1366,17 @@ Proven or actively wired:
   `/tmp/epistemos-lattice-wbo6-regression-pr58-20260503.log`,
   `/tmp/epistemos-lattice-agent-core-lib-pr58-20260503.log`, and
   `/tmp/epistemos-lattice-verify-hotpath-pr58-20260503.log`.
+- Sketch Rust foundation STEP 4c / PR59 is now code-closed.
+  `agent_core::sketch` re-derives the GPT CountSketch + sparse JL + FRP mockup
+  as a Core-safe future L2 Shadow Sketch surface: deterministic FNV-derived hash
+  families, bounded `CountSketch` buckets, sparse JL i8 projection, FRP sign flip
+  + permutation + FWHT projection, explicit shape/value errors, and no public
+  panics. No graph/RRF runtime wiring or Metal ownership move was added in this
+  slice. Focused evidence: `/tmp/epistemos-sketch-budget-pr59-20260503.log`,
+  `/tmp/epistemos-sketch-lattice-regression-pr59-20260503.log`,
+  `/tmp/epistemos-sketch-wbo6-regression-pr59-20260503.log`,
+  `/tmp/epistemos-sketch-agent-core-lib-pr59-20260503.log`, and
+  `/tmp/epistemos-sketch-verify-hotpath-pr59-20260503.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox
