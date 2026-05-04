@@ -1,5 +1,6 @@
 pub mod agent_loop;
 pub mod approval;
+pub mod arena;
 pub mod arenas;
 pub mod artifacts;
 pub mod bridge;

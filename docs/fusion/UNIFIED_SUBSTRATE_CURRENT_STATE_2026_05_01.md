@@ -1377,6 +1377,18 @@ Proven or actively wired:
   `/tmp/epistemos-sketch-wbo6-regression-pr59-20260503.log`,
   `/tmp/epistemos-sketch-agent-core-lib-pr59-20260503.log`, and
   `/tmp/epistemos-sketch-verify-hotpath-pr59-20260503.log`.
+- Arena Rust foundation STEP 4d / PR60 is now code-closed.
+  `agent_core::arena` re-derives Kimi's mmap/App Group mockup as a canonical
+  Core substrate foundation: `group.com.epistemos.shared` path constants,
+  entitlement-free Rust fallback path derivation, fixed page-aligned
+  `ArenaHeader` / `RequestSlot` / `ResponseSlot` layout, mmap open/init/reset,
+  request submit/snapshot/consume, and explicit payload/ring errors. Swift
+  App Group resolution, entitlements, ArenaBridge actor, and XPC wiring remain
+  STEP 5 work. Focused evidence: `/tmp/epistemos-arena-budget-pr60-20260503-rerun.log`,
+  `/tmp/epistemos-arena-sketch-regression-pr60-20260503.log`,
+  `/tmp/epistemos-arena-lattice-regression-pr60-20260503.log`,
+  `/tmp/epistemos-arena-agent-core-lib-pr60-20260503.log`, and
+  `/tmp/epistemos-arena-verify-hotpath-pr60-20260503-rerun.log`.
 - Core/MAS Tool Surface Policy PR1 is now code-closed as a Swift visible
   planning-surface guard: `ToolSurfacePolicy` resolves the current distribution
   to Core/App Store under `EPISTEMOS_APP_STORE`, `MAS_SANDBOX`, or a sandbox

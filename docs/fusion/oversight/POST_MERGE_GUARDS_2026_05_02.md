@@ -1082,3 +1082,22 @@
 - test: `cargo test --manifest-path agent_core/Cargo.toml --test wbo6_budget`
 - test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
 - test: `python3 scripts/verify_hotpath.py`
+
+## arena-rust-foundation-pr60
+
+- module grep: `MappedArena|RequestSlot|ResponseSlot|ArenaHeader|ARENA_MAGIC` remains present in `agent_core/src/arena/mod.rs`.
+- container grep: `group.com.epistemos.shared` remains present in `agent_core/src/arena/container.rs`, and `group.com.epistenos.shared` remains absent from `agent_core/src/arena/container.rs` and `agent_core/tests/arena_budget.rs`.
+- export grep: `pub mod arena;` remains present in `agent_core/src/lib.rs`.
+- mmap behavior grep: `mapped_arena_initializes_header_and_file_size|mapped_arena_submits_and_reads_request_snapshot|mapped_arena_resets_corrupt_header` remains present in `agent_core/tests/arena_budget.rs`.
+- verifier grep: `arena_rust_surface_present|arena_container_uses_canonical_group|arena_budget_tests_present` remains present in `scripts/verify_hotpath.py`, and the hot-path JSON has `"status": "pass"`.
+- staged allow: only `agent_core/src/lib.rs`, `agent_core/src/arena/mod.rs`, `agent_core/src/arena/container.rs`, `agent_core/tests/arena_budget.rs`, `scripts/verify_hotpath.py`, hot-path verification JSON, this guard file, current-state docs, workcard docs, and the fleet registry are allowed for this commit. Do not stage `agent_core/Cargo.toml` or `Epistemos.xcodeproj/project.pbxproj`.
+- log: `test result: ok. 9 passed` in `/tmp/epistemos-arena-budget-pr60-20260503-rerun.log`.
+- log: `test result: ok. 7 passed` in `/tmp/epistemos-arena-sketch-regression-pr60-20260503.log`.
+- log: `test result: ok. 11 passed` in `/tmp/epistemos-arena-lattice-regression-pr60-20260503.log`.
+- log: `test result: ok. 806 passed` in `/tmp/epistemos-arena-agent-core-lib-pr60-20260503.log`.
+- log: `"status": "pass"` in `/tmp/epistemos-arena-verify-hotpath-pr60-20260503-rerun.log`.
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test arena_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test sketch_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --test lattice_budget`
+- test: `cargo test --manifest-path agent_core/Cargo.toml --lib`
+- test: `python3 scripts/verify_hotpath.py`

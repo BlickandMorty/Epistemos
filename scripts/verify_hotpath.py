@@ -26,10 +26,13 @@ REQUIRED_PATHS = [
     "agent_core/src/wbo6/mod.rs",
     "agent_core/src/lattice/mod.rs",
     "agent_core/src/sketch/mod.rs",
+    "agent_core/src/arena/mod.rs",
+    "agent_core/src/arena/container.rs",
     "agent_core/tests/resonance_seed.rs",
     "agent_core/tests/wbo6_budget.rs",
     "agent_core/tests/lattice_budget.rs",
     "agent_core/tests/sketch_budget.rs",
+    "agent_core/tests/arena_budget.rs",
     "Epistemos/Engine/ResonanceService.swift",
     "Epistemos/LocalAgent/HermesGatewayPolicy.swift",
     "Epistemos/LocalAgent/HermesCapabilityRegistry.swift",
@@ -189,6 +192,9 @@ def main() -> int:
     lattice_tests = read("agent_core/tests/lattice_budget.rs")
     sketch = read("agent_core/src/sketch/mod.rs")
     sketch_tests = read("agent_core/tests/sketch_budget.rs")
+    arena = read("agent_core/src/arena/mod.rs")
+    arena_container = read("agent_core/src/arena/container.rs")
+    arena_tests = read("agent_core/tests/arena_budget.rs")
     hermes_gateway = read("Epistemos/LocalAgent/HermesGatewayPolicy.swift")
     hermes_registry = read("Epistemos/LocalAgent/HermesCapabilityRegistry.swift")
     kivi = read("Epistemos/Engine/KIVIQuantization.swift")
@@ -263,6 +269,15 @@ def main() -> int:
         "sketch_budget_tests_present": all(
             marker in sketch_tests
             for marker in ["count_sketch_recovers_heavy_item", "sparse_jl_has_requested_shape_and_is_deterministic", "frp_preserves_l2_norm_across_deterministic_vectors"]
+        ),
+        "arena_rust_surface_present": all(
+            marker in arena
+            for marker in ["MappedArena", "RequestSlot", "ResponseSlot", "ArenaHeader", "ARENA_MAGIC"]
+        ),
+        "arena_container_uses_canonical_group": "group.com.epistemos.shared" in arena_container and "group.com.epistenos.shared" not in arena_container,
+        "arena_budget_tests_present": all(
+            marker in arena_tests
+            for marker in ["mapped_arena_initializes_header_and_file_size", "mapped_arena_submits_and_reads_request_snapshot", "app_group_identifier_uses_canonical_epistemos_spelling"]
         ),
         "hermes_gateway_policy_present": all(
             marker in hermes_gateway
