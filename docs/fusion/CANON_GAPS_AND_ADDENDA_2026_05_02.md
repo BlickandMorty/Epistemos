@@ -8,6 +8,12 @@
 
 ---
 
+## 2026-05-03 — Round 103 pbxproj target-sync drift
+
+- **Drift:** `CODEX_TASK_CONTINUITY_HANDOFF_2026_05_03.md` claimed 24 Hermes/Resonance files were not in the Xcode target. Current `project.pbxproj` uses `PBXFileSystemSynchronizedRootGroup`, and focused `xcodebuild` compiled the listed files without manual project edits.
+- **Resolution:** No `project.pbxproj` edit was required. The actual blocker was missing `/tokens` dispatch in `HermesCommandDispatcher`, fixed by adding `HermesTokensCommand` to `HermesParsedCommand` and `parseCore`.
+- **Evidence:** `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log` passed 28 tests across `HermesCommandDispatcherTests` and `ResonanceServiceTests`.
+
 ## 0. Confirmed stances (locked, not addenda)
 
 These are confirmations of what the doctrine already says, with the user's most recent decisions:

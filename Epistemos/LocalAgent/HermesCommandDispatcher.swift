@@ -51,6 +51,7 @@ nonisolated enum HermesParsedCommand: Equatable, Sendable {
     case theme(HermesThemeCommand)
     case think(HermesThinkCommand)
     case todo(HermesTodoCommand)
+    case tokens(HermesTokensCommand)
     case toolsToggle(HermesToolsToggleCommand)
     case uiToggle(HermesUIToggleCommand)
     case width(HermesWidthCommand)
@@ -92,6 +93,7 @@ nonisolated enum HermesParsedCommand: Equatable, Sendable {
         case .theme(let c):                        return c.requiresApproval
         case .think(let c):                        return c.requiresApproval
         case .todo(let c):                         return c.requiresApproval
+        case .tokens(let c):                       return c.requiresApproval
         case .toolsToggle(let c):                  return c.requiresApproval
         case .uiToggle(let c):                     return c.requiresApproval
         case .width(let c):                        return c.requiresApproval
@@ -148,6 +150,7 @@ nonisolated enum HermesCommandDispatcher {
         if let cmd = HermesThemeCommand.parse(trimmed)       { return .theme(cmd) }
         if let cmd = HermesThinkCommand.parse(trimmed)       { return .think(cmd) }
         if let cmd = HermesTodoCommand.parse(trimmed)        { return .todo(cmd) }
+        if let cmd = HermesTokensCommand.parse(trimmed)      { return .tokens(cmd) }
         if let cmd = HermesToolsToggleCommand.parse(trimmed) { return .toolsToggle(cmd) }
         if let cmd = HermesUIToggleCommand.parse(trimmed)    { return .uiToggle(cmd) }
         if let cmd = HermesWidthCommand.parse(trimmed)       { return .width(cmd) }

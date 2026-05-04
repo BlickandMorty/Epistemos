@@ -1005,3 +1005,15 @@
 - note: focused verification logs `/tmp/epistemos-hermes-todo-command-pr55-20260503-rerun2.log` and `/tmp/epistemos-hermes-todo-rust-pr55-20260503.log`; both runs exited `0`.
 - test: `HermesTodoCommandTests`
 - test: `todo_hermes_parity`
+
+## pbxproj-target-sync-hermes-tokens-pr56
+
+- target-sync grep: `PBXFileSystemSynchronizedRootGroup` and target `fileSystemSynchronizedGroups` remain present in `Epistemos.xcodeproj/project.pbxproj`; new files under `Epistemos/` and `EpistemosTests/` should not require manual `PBXBuildFile` rows unless they are listed as exceptions.
+- dispatcher grep: `case tokens(HermesTokensCommand)` and `HermesTokensCommand.parse(trimmed)` remain present in `Epistemos/LocalAgent/HermesCommandDispatcher.swift`.
+- project-file guard: `Epistemos.xcodeproj/project.pbxproj` is intentionally excluded from this commit because the focused Xcode run proved target membership and the file already contains unrelated dirty changes.
+- staged allow: only `Epistemos/LocalAgent/HermesCommandDispatcher.swift`, this guard file, current-state docs, workcard docs, canon-gap drift note, and the fleet registry are allowed for this commit. Do not stage the pre-existing project-file dirty pile.
+- log: `✔ Suite "Hermes Command Dispatcher" passed`
+- log: `✔ Suite "Resonance Service" passed`
+- note: first focused run proved target membership but failed `/tokens`; rerun log `/tmp/epistemos-pbxproj-sync-r103-20260503-rerun.log` exited `0` and printed `** TEST SUCCEEDED **`.
+- test: `HermesCommandDispatcherTests`
+- test: `ResonanceServiceTests`
