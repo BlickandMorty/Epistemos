@@ -581,6 +581,7 @@ struct LandingView: View {
             orchestrator: orchestrator,
             inference: inference,
             ui: ui,
+            vaultSync: vaultSync,
             operatingMode: { selectedOperatingMode },
             sovereignGate: bootstrap.sovereignGate,
             provenanceRecorder: bootstrap.hermesExpertProvenanceRecorder,

@@ -34,6 +34,7 @@ struct HermesExpertModeRunner {
     let orchestrator: OrchestratorState
     let inference: InferenceState
     let ui: UIState
+    let vaultSync: VaultSyncService
     let operatingMode: () -> EpistemosOperatingMode
     let sovereignGate: SovereignGate
     let provenanceRecorder: AgentToolProvenanceRecorder
@@ -198,7 +199,7 @@ struct HermesExpertModeRunner {
             renderInfo("UI toggle: " + cmd.echoSummary)
 
         case .configShow:
-            renderInfo("Config show — opening native diagnostics panel.")
+            renderConfigShowInline()
 
         case .read(let cmd):
             renderInfo("Read: " + cmd.echoSummary)
@@ -217,8 +218,7 @@ struct HermesExpertModeRunner {
             handoffAsAsk(raw)
 
         case .search(let cmd):
-            renderInfo("Search: " + cmd.echoSummary)
-            handoffAsAsk(raw)
+            renderSearchInline(cmd)
 
         case .grep(let cmd):
             renderInfo("Grep: " + cmd.echoSummary)
@@ -334,6 +334,61 @@ struct HermesExpertModeRunner {
         state.append(.init(kind: .info,
             text: "live drill-down → opening Session Intelligence panel"))
         NotificationCenter.default.post(name: .toggleSessionIntelligence, object: nil)
+    }
+
+    private func renderSearchInline(_ cmd: HermesSearchCommand) {
+        state.append(.init(kind: .systemResponse, text: "── search '\(cmd.query)' ──"))
+        let results = vaultSync.searchFull(query: cmd.query, limit: 5)
+        guard !results.isEmpty else {
+            state.append(.init(kind: .info, text: "no matches"))
+            return
+        }
+        for (idx, hit) in results.enumerated() {
+            let title = hit.title.isEmpty ? "(untitled)" : hit.title
+            let snippet = hit.snippet
+                .replacingOccurrences(of: "\n", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let snippetTruncated = snippet.count > 90
+                ? String(snippet.prefix(90)) + "…"
+                : snippet
+            state.append(.init(
+                kind: .info,
+                text: "\(idx + 1). \(title) — \(snippetTruncated)"
+            ))
+        }
+        if results.count == 5 {
+            state.append(.init(kind: .info,
+                text: "(showing first 5; use vault search panel for more)"))
+        }
+    }
+
+    private func renderConfigShowInline() {
+        state.append(.init(kind: .systemResponse, text: "── config ──"))
+        // Profile — Pro vs MAS gets resolved at build time; surface the
+        // active variant. For now we show what's runtime-detectable.
+        let isAppStoreBuild: Bool = {
+            #if EPISTEMOS_MAS
+            return true
+            #else
+            return false
+            #endif
+        }()
+        let profile = isAppStoreBuild ? "AppStore (Core only)" : "Pro / Developer ID"
+        state.append(.init(kind: .info, text: "profile           \(profile)"))
+        state.append(.init(kind: .info,
+            text: "model             \(inference.preferredChatModelSelection.displayName)"))
+        state.append(.init(kind: .info,
+            text: "operating mode    \(operatingMode().displayName)"))
+        state.append(.init(kind: .info,
+            text: "incognito         \(chat.isIncognito ? "yes" : "no")"))
+        state.append(.init(kind: .info,
+            text: "rrf fusion        \(RRFFusionFlags.isEnabled ? "on" : "off")"))
+        state.append(.init(kind: .info,
+            text: "expert mode       active (session ...\(String(state.sessionRunID.suffix(8))))"))
+        state.append(.init(kind: .info,
+            text: "history depth     \(state.history.count) entries"))
+        state.append(.init(kind: .info,
+            text: "transcript        \(state.transcript.count) entries"))
     }
 
     private func renderNotebookInline(_ cmd: HermesNotebookCommand) {
